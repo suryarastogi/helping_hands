@@ -24,20 +24,21 @@
 
 ## 2. Dockerise app mode and add Compose
 
-- [ ] **Docker** — Dockerise the app (e.g. `Dockerfile` for the helping_hands image used by server and workers).
-- [ ] **Compose** — Add `docker-compose.yml` (or `compose.yaml`) with services:
-  - [ ] **Main server** — Fast server (app mode) container.
-  - [ ] **Workers** — Celery worker container(s).
-  - [ ] **Redis** — Broker (and optional result backend) for Celery.
-  - [ ] **Postgres** — Database for job metadata and app state.
-  - [ ] **Flower** — Celery monitoring UI (optional but useful for debugging queues/tasks).
-- [ ] Wire env/config so server and workers use the same Redis and Postgres (via Compose network and env vars).
+- [x] **Docker** — Multi-stage `Dockerfile` (server, worker, beat, flower targets)
+- [x] **Compose** — `compose.yaml` with services:
+  - [x] **Main server** — FastAPI via uvicorn
+  - [x] **Workers** — Celery worker container
+  - [x] **Beat** — Celery Beat for scheduled tasks
+  - [x] **Redis** — Broker with health check
+  - [x] **Postgres** — Database with health check
+  - [x] **Flower** — Celery monitoring UI
+- [x] `.env.example` with all env vars; server and workers share Redis + Postgres via Compose network
 
 ## 3. Autodocs generation and serving on GitHub
 
-- [ ] **Doc tool** — Add API docs generation (e.g. Sphinx with autodoc, or MkDocs with mkdocstrings) from docstrings in `lib`, `cli`, `server`.
-- [ ] **Build in CI** — Run docs build in GitHub Actions (e.g. on push to main or a `docs` path).
-- [ ] **Serve on GitHub** — Publish built docs to GitHub Pages (Actions workflow that deploys to `gh-pages` or via GitHub Pages source).
+- [x] **Doc tool** — MkDocs Material + mkdocstrings; `docs/` source with API reference pages for lib, cli, server
+- [x] **Build in CI** — `.github/workflows/docs.yml` builds on push to main (docs/, mkdocs.yml, src/ changes)
+- [x] **Serve on GitHub** — Deploys to GitHub Pages via `actions/deploy-pages`
 
 ---
 

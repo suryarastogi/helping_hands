@@ -9,7 +9,7 @@
 ### Modes
 
 - **CLI mode** (default) — Run `helping_hands <repo>`. You work in the terminal; the hand streams responses and proposes edits. Best for local, interactive use.
-- **App mode** — Runs a fast web server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI. See the [Obsidian docs](obsidian/docs/) for the intended architecture; implementation is planned, not yet built.
+- **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Key ideas
 
@@ -31,8 +31,9 @@ uv sync --dev
 # Run in CLI mode (default) against a target repo
 uv run helping-hands <path-or-url-to-repo>
 
-# App mode (when implemented): start server + workers
-# uv run helping-hands serve
+# App mode: start the full stack with Docker Compose
+cp .env.example .env  # edit as needed
+docker compose up --build
 ```
 
 ## Project structure
@@ -46,10 +47,18 @@ helping_hands/
 │   │   └── agent.py
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
-│   └── server/               # App-mode server (depends on lib, planned)
-│       └── app.py
+│   └── server/               # App-mode server (depends on lib)
+│       ├── app.py            # FastAPI application
+│       └── celery_app.py     # Celery app + tasks
 ├── tests/                    # Test suite (pytest)
-├── .github/workflows/ci.yml  # CI: ruff, tests, multi-Python
+├── docs/                     # MkDocs source for API docs
+├── .github/workflows/
+│   ├── ci.yml                # CI: ruff, tests, multi-Python
+│   └── docs.yml              # Build + deploy docs to GitHub Pages
+├── Dockerfile                # Multi-stage: server, worker, beat, flower
+├── compose.yaml              # Full stack: server, worker, beat, flower, redis, postgres
+├── .env.example              # Env var template for Compose
+├── mkdocs.yml                # MkDocs + mkdocstrings config
 ├── obsidian/docs/            # Design notes (Obsidian vault)
 ├── pyproject.toml            # Project config (uv, ruff, ty, pytest)
 ├── .pre-commit-config.yaml   # Pre-commit hooks (ruff)
@@ -98,6 +107,10 @@ uv run pytest -v
 
 # Set up pre-commit hooks (one-time)
 uv run pre-commit install
+
+# Build API docs locally
+uv sync --extra docs --extra server
+uv run mkdocs serve
 ```
 
 ## License

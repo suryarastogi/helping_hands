@@ -86,11 +86,18 @@ what the code does.
      dependency exists so future agents don't accidentally remove
      something important. -->
 
-| Package | Purpose |
-|---|---|
-| pytest | Test runner |
-| ruff | Linter + formatter |
-| pre-commit | Git hook manager |
+| Package | Group | Purpose |
+|---|---|---|
+| pytest | dev | Test runner |
+| ruff | dev | Linter + formatter |
+| pre-commit | dev | Git hook manager |
+| fastapi | server | HTTP/WS API for app mode |
+| uvicorn | server | ASGI server |
+| celery[redis] | server | Task queue + Redis broker |
+| flower | server | Celery monitoring UI |
+| psycopg2-binary | server | Postgres driver |
+| mkdocs-material | docs | Documentation site theme |
+| mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 
 ---
 
@@ -114,4 +121,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-21 — project scaffolding (uv, ruff, pytest, CI, pre-commit).*
+*Last updated: 2026-02-21 — Docker/Compose, server + Celery, MkDocs autodocs, GitHub Pages workflow.*

@@ -8,6 +8,19 @@ requires-python = ">=3.11"
 authors = [{ name = "Surya Rastogi" }]
 dependencies = []
 
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "celery[redis]>=5.4",
+    "flower>=2.0",
+    "psycopg2-binary>=2.9",
+]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+]
+
 [project.scripts]
 helping-hands = "hhpy.helping_hands.cli.main:main"
 
