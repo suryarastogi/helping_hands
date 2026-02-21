@@ -1,12 +1,6 @@
 name: Deploy docs
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "src/**"
   workflow_run:
     workflows: ["CI"]
     types: [completed]
