@@ -1,4 +1,4 @@
-"""Tests for hhpy.helping_hands.hands.v1.hand."""
+"""Tests for helping_hands.hands.v1.hand."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hhpy.helping_hands.hands.v1.hand import (
+from helping_hands.hands.v1.hand import (
     AtomicHand,
     Hand,
     HandResponse,
     LangGraphHand,
 )
-from hhpy.helping_hands.lib.config import Config
-from hhpy.helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.config import Config
+from helping_hands.lib.repo import RepoIndex
 
 # ---------------------------------------------------------------------------
 # Fixtures

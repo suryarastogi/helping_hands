@@ -8,7 +8,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from hhpy.helping_hands.server.celery_app import build_feature
+from helping_hands.server.celery_app import build_feature
 
 app = FastAPI(
     title="helping_hands",

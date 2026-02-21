@@ -1,4 +1,4 @@
-"""Tests for hhpy.helping_hands.cli.main."""
+"""Tests for helping_hands.cli.main."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hhpy.helping_hands.cli.main import main
+from helping_hands.cli.main import main
 
 
 class TestCli:

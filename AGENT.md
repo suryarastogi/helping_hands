@@ -36,7 +36,7 @@ what the code does.
 - **Pre-commit**: ruff lint + format via `.pre-commit-config.yaml`
 - **Type hints**: Use them everywhere; prefer `X | None` over `Optional[X]`.
 - **Imports**: Group as stdlib → third-party → local, separated by blank lines.
-  Use absolute imports (`from hhpy.helping_hands.lib.config import Config`).
+  Use absolute imports (`from helping_hands.lib.config import Config`).
 - **Naming**:
   - `snake_case` for functions, variables, modules.
   - `PascalCase` for classes.

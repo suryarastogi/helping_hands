@@ -1,12 +1,12 @@
-"""Tests for hhpy.helping_hands.lib.agent."""
+"""Tests for helping_hands.lib.agent."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from hhpy.helping_hands.lib.agent import Agent
-from hhpy.helping_hands.lib.config import Config
-from hhpy.helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.agent import Agent
+from helping_hands.lib.config import Config
+from helping_hands.lib.repo import RepoIndex
 
 
 class TestAgent:

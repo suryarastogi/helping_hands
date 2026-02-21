@@ -1,3 +1,3 @@
 # repo
 
-::: hhpy.helping_hands.lib.repo
+::: helping_hands.lib.repo

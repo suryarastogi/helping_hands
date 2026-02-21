@@ -1,3 +1,3 @@
 # cli.main
 
-::: hhpy.helping_hands.cli.main
+::: helping_hands.cli.main

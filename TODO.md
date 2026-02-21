@@ -1,11 +1,11 @@
 # Project todos
 
-## 1. Set up Python project under `src/hhpy/helping_hands`
+## 1. Set up Python project under `src/helping_hands`
 
-- [x] **Layout** — Create `src/hhpy/helping_hands/` with package structure:
-  - [x] `src/hhpy/helping_hands/lib/` — core library (repo, agent, config; used by both CLI and server)
-  - [x] `src/hhpy/helping_hands/cli/` — CLI entry point and terminal UI (depends on lib only)
-  - [x] `src/hhpy/helping_hands/server/` — app-mode server (depends on lib only, placeholder)
+- [x] **Layout** — Create `src/helping_hands/` with package structure:
+  - [x] `src/helping_hands/lib/` — core library (repo, agent, config; used by both CLI and server)
+  - [x] `src/helping_hands/cli/` — CLI entry point and terminal UI (depends on lib only)
+  - [x] `src/helping_hands/server/` — app-mode server (depends on lib only, placeholder)
   - [x] `pyproject.toml` at repo root with project name `helping-hands`, uv-compatible
 - [x] **Tooling**
   - [x] **uv** — venv and dependency management (`uv sync --dev`)

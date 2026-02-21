@@ -1,4 +1,4 @@
-"""Tests for hhpy.helping_hands.lib.repo."""
+"""Tests for helping_hands.lib.repo."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hhpy.helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.repo import RepoIndex
 
 
 class TestRepoIndex:

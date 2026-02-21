@@ -12,14 +12,14 @@ COPY README.md LICENSE ./
 RUN uv sync --frozen --no-dev
 
 FROM base AS server
-CMD ["uv", "run", "uvicorn", "hhpy.helping_hands.server.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "helping_hands.server.app:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM base AS worker
-CMD ["uv", "run", "celery", "-A", "hhpy.helping_hands.server.celery_app:celery_app", "worker", "--loglevel=info"]
+CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "worker", "--loglevel=info"]
 
 FROM base AS beat
-CMD ["uv", "run", "celery", "-A", "hhpy.helping_hands.server.celery_app:celery_app", "beat", "--loglevel=info"]
+CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "beat", "--loglevel=info"]
 
 FROM base AS flower
 EXPOSE 5555
-CMD ["uv", "run", "celery", "-A", "hhpy.helping_hands.server.celery_app:celery_app", "flower", "--port=5555"]
+CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "flower", "--port=5555"]

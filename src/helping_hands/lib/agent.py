@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hhpy.helping_hands.lib.config import Config
-from hhpy.helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.config import Config
+from helping_hands.lib.repo import RepoIndex
 
 
 @dataclass

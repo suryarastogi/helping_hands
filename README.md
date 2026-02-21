@@ -40,7 +40,7 @@ docker compose up --build
 
 ```
 helping_hands/
-├── src/hhpy/helping_hands/   # Main package
+├── src/helping_hands/        # Main package
 │   ├── lib/                  # Core library (config, repo, agent)
 │   │   ├── config.py
 │   │   ├── repo.py

@@ -6,9 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from hhpy.helping_hands.lib.agent import Agent
-from hhpy.helping_hands.lib.config import Config
-from hhpy.helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.agent import Agent
+from helping_hands.lib.config import Config
+from helping_hands.lib.repo import RepoIndex
 
 
 def build_parser() -> argparse.ArgumentParser:

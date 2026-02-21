@@ -1,10 +1,10 @@
-"""Tests for hhpy.helping_hands.lib.config."""
+"""Tests for helping_hands.lib.config."""
 
 from __future__ import annotations
 
 import os
 
-from hhpy.helping_hands.lib.config import Config
+from helping_hands.lib.config import Config
 
 
 class TestConfigDefaults:

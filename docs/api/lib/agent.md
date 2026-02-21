@@ -1,3 +1,3 @@
 # agent
 
-::: hhpy.helping_hands.lib.agent
+::: helping_hands.lib.agent

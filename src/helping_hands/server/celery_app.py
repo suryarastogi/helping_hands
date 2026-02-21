@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from celery import Celery
 
@@ -28,11 +29,11 @@ def build_feature(repo_path: str, prompt: str) -> dict[str, str]:
     This is the primary unit of work in app mode. The server enqueues this
     task; a worker picks it up, runs the agent, and stores the result.
     """
-    from hhpy.helping_hands.lib.agent import Agent
-    from hhpy.helping_hands.lib.config import Config
-    from hhpy.helping_hands.lib.repo import RepoIndex
+    from helping_hands.lib.agent import Agent
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 
     config = Config.from_env(overrides={"repo": repo_path})
-    repo_index = RepoIndex.from_path(config.repo)  # type: ignore[arg-type]
+    repo_index = RepoIndex.from_path(Path(config.repo))
     agent = Agent(config=config, repo_index=repo_index)
     return {"status": "ok", "greeting": agent.greet(), "prompt": prompt}

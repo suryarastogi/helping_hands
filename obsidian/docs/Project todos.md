@@ -4,7 +4,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 ## Summary (from TODO.md)
 
-1. **Set up Python project** under `src/hhpy/helping_hands`:
+1. **Set up Python project** under `src/helping_hands`:
    - **Layout:** `lib/` (core), `cli/` (CLI, uses lib), `server/` (app mode, uses lib)
    - **Tooling:** uv, ruff, type checker (pyright/mypy), pre-commit
    - **CI/CD:** Strong pipeline (uv, tests, ruff, type check) on push/PR

@@ -1,6 +1,6 @@
 """Hands v1: unified interface over LangGraph and Atomic Agents backends."""
 
-from hhpy.helping_hands.hands.v1.hand import (
+from helping_hands.hands.v1.hand import (
     AtomicHand,
     Hand,
     HandResponse,

@@ -1,3 +1,3 @@
 # config
 
-::: hhpy.helping_hands.lib.config
+::: helping_hands.lib.config

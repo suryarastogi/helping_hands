@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hhpy.helping_hands.lib.config import Config
-    from hhpy.helping_hands.lib.repo import RepoIndex
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 
 
 # ---------------------------------------------------------------------------
