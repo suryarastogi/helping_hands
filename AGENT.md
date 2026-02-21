@@ -29,11 +29,14 @@ what the code does.
 <!-- Agents: update this section when you notice consistent style choices. -->
 
 - **Language**: Python 3.11+
+- **Package manager**: uv (`uv sync`, `uv run`, `uv add`)
 - **Formatter**: `ruff format` (line length 88)
-- **Linter**: `ruff check`
+- **Linter**: `ruff check` (rules: E, W, F, I, N, UP, B, SIM, RUF)
+- **Type checker**: ty (config in `pyproject.toml`)
+- **Pre-commit**: ruff lint + format via `.pre-commit-config.yaml`
 - **Type hints**: Use them everywhere; prefer `X | None` over `Optional[X]`.
 - **Imports**: Group as stdlib → third-party → local, separated by blank lines.
-  Use absolute imports within the package.
+  Use absolute imports (`from hhpy.helping_hands.lib.config import Config`).
 - **Naming**:
   - `snake_case` for functions, variables, modules.
   - `PascalCase` for classes.
@@ -42,6 +45,7 @@ what the code does.
   Omit for obvious private helpers.
 - **Comments**: Only when the *why* isn't obvious from the code. Never
   narrate what the code does.
+- **Tests**: pytest, under `tests/`. Run with `uv run pytest -v`.
 
 ## Design preferences `[auto-update]`
 
@@ -84,7 +88,9 @@ what the code does.
 
 | Package | Purpose |
 |---|---|
-| *(to be filled)* | |
+| pytest | Test runner |
+| ruff | Linter + formatter |
+| pre-commit | Git hook manager |
 
 ---
 
@@ -108,4 +114,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-21 — initial creation.*
+*Last updated: 2026-02-21 — project scaffolding (uv, ruff, pytest, CI, pre-commit).*

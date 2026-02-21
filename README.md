@@ -25,35 +25,37 @@
 git clone git@github.com:suryarastogi/helping_hands.git
 cd helping_hands
 
-# Create a virtual environment
-python -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Install with uv (creates .venv automatically)
+uv sync --dev
 
 # Run in CLI mode (default) against a target repo
-python -m helping_hands <path-or-url-to-repo>
+uv run helping-hands <path-or-url-to-repo>
 
 # App mode (when implemented): start server + workers
-# python -m helping_hands serve
+# uv run helping-hands serve
 ```
 
 ## Project structure
 
 ```
 helping_hands/
-├── helping_hands/       # Core package
-│   ├── __init__.py
-│   ├── cli.py           # CLI entry point
-│   ├── repo.py          # Repo cloning, indexing, context building
-│   ├── agent.py         # AI agent orchestration
-│   └── config.py        # Configuration and preferences
-├── tests/               # Test suite
-├── obsidian/docs/       # Design notes (Obsidian vault)
-├── AGENT.md             # AI agent guidelines (self-updating)
-├── requirements.txt     # Python dependencies
-├── LICENSE              # Apache 2.0
+├── src/hhpy/helping_hands/   # Main package
+│   ├── lib/                  # Core library (config, repo, agent)
+│   │   ├── config.py
+│   │   ├── repo.py
+│   │   └── agent.py
+│   ├── cli/                  # CLI entry point (depends on lib)
+│   │   └── main.py
+│   └── server/               # App-mode server (depends on lib, planned)
+│       └── app.py
+├── tests/                    # Test suite (pytest)
+├── .github/workflows/ci.yml  # CI: ruff, tests, multi-Python
+├── obsidian/docs/            # Design notes (Obsidian vault)
+├── pyproject.toml            # Project config (uv, ruff, ty, pytest)
+├── .pre-commit-config.yaml   # Pre-commit hooks (ruff)
+├── AGENT.md                  # AI agent guidelines (self-updating)
+├── TODO.md                   # Project roadmap
+├── LICENSE                   # Apache 2.0
 └── README.md
 ```
 
@@ -84,14 +86,18 @@ Key settings:
 ## Development
 
 ```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
+# Install (includes dev deps: pytest, ruff, pre-commit)
+uv sync --dev
+
+# Lint + format
+uv run ruff check .
+uv run ruff format --check .
 
 # Run tests
-pytest
+uv run pytest -v
 
-# Lint
-ruff check .
+# Set up pre-commit hooks (one-time)
+uv run pre-commit install
 ```
 
 ## License
