@@ -9,6 +9,15 @@ authors = [{ name = "Surya Rastogi" }]
 dependencies = []
 
 [project.optional-dependencies]
+langchain = [
+    "langchain-openai>=0.3",
+    "langgraph>=0.3",
+]
+atomic = [
+    "atomic-agents>=2.7; python_version>='3.12'",
+    "instructor>=1.7; python_version>='3.12'",
+    "openai>=1.60",
+]
 server = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",

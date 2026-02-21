@@ -33,6 +33,8 @@ nav:
           - agent: api/lib/agent.md
       - cli:
           - main: api/cli/main.md
+      - hands:
+          - "v1/hand": api/hands/v1/hand.md
       - server:
           - app: api/server/app.md
           - celery_app: api/server/celery_app.md

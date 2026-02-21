@@ -96,6 +96,11 @@ what the code does.
 | celery[redis] | server | Task queue + Redis broker |
 | flower | server | Celery monitoring UI |
 | psycopg2-binary | server | Postgres driver |
+| langchain-openai | langchain | LangChain LLM wrapper for LangGraphHand |
+| langgraph | langchain | Agent graph framework for LangGraphHand |
+| atomic-agents | atomic | Atomic Agents framework for AtomicHand (Python 3.12+) |
+| instructor | atomic | Structured LLM output for atomic-agents |
+| openai | atomic | OpenAI client for atomic-agents |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 
@@ -121,4 +126,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-21 — Docker/Compose, server + Celery, MkDocs autodocs, GitHub Pages workflow.*
+*Last updated: 2026-02-21 — hands/v1 module (LangGraphHand, AtomicHand), langchain + atomic extras.*
