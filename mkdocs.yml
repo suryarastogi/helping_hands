@@ -38,6 +38,7 @@ nav:
       - server:
           - app: api/server/app.md
           - celery_app: api/server/celery_app.md
+          - mcp_server: api/server/mcp_server.md
 
 plugins:
   - search

@@ -25,6 +25,9 @@ server = [
     "flower>=2.0",
     "psycopg2-binary>=2.9",
 ]
+mcp = [
+    "mcp[cli]>=1.2",
+]
 docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
@@ -32,6 +35,7 @@ docs = [
 
 [project.scripts]
 helping-hands = "helping_hands.cli.main:main"
+helping-hands-mcp = "helping_hands.server.mcp_server:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -73,4 +77,5 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.11",
     "pre-commit>=4.0",
+    "mcp[cli]>=1.2",
 ]

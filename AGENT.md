@@ -101,6 +101,7 @@ what the code does.
 | atomic-agents | atomic | Atomic Agents framework for AtomicHand (Python 3.12+) |
 | instructor | atomic | Structured LLM output for atomic-agents |
 | openai | atomic | OpenAI client for atomic-agents |
+| mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 
@@ -126,4 +127,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-21 — hands/v1 module (LangGraphHand, AtomicHand), langchain + atomic extras.*
+*Last updated: 2026-02-21 — MCP server (mcp_server.py), mcp extra, Docker/Compose service.*

@@ -23,3 +23,7 @@ CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", 
 FROM base AS flower
 EXPOSE 5555
 CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "flower", "--port=5555"]
+
+FROM base AS mcp
+EXPOSE 8080
+CMD ["uv", "run", "helping-hands-mcp", "--http"]
