@@ -33,7 +33,7 @@ what the code does.
 - **Formatter**: `ruff format` (line length 88)
 - **Linter**: `ruff check` (rules: E, W, F, I, N, UP, B, SIM, RUF)
 - **Type checker**: ty (config in `pyproject.toml`)
-- **Pre-commit**: ruff lint + format via `.pre-commit-config.yaml`
+- **Pre-commit**: ruff lint + format + ty via `.pre-commit-config.yaml`
 - **Type hints**: Use them everywhere; prefer `X | None` over `Optional[X]`.
 - **Imports**: Group as stdlib → third-party → local, separated by blank lines.
   Use absolute imports (`from helping_hands.lib.config import Config`).
@@ -78,7 +78,9 @@ what the code does.
 <!-- Agents: log decisions here so they don't get re-debated. Format:
      - **Topic**: Decision (date or session reference) -->
 
-*No decisions recorded yet.*
+- **Final PR behavior**: Hands should attempt a final commit/push/PR by default, with explicit opt-out (`--no-pr`) when side effects must be disabled. (2026-02-22)
+- **CLI repo input**: Non-E2E CLI runs accept local paths and `owner/repo` GitHub references; `owner/repo` is cloned to a temp workspace automatically. (2026-02-22)
+- **Push auth**: Git pushes for finalization should be token-authenticated and non-interactive to avoid OS credential popups in automation. (2026-02-22)
 
 ## Dependencies `[auto-update]`
 
@@ -90,6 +92,7 @@ what the code does.
 |---|---|---|
 | pytest | dev | Test runner |
 | ruff | dev | Linter + formatter |
+| ty | dev | Type checker used in pre-commit |
 | pre-commit | dev | Git hook manager |
 | fastapi | server | HTTP/WS API for app mode |
 | uvicorn | server | ASGI server |
@@ -129,4 +132,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — dotenv config loading + CLI hand scaffolds (Claude/Codex/Gemini), python-dotenv dependency.*
+*Last updated: 2026-02-22 — basic iterative hands, owner/repo CLI clone support, default final PR step + --no-pr, non-interactive token push.*

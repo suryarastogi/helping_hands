@@ -39,6 +39,18 @@ So the next session—and the next hand—starts with that context. The helping_
 
 This means a rerun updates the same PR state instead of creating drift between old body text and new comments.
 
+## Basic hand semantics (current implementation)
+
+`BasicLangGraphHand` and `BasicAtomicHand` run iterative repo-aware loops with:
+
+- streamed per-iteration output
+- cooperative interruption
+- inline file edits via `@@FILE: ...` fenced full-content blocks
+- default final commit/push/PR step
+
+Final PR behavior is enabled by default and can be disabled explicitly (`--no-pr`).
+When enabled, push is token-authenticated and non-interactive to avoid OS credential popups.
+
 ## CI race-condition guard
 
 E2E integration testing is opt-in and environment-gated. In CI matrix runs:
@@ -56,6 +68,13 @@ The repo now uses `ty` as part of pre-commit alongside Ruff. Current baseline in
 - `invalid-method-override`
 
 This keeps type checks actionable while optional-backend implementation is still in scaffold state.
+
+## Repo input behavior
+
+In CLI mode, non-E2E runs accept:
+
+- local repo paths
+- GitHub `owner/repo` references (auto-cloned to a temporary workspace)
 
 ## Project Log
 

@@ -19,3 +19,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - E2E PR updates are now treated as **state refresh**: live runs update both PR body and marker comment with latest timestamp/commit/prompt.
 - CI integration policy: only `master` + Python `3.13` performs live push/update; other matrix jobs force dry-run to avoid PR branch race conditions.
 - Pre-commit now includes `ty` for type checks; current rule ignores are intentional until optional backend imports/protocol signatures are tightened.
+- Basic iterative backends now default to a final commit/push/PR step; explicit `--no-pr` disables side effects (and maps to dry-run for E2E).
+- Non-E2E CLI supports `owner/repo` input by cloning to temporary workspace before indexing/iteration.

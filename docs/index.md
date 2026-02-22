@@ -15,7 +15,10 @@ Browse the auto-generated docs from source:
 ## Runtime flow
 
 - Server mode: server enqueues a hand task, then the hand executes.
-- CLI mode: CLI invokes the hand directly.
+- CLI mode: CLI invokes the hand directly (index-only, E2E mode, or iterative basic backends).
 - `E2EHand` is the minimal concrete hand used to validate the full
   clone/edit/commit/push/PR lifecycle.
 - Optional `pr_number` lets the hand resume/update an existing PR branch.
+- Basic iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`)
+  stream multi-step output and, by default, attempt a final commit/push/PR step
+  unless disabled via `--no-pr`.

@@ -11,7 +11,7 @@
   - [x] **uv** — venv and dependency management (`uv sync --dev`)
   - [x] **ruff** — Lint and format, config in `pyproject.toml`
   - [x] **ty** — Type checker config in `pyproject.toml`
-  - [x] **pre-commit** — `.pre-commit-config.yaml` with ruff hooks
+  - [x] **pre-commit** — `.pre-commit-config.yaml` with ruff + ty hooks
 - [x] **CI/CD**
   - [x] GitHub Actions workflow (`.github/workflows/ci.yml`) on push/PR:
     - [x] Install with uv, run tests (Python 3.11, 3.12, 3.13)
@@ -19,7 +19,7 @@
     - [ ] Type check step (add when ty has a stable CI runner)
     - [ ] Optional: build/publish or deploy steps
 - [x] **Tests**
-  - [x] `tests/` layout with test files for lib and cli (10 tests, all passing)
+  - [x] `tests/` layout with test files for lib and cli (suite maintained and passing in CI)
   - [x] pytest as runner, configured in `pyproject.toml`
 
 ## 2. Dockerise app mode and add Compose
@@ -48,13 +48,18 @@
 - [x] **PR resume/update support** — optional `pr_number` updates an existing PR branch instead of opening a new PR
 - [x] **Live integration coverage** — opt-in pytest integration test can run E2E hand against CI-provided GitHub token/repo
 - [x] **Safe CI gating** — integration test auto-runs dry-run off `master`; only `master` performs real PR updates
-- [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand.py`
-- [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-- [ ] **Codex CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-- [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-- [ ] **Backend selection/routing** — Add explicit config or CLI flag to choose backend (`langgraph`, `atomic`, `claudecode`, `codexcli`, `geminicli`)
-- [ ] **Streaming for CLI hands** — Implement incremental output streaming (instead of single placeholder chunk)
-- [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
+  - [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand.py`
+  - [x] **Basic iterative hands implemented** — `BasicLangGraphHand` and `BasicAtomicHand` stream iterative progress, support interruption, and can apply inline file edits.
+  - [x] **Backend selection/routing (CLI basic + E2E)** — CLI supports `--backend {basic-langgraph,basic-atomic,basic-agent}` and `--e2e`.
+  - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
+  - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
+  - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
+  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+  - [ ] **Codex CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to non-basic hands (`langgraph`, `atomic`, `claudecode`, `codexcli`, `geminicli`) beyond the current basic aliases.
+  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
 ---
 

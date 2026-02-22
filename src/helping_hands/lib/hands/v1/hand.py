@@ -16,6 +16,7 @@ A Hand is the AI agent that operates on a repo. This module defines:
 from __future__ import annotations
 
 import abc
+import asyncio
 import os
 import re
 import subprocess
@@ -418,7 +419,30 @@ class AtomicHand(Hand):
     async def stream(self, prompt: str) -> AsyncIterator[str]:
         parts: list[str] = []
         user_input = self._make_input(prompt)
-        async for partial in self._agent.run_async(user_input):
+        try:
+            async_result = self._agent.run_async(user_input)
+        except AssertionError:
+            partial = await asyncio.to_thread(self._agent.run, user_input)
+            if hasattr(partial, "chat_message") and partial.chat_message:
+                text = str(partial.chat_message)
+                parts.append(text)
+                yield text
+            async_result = None
+        except Exception:
+            raise
+        if async_result is None:
+            pass
+        elif hasattr(async_result, "__aiter__"):
+            async for partial in async_result:
+                if hasattr(partial, "chat_message") and partial.chat_message:
+                    text = str(partial.chat_message)
+                    parts.append(text)
+                    yield text
+        else:
+            try:
+                partial = await async_result
+            except AssertionError:
+                partial = await asyncio.to_thread(self._agent.run, user_input)
             if hasattr(partial, "chat_message") and partial.chat_message:
                 text = str(partial.chat_message)
                 parts.append(text)
@@ -444,6 +468,15 @@ class _BasicIterativeHand(Hand):
         r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",
         flags=re.DOTALL,
     )
+    _READ_PATTERN = re.compile(
+        r"^@@READ:\s*(?P<path>[^\n]+)\s*$",
+        flags=re.MULTILINE,
+    )
+    _READ_FALLBACK_PATTERN = re.compile(
+        r"(?i)(?:content(?:s)? of(?: the)? file|read(?: the)? file)\s*[`\"]"
+        r"(?P<path>[^`\"\n]+)[`\"]"
+    )
+    _MAX_READ_CHARS = 12000
 
     def __init__(
         self,
@@ -469,12 +502,17 @@ class _BasicIterativeHand(Hand):
             f"Iteration: {iteration}/{max_iterations}\n"
             f"Previous iteration summary: {previous}\n\n"
             "Work directly against the repository context and provide progress.\n"
+            "When you need to inspect a file, request it using exactly:\n"
+            "@@READ: relative/path.py\n"
+            "Do not ask the user to provide file contents.\n"
             "When you need to update files, include complete file contents using:\n"
             "@@FILE: relative/path.py\n"
             "```python\n"
             "<full file content>\n"
             "```\n"
             "You may include multiple @@FILE blocks.\n"
+            "Read results are returned as @@READ_RESULT blocks in the next "
+            "iteration summary.\n"
             "At the end of your response include exactly one line in this form:\n"
             "SATISFIED: yes|no\n"
             "Use SATISFIED: yes only when the task is fully complete.\n"
@@ -494,19 +532,85 @@ class _BasicIterativeHand(Hand):
             for m in cls._EDIT_PATTERN.finditer(content)
         ]
 
+    @classmethod
+    def _extract_read_requests(cls, content: str) -> list[str]:
+        explicit = [
+            m.group("path").strip() for m in cls._READ_PATTERN.finditer(content)
+        ]
+        if explicit:
+            return explicit
+        return [
+            m.group("path").strip()
+            for m in cls._READ_FALLBACK_PATTERN.finditer(content)
+        ]
+
+    @staticmethod
+    def _normalize_relative_path(rel_path: str) -> str:
+        normalized = rel_path.strip().replace("\\", "/")
+        if normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized
+
+    def _resolve_repo_target(self, rel_path: str) -> Path | None:
+        root = self.repo_index.root.resolve()
+        normalized = self._normalize_relative_path(rel_path)
+        if not normalized or normalized.startswith("/"):
+            return None
+        target = (root / normalized).resolve()
+        try:
+            target.relative_to(root)
+        except ValueError:
+            return None
+        return target
+
+    @staticmethod
+    def _merge_iteration_summary(content: str, read_feedback: str) -> str:
+        if not read_feedback:
+            return content
+        return f"{content}\n\nTool results:\n{read_feedback}"
+
+    def _execute_read_requests(self, content: str) -> str:
+        root = self.repo_index.root.resolve()
+        requests = list(dict.fromkeys(self._extract_read_requests(content)))
+        if not requests:
+            return ""
+
+        chunks: list[str] = []
+        for rel_path in requests:
+            target = self._resolve_repo_target(rel_path)
+            if target is None:
+                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: invalid path")
+                continue
+            if not target.exists():
+                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: file not found")
+                continue
+            if target.is_dir():
+                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: path is a directory")
+                continue
+            try:
+                text = target.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                chunks.append(
+                    f"@@READ_RESULT: {rel_path}\nERROR: file is not UTF-8 text"
+                )
+                continue
+
+            truncated = len(text) > self._MAX_READ_CHARS
+            if truncated:
+                text = text[: self._MAX_READ_CHARS]
+            display_path = target.relative_to(root).as_posix()
+            truncated_note = "\n[truncated]" if truncated else ""
+            chunks.append(
+                f"@@READ_RESULT: {display_path}\n```text\n{text}\n```{truncated_note}"
+            )
+        return "\n\n".join(chunks).strip()
+
     def _apply_inline_edits(self, content: str) -> list[str]:
         root = self.repo_index.root.resolve()
         changed: list[str] = []
         for rel_path, body in self._extract_inline_edits(content):
-            normalized = rel_path.strip().replace("\\", "/")
-            if normalized.startswith("./"):
-                normalized = normalized[2:]
-            if not normalized or normalized.startswith("/"):
-                continue
-            target = (root / normalized).resolve()
-            try:
-                target.relative_to(root)
-            except ValueError:
+            target = self._resolve_repo_target(rel_path)
+            if target is None:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(body, encoding="utf-8")
@@ -578,10 +682,13 @@ class BasicLangGraphHand(_BasicIterativeHand):
             )
             content = self._result_content(result)
             changed = self._apply_inline_edits(content)
+            read_feedback = self._execute_read_requests(content)
             transcripts.append(f"[iteration {iteration}]\n{content}")
             if changed:
                 transcripts.append(f"[files updated] {', '.join(changed)}")
-            prior = content
+            if read_feedback:
+                transcripts.append(f"[tool results]\n{read_feedback}")
+            prior = self._merge_iteration_summary(content, read_feedback)
             if self._is_satisfied(content):
                 completed = True
                 break
@@ -651,7 +758,10 @@ class BasicLangGraphHand(_BasicIterativeHand):
             changed = self._apply_inline_edits(content)
             if changed:
                 yield f"\n[files updated] {', '.join(changed)}\n"
-            prior = content
+            read_feedback = self._execute_read_requests(content)
+            if read_feedback:
+                yield f"\n[tool results]\n{read_feedback}\n"
+            prior = self._merge_iteration_summary(content, read_feedback)
             if self._is_satisfied(content):
                 yield "\n\nTask marked satisfied.\n"
                 pr_metadata = self._finalize_repo_pr(
@@ -750,10 +860,13 @@ class BasicAtomicHand(_BasicIterativeHand):
             response = self._agent.run(self._make_input(step_prompt))
             content = self._extract_message(response)
             changed = self._apply_inline_edits(content)
+            read_feedback = self._execute_read_requests(content)
             transcripts.append(f"[iteration {iteration}]\n{content}")
             if changed:
                 transcripts.append(f"[files updated] {', '.join(changed)}")
-            prior = content
+            if read_feedback:
+                transcripts.append(f"[tool results]\n{read_feedback}")
+            prior = self._merge_iteration_summary(content, read_feedback)
             if self._is_satisfied(content):
                 completed = True
                 break
@@ -801,9 +914,39 @@ class BasicAtomicHand(_BasicIterativeHand):
                 previous_summary=prior,
             )
             stream_text = ""
-            async for partial in self._agent.run_async(self._make_input(step_prompt)):
-                if self._is_interrupted():
-                    break
+            step_input = self._make_input(step_prompt)
+            try:
+                async_result = self._agent.run_async(step_input)
+            except AssertionError:
+                partial = await asyncio.to_thread(self._agent.run, step_input)
+                current = self._extract_message(partial)
+                if current.startswith(stream_text):
+                    delta = current[len(stream_text) :]
+                else:
+                    delta = current
+                stream_text = current
+                if delta:
+                    yield delta
+                async_result = None
+            except Exception:
+                raise
+            if async_result is not None and hasattr(async_result, "__aiter__"):
+                async for partial in async_result:
+                    if self._is_interrupted():
+                        break
+                    current = self._extract_message(partial)
+                    if current.startswith(stream_text):
+                        delta = current[len(stream_text) :]
+                    else:
+                        delta = current
+                    stream_text = current
+                    if delta:
+                        yield delta
+            elif async_result is not None:
+                try:
+                    partial = await async_result
+                except AssertionError:
+                    partial = await asyncio.to_thread(self._agent.run, step_input)
                 current = self._extract_message(partial)
                 if current.startswith(stream_text):
                     delta = current[len(stream_text) :]
@@ -819,7 +962,10 @@ class BasicAtomicHand(_BasicIterativeHand):
             changed = self._apply_inline_edits(stream_text)
             if changed:
                 yield f"\n[files updated] {', '.join(changed)}\n"
-            prior = stream_text
+            read_feedback = self._execute_read_requests(stream_text)
+            if read_feedback:
+                yield f"\n[tool results]\n{read_feedback}\n"
+            prior = self._merge_iteration_summary(stream_text, read_feedback)
             if self._is_satisfied(stream_text):
                 yield "\n\nTask marked satisfied.\n"
                 pr_metadata = self._finalize_repo_pr(

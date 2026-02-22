@@ -315,6 +315,45 @@ class TestBasicLangGraphHand:
         assert resp.metadata["pr_status"] == "disabled"
 
     @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_supports_read_requests(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        (repo_index.root / "main.py").write_text("print('before')\n", encoding="utf-8")
+        call_count = 0
+
+        def fake_invoke(payload: dict[str, Any]) -> dict[str, list[Any]]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                msg = MagicMock()
+                msg.content = "@@READ: main.py\nSATISFIED: no"
+                return {"messages": [msg]}
+            prompt = payload["messages"][0]["content"]
+            assert "@@READ_RESULT: main.py" in prompt
+            assert "print('before')" in prompt
+            msg = MagicMock()
+            msg.content = (
+                "@@FILE: main.py\n```python\nprint('after')\n```\nSATISFIED: yes"
+            )
+            return {"messages": [msg]}
+
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = fake_invoke
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index, max_iterations=3)
+        resp = hand.run("update main")
+
+        assert resp.metadata["iterations"] == 2
+        assert "@@READ_RESULT: main.py" in resp.message
+        assert (repo_index.root / "main.py").read_text(encoding="utf-8") == (
+            "print('after')"
+        )
+
+    @patch.object(BasicLangGraphHand, "_build_agent")
     def test_run_honors_interrupt(
         self,
         mock_build: MagicMock,
@@ -400,6 +439,56 @@ class TestAtomicHand:
         )
         assert chunks == ["Part 1", "Part 2"]
 
+    @patch.object(AtomicHand, "_build_agent")
+    def test_stream_handles_coroutine_result(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        async def fake_run_async(_input: Any):
+            partial = MagicMock()
+            partial.chat_message = "Single result"
+            return partial
+
+        mock_agent = MagicMock()
+        mock_agent.run_async = fake_run_async
+        mock_build.return_value = mock_agent
+
+        hand = AtomicHand(config, repo_index)
+        hand._input_schema = _FakeInputSchema
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        assert chunks == ["Single result"]
+
+    @patch.object(AtomicHand, "_build_agent")
+    def test_stream_falls_back_to_sync_run_when_async_not_supported(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        def fake_run(_input: Any):
+            partial = MagicMock()
+            partial.chat_message = "Sync fallback result"
+            return partial
+
+        def fake_run_async(_input: Any):
+            raise AssertionError("The run_async method is for async clients.")
+
+        mock_agent = MagicMock()
+        mock_agent.run_async = fake_run_async
+        mock_agent.run = fake_run
+        mock_build.return_value = mock_agent
+
+        hand = AtomicHand(config, repo_index)
+        hand._input_schema = _FakeInputSchema
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        assert chunks == ["Sync fallback result"]
+
 
 # ---------------------------------------------------------------------------
 # BasicAtomicHand
@@ -433,6 +522,85 @@ class TestBasicAtomicHand:
         assert mock_agent.run.call_count == 2
 
     @patch.object(BasicAtomicHand, "_build_agent")
+    def test_run_supports_read_requests(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        (repo_index.root / "main.py").write_text("print('before')\n", encoding="utf-8")
+        call_count = 0
+
+        def fake_run(step_input: Any):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                first = MagicMock()
+                first.chat_message = "@@READ: main.py\nSATISFIED: no"
+                return first
+            assert "@@READ_RESULT: main.py" in step_input.chat_message
+            assert "print('before')" in step_input.chat_message
+            second = MagicMock()
+            second.chat_message = (
+                "@@FILE: main.py\n```python\nprint('after')\n```\nSATISFIED: yes"
+            )
+            return second
+
+        mock_agent = MagicMock()
+        mock_agent.run.side_effect = fake_run
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index, max_iterations=3)
+        hand._input_schema = _FakeInputSchema
+        resp = hand.run("update main")
+
+        assert resp.metadata["iterations"] == 2
+        assert "@@READ_RESULT: main.py" in resp.message
+        assert (repo_index.root / "main.py").read_text(encoding="utf-8") == (
+            "print('after')"
+        )
+
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_run_supports_natural_language_read_request(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        (repo_index.root / "main.py").write_text("print('before')\n", encoding="utf-8")
+        call_count = 0
+
+        def fake_run(step_input: Any):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                first = MagicMock()
+                first.chat_message = (
+                    "Please provide the content of file `main.py`.\nSATISFIED: no"
+                )
+                return first
+            assert "@@READ_RESULT: main.py" in step_input.chat_message
+            second = MagicMock()
+            second.chat_message = (
+                "@@FILE: main.py\n```python\nprint('after')\n```\nSATISFIED: yes"
+            )
+            return second
+
+        mock_agent = MagicMock()
+        mock_agent.run.side_effect = fake_run
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index, max_iterations=3)
+        hand._input_schema = _FakeInputSchema
+        resp = hand.run("update main")
+
+        assert resp.metadata["iterations"] == 2
+        assert "@@READ_RESULT: main.py" in resp.message
+        assert (repo_index.root / "main.py").read_text(encoding="utf-8") == (
+            "print('after')"
+        )
+
+    @patch.object(BasicAtomicHand, "_build_agent")
     def test_stream_interrupts(
         self,
         mock_build: MagicMock,
@@ -460,6 +628,60 @@ class TestBasicAtomicHand:
             _collect_stream(hand, "hello")
         )
         assert "[interrupted]" in "".join(chunks)
+
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_stream_handles_coroutine_result(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        async def fake_run_async(_input: Any):
+            partial = MagicMock()
+            partial.chat_message = "Done.\nSATISFIED: yes"
+            return partial
+
+        mock_agent = MagicMock()
+        mock_agent.run_async = fake_run_async
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index)
+        hand._input_schema = _FakeInputSchema
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        text = "".join(chunks)
+        assert "SATISFIED: yes" in text
+        assert "Task marked satisfied." in text
+
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_stream_falls_back_to_sync_run_when_async_not_supported(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        def fake_run(_input: Any):
+            partial = MagicMock()
+            partial.chat_message = "Done.\nSATISFIED: yes"
+            return partial
+
+        def fake_run_async(_input: Any):
+            raise AssertionError("The run_async method is for async clients.")
+
+        mock_agent = MagicMock()
+        mock_agent.run_async = fake_run_async
+        mock_agent.run = fake_run
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index)
+        hand._input_schema = _FakeInputSchema
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        text = "".join(chunks)
+        assert "SATISFIED: yes" in text
+        assert "Task marked satisfied." in text
 
 
 # ---------------------------------------------------------------------------

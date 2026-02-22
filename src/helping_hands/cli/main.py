@@ -135,6 +135,22 @@ def main(argv: list[str] | None = None) -> None:
             hand.auto_pr = not args.no_pr
         except ModuleNotFoundError as exc:
             extra = "langchain" if args.backend == "basic-langgraph" else "atomic"
+            if args.backend in {"basic-atomic", "basic-agent"} and sys.version_info < (
+                3,
+                12,
+            ):
+                print(
+                    (
+                        f"Error: --backend {args.backend} requires Python >= 3.12. "
+                        "Current Python is "
+                        f"{sys.version_info.major}.{sys.version_info.minor}. "
+                        "Re-run with Python 3.12+, e.g. "
+                        "'uv sync --python 3.12 --dev --extra atomic' and "
+                        "'uv run --python 3.12 helping-hands ...'"
+                    ),
+                    file=sys.stderr,
+                )
+                sys.exit(1)
             print(
                 (
                     f"Error: missing dependency for --backend {args.backend}: {exc}. "
