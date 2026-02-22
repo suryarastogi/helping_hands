@@ -71,15 +71,25 @@ select = [
 known-first-party = ["helping_hands"]
 
 [tool.pytest.ini_options]
+addopts = "--cov=src/helping_hands --cov-report=term-missing"
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
     "integration: live integration tests requiring external services/secrets",
 ]
 
+[tool.coverage.run]
+branch = true
+source = ["src/helping_hands"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=6.0",
     "ruff>=0.11",
     "ty>=0.0.1a17",
     "pre-commit>=4.0",

@@ -38,4 +38,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
           HELPING_HANDS_RUN_E2E_INTEGRATION: ${{ vars.HELPING_HANDS_RUN_E2E_INTEGRATION }}
           HELPING_HANDS_E2E_PR_NUMBER: ${{ vars.HELPING_HANDS_E2E_PR_NUMBER }}
-        run: uv run pytest -v
+        run: uv run pytest -v --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

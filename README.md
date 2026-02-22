@@ -2,6 +2,12 @@
   <img src="media/banner.png" alt="helping_hands" />
 </p>
 
+<p align="center">
+  <a href="https://codecov.io/gh/suryarastogi/helping_hands">
+    <img src="https://codecov.io/gh/suryarastogi/helping_hands/graph/badge.svg" alt="Coverage" />
+  </a>
+</p>
+
 ---
 
 ## What is this?
@@ -199,6 +205,9 @@ uv run ruff format --check .
 
 # Run tests
 uv run pytest -v
+
+# Coverage report (terminal + XML)
+uv run pytest -v --cov-report=term-missing --cov-report=xml
 
 # Run live E2E integration test (opt-in; requires token + repo access)
 HELPING_HANDS_RUN_E2E_INTEGRATION=1 HELPING_HANDS_E2E_PR_NUMBER=1 uv run pytest -k e2e_integration -v
