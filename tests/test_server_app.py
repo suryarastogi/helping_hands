@@ -8,23 +8,19 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
+pytest.importorskip("fastapi")
+from fastapi.testclient import TestClient
+
+from helping_hands.server.app import app
+
 
 def _query_from_location(location: str) -> dict[str, list[str]]:
     return parse_qs(urlparse(location).query)
 
 
-def _client():
-    pytest.importorskip("fastapi")
-    from fastapi.testclient import TestClient
-
-    from helping_hands.server.app import app
-
-    return TestClient(app)
-
-
 class TestHomeUI:
     def test_form_posts_to_fallback_endpoint(self) -> None:
-        client = _client()
+        client = TestClient(app)
 
         response = client.get("/")
 
@@ -47,7 +43,7 @@ class TestBuildForm:
             fake_delay,
         )
 
-        client = _client()
+        client = TestClient(app)
         response = client.post(
             "/build/form",
             data={
@@ -90,7 +86,7 @@ class TestBuildForm:
             fake_delay,
         )
 
-        client = _client()
+        client = TestClient(app)
         response = client.post(
             "/build/form",
             data={
@@ -124,7 +120,7 @@ class TestMonitorPage:
             lambda _task_id: fake_result,
         )
 
-        client = _client()
+        client = TestClient(app)
         response = client.get("/monitor/task-123")
 
         assert response.status_code == 200
@@ -144,7 +140,7 @@ class TestMonitorPage:
             lambda _task_id: fake_result,
         )
 
-        client = _client()
+        client = TestClient(app)
         response = client.get("/monitor/task-123")
 
         assert response.status_code == 200
