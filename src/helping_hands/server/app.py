@@ -562,16 +562,38 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
         grid-template-columns: 1fr 1fr;
         gap: 10px;
       }}
+      .meta-cell {{
+        width: 100%;
+        height: 72px;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        border: 1px solid #d8e0e3;
+        border-radius: 8px;
+        background: #f8fbfc;
+        display: flex;
+        align-items: center;
+        overflow: auto;
+      }}
       .status {{
         font-weight: 700;
       }}
+      .content-cell {{
+        width: 100%;
+        height: 280px;
+        box-sizing: border-box;
+        border: 1px solid #d8e0e3;
+        border-radius: 8px;
+        padding: 10px;
+        overflow: auto;
+        background: #fff;
+      }}
       pre {{
         margin: 0;
-        padding: 10px;
+        padding: 0;
         border-radius: 8px;
-        background: #0f172a;
-        color: #d1fae5;
-        overflow: auto;
+        background: transparent;
+        color: #0f172a;
+        min-height: 100%;
       }}
       .updates {{
         white-space: pre-wrap;
@@ -595,10 +617,12 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
     <div class="wrap">
       <section class="panel">
         <div class="meta">
-          <div><strong>Task:</strong> {html.escape(task_status.task_id)}</div>
-          <div>
+          <div class="meta-cell">
+            <strong>Task:</strong>&nbsp;{html.escape(task_status.task_id)}
+          </div>
+          <div class="meta-cell">
             <strong>Status:</strong>
-            <span class="status">{html.escape(status)}</span>
+            &nbsp;<span class="status">{html.escape(status)}</span>
           </div>
         </div>
         <div class="actions">
@@ -608,11 +632,15 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
       </section>
       <section class="panel">
         <h3>Updates</h3>
-        <div class="updates">{updates_html}</div>
+        <div class="content-cell">
+          <div class="updates">{updates_html}</div>
+        </div>
       </section>
       <section class="panel">
         <h3>Payload</h3>
-        <pre>{escaped_payload}</pre>
+        <div class="content-cell">
+          <pre>{escaped_payload}</pre>
+        </div>
       </section>
     </div>
   </body>
