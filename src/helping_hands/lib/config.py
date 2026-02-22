@@ -42,13 +42,20 @@ class Config:
         repo_override = overrides.get("repo") if overrides else None
         _load_env_files(str(repo_override) if isinstance(repo_override, str) else None)
 
+        raw_model = os.environ.get("HELPING_HANDS_MODEL")
+        raw_verbose = os.environ.get("HELPING_HANDS_VERBOSE")
+
         env_values: dict[str, str | bool | None] = {
-            "model": os.environ.get("HELPING_HANDS_MODEL"),
-            "verbose": os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
-            in ("1", "true", "yes"),
+            "model": raw_model if raw_model not in (None, "") else None,
+            "verbose": (
+                raw_verbose.lower() in ("1", "true", "yes")
+                if raw_verbose not in (None, "")
+                else None
+            ),
         }
 
-        merged = {k: v for k, v in env_values.items() if v}
+        # Only drop None (unset). Keep falsy but valid values (e.g. False, "").
+        merged = {k: v for k, v in env_values.items() if v is not None}
         if overrides:
             merged.update({k: v for k, v in overrides.items() if v is not None})
 
