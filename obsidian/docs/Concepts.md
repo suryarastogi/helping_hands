@@ -93,6 +93,9 @@ App mode has two monitoring paths:
 - **JSON polling**: `/tasks/{task_id}` is used by the JS-enabled UI and API clients.
 - **No-JS fallback**: `/monitor/{task_id}` is a server-rendered HTML page with
   meta refresh, used when client-side JS is blocked or unavailable.
+- **Stable monitor layout**: monitor task/status/update/payload cards use fixed
+  dimensions so polling updates do not shift page layout; long text scrolls
+  inside each card.
 
 In logs, either repeated `/tasks/...` or repeated `/monitor/...` requests are
 valid indicators that monitoring is active.

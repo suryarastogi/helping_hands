@@ -7,7 +7,7 @@ High-level view of how helping_hands is built. For file layout and config, see t
 The project currently exposes three runtime surfaces:
 
 - **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and `codexcli`.
-- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, and `codexcli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page.
+- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, and `codexcli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to `Update README.md` and keeps monitor cells at fixed dimensions with in-cell scrolling.
 - **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
@@ -102,6 +102,7 @@ User/Client → FastAPI /build → Celery queue
                                ↓
       task status/result available via /tasks/{task_id} (JSON)
       no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)
+      monitor UI uses fixed-size task/status/update/payload cells for stable polling layout
 ```
 
 ## Design principles

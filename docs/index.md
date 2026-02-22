@@ -16,8 +16,11 @@ Browse the auto-generated docs from source:
 
 - Server mode: server enqueues a hand task, then the hand executes.
 - App UI (`/`) can submit runs with backend/model/max-iterations/no-pr options.
+- App UI defaults prompt input to `Update README.md` (editable).
 - JS monitor path polls `/tasks/{task_id}` for live status/updates.
 - No-JS fallback path redirects to `/monitor/{task_id}` (auto-refresh HTML monitor).
+- Monitor views use fixed-size task/status/update/payload cells so layout remains
+  stable while polling; long content scrolls inside each cell.
 - CLI mode: CLI invokes the hand directly (index-only, E2E mode, or iterative basic backends).
 - `E2EHand` is the minimal concrete hand used to validate the full
   clone/edit/commit/push/PR lifecycle.

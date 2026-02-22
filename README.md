@@ -129,8 +129,10 @@ The built-in UI at `http://localhost:8000/` supports:
 - max iterations
 - optional PR number
 - `no_pr` toggle
+- default editable prompt text: `Update README.md`
 - JS polling monitor via `/tasks/{task_id}`
 - no-JS fallback monitor via `/monitor/{task_id}` (auto-refresh)
+- fixed-size monitor cells for task/status, updates, and payload panels (scrolls inside each cell)
 
 ```bash
 # Visit the built-in UI in your browser:
@@ -182,7 +184,8 @@ TASK_ID=$(curl -sS -X POST "http://localhost:8000/build" -H "Content-Type: appli
 
 If UI submit appears to enqueue but you do not see repeated `/tasks/<id>` requests
 in logs (common when browser JS is blocked), use `/monitor/<id>`; that endpoint
-refreshes server-side without client-side JavaScript.
+refreshes server-side without client-side JavaScript and keeps monitor card sizes
+stable while polling.
 
 ## Project structure
 
