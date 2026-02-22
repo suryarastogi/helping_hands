@@ -183,6 +183,17 @@ class GitHubClient:
         result = _run_git(["git", "rev-parse", "--short", "HEAD"], cwd=repo_path)
         return result.stdout.strip()
 
+    @staticmethod
+    def set_local_identity(
+        repo_path: Path | str,
+        *,
+        name: str,
+        email: str,
+    ) -> None:
+        """Set git author identity in local repo config."""
+        _run_git(["git", "config", "user.name", name], cwd=repo_path)
+        _run_git(["git", "config", "user.email", email], cwd=repo_path)
+
     # ------------------------------------------------------------------
     # Push
     # ------------------------------------------------------------------

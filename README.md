@@ -25,6 +25,9 @@ The hand clones the repository there, makes code changes as the core side
 effect, then pushes a branch and opens a GitHub pull request.
 If `pr_number` is provided, the hand resumes that PR by committing/pushing to
 its existing head branch instead of creating a new PR.
+For CI commits, repo-local git identity defaults to:
+`helping-hands[bot] <helping-hands-bot@users.noreply.github.com>`, overridable
+via `HELPING_HANDS_GIT_USER_NAME` and `HELPING_HANDS_GIT_USER_EMAIL`.
 
 ### Key ideas
 

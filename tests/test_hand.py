@@ -343,6 +343,7 @@ class TestE2EHand:
 
         mock_gh.clone.assert_called_once()
         mock_gh.create_branch.assert_called_once()
+        mock_gh.set_local_identity.assert_called_once()
         mock_gh.add_and_commit.assert_called_once()
         mock_gh.push.assert_called_once()
         mock_gh.create_pr.assert_called_once()
@@ -382,6 +383,7 @@ class TestE2EHand:
         mock_gh.fetch_branch.assert_called_once()
         mock_gh.switch_branch.assert_called_once()
         mock_gh.create_branch.assert_not_called()
+        mock_gh.set_local_identity.assert_called_once()
         mock_gh.create_pr.assert_not_called()
 
     @patch("helping_hands.lib.github.GitHubClient")
@@ -404,6 +406,7 @@ class TestE2EHand:
         assert resp.metadata["dry_run"] == "true"
         assert resp.metadata["commit"] == ""
         assert resp.metadata["pr_url"] == ""
+        mock_gh.set_local_identity.assert_not_called()
         mock_gh.add_and_commit.assert_not_called()
         mock_gh.push.assert_not_called()
         mock_gh.create_pr.assert_not_called()

@@ -267,6 +267,14 @@ class E2EHand(Hand):
             commit_sha = ""
             final_pr_number = pr_number
             if not dry_run:
+                git_name = os.environ.get(
+                    "HELPING_HANDS_GIT_USER_NAME", "helping-hands[bot]"
+                )
+                git_email = os.environ.get(
+                    "HELPING_HANDS_GIT_USER_EMAIL",
+                    "helping-hands-bot@users.noreply.github.com",
+                )
+                gh.set_local_identity(repo_dir, name=git_name, email=git_email)
                 commit_sha = gh.add_and_commit(
                     repo_dir,
                     "test(e2e): minimal change from E2EHand",
