@@ -26,6 +26,37 @@ AGENT.md is a living file that agents are instructed to update. As a hand works,
 
 So the next session—and the next hand—starts with that context. The helping_hands repo has an `AGENT.md` in its root with the exact sections and update rules (outside this vault).
 
+## E2E hand semantics (current implementation)
+
+`E2EHand` is the concrete backend currently used for live clone/edit/commit/push/PR flows. Important behaviors:
+
+- Supports **new PR** and **resume existing PR** (`pr_number`) paths.
+- Uses deterministic workspace layout: `{hand_uuid}/git/{repo}`.
+- In live mode, updates both:
+  - PR description/body (latest timestamp, prompt, commit)
+  - Marker-tagged status comment (`<!-- helping_hands:e2e-status -->`)
+- In dry-run mode, it performs local clone/edit only and skips commit/push/PR side effects.
+
+This means a rerun updates the same PR state instead of creating drift between old body text and new comments.
+
+## CI race-condition guard
+
+E2E integration testing is opt-in and environment-gated. In CI matrix runs:
+
+- only `master` + Python `3.13` performs live push/update
+- all other matrix entries run dry-run
+
+This avoids concurrent matrix jobs racing on the same PR head branch.
+
+## Type-checking baseline
+
+The repo now uses `ty` as part of pre-commit alongside Ruff. Current baseline intentionally scopes type checks to `src` and ignores two noisy rule classes tied to optional backend imports / protocol mismatch noise:
+
+- `unresolved-import`
+- `invalid-method-override`
+
+This keeps type checks actionable while optional-backend implementation is still in scaffold state.
+
 ## Project Log
 
 Progress notes live under **Project Log** and can be edited by **users** or **hands**. Each week has a note (e.g. [[Project Log/2026-W08]]). Entries are tagged by author: human or hand, with optional short context. That gives a shared, auditable log of what was done and who contributed. See [[Project Log/Weekly progress]] for the format.

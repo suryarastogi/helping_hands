@@ -2,6 +2,8 @@
 
 from helping_hands.lib.hands.v1.hand import (
     AtomicHand,
+    BasicAtomicHand,
+    BasicLangGraphHand,
     ClaudeCodeHand,
     CodexCLIHand,
     E2EHand,
@@ -13,6 +15,8 @@ from helping_hands.lib.hands.v1.hand import (
 
 __all__ = [
     "AtomicHand",
+    "BasicAtomicHand",
+    "BasicLangGraphHand",
     "ClaudeCodeHand",
     "CodexCLIHand",
     "E2EHand",

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Architecture.md",
+                "file": "Project Log/2026-W08.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Architecture"
+              "title": "2026-W08"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Architecture.md",
+                "file": "Project Log/2026-W08.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for Architecture"
+              "title": "Backlinks for 2026-W08"
             }
           },
           {
@@ -184,18 +184,18 @@
   },
   "active": "0cd0fa636b59e1dc",
   "lastOpenFiles": [
+    "Project Log/Weekly progress.md",
+    "Architecture.md",
+    "AGENT.md",
+    "Concepts.md",
+    "Home.md",
+    "Project Log.md",
     "Project todos.md",
     "Vision.md",
     "Welcome.md",
-    "Project Log.md",
-    "Home.md",
-    "Architecture.md",
-    "AGENT.md",
     "2026-W08.md",
     "Project Log/2026-W08.md",
-    "Project Log/Weekly progress.md",
     "Project Log",
-    "Weekly progress.md",
-    "Concepts.md"
+    "Weekly progress.md"
   ]
 }

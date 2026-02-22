@@ -5,6 +5,8 @@ A Hand is the AI agent that operates on a repo. This module defines:
   - ``HandResponse``: common response container.
   - ``LangGraphHand``: backend powered by LangChain / LangGraph.
   - ``AtomicHand``: backend powered by atomic-agents.
+  - ``BasicLangGraphHand``: iterative LangGraph backend with interruption.
+  - ``BasicAtomicHand``: iterative Atomic backend with interruption.
   - ``E2EHand``: concrete end-to-end hand (clone/edit/commit/push/PR).
   - ``ClaudeCodeHand``: backend that invokes Claude Code via a terminal/bash call.
   - ``CodexCLIHand``: backend that invokes Codex CLI via a terminal/bash call.
@@ -16,10 +18,12 @@ from __future__ import annotations
 import abc
 import os
 import re
+import subprocess
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Event
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
@@ -56,6 +60,8 @@ class Hand(abc.ABC):
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         self.config = config
         self.repo_index = repo_index
+        self._interrupt_event = Event()
+        self.auto_pr = True
 
     def _build_system_prompt(self) -> str:
         """Build a system prompt that includes repo context."""
@@ -75,6 +81,207 @@ class Hand(abc.ABC):
     @abc.abstractmethod
     async def stream(self, prompt: str) -> AsyncIterator[str]:
         """Send a prompt and yield response chunks as they arrive."""
+
+    def interrupt(self) -> None:
+        """Request cooperative interruption for long-running runs/streams."""
+        self._interrupt_event.set()
+
+    def reset_interrupt(self) -> None:
+        """Clear any pending interruption request."""
+        self._interrupt_event.clear()
+
+    def _is_interrupted(self) -> bool:
+        return self._interrupt_event.is_set()
+
+    @staticmethod
+    def _default_base_branch() -> str:
+        return os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
+
+    @staticmethod
+    def _run_git_read(repo_dir: Path, *args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return ""
+        return result.stdout.strip()
+
+    @classmethod
+    def _github_repo_from_origin(cls, repo_dir: Path) -> str:
+        remote = cls._run_git_read(repo_dir, "remote", "get-url", "origin")
+        if not remote:
+            return ""
+        patterns = (
+            r"^https://github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+            r"^git@github\.com:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+            r"^ssh://git@github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+        )
+        for pattern in patterns:
+            match = re.match(pattern, remote)
+            if match:
+                return match.group("repo")
+        return ""
+
+    @staticmethod
+    def _build_generic_pr_body(
+        *,
+        backend: str,
+        prompt: str,
+        summary: str,
+        commit_sha: str,
+        stamp_utc: str,
+    ) -> str:
+        return (
+            f"Automated update from `{backend}`.\n\n"
+            f"- latest_updated_utc: `{stamp_utc}`\n"
+            f"- prompt: {prompt}\n"
+            f"- commit: `{commit_sha}`\n\n"
+            "## Summary\n\n"
+            f"{summary.strip() or 'No summary provided.'}\n"
+        )
+
+    @staticmethod
+    def _configure_authenticated_push_remote(
+        repo_dir: Path, repo: str, token: str
+    ) -> None:
+        push_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+        result = subprocess.run(
+            ["git", "remote", "set-url", "--push", "origin", push_url],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.strip() or "unknown git error"
+            msg = f"failed to configure authenticated push remote: {stderr}"
+            raise RuntimeError(msg)
+
+    def _finalize_repo_pr(
+        self,
+        *,
+        backend: str,
+        prompt: str,
+        summary: str,
+    ) -> dict[str, str]:
+        metadata = {
+            "auto_pr": str(self.auto_pr).lower(),
+            "pr_status": "not_attempted",
+            "pr_url": "",
+            "pr_number": "",
+            "pr_branch": "",
+            "pr_commit": "",
+        }
+        if not self.auto_pr:
+            metadata["pr_status"] = "disabled"
+            return metadata
+
+        repo_dir = self.repo_index.root.resolve()
+        if not repo_dir.is_dir():
+            metadata["pr_status"] = "no_repo"
+            return metadata
+
+        inside_work_tree = self._run_git_read(
+            repo_dir, "rev-parse", "--is-inside-work-tree"
+        )
+        if inside_work_tree != "true":
+            metadata["pr_status"] = "not_git_repo"
+            return metadata
+
+        has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
+        if not has_changes:
+            metadata["pr_status"] = "no_changes"
+            return metadata
+
+        repo = self._github_repo_from_origin(repo_dir)
+        if not repo:
+            metadata["pr_status"] = "no_github_origin"
+            return metadata
+
+        from helping_hands.lib.github import GitHubClient
+
+        try:
+            with GitHubClient() as gh:
+                git_name = os.environ.get(
+                    "HELPING_HANDS_GIT_USER_NAME", "helping-hands[bot]"
+                )
+                git_email = os.environ.get(
+                    "HELPING_HANDS_GIT_USER_EMAIL",
+                    "helping-hands-bot@users.noreply.github.com",
+                )
+                gh.set_local_identity(repo_dir, name=git_name, email=git_email)
+
+                branch = f"helping-hands/{backend}-{uuid4().hex[:8]}"
+                gh.create_branch(repo_dir, branch)
+                commit_sha = gh.add_and_commit(
+                    repo_dir,
+                    f"feat({backend}): apply hand updates",
+                )
+                self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
+                prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
+                prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
+                os.environ["GIT_TERMINAL_PROMPT"] = "0"
+                os.environ["GCM_INTERACTIVE"] = "never"
+                try:
+                    gh.push(repo_dir, branch=branch, set_upstream=True)
+                finally:
+                    if prior_prompt is None:
+                        os.environ.pop("GIT_TERMINAL_PROMPT", None)
+                    else:
+                        os.environ["GIT_TERMINAL_PROMPT"] = prior_prompt
+                    if prior_gcm_interactive is None:
+                        os.environ.pop("GCM_INTERACTIVE", None)
+                    else:
+                        os.environ["GCM_INTERACTIVE"] = prior_gcm_interactive
+
+                base_branch = self._default_base_branch()
+                try:
+                    repo_obj = gh.get_repo(repo)
+                    if getattr(repo_obj, "default_branch", ""):
+                        base_branch = str(repo_obj.default_branch)
+                except Exception:
+                    pass
+
+                stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+                pr = gh.create_pr(
+                    repo,
+                    title=f"feat({backend}): automated hand update",
+                    body=self._build_generic_pr_body(
+                        backend=backend,
+                        prompt=prompt,
+                        summary=summary,
+                        commit_sha=commit_sha,
+                        stamp_utc=stamp,
+                    ),
+                    head=branch,
+                    base=base_branch,
+                )
+                metadata.update(
+                    {
+                        "pr_status": "created",
+                        "pr_url": pr.url,
+                        "pr_number": str(pr.number),
+                        "pr_branch": branch,
+                        "pr_commit": commit_sha,
+                    }
+                )
+                return metadata
+        except ValueError as exc:
+            metadata["pr_status"] = "missing_token"
+            metadata["pr_error"] = str(exc)
+            return metadata
+        except RuntimeError as exc:
+            metadata["pr_status"] = "git_error"
+            metadata["pr_error"] = str(exc)
+            return metadata
+        except Exception as exc:
+            metadata["pr_status"] = "error"
+            metadata["pr_error"] = str(exc)
+            return metadata
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +304,7 @@ class LangGraphHand(Hand):
         from langgraph.prebuilt import create_react_agent
 
         llm = ChatOpenAI(
-            model=self.config.model,
+            model_name=self.config.model,
             streaming=True,
         )
         system_prompt = self._build_system_prompt()
@@ -111,12 +318,22 @@ class LangGraphHand(Hand):
         result = self._agent.invoke({"messages": [{"role": "user", "content": prompt}]})
         last_msg = result["messages"][-1]
         content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
+        pr_metadata = self._finalize_repo_pr(
+            backend="langgraph",
+            prompt=prompt,
+            summary=content,
+        )
         return HandResponse(
             message=content,
-            metadata={"backend": "langgraph", "model": self.config.model},
+            metadata={
+                "backend": "langgraph",
+                "model": self.config.model,
+                **pr_metadata,
+            },
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        parts: list[str] = []
         async for event in self._agent.astream_events(
             {"messages": [{"role": "user", "content": prompt}]},
             version="v2",
@@ -124,7 +341,16 @@ class LangGraphHand(Hand):
             if event["event"] == "on_chat_model_stream" and event["data"].get("chunk"):
                 chunk = event["data"]["chunk"]
                 if hasattr(chunk, "content") and chunk.content:
-                    yield chunk.content
+                    text = str(chunk.content)
+                    parts.append(text)
+                    yield text
+        pr_metadata = self._finalize_repo_pr(
+            backend="langgraph",
+            prompt=prompt,
+            summary="".join(parts),
+        )
+        if pr_metadata.get("pr_url"):
+            yield f"\nPR created: {pr_metadata['pr_url']}\n"
 
 
 # ---------------------------------------------------------------------------
@@ -174,16 +400,450 @@ class AtomicHand(Hand):
 
     def run(self, prompt: str) -> HandResponse:
         response = self._agent.run(self._make_input(prompt))
+        message = response.chat_message
+        pr_metadata = self._finalize_repo_pr(
+            backend="atomic",
+            prompt=prompt,
+            summary=message,
+        )
         return HandResponse(
-            message=response.chat_message,
-            metadata={"backend": "atomic", "model": self.config.model},
+            message=message,
+            metadata={
+                "backend": "atomic",
+                "model": self.config.model,
+                **pr_metadata,
+            },
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        parts: list[str] = []
         user_input = self._make_input(prompt)
         async for partial in self._agent.run_async(user_input):
             if hasattr(partial, "chat_message") and partial.chat_message:
-                yield partial.chat_message
+                text = str(partial.chat_message)
+                parts.append(text)
+                yield text
+        pr_metadata = self._finalize_repo_pr(
+            backend="atomic",
+            prompt=prompt,
+            summary="".join(parts),
+        )
+        if pr_metadata.get("pr_url"):
+            yield f"\nPR created: {pr_metadata['pr_url']}\n"
+
+
+# ---------------------------------------------------------------------------
+# Basic iterative backends
+# ---------------------------------------------------------------------------
+
+
+class _BasicIterativeHand(Hand):
+    """Shared helpers for iterative hands."""
+
+    _EDIT_PATTERN = re.compile(
+        r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",
+        flags=re.DOTALL,
+    )
+
+    def __init__(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        *,
+        max_iterations: int = 6,
+    ) -> None:
+        super().__init__(config, repo_index)
+        self.max_iterations = max(1, max_iterations)
+
+    @staticmethod
+    def _build_iteration_prompt(
+        *,
+        prompt: str,
+        iteration: int,
+        max_iterations: int,
+        previous_summary: str,
+    ) -> str:
+        previous = previous_summary.strip() or "none"
+        return (
+            f"Task request: {prompt}\n\n"
+            f"Iteration: {iteration}/{max_iterations}\n"
+            f"Previous iteration summary: {previous}\n\n"
+            "Work directly against the repository context and provide progress.\n"
+            "When you need to update files, include complete file contents using:\n"
+            "@@FILE: relative/path.py\n"
+            "```python\n"
+            "<full file content>\n"
+            "```\n"
+            "You may include multiple @@FILE blocks.\n"
+            "At the end of your response include exactly one line in this form:\n"
+            "SATISFIED: yes|no\n"
+            "Use SATISFIED: yes only when the task is fully complete.\n"
+        )
+
+    @staticmethod
+    def _is_satisfied(content: str) -> bool:
+        match = re.search(r"SATISFIED:\s*(yes|no)", content, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).lower() == "yes"
+        return False
+
+    @classmethod
+    def _extract_inline_edits(cls, content: str) -> list[tuple[str, str]]:
+        return [
+            (m.group("path").strip(), m.group("content"))
+            for m in cls._EDIT_PATTERN.finditer(content)
+        ]
+
+    def _apply_inline_edits(self, content: str) -> list[str]:
+        root = self.repo_index.root.resolve()
+        changed: list[str] = []
+        for rel_path, body in self._extract_inline_edits(content):
+            normalized = rel_path.strip().replace("\\", "/")
+            if normalized.startswith("./"):
+                normalized = normalized[2:]
+            if not normalized or normalized.startswith("/"):
+                continue
+            target = (root / normalized).resolve()
+            try:
+                target.relative_to(root)
+            except ValueError:
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(body, encoding="utf-8")
+            changed.append(str(target.relative_to(root)))
+        if changed:
+            self.repo_index = self.repo_index.from_path(root)
+        return changed
+
+
+class BasicLangGraphHand(_BasicIterativeHand):
+    """Iterative LangGraph-backed hand with streaming and interruption."""
+
+    def __init__(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        *,
+        max_iterations: int = 6,
+    ) -> None:
+        super().__init__(config, repo_index, max_iterations=max_iterations)
+        self._agent = self._build_agent()
+
+    def _build_agent(self) -> Any:
+        from langchain_openai import ChatOpenAI
+        from langgraph.prebuilt import create_react_agent
+
+        llm = ChatOpenAI(
+            model_name=self.config.model,
+            streaming=True,
+        )
+        system_prompt = (
+            self._build_system_prompt()
+            + "\n\nYou are running an iterative repository implementation loop."
+            " Keep responses concise, implementation-focused, and deterministic."
+        )
+        return create_react_agent(
+            model=llm,
+            tools=[],
+            prompt=system_prompt,
+        )
+
+    @staticmethod
+    def _result_content(result: dict[str, Any]) -> str:
+        messages = result.get("messages") or []
+        if not messages:
+            return ""
+        last_msg = messages[-1]
+        return last_msg.content if hasattr(last_msg, "content") else str(last_msg)
+
+    def run(self, prompt: str) -> HandResponse:
+        self.reset_interrupt()
+        prior = ""
+        transcripts: list[str] = []
+        completed = False
+        iterations = 0
+
+        for iteration in range(1, self.max_iterations + 1):
+            if self._is_interrupted():
+                break
+            iterations = iteration
+            step_prompt = self._build_iteration_prompt(
+                prompt=prompt,
+                iteration=iteration,
+                max_iterations=self.max_iterations,
+                previous_summary=prior,
+            )
+            result = self._agent.invoke(
+                {"messages": [{"role": "user", "content": step_prompt}]}
+            )
+            content = self._result_content(result)
+            changed = self._apply_inline_edits(content)
+            transcripts.append(f"[iteration {iteration}]\n{content}")
+            if changed:
+                transcripts.append(f"[files updated] {', '.join(changed)}")
+            prior = content
+            if self._is_satisfied(content):
+                completed = True
+                break
+
+        interrupted = self._is_interrupted()
+        if interrupted:
+            status = "interrupted"
+        elif completed:
+            status = "satisfied"
+        else:
+            status = "max_iterations"
+
+        pr_metadata = self._finalize_repo_pr(
+            backend="basic-langgraph",
+            prompt=prompt,
+            summary=prior,
+        )
+        message = "\n\n".join(transcripts) if transcripts else "No output produced."
+        return HandResponse(
+            message=message,
+            metadata={
+                "backend": "basic-langgraph",
+                "model": self.config.model,
+                "iterations": iterations,
+                "status": status,
+                "interrupted": str(interrupted).lower(),
+                **pr_metadata,
+            },
+        )
+
+    async def stream(self, prompt: str) -> AsyncIterator[str]:
+        self.reset_interrupt()
+        prior = ""
+
+        for iteration in range(1, self.max_iterations + 1):
+            if self._is_interrupted():
+                yield "\n[interrupted]\n"
+                return
+
+            yield f"\n[iteration {iteration}/{self.max_iterations}]\n"
+            step_prompt = self._build_iteration_prompt(
+                prompt=prompt,
+                iteration=iteration,
+                max_iterations=self.max_iterations,
+                previous_summary=prior,
+            )
+            parts: list[str] = []
+            async for event in self._agent.astream_events(
+                {"messages": [{"role": "user", "content": step_prompt}]},
+                version="v2",
+            ):
+                if self._is_interrupted():
+                    break
+                if event["event"] == "on_chat_model_stream" and event["data"].get(
+                    "chunk"
+                ):
+                    chunk = event["data"]["chunk"]
+                    text = chunk.content if hasattr(chunk, "content") else ""
+                    if text:
+                        parts.append(str(text))
+                        yield str(text)
+            if self._is_interrupted():
+                yield "\n[interrupted]\n"
+                return
+
+            content = "".join(parts)
+            changed = self._apply_inline_edits(content)
+            if changed:
+                yield f"\n[files updated] {', '.join(changed)}\n"
+            prior = content
+            if self._is_satisfied(content):
+                yield "\n\nTask marked satisfied.\n"
+                pr_metadata = self._finalize_repo_pr(
+                    backend="basic-langgraph",
+                    prompt=prompt,
+                    summary=content,
+                )
+                if pr_metadata.get("pr_url"):
+                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
+                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                return
+            yield "\n\nContinuing...\n"
+
+        pr_metadata = self._finalize_repo_pr(
+            backend="basic-langgraph",
+            prompt=prompt,
+            summary=prior,
+        )
+        if pr_metadata.get("pr_url"):
+            yield f"\nPR created: {pr_metadata['pr_url']}\n"
+        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        yield "\n\nMax iterations reached.\n"
+
+
+class BasicAtomicHand(_BasicIterativeHand):
+    """Iterative Atomic-backed hand with streaming and interruption."""
+
+    def __init__(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        *,
+        max_iterations: int = 6,
+    ) -> None:
+        super().__init__(config, repo_index, max_iterations=max_iterations)
+        self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._agent = self._build_agent()
+
+    def _build_agent(self) -> Any:
+        import instructor
+        import openai
+        from atomic_agents import AgentConfig, AtomicAgent, BasicChatInputSchema
+        from atomic_agents.context import (
+            ChatHistory,
+            SystemPromptGenerator,
+        )
+
+        self._input_schema = BasicChatInputSchema
+
+        client = instructor.from_openai(openai.OpenAI())
+        history = ChatHistory()
+        prompt_gen = SystemPromptGenerator(
+            background=[
+                self._build_system_prompt()
+                + "\n\nYou are running an iterative repository implementation loop."
+                " Keep responses concise, implementation-focused, and deterministic."
+            ],
+        )
+        return AtomicAgent(
+            config=AgentConfig(
+                client=client,
+                model=self.config.model,
+                history=history,
+                system_prompt_generator=prompt_gen,
+            )
+        )
+
+    def _make_input(self, prompt: str) -> Any:
+        return self._input_schema(chat_message=prompt)
+
+    @staticmethod
+    def _extract_message(response: Any) -> str:
+        if hasattr(response, "chat_message") and response.chat_message:
+            return str(response.chat_message)
+        return str(response)
+
+    def run(self, prompt: str) -> HandResponse:
+        self.reset_interrupt()
+        prior = ""
+        transcripts: list[str] = []
+        completed = False
+        iterations = 0
+
+        for iteration in range(1, self.max_iterations + 1):
+            if self._is_interrupted():
+                break
+            iterations = iteration
+            step_prompt = self._build_iteration_prompt(
+                prompt=prompt,
+                iteration=iteration,
+                max_iterations=self.max_iterations,
+                previous_summary=prior,
+            )
+            response = self._agent.run(self._make_input(step_prompt))
+            content = self._extract_message(response)
+            changed = self._apply_inline_edits(content)
+            transcripts.append(f"[iteration {iteration}]\n{content}")
+            if changed:
+                transcripts.append(f"[files updated] {', '.join(changed)}")
+            prior = content
+            if self._is_satisfied(content):
+                completed = True
+                break
+
+        interrupted = self._is_interrupted()
+        if interrupted:
+            status = "interrupted"
+        elif completed:
+            status = "satisfied"
+        else:
+            status = "max_iterations"
+
+        pr_metadata = self._finalize_repo_pr(
+            backend="basic-atomic",
+            prompt=prompt,
+            summary=prior,
+        )
+        message = "\n\n".join(transcripts) if transcripts else "No output produced."
+        return HandResponse(
+            message=message,
+            metadata={
+                "backend": "basic-atomic",
+                "model": self.config.model,
+                "iterations": iterations,
+                "status": status,
+                "interrupted": str(interrupted).lower(),
+                **pr_metadata,
+            },
+        )
+
+    async def stream(self, prompt: str) -> AsyncIterator[str]:
+        self.reset_interrupt()
+        prior = ""
+
+        for iteration in range(1, self.max_iterations + 1):
+            if self._is_interrupted():
+                yield "\n[interrupted]\n"
+                return
+
+            yield f"\n[iteration {iteration}/{self.max_iterations}]\n"
+            step_prompt = self._build_iteration_prompt(
+                prompt=prompt,
+                iteration=iteration,
+                max_iterations=self.max_iterations,
+                previous_summary=prior,
+            )
+            stream_text = ""
+            async for partial in self._agent.run_async(self._make_input(step_prompt)):
+                if self._is_interrupted():
+                    break
+                current = self._extract_message(partial)
+                if current.startswith(stream_text):
+                    delta = current[len(stream_text) :]
+                else:
+                    delta = current
+                stream_text = current
+                if delta:
+                    yield delta
+            if self._is_interrupted():
+                yield "\n[interrupted]\n"
+                return
+
+            changed = self._apply_inline_edits(stream_text)
+            if changed:
+                yield f"\n[files updated] {', '.join(changed)}\n"
+            prior = stream_text
+            if self._is_satisfied(stream_text):
+                yield "\n\nTask marked satisfied.\n"
+                pr_metadata = self._finalize_repo_pr(
+                    backend="basic-atomic",
+                    prompt=prompt,
+                    summary=stream_text,
+                )
+                if pr_metadata.get("pr_url"):
+                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
+                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                return
+            yield "\n\nContinuing...\n"
+
+        pr_metadata = self._finalize_repo_pr(
+            backend="basic-atomic",
+            prompt=prompt,
+            summary=prior,
+        )
+        if pr_metadata.get("pr_url"):
+            yield f"\nPR created: {pr_metadata['pr_url']}\n"
+        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        yield "\n\nMax iterations reached.\n"
 
 
 # ---------------------------------------------------------------------------
@@ -392,9 +1052,18 @@ class ClaudeCodeHand(Hand):
         super().__init__(config, repo_index)
 
     def run(self, prompt: str) -> HandResponse:
+        pr_metadata = self._finalize_repo_pr(
+            backend="claudecode",
+            prompt=prompt,
+            summary="ClaudeCode hand not yet implemented.",
+        )
         return HandResponse(
             message="ClaudeCode hand not yet implemented.",
-            metadata={"backend": "claudecode", "model": self.config.model},
+            metadata={
+                "backend": "claudecode",
+                "model": self.config.model,
+                **pr_metadata,
+            },
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
@@ -418,9 +1087,18 @@ class CodexCLIHand(Hand):
         super().__init__(config, repo_index)
 
     def run(self, prompt: str) -> HandResponse:
+        pr_metadata = self._finalize_repo_pr(
+            backend="codexcli",
+            prompt=prompt,
+            summary="CodexCLI hand not yet implemented.",
+        )
         return HandResponse(
             message="CodexCLI hand not yet implemented.",
-            metadata={"backend": "codexcli", "model": self.config.model},
+            metadata={
+                "backend": "codexcli",
+                "model": self.config.model,
+                **pr_metadata,
+            },
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
@@ -444,9 +1122,18 @@ class GeminiCLIHand(Hand):
         super().__init__(config, repo_index)
 
     def run(self, prompt: str) -> HandResponse:
+        pr_metadata = self._finalize_repo_pr(
+            backend="geminicli",
+            prompt=prompt,
+            summary="GeminiCLI hand not yet implemented.",
+        )
         return HandResponse(
             message="GeminiCLI hand not yet implemented.",
-            metadata={"backend": "geminicli", "model": self.config.model},
+            metadata={
+                "backend": "geminicli",
+                "model": self.config.model,
+                **pr_metadata,
+            },
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:

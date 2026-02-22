@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -12,6 +13,8 @@ import pytest
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand import (
     AtomicHand,
+    BasicAtomicHand,
+    BasicLangGraphHand,
     ClaudeCodeHand,
     CodexCLIHand,
     E2EHand,
@@ -95,6 +98,48 @@ class TestHandABC:
         prompt = hand._build_system_prompt()
         assert "conventions" in prompt.lower()
 
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_configure_authenticated_push_remote(
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+        Hand._configure_authenticated_push_remote(
+            tmp_path,
+            "owner/repo",
+            "ghp_test_token",
+        )
+        cmd = mock_run.call_args.args[0]
+        assert cmd[:5] == ["git", "remote", "set-url", "--push", "origin"]
+        assert (
+            cmd[5] == "https://x-access-token:ghp_test_token@github.com/owner/repo.git"
+        )
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_configure_authenticated_push_remote_failure_raises(
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="fatal: no such remote",
+        )
+        with pytest.raises(RuntimeError, match="authenticated push remote"):
+            Hand._configure_authenticated_push_remote(
+                tmp_path,
+                "owner/repo",
+                "ghp_test_token",
+            )
+
 
 # ---------------------------------------------------------------------------
 # LangGraphHand
@@ -174,6 +219,126 @@ class TestLangGraphHand:
 
 
 # ---------------------------------------------------------------------------
+# BasicLangGraphHand
+# ---------------------------------------------------------------------------
+
+
+class TestBasicLangGraphHand:
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_iterates_until_satisfied(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        first = MagicMock()
+        first.content = "Working.\nSATISFIED: no"
+        second = MagicMock()
+        second.content = "Done.\nSATISFIED: yes"
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
+            {"messages": [first]},
+            {"messages": [second]},
+        ]
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index, max_iterations=5)
+        resp = hand.run("implement feature")
+
+        assert resp.metadata["backend"] == "basic-langgraph"
+        assert resp.metadata["status"] == "satisfied"
+        assert resp.metadata["iterations"] == 2
+        assert "SATISFIED: yes" in resp.message
+        assert mock_agent.invoke.call_count == 2
+
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_applies_inline_file_edits(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        msg = MagicMock()
+        msg.content = (
+            "@@FILE: main.py\n```python\nprint('updated')\n```\nSATISFIED: yes"
+        )
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [msg]}
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index)
+        resp = hand.run("update main")
+
+        assert "files updated" in resp.message
+        assert (repo_index.root / "main.py").read_text(encoding="utf-8") == (
+            "print('updated')"
+        )
+
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_preserves_dotfile_path(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        msg = MagicMock()
+        msg.content = (
+            "@@FILE: .pre-commit-config.yaml\n```yaml\nrepos: []\n```\nSATISFIED: yes"
+        )
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [msg]}
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index)
+        hand.run("update dotfile")
+
+        assert (repo_index.root / ".pre-commit-config.yaml").is_file()
+        assert not (repo_index.root / "pre-commit-config.yaml").exists()
+
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_respects_auto_pr_disabled(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        msg = MagicMock()
+        msg.content = "Done.\nSATISFIED: yes"
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [msg]}
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index)
+        hand.auto_pr = False
+        resp = hand.run("implement feature")
+
+        assert resp.metadata["pr_status"] == "disabled"
+
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_honors_interrupt(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        msg = MagicMock()
+        msg.content = "Still working.\nSATISFIED: no"
+        mock_agent = MagicMock()
+
+        def fake_invoke(*_a: Any, **_kw: Any):
+            hand.interrupt()
+            return {"messages": [msg]}
+
+        mock_agent.invoke.side_effect = fake_invoke
+        mock_build.return_value = mock_agent
+        hand = BasicLangGraphHand(config, repo_index)
+        resp = hand.run("implement feature")
+
+        assert resp.metadata["status"] == "interrupted"
+        assert resp.metadata["iterations"] == 1
+
+
+# ---------------------------------------------------------------------------
 # AtomicHand
 # ---------------------------------------------------------------------------
 
@@ -234,6 +399,67 @@ class TestAtomicHand:
             _collect_stream(hand, "hello")
         )
         assert chunks == ["Part 1", "Part 2"]
+
+
+# ---------------------------------------------------------------------------
+# BasicAtomicHand
+# ---------------------------------------------------------------------------
+
+
+class TestBasicAtomicHand:
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_run_iterates_until_satisfied(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_agent = MagicMock()
+        first = MagicMock()
+        first.chat_message = "Working.\nSATISFIED: no"
+        second = MagicMock()
+        second.chat_message = "Done.\nSATISFIED: yes"
+        mock_agent.run.side_effect = [first, second]
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index, max_iterations=5)
+        hand._input_schema = _FakeInputSchema
+        resp = hand.run("implement feature")
+
+        assert resp.metadata["backend"] == "basic-atomic"
+        assert resp.metadata["status"] == "satisfied"
+        assert resp.metadata["iterations"] == 2
+        assert "SATISFIED: yes" in resp.message
+        assert mock_agent.run.call_count == 2
+
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_stream_interrupts(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand: BasicAtomicHand
+
+        async def fake_run_async(_input: Any):
+            partial = MagicMock()
+            partial.chat_message = "Working..."
+            yield partial
+            hand.interrupt()
+            second = MagicMock()
+            second.chat_message = "more output"
+            yield second
+
+        mock_agent = MagicMock()
+        mock_agent.run_async = fake_run_async
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index)
+        hand._input_schema = _FakeInputSchema
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        assert "[interrupted]" in "".join(chunks)
 
 
 # ---------------------------------------------------------------------------

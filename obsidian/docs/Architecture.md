@@ -2,48 +2,60 @@
 
 High-level view of how helping_hands is built. For file layout and config, see the repo README.
 
-## Modes
+## Runtime surfaces (current)
 
-The tool supports two ways to run:
+The project currently exposes three runtime surfaces:
 
-- **CLI mode** — Single process in the terminal. User runs `helping_hands <repo>`, gets streaming responses and proposed edits. No server, no persistence.
-- **App mode** — A long-running service for async and scheduled work. Not yet implemented; the intended shape is described below.
+- **CLI mode (implemented)** — `helping-hands <repo>` indexes a local repo. `helping-hands <owner/repo> --e2e` runs full clone/edit/commit/push/PR workflow.
+- **App mode (implemented baseline)** — FastAPI + Celery integration exists. `/build` enqueues `build_feature`; workers run `E2EHand`; `/tasks/{task_id}` reports status/result.
+- **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, file read, and config inspection.
 
-### App mode (planned)
-
-App mode runs:
-
-1. **Fast server** — A lightweight HTTP/WS server that accepts requests (e.g. "build feature X in repo Y"). It enqueues work instead of doing it inline.
-2. **Worker stack** — **Celery** workers consume the queue. **Redis** is the broker (and optionally result backend). **Postgres** holds job metadata, results, and any app state (users, repos, history).
-3. **Async jobs** — Each "build this feature" or "ingest this repo" is a task. Users get a job ID and can poll or subscribe for completion; the hand runs in a worker.
-4. **Cron / scheduled jobs** — Celery Beat (or similar) runs on a schedule so recurring tasks (e.g. "re-index repo Z daily" or "weekly summary") happen without user action.
-
-So: same core (Repo + Agent) in both modes; CLI calls it directly, app mode wraps it in tasks and runs it in workers. Config (model, paths) is shared; app mode adds server/Redis/Postgres settings.
+App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
 
 ## Layers (shared)
 
-1. **CLI / Server** — Entry point. CLI parses args and runs the loop; in app mode, the server receives requests and enqueues tasks.
-2. **Repo** — Clones or opens a git repo, walks the tree, builds an index. Output is structured context for the hand.
-3. **Agent** — The "hand." Receives repo context + user messages, calls the AI, streams responses, and proposes edits. Same in both modes; in app mode it runs inside a worker.
-4. **Config** — Single place for settings. No global state; config is passed through.
+1. **Config** (`Config.from_env`) — Loads `.env` from cwd and target repo (when local), merges env + CLI overrides.
+2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
+3. **Hand backend** (`Hand` + implementations) — Common protocol with concrete `E2EHand`; `LangGraphHand` and `AtomicHand`; CLI-specific scaffold hands.
+4. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
+5. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
+
+## E2E workflow (source of truth)
+
+`E2EHand` currently drives the production-tested path:
+
+1. Resolve workspace root: `{HELPING_HANDS_WORK_ROOT}/{hand_uuid}/git/{safe_repo}`.
+2. Resolve base/head:
+   - New PR path: new branch `helping-hands/e2e-{uuid8}` from base.
+   - Resume path (`pr_number`): fetch PR metadata, checkout existing head.
+3. Write `HELPING_HANDS_E2E.md` marker with UTC timestamp and prompt.
+4. Live mode only:
+   - set local git identity
+   - commit + push
+   - create PR if needed
+   - **always update PR body** with latest timestamp/commit/prompt
+   - **always upsert a marker-tagged PR comment** (`<!-- helping_hands:e2e-status -->`)
+
+This makes reruns deterministic: existing PR description and status comment are refreshed instead of accumulating stale state.
 
 ## Data flow (CLI)
 
 ```
-User → CLI → Config
-         → Repo → context
-         → Agent(context, messages) → AI → streamed response / proposed edits
-         → (optional) write back to AGENT.md or project log
+User → CLI
+  default mode: Config → RepoIndex → ready/indexed output
+  --e2e mode:   Config → E2EHand → GitHubClient → branch/PR updates
 ```
 
-## Data flow (app mode, planned)
+## Data flow (app mode baseline)
 
 ```
-User/Client → Fast server → enqueue task (Redis)
-                Celery worker ← task
-                → Repo → context → Agent → AI → result
-                → store result / state (Postgres)
-Cron (Celery Beat) → enqueue scheduled tasks → same worker path
+User/Client → FastAPI /build → Celery queue
+                               ↓
+                        worker task build_feature
+                               ↓
+                         E2EHand.run(...)
+                               ↓
+                 task result available via /tasks/{task_id}
 ```
 
 ## Design principles
@@ -51,5 +63,12 @@ Cron (Celery Beat) → enqueue scheduled tasks → same worker path
 - **Plain data between layers** — Dicts or dataclasses, not tight coupling. Easier to test and swap implementations.
 - **Streaming by default** — AI output streams to the terminal; no "wait for full response" unless needed.
 - **Explicit config** — No module-level singletons. Config is loaded once and passed in.
+- **Idempotent-ish E2E updates** — PR resume path updates existing branch, PR body, and status comment.
 
 These are also reflected in the repo's [[AGENT.md]] under Design preferences.
+
+## CI controls relevant to architecture
+
+- Live E2E integration test is opt-in (`HELPING_HANDS_RUN_E2E_INTEGRATION=1`).
+- In CI matrix, only `master` + Python `3.13` performs live push/update; other versions run E2E in dry-run to avoid branch push races.
+- Pre-commit enforces `ruff`, `ruff-format`, and `ty` (currently scoped to `src` with targeted ignores for known optional-backend noise).
