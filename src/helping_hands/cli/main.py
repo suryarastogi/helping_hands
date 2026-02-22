@@ -88,11 +88,14 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    # If end-to-end mode is requested, use E2EHand which handles the full flow
     if args.e2e:
         config = Config.from_env(
             overrides={"repo": args.repo, "model": args.model, "verbose": args.verbose}
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
+
+        # Run E2EHand and print results including metadata
         response = E2EHand(config, repo_index).run(
             args.prompt,
             pr_number=args.pr_number,
@@ -104,6 +107,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"pr_url={response.metadata.get('pr_url')}")
         return
 
+    # Resolve the repository path and optionally clone remote repo if needed
     try:
         repo_path, cloned_from = _resolve_repo_path(args.repo)
     except ValueError as exc:
@@ -112,11 +116,13 @@ def main(argv: list[str] | None = None) -> None:
     if cloned_from:
         print(f"Cloned {cloned_from} to {repo_path}")
 
+    # Load config and repo index from resolved repo path
     config = Config.from_env(
         overrides={"repo": str(repo_path), "model": args.model, "verbose": args.verbose}
     )
     repo_index = RepoIndex.from_path(Path(config.repo))
 
+    # If a backend is specified, instantiate and run the corresponding Hand
     if args.backend:
         hand: Hand
         try:
@@ -160,6 +166,7 @@ def main(argv: list[str] | None = None) -> None:
             )
             sys.exit(1)
         try:
+            # Run the asynchronous streaming of hand output
             asyncio.run(_stream_hand(hand, args.prompt))
         except KeyboardInterrupt:
             hand.interrupt()
@@ -179,6 +186,7 @@ def main(argv: list[str] | None = None) -> None:
             raise
         return
 
+    # If no backend specified, just print the repo index summary
     n = len(repo_index.files)
     s = "s" if n != 1 else ""
     print(f"Ready. Indexed {n} file{s} in {repo_index.root}.")
