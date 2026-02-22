@@ -347,6 +347,7 @@ class TestE2EHand:
         mock_gh.add_and_commit.assert_called_once()
         mock_gh.push.assert_called_once()
         mock_gh.create_pr.assert_called_once()
+        mock_gh.update_pr_body.assert_called_once()
         mock_gh.upsert_pr_comment.assert_called_once()
         body = mock_gh.upsert_pr_comment.call_args.kwargs["body"]
         assert "latest_updated_utc" in body
@@ -388,6 +389,7 @@ class TestE2EHand:
         mock_gh.create_branch.assert_not_called()
         mock_gh.set_local_identity.assert_called_once()
         mock_gh.create_pr.assert_not_called()
+        mock_gh.update_pr_body.assert_called_once()
         mock_gh.upsert_pr_comment.assert_called_once()
         args = mock_gh.upsert_pr_comment.call_args.args
         kwargs = mock_gh.upsert_pr_comment.call_args.kwargs
@@ -419,6 +421,7 @@ class TestE2EHand:
         mock_gh.add_and_commit.assert_not_called()
         mock_gh.push.assert_not_called()
         mock_gh.create_pr.assert_not_called()
+        mock_gh.update_pr_body.assert_not_called()
         mock_gh.upsert_pr_comment.assert_not_called()
 
 

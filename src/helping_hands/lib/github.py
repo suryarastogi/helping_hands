@@ -313,6 +313,12 @@ class GitHubClient:
             "merged": pr.merged,
         }
 
+    def update_pr_body(self, full_name: str, number: int, *, body: str) -> None:
+        """Update the body/description of an existing pull request."""
+        repo = self.get_repo(full_name)
+        pr = repo.get_pull(number)
+        pr.edit(body=body)
+
     def upsert_pr_comment(
         self,
         full_name: str,

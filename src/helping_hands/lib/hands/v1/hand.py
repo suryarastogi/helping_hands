@@ -228,6 +228,22 @@ class E2EHand(Hand):
             f"- prompt: {prompt}\n"
         )
 
+    @staticmethod
+    def _build_e2e_pr_body(
+        *,
+        hand_uuid: str,
+        prompt: str,
+        stamp_utc: str,
+        commit_sha: str,
+    ) -> str:
+        return (
+            "Automated E2E validation PR.\n\n"
+            f"- latest_updated_utc: `{stamp_utc}`\n"
+            f"- hand_uuid: `{hand_uuid}`\n"
+            f"- prompt: {prompt}\n"
+            f"- commit: `{commit_sha}`\n"
+        )
+
     def run(
         self,
         prompt: str,
@@ -299,24 +315,26 @@ class E2EHand(Hand):
                     paths=[e2e_file],
                 )
                 gh.push(repo_dir, branch=branch, set_upstream=True)
+                pr_body = self._build_e2e_pr_body(
+                    hand_uuid=hand_uuid,
+                    prompt=prompt,
+                    stamp_utc=stamp,
+                    commit_sha=commit_sha,
+                )
                 if resumed_pr:
                     final_pr_number = pr_number
                 else:
                     pr = gh.create_pr(
                         repo,
                         title="test(e2e): minimal edit by helping_hands",
-                        body=(
-                            "Automated E2E validation PR.\n\n"
-                            f"- hand_uuid: `{hand_uuid}`\n"
-                            f"- prompt: {prompt}\n"
-                            f"- commit: `{commit_sha}`\n"
-                        ),
+                        body=pr_body,
                         head=branch,
                         base=base_branch,
                     )
                     pr_url = pr.url
                     final_pr_number = pr.number
                 if final_pr_number is not None:
+                    gh.update_pr_body(repo, final_pr_number, body=pr_body)
                     gh.upsert_pr_comment(
                         repo,
                         final_pr_number,

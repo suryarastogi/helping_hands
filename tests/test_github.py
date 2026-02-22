@@ -345,6 +345,19 @@ class TestUpsertPRComment:
         mock_issue.create_comment.assert_not_called()
 
 
+class TestUpdatePRBody:
+    def test_updates_existing_pr_body(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_repo.get_pull.return_value = mock_pr
+        client._gh.get_repo.return_value = mock_repo
+
+        client.update_pr_body("owner/repo", 12, body="updated body")
+
+        mock_repo.get_pull.assert_called_once_with(12)
+        mock_pr.edit.assert_called_once_with(body="updated body")
+
+
 # ---------------------------------------------------------------------------
 # Context manager
 # ---------------------------------------------------------------------------
