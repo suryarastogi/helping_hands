@@ -31,6 +31,7 @@ from mcp.server.fastmcp import FastMCP
 from helping_hands.lib.config import Config
 from helping_hands.lib.meta.tools import filesystem as fs_tools
 from helping_hands.lib.repo import RepoIndex
+from helping_hands.server.task_result import normalize_task_result
 
 mcp = FastMCP(
     "helping_hands",
@@ -73,16 +74,25 @@ def index_repo(repo_path: str) -> dict:
 
 
 @mcp.tool()
-def build_feature(repo_path: str, prompt: str, pr_number: int | None = None) -> dict:
+def build_feature(
+    repo_path: str,
+    prompt: str,
+    pr_number: int | None = None,
+    backend: str = "e2e",
+    model: str | None = None,
+    max_iterations: int = 6,
+    no_pr: bool = False,
+) -> dict:
     """Enqueue a hand task via Celery and return the task ID.
 
-    `repo_path` is interpreted as a GitHub repository reference (`owner/repo`)
-    by the current E2E hand flow.
-
     Args:
-        repo_path: GitHub repository reference in `owner/repo` format.
+        repo_path: Local path or GitHub repo reference in `owner/repo` format.
         prompt: Description of the feature or change to build.
         pr_number: Optional existing PR number to resume/update.
+        backend: One of e2e/basic-langgraph/basic-atomic/basic-agent.
+        model: Optional model override.
+        max_iterations: Iteration cap for basic backends.
+        no_pr: Disable final PR push/create side effects.
 
     Returns:
         Dict with task_id and status.
@@ -91,8 +101,16 @@ def build_feature(repo_path: str, prompt: str, pr_number: int | None = None) -> 
         build_feature as celery_build,
     )
 
-    task = celery_build.delay(repo_path, prompt, pr_number)
-    return {"task_id": task.id, "status": "queued"}
+    task = celery_build.delay(
+        repo_path=repo_path,
+        prompt=prompt,
+        pr_number=pr_number,
+        backend=backend,
+        model=model,
+        max_iterations=max_iterations,
+        no_pr=no_pr,
+    )
+    return {"task_id": task.id, "status": "queued", "backend": backend}
 
 
 @mcp.tool()
@@ -110,10 +128,11 @@ def get_task_status(task_id: str) -> dict:
     )
 
     result = celery_build.AsyncResult(task_id)
+    raw_result = result.result if result.ready() else result.info
     return {
         "task_id": task_id,
         "status": result.status,
-        "result": result.result if result.ready() else None,
+        "result": normalize_task_result(result.status, raw_result),
     }
 
 

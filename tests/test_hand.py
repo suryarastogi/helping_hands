@@ -920,6 +920,55 @@ class TestE2EHand:
         mock_gh.update_pr_body.assert_not_called()
         mock_gh.upsert_pr_comment.assert_not_called()
 
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_run_uses_repo_default_branch_when_base_not_configured(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = Config(repo="owner/repo", model="test-model")
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+        monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
+
+        mock_gh = MagicMock()
+        mock_gh.default_branch.return_value = "master"
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        hand = E2EHand(config, repo_index)
+        resp = hand.run("dry test", hand_uuid="task-126", dry_run=True)
+
+        assert resp.metadata["base_branch"] == "master"
+        mock_gh.default_branch.assert_called_once_with("owner/repo")
+        clone_kwargs = mock_gh.clone.call_args.kwargs
+        assert clone_kwargs["branch"] == "master"
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_run_falls_back_to_clone_default_branch_when_lookup_fails(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = Config(repo="owner/repo", model="test-model")
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+        monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
+
+        mock_gh = MagicMock()
+        mock_gh.default_branch.side_effect = RuntimeError("api unavailable")
+        mock_gh.current_branch.return_value = "master"
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        hand = E2EHand(config, repo_index)
+        resp = hand.run("dry test", hand_uuid="task-127", dry_run=True)
+
+        assert resp.metadata["base_branch"] == "master"
+        clone_kwargs = mock_gh.clone.call_args.kwargs
+        assert clone_kwargs["branch"] is None
+        mock_gh.current_branch.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Helpers

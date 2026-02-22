@@ -12,7 +12,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from github import Auth, Github
 from github.PullRequest import PullRequest
@@ -281,10 +281,9 @@ class GitHubClient:
             limit: Maximum number of PRs to return.
         """
         repo = self.get_repo(full_name)
-        prs = cast(
-            list[PullRequest],
-            list(repo.get_pulls(state=state, sort="created", direction="desc"))[:limit],
-        )
+        prs: list[PullRequest] = list(
+            repo.get_pulls(state=state, sort="created", direction="desc")
+        )[:limit]
         return [
             {
                 "number": pr.number,
@@ -312,6 +311,11 @@ class GitHubClient:
             "mergeable": pr.mergeable,
             "merged": pr.merged,
         }
+
+    def default_branch(self, full_name: str) -> str:
+        """Return the repository's default branch."""
+        repo = self.get_repo(full_name)
+        return str(repo.default_branch)
 
     def update_pr_body(self, full_name: str, number: int, *, body: str) -> None:
         """Update the body/description of an existing pull request."""

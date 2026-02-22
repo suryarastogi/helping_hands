@@ -45,6 +45,7 @@ This means a rerun updates the same PR state instead of creating drift between o
 
 - streamed per-iteration output
 - cooperative interruption
+- iteration-1 bootstrap context from `README.md`/`AGENT.md` (when present) and a bounded repo tree snapshot
 - file reads via `@@READ: ...` and read-result feedback blocks
 - inline file edits via `@@FILE: ...` fenced full-content blocks
 - default final commit/push/PR step
@@ -56,6 +57,16 @@ Implementation note: hand code is now organized as a package module under
 `src/helping_hands/lib/hands/v1/hand/`, and iterative file operations route
 through shared system helpers in
 `src/helping_hands/lib/meta/tools/filesystem.py`.
+
+## Provider wrappers and model resolution
+
+Model/provider behavior now routes through shared provider abstractions:
+
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
+  - Supports bare model names (e.g. `gpt-5.2`).
+  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
+- The resolver adapts provider wrappers to backend-specific model/client interfaces (LangGraph and Atomic).
 
 ## CI race-condition guard
 

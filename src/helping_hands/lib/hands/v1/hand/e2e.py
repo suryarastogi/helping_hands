@@ -34,8 +34,8 @@ class E2EHand(Hand):
         return Path(root).expanduser()
 
     @staticmethod
-    def _default_base_branch() -> str:
-        return os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
+    def _configured_base_branch() -> str:
+        return os.environ.get("HELPING_HANDS_BASE_BRANCH", "").strip()
 
     @staticmethod
     def _build_e2e_pr_comment(
@@ -90,7 +90,7 @@ class E2EHand(Hand):
         repo_dir = hand_root / "git" / safe_repo
         repo_dir.parent.mkdir(parents=True, exist_ok=True)
 
-        base_branch = self._default_base_branch()
+        base_branch = self._configured_base_branch() or "main"
         branch = f"helping-hands/e2e-{hand_uuid[:8]}"
         e2e_file = "HELPING_HANDS_E2E.md"
         e2e_path = repo_dir / e2e_file
@@ -99,15 +99,27 @@ class E2EHand(Hand):
             pr_url = ""
             resumed_pr = False
             pr_info: dict[str, Any] | None = None
+            clone_branch = base_branch
             if pr_number is not None:
                 pr_info = gh.get_pr(repo, pr_number)
                 base_branch = str(pr_info["base"])
                 pr_url = str(pr_info["url"])
+                clone_branch = base_branch
                 if not dry_run:
                     branch = str(pr_info["head"])
                     resumed_pr = True
+            elif not self._configured_base_branch():
+                try:
+                    base_branch = gh.default_branch(repo)
+                    clone_branch = base_branch
+                except Exception:
+                    clone_branch = None
 
-            gh.clone(repo, repo_dir, branch=base_branch, depth=1)
+            gh.clone(repo, repo_dir, branch=clone_branch, depth=1)
+            if clone_branch is None:
+                detected = gh.current_branch(repo_dir)
+                if detected:
+                    base_branch = detected
             repo_dir.mkdir(parents=True, exist_ok=True)
             if resumed_pr:
                 gh.fetch_branch(repo_dir, branch)

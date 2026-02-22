@@ -32,12 +32,16 @@ runs, UUIDs are generated in-hand as needed.
 - Basic iterative hands (`basic-langgraph`, `basic-atomic`) operate on the
   target repo context and, by default, attempt a final commit/push/PR step.
   Disable with `--no-pr`.
+- Basic iterative hands preload startup context on iteration 1 by including
+  `README.md`/`AGENT.md` (when present) and a bounded repository tree snapshot.
 - Iterative basic hands can request file contents using `@@READ: path` and
   apply edits using `@@FILE` blocks in-model.
 - System filesystem actions for hands (path-safe read/write/mkdir checks) are
   centralized in `lib/meta/tools/filesystem.py`.
 - Provider-level wrappers and model/env defaults are centralized in
   `lib/ai_providers/` (`openai`, `anthropic`, `google`, `litellm`).
+- Hands resolve model strings through provider wrappers (including
+  `provider/model` forms) before adapting to backend-specific model clients.
 - Push uses token-authenticated GitHub remote configuration and disables
   interactive credential prompts.
 
@@ -50,8 +54,9 @@ runs, UUIDs are generated in-hand as needed.
 - **E2E validation hand**: `E2EHand` is a minimal concrete hand used to test
   the full clone/edit/commit/push/PR flow.
 - **Iterative basic hands**: `basic-langgraph` and `basic-atomic` run
-  stepwise implementation loops with live streaming, interruption, and optional
-  final PR creation.
+  stepwise implementation loops with live streaming, interruption, startup
+  bootstrap context (README/AGENT/tree snapshot), and optional final PR
+  creation.
 
 ## Quick start
 
@@ -91,6 +96,54 @@ cp .env.example .env  # edit as needed
 docker compose up --build
 ```
 
+### Trigger a run in app mode
+
+App mode enqueues Celery tasks through the FastAPI server and supports both
+`e2e` and iterative basic backends.
+
+The built-in UI at `http://localhost:8000/` supports:
+- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`)
+- model override
+- max iterations
+- optional PR number
+- `no_pr` toggle
+- live task status + updates polling from `/tasks/{task_id}`
+
+```bash
+# Visit the built-in UI in your browser:
+# http://localhost:8000/
+
+# Enqueue a build task
+curl -sS -X POST "http://localhost:8000/build" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_path": "suryarastogi/helping_hands",
+    "prompt": "CI integration run: update PR on master",
+    "backend": "e2e"
+  }'
+
+# Check task status (replace <TASK_ID> from /build response)
+curl -sS "http://localhost:8000/tasks/<TASK_ID>"
+
+# Example iterative run (same options as CLI)
+curl -sS -X POST "http://localhost:8000/build" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_path": "suryarastogi/helping_hands",
+    "prompt": "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no.",
+    "backend": "basic-langgraph",
+    "model": "gpt-5.2",
+    "max_iterations": 4,
+    "no_pr": true
+  }'
+```
+
+Optional one-liner (requires `jq`) to enqueue and poll:
+
+```bash
+TASK_ID=$(curl -sS -X POST "http://localhost:8000/build" -H "Content-Type: application/json" -d '{"repo_path":"suryarastogi/helping_hands","prompt":"CI integration run: update PR on master"}' | jq -r .task_id); while true; do curl -sS "http://localhost:8000/tasks/$TASK_ID"; echo; sleep 2; done
+```
+
 ## Project structure
 
 ```
@@ -122,7 +175,7 @@ helping_hands/
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
 ├── .github/workflows/
-│   ├── ci.yml                # CI: ruff, tests, multi-Python
+│   ├── ci.yml                # CI: ruff, tests+coverage, multi-Python, Codecov upload
 │   └── docs.yml              # Build + deploy docs to GitHub Pages
 ├── Dockerfile                # Multi-stage: server, worker, beat, flower
 ├── compose.yaml              # Full stack: server, worker, beat, flower, redis, postgres
@@ -208,6 +261,9 @@ uv run pytest -v
 
 # Coverage report (terminal + XML)
 uv run pytest -v --cov-report=term-missing --cov-report=xml
+
+# CI uploads coverage.xml from the Python 3.12 job to Codecov
+# (set CODECOV_TOKEN in repo secrets if required)
 
 # Run live E2E integration test (opt-in; requires token + repo access)
 HELPING_HANDS_RUN_E2E_INTEGRATION=1 HELPING_HANDS_E2E_PR_NUMBER=1 uv run pytest -k e2e_integration -v

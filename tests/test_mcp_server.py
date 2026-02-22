@@ -169,6 +169,7 @@ class TestBuildFeature:
 
         assert result["task_id"] == "task-abc-123"
         assert result["status"] == "queued"
+        assert result["backend"] == "e2e"
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +183,7 @@ class TestGetTaskStatus:
         fake_result = MagicMock()
         fake_result.status = "PENDING"
         fake_result.ready.return_value = False
+        fake_result.info = None
         mock_mod.build_feature.AsyncResult.return_value = fake_result
 
         with patch.dict("sys.modules", {"helping_hands.server.celery_app": mock_mod}):
@@ -189,6 +191,20 @@ class TestGetTaskStatus:
 
         assert result["status"] == "PENDING"
         assert result["result"] is None
+
+    def test_progress_task_returns_update_meta(self) -> None:
+        mock_mod = _mock_celery_module()
+        fake_result = MagicMock()
+        fake_result.status = "PROGRESS"
+        fake_result.ready.return_value = False
+        fake_result.info = {"stage": "running", "updates": ["step 1"]}
+        mock_mod.build_feature.AsyncResult.return_value = fake_result
+
+        with patch.dict("sys.modules", {"helping_hands.server.celery_app": mock_mod}):
+            result = get_task_status("task-abc-123")
+
+        assert result["status"] == "PROGRESS"
+        assert result["result"] == {"stage": "running", "updates": ["step 1"]}
 
     def test_completed_task(self) -> None:
         mock_mod = _mock_celery_module()
@@ -203,6 +219,24 @@ class TestGetTaskStatus:
 
         assert result["status"] == "SUCCESS"
         assert result["result"] == {"greeting": "done"}
+
+    def test_failed_task_normalizes_exception_result(self) -> None:
+        mock_mod = _mock_celery_module()
+        fake_result = MagicMock()
+        fake_result.status = "FAILURE"
+        fake_result.ready.return_value = True
+        fake_result.result = RuntimeError("boom")
+        mock_mod.build_feature.AsyncResult.return_value = fake_result
+
+        with patch.dict("sys.modules", {"helping_hands.server.celery_app": mock_mod}):
+            result = get_task_status("task-abc-123")
+
+        assert result["status"] == "FAILURE"
+        assert result["result"] == {
+            "error": "boom",
+            "error_type": "RuntimeError",
+            "status": "FAILURE",
+        }
 
 
 # ---------------------------------------------------------------------------

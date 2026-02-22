@@ -296,6 +296,16 @@ class TestGetPR:
         assert result["merged"] is False
 
 
+class TestDefaultBranch:
+    def test_default_branch(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_repo.default_branch = "master"
+        client._gh.get_repo.return_value = mock_repo
+
+        branch = client.default_branch("owner/repo")
+        assert branch == "master"
+
+
 class TestUpsertPRComment:
     def test_creates_comment_when_marker_missing(self, client: GitHubClient) -> None:
         mock_repo = MagicMock()

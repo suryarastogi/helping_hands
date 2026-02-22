@@ -16,11 +16,13 @@
   - [x] GitHub Actions workflow (`.github/workflows/ci.yml`) on push/PR:
     - [x] Install with uv, run tests (Python 3.12, 3.13, 3.14)
     - [x] ruff check + ruff format
+    - [x] Coverage reporting (`pytest-cov`) + XML upload to Codecov (Python 3.12 job)
     - [ ] Type check step (add when ty has a stable CI runner)
     - [ ] Optional: build/publish or deploy steps
 - [x] **Tests**
   - [x] `tests/` layout with test files for lib and cli (suite maintained and passing in CI)
   - [x] pytest as runner, configured in `pyproject.toml`
+  - [x] Coverage summary and missing lines reported by default in test runs
 
 ## 2. Dockerise app mode and add Compose
 

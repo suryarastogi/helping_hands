@@ -45,7 +45,8 @@ what the code does.
   Omit for obvious private helpers.
 - **Comments**: Only when the *why* isn't obvious from the code. Never
   narrate what the code does.
-- **Tests**: pytest, under `tests/`. Run with `uv run pytest -v`.
+- **Tests**: pytest, under `tests/`. Coverage reporting is enabled in pytest
+  defaults; run with `uv run pytest -v` (or add `--cov-report=xml` when needed).
 
 ## Design preferences `[auto-update]`
 
@@ -83,6 +84,9 @@ what the code does.
 - **Push auth**: Git pushes for finalization should be token-authenticated and non-interactive to avoid OS credential popups in automation. (2026-02-22)
 - **Hand module layout**: Keep hand implementations split under `src/helping_hands/lib/hands/v1/hand/` with `__init__.py` as public export surface; avoid regressing to a monolithic `hand.py`. (2026-02-22)
 - **System tool reuse**: Repo file operations for hands should use shared helpers in `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior and consistent semantics; MCP filesystem tools should route through the same layer. (2026-02-22)
+- **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
+- **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
+- **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
 
 ## Dependencies `[auto-update]`
 
@@ -93,6 +97,7 @@ what the code does.
 | Package | Group | Purpose |
 |---|---|---|
 | pytest | dev | Test runner |
+| pytest-cov | dev | Coverage reporting for pytest (terminal + XML) |
 | ruff | dev | Linter + formatter |
 | ty | dev | Type checker used in pre-commit |
 | pre-commit | dev | Git hook manager |
@@ -134,4 +139,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — hand package split, shared meta tools module, module-level interface docstrings, and docs reconciliation.*
+*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*

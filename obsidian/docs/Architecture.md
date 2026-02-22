@@ -18,9 +18,11 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
 3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, plus CLI scaffold hands.
    - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `langgraph.py`, `atomic.py`, `iterative.py`, `e2e.py`, `placeholders.py`, `__init__.py` export surface).
-4. **System tools layer** (`lib.meta.tools.filesystem`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands and MCP filesystem tools.
-5. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
-6. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
+4. **AI provider wrappers** (`lib.ai_providers`) — Provider-specific wrappers (`openai`, `anthropic`, `google`, `litellm`) with a common interface and lazy `inner` client/library.
+5. **Model adapter layer** (`lib/hands/v1/hand/model_provider.py`) — Resolves model strings (including `provider/model`) into backend-adapted runtime clients for LangGraph/Atomic hands.
+6. **System tools layer** (`lib.meta.tools.filesystem`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands and MCP filesystem tools.
+7. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
+8. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
 
 ## Finalization workflow (all hands)
 
@@ -32,6 +34,16 @@ Hands now share a finalization helper that runs by default unless explicitly dis
 4. Open PR with generated summary body.
 
 CLI flag `--no-pr` disables this final step for iterative/basic backends and maps to dry-run in E2E mode.
+
+## Iterative bootstrap context (basic hands)
+
+`BasicLangGraphHand` and `BasicAtomicHand` prepend iteration-1 prompt context with:
+
+1. `README.md`/`readme.md` content when present.
+2. `AGENT.md`/`agent.md` content when present.
+3. A bounded repository tree snapshot (depth/entry limited).
+
+This reduces first-iteration drift and gives the model conventions/context before it asks for additional `@@READ` data.
 
 ## E2E workflow (source of truth)
 
@@ -86,4 +98,5 @@ These are also reflected in the repo's [[AGENT.md]] under Design preferences.
 
 - Live E2E integration test is opt-in (`HELPING_HANDS_RUN_E2E_INTEGRATION=1`).
 - In CI matrix, only `master` + Python `3.13` performs live push/update; other versions run E2E in dry-run to avoid branch push races.
+- CI test runs now include `pytest-cov` coverage reporting and produce `coverage.xml`; Python `3.12` job uploads coverage to Codecov.
 - Pre-commit enforces `ruff`, `ruff-format`, and `ty` (currently scoped to `src` with targeted ignores for known optional-backend noise).

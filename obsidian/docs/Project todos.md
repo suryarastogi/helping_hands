@@ -22,3 +22,6 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - Basic iterative backends now default to a final commit/push/PR step; explicit `--no-pr` disables side effects (and maps to dry-run for E2E).
 - Non-E2E CLI supports `owner/repo` input by cloning to temporary workspace before indexing/iteration.
 - Hand internals were split from a single `hand.py` into a package module (`lib/hands/v1/hand/`); shared filesystem system tools now live in `lib/meta/tools/filesystem.py` and are also exposed via MCP filesystem tools.
+- Provider routing is now centralized in `lib/ai_providers/` plus `lib/hands/v1/hand/model_provider.py`, replacing direct provider client construction in hands.
+- Basic iterative hands now preload iteration-1 context from `README.md`, `AGENT.md`, and a bounded file-tree snapshot.
+- CI and local test runs now include coverage reporting (`pytest-cov`), and README shows a Codecov badge.
