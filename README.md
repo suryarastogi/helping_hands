@@ -45,7 +45,7 @@ helping_hands/
 │   │   ├── config.py
 │   │   ├── repo.py
 │   │   ├── github.py
-│   │   └── hands/v1/         # Hand backends (LangGraph, Atomic)
+│   │   └── hands/v1/         # Hand backends (LangGraph, Atomic, CLI scaffolds)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
@@ -85,6 +85,10 @@ helping_hands/
 2. Environment variables (`HELPING_HANDS_*`)
 3. A `.helping_hands.toml` file in the target repo or home directory
 
+Environment variables are loaded from `.env` files in the current working
+directory (and target repo directory when available), without overriding
+already-exported shell variables.
+
 Key settings:
 
 | Setting | Env var | Description |
@@ -92,6 +96,9 @@ Key settings:
 | `model` | `HELPING_HANDS_MODEL` | AI model to use (default: configurable) |
 | `repo` | — | Path or URL of the target repository |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
+| `claude cli cmd` | `HELPING_HANDS_CLAUDE_CLI_CMD` | Claude CLI command name (scaffold) |
+| `codex cli cmd` | `HELPING_HANDS_CODEX_CLI_CMD` | Codex CLI command name (scaffold) |
+| `gemini cli cmd` | `HELPING_HANDS_GEMINI_CLI_CMD` | Gemini CLI command name (scaffold) |
 
 ## Development
 

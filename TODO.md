@@ -40,6 +40,16 @@
 - [x] **Build in CI** — `.github/workflows/docs.yml` builds on push to main (docs/, mkdocs.yml, src/ changes)
 - [x] **Serve on GitHub** — Deploys to GitHub Pages via `actions/deploy-pages`
 
+## 4. Hand backend scaffolding vs implementation
+
+- [x] **Dotenv bootstrap** — `Config.from_env()` loads `.env` from cwd and repo path (without overriding exported env vars)
+- [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand.py`
+- [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+- [ ] **Codex CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+- [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+- [ ] **Backend selection/routing** — Add explicit config or CLI flag to choose backend (`langgraph`, `atomic`, `claudecode`, `codexcli`, `geminicli`)
+- [ ] **Streaming for CLI hands** — Implement incremental output streaming (instead of single placeholder chunk)
+
 ---
 
 *Update this file as items are completed. Design notes live in `obsidian/docs/`.*

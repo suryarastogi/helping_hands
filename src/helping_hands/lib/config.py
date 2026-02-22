@@ -6,6 +6,23 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency safety
+    load_dotenv = None  # type: ignore[assignment]
+
+
+def _load_env_files(repo: str | None = None) -> None:
+    """Load dotenv files from cwd and target repo (if available)."""
+    if load_dotenv is None:
+        return
+
+    load_dotenv(Path.cwd() / ".env", override=False)
+    if repo:
+        repo_path = Path(repo).expanduser()
+        if repo_path.is_dir():
+            load_dotenv(repo_path / ".env", override=False)
+
 
 @dataclass(frozen=True)
 class Config:
@@ -22,6 +39,9 @@ class Config:
 
         Priority: overrides (CLI flags) > env vars > defaults.
         """
+        repo_override = overrides.get("repo") if overrides else None
+        _load_env_files(str(repo_override) if isinstance(repo_override, str) else None)
+
         env_values: dict[str, str | bool | None] = {
             "model": os.environ.get("HELPING_HANDS_MODEL"),
             "verbose": os.environ.get("HELPING_HANDS_VERBOSE", "").lower()

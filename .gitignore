@@ -34,4 +34,3 @@ htmlcov/
 
 # Environment
 .env
-.env.*

@@ -6,6 +6,8 @@ A Hand is the AI agent that operates on a repo. This module defines:
   - ``LangGraphHand``: backend powered by LangChain / LangGraph.
   - ``AtomicHand``: backend powered by atomic-agents.
   - ``ClaudeCodeHand``: backend that invokes Claude Code via a terminal/bash call.
+  - ``CodexCLIHand``: backend that invokes Codex CLI via a terminal/bash call.
+  - ``GeminiCLIHand``: backend that invokes Gemini CLI via a terminal/bash call.
 """
 
 from __future__ import annotations
@@ -203,3 +205,55 @@ class ClaudeCodeHand(Hand):
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
         yield "ClaudeCode hand not yet implemented."
+
+
+# ---------------------------------------------------------------------------
+# Codex CLI backend (scaffolding)
+# ---------------------------------------------------------------------------
+
+
+class CodexCLIHand(Hand):
+    """Hand backed by Codex CLI via a terminal/bash invocation.
+
+    This backend would run the Codex CLI as a subprocess with repo context
+    and the user prompt, then capture stdout/stderr. Not yet implemented;
+    this class is scaffolding for future integration.
+    """
+
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        super().__init__(config, repo_index)
+
+    def run(self, prompt: str) -> HandResponse:
+        return HandResponse(
+            message="CodexCLI hand not yet implemented.",
+            metadata={"backend": "codexcli", "model": self.config.model},
+        )
+
+    async def stream(self, prompt: str) -> AsyncIterator[str]:
+        yield "CodexCLI hand not yet implemented."
+
+
+# ---------------------------------------------------------------------------
+# Gemini CLI backend (scaffolding)
+# ---------------------------------------------------------------------------
+
+
+class GeminiCLIHand(Hand):
+    """Hand backed by Gemini CLI via a terminal/bash invocation.
+
+    This backend would run the Gemini CLI as a subprocess with repo context
+    and the user prompt, then capture stdout/stderr. Not yet implemented;
+    this class is scaffolding for future integration.
+    """
+
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        super().__init__(config, repo_index)
+
+    def run(self, prompt: str) -> HandResponse:
+        return HandResponse(
+            message="GeminiCLI hand not yet implemented.",
+            metadata={"backend": "geminicli", "model": self.config.model},
+        )
+
+    async def stream(self, prompt: str) -> AsyncIterator[str]:
+        yield "GeminiCLI hand not yet implemented."

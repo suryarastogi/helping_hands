@@ -13,6 +13,8 @@ from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand import (
     AtomicHand,
     ClaudeCodeHand,
+    CodexCLIHand,
+    GeminiCLIHand,
     Hand,
     HandResponse,
     LangGraphHand,
@@ -251,6 +253,56 @@ class TestClaudeCodeHand:
         self, config: Config, repo_index: RepoIndex
     ) -> None:
         hand = ClaudeCodeHand(config, repo_index)
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        assert len(chunks) == 1
+        assert "not yet implemented" in chunks[0]
+
+
+# ---------------------------------------------------------------------------
+# CodexCLIHand (scaffolding)
+# ---------------------------------------------------------------------------
+
+
+class TestCodexCLIHand:
+    def test_run_returns_placeholder(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = CodexCLIHand(config, repo_index)
+        resp = hand.run("do something")
+        assert "not yet implemented" in resp.message
+        assert resp.metadata["backend"] == "codexcli"
+
+    def test_stream_yields_placeholder(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = CodexCLIHand(config, repo_index)
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        assert len(chunks) == 1
+        assert "not yet implemented" in chunks[0]
+
+
+# ---------------------------------------------------------------------------
+# GeminiCLIHand (scaffolding)
+# ---------------------------------------------------------------------------
+
+
+class TestGeminiCLIHand:
+    def test_run_returns_placeholder(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = GeminiCLIHand(config, repo_index)
+        resp = hand.run("do something")
+        assert "not yet implemented" in resp.message
+        assert resp.metadata["backend"] == "geminicli"
+
+    def test_stream_yields_placeholder(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = GeminiCLIHand(config, repo_index)
         chunks = asyncio.get_event_loop().run_until_complete(
             _collect_stream(hand, "hello")
         )

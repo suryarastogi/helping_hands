@@ -105,6 +105,7 @@ what the code does.
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
+| python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
 
 ---
 
@@ -128,4 +129,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-21 — GitHub module (lib/github.py), PyGithub dep, auth/clone/branch/PR tooling for agents.*
+*Last updated: 2026-02-22 — dotenv config loading + CLI hand scaffolds (Claude/Codex/Gemini), python-dotenv dependency.*
