@@ -25,6 +25,9 @@ Browse the auto-generated docs from source:
 - Basic iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`)
   stream multi-step output and, by default, attempt a final commit/push/PR step
   unless disabled via `--no-pr`.
+- `codexcli` backend runs a two-phase CLI workflow:
+  initialization/learning pass, then task execution pass.
+- `codexcli` passes `--model gpt-5.2` by default when model is unset/default.
 - Basic iterative hands preload iteration-1 context with `README.md`/`AGENT.md`
   (when present) and a bounded-depth repo tree snapshot.
 - Model selection resolves through `lib.ai_providers` wrappers, including
@@ -38,6 +41,20 @@ Browse the auto-generated docs from source:
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
 
+## Codex backend requirements
+
+- `codex` CLI installed and on `PATH`.
+- Authenticated codex session in your shell (`codex login`) or equivalent key-based setup.
+- `GITHUB_TOKEN` or `GH_TOKEN` set if you want final commit/push/PR creation.
+- Access to the model you request; if your codex default model is unavailable, pass `--model gpt-5.2`.
+- `codexcli` backend is CLI-only right now; app mode currently does not route tasks to codex.
+
+Quick check:
+
+```bash
+codex exec --model gpt-5.2 "Reply with READY and one sentence."
+```
+
 ## CLI examples
 
 ```bash
@@ -49,6 +66,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend basic-atomic --model
 
 # basic-agent
 uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# codexcli
+uv run helping-hands "suryarastogi/helping_hands" --backend codexcli --model gpt-5.2 --prompt "Implement one small safe improvement"
 
 # e2e (new PR)
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"

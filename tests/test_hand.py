@@ -762,26 +762,233 @@ class TestClaudeCodeHand:
 
 
 # ---------------------------------------------------------------------------
-# CodexCLIHand (scaffolding)
+# CodexCLIHand
 # ---------------------------------------------------------------------------
 
 
 class TestCodexCLIHand:
-    def test_run_returns_placeholder(
-        self, config: Config, repo_index: RepoIndex
+    def test_render_command_defaults_to_codex_exec(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "codex")
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        assert cmd[:2] == ["codex", "exec"]
+        assert cmd[-1] == "hello world"
+
+    def test_render_command_uses_safe_default_model(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "codex")
+        config = Config(repo="/tmp/fake", model="default")
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+        assert "--model gpt-5.2" in joined
+
+    def test_render_command_normalizes_provider_prefixed_model(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "codex")
+        config = Config(repo="/tmp/fake", model="openai/gpt-5.2")
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+        assert "--model gpt-5.2" in joined
+        assert "openai/gpt-5.2" not in joined
+
+    def test_render_command_expands_placeholders(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv(
+            "HELPING_HANDS_CODEX_CLI_CMD",
+            'codex exec --model {model} --repo {repo} --prompt "{prompt}"',
+        )
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+        assert "--model test-model" in joined
+        assert f"--repo {repo_index.root.resolve()}" in joined
+        assert "--prompt hello world" in joined
+        assert cmd.count("hello world") == 1
+
+    @patch.object(CodexCLIHand, "_finalize_repo_pr")
+    @patch.object(CodexCLIHand, "_invoke_codex", autospec=True)
+    def test_run_executes_init_then_task(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: CodexCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "Init summary.\n" if len(prompts) == 1 else "Task output.\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/99",
+            "pr_number": "99",
+            "pr_branch": "helping-hands/codexcli-test",
+            "pr_commit": "abc123",
+        }
+
         hand = CodexCLIHand(config, repo_index)
         resp = hand.run("do something")
-        assert "not yet implemented" in resp.message
-        assert resp.metadata["backend"] == "codexcli"
 
-    def test_stream_yields_placeholder(
-        self, config: Config, repo_index: RepoIndex
+        assert len(prompts) == 2
+        assert "Initialization phase" in prompts[0]
+        assert "User task request" in prompts[1]
+        assert "Init summary." in prompts[1]
+        assert "Task output." in resp.message
+        assert resp.metadata["backend"] == "codexcli"
+        mock_finalize.assert_called_once()
+
+    @patch.object(CodexCLIHand, "_finalize_repo_pr")
+    @patch.object(CodexCLIHand, "_invoke_codex", autospec=True)
+    def test_stream_runs_two_phases_and_emits_pr_result(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
     ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: CodexCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "init output\n" if len(prompts) == 1 else "task output\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/7",
+            "pr_number": "7",
+            "pr_branch": "helping-hands/codexcli-test",
+            "pr_commit": "abc123",
+        }
+
         hand = CodexCLIHand(config, repo_index)
         chunks = asyncio.run(_collect_stream(hand, "hello"))
-        assert len(chunks) == 1
-        assert "not yet implemented" in chunks[0]
+        text = "".join(chunks)
+
+        assert "[phase 1/2]" in text
+        assert "[phase 2/2]" in text
+        assert "init output" in text
+        assert "task output" in text
+        assert "PR created" in text
+        assert len(prompts) == 2
+
+    @patch.object(CodexCLIHand, "_finalize_repo_pr")
+    @patch.object(CodexCLIHand, "_invoke_codex", autospec=True)
+    def test_stream_emits_non_created_pr_status(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: CodexCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "init output\n" if len(prompts) == 1 else "task output\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "missing_token",
+            "pr_url": "",
+            "pr_number": "",
+            "pr_branch": "",
+            "pr_commit": "",
+            "pr_error": "GITHUB_TOKEN or GH_TOKEN is required",
+        }
+
+        hand = CodexCLIHand(config, repo_index)
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
+        text = "".join(chunks)
+
+        assert len(prompts) == 2
+        assert "PR status: missing_token" in text
+        assert "GITHUB_TOKEN or GH_TOKEN is required" in text
+
+    @patch.object(CodexCLIHand, "_finalize_repo_pr")
+    @patch.object(CodexCLIHand, "_invoke_codex", autospec=True)
+    def test_stream_stops_after_interrupt(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = CodexCLIHand(config, repo_index)
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: CodexCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            await emit("init output\n")
+            hand.interrupt()
+            return "init output\n"
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/7",
+            "pr_number": "7",
+            "pr_branch": "helping-hands/codexcli-test",
+            "pr_commit": "abc123",
+        }
+
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
+        text = "".join(chunks)
+
+        assert "Interrupted during initialization" in text
+        assert "[phase 2/2]" not in text
+        assert len(prompts) == 1
+        mock_finalize.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

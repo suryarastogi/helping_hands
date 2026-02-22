@@ -16,6 +16,7 @@ from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand import (
     BasicAtomicHand,
     BasicLangGraphHand,
+    CodexCLIHand,
     E2EHand,
     Hand,
 )
@@ -53,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--backend",
-        choices=("basic-langgraph", "basic-atomic", "basic-agent"),
+        choices=("basic-langgraph", "basic-atomic", "basic-agent", "codexcli"),
         default=None,
         help="Run an iterative coding hand in CLI mode.",
     )
@@ -126,6 +127,8 @@ def main(argv: list[str] | None = None) -> None:
                     repo_index,
                     max_iterations=args.max_iterations,
                 )
+            elif args.backend == "codexcli":
+                hand = CodexCLIHand(config, repo_index)
             else:
                 hand = BasicAtomicHand(
                     config,
@@ -175,6 +178,9 @@ def main(argv: list[str] | None = None) -> None:
                     ),
                     file=sys.stderr,
                 )
+                sys.exit(1)
+            if args.backend == "codexcli":
+                print(f"Error: {msg}", file=sys.stderr)
                 sys.exit(1)
             raise
         return

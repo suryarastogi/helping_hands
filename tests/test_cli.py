@@ -199,6 +199,70 @@ class TestCli:
         assert mock_hand.auto_pr is False
 
     @patch("helping_hands.cli.main.asyncio.run")
+    @patch("helping_hands.cli.main.CodexCLIHand")
+    def test_cli_runs_codexcli_backend(
+        self,
+        mock_hand_cls: MagicMock,
+        mock_asyncio_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        def _close_coroutine(coro: object) -> None:
+            if hasattr(coro, "close"):
+                coro.close()
+            return None
+
+        mock_asyncio_run.side_effect = _close_coroutine
+        (tmp_path / "hello.py").write_text("")
+        mock_hand = MagicMock()
+        mock_hand_cls.return_value = mock_hand
+
+        main(
+            [
+                str(tmp_path),
+                "--backend",
+                "codexcli",
+                "--prompt",
+                "implement feature",
+            ]
+        )
+
+        mock_hand_cls.assert_called_once()
+        mock_asyncio_run.assert_called_once()
+        assert mock_hand.auto_pr is True
+
+    @patch("helping_hands.cli.main.asyncio.run")
+    @patch("helping_hands.cli.main.CodexCLIHand")
+    def test_cli_reports_codexcli_runtime_error(
+        self,
+        mock_hand_cls: MagicMock,
+        mock_asyncio_run: MagicMock,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def _raise_runtime_error(coro: object) -> None:
+            if hasattr(coro, "close"):
+                coro.close()
+            raise RuntimeError("Codex CLI command not found: 'codex'")
+
+        mock_asyncio_run.side_effect = _raise_runtime_error
+        (tmp_path / "hello.py").write_text("")
+        mock_hand = MagicMock()
+        mock_hand_cls.return_value = mock_hand
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    str(tmp_path),
+                    "--backend",
+                    "codexcli",
+                    "--prompt",
+                    "implement feature",
+                ]
+            )
+        captured = capsys.readouterr()
+        assert "Codex CLI command not found" in captured.err
+
+    @patch("helping_hands.cli.main.asyncio.run")
     @patch("helping_hands.cli.main.BasicLangGraphHand")
     def test_cli_interrupt_requests_hand_interrupt(
         self,

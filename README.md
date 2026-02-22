@@ -16,7 +16,7 @@
 
 ### Modes
 
-- **CLI mode** (default) — Run `helping_hands <repo>` or `helping_hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) with streamed output.
+- **CLI mode** (default) — Run `helping_hands <repo>` or `helping_hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) and `codexcli` with streamed output.
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -81,6 +81,9 @@ uv run helping-hands owner/repo --backend basic-atomic --model gpt-5.2 --prompt 
 
 # Run iterative Agent backend (same dependency extra as basic-atomic)
 uv run helping-hands owner/repo --backend basic-agent --model gpt-5.2 --prompt "Implement X" --max-iterations 4
+
+# Run Codex CLI backend (two-phase: initialize repo context, then execute task)
+uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --prompt "Implement X"
 
 # Disable final commit/push/PR step explicitly
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
@@ -231,9 +234,35 @@ Key settings:
 Key CLI flags:
 
 - `--backend {basic-langgraph,basic-atomic,basic-agent}` — run iterative basic hands
+- `--backend codexcli` — run Codex CLI backend (initialize/learn repo, then execute task)
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
+
+Codex CLI backend notes:
+
+- Default command: `codex exec`
+- Default model passed to codex: `gpt-5.2` (unless overridden with `--model` or command override)
+- Override command via `HELPING_HANDS_CODEX_CLI_CMD`
+- Optional placeholders supported in the override string:
+  - `{prompt}`
+  - `{repo}`
+  - `{model}`
+
+Codex backend requirements:
+
+- `codex` CLI must be installed and available on `PATH` (`codex --version`).
+- You must be authenticated in the same shell (`codex login`) or provide a valid API key for your codex setup.
+- To create/push PRs at the end of a run, set `GITHUB_TOKEN` or `GH_TOKEN` in the same shell.
+- Your account must have access to the requested model; if your standalone codex default is unavailable (for example `gpt-5.3-codex`), pass `--model gpt-5.2` explicitly or update `~/.codex/config.toml`.
+- `codexcli` is currently a CLI backend; app/worker mode supports `e2e`, `basic-langgraph`, `basic-atomic`, and `basic-agent`.
+- No extra Python optional dependency is required for `codexcli` itself (unlike `--extra langchain` and `--extra atomic` used by other iterative backends).
+
+Codex backend smoke test:
+
+```bash
+codex exec --model gpt-5.2 "Reply with READY and one sentence."
+```
 
 Backend command examples:
 
@@ -246,6 +275,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend basic-atomic --model
 
 # basic-agent
 uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# codexcli
+uv run helping-hands "suryarastogi/helping_hands" --backend codexcli --model gpt-5.2 --prompt "Implement one small safe improvement"
 
 # e2e
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"

@@ -57,9 +57,9 @@
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
   - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Codex CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+  - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
   - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to non-basic hands (`langgraph`, `atomic`, `claudecode`, `codexcli`, `geminicli`) beyond the current basic aliases.
+  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
   - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
