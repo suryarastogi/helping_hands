@@ -212,9 +212,7 @@ class TestLangGraphHand:
         mock_build.return_value = mock_agent
 
         hand = LangGraphHand(config, repo_index)
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hi")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hi"))
         assert chunks == ["Hello ", "world"]
 
 
@@ -434,9 +432,7 @@ class TestAtomicHand:
 
         hand = AtomicHand(config, repo_index)
         hand._input_schema = _FakeInputSchema
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         assert chunks == ["Part 1", "Part 2"]
 
     @patch.object(AtomicHand, "_build_agent")
@@ -457,9 +453,7 @@ class TestAtomicHand:
 
         hand = AtomicHand(config, repo_index)
         hand._input_schema = _FakeInputSchema
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         assert chunks == ["Single result"]
 
     @patch.object(AtomicHand, "_build_agent")
@@ -484,9 +478,7 @@ class TestAtomicHand:
 
         hand = AtomicHand(config, repo_index)
         hand._input_schema = _FakeInputSchema
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         assert chunks == ["Sync fallback result"]
 
 
@@ -624,9 +616,7 @@ class TestBasicAtomicHand:
 
         hand = BasicAtomicHand(config, repo_index)
         hand._input_schema = _FakeInputSchema
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         assert "[interrupted]" in "".join(chunks)
 
     @patch.object(BasicAtomicHand, "_build_agent")
@@ -647,9 +637,7 @@ class TestBasicAtomicHand:
 
         hand = BasicAtomicHand(config, repo_index)
         hand._input_schema = _FakeInputSchema
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         text = "".join(chunks)
         assert "SATISFIED: yes" in text
         assert "Task marked satisfied." in text
@@ -676,9 +664,7 @@ class TestBasicAtomicHand:
 
         hand = BasicAtomicHand(config, repo_index)
         hand._input_schema = _FakeInputSchema
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         text = "".join(chunks)
         assert "SATISFIED: yes" in text
         assert "Task marked satisfied." in text
@@ -702,9 +688,7 @@ class TestClaudeCodeHand:
         self, config: Config, repo_index: RepoIndex
     ) -> None:
         hand = ClaudeCodeHand(config, repo_index)
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         assert len(chunks) == 1
         assert "not yet implemented" in chunks[0]
 
@@ -727,9 +711,7 @@ class TestCodexCLIHand:
         self, config: Config, repo_index: RepoIndex
     ) -> None:
         hand = CodexCLIHand(config, repo_index)
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         assert len(chunks) == 1
         assert "not yet implemented" in chunks[0]
 
@@ -752,9 +734,7 @@ class TestGeminiCLIHand:
         self, config: Config, repo_index: RepoIndex
     ) -> None:
         hand = GeminiCLIHand(config, repo_index)
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
-        )
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
         assert len(chunks) == 1
         assert "not yet implemented" in chunks[0]
 
