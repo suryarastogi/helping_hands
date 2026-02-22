@@ -347,6 +347,9 @@ class TestE2EHand:
         mock_gh.add_and_commit.assert_called_once()
         mock_gh.push.assert_called_once()
         mock_gh.create_pr.assert_called_once()
+        mock_gh.upsert_pr_comment.assert_called_once()
+        body = mock_gh.upsert_pr_comment.call_args.kwargs["body"]
+        assert "latest_updated_utc" in body
 
     def test_run_requires_repo(self, config: Config, repo_index: RepoIndex) -> None:
         hand = E2EHand(Config(repo="", model="test-model"), repo_index)
@@ -385,6 +388,12 @@ class TestE2EHand:
         mock_gh.create_branch.assert_not_called()
         mock_gh.set_local_identity.assert_called_once()
         mock_gh.create_pr.assert_not_called()
+        mock_gh.upsert_pr_comment.assert_called_once()
+        args = mock_gh.upsert_pr_comment.call_args.args
+        kwargs = mock_gh.upsert_pr_comment.call_args.kwargs
+        assert args == ("owner/repo", 1)
+        assert kwargs["marker"] == "<!-- helping_hands:e2e-status -->"
+        assert "latest_updated_utc" in kwargs["body"]
 
     @patch("helping_hands.lib.github.GitHubClient")
     def test_run_dry_run_skips_push_and_pr(
@@ -410,6 +419,7 @@ class TestE2EHand:
         mock_gh.add_and_commit.assert_not_called()
         mock_gh.push.assert_not_called()
         mock_gh.create_pr.assert_not_called()
+        mock_gh.upsert_pr_comment.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

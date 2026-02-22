@@ -310,6 +310,34 @@ class GitHubClient:
             "merged": pr.merged,
         }
 
+    def upsert_pr_comment(
+        self,
+        full_name: str,
+        number: int,
+        *,
+        body: str,
+        marker: str = "<!-- helping_hands:status -->",
+    ) -> int:
+        """Create or update a marker-tagged PR comment.
+
+        If a comment containing ``marker`` already exists, it is edited in place.
+        Otherwise, a new comment is created.
+        """
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        comment_body = body.rstrip()
+        if marker and marker not in comment_body:
+            comment_body = f"{comment_body}\n\n{marker}"
+
+        for comment in issue.get_comments():
+            existing = comment.body or ""
+            if marker and marker in existing:
+                comment.edit(comment_body)
+                return int(comment.id)
+
+        created = issue.create_comment(comment_body)
+        return int(created.id)
+
     # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------

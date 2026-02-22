@@ -296,6 +296,55 @@ class TestGetPR:
         assert result["merged"] is False
 
 
+class TestUpsertPRComment:
+    def test_creates_comment_when_marker_missing(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_issue = MagicMock()
+        mock_repo.get_issue.return_value = mock_issue
+        mock_issue.get_comments.return_value = []
+        created = MagicMock()
+        created.id = 123
+        mock_issue.create_comment.return_value = created
+        client._gh.get_repo.return_value = mock_repo
+
+        comment_id = client.upsert_pr_comment(
+            "owner/repo",
+            9,
+            body="Status update",
+            marker="<!-- helping_hands:e2e-status -->",
+        )
+
+        assert comment_id == 123
+        mock_issue.create_comment.assert_called_once_with(
+            "Status update\n\n<!-- helping_hands:e2e-status -->"
+        )
+
+    def test_updates_existing_comment_when_marker_found(
+        self, client: GitHubClient
+    ) -> None:
+        mock_repo = MagicMock()
+        mock_issue = MagicMock()
+        mock_repo.get_issue.return_value = mock_issue
+        existing = MagicMock()
+        existing.id = 77
+        existing.body = "old\n\n<!-- helping_hands:e2e-status -->"
+        mock_issue.get_comments.return_value = [existing]
+        client._gh.get_repo.return_value = mock_repo
+
+        comment_id = client.upsert_pr_comment(
+            "owner/repo",
+            9,
+            body="new status",
+            marker="<!-- helping_hands:e2e-status -->",
+        )
+
+        assert comment_id == 77
+        existing.edit.assert_called_once_with(
+            "new status\n\n<!-- helping_hands:e2e-status -->"
+        )
+        mock_issue.create_comment.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Context manager
 # ---------------------------------------------------------------------------

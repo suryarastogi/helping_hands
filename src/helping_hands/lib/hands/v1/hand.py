@@ -210,6 +210,24 @@ class E2EHand(Hand):
     def _default_base_branch() -> str:
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
 
+    @staticmethod
+    def _build_e2e_pr_comment(
+        *,
+        hand_uuid: str,
+        prompt: str,
+        stamp_utc: str,
+        commit_sha: str,
+    ) -> str:
+        # E2E is deterministic; production hands should provide AI-authored
+        # PR summaries/comments when they own the PR workflow.
+        return (
+            "## helping_hands E2E update\n\n"
+            f"- latest_updated_utc: `{stamp_utc}`\n"
+            f"- hand_uuid: `{hand_uuid}`\n"
+            f"- commit: `{commit_sha}`\n"
+            f"- prompt: {prompt}\n"
+        )
+
     def run(
         self,
         prompt: str,
@@ -298,6 +316,18 @@ class E2EHand(Hand):
                     )
                     pr_url = pr.url
                     final_pr_number = pr.number
+                if final_pr_number is not None:
+                    gh.upsert_pr_comment(
+                        repo,
+                        final_pr_number,
+                        body=self._build_e2e_pr_comment(
+                            hand_uuid=hand_uuid,
+                            prompt=prompt,
+                            stamp_utc=stamp,
+                            commit_sha=commit_sha,
+                        ),
+                        marker="<!-- helping_hands:e2e-status -->",
+                    )
 
         if dry_run:
             message = "E2EHand dry run complete. No push/PR performed."
