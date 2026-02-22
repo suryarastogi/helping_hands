@@ -89,7 +89,8 @@ def build_feature(
         repo_path: Local path or GitHub repo reference in `owner/repo` format.
         prompt: Description of the feature or change to build.
         pr_number: Optional existing PR number to resume/update.
-        backend: One of e2e/basic-langgraph/basic-atomic/basic-agent.
+        backend: One of e2e/basic-langgraph/basic-atomic/basic-agent/
+            codexcli/claudecodecli.
         model: Optional model override.
         max_iterations: Iteration cap for basic backends.
         no_pr: Disable final PR push/create side effects.

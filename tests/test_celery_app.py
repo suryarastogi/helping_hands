@@ -57,6 +57,11 @@ class TestNormalizeBackend:
         assert requested == "codexcli"
         assert runtime == "codexcli"
 
+    def test_claudecodecli_backend_is_supported(self) -> None:
+        requested, runtime = celery_app._normalize_backend("claudecodecli")
+        assert requested == "claudecodecli"
+        assert runtime == "claudecodecli"
+
     def test_invalid_backend_raises(self) -> None:
         with pytest.raises(ValueError, match="unsupported backend"):
             celery_app._normalize_backend("unknown-backend")

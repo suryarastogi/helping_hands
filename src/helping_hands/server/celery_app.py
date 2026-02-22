@@ -53,6 +53,7 @@ _SUPPORTED_BACKENDS = {
     "basic-atomic",
     "basic-agent",
     "codexcli",
+    "claudecodecli",
 }
 _MAX_STORED_UPDATES = 200
 _MAX_UPDATE_LINE_CHARS = 800
@@ -240,6 +241,7 @@ def build_feature(
     from helping_hands.lib.hands.v1.hand import (
         BasicAtomicHand,
         BasicLangGraphHand,
+        ClaudeCodeHand,
         CodexCLIHand,
         E2EHand,
     )
@@ -352,6 +354,11 @@ def build_feature(
             )
         elif runtime_backend == "codexcli":
             hand = CodexCLIHand(
+                config,
+                repo_index,
+            )
+        elif runtime_backend == "claudecodecli":
+            hand = ClaudeCodeHand(
                 config,
                 repo_index,
             )

@@ -739,26 +739,133 @@ class TestBasicAtomicHand:
 
 
 # ---------------------------------------------------------------------------
-# ClaudeCodeHand (scaffolding)
+# ClaudeCodeHand
 # ---------------------------------------------------------------------------
 
 
 class TestClaudeCodeHand:
-    def test_run_returns_placeholder(
-        self, config: Config, repo_index: RepoIndex
+    def test_build_claude_failure_message_for_auth_error(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
     ) -> None:
+        hand = ClaudeCodeHand(config, repo_index)
+        msg = hand._build_claude_failure_message(
+            return_code=1,
+            output="ERROR: unauthorized: missing ANTHROPIC_API_KEY",
+        )
+        assert "authentication failed" in msg
+        assert "ANTHROPIC_API_KEY" in msg
+
+    def test_render_command_defaults_to_claude_prompt_mode(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CLI_CMD", "claude")
+        hand = ClaudeCodeHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        assert cmd[:2] == ["claude", "-p"]
+        assert cmd[-1] == "hello world"
+
+    def test_render_command_skips_openai_default_model(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CLI_CMD", "claude -p")
+        config = Config(repo="/tmp/fake", model="gpt-5.2")
+        hand = ClaudeCodeHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+        assert "--model" not in joined
+
+    @patch.object(ClaudeCodeHand, "_finalize_repo_pr")
+    @patch.object(ClaudeCodeHand, "_invoke_claude", autospec=True)
+    def test_run_executes_init_then_task(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: ClaudeCodeHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "Init summary.\n" if len(prompts) == 1 else "Task output.\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/55",
+            "pr_number": "55",
+            "pr_branch": "helping-hands/claudecodecli-test",
+            "pr_commit": "abc123",
+        }
+
         hand = ClaudeCodeHand(config, repo_index)
         resp = hand.run("do something")
-        assert "not yet implemented" in resp.message
-        assert resp.metadata["backend"] == "claudecode"
 
-    def test_stream_yields_placeholder(
-        self, config: Config, repo_index: RepoIndex
+        assert len(prompts) == 2
+        assert "Initialization phase" in prompts[0]
+        assert "User task request" in prompts[1]
+        assert "Init summary." in prompts[1]
+        assert "Task output." in resp.message
+        assert resp.metadata["backend"] == "claudecodecli"
+        mock_finalize.assert_called_once()
+
+    @patch.object(ClaudeCodeHand, "_finalize_repo_pr")
+    @patch.object(ClaudeCodeHand, "_invoke_claude", autospec=True)
+    def test_stream_runs_two_phases_and_emits_pr_result(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
     ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: ClaudeCodeHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "init output\n" if len(prompts) == 1 else "task output\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/3",
+            "pr_number": "3",
+            "pr_branch": "helping-hands/claudecodecli-test",
+            "pr_commit": "abc123",
+        }
+
         hand = ClaudeCodeHand(config, repo_index)
         chunks = asyncio.run(_collect_stream(hand, "hello"))
-        assert len(chunks) == 1
-        assert "not yet implemented" in chunks[0]
+        text = "".join(chunks)
+
+        assert "[phase 1/2]" in text
+        assert "[phase 2/2]" in text
+        assert "init output" in text
+        assert "task output" in text
+        assert "PR created" in text
+        assert len(prompts) == 2
 
 
 # ---------------------------------------------------------------------------

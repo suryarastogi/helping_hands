@@ -6,8 +6,8 @@ High-level view of how helping_hands is built. For file layout and config, see t
 
 The project currently exposes three runtime surfaces:
 
-- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and `codexcli`.
-- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, and `codexcli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to `Update README.md` and keeps monitor cells at fixed dimensions with in-cell scrolling.
+- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`).
+- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, and `claudecodecli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to `Update README.md` and keeps monitor cells at fixed dimensions with in-cell scrolling.
 - **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
@@ -63,6 +63,19 @@ Requirements:
    - `HELPING_HANDS_CODEX_CONTAINER_IMAGE=<image-with-codex-cli>`
 8. App-mode worker runtime must also have `codex` installed/authenticated when running `codexcli`.
    - Current Dockerfile installs `@openai/codex` for app/worker images.
+
+## Claude Code CLI backend requirements
+
+`claudecodecli` uses the external `claude` executable from the user
+environment.
+
+1. `claude` CLI installed and available on `PATH`.
+2. Auth configured for CLI execution (typically `ANTHROPIC_API_KEY`).
+3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
+4. Optional command/container overrides:
+   - `HELPING_HANDS_CLAUDE_CLI_CMD`
+   - `HELPING_HANDS_CLAUDE_CONTAINER=1`
+   - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
 
 ## E2E workflow (source of truth)
 

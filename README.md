@@ -16,7 +16,7 @@
 
 ### Modes
 
-- **CLI mode** (default) — Run `helping_hands <repo>` or `helping_hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) and `codexcli` with streamed output.
+- **CLI mode** (default) — Run `helping_hands <repo>` or `helping_hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) plus CLI backends (`codexcli`, `claudecodecli`) with streamed output.
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -85,6 +85,9 @@ uv run helping-hands owner/repo --backend basic-agent --model gpt-5.2 --prompt "
 # Run Codex CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --prompt "Implement X"
 
+# Run Claude Code CLI backend (two-phase: initialize repo context, then execute task)
+uv run helping-hands owner/repo --backend claudecodecli --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
+
 # Disable final commit/push/PR step explicitly
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
 
@@ -102,7 +105,7 @@ docker compose up --build
 ### Trigger a run in app mode
 
 App mode enqueues Celery tasks through the FastAPI server and supports `e2e`,
-iterative/basic backends, and `codexcli`.
+iterative/basic backends, and CLI backends (`codexcli`, `claudecodecli`).
 
 For `codexcli` in app mode, rebuild images after pulling latest changes so
 the worker image includes `codex`:
@@ -124,7 +127,7 @@ environment (custom model provider in `~/.codex/config.toml`), so no
 `codex login` or `auth.json` is required in Docker.
 
 The built-in UI at `http://localhost:8000/` supports:
-- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`)
+- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`)
 - model override
 - max iterations
 - optional PR number
@@ -173,6 +176,16 @@ curl -sS -X POST "http://localhost:8000/build" \
     "prompt": "Implement one small safe improvement",
     "backend": "codexcli",
     "model": "gpt-5.2"
+  }'
+
+# Example claudecodecli run in app mode
+curl -sS -X POST "http://localhost:8000/build" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_path": "suryarastogi/helping_hands",
+    "prompt": "Implement one small safe improvement",
+    "backend": "claudecodecli",
+    "model": "anthropic/claude-sonnet-4-5"
   }'
 ```
 
@@ -267,6 +280,7 @@ Key CLI flags:
 
 - `--backend {basic-langgraph,basic-atomic,basic-agent}` — run iterative basic hands
 - `--backend codexcli` — run Codex CLI backend (initialize/learn repo, then execute task)
+- `--backend claudecodecli` — run Claude Code CLI backend (initialize/learn repo, then execute task)
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
@@ -299,7 +313,7 @@ Codex backend requirements:
 - By default, codex commands run with host/container-aware sandbox mode (`workspace-write` on host, `danger-full-access` in containers).
 - By default, codex automation uses `--skip-git-repo-check` for non-interactive worker/CLI runs.
 - If you enable container mode, Docker must be installed and the image must include the `codex` executable.
-- App mode supports `codexcli` as well; ensure the worker runtime has `codex` installed and authenticated.
+- App mode supports `codexcli` and `claudecodecli`; ensure the worker runtime has each CLI installed/authenticated as needed.
 - The included Dockerfile installs `@openai/codex` in app/worker images.
 - No extra Python optional dependency is required for `codexcli` itself (unlike `--extra langchain` and `--extra atomic` used by other iterative backends).
 
@@ -308,6 +322,25 @@ Codex backend smoke test:
 ```bash
 codex exec --model gpt-5.2 "Reply with READY and one sentence."
 ```
+
+Claude Code backend notes:
+
+- Default command: `claude -p`
+- Override command via `HELPING_HANDS_CLAUDE_CLI_CMD`
+- Optional placeholders supported in the override string:
+  - `{prompt}`
+  - `{repo}`
+  - `{model}`
+- Optional container mode:
+  - `HELPING_HANDS_CLAUDE_CONTAINER=1`
+  - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
+
+Claude Code backend requirements:
+
+- `claude` CLI must be installed and available on `PATH`.
+- Ensure authentication is configured (typically `ANTHROPIC_API_KEY`).
+- To create/push PRs at the end of a run, set `GITHUB_TOKEN` or `GH_TOKEN`.
+
 
 Backend command examples:
 
@@ -323,6 +356,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model 
 
 # codexcli
 uv run helping-hands "suryarastogi/helping_hands" --backend codexcli --model gpt-5.2 --prompt "Implement one small safe improvement"
+
+# claudecodecli
+uv run helping-hands "suryarastogi/helping_hands" --backend claudecodecli --model anthropic/claude-sonnet-4-5 --prompt "Implement one small safe improvement"
 
 # e2e
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"
