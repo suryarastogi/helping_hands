@@ -43,12 +43,18 @@
 ## 4. Hand backend scaffolding vs implementation
 
 - [x] **Dotenv bootstrap** — `Config.from_env()` loads `.env` from cwd and repo path (without overriding exported env vars)
+- [x] **E2E hand flow implemented** — `E2EHand` executes clone -> minimal edit -> commit -> push -> PR, with hand UUID and `{hand_uuid}/git/{repo}` workspace layout
+- [x] **Task ID propagation** — async runs reuse Celery task ID as `hand_uuid`; sync CLI runs generate UUID inside the hand
+- [x] **PR resume/update support** — optional `pr_number` updates an existing PR branch instead of opening a new PR
+- [x] **Live integration coverage** — opt-in pytest integration test can run E2E hand against CI-provided GitHub token/repo
+- [x] **Safe CI gating** — integration test auto-runs dry-run off `master`; only `master` performs real PR updates
 - [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand.py`
 - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
 - [ ] **Codex CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
 - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
 - [ ] **Backend selection/routing** — Add explicit config or CLI flag to choose backend (`langgraph`, `atomic`, `claudecode`, `codexcli`, `geminicli`)
 - [ ] **Streaming for CLI hands** — Implement incremental output streaming (instead of single placeholder chunk)
+- [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
 ---
 

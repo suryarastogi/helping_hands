@@ -34,4 +34,8 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
+          HELPING_HANDS_RUN_E2E_INTEGRATION: ${{ vars.HELPING_HANDS_RUN_E2E_INTEGRATION }}
+          HELPING_HANDS_E2E_PR_NUMBER: ${{ vars.HELPING_HANDS_E2E_PR_NUMBER }}
         run: uv run pytest -v

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,15 @@ from github.PullRequest import PullRequest
 from github.Repository import Repository
 
 logger = logging.getLogger(__name__)
+
+
+def _redact_sensitive(text: str) -> str:
+    """Redact token-bearing GitHub URLs in logs/errors."""
+    return re.sub(
+        r"(https://x-access-token:)[^@]+(@github\.com/)",
+        r"\1***\2",
+        text,
+    )
 
 
 @dataclass
@@ -305,6 +315,8 @@ def _run_git(
         check=False,
     )
     if result.returncode != 0:
-        msg = f"git failed ({' '.join(cmd)}): {result.stderr.strip()}"
+        safe_cmd = " ".join(_redact_sensitive(part) for part in cmd)
+        safe_stderr = _redact_sensitive(result.stderr.strip())
+        msg = f"git failed ({safe_cmd}): {safe_stderr}"
         raise RuntimeError(msg)
     return result

@@ -1,10 +1,11 @@
-"""Unified Hand interface with LangGraph, Atomic Agents, and Claude Code backends.
+"""Unified Hand interface with LangGraph, Atomic Agents, and CLI backends.
 
 A Hand is the AI agent that operates on a repo. This module defines:
   - ``Hand``: abstract protocol that all backends implement.
   - ``HandResponse``: common response container.
   - ``LangGraphHand``: backend powered by LangChain / LangGraph.
   - ``AtomicHand``: backend powered by atomic-agents.
+  - ``E2EHand``: concrete end-to-end hand (clone/edit/commit/push/PR).
   - ``ClaudeCodeHand``: backend that invokes Claude Code via a terminal/bash call.
   - ``CodexCLIHand``: backend that invokes Codex CLI via a terminal/bash call.
   - ``GeminiCLIHand``: backend that invokes Gemini CLI via a terminal/bash call.
@@ -13,9 +14,14 @@ A Hand is the AI agent that operates on a repo. This module defines:
 from __future__ import annotations
 
 import abc
+import os
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
@@ -178,6 +184,135 @@ class AtomicHand(Hand):
         async for partial in self._agent.run_async(user_input):
             if hasattr(partial, "chat_message") and partial.chat_message:
                 yield partial.chat_message
+
+
+# ---------------------------------------------------------------------------
+# End-to-end backend (minimal working flow)
+# ---------------------------------------------------------------------------
+
+
+class E2EHand(Hand):
+    """Minimal end-to-end hand for validating clone/edit/PR workflow."""
+
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        super().__init__(config, repo_index)
+
+    @staticmethod
+    def _safe_repo_dir(repo: str) -> str:
+        return re.sub(r"[^A-Za-z0-9_.-]+", "_", repo.strip("/"))
+
+    @staticmethod
+    def _work_base() -> Path:
+        root = os.environ.get("HELPING_HANDS_WORK_ROOT", ".")
+        return Path(root).expanduser()
+
+    @staticmethod
+    def _default_base_branch() -> str:
+        return os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
+
+    def run(
+        self,
+        prompt: str,
+        hand_uuid: str | None = None,
+        pr_number: int | None = None,
+        dry_run: bool = False,
+    ) -> HandResponse:
+        from helping_hands.lib.github import GitHubClient
+
+        repo = self.config.repo.strip()
+        if not repo:
+            raise ValueError("E2EHand requires config.repo set to a GitHub owner/repo.")
+
+        hand_uuid = hand_uuid or str(uuid4())
+        safe_repo = self._safe_repo_dir(self.config.repo)
+        hand_root = self._work_base() / hand_uuid
+        repo_dir = hand_root / "git" / safe_repo
+        repo_dir.parent.mkdir(parents=True, exist_ok=True)
+
+        base_branch = self._default_base_branch()
+        branch = f"helping-hands/e2e-{hand_uuid[:8]}"
+        e2e_file = "HELPING_HANDS_E2E.md"
+        e2e_path = repo_dir / e2e_file
+
+        with GitHubClient() as gh:
+            pr_url = ""
+            resumed_pr = False
+            if pr_number is not None:
+                pr_info = gh.get_pr(repo, pr_number)
+                branch = str(pr_info["head"])
+                base_branch = str(pr_info["base"])
+                pr_url = str(pr_info["url"])
+                resumed_pr = True
+
+            gh.clone(repo, repo_dir, branch=base_branch, depth=1)
+            repo_dir.mkdir(parents=True, exist_ok=True)
+            if resumed_pr:
+                gh.switch_branch(repo_dir, branch)
+            else:
+                gh.create_branch(repo_dir, branch)
+
+            stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+            e2e_path.write_text(
+                (
+                    "# helping_hands E2E marker\n\n"
+                    f"- hand_uuid: `{hand_uuid}`\n"
+                    f"- prompt: {prompt}\n"
+                    f"- timestamp_utc: {stamp}\n"
+                ),
+                encoding="utf-8",
+            )
+            commit_sha = ""
+            final_pr_number = pr_number
+            if not dry_run:
+                commit_sha = gh.add_and_commit(
+                    repo_dir,
+                    "test(e2e): minimal change from E2EHand",
+                    paths=[e2e_file],
+                )
+                gh.push(repo_dir, branch=branch, set_upstream=True)
+                if resumed_pr:
+                    final_pr_number = pr_number
+                else:
+                    pr = gh.create_pr(
+                        repo,
+                        title="test(e2e): minimal edit by helping_hands",
+                        body=(
+                            "Automated E2E validation PR.\n\n"
+                            f"- hand_uuid: `{hand_uuid}`\n"
+                            f"- prompt: {prompt}\n"
+                            f"- commit: `{commit_sha}`\n"
+                        ),
+                        head=branch,
+                        base=base_branch,
+                    )
+                    pr_url = pr.url
+                    final_pr_number = pr.number
+
+        if dry_run:
+            message = "E2EHand dry run complete. No push/PR performed."
+        else:
+            message = f"E2EHand complete. PR: {pr_url}"
+        return HandResponse(
+            message=message,
+            metadata={
+                "backend": "e2e",
+                "model": self.config.model,
+                "hand_uuid": hand_uuid,
+                "hand_root": str(hand_root),
+                "repo": repo,
+                "workspace": str(repo_dir),
+                "branch": branch,
+                "base_branch": base_branch,
+                "commit": commit_sha,
+                "pr_number": "" if final_pr_number is None else str(final_pr_number),
+                "pr_url": pr_url,
+                "resumed_pr": str(resumed_pr).lower(),
+                "dry_run": str(dry_run).lower(),
+            },
+        )
+
+    async def stream(self, prompt: str) -> AsyncIterator[str]:
+        yield self.run(prompt).message
 
 
 # ---------------------------------------------------------------------------

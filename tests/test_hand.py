@@ -14,6 +14,7 @@ from helping_hands.lib.hands.v1.hand import (
     AtomicHand,
     ClaudeCodeHand,
     CodexCLIHand,
+    E2EHand,
     GeminiCLIHand,
     Hand,
     HandResponse,
@@ -308,6 +309,103 @@ class TestGeminiCLIHand:
         )
         assert len(chunks) == 1
         assert "not yet implemented" in chunks[0]
+
+
+# ---------------------------------------------------------------------------
+# E2EHand
+# ---------------------------------------------------------------------------
+
+
+class TestE2EHand:
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_run_happy_path(
+        self,
+        mock_gh_cls: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = Config(repo="owner/repo", model="test-model")
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+
+        mock_gh = MagicMock()
+        mock_gh.create_pr.return_value = MagicMock(number=7, url="https://example/pr/7")
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        hand = E2EHand(config, repo_index)
+        resp = hand.run("add a minimal change", hand_uuid="task-123")
+
+        assert resp.metadata["backend"] == "e2e"
+        assert resp.metadata["hand_uuid"] == "task-123"
+        assert resp.metadata["repo"] == "owner/repo"
+        assert resp.metadata["pr_url"] == "https://example/pr/7"
+
+        mock_gh.clone.assert_called_once()
+        mock_gh.create_branch.assert_called_once()
+        mock_gh.add_and_commit.assert_called_once()
+        mock_gh.push.assert_called_once()
+        mock_gh.create_pr.assert_called_once()
+
+    def test_run_requires_repo(self, config: Config, repo_index: RepoIndex) -> None:
+        hand = E2EHand(Config(repo="", model="test-model"), repo_index)
+        with pytest.raises(ValueError):
+            hand.run("test")
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_run_resumes_existing_pr(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = Config(repo="owner/repo", model="test-model")
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+
+        mock_gh = MagicMock()
+        mock_gh.get_pr.return_value = {
+            "number": 1,
+            "url": "https://example/pr/1",
+            "head": "helping-hands/e2e-shared",
+            "base": "master",
+        }
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        hand = E2EHand(config, repo_index)
+        resp = hand.run("update existing pr", hand_uuid="task-124", pr_number=1)
+
+        assert resp.metadata["pr_number"] == "1"
+        assert resp.metadata["pr_url"] == "https://example/pr/1"
+        assert resp.metadata["resumed_pr"] == "true"
+        mock_gh.get_pr.assert_called_once_with("owner/repo", 1)
+        mock_gh.switch_branch.assert_called_once()
+        mock_gh.create_branch.assert_not_called()
+        mock_gh.create_pr.assert_not_called()
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_run_dry_run_skips_push_and_pr(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        config = Config(repo="owner/repo", model="test-model")
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+
+        mock_gh = MagicMock()
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        hand = E2EHand(config, repo_index)
+        resp = hand.run("dry test", hand_uuid="task-125", dry_run=True)
+
+        assert resp.metadata["dry_run"] == "true"
+        assert resp.metadata["commit"] == ""
+        assert resp.metadata["pr_url"] == ""
+        mock_gh.add_and_commit.assert_not_called()
+        mock_gh.push.assert_not_called()
+        mock_gh.create_pr.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

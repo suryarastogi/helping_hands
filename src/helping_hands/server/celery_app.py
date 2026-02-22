@@ -22,19 +22,26 @@ celery_app.conf.update(
 )
 
 
-@celery_app.task(name="helping_hands.build_feature")
-def build_feature(repo_path: str, prompt: str) -> dict[str, str]:
-    """Async task: run a hand against a repo with a user prompt.
+@celery_app.task(bind=True, name="helping_hands.build_feature")
+def build_feature(
+    self: object, repo_path: str, prompt: str, pr_number: int | None = None
+) -> dict[str, str]:  # pragma: no cover - exercised in integration
+    """Async task: run a hand against a GitHub repo with a user prompt.
 
     This is the primary unit of work in app mode. The server enqueues this
     task; a worker picks it up, runs the hand, and stores the result.
+    The Celery task ID is used as the hand UUID.
     """
     from helping_hands.lib.config import Config
+    from helping_hands.lib.hands.v1.hand import E2EHand
     from helping_hands.lib.repo import RepoIndex
 
     config = Config.from_env(overrides={"repo": repo_path})
-    repo_index = RepoIndex.from_path(Path(config.repo))
-    n = len(repo_index.files)
-    s = "s" if n != 1 else ""
-    greeting = f"Ready. Indexed {n} file{s} in {repo_index.root}."
-    return {"status": "ok", "greeting": greeting, "prompt": prompt}
+    repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
+    task_id = getattr(getattr(self, "request", None), "id", None)
+    response = E2EHand(config, repo_index).run(
+        prompt,
+        hand_uuid=task_id,
+        pr_number=pr_number,
+    )
+    return {"status": "ok", "message": response.message, **response.metadata}

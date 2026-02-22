@@ -6,7 +6,7 @@ provider.
 
 Tools:
   - index_repo: Walk a local repo and return its file listing.
-  - build_feature: (async via Celery) Enqueue a repo-build task.
+  - build_feature: (async via Celery) Enqueue a hand task.
   - get_task_status: Check the status of an enqueued task.
 
 Resources:
@@ -59,14 +59,18 @@ def index_repo(repo_path: str) -> dict:
 
 
 @mcp.tool()
-def build_feature(repo_path: str, prompt: str) -> dict:
-    """Enqueue a repo-building task via Celery and return the task ID.
+def build_feature(
+    repo_path: str, prompt: str, pr_number: int | None = None
+) -> dict:
+    """Enqueue a hand task via Celery and return the task ID.
 
-    The repo must already be indexed via index_repo, or exist on disk.
+    `repo_path` is interpreted as a GitHub repository reference (`owner/repo`)
+    by the current E2E hand flow.
 
     Args:
-        repo_path: Absolute path to the repository.
+        repo_path: GitHub repository reference in `owner/repo` format.
         prompt: Description of the feature or change to build.
+        pr_number: Optional existing PR number to resume/update.
 
     Returns:
         Dict with task_id and status.
@@ -75,7 +79,7 @@ def build_feature(repo_path: str, prompt: str) -> dict:
         build_feature as celery_build,
     )
 
-    task = celery_build.delay(repo_path, prompt)
+    task = celery_build.delay(repo_path, prompt, pr_number)
     return {"task_id": task.id, "status": "queued"}
 
 

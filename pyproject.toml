@@ -76,6 +76,9 @@ src = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: live integration tests requiring external services/secrets",
+]
 
 [dependency-groups]
 dev = [

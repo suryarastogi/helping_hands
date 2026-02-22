@@ -22,6 +22,7 @@ class BuildRequest(BaseModel):
 
     repo_path: str
     prompt: str
+    pr_number: int | None = None
 
 
 class BuildResponse(BaseModel):
@@ -47,8 +48,12 @@ def health() -> dict[str, str]:
 
 @app.post("/build", response_model=BuildResponse)
 def enqueue_build(req: BuildRequest) -> BuildResponse:
-    """Enqueue a repo-building task and return the task ID."""
-    task = build_feature.delay(req.repo_path, req.prompt)
+    """Enqueue a hand task and return the task ID.
+
+    `repo_path` is interpreted as a GitHub repository reference (`owner/repo`)
+    by the current E2E hand flow.
+    """
+    task = build_feature.delay(req.repo_path, req.prompt, req.pr_number)
     return BuildResponse(task_id=task.id, status="queued")
 
 
