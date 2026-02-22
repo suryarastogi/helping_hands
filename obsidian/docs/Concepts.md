@@ -86,6 +86,17 @@ The repo now uses `ty` as part of pre-commit alongside Ruff. Current baseline in
 
 This keeps type checks actionable while optional-backend implementation is still in scaffold state.
 
+## App-mode monitoring semantics
+
+App mode has two monitoring paths:
+
+- **JSON polling**: `/tasks/{task_id}` is used by the JS-enabled UI and API clients.
+- **No-JS fallback**: `/monitor/{task_id}` is a server-rendered HTML page with
+  meta refresh, used when client-side JS is blocked or unavailable.
+
+In logs, either repeated `/tasks/...` or repeated `/monitor/...` requests are
+valid indicators that monitoring is active.
+
 ## Repo input behavior
 
 In CLI mode, non-E2E runs accept:

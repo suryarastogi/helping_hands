@@ -15,8 +15,9 @@ Browse the auto-generated docs from source:
 ## Runtime flow
 
 - Server mode: server enqueues a hand task, then the hand executes.
-- App UI (`/`) can submit runs with backend/model/max-iteration/no-pr options
-  and monitor live task updates via `/tasks/{task_id}`.
+- App UI (`/`) can submit runs with backend/model/max-iterations/no-pr options.
+- JS monitor path polls `/tasks/{task_id}` for live status/updates.
+- No-JS fallback path redirects to `/monitor/{task_id}` (auto-refresh HTML monitor).
 - CLI mode: CLI invokes the hand directly (index-only, E2E mode, or iterative basic backends).
 - `E2EHand` is the minimal concrete hand used to validate the full
   clone/edit/commit/push/PR lifecycle.
@@ -34,6 +35,8 @@ Browse the auto-generated docs from source:
   `read_file`, `write_file`, `mkdir`, and `path_exists`.
 - CI test runs include coverage reporting and upload `coverage.xml` to Codecov
   from the Python 3.12 job.
+- Compose defaults include in-network Redis/Celery URLs for app-mode services
+  (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
 
 ## CLI examples
 

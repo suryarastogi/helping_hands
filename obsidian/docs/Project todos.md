@@ -10,7 +10,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
    - **CI/CD:** Push/PR pipeline runs uv sync, tests, Ruff; E2E integration is opt-in and push-safe in matrix
    - **Tests:** pytest under `tests/`, run in CI
 
-2. **Dockerise app mode and add Compose:** Dockerfile for the app; `docker-compose.yml` with main server, Celery workers, Redis, Postgres, and Flower.
+2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
 
 3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
 
@@ -25,3 +25,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - Provider routing is now centralized in `lib/ai_providers/` plus `lib/hands/v1/hand/model_provider.py`, replacing direct provider client construction in hands.
 - Basic iterative hands now preload iteration-1 context from `README.md`, `AGENT.md`, and a bounded file-tree snapshot.
 - CI and local test runs now include coverage reporting (`pytest-cov`), and README shows a Codecov badge.
+- App-mode monitoring now supports both JS polling (`/tasks/{task_id}`) and a no-JS fallback monitor (`/monitor/{task_id}` with auto-refresh), reducing browser-dependent failures.
+- Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.

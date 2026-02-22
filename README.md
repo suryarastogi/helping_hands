@@ -21,7 +21,7 @@
 
 ### Execution flow
 
-- **Server mode**: `server -> enqueue hand task -> hand executes`
+- **Server mode**: `server -> enqueue task -> worker executes selected hand -> status`
 - **CLI mode**: `cli -> hand executes`
 
 For asynchronous runs, the hand UUID is the Celery task ID. For synchronous
@@ -107,7 +107,8 @@ The built-in UI at `http://localhost:8000/` supports:
 - max iterations
 - optional PR number
 - `no_pr` toggle
-- live task status + updates polling from `/tasks/{task_id}`
+- JS polling monitor via `/tasks/{task_id}`
+- no-JS fallback monitor via `/monitor/{task_id}` (auto-refresh)
 
 ```bash
 # Visit the built-in UI in your browser:
@@ -124,6 +125,9 @@ curl -sS -X POST "http://localhost:8000/build" \
 
 # Check task status (replace <TASK_ID> from /build response)
 curl -sS "http://localhost:8000/tasks/<TASK_ID>"
+
+# Open HTML monitor page (auto-refresh, no JS required)
+# http://localhost:8000/monitor/<TASK_ID>
 
 # Example iterative run (same options as CLI)
 curl -sS -X POST "http://localhost:8000/build" \
@@ -143,6 +147,10 @@ Optional one-liner (requires `jq`) to enqueue and poll:
 ```bash
 TASK_ID=$(curl -sS -X POST "http://localhost:8000/build" -H "Content-Type: application/json" -d '{"repo_path":"suryarastogi/helping_hands","prompt":"CI integration run: update PR on master"}' | jq -r .task_id); while true; do curl -sS "http://localhost:8000/tasks/$TASK_ID"; echo; sleep 2; done
 ```
+
+If UI submit appears to enqueue but you do not see repeated `/tasks/<id>` requests
+in logs (common when browser JS is blocked), use `/monitor/<id>`; that endpoint
+refreshes server-side without client-side JavaScript.
 
 ## Project structure
 
@@ -171,7 +179,9 @@ helping_hands/
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
 │       ├── app.py            # FastAPI application
-│       └── celery_app.py     # Celery app + tasks
+│       ├── celery_app.py     # Celery app + tasks
+│       ├── mcp_server.py     # MCP server entry point/tools
+│       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
 ├── .github/workflows/
@@ -278,6 +288,15 @@ uv run pre-commit install
 uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
+
+### Compose env defaults
+
+`compose.yaml` now sets default in-network Celery/Redis URLs for all app-mode
+services if they are not set in `.env`:
+
+- `REDIS_URL=redis://redis:6379/0`
+- `CELERY_BROKER_URL=redis://redis:6379/0`
+- `CELERY_RESULT_BACKEND=redis://redis:6379/1`
 
 ## License
 

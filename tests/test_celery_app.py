@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("celery")
+
 from helping_hands.server import celery_app
 
 

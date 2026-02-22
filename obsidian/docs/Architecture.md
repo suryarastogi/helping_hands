@@ -7,7 +7,7 @@ High-level view of how helping_hands is built. For file layout and config, see t
 The project currently exposes three runtime surfaces:
 
 - **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, or iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`).
-- **App mode (implemented baseline)** — FastAPI + Celery integration exists. `/build` enqueues `build_feature`; workers run `E2EHand`; `/tasks/{task_id}` reports status/result.
+- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, and `basic-agent`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page.
 - **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
@@ -77,11 +77,12 @@ User → CLI
 ```
 User/Client → FastAPI /build → Celery queue
                                ↓
-                        worker task build_feature
+                       worker task build_feature
                                ↓
-                         E2EHand.run(...)
+          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand)
                                ↓
-                 task result available via /tasks/{task_id}
+      task status/result available via /tasks/{task_id} (JSON)
+      no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)
 ```
 
 ## Design principles
@@ -100,3 +101,7 @@ These are also reflected in the repo's [[AGENT.md]] under Design preferences.
 - In CI matrix, only `master` + Python `3.13` performs live push/update; other versions run E2E in dry-run to avoid branch push races.
 - CI test runs now include `pytest-cov` coverage reporting and produce `coverage.xml`; Python `3.12` job uploads coverage to Codecov.
 - Pre-commit enforces `ruff`, `ruff-format`, and `ty` (currently scoped to `src` with targeted ignores for known optional-backend noise).
+- Compose runtime wiring now provides sane defaults for app-mode service env when `.env` is sparse:
+  - `REDIS_URL=redis://redis:6379/0`
+  - `CELERY_BROKER_URL=redis://redis:6379/0`
+  - `CELERY_RESULT_BACKEND=redis://redis:6379/1`
