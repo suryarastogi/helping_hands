@@ -352,6 +352,40 @@ class TestBasicLangGraphHand:
         )
 
     @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_bootstraps_readme_agent_and_tree(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        (repo_index.root / "README.md").write_text("Project intro", encoding="utf-8")
+        (repo_index.root / "AGENT.md").write_text("Team conventions", encoding="utf-8")
+
+        msg = MagicMock()
+        msg.content = "Done.\nSATISFIED: yes"
+
+        def fake_invoke(payload: dict[str, Any]) -> dict[str, list[Any]]:
+            prompt = payload["messages"][0]["content"]
+            assert "Bootstrap repository context:" in prompt
+            assert "README.md" in prompt
+            assert "Project intro" in prompt
+            assert "AGENT.md" in prompt
+            assert "Team conventions" in prompt
+            assert "Repository tree snapshot (depth <= 3)" in prompt
+            assert "- main.py" in prompt
+            return {"messages": [msg]}
+
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = fake_invoke
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index, max_iterations=2)
+        resp = hand.run("implement feature")
+
+        assert resp.metadata["status"] == "satisfied"
+        assert mock_agent.invoke.call_count == 1
+
+    @patch.object(BasicLangGraphHand, "_build_agent")
     def test_run_honors_interrupt(
         self,
         mock_build: MagicMock,
@@ -591,6 +625,40 @@ class TestBasicAtomicHand:
         assert (repo_index.root / "main.py").read_text(encoding="utf-8") == (
             "print('after')"
         )
+
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_run_bootstraps_readme_agent_and_tree(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        (repo_index.root / "README.md").write_text("Project intro", encoding="utf-8")
+        (repo_index.root / "AGENT.md").write_text("Team conventions", encoding="utf-8")
+
+        def fake_run(step_input: Any) -> Any:
+            prompt = step_input.chat_message
+            assert "Bootstrap repository context:" in prompt
+            assert "README.md" in prompt
+            assert "Project intro" in prompt
+            assert "AGENT.md" in prompt
+            assert "Team conventions" in prompt
+            assert "Repository tree snapshot (depth <= 3)" in prompt
+            assert "- main.py" in prompt
+            partial = MagicMock()
+            partial.chat_message = "Done.\nSATISFIED: yes"
+            return partial
+
+        mock_agent = MagicMock()
+        mock_agent.run.side_effect = fake_run
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index, max_iterations=2)
+        hand._input_schema = _FakeInputSchema
+        resp = hand.run("implement feature")
+
+        assert resp.metadata["status"] == "satisfied"
+        assert mock_agent.run.call_count == 1
 
     @patch.object(BasicAtomicHand, "_build_agent")
     def test_stream_interrupts(

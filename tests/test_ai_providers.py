@@ -84,7 +84,7 @@ def test_openai_provider_complete_uses_inner_client() -> None:
     provider = OpenAIProvider(inner=_Inner())
     result = provider.complete("hello")
     assert result == {"ok": True}
-    assert calls["model"] == "gpt-4.1-mini"
+    assert calls["model"] == "gpt-5.2"
     assert calls["input"] == [{"role": "user", "content": "hello"}]
 
 
@@ -137,5 +137,5 @@ def test_litellm_provider_complete_uses_inner_library() -> None:
     provider = LiteLLMProvider(inner=_Inner())
     result = provider.complete("hello")
     assert result == {"ok": True}
-    assert calls["model"] == "gpt-4.1-mini"
+    assert calls["model"] == "gpt-5.2"
     assert calls["messages"] == [{"role": "user", "content": "hello"}]

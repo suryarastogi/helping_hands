@@ -13,7 +13,7 @@ class OpenAIProvider(AIProvider):
 
     name = "openai"
     api_key_env_var = "OPENAI_API_KEY"
-    default_model = "gpt-4.1-mini"
+    default_model = "gpt-5.2"
     install_hint = "uv add openai"
 
     def _build_inner(self) -> Any:

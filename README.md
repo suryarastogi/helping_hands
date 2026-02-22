@@ -63,16 +63,16 @@ uv sync --dev
 uv run helping-hands <local-path-or-owner/repo>
 
 # Run iterative LangGraph backend (owner/repo is auto-cloned)
-uv run helping-hands owner/repo --backend basic-langgraph --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4
+uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4
 
 # Run iterative Atomic backend
-uv run helping-hands owner/repo --backend basic-atomic --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4
+uv run helping-hands owner/repo --backend basic-atomic --model gpt-5.2 --prompt "Implement X" --max-iterations 4
 
 # Run iterative Agent backend (same dependency extra as basic-atomic)
-uv run helping-hands owner/repo --backend basic-agent --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4
+uv run helping-hands owner/repo --backend basic-agent --model gpt-5.2 --prompt "Implement X" --max-iterations 4
 
 # Disable final commit/push/PR step explicitly
-uv run helping-hands owner/repo --backend basic-langgraph --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4 --no-pr
+uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
 
 # Run E2E mode against a GitHub repo (owner/repo)
 uv run helping-hands owner/repo --e2e --prompt "E2E smoke test"
@@ -155,7 +155,7 @@ Key settings:
 
 | Setting | Env var | Description |
 |---|---|---|
-| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-4.1-mini`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
+| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 
@@ -170,13 +170,13 @@ Backend command examples:
 
 ```bash
 # basic-langgraph
-uv run helping-hands "suryarastogi/helping_hands" --backend basic-langgraph --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-langgraph --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
 
 # basic-atomic
-uv run helping-hands "suryarastogi/helping_hands" --backend basic-atomic --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-atomic --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
 
 # basic-agent
-uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
 
 # e2e
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"

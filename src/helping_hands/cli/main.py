@@ -171,7 +171,7 @@ def main(argv: list[str] | None = None) -> None:
                     (
                         f"Error: model {config.model!r} is not available. "
                         "Pass a valid model via --model (or HELPING_HANDS_MODEL), "
-                        "for example: --model gpt-4.1-mini"
+                        "for example: --model gpt-5.2"
                     ),
                     file=sys.stderr,
                 )

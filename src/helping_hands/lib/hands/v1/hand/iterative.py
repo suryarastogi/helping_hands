@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
@@ -42,6 +43,9 @@ class _BasicIterativeHand(Hand):
         r"(?P<path>[^`\"\n]+)[`\"]"
     )
     _MAX_READ_CHARS = 12000
+    _MAX_BOOTSTRAP_DOC_CHARS = 12000
+    _BOOTSTRAP_TREE_MAX_DEPTH = 3
+    _BOOTSTRAP_TREE_MAX_ENTRIES = 250
 
     def __init__(
         self,
@@ -60,12 +64,19 @@ class _BasicIterativeHand(Hand):
         iteration: int,
         max_iterations: int,
         previous_summary: str,
+        bootstrap_context: str,
     ) -> str:
         previous = previous_summary.strip() or "none"
+        bootstrap = (
+            f"Bootstrap repository context:\n{bootstrap_context}\n\n"
+            if bootstrap_context
+            else ""
+        )
         return (
             f"Task request: {prompt}\n\n"
             f"Iteration: {iteration}/{max_iterations}\n"
             f"Previous iteration summary: {previous}\n\n"
+            f"{bootstrap}"
             "Work directly against the repository context and provide progress.\n"
             "When you need to inspect a file, request it using exactly:\n"
             "@@READ: relative/path.py\n"
@@ -163,6 +174,75 @@ class _BasicIterativeHand(Hand):
             self.repo_index = self.repo_index.from_path(root)
         return changed
 
+    def _read_bootstrap_doc(
+        self,
+        root: Path,
+        candidates: tuple[str, ...],
+    ) -> str:
+        for rel_path in candidates:
+            if not system_tools.path_exists(root, rel_path):
+                continue
+            try:
+                text, truncated, display_path = system_tools.read_text_file(
+                    root,
+                    rel_path,
+                    max_chars=self._MAX_BOOTSTRAP_DOC_CHARS,
+                )
+            except (FileNotFoundError, IsADirectoryError, UnicodeError, ValueError):
+                continue
+
+            truncated_note = "\n[truncated]" if truncated else ""
+            return f"{display_path}:\n```text\n{text}\n```{truncated_note}"
+        return ""
+
+    def _build_tree_snapshot(self) -> str:
+        entries: set[str] = set()
+        for rel_path in sorted(self.repo_index.files):
+            normalized = system_tools.normalize_relative_path(rel_path)
+            if not normalized:
+                continue
+            parts = [part for part in normalized.split("/") if part]
+            if not parts:
+                continue
+
+            max_depth = min(len(parts), self._BOOTSTRAP_TREE_MAX_DEPTH)
+            for idx in range(1, max_depth):
+                entries.add("/".join(parts[:idx]) + "/")
+            if len(parts) <= self._BOOTSTRAP_TREE_MAX_DEPTH:
+                entries.add("/".join(parts))
+            else:
+                entries.add("/".join(parts[: self._BOOTSTRAP_TREE_MAX_DEPTH]) + "/...")
+
+        ordered = sorted(entries)
+        if not ordered:
+            return "- (empty)"
+
+        shown = ordered[: self._BOOTSTRAP_TREE_MAX_ENTRIES]
+        lines = [f"- {item}" for item in shown]
+        hidden = len(ordered) - len(shown)
+        if hidden > 0:
+            lines.append(f"- ... ({hidden} more)")
+        return "\n".join(lines)
+
+    def _build_bootstrap_context(self) -> str:
+        root = self.repo_index.root.resolve()
+        sections: list[str] = []
+
+        readme = self._read_bootstrap_doc(root, ("README.md", "readme.md"))
+        if readme:
+            sections.append(readme)
+
+        agent = self._read_bootstrap_doc(root, ("AGENT.md", "agent.md"))
+        if agent:
+            sections.append(agent)
+
+        sections.append(
+            "Repository tree snapshot (depth <= "
+            f"{self._BOOTSTRAP_TREE_MAX_DEPTH}):\n"
+            f"{self._build_tree_snapshot()}"
+        )
+        return "\n\n".join(sections)
+
 
 class BasicLangGraphHand(_BasicIterativeHand):
     """Iterative LangGraph-backed hand with streaming and interruption."""
@@ -207,6 +287,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
     def run(self, prompt: str) -> HandResponse:
         self.reset_interrupt()
         prior = ""
+        bootstrap_context = self._build_bootstrap_context()
         transcripts: list[str] = []
         completed = False
         iterations = 0
@@ -220,6 +301,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 iteration=iteration,
                 max_iterations=self.max_iterations,
                 previous_summary=prior,
+                bootstrap_context=bootstrap_context if iteration == 1 else "",
             )
             result = self._agent.invoke(
                 {"messages": [{"role": "user", "content": step_prompt}]}
@@ -267,6 +349,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
     async def stream(self, prompt: str) -> AsyncIterator[str]:
         self.reset_interrupt()
         prior = ""
+        bootstrap_context = self._build_bootstrap_context()
 
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():
@@ -279,6 +362,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 iteration=iteration,
                 max_iterations=self.max_iterations,
                 previous_summary=prior,
+                bootstrap_context=bootstrap_context if iteration == 1 else "",
             )
             parts: list[str] = []
             async for event in self._agent.astream_events(
@@ -387,6 +471,7 @@ class BasicAtomicHand(_BasicIterativeHand):
     def run(self, prompt: str) -> HandResponse:
         self.reset_interrupt()
         prior = ""
+        bootstrap_context = self._build_bootstrap_context()
         transcripts: list[str] = []
         completed = False
         iterations = 0
@@ -400,6 +485,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 iteration=iteration,
                 max_iterations=self.max_iterations,
                 previous_summary=prior,
+                bootstrap_context=bootstrap_context if iteration == 1 else "",
             )
             response = self._agent.run(self._make_input(step_prompt))
             content = self._extract_message(response)
@@ -445,6 +531,7 @@ class BasicAtomicHand(_BasicIterativeHand):
     async def stream(self, prompt: str) -> AsyncIterator[str]:
         self.reset_interrupt()
         prior = ""
+        bootstrap_context = self._build_bootstrap_context()
 
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():
@@ -457,6 +544,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 iteration=iteration,
                 max_iterations=self.max_iterations,
                 previous_summary=prior,
+                bootstrap_context=bootstrap_context if iteration == 1 else "",
             )
             stream_text = ""
             step_input = self._make_input(step_prompt)
