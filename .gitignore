@@ -34,3 +34,7 @@ htmlcov/
 
 # Environment
 .env
+
+# Runtime hand workspaces
+runs/*
+!runs/README.md
