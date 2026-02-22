@@ -28,6 +28,11 @@ Browse the auto-generated docs from source:
 - `codexcli` backend runs a two-phase CLI workflow:
   initialization/learning pass, then task execution pass.
 - `codexcli` passes `--model gpt-5.2` by default when model is unset/default.
+- `codexcli` sets sandbox mode automatically:
+  - host: `workspace-write`
+  - container: `danger-full-access` (to avoid landlock failures)
+- override with `HELPING_HANDS_CODEX_SANDBOX_MODE`.
+- `codexcli` adds `--skip-git-repo-check` by default for non-interactive runs.
 - Basic iterative hands preload iteration-1 context with `README.md`/`AGENT.md`
   (when present) and a bounded-depth repo tree snapshot.
 - Model selection resolves through `lib.ai_providers` wrappers, including
@@ -47,7 +52,13 @@ Browse the auto-generated docs from source:
 - Authenticated codex session in your shell (`codex login`) or equivalent key-based setup.
 - `GITHUB_TOKEN` or `GH_TOKEN` set if you want final commit/push/PR creation.
 - Access to the model you request; if your codex default model is unavailable, pass `--model gpt-5.2`.
-- `codexcli` backend is CLI-only right now; app mode currently does not route tasks to codex.
+- Optional container mode is available via:
+  - `HELPING_HANDS_CODEX_CONTAINER=1`
+  - `HELPING_HANDS_CODEX_CONTAINER_IMAGE=<image-with-codex-cli>`
+- You can disable automatic `--skip-git-repo-check` with:
+  - `HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK=0`
+- App mode supports `codexcli`; ensure the Celery worker environment has `codex` installed and authenticated.
+- Docker app/worker images in this repo install `@openai/codex`; rebuild images after updates.
 
 Quick check:
 

@@ -29,14 +29,26 @@ class BuildRequest(BaseModel):
 
     repo_path: str
     prompt: str
-    backend: Literal["e2e", "basic-langgraph", "basic-atomic", "basic-agent"] = "e2e"
+    backend: Literal[
+        "e2e",
+        "basic-langgraph",
+        "basic-atomic",
+        "basic-agent",
+        "codexcli",
+    ] = "e2e"
     model: str | None = None
     max_iterations: int = 6
     no_pr: bool = False
     pr_number: int | None = None
 
 
-BackendName = Literal["e2e", "basic-langgraph", "basic-atomic", "basic-agent"]
+BackendName = Literal[
+    "e2e",
+    "basic-langgraph",
+    "basic-atomic",
+    "basic-agent",
+    "codexcli",
+]
 
 
 class BuildResponse(BaseModel):
@@ -61,6 +73,7 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     "basic-langgraph": "basic-langgraph",
     "basic-atomic": "basic-atomic",
     "basic-agent": "basic-agent",
+    "codexcli": "codexcli",
 }
 
 
@@ -187,7 +200,7 @@ _UI_HTML = """<!doctype html>
           <div>
             <label for="prompt">Prompt</label>
             <textarea id="prompt" name="prompt" required>
-CI integration run: update PR on master</textarea>
+Update README.md</textarea>
           </div>
           <div class="row">
             <div>
@@ -197,6 +210,7 @@ CI integration run: update PR on master</textarea>
                 <option value="basic-langgraph">basic-langgraph</option>
                 <option value="basic-atomic">basic-atomic</option>
                 <option value="basic-agent">basic-agent</option>
+                <option value="codexcli">codexcli</option>
               </select>
             </div>
             <div>
@@ -611,7 +625,7 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
     """Enqueue a hand task and return the task ID.
 
     Supports E2E and iterative backends (`basic-langgraph`, `basic-atomic`,
-    `basic-agent`) using the same backend options as CLI.
+    `basic-agent`) plus `codexcli`, using the same backend options as CLI.
     """
     return _enqueue_build_task(req)
 

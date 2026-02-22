@@ -27,6 +27,14 @@ class TestHomeUI:
         assert response.status_code == 200
         assert 'form id="run-form" method="post" action="/build/form"' in response.text
 
+    def test_backend_select_includes_codexcli(self) -> None:
+        client = TestClient(app)
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert '<option value="codexcli">codexcli</option>' in response.text
+
 
 class TestBuildForm:
     def test_enqueues_and_redirects_with_task_id(
@@ -69,6 +77,43 @@ class TestBuildForm:
             "model": "gpt-5.2",
             "max_iterations": 4,
             "no_pr": True,
+        }
+
+    def test_enqueues_codexcli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-codex")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "suryarastogi/helping_hands",
+                "prompt": "small codex task",
+                "backend": "codexcli",
+                "model": "gpt-5.2",
+                "max_iterations": "3",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/monitor/task-codex"
+        assert captured == {
+            "repo_path": "suryarastogi/helping_hands",
+            "prompt": "small codex task",
+            "pr_number": None,
+            "backend": "codexcli",
+            "model": "gpt-5.2",
+            "max_iterations": 3,
+            "no_pr": False,
         }
 
     def test_redirects_with_error_for_invalid_backend(

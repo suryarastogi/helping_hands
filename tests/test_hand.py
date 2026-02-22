@@ -767,6 +767,23 @@ class TestClaudeCodeHand:
 
 
 class TestCodexCLIHand:
+    def test_build_codex_failure_message_for_auth_error(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = CodexCLIHand(config, repo_index)
+        msg = hand._build_codex_failure_message(
+            return_code=1,
+            output=(
+                "ERROR: unexpected status 401 Unauthorized: "
+                "Missing bearer or basic authentication in header"
+            ),
+        )
+        assert "authentication failed" in msg
+        assert "OPENAI_API_KEY" in msg
+        assert "recreate server/worker containers" in msg
+
     def test_render_command_defaults_to_codex_exec(
         self,
         config: Config,
@@ -777,6 +794,9 @@ class TestCodexCLIHand:
         hand = CodexCLIHand(config, repo_index)
         cmd = hand._render_command("hello world")
         assert cmd[:2] == ["codex", "exec"]
+        assert "--sandbox" in cmd
+        assert "workspace-write" in cmd or "danger-full-access" in cmd
+        assert "--skip-git-repo-check" in cmd
         assert cmd[-1] == "hello world"
 
     def test_render_command_uses_safe_default_model(
@@ -820,7 +840,95 @@ class TestCodexCLIHand:
         assert "--model test-model" in joined
         assert f"--repo {repo_index.root.resolve()}" in joined
         assert "--prompt hello world" in joined
+        assert "--sandbox" in joined
+        assert "--skip-git-repo-check" in joined
         assert cmd.count("hello world") == 1
+
+    @patch("helping_hands.lib.hands.v1.hand.placeholders.Path.exists")
+    def test_render_command_uses_container_default_sandbox(
+        self,
+        mock_exists: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        mock_exists.return_value = True
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "codex")
+        monkeypatch.delenv("HELPING_HANDS_CODEX_SANDBOX_MODE", raising=False)
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+        assert "--sandbox danger-full-access" in joined
+
+    def test_render_command_respects_explicit_sandbox(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv(
+            "HELPING_HANDS_CODEX_CLI_CMD",
+            "codex exec --sandbox read-only",
+        )
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+        assert "--sandbox read-only" in joined
+        assert "workspace-write" not in joined
+        assert "--skip-git-repo-check" in joined
+
+    def test_render_command_skip_git_repo_check_can_be_disabled(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "codex exec")
+        monkeypatch.setenv("HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK", "0")
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+        assert "--skip-git-repo-check" not in joined
+
+    @patch("helping_hands.lib.hands.v1.hand.placeholders.shutil.which")
+    def test_render_command_wraps_docker_when_enabled(
+        self,
+        mock_which: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        mock_which.return_value = "/usr/bin/docker"
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "codex")
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CONTAINER", "1")
+        monkeypatch.setenv(
+            "HELPING_HANDS_CODEX_CONTAINER_IMAGE",
+            "ghcr.io/example/codex:latest",
+        )
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        hand = CodexCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+
+        assert cmd[:4] == ["docker", "run", "--rm", "-i"]
+        assert f"{repo_index.root.resolve()}:/workspace" in joined
+        assert "-e OPENAI_API_KEY=sk-test" in joined
+        assert "ghcr.io/example/codex:latest" in cmd
+        assert "codex exec" in joined
+        assert "--sandbox" in joined
+        assert "--skip-git-repo-check" in joined
+
+    def test_render_command_container_missing_image_raises(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CONTAINER", "1")
+        monkeypatch.delenv("HELPING_HANDS_CODEX_CONTAINER_IMAGE", raising=False)
+        hand = CodexCLIHand(config, repo_index)
+        with pytest.raises(RuntimeError, match="HELPING_HANDS_CODEX_CONTAINER_IMAGE"):
+            hand._render_command("hello world")
 
     @patch.object(CodexCLIHand, "_finalize_repo_pr")
     @patch.object(CodexCLIHand, "_invoke_codex", autospec=True)

@@ -101,11 +101,30 @@ docker compose up --build
 
 ### Trigger a run in app mode
 
-App mode enqueues Celery tasks through the FastAPI server and supports both
-`e2e` and iterative basic backends.
+App mode enqueues Celery tasks through the FastAPI server and supports `e2e`,
+iterative/basic backends, and `codexcli`.
+
+For `codexcli` in app mode, rebuild images after pulling latest changes so
+the worker image includes `codex`:
+
+```bash
+docker compose build --no-cache
+docker compose up
+```
+
+If you update `.env` auth values (like `OPENAI_API_KEY`), recreate running
+containers so workers pick up new env vars:
+
+```bash
+docker compose up -d --force-recreate server worker beat flower
+```
+
+The worker image configures Codex CLI to use `OPENAI_API_KEY` from the
+environment (custom model provider in `~/.codex/config.toml`), so no
+`codex login` or `auth.json` is required in Docker.
 
 The built-in UI at `http://localhost:8000/` supports:
-- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`)
+- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`)
 - model override
 - max iterations
 - optional PR number
@@ -142,6 +161,16 @@ curl -sS -X POST "http://localhost:8000/build" \
     "model": "gpt-5.2",
     "max_iterations": 4,
     "no_pr": true
+  }'
+
+# Example codexcli run in app mode
+curl -sS -X POST "http://localhost:8000/build" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_path": "suryarastogi/helping_hands",
+    "prompt": "Implement one small safe improvement",
+    "backend": "codexcli",
+    "model": "gpt-5.2"
   }'
 ```
 
@@ -243,11 +272,20 @@ Codex CLI backend notes:
 
 - Default command: `codex exec`
 - Default model passed to codex: `gpt-5.2` (unless overridden with `--model` or command override)
+- Default Codex safety mode:
+  - host runtime: `--sandbox workspace-write`
+  - container runtime (`/.dockerenv`): `--sandbox danger-full-access` (avoids landlock failures)
+  - override with `HELPING_HANDS_CODEX_SANDBOX_MODE`
+- Default Codex automation mode includes `--skip-git-repo-check` (disable with `HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK=0`)
 - Override command via `HELPING_HANDS_CODEX_CLI_CMD`
 - Optional placeholders supported in the override string:
   - `{prompt}`
   - `{repo}`
   - `{model}`
+- Optional container mode:
+  - `HELPING_HANDS_CODEX_CONTAINER=1`
+  - `HELPING_HANDS_CODEX_CONTAINER_IMAGE=<image-with-codex-cli>`
+  - container mode bind-mounts only the target repo to `/workspace`
 
 Codex backend requirements:
 
@@ -255,7 +293,11 @@ Codex backend requirements:
 - You must be authenticated in the same shell (`codex login`) or provide a valid API key for your codex setup.
 - To create/push PRs at the end of a run, set `GITHUB_TOKEN` or `GH_TOKEN` in the same shell.
 - Your account must have access to the requested model; if your standalone codex default is unavailable (for example `gpt-5.3-codex`), pass `--model gpt-5.2` explicitly or update `~/.codex/config.toml`.
-- `codexcli` is currently a CLI backend; app/worker mode supports `e2e`, `basic-langgraph`, `basic-atomic`, and `basic-agent`.
+- By default, codex commands run with host/container-aware sandbox mode (`workspace-write` on host, `danger-full-access` in containers).
+- By default, codex automation uses `--skip-git-repo-check` for non-interactive worker/CLI runs.
+- If you enable container mode, Docker must be installed and the image must include the `codex` executable.
+- App mode supports `codexcli` as well; ensure the worker runtime has `codex` installed and authenticated.
+- The included Dockerfile installs `@openai/codex` in app/worker images.
 - No extra Python optional dependency is required for `codexcli` itself (unlike `--extra langchain` and `--extra atomic` used by other iterative backends).
 
 Codex backend smoke test:

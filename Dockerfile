@@ -16,7 +16,25 @@ COPY README.md LICENSE ./
 RUN uv sync --frozen --no-dev
 
 FROM base AS app-deps
+ARG CODEX_CLI_VERSION=0.80.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && npm install -g "@openai/codex@${CODEX_CLI_VERSION}" \
+    && npm cache clean --force \
+    && rm -rf /var/lib/apt/lists/*
 RUN uv sync --frozen --no-dev --extra server --extra github --extra langchain --extra atomic
+
+# Codex CLI: use OPENAI_API_KEY from env (default provider requires auth.json).
+# See https://github.com/openai/codex/issues/5212
+RUN mkdir -p /root/.codex \
+    && printf '%s\n' \
+    'model_provider = "openai-env-var"' \
+    '[model_providers.openai-env-var]' \
+    'name = "OpenAI (OPENAI_API_KEY)"' \
+    'base_url = "https://api.openai.com/v1"' \
+    'env_key = "OPENAI_API_KEY"' \
+    'wire_api = "responses"' \
+    > /root/.codex/config.toml
 
 FROM app-deps AS server
 CMD ["uv", "run", "uvicorn", "helping_hands.server.app:app", "--host", "0.0.0.0", "--port", "8000"]

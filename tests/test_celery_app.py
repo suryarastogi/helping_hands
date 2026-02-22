@@ -39,3 +39,45 @@ class TestResolveCeleryUrls:
 
         assert broker == "redis://broker-host:6379/0"
         assert backend == "redis://broker-host:6379/0"
+
+
+class TestNormalizeBackend:
+    def test_defaults_to_e2e(self) -> None:
+        requested, runtime = celery_app._normalize_backend(None)
+        assert requested == "e2e"
+        assert runtime == "e2e"
+
+    def test_basic_agent_maps_to_atomic_runtime(self) -> None:
+        requested, runtime = celery_app._normalize_backend("basic-agent")
+        assert requested == "basic-agent"
+        assert runtime == "basic-atomic"
+
+    def test_codexcli_backend_is_supported(self) -> None:
+        requested, runtime = celery_app._normalize_backend("codexcli")
+        assert requested == "codexcli"
+        assert runtime == "codexcli"
+
+    def test_invalid_backend_raises(self) -> None:
+        with pytest.raises(ValueError, match="unsupported backend"):
+            celery_app._normalize_backend("unknown-backend")
+
+
+class TestCodexAuth:
+    def test_has_codex_auth_with_openai_key(self, monkeypatch) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        assert celery_app._has_codex_auth() is True
+
+    def test_has_codex_auth_with_auth_file(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        codex_dir = tmp_path / ".codex"
+        codex_dir.mkdir(parents=True, exist_ok=True)
+        (codex_dir / "auth.json").write_text("{}", encoding="utf-8")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        assert celery_app._has_codex_auth() is True
+
+    def test_has_codex_auth_false_when_no_key_or_auth_file(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        assert celery_app._has_codex_auth() is False

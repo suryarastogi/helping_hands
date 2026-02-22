@@ -7,7 +7,7 @@ High-level view of how helping_hands is built. For file layout and config, see t
 The project currently exposes three runtime surfaces:
 
 - **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and `codexcli`.
-- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, and `basic-agent`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page.
+- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, and `codexcli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page.
 - **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
@@ -54,7 +54,15 @@ Requirements:
 2. Authenticated codex session (`codex login`) or equivalent API-key setup in the shell.
 3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
 4. Access to the selected model (`gpt-5.2` is the backend default when model is unset/default).
-5. Current scope is CLI-only; app-mode backend routing does not include `codexcli`.
+5. Codex command safety defaults are runtime-aware:
+   - host runtime: `--sandbox workspace-write`
+   - container runtime: `--sandbox danger-full-access` (avoids landlock failures)
+6. Codex automation defaults to `--skip-git-repo-check` (toggle via `HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK`).
+7. Optional Docker execution wrapper is available with:
+   - `HELPING_HANDS_CODEX_CONTAINER=1`
+   - `HELPING_HANDS_CODEX_CONTAINER_IMAGE=<image-with-codex-cli>`
+8. App-mode worker runtime must also have `codex` installed/authenticated when running `codexcli`.
+   - Current Dockerfile installs `@openai/codex` for app/worker images.
 
 ## E2E workflow (source of truth)
 
@@ -90,7 +98,7 @@ User/Client → FastAPI /build → Celery queue
                                ↓
                        worker task build_feature
                                ↓
-          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand)
+          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand)
                                ↓
       task status/result available via /tasks/{task_id} (JSON)
       no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)

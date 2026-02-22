@@ -12,8 +12,10 @@ from __future__ import annotations
 import asyncio
 import os
 import shlex
+import shutil
 from collections.abc import AsyncIterator
 from contextlib import suppress
+from pathlib import Path
 from typing import Any, Protocol
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
@@ -60,6 +62,9 @@ class CodexCLIHand(Hand):
 
     _DEFAULT_CLI_CMD = "codex exec"
     _DEFAULT_CODEX_MODEL = "gpt-5.2"
+    _DEFAULT_SANDBOX_MODE = "workspace-write"
+    _DEFAULT_SANDBOX_MODE_IN_CONTAINER = "danger-full-access"
+    _DEFAULT_SKIP_GIT_REPO_CHECK = "1"
     _SUMMARY_CHAR_LIMIT = 6000
 
     def __init__(self, config: Any, repo_index: Any) -> None:
@@ -75,6 +80,23 @@ class CodexCLIHand(Hand):
         if len(clean) <= limit:
             return clean
         return f"{clean[:limit]}\n...[truncated]"
+
+    @staticmethod
+    def _build_codex_failure_message(*, return_code: int, output: str) -> str:
+        tail = output.strip()[-2000:]
+        lower_tail = tail.lower()
+        if (
+            "401 unauthorized" in lower_tail
+            or "missing bearer or basic authentication" in lower_tail
+        ):
+            return (
+                "Codex CLI authentication failed (401 Unauthorized). "
+                "Ensure OPENAI_API_KEY is set in this runtime. "
+                "If running app mode in Docker, set OPENAI_API_KEY in .env "
+                "and recreate server/worker containers.\n"
+                f"Output:\n{tail}"
+            )
+        return f"Codex CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _base_command(self) -> list[str]:
         raw = os.environ.get("HELPING_HANDS_CODEX_CLI_CMD", self._DEFAULT_CLI_CMD)
@@ -127,7 +149,109 @@ class CodexCLIHand(Hand):
 
         if not has_prompt_placeholder:
             rendered.append(prompt)
-        return rendered
+        rendered = self._apply_codex_exec_sandbox_defaults(rendered)
+        rendered = self._apply_codex_exec_git_repo_check_defaults(rendered)
+        return self._wrap_container_if_enabled(rendered)
+
+    @staticmethod
+    def _is_truthy(value: str | None) -> bool:
+        if value is None:
+            return False
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
+    def _container_enabled(self) -> bool:
+        raw = os.environ.get("HELPING_HANDS_CODEX_CONTAINER", "")
+        if raw == "":
+            return False
+        return self._is_truthy(raw)
+
+    def _container_image(self) -> str:
+        image = os.environ.get("HELPING_HANDS_CODEX_CONTAINER_IMAGE", "").strip()
+        if not image:
+            msg = (
+                "HELPING_HANDS_CODEX_CONTAINER_IMAGE must be set when "
+                "HELPING_HANDS_CODEX_CONTAINER is enabled."
+            )
+            raise RuntimeError(msg)
+        return image
+
+    def _apply_codex_exec_sandbox_defaults(self, cmd: list[str]) -> list[str]:
+        if len(cmd) < 2 or cmd[0] != "codex" or cmd[1] != "exec":
+            return cmd
+        if any(token == "--sandbox" or token.startswith("--sandbox=") for token in cmd):
+            return cmd
+        sandbox_mode = os.environ.get("HELPING_HANDS_CODEX_SANDBOX_MODE")
+        if sandbox_mode is None:
+            sandbox_mode = self._auto_sandbox_mode()
+        else:
+            sandbox_mode = sandbox_mode.strip() or self._auto_sandbox_mode()
+        if not sandbox_mode:
+            sandbox_mode = self._auto_sandbox_mode()
+        return [*cmd[:2], "--sandbox", sandbox_mode, *cmd[2:]]
+
+    def _auto_sandbox_mode(self) -> str:
+        if Path("/.dockerenv").exists():
+            return self._DEFAULT_SANDBOX_MODE_IN_CONTAINER
+        return self._DEFAULT_SANDBOX_MODE
+
+    def _skip_git_repo_check_enabled(self) -> bool:
+        raw = os.environ.get(
+            "HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK",
+            self._DEFAULT_SKIP_GIT_REPO_CHECK,
+        )
+        return self._is_truthy(raw)
+
+    def _apply_codex_exec_git_repo_check_defaults(self, cmd: list[str]) -> list[str]:
+        if len(cmd) < 2 or cmd[0] != "codex" or cmd[1] != "exec":
+            return cmd
+        if any(
+            token == "--skip-git-repo-check"
+            or token.startswith("--skip-git-repo-check")
+            for token in cmd
+        ):
+            return cmd
+        if not self._skip_git_repo_check_enabled():
+            return cmd
+        return [*cmd[:2], "--skip-git-repo-check", *cmd[2:]]
+
+    def _wrap_container_if_enabled(self, cmd: list[str]) -> list[str]:
+        if not self._container_enabled():
+            return cmd
+        image = self._container_image()
+        if shutil.which("docker") is None:
+            msg = (
+                "HELPING_HANDS_CODEX_CONTAINER is enabled but docker is not "
+                "available on PATH."
+            )
+            raise RuntimeError(msg)
+        repo_root = str(self.repo_index.root.resolve())
+        docker_cmd = [
+            "docker",
+            "run",
+            "--rm",
+            "-i",
+            "-v",
+            f"{repo_root}:/workspace",
+            "-w",
+            "/workspace",
+        ]
+        for env_name in (
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY",
+            "HELPING_HANDS_MODEL",
+        ):
+            value = os.environ.get(env_name)
+            if value:
+                docker_cmd.extend(["-e", f"{env_name}={value}"])
+        docker_cmd.append(image)
+        docker_cmd.extend(cmd)
+        return docker_cmd
+
+    def _execution_mode(self) -> str:
+        if self._container_enabled():
+            return "container+workspace-write"
+        return "workspace-write"
 
     def _build_init_prompt(self) -> str:
         file_list = "\n".join(f"- {path}" for path in self.repo_index.files[:200])
@@ -179,17 +303,23 @@ class CodexCLIHand(Hand):
         emit: _Emitter,
     ) -> str:
         cmd = self._render_command(prompt)
+        # Pass env explicitly so Codex CLI sees OPENAI_API_KEY etc. (Celery worker
+        # may not pass env to child on some setups).
+        env = dict(os.environ)
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=str(self.repo_index.root.resolve()),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                env=env,
             )
         except FileNotFoundError as exc:
             msg = (
                 f"Codex CLI command not found: {cmd[0]!r}. "
-                "Set HELPING_HANDS_CODEX_CLI_CMD to a valid command."
+                "Set HELPING_HANDS_CODEX_CLI_CMD to a valid command. "
+                "If running app mode in Docker, rebuild worker images so "
+                "the codex binary is installed."
             )
             raise RuntimeError(msg) from exc
 
@@ -219,8 +349,10 @@ class CodexCLIHand(Hand):
             if not self._is_interrupted():
                 return_code = await process.wait()
                 if return_code != 0:
-                    tail = "".join(chunks).strip()[-2000:]
-                    msg = f"Codex CLI failed (exit={return_code}). Output:\n{tail}"
+                    msg = self._build_codex_failure_message(
+                        return_code=return_code,
+                        output="".join(chunks),
+                    )
                     raise RuntimeError(msg)
             return "".join(chunks)
         finally:
@@ -233,6 +365,7 @@ class CodexCLIHand(Hand):
         emit: _Emitter,
     ) -> str:
         self.reset_interrupt()
+        await emit(f"[codexcli] isolation={self._execution_mode()}\n")
         await emit("[codexcli] [phase 1/2] Initializing repository context...\n")
         init_output = await self._invoke_codex(self._build_init_prompt(), emit=emit)
         if self._is_interrupted():

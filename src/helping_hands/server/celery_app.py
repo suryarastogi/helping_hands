@@ -52,6 +52,7 @@ _SUPPORTED_BACKENDS = {
     "basic-langgraph",
     "basic-atomic",
     "basic-agent",
+    "codexcli",
 }
 _MAX_STORED_UPDATES = 200
 _MAX_UPDATE_LINE_CHARS = 800
@@ -93,6 +94,14 @@ def _normalize_backend(backend: str | None) -> tuple[str, str]:
 
     runtime = "basic-atomic" if requested == "basic-agent" else requested
     return requested, runtime
+
+
+def _has_codex_auth() -> bool:
+    """Return whether runtime has credentials for Codex CLI calls."""
+    if os.environ.get("OPENAI_API_KEY"):
+        return True
+    auth_file = Path.home() / ".codex" / "auth.json"
+    return auth_file.is_file()
 
 
 def _trim_updates(updates: list[str]) -> None:
@@ -231,6 +240,7 @@ def build_feature(
     from helping_hands.lib.hands.v1.hand import (
         BasicAtomicHand,
         BasicLangGraphHand,
+        CodexCLIHand,
         E2EHand,
     )
     from helping_hands.lib.repo import RepoIndex
@@ -304,10 +314,18 @@ def build_feature(
 
     if cloned_from:
         _append_update(updates, f"Cloned {cloned_from} to {resolved_repo_path}")
+    if runtime_backend == "codexcli" and not _has_codex_auth():
+        msg = (
+            "Codex authentication is missing in worker runtime. "
+            "Set OPENAI_API_KEY in .env and recreate containers, "
+            "or run `codex login` in the worker environment."
+        )
+        _append_update(updates, msg)
+        raise RuntimeError(msg)
     _append_update(
         updates,
         (
-            f"Running iterative hand. backend={requested_backend} "
+            f"Running hand. backend={requested_backend} "
             f"(runtime={runtime_backend}), model={config.model}"
         ),
     )
@@ -332,6 +350,11 @@ def build_feature(
                 repo_index,
                 max_iterations=resolved_iterations,
             )
+        elif runtime_backend == "codexcli":
+            hand = CodexCLIHand(
+                config,
+                repo_index,
+            )
         else:
             hand = BasicAtomicHand(
                 config,
@@ -339,10 +362,18 @@ def build_feature(
                 max_iterations=resolved_iterations,
             )
     except ModuleNotFoundError as exc:
-        extra = "langchain" if runtime_backend == "basic-langgraph" else "atomic"
+        if runtime_backend == "basic-langgraph":
+            extra = "langchain"
+        elif runtime_backend in {"basic-atomic", "basic-agent"}:
+            extra = "atomic"
+        else:
+            extra = None
+        if extra:
+            install_hint = f"Install with: uv sync --extra {extra}"
+        else:
+            install_hint = "Check runtime setup."
         msg = (
-            f"Missing dependency for backend {requested_backend}: {exc}. "
-            f"Install with: uv sync --extra {extra}"
+            f"Missing dependency for backend {requested_backend}: {exc}. {install_hint}"
         )
         _append_update(updates, msg)
         raise RuntimeError(msg) from exc
