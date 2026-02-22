@@ -379,6 +379,7 @@ class TestE2EHand:
         assert resp.metadata["pr_url"] == "https://example/pr/1"
         assert resp.metadata["resumed_pr"] == "true"
         mock_gh.get_pr.assert_called_once_with("owner/repo", 1)
+        mock_gh.fetch_branch.assert_called_once()
         mock_gh.switch_branch.assert_called_once()
         mock_gh.create_branch.assert_not_called()
         mock_gh.create_pr.assert_not_called()

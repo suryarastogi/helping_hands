@@ -237,16 +237,19 @@ class E2EHand(Hand):
         with GitHubClient() as gh:
             pr_url = ""
             resumed_pr = False
+            pr_info: dict[str, Any] | None = None
             if pr_number is not None:
                 pr_info = gh.get_pr(repo, pr_number)
-                branch = str(pr_info["head"])
                 base_branch = str(pr_info["base"])
                 pr_url = str(pr_info["url"])
-                resumed_pr = True
+                if not dry_run:
+                    branch = str(pr_info["head"])
+                    resumed_pr = True
 
             gh.clone(repo, repo_dir, branch=base_branch, depth=1)
             repo_dir.mkdir(parents=True, exist_ok=True)
             if resumed_pr:
+                gh.fetch_branch(repo_dir, branch)
                 gh.switch_branch(repo_dir, branch)
             else:
                 gh.create_branch(repo_dir, branch)

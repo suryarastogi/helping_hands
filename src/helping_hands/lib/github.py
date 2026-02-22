@@ -133,6 +133,24 @@ class GitHubClient:
         _run_git(["git", "checkout", branch_name], cwd=repo_path)
 
     @staticmethod
+    def fetch_branch(
+        repo_path: Path | str,
+        branch_name: str,
+        *,
+        remote: str = "origin",
+    ) -> None:
+        """Fetch a remote branch into a matching local branch name."""
+        _run_git(
+            [
+                "git",
+                "fetch",
+                remote,
+                f"refs/heads/{branch_name}:refs/heads/{branch_name}",
+            ],
+            cwd=repo_path,
+        )
+
+    @staticmethod
     def current_branch(repo_path: Path | str) -> str:
         """Return the name of the current branch."""
         result = _run_git(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_path)
