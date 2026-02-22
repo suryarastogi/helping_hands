@@ -59,9 +59,7 @@ def index_repo(repo_path: str) -> dict:
 
 
 @mcp.tool()
-def build_feature(
-    repo_path: str, prompt: str, pr_number: int | None = None
-) -> dict:
+def build_feature(repo_path: str, prompt: str, pr_number: int | None = None) -> dict:
     """Enqueue a hand task via Celery and return the task ID.
 
     `repo_path` is interpreted as a GitHub repository reference (`owner/repo`)
