@@ -30,6 +30,8 @@ runs, UUIDs are generated in-hand as needed.
   apply edits using `@@FILE` blocks in-model.
 - System filesystem actions for hands (path-safe read/write/mkdir checks) are
   centralized in `lib/meta/tools/filesystem.py`.
+- Provider-level wrappers and model/env defaults are centralized in
+  `lib/ai_providers/` (`openai`, `anthropic`, `google`, `litellm`).
 - Push uses token-authenticated GitHub remote configuration and disables
   interactive credential prompts.
 
@@ -63,6 +65,12 @@ uv run helping-hands <local-path-or-owner/repo>
 # Run iterative LangGraph backend (owner/repo is auto-cloned)
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4
 
+# Run iterative Atomic backend
+uv run helping-hands owner/repo --backend basic-atomic --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4
+
+# Run iterative Agent backend (same dependency extra as basic-atomic)
+uv run helping-hands owner/repo --backend basic-agent --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4
+
 # Disable final commit/push/PR step explicitly
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-4.1-mini --prompt "Implement X" --max-iterations 4 --no-pr
 
@@ -86,6 +94,13 @@ helping_hands/
 │   │   ├── config.py
 │   │   ├── repo.py
 │   │   ├── github.py
+│   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
+│   │   │   ├── __init__.py
+│   │   │   ├── openai.py
+│   │   │   ├── anthropic.py
+│   │   │   ├── google.py
+│   │   │   ├── litellm.py
+│   │   │   └── types.py
 │   │   ├── meta/
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
@@ -140,7 +155,7 @@ Key settings:
 
 | Setting | Env var | Description |
 |---|---|---|
-| `model` | `HELPING_HANDS_MODEL` | AI model to use (set to a real provider model, e.g. `gpt-4.1-mini`) |
+| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-4.1-mini`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 
@@ -150,6 +165,22 @@ Key CLI flags:
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
+
+Backend command examples:
+
+```bash
+# basic-langgraph
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-langgraph --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# basic-atomic
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-atomic --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# basic-agent
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# e2e
+uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"
+```
 
 ## Development
 

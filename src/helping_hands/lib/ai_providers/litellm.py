@@ -1,0 +1,47 @@
+"""LiteLLM provider wrapper."""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from helping_hands.lib.ai_providers.types import AIProvider
+
+
+class LiteLLMProvider(AIProvider):
+    """Wrapper around the LiteLLM Python package."""
+
+    name = "litellm"
+    api_key_env_var = "LITELLM_API_KEY"
+    default_model = "gpt-4.1-mini"
+    install_hint = "uv add litellm"
+
+    def _build_inner(self) -> Any:
+        try:
+            import litellm
+        except ImportError as exc:
+            raise RuntimeError(
+                "LiteLLM is not installed. Install with: uv add litellm"
+            ) from exc
+
+        api_key = os.environ.get(self.api_key_env_var)
+        if api_key:
+            litellm.api_key = api_key
+        return litellm
+
+    def _complete_impl(
+        self,
+        *,
+        inner: Any,
+        messages: list[dict[str, str]],
+        model: str,
+        **kwargs: Any,
+    ) -> Any:
+        return inner.completion(
+            model=model,
+            messages=messages,
+            **kwargs,
+        )
+
+
+LITELLM_PROVIDER = LiteLLMProvider()

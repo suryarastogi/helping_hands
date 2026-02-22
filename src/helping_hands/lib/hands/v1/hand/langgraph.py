@@ -12,6 +12,10 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.model_provider import (
+    build_langchain_chat_model,
+    resolve_hand_model,
+)
 
 
 class LangGraphHand(Hand):
@@ -22,14 +26,14 @@ class LangGraphHand(Hand):
 
     def __init__(self, config: Any, repo_index: Any) -> None:
         super().__init__(config, repo_index)
+        self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
-        from langchain_openai import ChatOpenAI
         from langgraph.prebuilt import create_react_agent
 
-        llm = ChatOpenAI(
-            model_name=self.config.model,
+        llm = build_langchain_chat_model(
+            self._hand_model,
             streaming=True,
         )
         system_prompt = self._build_system_prompt()
@@ -52,7 +56,8 @@ class LangGraphHand(Hand):
             message=content,
             metadata={
                 "backend": "langgraph",
-                "model": self.config.model,
+                "model": self._hand_model.model,
+                "provider": self._hand_model.provider.name,
                 **pr_metadata,
             },
         )

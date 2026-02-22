@@ -31,6 +31,13 @@ nav:
           - config: api/lib/config.md
           - repo: api/lib/repo.md
           - github: api/lib/github.md
+          - ai_providers:
+              - package: api/lib/ai_providers.md
+              - openai: api/lib/ai_providers/openai.md
+              - anthropic: api/lib/ai_providers/anthropic.md
+              - google: api/lib/ai_providers/google.md
+              - litellm: api/lib/ai_providers/litellm.md
+              - types: api/lib/ai_providers/types.md
           - meta:
               - tools: api/lib/meta/tools.md
               - tools/filesystem: api/lib/meta/tools/filesystem.md

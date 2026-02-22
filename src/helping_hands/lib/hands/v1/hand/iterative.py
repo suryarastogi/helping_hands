@@ -18,6 +18,11 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.model_provider import (
+    build_atomic_client,
+    build_langchain_chat_model,
+    resolve_hand_model,
+)
 from helping_hands.lib.meta.tools import filesystem as system_tools
 
 
@@ -170,14 +175,14 @@ class BasicLangGraphHand(_BasicIterativeHand):
         max_iterations: int = 6,
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
+        self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
-        from langchain_openai import ChatOpenAI
         from langgraph.prebuilt import create_react_agent
 
-        llm = ChatOpenAI(
-            model_name=self.config.model,
+        llm = build_langchain_chat_model(
+            self._hand_model,
             streaming=True,
         )
         system_prompt = (
@@ -250,7 +255,8 @@ class BasicLangGraphHand(_BasicIterativeHand):
             message=message,
             metadata={
                 "backend": "basic-langgraph",
-                "model": self.config.model,
+                "model": self._hand_model.model,
+                "provider": self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
                 "interrupted": str(interrupted).lower(),
@@ -339,11 +345,10 @@ class BasicAtomicHand(_BasicIterativeHand):
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
         self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
-        import instructor
-        import openai
         from atomic_agents import AgentConfig, AtomicAgent, BasicChatInputSchema
         from atomic_agents.context import (
             ChatHistory,
@@ -352,7 +357,7 @@ class BasicAtomicHand(_BasicIterativeHand):
 
         self._input_schema = BasicChatInputSchema
 
-        client = instructor.from_openai(openai.OpenAI())
+        client = build_atomic_client(self._hand_model)
         history = ChatHistory()
         prompt_gen = SystemPromptGenerator(
             background=[
@@ -364,7 +369,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         return AtomicAgent(
             config=AgentConfig(
                 client=client,
-                model=self.config.model,
+                model=self._hand_model.model,
                 history=history,
                 system_prompt_generator=prompt_gen,
             )
@@ -428,7 +433,8 @@ class BasicAtomicHand(_BasicIterativeHand):
             message=message,
             metadata={
                 "backend": "basic-atomic",
-                "model": self.config.model,
+                "model": self._hand_model.model,
+                "provider": self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
                 "interrupted": str(interrupted).lower(),

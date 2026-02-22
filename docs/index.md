@@ -8,7 +8,7 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 
 Browse the auto-generated docs from source:
 
-- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
+- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
 - **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md)
 
@@ -26,3 +26,22 @@ Browse the auto-generated docs from source:
   for repo-safe reads/writes and path validation.
 - MCP now exposes filesystem tools backed by the same layer:
   `read_file`, `write_file`, `mkdir`, and `path_exists`.
+
+## CLI examples
+
+```bash
+# basic-langgraph
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-langgraph --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# basic-atomic
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-atomic --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# basic-agent
+uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model gpt-4.1-mini --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
+
+# e2e (new PR)
+uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"
+
+# e2e (update existing PR #1)
+uv run helping-hands "suryarastogi/helping_hands" --e2e --pr-number 1 --prompt "CI integration run: update PR on master"
+```

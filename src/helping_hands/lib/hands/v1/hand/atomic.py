@@ -13,6 +13,10 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.model_provider import (
+    build_atomic_client,
+    resolve_hand_model,
+)
 
 
 class AtomicHand(Hand):
@@ -24,11 +28,10 @@ class AtomicHand(Hand):
     def __init__(self, config: Any, repo_index: Any) -> None:
         super().__init__(config, repo_index)
         self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
-        import instructor
-        import openai
         from atomic_agents import AgentConfig, AtomicAgent, BasicChatInputSchema
         from atomic_agents.context import (
             ChatHistory,
@@ -37,7 +40,7 @@ class AtomicHand(Hand):
 
         self._input_schema = BasicChatInputSchema
 
-        client = instructor.from_openai(openai.OpenAI())
+        client = build_atomic_client(self._hand_model)
         history = ChatHistory()
         prompt_gen = SystemPromptGenerator(
             background=[self._build_system_prompt()],
@@ -45,7 +48,7 @@ class AtomicHand(Hand):
         return AtomicAgent(
             config=AgentConfig(
                 client=client,
-                model=self.config.model,
+                model=self._hand_model.model,
                 history=history,
                 system_prompt_generator=prompt_gen,
             )
@@ -67,7 +70,8 @@ class AtomicHand(Hand):
             message=message,
             metadata={
                 "backend": "atomic",
-                "model": self.config.model,
+                "model": self._hand_model.model,
+                "provider": self._hand_model.provider.name,
                 **pr_metadata,
             },
         )
