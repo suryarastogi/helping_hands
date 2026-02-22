@@ -45,11 +45,16 @@ This means a rerun updates the same PR state instead of creating drift between o
 
 - streamed per-iteration output
 - cooperative interruption
+- file reads via `@@READ: ...` and read-result feedback blocks
 - inline file edits via `@@FILE: ...` fenced full-content blocks
 - default final commit/push/PR step
 
 Final PR behavior is enabled by default and can be disabled explicitly (`--no-pr`).
 When enabled, push is token-authenticated and non-interactive to avoid OS credential popups.
+
+Implementation note: hand code is now organized as a package module under
+`src/helping_hands/lib/hands/v1/hand/`, and iterative file operations route
+through shared system helpers in `src/helping_hands/lib/meta/tools.py`.
 
 ## CI race-condition guard
 

@@ -26,6 +26,8 @@ runs, UUIDs are generated in-hand as needed.
   Disable with `--no-pr`.
 - Iterative basic hands can request file contents using `@@READ: path` and
   apply edits using `@@FILE` blocks in-model.
+- System filesystem actions for hands (path-safe read/write/mkdir checks) are
+  centralized in `lib/meta/tools.py`.
 - Push uses token-authenticated GitHub remote configuration and disables
   interactive credential prompts.
 
@@ -76,11 +78,15 @@ docker compose up --build
 ```
 helping_hands/
 ├── src/helping_hands/        # Main package
-│   ├── lib/                  # Core library (config, repo, github, hands)
+│   ├── lib/                  # Core library (config, repo, github, hands, meta tools)
 │   │   ├── config.py
 │   │   ├── repo.py
 │   │   ├── github.py
-│   │   └── hands/v1/         # Hand backends (LangGraph, Atomic, Basic iterative, E2E, CLI scaffolds)
+│   │   ├── meta/
+│   │   │   └── tools.py      # Shared filesystem/system tools for hands
+│   │   └── hands/v1/
+│   │       ├── __init__.py
+│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, placeholders)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)

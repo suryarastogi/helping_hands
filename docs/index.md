@@ -8,7 +8,7 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 
 Browse the auto-generated docs from source:
 
-- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [hands v1](api/lib/hands/v1/hand.md)
+- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools](api/lib/meta/tools.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
 - **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md)
 
@@ -22,3 +22,5 @@ Browse the auto-generated docs from source:
 - Basic iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`)
   stream multi-step output and, by default, attempt a final commit/push/PR step
   unless disabled via `--no-pr`.
+- Iterative/basic hands use shared system file tooling from `lib.meta.tools`
+  for repo-safe reads/writes and path validation.

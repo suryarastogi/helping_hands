@@ -31,6 +31,8 @@ nav:
           - config: api/lib/config.md
           - repo: api/lib/repo.md
           - github: api/lib/github.md
+          - meta:
+              - tools: api/lib/meta/tools.md
           - hands:
               - "v1/hand": api/lib/hands/v1/hand.md
       - cli:

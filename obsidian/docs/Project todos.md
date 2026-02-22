@@ -21,3 +21,4 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - Pre-commit now includes `ty` for type checks; current rule ignores are intentional until optional backend imports/protocol signatures are tightened.
 - Basic iterative backends now default to a final commit/push/PR step; explicit `--no-pr` disables side effects (and maps to dry-run for E2E).
 - Non-E2E CLI supports `owner/repo` input by cloning to temporary workspace before indexing/iteration.
+- Hand internals were split from a single `hand.py` into a package module (`lib/hands/v1/hand/`); shared filesystem system tools now live in `lib/meta/tools.py`.

@@ -81,6 +81,8 @@ what the code does.
 - **Final PR behavior**: Hands should attempt a final commit/push/PR by default, with explicit opt-out (`--no-pr`) when side effects must be disabled. (2026-02-22)
 - **CLI repo input**: Non-E2E CLI runs accept local paths and `owner/repo` GitHub references; `owner/repo` is cloned to a temp workspace automatically. (2026-02-22)
 - **Push auth**: Git pushes for finalization should be token-authenticated and non-interactive to avoid OS credential popups in automation. (2026-02-22)
+- **Hand module layout**: Keep hand implementations split under `src/helping_hands/lib/hands/v1/hand/` with `__init__.py` as public export surface; avoid regressing to a monolithic `hand.py`. (2026-02-22)
+- **System tool reuse**: Repo file operations for hands should use shared helpers in `src/helping_hands/lib/meta/tools.py` for path-safe behavior and consistent semantics. (2026-02-22)
 
 ## Dependencies `[auto-update]`
 
@@ -132,4 +134,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — basic iterative hands, owner/repo CLI clone support, default final PR step + --no-pr, non-interactive token push.*
+*Last updated: 2026-02-22 — hand package split, shared meta tools module, module-level interface docstrings, and docs reconciliation.*
