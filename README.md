@@ -12,7 +12,12 @@
 
 ## What is this?
 
-`helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal) or **app mode** (server with background workers).
+`helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI.
+
+It can run in:
+
+- **CLI mode** — interactive in the terminal
+- **App mode** — FastAPI server with background workers for async/scheduled runs
 
 ### Modes
 
@@ -24,205 +29,24 @@
 - **Server mode**: `server -> enqueue hand task -> hand executes`
 - **CLI mode**: `cli -> hand executes`
 
-For asynchronous runs, the hand UUID is the Celery task ID. For synchronous
-runs, UUIDs are generated in-hand as needed.
+For asynchronous runs, the hand UUID is the Celery task ID. For synchronous runs,
+UUIDs are generated in-hand as needed.
 
-- `E2EHand` uses `{hand_uuid}/git/{repo}` workspace layout and supports
-  new PR creation plus resume/update via `--pr-number`.
-- Basic iterative hands (`basic-langgraph`, `basic-atomic`) operate on the
-  target repo context and, by default, attempt a final commit/push/PR step.
-  Disable with `--no-pr`.
-- Iterative basic hands can request file contents using `@@READ: path` and
-  apply edits using `@@FILE` blocks in-model.
-- System filesystem actions for hands (path-safe read/write/mkdir checks) are
-  centralized in `lib/meta/tools/filesystem.py`.
-- Provider-level wrappers and model/env defaults are centralized in
-  `lib/ai_providers/` (`openai`, `anthropic`, `google`, `litellm`).
-- Push uses token-authenticated GitHub remote configuration and disables
-  interactive credential prompts.
+### What gets touched / side effects
+
+Some backends will attempt to create commits, push branches, and open/update PRs.
+
+- **Default behavior**: iterative basic hands may attempt a final commit/push/PR step.
+- **Opt out**: pass `--no-pr` to disable side effects.
+- **E2EHand**: supports new PR creation plus resume/update via `--pr-number`.
 
 ### Key ideas
 
 - **Repo-aware**: Clones or reads a local repo, indexes the file tree, and builds context so the AI understands what it's working with.
-- **Conversational building**: Describe what you want in plain language. The agent proposes changes, writes code, and iterates with you.
+- **Conversational building**: Describe what you want in plain language. The agent proposes changes, writes the code, and iterates with you.
 - **Convention-respectful**: Learns the repo's patterns (naming, structure, style) and follows them in generated code.
 - **Self-improving guidance**: Ships with an `AGENT.md` file that the agent updates over time as it learns your preferences for tone, style, and design.
-- **E2E validation hand**: `E2EHand` is a minimal concrete hand used to test
-  the full clone/edit/commit/push/PR flow.
-- **Iterative basic hands**: `basic-langgraph` and `basic-atomic` run
-  stepwise implementation loops with live streaming, interruption, and optional
-  final PR creation.
+- **E2E validation hand**: `E2EHand` is a minimal concrete hand used to test the full clone/edit/commit/push/PR flow.
+- **Iterative basic hands**: `basic-langgraph`, `basic-atomic`, and `basic-agent` run stepwise implementation loops with live streaming, interruption, and optional final PR creation.
 
 ## Quick start
-
-```bash
-# Requires Python 3.12+
-
-# Clone the repo
-git clone git@github.com:suryarastogi/helping_hands.git
-cd helping_hands
-
-# Install with uv (creates .venv automatically)
-uv sync --dev
-
-# Run in CLI mode (default) against a target repo
-uv run helping-hands <local-path-or-owner/repo>
-
-# Run iterative LangGraph backend (owner/repo is auto-cloned)
-uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4
-
-# Run iterative Atomic backend
-uv run helping-hands owner/repo --backend basic-atomic --model gpt-5.2 --prompt "Implement X" --max-iterations 4
-
-# Run iterative Agent backend (same dependency extra as basic-atomic)
-uv run helping-hands owner/repo --backend basic-agent --model gpt-5.2 --prompt "Implement X" --max-iterations 4
-
-# Disable final commit/push/PR step explicitly
-uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
-
-# Run E2E mode against a GitHub repo (owner/repo)
-uv run helping-hands owner/repo --e2e --prompt "E2E smoke test"
-
-# Resume/update an existing PR (e.g., PR #1)
-uv run helping-hands owner/repo --e2e --pr-number 1 --prompt "Update PR 1"
-
-# App mode: start the full stack with Docker Compose
-cp .env.example .env  # edit as needed
-docker compose up --build
-```
-
-## Project structure
-
-```
-helping_hands/
-├── src/helping_hands/        # Main package
-│   ├── lib/                  # Core library (config, repo, github, hands, meta tools)
-│   │   ├── config.py
-│   │   ├── repo.py
-│   │   ├── github.py
-│   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
-│   │   │   ├── __init__.py
-│   │   │   ├── openai.py
-│   │   │   ├── anthropic.py
-│   │   │   ├── google.py
-│   │   │   ├── litellm.py
-│   │   │   └── types.py
-│   │   ├── meta/
-│   │   │   └── tools/
-│   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
-│   │   └── hands/v1/
-│   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, placeholders)
-│   ├── cli/                  # CLI entry point (depends on lib)
-│   │   └── main.py
-│   └── server/               # App-mode server (depends on lib)
-│       ├── app.py            # FastAPI application
-│       └── celery_app.py     # Celery app + tasks
-├── tests/                    # Test suite (pytest)
-├── docs/                     # MkDocs source for API docs
-├── .github/workflows/
-│   ├── ci.yml                # CI: ruff, tests, multi-Python
-│   └── docs.yml              # Build + deploy docs to GitHub Pages
-├── Dockerfile                # Multi-stage: server, worker, beat, flower
-├── compose.yaml              # Full stack: server, worker, beat, flower, redis, postgres
-├── .env.example              # Env var template for Compose
-├── mkdocs.yml                # MkDocs + mkdocstrings config
-├── obsidian/docs/            # Design notes (Obsidian vault)
-├── pyproject.toml            # Project config (uv, ruff, ty, pytest)
-├── .pre-commit-config.yaml   # Pre-commit hooks (ruff + ty)
-├── AGENT.md                  # AI agent guidelines (self-updating)
-├── TODO.md                   # Project roadmap
-├── LICENSE                   # Apache 2.0
-└── README.md
-```
-
-## How it works
-
-1. **Ingest** — You provide a local repo path or GitHub `owner/repo` reference. The CLI indexes local paths directly and auto-clones `owner/repo` inputs to a temp workspace.
-2. **Understand** — The tool feeds repo context (file tree, key files, existing conventions) to an AI model so it can reason about the codebase.
-3. **Build** — You describe the feature or change you want. The agent proposes a plan, writes the code, and presents diffs for your review.
-4. **Iterate** — Accept, reject, or refine. The agent learns from your feedback and adjusts its approach.
-5. **Record** — Preferences and patterns discovered during the session are captured back into `AGENT.md` so future sessions start smarter.
-
-## Configuration
-
-`helping_hands` currently reads configuration from:
-
-1. CLI flags (highest priority)
-2. Environment variables (`HELPING_HANDS_*`)
-3. Built-in defaults
-
-Environment variables are loaded from `.env` files in the current working
-directory (and target repo directory when available), without overriding
-already-exported shell variables.
-
-Key settings:
-
-| Setting | Env var | Description |
-|---|---|---|
-| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
-| `repo` | — | Local path or GitHub `owner/repo` target |
-| `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
-
-Key CLI flags:
-
-- `--backend {basic-langgraph,basic-atomic,basic-agent}` — run iterative basic hands
-- `--max-iterations N` — cap iterative hand loops
-- `--no-pr` — disable final commit/push/PR side effects
-- `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
-
-Backend command examples:
-
-```bash
-# basic-langgraph
-uv run helping-hands "suryarastogi/helping_hands" --backend basic-langgraph --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
-
-# basic-atomic
-uv run helping-hands "suryarastogi/helping_hands" --backend basic-atomic --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
-
-# basic-agent
-uv run helping-hands "suryarastogi/helping_hands" --backend basic-agent --model gpt-5.2 --prompt "Implement one small safe improvement; if editing files use @@FILE blocks and end with SATISFIED: yes/no." --max-iterations 4
-
-# e2e
-uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"
-```
-
-## Development
-
-```bash
-# Install (includes dev deps: pytest, ruff, pre-commit)
-uv sync --dev
-
-# Install optional backend deps
-uv sync --extra langchain
-# or
-uv sync --extra atomic
-
-# Lint + format
-uv run ruff check .
-uv run ruff format --check .
-
-# Run tests
-uv run pytest -v
-
-# Coverage report (terminal + XML)
-uv run pytest -v --cov-report=term-missing --cov-report=xml
-
-# Run live E2E integration test (opt-in; requires token + repo access)
-HELPING_HANDS_RUN_E2E_INTEGRATION=1 HELPING_HANDS_E2E_PR_NUMBER=1 uv run pytest -k e2e_integration -v
-
-# CI behavior: only master + Python 3.13 performs live push/update;
-# all other matrix jobs run E2E in dry-run mode.
-
-# Set up pre-commit hooks (one-time)
-uv run pre-commit install
-
-# Build API docs locally
-uv sync --extra docs --extra server
-uv run mkdocs serve
-```
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE).
