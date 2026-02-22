@@ -5,3 +5,11 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: ty-check
+        name: ty-check
+        entry: uv run ty check src --ignore unresolved-import --ignore invalid-method-override
+        language: system
+        pass_filenames: false
+        types_or: [python, pyi]

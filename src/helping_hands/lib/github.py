@@ -12,7 +12,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from github import Auth, Github
 from github.PullRequest import PullRequest
@@ -281,7 +281,10 @@ class GitHubClient:
             limit: Maximum number of PRs to return.
         """
         repo = self.get_repo(full_name)
-        prs = repo.get_pulls(state=state, sort="created", direction="desc")
+        prs = cast(
+            list[PullRequest],
+            list(repo.get_pulls(state=state, sort="created", direction="desc"))[:limit],
+        )
         return [
             {
                 "number": pr.number,
@@ -291,7 +294,7 @@ class GitHubClient:
                 "head": pr.head.ref,
                 "base": pr.base.ref,
             }
-            for pr in prs[:limit]
+            for pr in prs
         ]
 
     def get_pr(self, full_name: str, number: int) -> dict[str, Any]:
