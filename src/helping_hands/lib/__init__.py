@@ -1,1 +1,1 @@
-"""Core library: repo handling, agent orchestration, and configuration."""
+"""Core library: repo handling, hands, and configuration."""

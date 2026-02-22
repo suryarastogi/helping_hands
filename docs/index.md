@@ -8,6 +8,6 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 
 Browse the auto-generated docs from source:
 
-- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [agent](api/lib/agent.md)
+- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [hands v1](api/lib/hands/v1/hand.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
 - **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md)

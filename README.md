@@ -41,10 +41,11 @@ docker compose up --build
 ```
 helping_hands/
 ├── src/helping_hands/        # Main package
-│   ├── lib/                  # Core library (config, repo, agent)
+│   ├── lib/                  # Core library (config, repo, github, hands)
 │   │   ├── config.py
 │   │   ├── repo.py
-│   │   └── agent.py
+│   │   ├── github.py
+│   │   └── hands/v1/         # Hand backends (LangGraph, Atomic)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)

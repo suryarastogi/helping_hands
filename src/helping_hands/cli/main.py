@@ -6,7 +6,6 @@ import argparse
 import sys
 from pathlib import Path
 
-from helping_hands.lib.agent import Agent
 from helping_hands.lib.config import Config
 from helping_hands.lib.repo import RepoIndex
 
@@ -43,13 +42,13 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Error: {args.repo} is not a directory.", file=sys.stderr)
         sys.exit(1)
 
-    config = Config.from_env(
+    Config.from_env(
         overrides={"repo": str(repo_path), "model": args.model, "verbose": args.verbose}
     )
     repo_index = RepoIndex.from_path(repo_path)
-    agent = Agent(config=config, repo_index=repo_index)
-
-    print(agent.greet())
+    n = len(repo_index.files)
+    s = "s" if n != 1 else ""
+    print(f"Ready. Indexed {n} file{s} in {repo_index.root}.")
 
 
 if __name__ == "__main__":

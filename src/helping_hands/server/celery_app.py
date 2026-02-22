@@ -24,16 +24,17 @@ celery_app.conf.update(
 
 @celery_app.task(name="helping_hands.build_feature")
 def build_feature(repo_path: str, prompt: str) -> dict[str, str]:
-    """Async task: run the agent against a repo with a user prompt.
+    """Async task: run a hand against a repo with a user prompt.
 
     This is the primary unit of work in app mode. The server enqueues this
-    task; a worker picks it up, runs the agent, and stores the result.
+    task; a worker picks it up, runs the hand, and stores the result.
     """
-    from helping_hands.lib.agent import Agent
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
 
     config = Config.from_env(overrides={"repo": repo_path})
     repo_index = RepoIndex.from_path(Path(config.repo))
-    agent = Agent(config=config, repo_index=repo_index)
-    return {"status": "ok", "greeting": agent.greet(), "prompt": prompt}
+    n = len(repo_index.files)
+    s = "s" if n != 1 else ""
+    greeting = f"Ready. Indexed {n} file{s} in {repo_index.root}."
+    return {"status": "ok", "greeting": greeting, "prompt": prompt}

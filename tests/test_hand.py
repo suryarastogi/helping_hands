@@ -1,4 +1,4 @@
-"""Tests for helping_hands.hands.v1.hand."""
+"""Tests for helping_hands.lib.hands.v1.hand."""
 
 from __future__ import annotations
 
@@ -9,13 +9,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from helping_hands.hands.v1.hand import (
+from helping_hands.lib.config import Config
+from helping_hands.lib.hands.v1.hand import (
     AtomicHand,
+    ClaudeCodeHand,
     Hand,
     HandResponse,
     LangGraphHand,
 )
-from helping_hands.lib.config import Config
 from helping_hands.lib.repo import RepoIndex
 
 # ---------------------------------------------------------------------------
@@ -230,6 +231,31 @@ class TestAtomicHand:
             _collect_stream(hand, "hello")
         )
         assert chunks == ["Part 1", "Part 2"]
+
+
+# ---------------------------------------------------------------------------
+# ClaudeCodeHand (scaffolding)
+# ---------------------------------------------------------------------------
+
+
+class TestClaudeCodeHand:
+    def test_run_returns_placeholder(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = ClaudeCodeHand(config, repo_index)
+        resp = hand.run("do something")
+        assert "not yet implemented" in resp.message
+        assert resp.metadata["backend"] == "claudecode"
+
+    def test_stream_yields_placeholder(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = ClaudeCodeHand(config, repo_index)
+        chunks = asyncio.get_event_loop().run_until_complete(
+            _collect_stream(hand, "hello")
+        )
+        assert len(chunks) == 1
+        assert "not yet implemented" in chunks[0]
 
 
 # ---------------------------------------------------------------------------

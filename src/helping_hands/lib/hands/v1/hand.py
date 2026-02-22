@@ -1,10 +1,11 @@
-"""Unified Hand interface with LangGraph and Atomic Agents backends.
+"""Unified Hand interface with LangGraph, Atomic Agents, and Claude Code backends.
 
 A Hand is the AI agent that operates on a repo. This module defines:
   - ``Hand``: abstract protocol that all backends implement.
   - ``HandResponse``: common response container.
   - ``LangGraphHand``: backend powered by LangChain / LangGraph.
   - ``AtomicHand``: backend powered by atomic-agents.
+  - ``ClaudeCodeHand``: backend that invokes Claude Code via a terminal/bash call.
 """
 
 from __future__ import annotations
@@ -175,3 +176,30 @@ class AtomicHand(Hand):
         async for partial in self._agent.run_async(user_input):
             if hasattr(partial, "chat_message") and partial.chat_message:
                 yield partial.chat_message
+
+
+# ---------------------------------------------------------------------------
+# Claude Code backend (scaffolding)
+# ---------------------------------------------------------------------------
+
+
+class ClaudeCodeHand(Hand):
+    """Hand backed by Claude Code via a terminal/bash invocation.
+
+    This backend would run the Claude Code CLI (or equivalent) as a
+    subprocess: e.g. a terminal/bash call that passes the repo path and
+    user prompt, then captures stdout/stderr. Not yet implemented; this
+    class is scaffolding for future integration.
+    """
+
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        super().__init__(config, repo_index)
+
+    def run(self, prompt: str) -> HandResponse:
+        return HandResponse(
+            message="ClaudeCode hand not yet implemented.",
+            metadata={"backend": "claudecode", "model": self.config.model},
+        )
+
+    async def stream(self, prompt: str) -> AsyncIterator[str]:
+        yield "ClaudeCode hand not yet implemented."
