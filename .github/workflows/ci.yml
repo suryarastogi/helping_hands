@@ -25,7 +25,13 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: >-
+          uv sync --dev
+          --extra server
+          --extra github
+          --extra mcp
+          --extra langchain
+          --extra atomic
 
       - name: Ruff check
         run: uv run ruff check .
