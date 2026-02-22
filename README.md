@@ -12,12 +12,13 @@
 
 ## What is this?
 
-`helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal) or **app mode** (server with background workers).
+`helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal), **app mode** (server with background workers), or as an **MCP server** (tool provider).
 
 ### Modes
 
-- **CLI mode** (default) — Run `helping_hands <repo>` or `helping_hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) and `codexcli` with streamed output.
+- **CLI mode** (default) — Run `helping-hands <repo>` or `helping-hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) and `codexcli` with streamed output.
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
+- **MCP server** — Run `helping-hands-mcp` to expose helping_hands tools over MCP (stdio by default, `--http` for streamable HTTP).
 
 ### Execution flow
 
@@ -69,6 +70,10 @@ cd helping_hands
 
 # Install with uv (creates .venv automatically)
 uv sync --dev
+
+# Optional: install extra deps for iterative backends (pick what you need)
+# uv sync --dev --extra langchain  # basic-langgraph
+# uv sync --dev --extra atomic    # basic-atomic/basic-agent
 
 # Run in CLI mode (default) against a target repo
 uv run helping-hands <local-path-or-owner/repo>
@@ -155,6 +160,13 @@ If UI submit appears to enqueue but you do not see repeated `/tasks/<id>` reques
 in logs (common when browser JS is blocked), use `/monitor/<id>`; that endpoint
 refreshes server-side without client-side JavaScript.
 
+### MCP server (optional)
+
+`helping_hands` can also run as an MCP tool provider (useful for Cursor / Claude Desktop):
+
+- stdio transport: `uv run helping-hands-mcp`
+- HTTP transport: `uv run helping-hands-mcp --http` (or `docker compose up --build mcp`, listens on `${MCP_PORT:-8080}`)
+
 ## Project structure
 
 ```
@@ -231,6 +243,18 @@ Key settings:
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 
+Common credentials (used by hands/backends):
+
+| Purpose | Env var(s) |
+|---|---|
+| GitHub auth (push/PR) | `GITHUB_TOKEN` or `GH_TOKEN` |
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google | `GOOGLE_API_KEY` |
+| LiteLLM | `LITELLM_API_KEY` |
+
+See `.env.example` for a full template.
+
 Key CLI flags:
 
 - `--backend {basic-langgraph,basic-atomic,basic-agent}` — run iterative basic hands
@@ -290,9 +314,9 @@ uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration
 uv sync --dev
 
 # Install optional backend deps
-uv sync --extra langchain
+uv sync --dev --extra langchain
 # or
-uv sync --extra atomic
+uv sync --dev --extra atomic
 
 # Lint + format
 uv run ruff check .
@@ -317,7 +341,7 @@ HELPING_HANDS_RUN_E2E_INTEGRATION=1 HELPING_HANDS_E2E_PR_NUMBER=1 uv run pytest 
 uv run pre-commit install
 
 # Build API docs locally
-uv sync --extra docs --extra server
+uv sync --dev --extra docs --extra server
 uv run mkdocs serve
 ```
 
