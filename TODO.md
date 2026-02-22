@@ -14,7 +14,7 @@
   - [x] **pre-commit** — `.pre-commit-config.yaml` with ruff + ty hooks
 - [x] **CI/CD**
   - [x] GitHub Actions workflow (`.github/workflows/ci.yml`) on push/PR:
-    - [x] Install with uv, run tests (Python 3.11, 3.12, 3.13)
+    - [x] Install with uv, run tests (Python 3.12, 3.13, 3.14)
     - [x] ruff check + ruff format
     - [ ] Type check step (add when ty has a stable CI runner)
     - [ ] Optional: build/publish or deploy steps

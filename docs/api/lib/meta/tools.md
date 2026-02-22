@@ -1,3 +1,3 @@
-# lib.meta.tools
+# lib.meta.tools (package)
 
 ::: helping_hands.lib.meta.tools

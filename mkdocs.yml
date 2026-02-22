@@ -33,6 +33,7 @@ nav:
           - github: api/lib/github.md
           - meta:
               - tools: api/lib/meta/tools.md
+              - tools/filesystem: api/lib/meta/tools/filesystem.md
           - hands:
               - "v1/hand": api/lib/hands/v1/hand.md
       - cli:

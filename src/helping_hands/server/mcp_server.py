@@ -8,6 +8,10 @@ Tools:
   - index_repo: Walk a local repo and return its file listing.
   - build_feature: (async via Celery) Enqueue a hand task.
   - get_task_status: Check the status of an enqueued task.
+  - read_file: Read a UTF-8 file from a repository.
+  - write_file: Write a UTF-8 file in a repository.
+  - mkdir: Create a directory in a repository.
+  - path_exists: Check whether a repo-relative path exists.
 
 Resources:
   - repo://{path}: Read a file from an indexed repo.
@@ -25,6 +29,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from helping_hands.lib.config import Config
+from helping_hands.lib.meta.tools import filesystem as fs_tools
 from helping_hands.lib.repo import RepoIndex
 
 mcp = FastMCP(
@@ -36,6 +41,15 @@ mcp = FastMCP(
 )
 
 _indexed_repos: dict[str, RepoIndex] = {}
+
+
+def _repo_root(repo_path: str) -> Path:
+    """Resolve and validate a repository root path."""
+    root = Path(repo_path).resolve()
+    if not root.is_dir():
+        msg = f"Repository path not found: {repo_path}"
+        raise FileNotFoundError(msg)
+    return root
 
 
 @mcp.tool()
@@ -104,21 +118,81 @@ def get_task_status(task_id: str) -> dict:
 
 
 @mcp.tool()
-def read_file(repo_path: str, file_path: str) -> str:
+def read_file(repo_path: str, file_path: str, max_chars: int | None = None) -> str:
     """Read a file from a repository.
 
     Args:
         repo_path: Absolute path to the repository root.
         file_path: Path relative to the repo root.
+        max_chars: Optional max number of chars to return.
 
     Returns:
         The file contents as a string.
     """
-    full = Path(repo_path).resolve() / file_path
-    if not full.is_file():
+    root = _repo_root(repo_path)
+    try:
+        text, _, _ = fs_tools.read_text_file(root, file_path, max_chars=max_chars)
+    except ValueError as exc:
+        msg = f"Invalid file path: {file_path}"
+        raise ValueError(msg) from exc
+    except FileNotFoundError as exc:
         msg = f"File not found: {file_path}"
-        raise FileNotFoundError(msg)
-    return full.read_text(encoding="utf-8", errors="replace")
+        raise FileNotFoundError(msg) from exc
+    except IsADirectoryError as exc:
+        msg = f"Path is a directory: {file_path}"
+        raise IsADirectoryError(msg) from exc
+    except UnicodeError as exc:
+        msg = f"File is not UTF-8 text: {file_path}"
+        raise UnicodeError(msg) from exc
+    return text
+
+
+@mcp.tool()
+def write_file(repo_path: str, file_path: str, content: str) -> dict:
+    """Write a UTF-8 file in a repository.
+
+    Args:
+        repo_path: Absolute path to the repository root.
+        file_path: Path relative to the repo root.
+        content: Full file contents to write.
+
+    Returns:
+        Dict with normalized path and byte length.
+    """
+    root = _repo_root(repo_path)
+    try:
+        written_path = fs_tools.write_text_file(root, file_path, content)
+    except ValueError as exc:
+        msg = f"Invalid file path: {file_path}"
+        raise ValueError(msg) from exc
+    return {"path": written_path, "bytes": len(content.encode("utf-8"))}
+
+
+@mcp.tool()
+def mkdir(repo_path: str, dir_path: str) -> dict:
+    """Create a directory in a repository.
+
+    Args:
+        repo_path: Absolute path to the repository root.
+        dir_path: Directory path relative to the repo root.
+
+    Returns:
+        Dict with normalized created path.
+    """
+    root = _repo_root(repo_path)
+    try:
+        created = fs_tools.mkdir_path(root, dir_path)
+    except ValueError as exc:
+        msg = f"Invalid directory path: {dir_path}"
+        raise ValueError(msg) from exc
+    return {"path": created}
+
+
+@mcp.tool()
+def path_exists(repo_path: str, path: str) -> bool:
+    """Check whether a repo-relative path exists."""
+    root = _repo_root(repo_path)
+    return fs_tools.path_exists(root, path)
 
 
 @mcp.tool()

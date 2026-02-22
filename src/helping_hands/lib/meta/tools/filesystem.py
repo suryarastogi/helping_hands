@@ -1,9 +1,8 @@
-"""System filesystem tools for repo-aware execution.
+"""Filesystem tools for repo-aware execution.
 
 These helpers provide a narrow, reusable interface for safe path handling and
 file operations inside a repository root. They are consumed by hand modules
-(especially iterative hands) so read/write behavior is centralized and
-consistently path-confined.
+and MCP tools so read/write behavior is centralized and path-confined.
 """
 
 from __future__ import annotations

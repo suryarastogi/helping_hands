@@ -8,7 +8,7 @@ The project currently exposes three runtime surfaces:
 
 - **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, or iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`).
 - **App mode (implemented baseline)** — FastAPI + Celery integration exists. `/build` enqueues `build_feature`; workers run `E2EHand`; `/tasks/{task_id}` reports status/result.
-- **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, file read, and config inspection.
+- **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
 
@@ -18,7 +18,7 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
 3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, plus CLI scaffold hands.
    - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `langgraph.py`, `atomic.py`, `iterative.py`, `e2e.py`, `placeholders.py`, `__init__.py` export surface).
-4. **System tools layer** (`lib.meta.tools`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands.
+4. **System tools layer** (`lib.meta.tools.filesystem`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands and MCP filesystem tools.
 5. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
 6. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
 

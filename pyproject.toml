@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "AI-powered repo builder — point it at a codebase and build features with AI."
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [{ name = "Surya Rastogi" }]
 dependencies = [
     "python-dotenv>=1.0",
@@ -51,7 +51,7 @@ packages = ["src/helping_hands"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]

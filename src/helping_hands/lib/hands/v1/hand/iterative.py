@@ -6,7 +6,7 @@ This module defines:
   used by CLI ``--backend`` selection.
 
 These classes implement the Hand interface while depending on
-``helping_hands.lib.meta.tools`` for system-level repo file operations
+``helping_hands.lib.meta.tools.filesystem`` for system-level repo file operations
 (read/write path resolution and safe filesystem access).
 """
 
@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
-from helping_hands.lib.meta import tools as system_tools
+from helping_hands.lib.meta.tools import filesystem as system_tools
 
 
 class _BasicIterativeHand(Hand):

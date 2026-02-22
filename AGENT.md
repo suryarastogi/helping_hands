@@ -28,7 +28,7 @@ what the code does.
 
 <!-- Agents: update this section when you notice consistent style choices. -->
 
-- **Language**: Python 3.11+
+- **Language**: Python 3.12+
 - **Package manager**: uv (`uv sync`, `uv run`, `uv add`)
 - **Formatter**: `ruff format` (line length 88)
 - **Linter**: `ruff check` (rules: E, W, F, I, N, UP, B, SIM, RUF)
@@ -82,7 +82,7 @@ what the code does.
 - **CLI repo input**: Non-E2E CLI runs accept local paths and `owner/repo` GitHub references; `owner/repo` is cloned to a temp workspace automatically. (2026-02-22)
 - **Push auth**: Git pushes for finalization should be token-authenticated and non-interactive to avoid OS credential popups in automation. (2026-02-22)
 - **Hand module layout**: Keep hand implementations split under `src/helping_hands/lib/hands/v1/hand/` with `__init__.py` as public export surface; avoid regressing to a monolithic `hand.py`. (2026-02-22)
-- **System tool reuse**: Repo file operations for hands should use shared helpers in `src/helping_hands/lib/meta/tools.py` for path-safe behavior and consistent semantics. (2026-02-22)
+- **System tool reuse**: Repo file operations for hands should use shared helpers in `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior and consistent semantics; MCP filesystem tools should route through the same layer. (2026-02-22)
 
 ## Dependencies `[auto-update]`
 

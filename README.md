@@ -1,6 +1,8 @@
-# helping_hands
+<p align="center">
+  <img src="media/banner.png" alt="helping_hands" />
+</p>
 
-**AI-powered repo builder** — point it at a codebase, describe what you want, and let an AI agent help you build and ship features.
+---
 
 ## What is this?
 
@@ -27,7 +29,7 @@ runs, UUIDs are generated in-hand as needed.
 - Iterative basic hands can request file contents using `@@READ: path` and
   apply edits using `@@FILE` blocks in-model.
 - System filesystem actions for hands (path-safe read/write/mkdir checks) are
-  centralized in `lib/meta/tools.py`.
+  centralized in `lib/meta/tools/filesystem.py`.
 - Push uses token-authenticated GitHub remote configuration and disables
   interactive credential prompts.
 
@@ -46,6 +48,8 @@ runs, UUIDs are generated in-hand as needed.
 ## Quick start
 
 ```bash
+# Requires Python 3.12+
+
 # Clone the repo
 git clone git@github.com:suryarastogi/helping_hands.git
 cd helping_hands
@@ -83,7 +87,9 @@ helping_hands/
 │   │   ├── repo.py
 │   │   ├── github.py
 │   │   ├── meta/
-│   │   │   └── tools.py      # Shared filesystem/system tools for hands
+│   │   │   └── tools/
+│   │   │       ├── __init__.py
+│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
 │   │   └── hands/v1/
 │   │       ├── __init__.py
 │   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, placeholders)

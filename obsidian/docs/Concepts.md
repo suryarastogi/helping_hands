@@ -54,7 +54,8 @@ When enabled, push is token-authenticated and non-interactive to avoid OS creden
 
 Implementation note: hand code is now organized as a package module under
 `src/helping_hands/lib/hands/v1/hand/`, and iterative file operations route
-through shared system helpers in `src/helping_hands/lib/meta/tools.py`.
+through shared system helpers in
+`src/helping_hands/lib/meta/tools/filesystem.py`.
 
 ## CI race-condition guard
 

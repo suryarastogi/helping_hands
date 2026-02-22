@@ -13,7 +13,10 @@ from helping_hands.server.mcp_server import (
     get_task_status,
     index_repo,
     list_indexed_repos,
+    mkdir,
+    path_exists,
     read_file,
+    write_file,
 )
 
 # ---------------------------------------------------------------------------
@@ -61,6 +64,67 @@ class TestReadFile:
     def test_raises_on_missing_file(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
             read_file(str(tmp_path), "nope.txt")
+
+    def test_rejects_path_escape(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError):
+            read_file(str(tmp_path), "../outside.txt")
+
+    def test_respects_max_chars(self, tmp_path: Path) -> None:
+        (tmp_path / "hello.txt").write_text("abcdef")
+        content = read_file(str(tmp_path), "hello.txt", max_chars=3)
+        assert content == "abc"
+
+
+# ---------------------------------------------------------------------------
+# write_file
+# ---------------------------------------------------------------------------
+
+
+class TestWriteFile:
+    def test_writes_file(self, tmp_path: Path) -> None:
+        result = write_file(str(tmp_path), "nested/hello.txt", "hello world")
+        assert result["path"] == "nested/hello.txt"
+        assert result["bytes"] == len(b"hello world")
+        assert (tmp_path / "nested" / "hello.txt").read_text(encoding="utf-8") == (
+            "hello world"
+        )
+
+    def test_rejects_invalid_path(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError):
+            write_file(str(tmp_path), "../outside.txt", "x")
+
+
+# ---------------------------------------------------------------------------
+# mkdir
+# ---------------------------------------------------------------------------
+
+
+class TestMkdir:
+    def test_creates_directory(self, tmp_path: Path) -> None:
+        result = mkdir(str(tmp_path), "a/b/c")
+        assert result["path"] == "a/b/c"
+        assert (tmp_path / "a" / "b" / "c").is_dir()
+
+    def test_rejects_invalid_path(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError):
+            mkdir(str(tmp_path), "../outside")
+
+
+# ---------------------------------------------------------------------------
+# path_exists
+# ---------------------------------------------------------------------------
+
+
+class TestPathExists:
+    def test_true_for_existing_path(self, tmp_path: Path) -> None:
+        (tmp_path / "exists.txt").write_text("x")
+        assert path_exists(str(tmp_path), "exists.txt") is True
+
+    def test_false_for_missing_path(self, tmp_path: Path) -> None:
+        assert path_exists(str(tmp_path), "missing.txt") is False
+
+    def test_false_for_invalid_relative_path(self, tmp_path: Path) -> None:
+        assert path_exists(str(tmp_path), "../outside.txt") is False
 
 
 # ---------------------------------------------------------------------------
