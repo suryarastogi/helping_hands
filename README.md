@@ -16,7 +16,7 @@
 
 ### Modes
 
-- **CLI mode** (default) — Run `helping_hands <repo>` or `helping_hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) and `codexcli` with streamed output.
+- **CLI mode** (default) — Run `helping-hands <repo>` or `helping-hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) and `codexcli` with streamed output.
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -154,6 +154,22 @@ TASK_ID=$(curl -sS -X POST "http://localhost:8000/build" -H "Content-Type: appli
 If UI submit appears to enqueue but you do not see repeated `/tasks/<id>` requests
 in logs (common when browser JS is blocked), use `/monitor/<id>`; that endpoint
 refreshes server-side without client-side JavaScript.
+
+### MCP server
+
+`helping_hands` also ships an MCP server so MCP-capable clients can use it as a
+tool provider.
+
+```bash
+# If you didn't install dev deps, ensure MCP extras are present
+uv sync --extra mcp
+
+# Run MCP server over stdio (for Claude Desktop / Cursor)
+uv run helping-hands-mcp
+
+# Run MCP server over streamable HTTP (for networked clients)
+uv run helping-hands-mcp --http
+```
 
 ## Project structure
 
