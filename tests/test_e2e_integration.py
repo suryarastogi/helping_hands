@@ -6,6 +6,7 @@ This test is opt-in and intended for CI with secrets configured.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -29,6 +30,10 @@ def _is_master_branch() -> bool:
     return branch == "master"
 
 
+def _is_primary_python() -> bool:
+    return sys.version_info[:2] == (3, 13)
+
+
 @pytest.mark.integration
 def test_e2e_hand_updates_existing_pr(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -41,7 +46,7 @@ def test_e2e_hand_updates_existing_pr(
 
     repo = os.environ.get("HELPING_HANDS_E2E_REPO", "suryarastogi/helping_hands")
     pr_number = int(os.environ.get("HELPING_HANDS_E2E_PR_NUMBER", "1"))
-    on_master = _is_master_branch()
+    should_push = _is_master_branch() and _is_primary_python()
 
     monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
 
@@ -51,18 +56,18 @@ def test_e2e_hand_updates_existing_pr(
     )
     response = hand.run(
         prompt=(
-            "CI integration run: update PR on master"
-            if on_master
-            else "CI integration run: dry-run on non-master branch"
+            "CI integration run: update PR on master with primary Python"
+            if should_push
+            else "CI integration run: dry-run on non-primary CI target"
         ),
         pr_number=pr_number,
-        dry_run=not on_master,
+        dry_run=not should_push,
     )
 
     assert response.metadata["backend"] == "e2e"
     assert response.metadata["repo"] == repo
     assert Path(response.metadata["workspace"]).exists()
-    if on_master:
+    if should_push:
         assert response.metadata["dry_run"] == "false"
         assert response.metadata["pr_number"] == str(pr_number)
         assert response.metadata["resumed_pr"] == "true"
