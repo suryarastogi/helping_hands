@@ -36,20 +36,36 @@ RUN mkdir -p /root/.codex \
     'wire_api = "responses"' \
     > /root/.codex/config.toml
 
+# Create non-root runtime user and mirror codex config.
+RUN useradd --create-home --shell /bin/bash app \
+    && mkdir -p /home/app/.codex \
+    && cp /root/.codex/config.toml /home/app/.codex/config.toml \
+    && chown -R app:app /home/app /app
+
 FROM app-deps AS server
+ENV HOME=/home/app
+USER app
 CMD ["uv", "run", "uvicorn", "helping_hands.server.app:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM app-deps AS worker
+ENV HOME=/home/app
+USER app
 CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "worker", "--loglevel=info"]
 
 FROM app-deps AS beat
+ENV HOME=/home/app
+USER app
 CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "beat", "--loglevel=info"]
 
 FROM app-deps AS flower
+ENV HOME=/home/app
+USER app
 EXPOSE 5555
 CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "flower", "--port=5555"]
 
 FROM app-deps AS mcp
+ENV HOME=/home/app
+USER app
 RUN uv sync --frozen --no-dev --extra server --extra github --extra langchain --extra atomic --extra mcp
 EXPOSE 8080
 CMD ["uv", "run", "helping-hands-mcp", "--http"]

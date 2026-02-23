@@ -73,6 +73,10 @@ When running as root/sudo, the backend avoids or strips that flag and retries
 automatically if Claude rejects it.
 When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
+If Claude still requests interactive write approval and no edits are applied,
+the backend now fails the run instead of silently returning success/no-op.
+CLI subprocess execution now also emits heartbeat lines when output is quiet and
+terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 ## Provider wrappers and model resolution
 

@@ -45,8 +45,14 @@ Browse the auto-generated docs from source:
   `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`).
 - If Claude rejects that flag under root/sudo, backend retries automatically
   without the flag.
+- If Claude asks for interactive write approval and no edits are applied after
+  retry, the run fails with a clear error instead of returning success.
 - For edit-intent prompts, `claudecodecli` auto-runs one follow-up apply pass
   when the first task pass reports no repository file changes.
+- CLI subprocess controls (all CLI backends):
+  - `HELPING_HANDS_CLI_IO_POLL_SECONDS` (default `2`)
+  - `HELPING_HANDS_CLI_HEARTBEAT_SECONDS` (default `20`)
+  - `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default `300`)
 - Basic iterative hands preload iteration-1 context with `README.md`/`AGENT.md`
   (when present) and a bounded-depth repo tree snapshot.
 - Model selection resolves through `lib.ai_providers` wrappers, including
@@ -91,6 +97,7 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
   - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
 - App mode supports `claudecodecli`; default Docker app/worker images do not
   preinstall Claude Code CLI binary but do include `npx` fallback support.
+- The bundled Docker app/worker images run as a non-root `app` user by default.
 - If relying on `npx` fallback in app mode, worker runtime needs network access
   to download `@anthropic-ai/claude-code`.
 

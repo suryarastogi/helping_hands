@@ -82,11 +82,15 @@ environment.
    rejections trigger automatic retry without the flag.
 6. For edit-intent prompts, the backend retries once with an explicit
    "apply edits now" prompt when no git changes are detected after task phase.
-7. Command-not-found behavior:
+7. If Claude requests interactive write approval and no edits are applied after
+   retry, the run fails with a clear runtime error (instead of success/no-op).
+8. Command-not-found behavior:
    - If `claude` is missing and `npx` exists, backend retries with
      `npx -y @anthropic-ai/claude-code ...`.
    - If relying on this in app mode, worker runtime must allow package
      download/network access.
+9. Default Docker app/worker runtime uses non-root `app` user, enabling
+   non-interactive Claude permission mode by default.
 
 ## E2E workflow (source of truth)
 

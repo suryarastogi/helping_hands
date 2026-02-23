@@ -41,6 +41,9 @@ class _TwoPhaseCLIHand(Hand):
     _CONTAINER_IMAGE_ENV_VAR = ""
     _RETRY_ON_NO_CHANGES = False
     _SUMMARY_CHAR_LIMIT = 6000
+    _DEFAULT_IO_POLL_SECONDS = 2.0
+    _DEFAULT_HEARTBEAT_SECONDS = 20.0
+    _DEFAULT_IDLE_TIMEOUT_SECONDS = 300.0
 
     class _Emitter(Protocol):
         async def __call__(self, chunk: str) -> None: ...
@@ -187,6 +190,37 @@ class _TwoPhaseCLIHand(Hand):
             return "container+workspace-write"
         return "workspace-write"
 
+    @staticmethod
+    def _float_env(name: str, *, default: float) -> float:
+        raw = os.environ.get(name)
+        if raw is None:
+            return default
+        try:
+            value = float(raw.strip())
+        except ValueError:
+            return default
+        if value <= 0:
+            return default
+        return value
+
+    def _io_poll_seconds(self) -> float:
+        return self._float_env(
+            "HELPING_HANDS_CLI_IO_POLL_SECONDS",
+            default=self._DEFAULT_IO_POLL_SECONDS,
+        )
+
+    def _heartbeat_seconds(self) -> float:
+        return self._float_env(
+            "HELPING_HANDS_CLI_HEARTBEAT_SECONDS",
+            default=self._DEFAULT_HEARTBEAT_SECONDS,
+        )
+
+    def _idle_timeout_seconds(self) -> float:
+        return self._float_env(
+            "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS",
+            default=self._DEFAULT_IDLE_TIMEOUT_SECONDS,
+        )
+
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         tail = output.strip()[-2000:]
         return f"{self._CLI_DISPLAY_NAME} failed (exit={return_code}). Output:\n{tail}"
@@ -296,6 +330,16 @@ class _TwoPhaseCLIHand(Hand):
             "After editing, provide a short summary of changed files."
         )
 
+    def _no_change_error_after_retries(
+        self,
+        *,
+        prompt: str,
+        combined_output: str,
+    ) -> str | None:
+        del prompt
+        del combined_output
+        return None
+
     async def _terminate_active_process(self) -> None:
         process = self._active_process
         if process is None or process.returncode is not None:
@@ -326,6 +370,7 @@ class _TwoPhaseCLIHand(Hand):
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=str(self.repo_index.root.resolve()),
+                stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 env=env,
@@ -337,6 +382,11 @@ class _TwoPhaseCLIHand(Hand):
                     f"[{self._CLI_LABEL}] {cmd[0]!r} not found; "
                     f"retrying with {fallback[0]!r}.\n"
                 )
+                if fallback[0] == "npx":
+                    await emit(
+                        f"[{self._CLI_LABEL}] npx fallback may take a while on "
+                        "first run while the package is downloaded.\n"
+                    )
                 return await self._invoke_cli_with_cmd(fallback, emit=emit)
             raise RuntimeError(self._command_not_found_message(cmd[0])) from exc
 
@@ -349,16 +399,49 @@ class _TwoPhaseCLIHand(Hand):
             msg = f"{self._CLI_DISPLAY_NAME} did not expose stdout pipe."
             raise RuntimeError(msg)
 
+        io_poll_seconds = self._io_poll_seconds()
+        heartbeat_seconds = self._heartbeat_seconds()
+        idle_timeout_seconds = self._idle_timeout_seconds()
+        now = asyncio.get_running_loop().time()
+        last_output_ts = now
+        last_heartbeat_ts = now
+
         try:
             while True:
                 if self._is_interrupted():
                     await self._terminate_active_process()
                     break
 
-                data = await stdout.read(1024)
+                try:
+                    data = await asyncio.wait_for(
+                        stdout.read(1024),
+                        timeout=io_poll_seconds,
+                    )
+                except TimeoutError as exc:
+                    if process.returncode is not None:
+                        break
+                    now = asyncio.get_running_loop().time()
+                    idle_seconds = now - last_output_ts
+                    if now - last_heartbeat_ts >= heartbeat_seconds:
+                        await emit(
+                            f"[{self._CLI_LABEL}] still running "
+                            f"({int(idle_seconds)}s since last output)...\n"
+                        )
+                        last_heartbeat_ts = now
+                    if idle_seconds >= idle_timeout_seconds:
+                        await self._terminate_active_process()
+                        msg = (
+                            f"{self._CLI_DISPLAY_NAME} produced no output for "
+                            f"{int(idle_timeout_seconds)}s and was terminated. "
+                            "Increase HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS "
+                            "if this command is expected to run quietly."
+                        )
+                        raise RuntimeError(msg) from exc
+                    continue
                 if not data:
                     break
 
+                last_output_ts = asyncio.get_running_loop().time()
                 text = data.decode("utf-8", errors="replace")
                 chunks.append(text)
                 await emit(text)
@@ -426,6 +509,14 @@ class _TwoPhaseCLIHand(Hand):
                 emit=emit,
             )
             combined_output += apply_output
+
+        if self._looks_like_edit_request(prompt) and not self._repo_has_changes():
+            no_change_error = self._no_change_error_after_retries(
+                prompt=prompt,
+                combined_output=combined_output,
+            )
+            if no_change_error:
+                raise RuntimeError(no_change_error)
 
         return combined_output
 
@@ -666,6 +757,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     _ROOT_PERMISSION_ERROR = (
         "--dangerously-skip-permissions cannot be used with root/sudo privileges"
     )
+    _PERMISSION_PROMPT_MARKERS = (
+        "write permissions to this file haven't been granted",
+        "approve the write operation",
+        "blocked pending your approval",
+        "approve this operation",
+    )
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
@@ -752,6 +849,24 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             f"Claude Code CLI command not found: {command!r}. "
             "Set HELPING_HANDS_CLAUDE_CLI_CMD to a valid command."
         )
+
+    def _no_change_error_after_retries(
+        self,
+        *,
+        prompt: str,
+        combined_output: str,
+    ) -> str | None:
+        del prompt
+        lowered = combined_output.lower()
+        if any(marker in lowered for marker in self._PERMISSION_PROMPT_MARKERS):
+            return (
+                "Claude Code CLI could not apply edits because write permission "
+                "approval was required in non-interactive mode. Ensure the "
+                "runtime can run with --dangerously-skip-permissions (non-root), "
+                "or use HELPING_HANDS_CLAUDE_CLI_CMD with a fully "
+                "non-interactive write-capable setup."
+            )
+        return None
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
         if not cmd or cmd[0] != "claude":

@@ -861,6 +861,102 @@ class TestClaudeCodeHand:
         assert retry is not None
         assert "--dangerously-skip-permissions" not in retry
 
+    @patch(
+        "helping_hands.lib.hands.v1.hand.placeholders.asyncio.create_subprocess_exec"
+    )
+    def test_invoke_cli_uses_non_interactive_stdin(
+        self,
+        mock_create: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        class _Stdout:
+            async def read(self, _size: int) -> bytes:
+                return b""
+
+        class _Process:
+            def __init__(self) -> None:
+                self.stdout = _Stdout()
+                self.returncode: int | None = 0
+
+            async def wait(self) -> int:
+                return 0
+
+            def terminate(self) -> None:
+                self.returncode = 143
+
+            def kill(self) -> None:
+                self.returncode = -9
+
+        mock_create.return_value = _Process()
+        hand = ClaudeCodeHand(config, repo_index)
+
+        async def _emit(_chunk: str) -> None:
+            return None
+
+        asyncio.run(
+            hand._invoke_cli_with_cmd(
+                ["claude", "-p", "hello world"],
+                emit=_emit,
+            )
+        )
+        assert mock_create.call_args.kwargs["stdin"] == asyncio.subprocess.DEVNULL
+
+    @patch(
+        "helping_hands.lib.hands.v1.hand.placeholders.asyncio.create_subprocess_exec"
+    )
+    def test_invoke_cli_emits_heartbeat_and_times_out_on_idle(
+        self,
+        mock_create: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class _SlowStdout:
+            async def read(self, _size: int) -> bytes:
+                await asyncio.sleep(1.0)
+                return b""
+
+        class _SlowProcess:
+            def __init__(self) -> None:
+                self.stdout = _SlowStdout()
+                self.returncode: int | None = None
+                self.terminate_called = False
+
+            async def wait(self) -> int:
+                if self.returncode is None:
+                    self.returncode = 143
+                return self.returncode
+
+            def terminate(self) -> None:
+                self.terminate_called = True
+                self.returncode = 143
+
+            def kill(self) -> None:
+                self.returncode = -9
+
+        proc = _SlowProcess()
+        mock_create.return_value = proc
+        monkeypatch.setenv("HELPING_HANDS_CLI_IO_POLL_SECONDS", "0.01")
+        monkeypatch.setenv("HELPING_HANDS_CLI_HEARTBEAT_SECONDS", "0.01")
+        monkeypatch.setenv("HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS", "0.05")
+        hand = ClaudeCodeHand(config, repo_index)
+        emitted: list[str] = []
+
+        async def _emit(chunk: str) -> None:
+            emitted.append(chunk)
+
+        with pytest.raises(RuntimeError, match="produced no output"):
+            asyncio.run(
+                hand._invoke_cli_with_cmd(
+                    ["claude", "-p", "hello world"],
+                    emit=_emit,
+                )
+            )
+
+        assert proc.terminate_called is True
+        assert any("still running" in chunk for chunk in emitted)
+
     @patch.object(ClaudeCodeHand, "_finalize_repo_pr")
     @patch.object(ClaudeCodeHand, "_invoke_claude", autospec=True)
     def test_run_executes_init_then_task(
@@ -993,6 +1089,49 @@ class TestClaudeCodeHand:
         assert "Follow-up enforcement phase" in prompts[2]
         assert "Applied update to README.md." in resp.message
         mock_finalize.assert_called_once()
+
+    @patch.object(ClaudeCodeHand, "_repo_has_changes", return_value=False)
+    @patch.object(ClaudeCodeHand, "_finalize_repo_pr")
+    @patch.object(ClaudeCodeHand, "_invoke_claude", autospec=True)
+    def test_run_fails_when_edit_is_blocked_by_permission_prompt(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        _mock_has_changes: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: ClaudeCodeHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            if len(prompts) == 1:
+                text = "Init summary.\n"
+            elif len(prompts) == 2:
+                text = (
+                    "Could you approve the write operation to `/tmp/repo/README.md`?\n"
+                )
+            else:
+                text = (
+                    "The edit was blocked pending your approval. "
+                    "Please approve the write operation.\n"
+                )
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        hand = ClaudeCodeHand(config, repo_index)
+
+        with pytest.raises(RuntimeError, match="could not apply edits"):
+            hand.run("Update README with MCP section")
+
+        assert len(prompts) == 3
+        mock_finalize.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

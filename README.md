@@ -127,6 +127,7 @@ docker compose up -d --force-recreate server worker beat flower
 The worker image configures Codex CLI to use `OPENAI_API_KEY` from the
 environment (custom model provider in `~/.codex/config.toml`), so no
 `codex login` or `auth.json` is required in Docker.
+App/worker services in the provided Dockerfile run as a non-root `app` user.
 
 `claudecodecli` in app mode tries `claude -p` first. If `claude` is missing and
 `npx` is available, it automatically retries with
@@ -332,6 +333,14 @@ Codex backend smoke test:
 codex exec --model gpt-5.2 "Reply with READY and one sentence."
 ```
 
+CLI subprocess runtime controls (all CLI backends):
+
+- `HELPING_HANDS_CLI_IO_POLL_SECONDS` (default: `2`) — stdout polling interval.
+- `HELPING_HANDS_CLI_HEARTBEAT_SECONDS` (default: `20`) — emit a
+  "still running" line when command output is quiet.
+- `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default: `300`) — terminate a
+  subprocess that produces no output for too long.
+
 Claude Code backend notes:
 
 - Default command: `claude -p`
@@ -342,6 +351,8 @@ Claude Code backend notes:
   `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`)
 - When Claude rejects that flag under root/sudo, the backend automatically
   retries without the flag.
+- If Claude requests write approval and no edits are applied after retry, the
+  run now fails with a clear runtime error instead of reporting success.
 - Override command via `HELPING_HANDS_CLAUDE_CLI_CMD`
 - Optional placeholders supported in the override string:
   - `{prompt}`
@@ -358,6 +369,8 @@ Claude Code backend requirements:
 - To create/push PRs at the end of a run, set `GITHUB_TOKEN` or `GH_TOKEN`.
 - In Docker/app mode, if you rely on `npx` fallback, worker runtime needs
   network access to download `@anthropic-ai/claude-code`.
+- The bundled Docker app/worker images run as non-root so non-interactive
+  Claude permission mode can be used by default.
 - If an edit-intent prompt returns only prose with no git changes, the backend
   automatically runs one extra enforcement pass to apply edits directly.
 
