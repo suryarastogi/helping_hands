@@ -69,6 +69,10 @@ CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
 For `claudecodecli`, non-interactive runs default to
 `--dangerously-skip-permissions` and now include one automatic follow-up apply
 pass for edit-intent prompts when the first task pass produces no git changes.
+When running as root/sudo, the backend avoids or strips that flag and retries
+automatically if Claude rejects it.
+When `claude` is not installed but `npx` is available, backend command
+resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 
 ## Provider wrappers and model resolution
 

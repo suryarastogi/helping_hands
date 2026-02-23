@@ -128,9 +128,11 @@ The worker image configures Codex CLI to use `OPENAI_API_KEY` from the
 environment (custom model provider in `~/.codex/config.toml`), so no
 `codex login` or `auth.json` is required in Docker.
 
-`claudecodecli` is supported in app mode, but the default Dockerfile does not
-install Claude Code CLI. For app-mode Claude runs, use a worker image that
-includes `claude` and has Anthropic auth configured.
+`claudecodecli` in app mode tries `claude -p` first. If `claude` is missing and
+`npx` is available, it automatically retries with
+`npx -y @anthropic-ai/claude-code`.
+For deterministic/offline worker runs, prefer a worker image that preinstalls
+Claude Code CLI instead of relying on runtime `npx` download.
 
 The built-in UI at `http://localhost:8000/` supports:
 - backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`)
@@ -333,8 +335,13 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 Claude Code backend notes:
 
 - Default command: `claude -p`
-- Default non-interactive automation flag: `--dangerously-skip-permissions`
-  (disable with `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`)
+- If `claude` is missing and `npx` is available, backend auto-falls back to:
+  `npx -y @anthropic-ai/claude-code -p ...`
+- Default non-interactive automation flag in non-root runtimes:
+  `--dangerously-skip-permissions` (disable with
+  `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`)
+- When Claude rejects that flag under root/sudo, the backend automatically
+  retries without the flag.
 - Override command via `HELPING_HANDS_CLAUDE_CLI_CMD`
 - Optional placeholders supported in the override string:
   - `{prompt}`
@@ -346,9 +353,11 @@ Claude Code backend notes:
 
 Claude Code backend requirements:
 
-- `claude` CLI must be installed and available on `PATH`.
+- `claude` CLI on `PATH`, or `npx` available so fallback command can run.
 - Ensure authentication is configured (typically `ANTHROPIC_API_KEY`).
 - To create/push PRs at the end of a run, set `GITHUB_TOKEN` or `GH_TOKEN`.
+- In Docker/app mode, if you rely on `npx` fallback, worker runtime needs
+  network access to download `@anthropic-ai/claude-code`.
 - If an edit-intent prompt returns only prose with no git changes, the backend
   automatically runs one extra enforcement pass to apply edits directly.
 

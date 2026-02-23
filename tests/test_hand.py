@@ -793,6 +793,74 @@ class TestClaudeCodeHand:
         cmd = hand._render_command("hello world")
         assert "--dangerously-skip-permissions" not in cmd
 
+    @patch("helping_hands.lib.hands.v1.hand.placeholders.os.geteuid")
+    def test_render_command_skips_dangerous_permissions_when_root(
+        self,
+        mock_geteuid: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        mock_geteuid.return_value = 0
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CLI_CMD", "claude -p")
+        hand = ClaudeCodeHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        assert "--dangerously-skip-permissions" not in cmd
+
+    @patch("helping_hands.lib.hands.v1.hand.placeholders.shutil.which")
+    def test_fallback_command_when_claude_missing_uses_npx(
+        self,
+        mock_which: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_which.return_value = "/usr/bin/npx"
+        hand = ClaudeCodeHand(config, repo_index)
+        original = ["claude", "--dangerously-skip-permissions", "-p", "hello world"]
+        fallback = hand._fallback_command_when_not_found(original)
+        assert fallback is not None
+        assert fallback[:3] == ["npx", "-y", "@anthropic-ai/claude-code"]
+        assert fallback[3:] == original[1:]
+
+    @patch("helping_hands.lib.hands.v1.hand.placeholders.shutil.which")
+    def test_fallback_command_when_npx_missing_returns_none(
+        self,
+        mock_which: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_which.return_value = None
+        hand = ClaudeCodeHand(config, repo_index)
+        assert (
+            hand._fallback_command_when_not_found(
+                ["claude", "--dangerously-skip-permissions", "-p", "hello world"]
+            )
+            is None
+        )
+
+    def test_retry_command_after_root_permission_error_strips_flag(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = ClaudeCodeHand(config, repo_index)
+        cmd = [
+            "claude",
+            "--dangerously-skip-permissions",
+            "-p",
+            "hello world",
+        ]
+        retry = hand._retry_command_after_failure(
+            cmd,
+            output=(
+                "--dangerously-skip-permissions cannot be used with root/sudo "
+                "privileges for security reasons"
+            ),
+            return_code=1,
+        )
+        assert retry is not None
+        assert "--dangerously-skip-permissions" not in retry
+
     @patch.object(ClaudeCodeHand, "_finalize_repo_pr")
     @patch.object(ClaudeCodeHand, "_invoke_claude", autospec=True)
     def test_run_executes_init_then_task(

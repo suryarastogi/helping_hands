@@ -69,17 +69,24 @@ Requirements:
 `claudecodecli` uses the external `claude` executable from the user
 environment.
 
-1. `claude` CLI installed and available on `PATH`.
+1. `claude` CLI installed and available on `PATH`, or `npx` available for
+   automatic fallback execution.
 2. Auth configured for CLI execution (typically `ANTHROPIC_API_KEY`).
 3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
 4. Optional command/container overrides:
    - `HELPING_HANDS_CLAUDE_CLI_CMD`
    - `HELPING_HANDS_CLAUDE_CONTAINER=1`
    - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
-5. Non-interactive default adds `--dangerously-skip-permissions` (disable via
-   `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`).
+5. Non-interactive non-root default adds `--dangerously-skip-permissions`
+   (disable via `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`); root/sudo
+   rejections trigger automatic retry without the flag.
 6. For edit-intent prompts, the backend retries once with an explicit
    "apply edits now" prompt when no git changes are detected after task phase.
+7. Command-not-found behavior:
+   - If `claude` is missing and `npx` exists, backend retries with
+     `npx -y @anthropic-ai/claude-code ...`.
+   - If relying on this in app mode, worker runtime must allow package
+     download/network access.
 
 ## E2E workflow (source of truth)
 
@@ -115,7 +122,7 @@ User/Client → FastAPI /build → Celery queue
                                ↓
                        worker task build_feature
                                ↓
-          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand)
+          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand / ClaudeCodeHand)
                                ↓
       task status/result available via /tasks/{task_id} (JSON)
       no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)

@@ -197,6 +197,18 @@ class _TwoPhaseCLIHand(Hand):
             f"Set {self._COMMAND_ENV_VAR} to a valid command."
         )
 
+    def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
+        return None
+
+    def _retry_command_after_failure(
+        self,
+        cmd: list[str],
+        *,
+        output: str,
+        return_code: int,
+    ) -> list[str] | None:
+        return None
+
     def _build_init_prompt(self) -> str:
         file_list = "\n".join(f"- {path}" for path in self.repo_index.files[:200])
         if not file_list:
@@ -301,7 +313,14 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
-        cmd = self._render_command(prompt)
+        return await self._invoke_cli_with_cmd(self._render_command(prompt), emit=emit)
+
+    async def _invoke_cli_with_cmd(
+        self,
+        cmd: list[str],
+        *,
+        emit: _Emitter,
+    ) -> str:
         env = dict(os.environ)
         try:
             process = await asyncio.create_subprocess_exec(
@@ -312,6 +331,13 @@ class _TwoPhaseCLIHand(Hand):
                 env=env,
             )
         except FileNotFoundError as exc:
+            fallback = self._fallback_command_when_not_found(cmd)
+            if fallback and fallback != cmd:
+                await emit(
+                    f"[{self._CLI_LABEL}] {cmd[0]!r} not found; "
+                    f"retrying with {fallback[0]!r}.\n"
+                )
+                return await self._invoke_cli_with_cmd(fallback, emit=emit)
             raise RuntimeError(self._command_not_found_message(cmd[0])) from exc
 
         self._active_process = process
@@ -340,9 +366,21 @@ class _TwoPhaseCLIHand(Hand):
             if not self._is_interrupted():
                 return_code = await process.wait()
                 if return_code != 0:
+                    output = "".join(chunks)
+                    retry_cmd = self._retry_command_after_failure(
+                        cmd,
+                        output=output,
+                        return_code=return_code,
+                    )
+                    if retry_cmd and retry_cmd != cmd:
+                        await emit(
+                            f"[{self._CLI_LABEL}] command failed; retrying with "
+                            "adjusted permissions flags.\n"
+                        )
+                        return await self._invoke_cli_with_cmd(retry_cmd, emit=emit)
                     msg = self._build_failure_message(
                         return_code=return_code,
-                        output="".join(chunks),
+                        output=output,
                     )
                     raise RuntimeError(msg)
             return "".join(chunks)
@@ -625,6 +663,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CLAUDE_CONTAINER_IMAGE"
     _DEFAULT_SKIP_PERMISSIONS = "1"
     _RETRY_ON_NO_CHANGES = True
+    _ROOT_PERMISSION_ERROR = (
+        "--dangerously-skip-permissions cannot be used with root/sudo privileges"
+    )
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
@@ -663,7 +704,16 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS",
             self._DEFAULT_SKIP_PERMISSIONS,
         )
-        return self._is_truthy(raw)
+        if not self._is_truthy(raw):
+            return False
+        geteuid = getattr(os, "geteuid", None)
+        if callable(geteuid):
+            try:
+                if int(geteuid()) == 0:
+                    return False
+            except Exception:
+                pass
+        return True
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
         if (
@@ -674,6 +724,22 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         ):
             return [cmd[0], "--dangerously-skip-permissions", *cmd[1:]]
         return cmd
+
+    def _retry_command_after_failure(
+        self,
+        cmd: list[str],
+        *,
+        output: str,
+        return_code: int,
+    ) -> list[str] | None:
+        if return_code == 0:
+            return None
+        if "--dangerously-skip-permissions" not in cmd:
+            return None
+        lowered = output.lower()
+        if self._ROOT_PERMISSION_ERROR.lower() not in lowered:
+            return None
+        return [token for token in cmd if token != "--dangerously-skip-permissions"]
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         return self._build_claude_failure_message(
@@ -686,6 +752,13 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             f"Claude Code CLI command not found: {command!r}. "
             "Set HELPING_HANDS_CLAUDE_CLI_CMD to a valid command."
         )
+
+    def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
+        if not cmd or cmd[0] != "claude":
+            return None
+        if shutil.which("npx") is None:
+            return None
+        return ["npx", "-y", "@anthropic-ai/claude-code", *cmd[1:]]
 
     async def _invoke_claude(
         self,

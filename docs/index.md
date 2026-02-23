@@ -38,9 +38,13 @@ Browse the auto-generated docs from source:
 - `codexcli` adds `--skip-git-repo-check` by default for non-interactive runs.
 - `claudecodecli` uses `claude -p` by default and supports command override via
   `HELPING_HANDS_CLAUDE_CLI_CMD`.
+- If `claude` is missing and `npx` is available, `claudecodecli` retries with
+  `npx -y @anthropic-ai/claude-code`.
 - `claudecodecli` adds `--dangerously-skip-permissions` by default in
-  non-interactive mode (disable with
+  non-interactive non-root mode (disable with
   `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`).
+- If Claude rejects that flag under root/sudo, backend retries automatically
+  without the flag.
 - For edit-intent prompts, `claudecodecli` auto-runs one follow-up apply pass
   when the first task pass reports no repository file changes.
 - Basic iterative hands preload iteration-1 context with `README.md`/`AGENT.md`
@@ -79,14 +83,16 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 
 ## Claude Code backend requirements
 
-- `claude` CLI installed and on `PATH`.
+- `claude` CLI on `PATH`, or `npx` available for fallback execution.
 - Auth configured for CLI execution (typically `ANTHROPIC_API_KEY`).
 - `GITHUB_TOKEN` or `GH_TOKEN` set if you want final commit/push/PR creation.
 - Optional container mode:
   - `HELPING_HANDS_CLAUDE_CONTAINER=1`
   - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
-- App mode supports `claudecodecli`, but the default Docker app/worker images
-  in this repo do not install Claude Code CLI.
+- App mode supports `claudecodecli`; default Docker app/worker images do not
+  preinstall Claude Code CLI binary but do include `npx` fallback support.
+- If relying on `npx` fallback in app mode, worker runtime needs network access
+  to download `@anthropic-ai/claude-code`.
 
 ## CLI examples
 
