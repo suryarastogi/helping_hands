@@ -38,6 +38,11 @@ Browse the auto-generated docs from source:
 - `codexcli` adds `--skip-git-repo-check` by default for non-interactive runs.
 - `claudecodecli` uses `claude -p` by default and supports command override via
   `HELPING_HANDS_CLAUDE_CLI_CMD`.
+- `claudecodecli` adds `--dangerously-skip-permissions` by default in
+  non-interactive mode (disable with
+  `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`).
+- For edit-intent prompts, `claudecodecli` auto-runs one follow-up apply pass
+  when the first task pass reports no repository file changes.
 - Basic iterative hands preload iteration-1 context with `README.md`/`AGENT.md`
   (when present) and a bounded-depth repo tree snapshot.
 - Model selection resolves through `lib.ai_providers` wrappers, including
@@ -71,6 +76,17 @@ Quick check:
 ```bash
 codex exec --model gpt-5.2 "Reply with READY and one sentence."
 ```
+
+## Claude Code backend requirements
+
+- `claude` CLI installed and on `PATH`.
+- Auth configured for CLI execution (typically `ANTHROPIC_API_KEY`).
+- `GITHUB_TOKEN` or `GH_TOKEN` set if you want final commit/push/PR creation.
+- Optional container mode:
+  - `HELPING_HANDS_CLAUDE_CONTAINER=1`
+  - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
+- App mode supports `claudecodecli`, but the default Docker app/worker images
+  in this repo do not install Claude Code CLI.
 
 ## CLI examples
 

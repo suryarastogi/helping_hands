@@ -18,6 +18,7 @@ import asyncio
 import os
 import shlex
 import shutil
+import subprocess
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from pathlib import Path
@@ -38,6 +39,7 @@ class _TwoPhaseCLIHand(Hand):
     _DEFAULT_APPEND_ARGS: tuple[str, ...] = ()
     _CONTAINER_ENABLED_ENV_VAR = ""
     _CONTAINER_IMAGE_ENV_VAR = ""
+    _RETRY_ON_NO_CHANGES = False
     _SUMMARY_CHAR_LIMIT = 6000
 
     class _Emitter(Protocol):
@@ -227,6 +229,61 @@ class _TwoPhaseCLIHand(Hand):
             "Do not ask the user to paste files."
         )
 
+    def _repo_has_changes(self) -> bool:
+        repo_root = self.repo_index.root.resolve()
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return False
+        return bool(result.stdout.strip())
+
+    @staticmethod
+    def _looks_like_edit_request(prompt: str) -> bool:
+        lowered = prompt.lower()
+        action_markers = (
+            "update",
+            "edit",
+            "modify",
+            "implement",
+            "fix",
+            "add",
+            "remove",
+            "rename",
+            "refactor",
+            "write",
+            "create",
+            "change",
+        )
+        return any(marker in lowered for marker in action_markers)
+
+    def _should_retry_without_changes(self, prompt: str) -> bool:
+        if not self._RETRY_ON_NO_CHANGES:
+            return False
+        if self._is_interrupted():
+            return False
+        if not self._looks_like_edit_request(prompt):
+            return False
+        return not self._repo_has_changes()
+
+    def _build_apply_changes_prompt(self, *, prompt: str, task_output: str) -> str:
+        summarized_output = self._truncate_summary(task_output, limit=2000)
+        return (
+            "Follow-up enforcement phase.\n"
+            "You previously responded without applying repository file changes.\n\n"
+            "Original user request:\n"
+            f"{prompt}\n\n"
+            "Your prior response:\n"
+            f"{summarized_output or '(none)'}\n\n"
+            "Now apply the required edits directly in the repository working tree.\n"
+            "Do not only describe changes.\n"
+            "After editing, provide a short summary of changed files."
+        )
+
     async def _terminate_active_process(self) -> None:
         process = self._active_process
         if process is None or process.returncode is not None:
@@ -316,7 +373,23 @@ class _TwoPhaseCLIHand(Hand):
             self._build_task_prompt(prompt=prompt, learned_summary=init_output),
             emit=emit,
         )
-        return f"{init_output}{task_output}"
+        combined_output = f"{init_output}{task_output}"
+
+        if self._should_retry_without_changes(prompt):
+            await emit(
+                f"[{self._CLI_LABEL}] No file edits detected; "
+                "requesting direct file application...\n"
+            )
+            apply_output = await self._invoke_backend(
+                self._build_apply_changes_prompt(
+                    prompt=prompt,
+                    task_output=task_output,
+                ),
+                emit=emit,
+            )
+            combined_output += apply_output
+
+        return combined_output
 
     async def _collect_run_output(self, prompt: str) -> str:
         chunks: list[str] = []
@@ -550,6 +623,8 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     _DEFAULT_APPEND_ARGS = ("-p",)
     _CONTAINER_ENABLED_ENV_VAR = "HELPING_HANDS_CLAUDE_CONTAINER"
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CLAUDE_CONTAINER_IMAGE"
+    _DEFAULT_SKIP_PERMISSIONS = "1"
+    _RETRY_ON_NO_CHANGES = True
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
@@ -582,6 +657,23 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         if lowered.startswith("gpt-"):
             return ""
         return model
+
+    def _skip_permissions_enabled(self) -> bool:
+        raw = os.environ.get(
+            "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS",
+            self._DEFAULT_SKIP_PERMISSIONS,
+        )
+        return self._is_truthy(raw)
+
+    def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        if (
+            cmd
+            and cmd[0] == "claude"
+            and self._skip_permissions_enabled()
+            and "--dangerously-skip-permissions" not in cmd
+        ):
+            return [cmd[0], "--dangerously-skip-permissions", *cmd[1:]]
+        return cmd
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         return self._build_claude_failure_message(

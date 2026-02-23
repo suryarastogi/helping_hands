@@ -58,6 +58,18 @@ Implementation note: hand code is now organized as a package module under
 through shared system helpers in
 `src/helping_hands/lib/meta/tools/filesystem.py`.
 
+## CLI backend semantics (current implementation)
+
+CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+
+1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
+   indexed tree/file snapshot).
+2. Task execution pass that applies requested changes directly.
+
+For `claudecodecli`, non-interactive runs default to
+`--dangerously-skip-permissions` and now include one automatic follow-up apply
+pass for edit-intent prompts when the first task pass produces no git changes.
+
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:

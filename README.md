@@ -128,6 +128,10 @@ The worker image configures Codex CLI to use `OPENAI_API_KEY` from the
 environment (custom model provider in `~/.codex/config.toml`), so no
 `codex login` or `auth.json` is required in Docker.
 
+`claudecodecli` is supported in app mode, but the default Dockerfile does not
+install Claude Code CLI. For app-mode Claude runs, use a worker image that
+includes `claude` and has Anthropic auth configured.
+
 The built-in UI at `http://localhost:8000/` supports:
 - backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`)
 - model override
@@ -317,6 +321,7 @@ Codex backend requirements:
 - If you enable container mode, Docker must be installed and the image must include the `codex` executable.
 - App mode supports `codexcli` and `claudecodecli`; ensure the worker runtime has each CLI installed/authenticated as needed.
 - The included Dockerfile installs `@openai/codex` in app/worker images.
+- The included Dockerfile does **not** install Claude Code CLI by default.
 - No extra Python optional dependency is required for `codexcli` itself (unlike `--extra langchain` and `--extra atomic` used by other iterative backends).
 
 Codex backend smoke test:
@@ -328,6 +333,8 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 Claude Code backend notes:
 
 - Default command: `claude -p`
+- Default non-interactive automation flag: `--dangerously-skip-permissions`
+  (disable with `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`)
 - Override command via `HELPING_HANDS_CLAUDE_CLI_CMD`
 - Optional placeholders supported in the override string:
   - `{prompt}`
@@ -342,6 +349,8 @@ Claude Code backend requirements:
 - `claude` CLI must be installed and available on `PATH`.
 - Ensure authentication is configured (typically `ANTHROPIC_API_KEY`).
 - To create/push PRs at the end of a run, set `GITHUB_TOKEN` or `GH_TOKEN`.
+- If an edit-intent prompt returns only prose with no git changes, the backend
+  automatically runs one extra enforcement pass to apply edits directly.
 
 
 Backend command examples:

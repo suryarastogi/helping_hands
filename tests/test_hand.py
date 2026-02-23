@@ -766,7 +766,7 @@ class TestClaudeCodeHand:
         monkeypatch.setenv("HELPING_HANDS_CLAUDE_CLI_CMD", "claude")
         hand = ClaudeCodeHand(config, repo_index)
         cmd = hand._render_command("hello world")
-        assert cmd[:2] == ["claude", "-p"]
+        assert cmd[:3] == ["claude", "--dangerously-skip-permissions", "-p"]
         assert cmd[-1] == "hello world"
 
     def test_render_command_skips_openai_default_model(
@@ -780,6 +780,18 @@ class TestClaudeCodeHand:
         cmd = hand._render_command("hello world")
         joined = " ".join(cmd)
         assert "--model" not in joined
+
+    def test_render_command_can_disable_dangerous_skip_permissions(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CLI_CMD", "claude -p")
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS", "0")
+        hand = ClaudeCodeHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        assert "--dangerously-skip-permissions" not in cmd
 
     @patch.object(ClaudeCodeHand, "_finalize_repo_pr")
     @patch.object(ClaudeCodeHand, "_invoke_claude", autospec=True)
@@ -866,6 +878,53 @@ class TestClaudeCodeHand:
         assert "task output" in text
         assert "PR created" in text
         assert len(prompts) == 2
+
+    @patch.object(ClaudeCodeHand, "_repo_has_changes", return_value=False)
+    @patch.object(ClaudeCodeHand, "_finalize_repo_pr")
+    @patch.object(ClaudeCodeHand, "_invoke_claude", autospec=True)
+    def test_run_retries_apply_when_no_file_changes_for_edit_prompt(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        _mock_has_changes: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: ClaudeCodeHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            if len(prompts) == 1:
+                text = "Init summary.\n"
+            elif len(prompts) == 2:
+                text = "I've prepared an update but have not applied it yet.\n"
+            else:
+                text = "Applied update to README.md.\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "no_changes",
+            "pr_url": "",
+            "pr_number": "",
+            "pr_branch": "",
+            "pr_commit": "",
+        }
+
+        hand = ClaudeCodeHand(config, repo_index)
+        resp = hand.run("Update README with date")
+
+        assert len(prompts) == 3
+        assert "Follow-up enforcement phase" in prompts[2]
+        assert "Applied update to README.md." in resp.message
+        mock_finalize.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

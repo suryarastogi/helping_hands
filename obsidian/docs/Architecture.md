@@ -76,6 +76,10 @@ environment.
    - `HELPING_HANDS_CLAUDE_CLI_CMD`
    - `HELPING_HANDS_CLAUDE_CONTAINER=1`
    - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
+5. Non-interactive default adds `--dangerously-skip-permissions` (disable via
+   `HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0`).
+6. For edit-intent prompts, the backend retries once with an explicit
+   "apply edits now" prompt when no git changes are detected after task phase.
 
 ## E2E workflow (source of truth)
 
