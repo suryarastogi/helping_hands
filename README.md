@@ -18,9 +18,12 @@
 
 ### Modes
 
-- **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace). You can index only, or run iterative backends plus external-CLI backends with streamed output:
-  - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
-  - external CLI: `codexcli`, `claudecodecli`
+- **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace).
+  - If you do not pass `--backend` or `--e2e`, CLI mode is **index-only** (it prints the indexed file count and exits).
+  - To run an AI-driven implementation loop, choose a backend and stream output:
+    - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
+    - external CLI: `codexcli`, `claudecodecli`
+  - To run the end-to-end PR workflow against GitHub, use `--e2e`.
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -105,6 +108,40 @@ uv run helping-hands owner/repo --e2e --pr-number 1 --prompt "Update PR 1"
 cp .env.example .env  # edit as needed
 docker compose up --build
 ```
+
+### MCP server (optional)
+
+`helping_hands` also exposes a small tool server over the
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so MCP clients
+(Claude Desktop, Cursor, etc.) can:
+
+- index a local repo
+- read/write files (path-safe)
+- enqueue async build jobs (via Celery, when server deps are installed)
+
+Install extras:
+
+```bash
+uv sync --dev --extra mcp
+# Add server deps to enable the build_feature tool (Celery enqueue):
+uv sync --dev --extra server
+```
+
+Run in stdio mode (for desktop clients):
+
+```bash
+uv run helping-hands-mcp
+```
+
+Run in HTTP mode (for networked clients):
+
+```bash
+uv run helping-hands-mcp --http
+```
+
+In Docker Compose, the `mcp` service runs the HTTP transport on port `8080`
+(override with `MCP_PORT`).
+
 
 ### Trigger a run in app mode
 
