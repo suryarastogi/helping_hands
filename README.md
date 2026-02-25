@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 23, 2026
+**Last updated:** February 25, 2026
 
 ## What is this?
 
@@ -18,7 +18,9 @@
 
 ### Modes
 
-- **CLI mode** (default) — Run `helping_hands <repo>` or `helping_hands <owner/repo>`. You can index only, or run iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) plus CLI backends (`codexcli`, `claudecodecli`) with streamed output.
+- **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace). You can index only, or run iterative backends plus external-CLI backends with streamed output:
+  - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
+  - external CLI: `codexcli`, `claudecodecli`
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
