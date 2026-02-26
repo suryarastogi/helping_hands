@@ -407,6 +407,98 @@ class TestMonitorPage:
         assert "SUCCESS" in response.text
 
 
+class TestWorkerCapacityEndpoint:
+    def test_returns_celery_stats_when_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_inspector = MagicMock()
+        fake_inspector.stats.return_value = {
+            "worker@a": {"pool": {"max-concurrency": 4}},
+            "worker@b": {"pool": {"max-concurrency": 4}},
+        }
+        monkeypatch.setattr(
+            "helping_hands.server.app.celery_app.control.inspect",
+            lambda timeout=1.0: fake_inspector,
+        )
+
+        client = TestClient(app)
+        response = client.get("/workers/capacity")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["max_workers"] == 8
+        assert payload["source"] == "celery"
+        assert payload["workers"] == {"worker@a": 4, "worker@b": 4}
+
+    def test_falls_back_to_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_inspector = MagicMock()
+        fake_inspector.stats.return_value = None
+        monkeypatch.setattr(
+            "helping_hands.server.app.celery_app.control.inspect",
+            lambda timeout=1.0: fake_inspector,
+        )
+        monkeypatch.setenv("HELPING_HANDS_MAX_WORKERS", "12")
+
+        client = TestClient(app)
+        response = client.get("/workers/capacity")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["max_workers"] == 12
+        assert payload["source"] == "env:HELPING_HANDS_MAX_WORKERS"
+        assert payload["workers"] == {}
+
+    def test_falls_back_to_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_inspector = MagicMock()
+        fake_inspector.stats.return_value = None
+        monkeypatch.setattr(
+            "helping_hands.server.app.celery_app.control.inspect",
+            lambda timeout=1.0: fake_inspector,
+        )
+        for var in (
+            "HELPING_HANDS_MAX_WORKERS",
+            "HELPING_HANDS_WORKER_CONCURRENCY",
+            "CELERY_WORKER_CONCURRENCY",
+            "CELERYD_CONCURRENCY",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        client = TestClient(app)
+        response = client.get("/workers/capacity")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["max_workers"] == 8
+        assert payload["source"] == "default"
+        assert payload["workers"] == {}
+
+    def test_handles_celery_inspect_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def failing_inspect(timeout: float = 1.0) -> None:
+            raise ConnectionError("broker unreachable")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.celery_app.control.inspect",
+            failing_inspect,
+        )
+        for var in (
+            "HELPING_HANDS_MAX_WORKERS",
+            "HELPING_HANDS_WORKER_CONCURRENCY",
+            "CELERY_WORKER_CONCURRENCY",
+            "CELERYD_CONCURRENCY",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        client = TestClient(app)
+        response = client.get("/workers/capacity")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["max_workers"] == 8
+        assert payload["source"] == "default"
+
+
 class TestCurrentTasksEndpoint:
     def test_returns_flower_tasks_when_available(
         self, monkeypatch: pytest.MonkeyPatch

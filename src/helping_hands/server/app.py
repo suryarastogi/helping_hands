@@ -115,6 +115,14 @@ class CurrentTasksResponse(BaseModel):
     source: str
 
 
+class WorkerCapacityResponse(BaseModel):
+    """Response for worker capacity introspection."""
+
+    max_workers: int = Field(ge=1)
+    source: str
+    workers: dict[str, int] = Field(default_factory=dict)
+
+
 _TERMINAL_TASK_STATES = {"SUCCESS", "FAILURE", "REVOKED"}
 _CURRENT_TASK_STATES = {
     "PENDING",
@@ -154,6 +162,13 @@ _FLOWER_API_URL_ENV = "HELPING_HANDS_FLOWER_API_URL"
 _FLOWER_API_TIMEOUT_SECONDS_ENV = "HELPING_HANDS_FLOWER_API_TIMEOUT_SECONDS"
 _DEFAULT_FLOWER_API_TIMEOUT_SECONDS = 0.75
 _HELPING_HANDS_TASK_NAME = "helping_hands.build_feature"
+_WORKER_CAPACITY_ENV_VARS = (
+    "HELPING_HANDS_MAX_WORKERS",
+    "HELPING_HANDS_WORKER_CONCURRENCY",
+    "CELERY_WORKER_CONCURRENCY",
+    "CELERYD_CONCURRENCY",
+)
+_DEFAULT_WORKER_CAPACITY = 8
 
 
 _UI_HTML = """<!doctype html>
@@ -1986,6 +2001,60 @@ def monitor(task_id: str) -> HTMLResponse:
     """No-JS monitor page with auto-refresh for task status/updates."""
     task_status = _build_task_status(task_id)
     return HTMLResponse(_render_monitor_page(task_status))
+
+
+def _resolve_worker_capacity() -> WorkerCapacityResponse:
+    """Resolve max worker capacity: Celery inspect stats > env override > default."""
+    per_worker: dict[str, int] = {}
+    try:
+        inspector = celery_app.control.inspect(timeout=1.0)
+        if inspector is not None:
+            stats = _safe_inspect_call(inspector, "stats")
+            if isinstance(stats, dict):
+                for worker_name, worker_stats in stats.items():
+                    if not isinstance(worker_stats, dict):
+                        continue
+                    pool = worker_stats.get("pool", {})
+                    if isinstance(pool, dict):
+                        concurrency = pool.get("max-concurrency")
+                        if isinstance(concurrency, int) and concurrency > 0:
+                            per_worker[worker_name] = concurrency
+    except Exception:
+        pass
+
+    if per_worker:
+        return WorkerCapacityResponse(
+            max_workers=sum(per_worker.values()),
+            source="celery",
+            workers=per_worker,
+        )
+
+    for env_var in _WORKER_CAPACITY_ENV_VARS:
+        raw = os.environ.get(env_var, "").strip()
+        if not raw:
+            continue
+        try:
+            parsed = int(raw)
+        except ValueError:
+            continue
+        if parsed >= 1:
+            return WorkerCapacityResponse(
+                max_workers=parsed,
+                source=f"env:{env_var}",
+                workers={},
+            )
+
+    return WorkerCapacityResponse(
+        max_workers=_DEFAULT_WORKER_CAPACITY,
+        source="default",
+        workers={},
+    )
+
+
+@app.get("/workers/capacity", response_model=WorkerCapacityResponse)
+def get_worker_capacity() -> WorkerCapacityResponse:
+    """Report current max worker capacity for the cluster."""
+    return _resolve_worker_capacity()
 
 
 @app.get("/tasks/current", response_model=CurrentTasksResponse)

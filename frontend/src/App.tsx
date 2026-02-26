@@ -1,4 +1,12 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type Backend =
   | "e2e"
@@ -34,6 +42,12 @@ type CurrentTasksResponse = {
   source: string;
 };
 
+type WorkerCapacityResponse = {
+  max_workers: number;
+  source: string;
+  workers: Record<string, number>;
+};
+
 type FormState = {
   repo_path: string;
   prompt: string;
@@ -66,6 +80,26 @@ type TaskHistoryPatch = {
 
 type OutputTab = "updates" | "raw" | "payload";
 type MainView = "submission" | "monitor";
+type DashboardView = "classic" | "world";
+
+type WorkerVariant = "bot-alpha" | "bot-round" | "bot-heavy" | "goose";
+
+type CharacterStyle = {
+  bodyColor: string;
+  accentColor: string;
+  skinColor: string;
+  outlineColor: string;
+  variant: WorkerVariant;
+};
+
+type SceneWorkerPhase = "arriving" | "active" | "leaving";
+
+type SceneWorker = {
+  taskId: string;
+  slot: number;
+  phase: SceneWorkerPhase;
+  phaseChangedAt: number;
+};
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
@@ -97,6 +131,117 @@ const INITIAL_FORM: FormState = {
   enable_web: false,
   use_native_cli_auth: false,
 };
+
+const DASHBOARD_VIEW_STORAGE_KEY = "helping_hands_dashboard_view_v1";
+const SCENE_PHASE_DURATION_MS = 900;
+const DEFAULT_WORLD_MAX_WORKERS = 8;
+
+const DEFAULT_CHARACTER_STYLE: CharacterStyle = {
+  bodyColor: "#64748b",
+  accentColor: "#94a3b8",
+  skinColor: "#f2c7a7",
+  outlineColor: "#020617",
+  variant: "bot-alpha",
+};
+
+const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
+  openai: {
+    bodyColor: "#10a37f",
+    accentColor: "#c7fff1",
+    skinColor: "#d9f6ef",
+    outlineColor: "#0b3e32",
+    variant: "bot-alpha",
+  },
+  claude: {
+    bodyColor: "#d97706",
+    accentColor: "#ffe0b8",
+    skinColor: "#f7ddbf",
+    outlineColor: "#492709",
+    variant: "bot-heavy",
+  },
+  gemini: {
+    bodyColor: "#2563eb",
+    accentColor: "#d5e4ff",
+    skinColor: "#d7e3ff",
+    outlineColor: "#14295c",
+    variant: "bot-round",
+  },
+  goose: {
+    bodyColor: "#ffffff",
+    accentColor: "#f97316",
+    skinColor: "#e2e8f0",
+    outlineColor: "#334155",
+    variant: "goose",
+  },
+  langgraph: {
+    bodyColor: "#0891b2",
+    accentColor: "#c6f7ff",
+    skinColor: "#e0fbff",
+    outlineColor: "#0d3f4d",
+    variant: "bot-round",
+  },
+  atomic: {
+    bodyColor: "#dc2626",
+    accentColor: "#ffd1d1",
+    skinColor: "#ffe4e4",
+    outlineColor: "#4a1111",
+    variant: "bot-heavy",
+  },
+  agent: {
+    bodyColor: "#f59e0b",
+    accentColor: "#ffe8bd",
+    skinColor: "#fff0d1",
+    outlineColor: "#55300a",
+    variant: "bot-alpha",
+  },
+  e2e: {
+    bodyColor: "#7c3aed",
+    accentColor: "#e9d5ff",
+    skinColor: "#f4e8ff",
+    outlineColor: "#2f1b63",
+    variant: "bot-round",
+  },
+  other: DEFAULT_CHARACTER_STYLE,
+};
+
+function providerFromBackend(backend: string): string {
+  const normalized = backend.trim().toLowerCase();
+  if (normalized.includes("claude")) {
+    return "claude";
+  }
+  if (normalized.includes("gemini")) {
+    return "gemini";
+  }
+  if (normalized.includes("codex") || normalized.includes("openai")) {
+    return "openai";
+  }
+  if (normalized.includes("goose")) {
+    return "goose";
+  }
+  if (normalized.includes("langgraph")) {
+    return "langgraph";
+  }
+  if (normalized.includes("atomic")) {
+    return "atomic";
+  }
+  if (normalized.includes("agent")) {
+    return "agent";
+  }
+  if (normalized.includes("e2e")) {
+    return "e2e";
+  }
+  return "other";
+}
+
+function formatProviderName(provider: string): string {
+  if (provider === "openai") {
+    return "OpenAI / Codex";
+  }
+  if (provider === "e2e") {
+    return "E2E";
+  }
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
 
 export function apiUrl(path: string): string {
   if (!API_BASE) {
@@ -157,6 +302,14 @@ export function parseBool(value: string | null): boolean {
   return value === "1" || value === "true";
 }
 
+function statusBlinkerColor(status: string): string {
+  const tone = statusTone(status);
+  if (tone === "ok") return "var(--success)";
+  if (tone === "fail") return "var(--danger)";
+  if (tone === "run") return "#eab308";
+  return "#6b7280";
+}
+
 export function isTerminalTaskStatus(status: string): boolean {
   const normalized = status.trim().toUpperCase();
   return (
@@ -210,6 +363,53 @@ function readSkillsValue(value: unknown): string | null {
     return tokens.length > 0 ? tokens.join(", ") : null;
   }
   return readStringValue(value);
+}
+
+async function fetchWorkerCapacity(): Promise<number | null> {
+  try {
+    const response = await fetch(apiUrl(`/workers/capacity?_=${Date.now()}`), {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = (await response.json()) as WorkerCapacityResponse;
+    if (typeof data.max_workers === "number" && data.max_workers >= 1) {
+      return data.max_workers;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+type DeskSlot = {
+  id: string;
+  left: number;
+  top: number;
+};
+
+function buildDeskSlots(capacity: number): DeskSlot[] {
+  const columns = 4;
+  const rows = Math.max(1, Math.ceil(capacity / columns));
+  const slots: DeskSlot[] = [];
+  const leftStart = 14;
+  const leftStep = 22;
+  const topStart = 24;
+  const topEnd = 82;
+  const rowStep = rows > 1 ? (topEnd - topStart) / (rows - 1) : 0;
+
+  for (let index = 0; index < capacity; index += 1) {
+    const row = Math.floor(index / columns);
+    const col = index % columns;
+    slots.push({
+      id: `desk-${index}`,
+      left: leftStart + col * leftStep,
+      top: Number((topStart + row * rowStep).toFixed(2)),
+    });
+  }
+
+  return slots;
 }
 
 export function extractUpdates(result: Record<string, unknown> | null): string[] {
@@ -460,6 +660,10 @@ export default function App() {
   const [mainView, setMainView] = useState<MainView>("submission");
   const [isPolling, setIsPolling] = useState(false);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
+  const [dashboardView, setDashboardView] = useState<DashboardView>("classic");
+  const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
+  const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
+  const slotByTaskRef = useRef<Record<string, number>>({});
 
   const payloadText = useMemo(() => {
     if (!payload) {
@@ -497,6 +701,92 @@ export default function App() {
     () => (taskId ? taskHistory.find((item) => item.taskId === taskId) ?? null : null),
     [taskHistory, taskId]
   );
+
+  const activeTasks = useMemo(
+    () => taskHistory.filter((item) => !isTerminalTaskStatus(item.status)),
+    [taskHistory]
+  );
+
+  const [fetchedCapacity, setFetchedCapacity] = useState<number | null>(null);
+
+  const activeTaskIds = useMemo(() => new Set(activeTasks.map((task) => task.taskId)), [
+    activeTasks,
+  ]);
+
+  const taskById = useMemo(() => {
+    const map = new Map<string, TaskHistoryItem>();
+    for (const task of taskHistory) {
+      map.set(task.taskId, task);
+    }
+    return map;
+  }, [taskHistory]);
+
+  const deskSlots = useMemo(() => buildDeskSlots(maxOfficeWorkers), [maxOfficeWorkers]);
+
+  const claimSlotForTask = useCallback(
+    (activeTaskId: string, occupiedSlots: Set<number>): number => {
+      const existing = slotByTaskRef.current[activeTaskId];
+      if (
+        typeof existing === "number" &&
+        existing >= 0 &&
+        existing < maxOfficeWorkers &&
+        !occupiedSlots.has(existing)
+      ) {
+        occupiedSlots.add(existing);
+        return existing;
+      }
+
+      for (let slot = 0; slot < maxOfficeWorkers; slot += 1) {
+        if (!occupiedSlots.has(slot)) {
+          occupiedSlots.add(slot);
+          slotByTaskRef.current[activeTaskId] = slot;
+          return slot;
+        }
+      }
+
+      slotByTaskRef.current[activeTaskId] = 0;
+      occupiedSlots.add(0);
+      return 0;
+    },
+    [maxOfficeWorkers]
+  );
+
+  const sceneWorkerEntries = useMemo(() => {
+    return sceneWorkers.flatMap((worker) => {
+      const task = taskById.get(worker.taskId);
+      const desk = deskSlots[worker.slot];
+      if (!task || !desk) {
+        return [];
+      }
+
+      const provider = providerFromBackend(task.backend);
+      const style =
+        PROVIDER_CHARACTER_DEFAULTS[provider] ?? PROVIDER_CHARACTER_DEFAULTS.other ?? DEFAULT_CHARACTER_STYLE;
+
+      return [
+        {
+          ...worker,
+          task,
+          desk,
+          isActive: activeTaskIds.has(worker.taskId),
+          provider,
+          style,
+          spriteVariant: provider === "goose" ? ("goose" as WorkerVariant) : style.variant,
+        },
+      ];
+    });
+  }, [activeTaskIds, deskSlots, sceneWorkers, taskById]);
+
+  const officeDeskRows = useMemo(() => Math.max(1, Math.ceil(maxOfficeWorkers / 2)), [
+    maxOfficeWorkers,
+  ]);
+
+  const worldSceneStyle = useMemo<CSSProperties>(() => {
+    const extraRows = Math.max(0, officeDeskRows - 4);
+    return {
+      minHeight: `${380 + extraRows * 92}px`,
+    };
+  }, [officeDeskRows]);
 
   const taskInputs = useMemo<InputItem[]>(() => {
     const root = asRecord(payload) ?? {};
@@ -598,6 +888,157 @@ export default function App() {
   useEffect(() => {
     setTaskHistory(loadTaskHistory());
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const savedView = window.localStorage.getItem(DASHBOARD_VIEW_STORAGE_KEY);
+    if (savedView === "classic" || savedView === "world") {
+      setDashboardView(savedView);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(DASHBOARD_VIEW_STORAGE_KEY, dashboardView);
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [dashboardView]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refresh = async () => {
+      const capacity = await fetchWorkerCapacity();
+      if (!cancelled && capacity !== null) {
+        setFetchedCapacity(capacity);
+      }
+    };
+
+    void refresh();
+    const handle = window.setInterval(() => {
+      void refresh();
+    }, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, []);
+
+  useEffect(() => {
+    setMaxOfficeWorkers((current) =>
+      Math.max(
+        current,
+        fetchedCapacity ?? DEFAULT_WORLD_MAX_WORKERS,
+        activeTasks.length,
+        DEFAULT_WORLD_MAX_WORKERS
+      )
+    );
+  }, [activeTasks.length, fetchedCapacity]);
+
+  useEffect(() => {
+    const now = Date.now();
+    setSceneWorkers((current) => {
+      const activeIds = new Set(activeTasks.map((item) => item.taskId));
+      const existingByTaskId = new Map(current.map((worker) => [worker.taskId, worker]));
+      const occupiedSlots = new Set<number>();
+      const next: SceneWorker[] = [];
+
+      for (const task of activeTasks) {
+        const existing = existingByTaskId.get(task.taskId);
+        const slot = claimSlotForTask(task.taskId, occupiedSlots);
+        if (!existing) {
+          next.push({
+            taskId: task.taskId,
+            slot,
+            phase: "arriving",
+            phaseChangedAt: now,
+          });
+          continue;
+        }
+        if (existing.phase === "leaving") {
+          next.push({
+            ...existing,
+            slot,
+            phase: "arriving",
+            phaseChangedAt: now,
+          });
+          continue;
+        }
+        if (existing.slot !== slot) {
+          next.push({
+            ...existing,
+            slot,
+          });
+          continue;
+        }
+        next.push(existing);
+      }
+
+      for (const existing of current) {
+        if (activeIds.has(existing.taskId)) {
+          continue;
+        }
+        if (existing.phase === "leaving") {
+          next.push(existing);
+          continue;
+        }
+        next.push({
+          ...existing,
+          phase: "leaving",
+          phaseChangedAt: now,
+        });
+      }
+
+      return next.sort((a, b) => a.slot - b.slot);
+    });
+  }, [activeTasks, claimSlotForTask]);
+
+  useEffect(() => {
+    if (sceneWorkers.length === 0) {
+      return;
+    }
+
+    const handle = window.setInterval(() => {
+      const now = Date.now();
+      setSceneWorkers((current) => {
+        let hasChanges = false;
+        const next: SceneWorker[] = [];
+
+        for (const worker of current) {
+          const elapsed = now - worker.phaseChangedAt;
+          if (worker.phase === "arriving" && elapsed >= SCENE_PHASE_DURATION_MS) {
+            next.push({
+              ...worker,
+              phase: "active",
+              phaseChangedAt: now,
+            });
+            hasChanges = true;
+            continue;
+          }
+          if (worker.phase === "leaving" && elapsed >= SCENE_PHASE_DURATION_MS) {
+            delete slotByTaskRef.current[worker.taskId];
+            hasChanges = true;
+            continue;
+          }
+          next.push(worker);
+        }
+
+        return hasChanges ? next : current;
+      });
+    }, 180);
+
+    return () => {
+      window.clearInterval(handle);
+    };
+  }, [sceneWorkers.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -984,12 +1425,222 @@ export default function App() {
     }
   };
 
+  const blinkerColor = statusBlinkerColor(status);
+  const isBlinkerAnimated = statusTone(status) === "run";
+
+  const submissionCard = (
+    <section className="card form-card compact-form">
+      <form onSubmit={submitRun} className="form-grid-compact">
+        <div className="form-inline-row">
+          <input
+            className="repo-input"
+            value={form.repo_path}
+            onChange={(event) => updateField("repo_path", event.target.value)}
+            required
+            placeholder="owner/repo"
+          />
+          <input
+            className="prompt-input"
+            value={form.prompt}
+            onChange={(event) => updateField("prompt", event.target.value)}
+            required
+            placeholder="Prompt"
+          />
+          <button type="submit" className="submit-inline">Run</button>
+        </div>
+
+        <details className="compact-advanced">
+          <summary>Advanced</summary>
+          <div className="compact-advanced-body">
+            <div className="row two-col">
+              <label>
+                Backend
+                <select
+                  value={form.backend}
+                  onChange={(event) => updateField("backend", event.target.value as Backend)}
+                >
+                  {BACKEND_OPTIONS.map((backend) => (
+                    <option key={backend} value={backend}>
+                      {backend}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Model
+                <input
+                  value={form.model}
+                  onChange={(event) => updateField("model", event.target.value)}
+                  placeholder="gpt-5.2"
+                />
+              </label>
+            </div>
+            <div className="row two-col">
+              <label>
+                Max iterations
+                <input
+                  type="number"
+                  min={1}
+                  value={form.max_iterations}
+                  onChange={(event) =>
+                    updateField("max_iterations", Math.max(1, Number(event.target.value || 1)))
+                  }
+                />
+              </label>
+              <label>
+                PR number
+                <input
+                  type="number"
+                  min={1}
+                  value={form.pr_number}
+                  onChange={(event) => updateField("pr_number", event.target.value)}
+                />
+              </label>
+            </div>
+            <label>
+              Skills
+              <input
+                value={form.skills}
+                onChange={(event) => updateField("skills", event.target.value)}
+                placeholder="execution,web,prd,ralph"
+              />
+            </label>
+            <div className="row check-grid">
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.no_pr}
+                  onChange={(event) => updateField("no_pr", event.target.checked)}
+                />
+                No PR
+              </label>
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.enable_execution}
+                  onChange={(event) => updateField("enable_execution", event.target.checked)}
+                />
+                Execution
+              </label>
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.enable_web}
+                  onChange={(event) => updateField("enable_web", event.target.checked)}
+                />
+                Web
+              </label>
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.use_native_cli_auth}
+                  onChange={(event) => updateField("use_native_cli_auth", event.target.checked)}
+                />
+                Native auth
+              </label>
+            </div>
+          </div>
+        </details>
+      </form>
+    </section>
+  );
+
+  const monitorCard = (
+    <section className="card status-card compact-monitor">
+      <div className="monitor-bar">
+        <div className="monitor-bar-left">
+          <h2 className="monitor-title">Output</h2>
+          <div className="pane-tabs" role="tablist" aria-label="Output mode">
+            <button
+              type="button"
+              role="tab"
+              className={`tab-btn${outputTab === "updates" ? " active" : ""}`}
+              aria-selected={outputTab === "updates"}
+              onClick={() => setOutputTab("updates")}
+            >
+              Updates
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className={`tab-btn${outputTab === "raw" ? " active" : ""}`}
+              aria-selected={outputTab === "raw"}
+              onClick={() => setOutputTab("raw")}
+            >
+              Raw
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className={`tab-btn${outputTab === "payload" ? " active" : ""}`}
+              aria-selected={outputTab === "payload"}
+              onClick={() => setOutputTab("payload")}
+            >
+              Payload
+            </button>
+          </div>
+        </div>
+        <div className="monitor-bar-right">
+          <span
+            className={`status-blinker${isBlinkerAnimated ? " pulse" : ""}`}
+            style={{ backgroundColor: blinkerColor }}
+            title={`${status}${isPolling ? " (polling)" : ""}`}
+          />
+          <span className="info-badge" title={taskId || "No task selected"}>
+            i
+          </span>
+        </div>
+      </div>
+      <pre className="monitor-output">{activeOutputText}</pre>
+
+      <details className="compact-advanced monitor-inputs">
+        <summary>Task inputs</summary>
+        <div className="compact-advanced-body">
+          {taskInputs.length === 0 ? (
+            <p className="inputs-empty">Inputs not available yet.</p>
+          ) : (
+            <dl className="inputs-grid">
+              {taskInputs.map((item) => (
+                <div key={item.label} className="input-item">
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </details>
+    </section>
+  );
+
   return (
     <main className="page">
       <aside className="card task-list-card">
+        <div className="view-toggle" role="tablist" aria-label="Dashboard view">
+          <button
+            type="button"
+            role="tab"
+            className={`view-toggle-btn${dashboardView === "classic" ? " active" : ""}`}
+            aria-selected={dashboardView === "classic"}
+            onClick={() => setDashboardView("classic")}
+          >
+            Classic view
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`view-toggle-btn${dashboardView === "world" ? " active" : ""}`}
+            aria-selected={dashboardView === "world"}
+            onClick={() => setDashboardView("world")}
+          >
+            Hand world
+          </button>
+        </div>
         <button
           type="button"
-          className={`new-submission-button${mainView === "submission" ? " active" : ""}`}
+          className={`new-submission-button${
+            dashboardView === "classic" && mainView === "submission" ? " active" : ""
+          }`}
           onClick={openSubmissionView}
         >
           New submission
@@ -1013,9 +1664,7 @@ export default function App() {
               <li key={item.taskId}>
                 <button
                   type="button"
-                  className={`task-row${
-                    mainView === "monitor" && taskId === item.taskId ? " active" : ""
-                  }`}
+                  className={`task-row${taskId === item.taskId ? " active" : ""}`}
                   onClick={() => selectTask(item.taskId)}
                   title={item.taskId}
                 >
@@ -1037,231 +1686,180 @@ export default function App() {
       </aside>
 
       <div className="main-column">
-        {mainView === "submission" ? (
-          <section className="card form-card">
-            <header className="header">
-              <h1>helping_hands runner</h1>
-              <p>Submit runs to /build and track progress from /tasks/{`{task_id}`}</p>
-            </header>
-
-            <form onSubmit={submitRun} className="form-grid">
-              <label>
-                Repo path (owner/repo)
-                <input
-                  value={form.repo_path}
-                  onChange={(event) => updateField("repo_path", event.target.value)}
-                  required
-                />
-              </label>
-
-              <label>
-                Prompt
-                <textarea
-                  value={form.prompt}
-                  onChange={(event) => updateField("prompt", event.target.value)}
-                  required
-                  rows={6}
-                />
-              </label>
-
-              <details className="advanced-settings">
-                <summary>Advanced settings</summary>
-                <div className="advanced-settings-body">
-                  <div className="row two-col">
-                    <label>
-                      Backend
-                      <select
-                        value={form.backend}
-                        onChange={(event) =>
-                          updateField("backend", event.target.value as Backend)
-                        }
-                      >
-                        {BACKEND_OPTIONS.map((backend) => (
-                          <option key={backend} value={backend}>
-                            {backend}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
-                      Model (optional)
-                      <input
-                        value={form.model}
-                        onChange={(event) => updateField("model", event.target.value)}
-                        placeholder="gpt-5.2"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="row two-col">
-                    <label>
-                      Max iterations
-                      <input
-                        type="number"
-                        min={1}
-                        value={form.max_iterations}
-                        onChange={(event) =>
-                          updateField(
-                            "max_iterations",
-                            Math.max(1, Number(event.target.value || 1))
-                          )
-                        }
-                      />
-                    </label>
-
-                    <label>
-                      PR number (optional)
-                      <input
-                        type="number"
-                        min={1}
-                        value={form.pr_number}
-                        onChange={(event) => updateField("pr_number", event.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <label>
-                    Skills (comma-separated, optional)
-                    <input
-                      value={form.skills}
-                      onChange={(event) => updateField("skills", event.target.value)}
-                      placeholder="execution,web,prd,ralph"
-                    />
-                  </label>
-
-                  <div className="row three-col check-grid">
-                    <label className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={form.no_pr}
-                        onChange={(event) => updateField("no_pr", event.target.checked)}
-                      />
-                      Disable final PR push/create
-                    </label>
-
-                    <label className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={form.enable_execution}
-                        onChange={(event) =>
-                          updateField("enable_execution", event.target.checked)
-                        }
-                      />
-                      Enable execution tools
-                    </label>
-
-                    <label className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={form.enable_web}
-                        onChange={(event) => updateField("enable_web", event.target.checked)}
-                      />
-                      Enable web tools
-                    </label>
-
-                    <label className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={form.use_native_cli_auth}
-                        onChange={(event) =>
-                          updateField("use_native_cli_auth", event.target.checked)
-                        }
-                      />
-                      Use native CLI auth (Codex/Claude)
-                    </label>
-                  </div>
-                </div>
-              </details>
-
-              <div className="actions">
-                <button type="submit">Submit run</button>
-              </div>
-            </form>
-          </section>
+        {dashboardView === "classic" ? (
+          mainView === "submission" ? (
+            submissionCard
+          ) : (
+            monitorCard
+          )
         ) : (
-          <section className="card status-card">
-            <div className="actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  setIsPolling(false);
-                  setStatus("stopped");
-                }}
-              >
-                Stop polling
-              </button>
-            </div>
-            <div className="meta-grid">
-              <div className="meta-item">
-                <span className="meta-label">Status</span>
-                <strong>{status}</strong>
-              </div>
-              <div className="meta-item">
-                <span className="meta-label">Task</span>
-                <strong>{taskId || "-"}</strong>
-              </div>
-              <div className="meta-item">
-                <span className="meta-label">Polling</span>
-                <strong>{isPolling ? "active" : "off"}</strong>
-              </div>
-            </div>
+          <>
+            <section className="card hand-world-card">
+              <header className="header">
+                <h1>agent office</h1>
+                <p>{maxOfficeWorkers} desks &middot; click a worker to stream its output</p>
+              </header>
 
-            <details className="advanced-settings monitor-inputs">
-              <summary>Task inputs</summary>
-              <div className="advanced-settings-body">
-                {taskInputs.length === 0 ? (
-                  <p className="inputs-empty">Inputs not available yet.</p>
+              <div
+                className="world-scene office-scene"
+                role="list"
+                aria-label="Current office workers"
+                style={worldSceneStyle}
+              >
+                <div className="office-border" aria-hidden="true" />
+                <div className="office-main-floor" aria-hidden="true" />
+
+                {deskSlots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className="office-desk"
+                    style={{ left: `${slot.left}%`, top: `${slot.top}%` }}
+                    aria-hidden="true"
+                  >
+                    <span className="desk-screen" />
+                    <span className="desk-keyboard" />
+                    <span className="desk-chair" />
+                  </div>
+                ))}
+
+                {sceneWorkerEntries.length === 0 ? (
+                  <p className="world-empty">No active workers in the office.</p>
                 ) : (
-                  <dl className="inputs-grid">
-                    {taskInputs.map((item) => (
-                      <div key={item.label} className="input-item">
-                        <dt>{item.label}</dt>
-                        <dd>{item.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
+                  sceneWorkerEntries.map((worker) => (
+                    <button
+                      key={worker.taskId}
+                      type="button"
+                      role="listitem"
+                      className={`worker-sprite ${worker.phase}${
+                        taskId === worker.taskId ? " selected" : ""
+                      }`}
+                      style={{
+                        left: `${worker.desk.left}%`,
+                        top: `${worker.desk.top}%`,
+                      }}
+                      onClick={() => selectTask(worker.taskId)}
+                      title={`${worker.task?.backend ?? "unknown"} • ${worker.taskId}`}
+                      disabled={!worker.isActive}
+                    >
+                      <span className={`worker-art ${worker.spriteVariant}`} aria-hidden="true">
+                        <span className="sprite-shadow" />
+                        {worker.spriteVariant === "goose" ? (
+                          <>
+                            <span
+                              className="goose-body"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="goose-wing"
+                              style={{
+                                backgroundColor: worker.style.skinColor,
+                              }}
+                            />
+                            <span
+                              className="goose-head"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="goose-beak"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="goose-leg goose-leg-left"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="goose-leg goose-leg-right"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="goose-eye"
+                              style={{
+                                backgroundColor: worker.style.outlineColor,
+                              }}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <span
+                              className="bot-head"
+                              style={{
+                                backgroundColor: worker.style.skinColor,
+                                borderColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="bot-torso"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="bot-core"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="bot-eye bot-eye-left"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="bot-eye bot-eye-right"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="bot-leg bot-leg-left"
+                              style={{
+                                backgroundColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="bot-leg bot-leg-right"
+                              style={{
+                                backgroundColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="bot-antenna"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                          </>
+                        )}
+                      </span>
+                      <span className="worker-caption">
+                        <strong>{shortTaskId(worker.taskId)}</strong>
+                        <span>
+                          {formatProviderName(worker.provider)} • {worker.task?.status ?? "unknown"}
+                        </span>
+                      </span>
+                    </button>
+                  ))
                 )}
               </div>
-            </details>
 
-            <article className="output-pane">
-              <div className="pane-header">
-                <h2>Output</h2>
-                <div className="pane-tabs" role="tablist" aria-label="Output mode">
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`tab-btn${outputTab === "updates" ? " active" : ""}`}
-                    aria-selected={outputTab === "updates"}
-                    onClick={() => setOutputTab("updates")}
-                  >
-                    Updates
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`tab-btn${outputTab === "raw" ? " active" : ""}`}
-                    aria-selected={outputTab === "raw"}
-                    onClick={() => setOutputTab("raw")}
-                  >
-                    Raw
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`tab-btn${outputTab === "payload" ? " active" : ""}`}
-                    aria-selected={outputTab === "payload"}
-                    onClick={() => setOutputTab("payload")}
-                  >
-                    Payload
-                  </button>
-                </div>
-              </div>
-              <pre>{activeOutputText}</pre>
-            </article>
-          </section>
+            </section>
+            {submissionCard}
+            {monitorCard}
+          </>
         )}
       </div>
     </main>
