@@ -297,6 +297,29 @@ class TestBuildFeature:
             mock_mod.build_feature.delay.call_args.kwargs["enable_execution"] is False
         )
         assert mock_mod.build_feature.delay.call_args.kwargs["enable_web"] is False
+        assert mock_mod.build_feature.delay.call_args.kwargs["skills"] == []
+
+    def test_enqueues_task_with_skills(self) -> None:
+        mock_mod = _mock_celery_module()
+        fake_task = MagicMock()
+        fake_task.id = "task-xyz-999"
+        mock_mod.build_feature.delay.return_value = fake_task
+
+        with patch.dict("sys.modules", {"helping_hands.server.celery_app": mock_mod}):
+            from helping_hands.server.mcp_server import build_feature
+
+            result = build_feature(
+                "/tmp/repo",
+                "search docs",
+                skills=["execution", "web"],
+            )
+
+        assert result["task_id"] == "task-xyz-999"
+        assert result["status"] == "queued"
+        assert mock_mod.build_feature.delay.call_args.kwargs["skills"] == [
+            "execution",
+            "web",
+        ]
 
 
 # ---------------------------------------------------------------------------

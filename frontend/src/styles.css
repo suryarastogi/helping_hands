@@ -377,6 +377,49 @@ button.secondary:hover {
   margin-top: 12px;
 }
 
+.monitor-inputs {
+  margin-top: 12px;
+}
+
+.inputs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.input-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #0b1326;
+  min-width: 0;
+}
+
+.input-item dt {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.input-item dd {
+  margin: 6px 0 0;
+  color: var(--foreground);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.inputs-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
 .pane-header {
   display: flex;
   align-items: center;
@@ -465,7 +508,8 @@ h2 {
   .two-col,
   .three-col,
   .check-grid,
-  .meta-grid {
+  .meta-grid,
+  .inputs-grid {
     grid-template-columns: 1fr;
   }
 

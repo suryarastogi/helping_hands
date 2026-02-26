@@ -157,6 +157,8 @@ def _update_progress(
     task_id: str | None,
     stage: str,
     updates: list[str],
+    prompt: str,
+    pr_number: int | None,
     backend: str,
     runtime_backend: str,
     repo_path: str,
@@ -166,6 +168,7 @@ def _update_progress(
     enable_execution: bool,
     enable_web: bool,
     use_native_cli_auth: bool,
+    skills: tuple[str, ...],
     workspace: str | None = None,
 ) -> None:
     update_state = getattr(task, "update_state", None)
@@ -174,6 +177,8 @@ def _update_progress(
     meta: dict[str, Any] = {
         "task_id": task_id,
         "stage": stage,
+        "prompt": prompt,
+        "pr_number": pr_number,
         "backend": backend,
         "runtime_backend": runtime_backend,
         "repo_path": repo_path,
@@ -183,6 +188,7 @@ def _update_progress(
         "enable_execution": enable_execution,
         "enable_web": enable_web,
         "use_native_cli_auth": use_native_cli_auth,
+        "skills": list(skills),
         "updates": list(updates),
     }
     if workspace:
@@ -196,6 +202,7 @@ async def _collect_stream(
     *,
     task: object,
     task_id: str | None,
+    pr_number: int | None,
     updates: list[str],
     backend: str,
     runtime_backend: str,
@@ -206,6 +213,7 @@ async def _collect_stream(
     enable_execution: bool,
     enable_web: bool,
     use_native_cli_auth: bool,
+    skills: tuple[str, ...],
     workspace: str | None,
 ) -> str:
     parts: list[str] = []
@@ -223,6 +231,8 @@ async def _collect_stream(
                 task_id=task_id,
                 stage="running",
                 updates=updates,
+                prompt=prompt,
+                pr_number=pr_number,
                 backend=backend,
                 runtime_backend=runtime_backend,
                 repo_path=repo_path,
@@ -232,6 +242,7 @@ async def _collect_stream(
                 enable_execution=enable_execution,
                 enable_web=enable_web,
                 use_native_cli_auth=use_native_cli_auth,
+                skills=skills,
                 workspace=workspace,
             )
 
@@ -252,6 +263,7 @@ def build_feature(
     enable_execution: bool = False,
     enable_web: bool = False,
     use_native_cli_auth: bool = False,
+    skills: list[str] | None = None,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -269,11 +281,14 @@ def build_feature(
         GeminiCLIHand,
         GooseCLIHand,
     )
+    from helping_hands.lib.meta import skills as meta_skills
     from helping_hands.lib.repo import RepoIndex
 
     task_id = getattr(getattr(self, "request", None), "id", None)
     requested_backend, runtime_backend = _normalize_backend(backend)
     resolved_iterations = max(1, int(max_iterations))
+    selected_skills = meta_skills.normalize_skill_selection(skills)
+    meta_skills.validate_skill_names(selected_skills)
     updates: list[str] = []
     _append_update(
         updates,
@@ -281,7 +296,8 @@ def build_feature(
             f"Task received. backend={requested_backend}, model={model or 'default'}, "
             f"repo={repo_path}, max_iterations={resolved_iterations}, "
             f"no_pr={no_pr}, enable_execution={enable_execution}, "
-            f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}"
+            f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}, "
+            f"skills={','.join(selected_skills) or 'none'}"
         ),
     )
     _update_progress(
@@ -289,6 +305,8 @@ def build_feature(
         task_id=task_id,
         stage="starting",
         updates=updates,
+        prompt=prompt,
+        pr_number=pr_number,
         backend=requested_backend,
         runtime_backend=runtime_backend,
         repo_path=repo_path,
@@ -298,6 +316,7 @@ def build_feature(
         enable_execution=enable_execution,
         enable_web=enable_web,
         use_native_cli_auth=use_native_cli_auth,
+        skills=selected_skills,
     )
 
     if runtime_backend == "e2e":
@@ -308,6 +327,7 @@ def build_feature(
                 "enable_execution": enable_execution,
                 "enable_web": enable_web,
                 "use_native_cli_auth": use_native_cli_auth,
+                "enabled_skills": selected_skills,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -318,6 +338,8 @@ def build_feature(
             task_id=task_id,
             stage="running",
             updates=updates,
+            prompt=prompt,
+            pr_number=pr_number,
             backend=requested_backend,
             runtime_backend=runtime_backend,
             repo_path=repo_path,
@@ -327,6 +349,7 @@ def build_feature(
             enable_execution=enable_execution,
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
+            skills=selected_skills,
         )
         response = hand.run(
             prompt,
@@ -337,6 +360,9 @@ def build_feature(
         _append_update(updates, response.message)
         return {
             "status": "ok",
+            "prompt": prompt,
+            "pr_number": pr_number,
+            "repo_path": repo_path,
             "backend": requested_backend,
             "runtime_backend": runtime_backend,
             "message": response.message,
@@ -354,6 +380,7 @@ def build_feature(
     overrides["enable_execution"] = enable_execution
     overrides["enable_web"] = enable_web
     overrides["use_native_cli_auth"] = use_native_cli_auth
+    overrides["enabled_skills"] = selected_skills
     config = Config.from_env(overrides=overrides)
     repo_index = RepoIndex.from_path(Path(config.repo))
 
@@ -386,6 +413,8 @@ def build_feature(
         task_id=task_id,
         stage="running",
         updates=updates,
+        prompt=prompt,
+        pr_number=pr_number,
         backend=requested_backend,
         runtime_backend=runtime_backend,
         repo_path=repo_path,
@@ -395,6 +424,7 @@ def build_feature(
         enable_execution=enable_execution,
         enable_web=enable_web,
         use_native_cli_auth=use_native_cli_auth,
+        skills=selected_skills,
         workspace=str(resolved_repo_path),
     )
 
@@ -455,6 +485,7 @@ def build_feature(
             prompt,
             task=self,
             task_id=task_id,
+            pr_number=pr_number,
             updates=updates,
             backend=requested_backend,
             runtime_backend=runtime_backend,
@@ -465,12 +496,15 @@ def build_feature(
             enable_execution=enable_execution,
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
+            skills=selected_skills,
             workspace=str(resolved_repo_path),
         )
     )
     _append_update(updates, "Task complete.")
     return {
         "status": "ok",
+        "prompt": prompt,
+        "pr_number": pr_number,
         "backend": requested_backend,
         "runtime_backend": runtime_backend,
         "repo": repo_path,
@@ -481,6 +515,7 @@ def build_feature(
         "enable_execution": str(enable_execution).lower(),
         "enable_web": str(enable_web).lower(),
         "use_native_cli_auth": str(use_native_cli_auth).lower(),
+        "skills": list(selected_skills),
         "message": message,
         "updates": updates,
     }

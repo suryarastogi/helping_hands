@@ -41,6 +41,7 @@ type FormState = {
   model: string;
   max_iterations: number;
   pr_number: string;
+  skills: string;
   no_pr: boolean;
   enable_execution: boolean;
   enable_web: boolean;
@@ -67,7 +68,6 @@ type OutputTab = "updates" | "raw" | "payload";
 type MainView = "submission" | "monitor";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
-const TERMINAL_STATUSES = new Set(["SUCCESS", "FAILURE", "REVOKED"]);
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
 const TASK_HISTORY_LIMIT = 60;
 const BACKEND_OPTIONS: Backend[] = [
@@ -91,6 +91,7 @@ const INITIAL_FORM: FormState = {
   model: "",
   max_iterations: 6,
   pr_number: "",
+  skills: "",
   no_pr: false,
   enable_execution: false,
   enable_web: false,
@@ -154,6 +155,61 @@ export async function parseError(response: Response): Promise<string> {
 
 export function parseBool(value: string | null): boolean {
   return value === "1" || value === "true";
+}
+
+export function isTerminalTaskStatus(status: string): boolean {
+  const normalized = status.trim().toUpperCase();
+  return (
+    normalized === "SUCCESS" ||
+    normalized === "FAILURE" ||
+    normalized === "REVOKED" ||
+    normalized === "ERROR" ||
+    normalized === "POLL_ERROR"
+  );
+}
+
+type InputItem = {
+  label: string;
+  value: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function readStringValue(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function readBoolishValue(value: unknown): string | null {
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "false") {
+    return normalized;
+  }
+  return null;
+}
+
+function readSkillsValue(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    const tokens = value
+      .map((item) => String(item).trim())
+      .filter((item) => item.length > 0);
+    return tokens.length > 0 ? tokens.join(", ") : null;
+  }
+  return readStringValue(value);
 }
 
 export function extractUpdates(result: Record<string, unknown> | null): string[] {
@@ -377,7 +433,9 @@ export function upsertTaskHistory(
       lastUpdatedAt: now,
     };
 
-    return [updated, ...items.filter((_, index) => index !== idx)];
+    const next = [...items];
+    next[idx] = updated;
+    return next;
   }
 
   const next: TaskHistoryItem = {
@@ -435,6 +493,108 @@ export default function App() {
     return optimisticUpdatesText;
   }, [optimisticUpdatesText, outputTab, payloadText, rawUpdatesText]);
 
+  const selectedTask = useMemo(
+    () => (taskId ? taskHistory.find((item) => item.taskId === taskId) ?? null : null),
+    [taskHistory, taskId]
+  );
+
+  const taskInputs = useMemo<InputItem[]>(() => {
+    const root = asRecord(payload) ?? {};
+    const result = asRecord(root.result);
+
+    const readString = (keys: string[]): string | null => {
+      for (const key of keys) {
+        const fromResult = readStringValue(result?.[key]);
+        if (fromResult) {
+          return fromResult;
+        }
+        const fromRoot = readStringValue(root[key]);
+        if (fromRoot) {
+          return fromRoot;
+        }
+      }
+      return null;
+    };
+
+    const readBoolish = (keys: string[]): string | null => {
+      for (const key of keys) {
+        const fromResult = readBoolishValue(result?.[key]);
+        if (fromResult) {
+          return fromResult;
+        }
+        const fromRoot = readBoolishValue(root[key]);
+        if (fromRoot) {
+          return fromRoot;
+        }
+      }
+      return null;
+    };
+
+    const readSkills = (keys: string[]): string | null => {
+      for (const key of keys) {
+        const fromResult = readSkillsValue(result?.[key]);
+        if (fromResult) {
+          return fromResult;
+        }
+        const fromRoot = readSkillsValue(root[key]);
+        if (fromRoot) {
+          return fromRoot;
+        }
+      }
+      return null;
+    };
+
+    const items: InputItem[] = [];
+
+    const repoPath = readString(["repo_path", "repo"]) ?? selectedTask?.repoPath ?? null;
+    const backend = readString(["backend", "runtime_backend"]) ?? selectedTask?.backend ?? null;
+    const prompt = readString(["prompt"]);
+    const model = readString(["model"]);
+    const maxIterations = readString(["max_iterations"]);
+    const prNumber = readString(["pr_number"]);
+    const noPr = readBoolish(["no_pr"]);
+    const enableExecution = readBoolish(["enable_execution"]);
+    const enableWeb = readBoolish(["enable_web"]);
+    const useNativeAuth = readBoolish(["use_native_cli_auth"]);
+    const skills = readSkills(["skills"]);
+
+    if (repoPath) {
+      items.push({ label: "Repo", value: repoPath });
+    }
+    if (backend) {
+      items.push({ label: "Backend", value: backend });
+    }
+    if (model) {
+      items.push({ label: "Model", value: model });
+    }
+    if (maxIterations) {
+      items.push({ label: "Max iterations", value: maxIterations });
+    }
+    if (prNumber) {
+      items.push({ label: "PR number", value: prNumber });
+    }
+    if (noPr) {
+      items.push({ label: "No PR", value: noPr });
+    }
+    if (enableExecution) {
+      items.push({ label: "Execution tools", value: enableExecution });
+    }
+    if (enableWeb) {
+      items.push({ label: "Web tools", value: enableWeb });
+    }
+    if (useNativeAuth) {
+      items.push({ label: "Native CLI auth", value: useNativeAuth });
+    }
+    if (skills) {
+      items.push({ label: "Skills", value: skills });
+    }
+    if (prompt) {
+      items.push({ label: "Prompt", value: prompt });
+    }
+
+    return items;
+  }, [payload, selectedTask]);
+
   useEffect(() => {
     setTaskHistory(loadTaskHistory());
   }, []);
@@ -487,7 +647,7 @@ export default function App() {
     void refreshCurrentTasks();
     const handle = window.setInterval(() => {
       void refreshCurrentTasks();
-    }, 5000);
+    }, 10000);
 
     return () => {
       cancelled = true;
@@ -549,6 +709,11 @@ export default function App() {
       const prNumber = params.get("pr_number");
       if (prNumber) {
         next.pr_number = prNumber;
+      }
+
+      const skills = params.get("skills");
+      if (skills) {
+        next.skills = skills;
       }
 
       next.no_pr = parseBool(params.get("no_pr"));
@@ -617,7 +782,7 @@ export default function App() {
           })
         );
 
-        if (TERMINAL_STATUSES.has(data.status)) {
+        if (isTerminalTaskStatus(data.status)) {
           setIsPolling(false);
         }
       } catch (error) {
@@ -632,19 +797,97 @@ export default function App() {
             status: "poll_error",
           })
         );
+        setIsPolling(false);
       }
     };
 
     void pollOnce();
     const handle = window.setInterval(() => {
       void pollOnce();
-    }, 2000);
+    }, 3000);
 
     return () => {
       cancelled = true;
       window.clearInterval(handle);
     };
   }, [isPolling, taskId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const pollTrackedTasks = async () => {
+      const pendingTaskIds = taskHistory
+        .filter((item) => !isTerminalTaskStatus(item.status))
+        .map((item) => item.taskId)
+        .filter((id) => !(isPolling && taskId === id));
+
+      if (pendingTaskIds.length === 0) {
+        return;
+      }
+
+      const patches = await Promise.all(
+        pendingTaskIds.map(async (pendingTaskId): Promise<TaskHistoryPatch> => {
+          try {
+            const response = await fetch(
+              apiUrl(`/tasks/${encodeURIComponent(pendingTaskId)}?_=${Date.now()}`),
+              {
+                cache: "no-store",
+              }
+            );
+            if (!response.ok) {
+              throw new Error(await parseError(response));
+            }
+
+            const data = (await response.json()) as TaskStatus &
+              Record<string, unknown>;
+            const root = asRecord(data);
+            const result = asRecord(data.result);
+            const backend =
+              readStringValue(result?.backend) ?? readStringValue(root?.backend);
+            const repoPath =
+              readStringValue(result?.repo_path) ??
+              readStringValue(result?.repo) ??
+              readStringValue(root?.repo_path) ??
+              readStringValue(root?.repo);
+
+            return {
+              taskId: data.task_id,
+              status: data.status,
+              backend: backend ?? undefined,
+              repoPath: repoPath ?? undefined,
+            };
+          } catch {
+            return {
+              taskId: pendingTaskId,
+              status: "poll_error",
+            };
+          }
+        })
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setTaskHistory((current) => {
+        let next = current;
+        for (const patch of patches) {
+          next = upsertTaskHistory(next, patch);
+        }
+        return next;
+      });
+    };
+
+    void pollTrackedTasks();
+    const handle = window.setInterval(() => {
+      void pollTrackedTasks();
+    }, 10000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [isPolling, taskHistory, taskId]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -698,6 +941,12 @@ export default function App() {
     }
     if (form.pr_number.trim()) {
       body.pr_number = Number(form.pr_number.trim());
+    }
+    if (form.skills.trim()) {
+      body.skills = form.skills
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
     }
 
     try {
@@ -872,6 +1121,15 @@ export default function App() {
                     </label>
                   </div>
 
+                  <label>
+                    Skills (comma-separated, optional)
+                    <input
+                      value={form.skills}
+                      onChange={(event) => updateField("skills", event.target.value)}
+                      placeholder="execution,web,prd,ralph"
+                    />
+                  </label>
+
                   <div className="row three-col check-grid">
                     <label className="check-row">
                       <input
@@ -949,6 +1207,24 @@ export default function App() {
                 <strong>{isPolling ? "active" : "off"}</strong>
               </div>
             </div>
+
+            <details className="advanced-settings monitor-inputs">
+              <summary>Task inputs</summary>
+              <div className="advanced-settings-body">
+                {taskInputs.length === 0 ? (
+                  <p className="inputs-empty">Inputs not available yet.</p>
+                ) : (
+                  <dl className="inputs-grid">
+                    {taskInputs.map((item) => (
+                      <div key={item.label} className="input-item">
+                        <dt>{item.label}</dt>
+                        <dd>{item.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+            </details>
 
             <article className="output-pane">
               <div className="pane-header">

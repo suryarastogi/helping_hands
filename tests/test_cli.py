@@ -33,6 +33,19 @@ class TestCli:
         assert args.enable_web is True
         assert args.use_native_cli_auth is True
 
+    def test_cli_parser_supports_dynamic_skills_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["/tmp/repo", "--skills", "execution,web"])
+        assert args.skills == "execution,web"
+
+    def test_cli_exits_on_unknown_skill(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        with pytest.raises(SystemExit):
+            main(["/tmp/repo", "--skills", "unknown"])
+        captured = capsys.readouterr()
+        assert "unknown skill(s)" in captured.err
+
     def test_cli_runs_on_valid_dir(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

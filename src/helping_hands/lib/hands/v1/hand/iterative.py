@@ -26,6 +26,7 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     build_langchain_chat_model,
     resolve_hand_model,
 )
+from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import web as system_web_tools
@@ -66,6 +67,16 @@ class _BasicIterativeHand(Hand):
     ) -> None:
         super().__init__(config, repo_index)
         self.max_iterations = max(1, max_iterations)
+        selected = system_skills.normalize_skill_selection(
+            getattr(self.config, "enabled_skills", ())
+        )
+        merged = system_skills.merge_with_legacy_tool_flags(
+            selected,
+            enable_execution=bool(getattr(self.config, "enable_execution", False)),
+            enable_web=bool(getattr(self.config, "enable_web", False)),
+        )
+        self._selected_skills = system_skills.resolve_skills(merged)
+        self._tool_runners = system_skills.build_tool_runner_map(self._selected_skills)
 
     def _execution_tools_enabled(self) -> bool:
         return bool(getattr(self.config, "enable_execution", False))
@@ -74,47 +85,7 @@ class _BasicIterativeHand(Hand):
         return bool(getattr(self.config, "enable_web", False))
 
     def _tool_instructions(self) -> str:
-        lines: list[str] = []
-        if self._execution_tools_enabled():
-            lines.extend(
-                [
-                    "Execution tools enabled for this run:",
-                    "@@TOOL: python.run_code",
-                    "```json",
-                    '{"code":"print(\'hello\')","python_version":"3.13","args":[]}',
-                    "```",
-                    "@@TOOL: python.run_script",
-                    "```json",
-                    '{"script_path":"scripts/task.py","python_version":"3.13","args":[]}',
-                    "```",
-                    "@@TOOL: bash.run_script",
-                    "```json",
-                    '{"script_path":"scripts/task.sh","args":[]}',
-                    "```",
-                ]
-            )
-        else:
-            lines.append(
-                "Execution tools are disabled for this run "
-                "(python.run_code/python.run_script/bash.run_script)."
-            )
-
-        if self._web_tools_enabled():
-            lines.extend(
-                [
-                    "Web tools enabled for this run:",
-                    "@@TOOL: web.search",
-                    "```json",
-                    '{"query":"latest python release", "max_results": 5}',
-                    "```",
-                    "@@TOOL: web.browse",
-                    "```json",
-                    '{"url":"https://example.com","max_chars":6000}',
-                    "```",
-                ]
-            )
-        else:
-            lines.append("Web tools are disabled for this run (web.search/web.browse).")
+        lines = [system_skills.format_skill_instructions(self._selected_skills)]
         lines.append(
             "Tool results are returned as @@TOOL_RESULT blocks "
             "in the next iteration summary."
@@ -378,13 +349,18 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _tool_disabled_error(tool_name: str) -> ValueError:
-        if tool_name.startswith(("python.", "bash.")):
+        required_skill = system_skills.skill_name_for_tool(tool_name)
+        if required_skill == "execution":
             return ValueError(
                 f"{tool_name} is disabled; re-run with enable_execution=true"
             )
-        if tool_name.startswith("web."):
+        if required_skill == "web":
             return ValueError(f"{tool_name} is disabled; re-run with enable_web=true")
-        return ValueError(f"{tool_name} is disabled")
+        if required_skill:
+            return ValueError(
+                f"{tool_name} is disabled; re-run with --skills {required_skill}"
+            )
+        return ValueError(f"unsupported tool: {tool_name}")
 
     def _run_tool_request(
         self,
@@ -393,104 +369,18 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         payload: dict[str, Any],
     ) -> str:
-        args = self._parse_str_list(payload, key="args")
-        timeout_s = self._parse_positive_int(
-            payload,
-            key="timeout_s",
-            default=60,
-        )
-        cwd = self._parse_optional_str(payload, key="cwd")
+        runner = self._tool_runners.get(tool_name)
+        if runner is None:
+            raise self._tool_disabled_error(tool_name)
 
-        if tool_name == "python.run_code":
-            if not self._execution_tools_enabled():
-                raise self._tool_disabled_error(tool_name)
-            code = payload.get("code")
-            if not isinstance(code, str) or not code.strip():
-                raise ValueError("code must be a non-empty string")
-            python_version = self._parse_optional_str(payload, key="python_version")
-            result = system_exec_tools.run_python_code(
-                root,
-                code=code,
-                python_version=python_version or "3.13",
-                args=args,
-                timeout_s=timeout_s,
-                cwd=cwd,
-            )
+        result = runner(root, payload)
+        if isinstance(result, system_exec_tools.CommandResult):
             return self._format_command_result(tool_name=tool_name, result=result)
-
-        if tool_name == "python.run_script":
-            if not self._execution_tools_enabled():
-                raise self._tool_disabled_error(tool_name)
-            script_path = payload.get("script_path")
-            if not isinstance(script_path, str) or not script_path.strip():
-                raise ValueError("script_path must be a non-empty string")
-            python_version = self._parse_optional_str(payload, key="python_version")
-            result = system_exec_tools.run_python_script(
-                root,
-                script_path=script_path,
-                python_version=python_version or "3.13",
-                args=args,
-                timeout_s=timeout_s,
-                cwd=cwd,
-            )
-            return self._format_command_result(tool_name=tool_name, result=result)
-
-        if tool_name == "bash.run_script":
-            if not self._execution_tools_enabled():
-                raise self._tool_disabled_error(tool_name)
-            script_path = payload.get("script_path")
-            inline_script = payload.get("inline_script")
-            if script_path is not None and not isinstance(script_path, str):
-                raise ValueError("script_path must be a string")
-            if inline_script is not None and not isinstance(inline_script, str):
-                raise ValueError("inline_script must be a string")
-            result = system_exec_tools.run_bash_script(
-                root,
-                script_path=script_path,
-                inline_script=inline_script,
-                args=args,
-                timeout_s=timeout_s,
-                cwd=cwd,
-            )
-            return self._format_command_result(tool_name=tool_name, result=result)
-
-        if tool_name == "web.search":
-            if not self._web_tools_enabled():
-                raise self._tool_disabled_error(tool_name)
-            query = payload.get("query")
-            if not isinstance(query, str) or not query.strip():
-                raise ValueError("query must be a non-empty string")
-            max_results = self._parse_positive_int(
-                payload,
-                key="max_results",
-                default=5,
-            )
-            result = system_web_tools.search_web(
-                query,
-                max_results=max_results,
-                timeout_s=timeout_s,
-            )
+        if isinstance(result, system_web_tools.WebSearchResult):
             return self._format_web_search_result(tool_name=tool_name, result=result)
-
-        if tool_name == "web.browse":
-            if not self._web_tools_enabled():
-                raise self._tool_disabled_error(tool_name)
-            url = payload.get("url")
-            if not isinstance(url, str) or not url.strip():
-                raise ValueError("url must be a non-empty string")
-            max_chars = self._parse_positive_int(
-                payload,
-                key="max_chars",
-                default=self._MAX_READ_CHARS,
-            )
-            result = system_web_tools.browse_url(
-                url,
-                max_chars=max_chars,
-                timeout_s=timeout_s,
-            )
+        if isinstance(result, system_web_tools.WebBrowseResult):
             return self._format_web_browse_result(tool_name=tool_name, result=result)
-
-        raise ValueError(f"unsupported tool: {tool_name}")
+        raise TypeError(f"unsupported tool result type: {type(result)!r}")
 
     def _execute_tool_requests(self, content: str) -> str:
         root = self.repo_index.root.resolve()

@@ -180,4 +180,30 @@ describe("task history helpers", () => {
       },
     ]);
   });
+
+  it("keeps ordering stable when updating existing entries", () => {
+    const base = upsertTaskHistory(
+      upsertTaskHistory([], {
+        taskId: "task-1",
+        status: "QUEUED",
+        backend: "codexcli",
+        repoPath: "owner/repo",
+      }),
+      {
+        taskId: "task-2",
+        status: "QUEUED",
+        backend: "goose",
+        repoPath: "owner/other",
+      }
+    );
+    expect(base.map((item) => item.taskId)).toEqual(["task-2", "task-1"]);
+
+    vi.setSystemTime(1_700_000_000_500);
+    const updated = upsertTaskHistory(base, {
+      taskId: "task-1",
+      status: "SUCCESS",
+    });
+    expect(updated.map((item) => item.taskId)).toEqual(["task-2", "task-1"]);
+    expect(updated[1].status).toBe("SUCCESS");
+  });
 });

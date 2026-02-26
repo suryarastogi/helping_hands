@@ -6,10 +6,14 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from helping_hands.lib.meta import skills as meta_skills
+
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover - optional dependency safety
     load_dotenv = None  # type: ignore[assignment]
+
+ConfigValue = str | bool | tuple[str, ...] | None
 
 
 def _load_env_files(repo: str | None = None) -> None:
@@ -34,10 +38,11 @@ class Config:
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    enabled_skills: tuple[str, ...] = ()
     config_path: Path | None = None
 
     @classmethod
-    def from_env(cls, overrides: dict[str, str | bool | None] | None = None) -> Config:
+    def from_env(cls, overrides: dict[str, ConfigValue] | None = None) -> Config:
         """Build config from environment variables, then apply overrides.
 
         Priority: overrides (CLI flags) > env vars > defaults.
@@ -45,7 +50,7 @@ class Config:
         repo_override = overrides.get("repo") if overrides else None
         _load_env_files(str(repo_override) if isinstance(repo_override, str) else None)
 
-        env_values: dict[str, str | bool | None] = {
+        env_values: dict[str, ConfigValue] = {
             "model": os.environ.get("HELPING_HANDS_MODEL"),
             "verbose": os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
             in ("1", "true", "yes"),
@@ -59,11 +64,18 @@ class Config:
                 "HELPING_HANDS_USE_NATIVE_CLI_AUTH", ""
             ).lower()
             in ("1", "true", "yes"),
+            "enabled_skills": os.environ.get("HELPING_HANDS_SKILLS"),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
         if overrides:
             merged.update({k: v for k, v in overrides.items() if v is not None})
+
+        raw_skill_selection = merged.get("enabled_skills", cls.enabled_skills)
+        if isinstance(raw_skill_selection, bool):
+            normalized_skills_input: str | tuple[str, ...] | None = ()
+        else:
+            normalized_skills_input = raw_skill_selection
 
         return cls(
             repo=str(merged.get("repo", cls.repo)),
@@ -73,5 +85,8 @@ class Config:
             enable_web=bool(merged.get("enable_web", cls.enable_web)),
             use_native_cli_auth=bool(
                 merged.get("use_native_cli_auth", cls.use_native_cli_auth)
+            ),
+            enabled_skills=meta_skills.normalize_skill_selection(
+                normalized_skills_input
             ),
         )

@@ -34,6 +34,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from helping_hands.lib.config import Config
+from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import command as exec_tools
 from helping_hands.lib.meta.tools import filesystem as fs_tools
 from helping_hands.lib.meta.tools import web as web_tools
@@ -104,6 +105,7 @@ def build_feature(
     no_pr: bool = False,
     enable_execution: bool = False,
     enable_web: bool = False,
+    skills: list[str] | None = None,
 ) -> dict:
     """Enqueue a hand task via Celery and return the task ID.
 
@@ -118,6 +120,7 @@ def build_feature(
         no_pr: Disable final PR push/create side effects.
         enable_execution: Enable python/bash execution tools.
         enable_web: Enable web.search/web.browse tools.
+        skills: Optional selected dynamic skills to inject.
 
     Returns:
         Dict with task_id and status.
@@ -125,6 +128,9 @@ def build_feature(
     from helping_hands.server.celery_app import (
         build_feature as celery_build,
     )
+
+    selected_skills = meta_skills.normalize_skill_selection(skills)
+    meta_skills.validate_skill_names(selected_skills)
 
     task = celery_build.delay(
         repo_path=repo_path,
@@ -136,6 +142,7 @@ def build_feature(
         no_pr=no_pr,
         enable_execution=enable_execution,
         enable_web=enable_web,
+        skills=list(selected_skills),
     )
     return {"task_id": task.id, "status": "queued", "backend": backend}
 

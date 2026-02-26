@@ -640,6 +640,48 @@ class TestBasicLangGraphHand:
         "helping_hands.lib.hands.v1.hand.iterative.system_exec_tools.run_python_code"
     )
     @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_supports_tool_requests_with_dynamic_skill_selection(
+        self,
+        mock_build: MagicMock,
+        mock_run_python_code: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=config.repo,
+            model=config.model,
+            enabled_skills=("execution",),
+        )
+        mock_run_python_code.return_value = CommandResult(
+            command=["uv", "run", "--python", "3.13", "python", "-c", "print('ok')"],
+            cwd=str(repo_index.root.resolve()),
+            exit_code=0,
+            stdout="ok\n",
+            stderr="",
+            timed_out=False,
+        )
+        msg = MagicMock()
+        msg.content = (
+            "@@TOOL: python.run_code\n"
+            "```json\n"
+            '{"code":"print(\\"ok\\")","python_version":"3.13"}\n'
+            "```\n"
+            "SATISFIED: yes"
+        )
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [msg]}
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index, max_iterations=1)
+        resp = hand.run("run python helper")
+
+        assert "@@TOOL_RESULT: python.run_code" in resp.message
+        mock_run_python_code.assert_called_once()
+
+    @patch(
+        "helping_hands.lib.hands.v1.hand.iterative.system_exec_tools.run_python_code"
+    )
+    @patch.object(BasicLangGraphHand, "_build_agent")
     def test_run_rejects_execution_tools_when_disabled(
         self,
         mock_build: MagicMock,

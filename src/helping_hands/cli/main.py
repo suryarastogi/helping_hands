@@ -24,6 +24,7 @@ from helping_hands.lib.hands.v1.hand import (
     GooseCLIHand,
     Hand,
 )
+from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.repo import RepoIndex
 
 
@@ -105,6 +106,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--skills",
+        default=None,
+        help=(
+            "Comma-separated skill names to inject into iterative hands "
+            f"(available: {', '.join(meta_skills.available_skill_names())})."
+        ),
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -118,6 +127,12 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
+    try:
+        selected_skills = meta_skills.normalize_skill_selection(args.skills)
+        meta_skills.validate_skill_names(selected_skills)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if args.e2e:
         config = Config.from_env(
@@ -128,6 +143,7 @@ def main(argv: list[str] | None = None) -> None:
                 "enable_execution": args.enable_execution,
                 "enable_web": args.enable_web,
                 "use_native_cli_auth": args.use_native_cli_auth,
+                "enabled_skills": selected_skills,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -158,6 +174,7 @@ def main(argv: list[str] | None = None) -> None:
             "enable_execution": args.enable_execution,
             "enable_web": args.enable_web,
             "use_native_cli_auth": args.use_native_cli_auth,
+            "enabled_skills": selected_skills,
         }
     )
     repo_index = RepoIndex.from_path(Path(config.repo))

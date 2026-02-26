@@ -16,9 +16,10 @@ from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.task_result import normalize_task_result
 
@@ -51,6 +52,21 @@ class BuildRequest(BaseModel):
     enable_web: bool = False
     use_native_cli_auth: bool = False
     pr_number: int | None = None
+    skills: list[str] = Field(default_factory=list)
+
+    @field_validator("skills", mode="before")
+    @classmethod
+    def _coerce_skills(
+        cls, value: str | list[str] | tuple[str, ...] | None
+    ) -> list[str]:
+        normalized = meta_skills.normalize_skill_selection(value)
+        return list(normalized)
+
+    @field_validator("skills")
+    @classmethod
+    def _validate_skills(cls, value: list[str]) -> list[str]:
+        meta_skills.validate_skill_names(tuple(value))
+        return value
 
 
 BackendName = Literal[
@@ -148,239 +164,842 @@ _UI_HTML = """<!doctype html>
     <title>helping_hands runner</title>
     <style>
       :root {
-        --bg: #f4f7f8;
-        --panel: #ffffff;
-        --text: #0f172a;
-        --muted: #475569;
-        --accent: #0f766e;
-        --border: #d8e0e3;
+        --background: #020817;
+        --background-soft: #0b1220;
+        --panel: #0f172a;
+        --panel-elevated: #111b31;
+        --foreground: #e2e8f0;
+        --muted: #94a3b8;
+        --border: #1f2937;
+        --ring: #334155;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --secondary: #1e293b;
+        --secondary-hover: #334155;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
       }
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
       body {
         margin: 0;
-        padding: 24px;
-        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
-        background: linear-gradient(180deg, #eef6f5 0%, var(--bg) 100%);
-        color: var(--text);
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--foreground);
+        background:
+          radial-gradient(circle at 10% -10%, #172554 0%, transparent 40%),
+          radial-gradient(circle at 110% 0%, #1e1b4b 0%, transparent 42%),
+          linear-gradient(180deg, var(--background-soft) 0%, var(--background) 100%);
       }
-      .container {
-        max-width: 920px;
+      .page {
+        max-width: 1280px;
         margin: 0 auto;
+        padding: 28px 20px 36px;
         display: grid;
-        gap: 16px;
+        gap: 14px;
+        grid-template-columns: 300px minmax(0, 1fr);
+        align-items: start;
       }
-      .panel {
-        background: var(--panel);
+      .main-column {
+        display: grid;
+        gap: 14px;
+      }
+      .card {
+        background: linear-gradient(
+          180deg,
+          var(--panel-elevated) 0%,
+          var(--panel) 100%
+        );
         border: 1px solid var(--border);
-        border-radius: 12px;
+        border-radius: 14px;
         padding: 16px;
+        box-shadow: 0 20px 40px rgba(2, 8, 23, 0.45);
       }
-      h1 { margin: 0 0 8px 0; font-size: 1.4rem; }
-      p { margin: 0; color: var(--muted); }
-      form { display: grid; gap: 10px; margin-top: 14px; }
-      label { font-size: 0.9rem; color: var(--muted); }
-      input, textarea, select, button {
+      .task-list-card {
+        position: sticky;
+        top: 14px;
+      }
+      .new-submission-button {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      .new-submission-button.active {
+        background: var(--primary-hover);
+      }
+      .task-list-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .task-list-header h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .text-button {
+        background: transparent;
+        border: 0;
+        color: var(--muted);
+        font-weight: 600;
+        padding: 0;
+        cursor: pointer;
+      }
+      .text-button:hover {
+        color: var(--foreground);
+      }
+      .text-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .empty-list {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+      .task-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+        max-height: calc(100vh - 140px);
+        overflow: auto;
+      }
+      .task-row {
+        width: 100%;
+        text-align: left;
+        display: grid;
+        gap: 6px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px;
+        background: #0b1326;
+        color: var(--foreground);
+        cursor: pointer;
+      }
+      .task-row:hover {
+        border-color: var(--ring);
+        background: #101a31;
+      }
+      .task-row.active {
+        border-color: #3b82f6;
+        background: #10203d;
+      }
+      .task-row-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .task-row code {
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        color: #93c5fd;
+      }
+      .task-row-meta {
+        font-size: 0.74rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .status-pill {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-radius: 999px;
+        padding: 3px 7px;
+        border: 1px solid transparent;
+      }
+      .status-pill.ok {
+        color: #86efac;
+        background: #052e16;
+        border-color: rgba(34, 197, 94, 0.45);
+      }
+      .status-pill.fail {
+        color: #fca5a5;
+        background: #450a0a;
+        border-color: rgba(239, 68, 68, 0.5);
+      }
+      .status-pill.run {
+        color: #67e8f9;
+        background: #083344;
+        border-color: rgba(6, 182, 212, 0.5);
+      }
+      .status-pill.idle {
+        color: #cbd5e1;
+        background: #0f172a;
+        border-color: #334155;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 1.4rem;
+        letter-spacing: -0.015em;
+      }
+      .header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+      .form-grid {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .advanced-settings {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #0b1326;
+        overflow: hidden;
+      }
+      .advanced-settings > summary {
+        cursor: pointer;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--foreground);
+      }
+      .advanced-settings[open] > summary {
+        background: #101a31;
+        border-bottom: 1px solid var(--border);
+      }
+      .advanced-settings-body {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 0.93rem;
+        color: var(--muted);
+      }
+      input,
+      textarea,
+      select,
+      button {
         font: inherit;
       }
-      input, textarea, select {
+      input,
+      textarea,
+      select {
         width: 100%;
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 10px;
+        color: var(--foreground);
+        background: #0a1324;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: 2px solid rgba(59, 130, 246, 0.45);
+        outline-offset: 0;
+        border-color: #3b82f6;
       }
       input[type="checkbox"] {
         width: auto;
+        accent-color: var(--primary);
       }
-      textarea { min-height: 120px; resize: vertical; }
+      textarea {
+        resize: vertical;
+      }
       .row {
         display: grid;
+        gap: 10px;
+      }
+      .two-col {
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
       }
-      .actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+      .check-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
-      button {
-        border: 0;
-        border-radius: 8px;
-        padding: 10px 14px;
-        background: var(--accent);
-        color: #fff;
-        cursor: pointer;
-      }
-      button.secondary {
-        background: #334155;
-      }
-      pre {
-        margin: 0;
-        padding: 12px;
-        border-radius: 8px;
-        background: #0f172a;
-        color: #d1fae5;
-        overflow: auto;
-        min-height: 160px;
-      }
-      .meta {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-bottom: 10px;
-      }
-      .updates {
-        margin-top: 10px;
-      }
-      .checkbox-row {
+      .check-row {
         display: flex;
         align-items: center;
         gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px 10px;
+        background: #0b1326;
+        color: var(--foreground);
       }
-      @media (max-width: 720px) {
-        .row, .meta { grid-template-columns: 1fr; }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+      }
+      button {
+        border: 1px solid transparent;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: var(--primary);
+        color: #eff6ff;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:hover {
+        background: var(--primary-hover);
+      }
+      button.secondary {
+        background: var(--secondary);
+        border-color: var(--border);
+        color: var(--foreground);
+      }
+      button.secondary:hover {
+        background: var(--secondary-hover);
+      }
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .meta-item {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: #0b1326;
+      }
+      .meta-label {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .meta-item strong {
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.84rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+      }
+      .output-pane {
+        margin-top: 12px;
+      }
+      .pane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .pane-header h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .pane-tabs {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #0a1324;
+        padding: 2px;
+      }
+      .tab-btn {
+        border: 0;
+        border-radius: 6px;
+        padding: 5px 10px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+      }
+      .tab-btn:hover {
+        background: #16233f;
+        color: var(--foreground);
+      }
+      .tab-btn.active {
+        background: var(--secondary);
+        color: var(--foreground);
+      }
+      .output-pane pre {
+        margin: 0;
+        min-height: 280px;
+        max-height: min(68vh, 860px);
+        overflow: auto;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #020817;
+        color: #cbd5e1;
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.84rem;
+      }
+      .is-hidden {
+        display: none;
+      }
+      @media (max-width: 1020px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+        .task-list-card {
+          position: static;
+        }
+        .task-list {
+          max-height: 280px;
+        }
+      }
+      @media (max-width: 920px) {
+        .two-col,
+        .check-grid,
+        .meta-grid {
+          grid-template-columns: 1fr;
+        }
+        .pane-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <section class="panel">
-        <h1>helping_hands app runner</h1>
-        <p>
-          Submit a run to <code>/build</code> and monitor status via
-          <code>/tasks/{task_id}</code>.
-        </p>
-        <form id="run-form" method="post" action="/build/form">
-          <div>
-            <label for="repo_path">Repo path (owner/repo)</label>
-            <input
-              id="repo_path"
-              name="repo_path"
-              value="suryarastogi/helping_hands"
-              required
-            />
-          </div>
-          <div>
-            <label for="prompt">Prompt</label>
-            <textarea id="prompt" name="prompt" required>
-__DEFAULT_SMOKE_TEST_PROMPT__</textarea>
-          </div>
-          <div class="row">
-            <div>
-              <label for="backend">Backend</label>
-              <select id="backend" name="backend">
-                <option value="e2e">e2e</option>
-                <option value="basic-langgraph">basic-langgraph</option>
-                <option value="basic-atomic">basic-atomic</option>
-                <option value="basic-agent">basic-agent</option>
-                <option value="codexcli" selected>codexcli</option>
-                <option value="claudecodecli">claudecodecli</option>
-                <option value="goose">goose</option>
-                <option value="geminicli">geminicli</option>
-              </select>
-            </div>
-            <div>
-              <label for="model">Model (optional)</label>
-              <input id="model" name="model" placeholder="gpt-5.2" />
-            </div>
-          </div>
-          <div class="row">
-            <div>
-              <label for="max_iterations">Max iterations</label>
-              <input
-                id="max_iterations"
-                name="max_iterations"
-                type="number"
-                min="1"
-                value="6"
-              />
-            </div>
-            <div>
-              <label for="pr_number">PR number (optional)</label>
-              <input id="pr_number" name="pr_number" type="number" min="1" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="checkbox-row">
-              <input id="no_pr" name="no_pr" type="checkbox" />
-              <label for="no_pr">Disable final PR push/create</label>
-            </div>
-            <div class="checkbox-row">
-              <input id="enable_execution" name="enable_execution" type="checkbox" />
-              <label for="enable_execution">Enable execution tools</label>
-            </div>
-          </div>
-          <div class="row">
-            <div class="checkbox-row">
-              <input id="enable_web" name="enable_web" type="checkbox" />
-              <label for="enable_web">Enable web tools</label>
-            </div>
-            <div class="checkbox-row">
-              <input
-                id="use_native_cli_auth"
-                name="use_native_cli_auth"
-                type="checkbox"
-              />
-              <label for="use_native_cli_auth">
-                Use native CLI auth (Codex/Claude)
-              </label>
-            </div>
-          </div>
-          <div class="row">
-            <div>
-              <label for="task_id">Task ID (for manual monitor)</label>
-              <input id="task_id" name="task_id" />
-            </div>
-          </div>
-          <div class="actions">
-            <button type="submit">Submit Run</button>
-            <button id="monitor-btn" type="button" class="secondary">
-              Monitor Task
-            </button>
-            <button id="stop-btn" type="button" class="secondary">Stop Polling</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="panel">
-        <div class="meta">
-          <div><strong>Status:</strong> <span id="status">idle</span></div>
-          <div><strong>Task:</strong> <span id="task_label">-</span></div>
+    <main class="page">
+      <aside class="card task-list-card">
+        <button
+          type="button"
+          id="new-submission-btn"
+          class="new-submission-button active"
+        >
+          New submission
+        </button>
+        <div class="task-list-header">
+          <h2>Submitted tasks</h2>
+          <button type="button" id="clear-history-btn" class="text-button">
+            Clear
+          </button>
         </div>
-        <pre id="updates">No updates yet.</pre>
-        <pre id="output" class="updates">{}</pre>
-      </section>
-    </div>
+        <p id="empty-list" class="empty-list">No tasks submitted yet.</p>
+        <ul id="task-list" class="task-list"></ul>
+      </aside>
+
+      <div class="main-column">
+        <section id="submission-view" class="card">
+          <header class="header">
+            <h1>helping_hands runner</h1>
+            <p>
+              Submit runs to <code>/build</code> and track progress from
+              <code>/tasks/{task_id}</code>.
+            </p>
+          </header>
+
+          <form id="run-form" method="post" action="/build/form" class="form-grid">
+            <label for="repo_path">
+              Repo path (owner/repo)
+              <input
+                id="repo_path"
+                name="repo_path"
+                value="suryarastogi/helping_hands"
+                required
+              />
+            </label>
+
+            <label for="prompt">
+              Prompt
+              <textarea id="prompt" name="prompt" required rows="6">
+__DEFAULT_SMOKE_TEST_PROMPT__</textarea>
+            </label>
+
+            <details class="advanced-settings">
+              <summary>Advanced settings</summary>
+              <div class="advanced-settings-body">
+                <div class="row two-col">
+                  <label for="backend">
+                    Backend
+                    <select id="backend" name="backend">
+                      <option value="e2e">e2e</option>
+                      <option value="basic-langgraph">basic-langgraph</option>
+                      <option value="basic-atomic">basic-atomic</option>
+                      <option value="basic-agent">basic-agent</option>
+                      <option value="codexcli" selected>codexcli</option>
+                      <option value="claudecodecli">claudecodecli</option>
+                      <option value="goose">goose</option>
+                      <option value="geminicli">geminicli</option>
+                    </select>
+                  </label>
+
+                  <label for="model">
+                    Model (optional)
+                    <input id="model" name="model" placeholder="gpt-5.2" />
+                  </label>
+                </div>
+
+                <div class="row two-col">
+                  <label for="max_iterations">
+                    Max iterations
+                    <input
+                      id="max_iterations"
+                      name="max_iterations"
+                      type="number"
+                      min="1"
+                      value="6"
+                    />
+                  </label>
+
+                  <label for="pr_number">
+                    PR number (optional)
+                    <input id="pr_number" name="pr_number" type="number" min="1" />
+                  </label>
+                </div>
+
+                <label for="skills">
+                  Skills (comma-separated, optional)
+                  <input
+                    id="skills"
+                    name="skills"
+                    placeholder="execution,web,prd,ralph"
+                  />
+                </label>
+
+                <div class="row check-grid">
+                  <label class="check-row" for="no_pr">
+                    <input id="no_pr" name="no_pr" type="checkbox" />
+                    Disable final PR push/create
+                  </label>
+
+                  <label class="check-row" for="enable_execution">
+                    <input
+                      id="enable_execution"
+                      name="enable_execution"
+                      type="checkbox"
+                    />
+                    Enable execution tools
+                  </label>
+
+                  <label class="check-row" for="enable_web">
+                    <input id="enable_web" name="enable_web" type="checkbox" />
+                    Enable web tools
+                  </label>
+
+                  <label class="check-row" for="use_native_cli_auth">
+                    <input
+                      id="use_native_cli_auth"
+                      name="use_native_cli_auth"
+                      type="checkbox"
+                    />
+                    Use native CLI auth (Codex/Claude)
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <div class="actions">
+              <button type="submit">Submit run</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="monitor-view" class="card is-hidden">
+          <div class="actions">
+            <button id="stop-btn" type="button" class="secondary">
+              Stop polling
+            </button>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Status</span>
+              <strong id="status">idle</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Task</span>
+              <strong id="task_label">-</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Polling</span>
+              <strong id="polling_label">off</strong>
+            </div>
+          </div>
+
+          <article class="output-pane">
+            <div class="pane-header">
+              <h2>Output</h2>
+              <div class="pane-tabs" role="tablist" aria-label="Output mode">
+                <button
+                  type="button"
+                  class="tab-btn active"
+                  data-output-tab="updates"
+                >
+                  Updates
+                </button>
+                <button type="button" class="tab-btn" data-output-tab="raw">
+                  Raw
+                </button>
+                <button type="button" class="tab-btn" data-output-tab="payload">
+                  Payload
+                </button>
+              </div>
+            </div>
+            <pre id="output_text">No updates yet.</pre>
+          </article>
+        </section>
+      </div>
+    </main>
 
     <script>
       const form = document.getElementById("run-form");
-      const monitorBtn = document.getElementById("monitor-btn");
+      const submissionView = document.getElementById("submission-view");
+      const monitorView = document.getElementById("monitor-view");
+      const newSubmissionBtn = document.getElementById("new-submission-btn");
+      const clearHistoryBtn = document.getElementById("clear-history-btn");
+      const taskListEl = document.getElementById("task-list");
+      const emptyListEl = document.getElementById("empty-list");
       const stopBtn = document.getElementById("stop-btn");
       const statusEl = document.getElementById("status");
       const taskLabelEl = document.getElementById("task_label");
-      const updatesEl = document.getElementById("updates");
-      const outputEl = document.getElementById("output");
-      const taskIdInput = document.getElementById("task_id");
+      const pollingLabelEl = document.getElementById("polling_label");
+      const outputTextEl = document.getElementById("output_text");
+      const tabButtons = Array.from(document.querySelectorAll("[data-output-tab]"));
+      const historyStorageKey = "helping_hands_task_history_v1";
+      const terminalStatuses = new Set(["SUCCESS", "FAILURE", "REVOKED"]);
+
+      let taskId = null;
+      let status = "idle";
+      let payloadData = null;
+      let updates = [];
+      let outputTab = "updates";
+      let isPolling = false;
       let pollHandle = null;
+      let discoveryHandle = null;
+      let taskHistory = loadTaskHistory();
+
+      function setView(nextView) {
+        const isSubmission = nextView === "submission";
+        submissionView.classList.toggle("is-hidden", !isSubmission);
+        monitorView.classList.toggle("is-hidden", isSubmission);
+        newSubmissionBtn.classList.toggle("active", isSubmission);
+      }
 
       function setStatus(value) {
+        status = value;
         statusEl.textContent = value;
       }
 
+      function setTaskId(value) {
+        taskId = value || null;
+        taskLabelEl.textContent = taskId || "-";
+      }
+
+      function setPolling(value) {
+        isPolling = value;
+        pollingLabelEl.textContent = value ? "active" : "off";
+      }
+
       function setOutput(value) {
-        outputEl.textContent = JSON.stringify(value, null, 2);
+        payloadData = value;
+        renderOutput();
       }
 
       function setUpdates(value) {
-        if (!value || value.length === 0) {
-          updatesEl.textContent = "No updates yet.";
-          return;
-        }
-        updatesEl.textContent = value.join("\n");
+        updates = Array.isArray(value) ? value.map((item) => String(item)) : [];
+        renderOutput();
       }
 
-      function isTerminal(status) {
-        return ["SUCCESS", "FAILURE", "REVOKED"].includes(status);
+      function shortTaskId(value) {
+        if (!value || value.length <= 26) {
+          return value || "-";
+        }
+        return `${value.slice(0, 10)}...${value.slice(-8)}`;
+      }
+
+      function statusTone(value) {
+        const normalized = String(value || "").trim().toUpperCase();
+        if (normalized === "SUCCESS") {
+          return "ok";
+        }
+        if (
+          normalized === "FAILURE" ||
+          normalized === "REVOKED" ||
+          normalized === "POLL_ERROR"
+        ) {
+          return "fail";
+        }
+        if (
+          [
+            "QUEUED",
+            "PENDING",
+            "STARTED",
+            "RUNNING",
+            "RECEIVED",
+            "RETRY",
+            "PROGRESS",
+            "SCHEDULED",
+            "RESERVED",
+            "SENT",
+            "MONITORING",
+            "SUBMITTING",
+          ].includes(normalized)
+        ) {
+          return "run";
+        }
+        return "idle";
+      }
+
+      function parseOptimisticUpdates(rawUpdates) {
+        const lines = [];
+        const source = Array.isArray(rawUpdates) ? rawUpdates : [];
+        for (const entry of source) {
+          const chunks = String(entry).split(/\r?\n/);
+          for (const chunk of chunks) {
+            const trimmed = chunk.trim();
+            if (!trimmed) {
+              continue;
+            }
+            if (trimmed.includes(".zshenv:.:1: no such file or directory")) {
+              continue;
+            }
+            lines.push(trimmed);
+          }
+        }
+        return lines;
+      }
+
+      function renderOutput() {
+        let text = "No updates yet.";
+        if (outputTab === "payload") {
+          text = payloadData ? JSON.stringify(payloadData, null, 2) : "{}";
+        } else if (outputTab === "raw") {
+          text = updates.length > 0 ? updates.join("\n") : "No raw output yet.";
+        } else {
+          const parsed = parseOptimisticUpdates(updates);
+          text = parsed.length > 0 ? parsed.join("\n") : "No updates yet.";
+        }
+        outputTextEl.textContent = text;
+      }
+
+      function setOutputTab(nextTab) {
+        outputTab = nextTab;
+        for (const button of tabButtons) {
+          const active = button.getAttribute("data-output-tab") === nextTab;
+          button.classList.toggle("active", active);
+        }
+        renderOutput();
+      }
+
+      function loadTaskHistory() {
+        try {
+          const raw = window.localStorage.getItem(historyStorageKey);
+          if (!raw) {
+            return [];
+          }
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) {
+            return [];
+          }
+          return parsed
+            .filter(
+              (item) =>
+                item &&
+                typeof item === "object" &&
+                String(item.taskId || "").trim()
+            )
+            .slice(0, 60);
+        } catch (_ignored) {
+          return [];
+        }
+      }
+
+      function persistTaskHistory() {
+        try {
+          window.localStorage.setItem(historyStorageKey, JSON.stringify(taskHistory));
+        } catch (_ignored) {
+          // Best effort only.
+        }
+      }
+
+      function upsertTaskHistory(patch) {
+        const normalizedId = String(patch.taskId || "").trim();
+        if (!normalizedId) {
+          return;
+        }
+        const now = Date.now();
+        const idx = taskHistory.findIndex((item) => item.taskId === normalizedId);
+        if (idx >= 0) {
+          const existing = taskHistory[idx];
+          const updated = {
+            ...existing,
+            status: patch.status || existing.status,
+            backend: patch.backend || existing.backend,
+            repoPath: patch.repoPath || existing.repoPath,
+            lastUpdatedAt: now,
+          };
+          taskHistory = [updated].concat(
+            taskHistory.filter((_, index) => index !== idx)
+          );
+        } else {
+          taskHistory = [
+            {
+              taskId: normalizedId,
+              status: patch.status || "queued",
+              backend: patch.backend || "unknown",
+              repoPath: patch.repoPath || "",
+              createdAt: now,
+              lastUpdatedAt: now,
+            },
+          ].concat(taskHistory);
+        }
+        taskHistory = taskHistory.slice(0, 60);
+        persistTaskHistory();
+        renderTaskHistory();
+      }
+
+      function renderTaskHistory() {
+        taskListEl.innerHTML = "";
+        if (taskHistory.length === 0) {
+          emptyListEl.style.display = "block";
+          clearHistoryBtn.disabled = true;
+          return;
+        }
+        emptyListEl.style.display = "none";
+        clearHistoryBtn.disabled = false;
+
+        for (const item of taskHistory) {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "task-row";
+          if (!monitorView.classList.contains("is-hidden") && taskId === item.taskId) {
+            row.classList.add("active");
+          }
+
+          const top = document.createElement("span");
+          top.className = "task-row-top";
+          const idCode = document.createElement("code");
+          idCode.textContent = shortTaskId(item.taskId);
+          const statusPill = document.createElement("span");
+          statusPill.className = `status-pill ${statusTone(item.status)}`;
+          statusPill.textContent = item.status;
+          top.appendChild(idCode);
+          top.appendChild(statusPill);
+
+          const meta = document.createElement("span");
+          meta.className = "task-row-meta";
+          const backend = item.backend || "unknown";
+          const repoPath = item.repoPath || "manual";
+          const timestamp = new Date(
+            item.lastUpdatedAt || Date.now()
+          ).toLocaleTimeString();
+          meta.textContent = `${backend} | ${repoPath} | ${timestamp}`;
+
+          row.appendChild(top);
+          row.appendChild(meta);
+          row.title = item.taskId;
+          row.addEventListener("click", () => {
+            selectTask(item.taskId);
+          });
+
+          const listItem = document.createElement("li");
+          listItem.appendChild(row);
+          taskListEl.appendChild(listItem);
+        }
       }
 
       async function pollTaskOnce(taskId) {
@@ -401,13 +1020,17 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         const data = await response.json();
         setStatus(data.status);
-        if (Array.isArray(data?.result?.updates)) {
+        if (Array.isArray(data && data.result && data.result.updates)) {
           setUpdates(data.result.updates);
         } else {
           setUpdates([]);
         }
         setOutput(data);
-        if (isTerminal(data.status)) {
+        upsertTaskHistory({
+          taskId: data.task_id,
+          status: data.status,
+        });
+        if (terminalStatuses.has(data.status)) {
           stopPolling();
         }
       }
@@ -417,11 +1040,14 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           clearInterval(pollHandle);
           pollHandle = null;
         }
+        setPolling(false);
       }
 
       function startPolling(taskId) {
         stopPolling();
-        taskLabelEl.textContent = taskId;
+        setTaskId(taskId);
+        setPolling(true);
+        setView("monitor");
         pollTaskOnce(taskId).catch((err) => {
           setStatus("error");
           setOutput({ error: String(err) });
@@ -433,6 +1059,29 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
             setOutput({ error: String(err) });
           });
         }, 2000);
+      }
+
+      function selectTask(selectedTaskId) {
+        setStatus("monitoring");
+        setOutput(null);
+        setUpdates([]);
+        setOutputTab("updates");
+        startPolling(selectedTaskId);
+        upsertTaskHistory({
+          taskId: selectedTaskId,
+          status: "monitoring",
+        });
+      }
+
+      function clearForNewSubmission() {
+        stopPolling();
+        setStatus("idle");
+        setTaskId(null);
+        setOutput(null);
+        setUpdates([]);
+        setOutputTab("updates");
+        setView("submission");
+        renderTaskHistory();
       }
 
       function applyQueryDefaults() {
@@ -447,6 +1096,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const enableExecution = params.get("enable_execution");
         const enableWeb = params.get("enable_web");
         const useNativeCliAuth = params.get("use_native_cli_auth");
+        const skills = params.get("skills");
         const taskId = params.get("task_id");
         const status = params.get("status");
         const error = params.get("error");
@@ -469,6 +1119,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         if (prNumber) {
           document.getElementById("pr_number").value = prNumber;
         }
+        if (skills) {
+          document.getElementById("skills").value = skills;
+        }
         if (noPr === "1" || noPr === "true") {
           document.getElementById("no_pr").checked = true;
         }
@@ -486,23 +1139,92 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           setOutput({ error });
         }
         if (taskId) {
-          taskIdInput.value = taskId;
+          upsertTaskHistory({
+            taskId,
+            status: status || "queued",
+            backend: backend || undefined,
+            repoPath: repoPath || undefined,
+          });
           setStatus(status || "queued");
-          startPolling(taskId);
+          selectTask(taskId);
+        }
+      }
+
+      async function refreshCurrentTasks() {
+        try {
+          const response = await fetch(`/tasks/current?_=${Date.now()}`, {
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            return;
+          }
+          const data = await response.json();
+          if (!Array.isArray(data.tasks)) {
+            return;
+          }
+          for (const item of data.tasks) {
+            const discoveredTaskId = String(
+              item && item.task_id ? item.task_id : ""
+            ).trim();
+            if (!discoveredTaskId) {
+              continue;
+            }
+            upsertTaskHistory({
+              taskId: discoveredTaskId,
+              status: String(item.status || "unknown"),
+              backend: typeof item.backend === "string" ? item.backend : undefined,
+              repoPath: typeof item.repo_path === "string" ? item.repo_path : undefined,
+            });
+          }
+        } catch (_ignored) {
+          // Best effort only.
         }
       }
 
       applyQueryDefaults();
+      renderTaskHistory();
+      renderOutput();
+
+      refreshCurrentTasks();
+      discoveryHandle = setInterval(() => {
+        refreshCurrentTasks();
+      }, 5000);
+
+      newSubmissionBtn.addEventListener("click", () => {
+        clearForNewSubmission();
+      });
+
+      clearHistoryBtn.addEventListener("click", () => {
+        taskHistory = [];
+        persistTaskHistory();
+        renderTaskHistory();
+      });
+
+      for (const button of tabButtons) {
+        button.addEventListener("click", () => {
+          const nextTab = button.getAttribute("data-output-tab");
+          if (!nextTab) {
+            return;
+          }
+          setOutputTab(nextTab);
+        });
+      }
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         setStatus("submitting");
+        setView("monitor");
+        setPolling(false);
+        setTaskId(null);
+        setUpdates([]);
+        setOutputTab("updates");
         const repoPath = document.getElementById("repo_path").value.trim();
         const prompt = document.getElementById("prompt").value.trim();
         const backend = document.getElementById("backend").value;
         const model = document.getElementById("model").value.trim();
         const maxIterationsRaw = document.getElementById("max_iterations").value.trim();
         const prRaw = document.getElementById("pr_number").value.trim();
+        const skillsRaw = document.getElementById("skills").value.trim();
         const noPr = document.getElementById("no_pr").checked;
         const enableExecution = document.getElementById("enable_execution").checked;
         const enableWeb = document.getElementById("enable_web").checked;
@@ -523,6 +1245,12 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         if (prRaw) {
           payload.pr_number = Number(prRaw);
         }
+        if (skillsRaw) {
+          payload.skills = skillsRaw
+            .split(",")
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
+        }
 
         try {
           const response = await fetch("/build", {
@@ -534,30 +1262,35 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           if (!response.ok) {
             throw new Error(data?.detail || `Build enqueue failed: ${response.status}`);
           }
-          taskIdInput.value = data.task_id;
-          setUpdates([]);
-          setOutput(data);
+          setTaskId(data.task_id);
           setStatus(data.status);
+          setOutput(data);
+          setUpdates([]);
+          upsertTaskHistory({
+            taskId: data.task_id,
+            status: data.status,
+            backend: data.backend,
+            repoPath,
+          });
           startPolling(data.task_id);
         } catch (err) {
           setStatus("error");
           setOutput({ error: String(err) });
+          setPolling(false);
         }
-      });
-
-      monitorBtn.addEventListener("click", () => {
-        const taskId = taskIdInput.value.trim();
-        if (!taskId) {
-          setOutput({ error: "Provide a task_id to monitor." });
-          return;
-        }
-        setStatus("monitoring");
-        startPolling(taskId);
       });
 
       stopBtn.addEventListener("click", () => {
         stopPolling();
         setStatus("stopped");
+      });
+
+      window.addEventListener("beforeunload", () => {
+        stopPolling();
+        if (discoveryHandle) {
+          clearInterval(discoveryHandle);
+          discoveryHandle = null;
+        }
       });
     </script>
   </body>
@@ -594,6 +1327,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         enable_execution=req.enable_execution,
         enable_web=req.enable_web,
         use_native_cli_auth=req.use_native_cli_auth,
+        skills=req.skills,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -961,76 +1695,111 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
     {refresh_meta}
     <title>Task Monitor - {html.escape(task_status.task_id)}</title>
     <style>
+      :root {{
+        --background: #020817;
+        --background-soft: #0b1220;
+        --panel: #0f172a;
+        --panel-elevated: #111b31;
+        --foreground: #e2e8f0;
+        --muted: #94a3b8;
+        --border: #1f2937;
+        --secondary: #1e293b;
+        --secondary-hover: #334155;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }}
+      * {{
+        box-sizing: border-box;
+      }}
       body {{
         margin: 0;
-        padding: 20px;
-        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
-        background: #f7f9fa;
-        color: #0f172a;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--foreground);
+        background:
+          radial-gradient(circle at 10% -10%, #172554 0%, transparent 40%),
+          radial-gradient(circle at 110% 0%, #1e1b4b 0%, transparent 42%),
+          linear-gradient(180deg, var(--background-soft) 0%, var(--background) 100%);
       }}
-      .wrap {{
-        max-width: 980px;
+      .page {{
+        max-width: 1200px;
         margin: 0 auto;
+        padding: 28px 20px 36px;
         display: grid;
-        gap: 12px;
+        gap: 14px;
       }}
-      .panel {{
-        background: #fff;
-        border: 1px solid #d8e0e3;
-        border-radius: 10px;
-        padding: 14px;
+      .card {{
+        background: linear-gradient(
+          180deg,
+          var(--panel-elevated) 0%,
+          var(--panel) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 20px 40px rgba(2, 8, 23, 0.45);
       }}
       .meta {{
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
       }}
-      .meta-cell {{
-        width: 100%;
-        height: 72px;
-        box-sizing: border-box;
-        padding: 10px 12px;
-        border: 1px solid #d8e0e3;
-        border-radius: 8px;
-        background: #f8fbfc;
-        display: flex;
-        align-items: center;
-        overflow: auto;
-      }}
-      .status {{
-        font-weight: 700;
-      }}
-      .content-cell {{
-        width: 100%;
-        height: 280px;
-        box-sizing: border-box;
-        border: 1px solid #d8e0e3;
-        border-radius: 8px;
+      .meta-item {{
+        border: 1px solid var(--border);
+        border-radius: 10px;
         padding: 10px;
-        overflow: auto;
-        background: #fff;
+        background: #0b1326;
+      }}
+      .meta-label {{
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }}
+      .meta-item strong {{
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.84rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
       }}
       pre {{
         margin: 0;
-        padding: 0;
-        border-radius: 8px;
-        background: transparent;
-        color: #0f172a;
-        min-height: 100%;
+        min-height: 220px;
+        max-height: min(68vh, 860px);
+        overflow: auto;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #020817;
+        color: #cbd5e1;
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
       }}
       .updates {{
-        white-space: pre-wrap;
-        line-height: 1.45;
+        min-height: 140px;
       }}
       .actions {{
         display: flex;
-        gap: 10px;
+        gap: 9px;
         flex-wrap: wrap;
+        margin-top: 12px;
       }}
       a {{
-        color: #0f766e;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 12px;
+        background: var(--secondary);
+        color: var(--foreground);
         text-decoration: none;
+      }}
+      a:hover {{
+        background: var(--secondary-hover);
+      }}
+      h2 {{
+        margin: 0 0 8px;
+        font-size: 1rem;
       }}
       @media (max-width: 720px) {{
         .meta {{ grid-template-columns: 1fr; }}
@@ -1038,15 +1807,22 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <section class="panel">
+    <main class="page">
+      <section class="card">
         <div class="meta">
-          <div class="meta-cell">
-            <strong>Task:</strong>&nbsp;{html.escape(task_status.task_id)}
+          <div class="meta-item">
+            <span class="meta-label">Task</span>
+            <strong>{html.escape(task_status.task_id)}</strong>
           </div>
-          <div class="meta-cell">
-            <strong>Status:</strong>
-            &nbsp;<span class="status">{html.escape(status)}</span>
+          <div class="meta-item">
+            <span class="meta-label">Status</span>
+            <strong>{html.escape(status)}</strong>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Polling</span>
+            <strong>
+              {"active" if status not in _TERMINAL_TASK_STATES else "off"}
+            </strong>
           </div>
         </div>
         <div class="actions">
@@ -1054,19 +1830,15 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
           <a href="/tasks/{html.escape(task_status.task_id)}">Raw JSON</a>
         </div>
       </section>
-      <section class="panel">
-        <h3>Updates</h3>
-        <div class="content-cell">
-          <div class="updates">{updates_html}</div>
-        </div>
+      <section class="card">
+        <h2>Updates</h2>
+        <pre class="updates">{updates_html}</pre>
       </section>
-      <section class="panel">
-        <h3>Payload</h3>
-        <div class="content-cell">
-          <pre>{escaped_payload}</pre>
-        </div>
+      <section class="card">
+        <h2>Payload</h2>
+        <pre>{escaped_payload}</pre>
       </section>
-    </div>
+    </main>
   </body>
 </html>
 """
@@ -1095,6 +1867,7 @@ def enqueue_build_form(
     enable_web: bool = Form(False),
     use_native_cli_auth: bool = Form(False),
     pr_number: int | None = Form(None),
+    skills: str | None = Form(None),
 ) -> RedirectResponse:
     """Fallback form endpoint so UI submits still enqueue without JS."""
     try:
@@ -1119,6 +1892,8 @@ def enqueue_build_form(
             query["use_native_cli_auth"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
+        if skills and skills.strip():
+            query["skills"] = skills
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
 
     try:
@@ -1133,6 +1908,7 @@ def enqueue_build_form(
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
             pr_number=pr_number,
+            skills=list(meta_skills.normalize_skill_selection(skills)),
         )
     except ValidationError as exc:
         error_msg = "Invalid form submission."
@@ -1163,6 +1939,8 @@ def enqueue_build_form(
             query["use_native_cli_auth"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
+        if skills and skills.strip():
+            query["skills"] = skills
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
 
     response = _enqueue_build_task(req)
@@ -1186,6 +1964,8 @@ def enqueue_build_form(
         query["use_native_cli_auth"] = "1"
     if req.pr_number is not None:
         query["pr_number"] = str(req.pr_number)
+    if req.skills:
+        query["skills"] = ",".join(req.skills)
     return RedirectResponse(url=f"/monitor/{response.task_id}", status_code=303)
 
 
