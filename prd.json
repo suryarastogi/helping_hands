@@ -1,0 +1,16 @@
+{
+  "project": "[Project Name]",
+  "branchName": "ralph/[feature-name-kebab-case]",
+  "description": "[One-sentence feature description]",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "[Story title]",
+      "description": "As a [user], I want [feature] so that [benefit].",
+      "acceptanceCriteria": ["[Criterion 1]", "Typecheck passes"],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
