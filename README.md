@@ -12,6 +12,8 @@
 
 **Last updated:** February 26, 2026
 
+**Smoke test:** 2026-02-26T18:32:27Z (`3eddfdf`) — read/write OK; Python exec OK (3.12.10); `ruff`/`ty` OK; `pytest -m "not integration"` OK (241 passed, 1 deselected). Web tools skipped (restricted network in this runtime).
+
 ## What is this?
 
 `helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal) or **app mode** (server with background workers).
