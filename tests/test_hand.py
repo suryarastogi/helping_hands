@@ -1925,6 +1925,21 @@ class TestGooseCLIHand:
         assert cmd[:5] == ["goose", "run", "--with-builtin", "developer", "--text"]
         assert cmd[-1] == "hello world"
 
+    def test_render_command_does_not_append_generic_model_flag(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_GOOSE_CLI_CMD", raising=False)
+        config = Config(repo="/tmp/fake", model="gpt-5.2")
+        hand = GooseCLIHand(config, repo_index)
+
+        cmd = hand._render_command("hello world")
+
+        assert cmd[:5] == ["goose", "run", "--with-builtin", "developer", "--text"]
+        assert "--model" not in cmd
+        assert cmd[-2:] == ["--text", "hello world"]
+
     def test_build_subprocess_env_uses_github_token_when_gh_token_missing(
         self,
         config: Config,

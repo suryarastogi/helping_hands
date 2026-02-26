@@ -29,6 +29,11 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             return ["goose", "run", "--with-builtin", "developer", "--text"]
         return super()._normalize_base_command(tokens)
 
+    def _resolve_cli_model(self) -> str:
+        # Goose expects provider/model via env vars (GOOSE_PROVIDER/GOOSE_MODEL),
+        # not a generic CLI --model flag injected by the shared base.
+        return ""
+
     @staticmethod
     def _has_goose_builtin_flag(cmd: list[str]) -> bool:
         return any(

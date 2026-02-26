@@ -416,6 +416,16 @@ Goose backend notes:
   variables so Goose/`gh` use token auth consistently.
 - Local GitHub auth fallback is intentionally disabled for Goose runs.
 
+Goose model examples:
+
+```bash
+# Goose + OpenAI (provider inferred from gpt-* model)
+uv run helping-hands owner/repo --backend goose --model gpt-5.2 --prompt "Implement X"
+
+# Goose + Claude (explicit provider/model form)
+uv run helping-hands owner/repo --backend goose --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
+```
+
 
 Backend command examples:
 
