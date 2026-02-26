@@ -604,6 +604,12 @@ uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
 
+### Smoke test (2026-02-26)
+
+- `python -m helping_hands.cli.main --help` (prints usage)
+- `HELPING_HANDS_RUN_E2E_INTEGRATION=0 python -m pytest -q` → `241 passed, 1 skipped`
+- Note: `HELPING_HANDS_RUN_E2E_INTEGRATION=1` requires outbound GitHub access; it will fail in network-restricted sandboxes.
+
 ### Compose env defaults
 
 `compose.yaml` now sets default in-network Celery/Redis URLs for all app-mode
