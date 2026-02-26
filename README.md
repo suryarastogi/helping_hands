@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 25, 2026
+**Last updated:** February 26, 2026
 
 ## What is this?
 
@@ -367,6 +367,17 @@ Codex backend smoke test:
 ```bash
 codex exec --model gpt-5.2 "Reply with READY and one sentence."
 ```
+
+Agent tool smoke test (this README-update prompt):
+
+| Capability | Result | Notes |
+|---|---|---|
+| `@@READ` | OK | Read `README.md` |
+| `@@FILE` | OK | Updated `README.md`; added `scripts/smoke_test.py` + `scripts/smoke_test.sh` |
+| `python.run_code` | OK* | Inline check via `python -c ...` (Python `3.12.10`; `3.13` not available in this harness) |
+| `python.run_script` | OK | `python scripts/smoke_test.py` |
+| `bash.run_script` | OK | `bash scripts/smoke_test.sh` |
+| `web.search` / `web.browse` | N/A | Web tools not available (`network_access=restricted`) |
 
 CLI subprocess runtime controls (all CLI backends):
 
