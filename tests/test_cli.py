@@ -8,11 +8,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from helping_hands.cli.main import main
+from helping_hands.cli.main import build_parser, main
+from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand import HandResponse
 
 
 class TestCli:
+    def test_cli_uses_smoke_test_default_prompt(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["/tmp/repo"])
+        assert args.prompt == DEFAULT_SMOKE_TEST_PROMPT
+
+    def test_cli_parser_supports_tool_enable_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["/tmp/repo", "--enable-execution", "--enable-web"])
+        assert args.enable_execution is True
+        assert args.enable_web is True
+
     def test_cli_runs_on_valid_dir(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

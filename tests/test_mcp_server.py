@@ -16,6 +16,11 @@ from helping_hands.server.mcp_server import (
     mkdir,
     path_exists,
     read_file,
+    run_bash_script,
+    run_python_code,
+    run_python_script,
+    web_browse,
+    web_search,
     write_file,
 )
 
@@ -128,6 +133,122 @@ class TestPathExists:
 
 
 # ---------------------------------------------------------------------------
+# command tools
+# ---------------------------------------------------------------------------
+
+
+class TestCommandTools:
+    @patch("helping_hands.server.mcp_server.exec_tools.run_python_code")
+    def test_run_python_code(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        from helping_hands.lib.meta.tools.command import CommandResult
+
+        mock_run.return_value = CommandResult(
+            command=["uv", "run", "--python", "3.13", "python", "-c", "print('ok')"],
+            cwd=str(tmp_path.resolve()),
+            exit_code=0,
+            stdout="ok\n",
+            stderr="",
+            timed_out=False,
+        )
+
+        result = run_python_code(
+            str(tmp_path),
+            code="print('ok')",
+            python_version="3.13",
+            args=["--flag"],
+            timeout_s=45,
+            cwd=None,
+        )
+        assert result["success"] is True
+        assert result["stdout"] == "ok\n"
+        mock_run.assert_called_once()
+
+    @patch("helping_hands.server.mcp_server.exec_tools.run_python_script")
+    def test_run_python_script(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        from helping_hands.lib.meta.tools.command import CommandResult
+
+        mock_run.return_value = CommandResult(
+            command=["uv", "run", "--python", "3.13", "python", "scripts/tool.py"],
+            cwd=str(tmp_path.resolve()),
+            exit_code=0,
+            stdout="script-ok\n",
+            stderr="",
+            timed_out=False,
+        )
+
+        result = run_python_script(
+            str(tmp_path),
+            script_path="scripts/tool.py",
+        )
+        assert result["success"] is True
+        assert result["stdout"] == "script-ok\n"
+        mock_run.assert_called_once()
+
+    @patch("helping_hands.server.mcp_server.exec_tools.run_bash_script")
+    def test_run_bash_script(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        from helping_hands.lib.meta.tools.command import CommandResult
+
+        mock_run.return_value = CommandResult(
+            command=["bash", "scripts/tool.sh"],
+            cwd=str(tmp_path.resolve()),
+            exit_code=0,
+            stdout="bash-ok\n",
+            stderr="",
+            timed_out=False,
+        )
+
+        result = run_bash_script(
+            str(tmp_path),
+            script_path="scripts/tool.sh",
+            args=["--x"],
+        )
+        assert result["success"] is True
+        assert result["stdout"] == "bash-ok\n"
+        mock_run.assert_called_once()
+
+
+class TestWebTools:
+    @patch("helping_hands.server.mcp_server.web_tools.search_web")
+    def test_web_search(self, mock_search: MagicMock) -> None:
+        from helping_hands.lib.meta.tools.web import WebSearchItem, WebSearchResult
+
+        mock_search.return_value = WebSearchResult(
+            query="python",
+            results=[
+                WebSearchItem(
+                    title="Python",
+                    url="https://example.com/python",
+                    snippet="language",
+                )
+            ],
+        )
+
+        result = web_search("python", max_results=1, timeout_s=5)
+
+        assert result["query"] == "python"
+        assert result["results"][0]["url"] == "https://example.com/python"
+        mock_search.assert_called_once()
+
+    @patch("helping_hands.server.mcp_server.web_tools.browse_url")
+    def test_web_browse(self, mock_browse: MagicMock) -> None:
+        from helping_hands.lib.meta.tools.web import WebBrowseResult
+
+        mock_browse.return_value = WebBrowseResult(
+            url="https://example.com",
+            final_url="https://example.com",
+            status_code=200,
+            content="hello",
+            truncated=False,
+        )
+
+        result = web_browse("https://example.com", max_chars=100, timeout_s=5)
+
+        assert result["url"] == "https://example.com"
+        assert result["content"] == "hello"
+        mock_browse.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # get_config
 # ---------------------------------------------------------------------------
 
@@ -137,6 +258,8 @@ class TestGetConfig:
         result = get_config()
         assert result["model"] == "default"
         assert result["verbose"] is False
+        assert result["enable_execution"] is False
+        assert result["enable_web"] is False
 
     def test_picks_up_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_MODEL", "gpt-test")
@@ -170,6 +293,10 @@ class TestBuildFeature:
         assert result["task_id"] == "task-abc-123"
         assert result["status"] == "queued"
         assert result["backend"] == "e2e"
+        assert (
+            mock_mod.build_feature.delay.call_args.kwargs["enable_execution"] is False
+        )
+        assert mock_mod.build_feature.delay.call_args.kwargs["enable_web"] is False
 
 
 # ---------------------------------------------------------------------------

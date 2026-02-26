@@ -31,6 +31,8 @@ class Config:
     repo: str = ""
     model: str = "default"
     verbose: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
     config_path: Path | None = None
 
     @classmethod
@@ -46,6 +48,12 @@ class Config:
             "model": os.environ.get("HELPING_HANDS_MODEL"),
             "verbose": os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
             in ("1", "true", "yes"),
+            "enable_execution": os.environ.get(
+                "HELPING_HANDS_ENABLE_EXECUTION", ""
+            ).lower()
+            in ("1", "true", "yes"),
+            "enable_web": os.environ.get("HELPING_HANDS_ENABLE_WEB", "").lower()
+            in ("1", "true", "yes"),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
@@ -56,4 +64,6 @@ class Config:
             repo=str(merged.get("repo", cls.repo)),
             model=str(merged.get("model", cls.model)),
             verbose=bool(merged.get("verbose", cls.verbose)),
+            enable_execution=bool(merged.get("enable_execution", cls.enable_execution)),
+            enable_web=bool(merged.get("enable_web", cls.enable_web)),
         )

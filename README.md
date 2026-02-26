@@ -43,7 +43,7 @@ runs, UUIDs are generated in-hand as needed.
 - System filesystem actions for hands (path-safe read/write/mkdir checks) are
   centralized in `lib/meta/tools/filesystem.py`.
 - Provider-level wrappers and model/env defaults are centralized in
-  `lib/ai_providers/` (`openai`, `anthropic`, `google`, `litellm`).
+  `lib/ai_providers/` (`openai`, `anthropic`, `google`, `litellm`, `ollama`).
 - Hands resolve model strings through provider wrappers (including
   `provider/model` forms) before adapting to backend-specific model clients.
 - Push uses token-authenticated GitHub remote configuration and disables
@@ -98,6 +98,9 @@ uv run helping-hands owner/repo --backend goose --prompt "Implement X"
 # Disable final commit/push/PR step explicitly
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
 
+# Enable execution/web tools for iterative backends (disabled by default)
+uv run helping-hands owner/repo --backend basic-langgraph --enable-execution --enable-web --prompt "Run the smoke test prompt"
+
 # Run E2E mode against a GitHub repo (owner/repo)
 uv run helping-hands owner/repo --e2e --prompt "E2E smoke test"
 
@@ -146,7 +149,11 @@ The built-in UI at `http://localhost:8000/` supports:
 - max iterations
 - optional PR number
 - `no_pr` toggle
-- default editable prompt text: `Update README.md`
+- `enable_execution` toggle (python/bash tools; default off)
+- `enable_web` toggle (web search/browse tools; default off)
+- default editable prompt text: smoke-test prompt that updates `README.md` and
+  exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
+  `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
 - JS polling monitor via `/tasks/{task_id}`
 - no-JS fallback monitor via `/monitor/{task_id}` (auto-refresh)
 - fixed-size monitor cells for task/status, updates, and payload panels (scrolls inside each cell)
@@ -238,6 +245,7 @@ helping_hands/
 │   │   │   ├── anthropic.py
 │   │   │   ├── google.py
 │   │   │   ├── litellm.py
+│   │   │   ├── ollama.py
 │   │   │   └── types.py
 │   │   ├── meta/
 │   │   │   └── tools/
@@ -397,7 +405,7 @@ Goose backend notes:
   missing, so local file editing tools are available.
 - Provider/model are auto-injected for automation:
   - `GOOSE_PROVIDER` and `GOOSE_MODEL` are derived from `HELPING_HANDS_MODEL`
-    (or default to `openai` + `gpt-5.2`).
+    (or default to `ollama` + `llama3.2:latest`).
 - Interactive `goose configure` is not required for helping_hands runs.
 - Goose runs require `GH_TOKEN` or `GITHUB_TOKEN`.
 - If only one of `GH_TOKEN` / `GITHUB_TOKEN` is set, runtime mirrors it to both

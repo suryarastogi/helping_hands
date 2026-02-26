@@ -15,6 +15,8 @@ class TestConfigDefaults:
         assert config.repo == ""
         assert config.model == "default"
         assert config.verbose is False
+        assert config.enable_execution is False
+        assert config.enable_web is False
 
     def test_from_env_picks_up_env_var(self, monkeypatch: object) -> None:
         os.environ["HELPING_HANDS_MODEL"] = "gpt-test"
@@ -31,6 +33,17 @@ class TestConfigDefaults:
             assert config.model == "from-cli"
         finally:
             del os.environ["HELPING_HANDS_MODEL"]
+
+    def test_from_env_picks_up_tool_flags(self) -> None:
+        os.environ["HELPING_HANDS_ENABLE_EXECUTION"] = "1"
+        os.environ["HELPING_HANDS_ENABLE_WEB"] = "true"
+        try:
+            config = Config.from_env()
+            assert config.enable_execution is True
+            assert config.enable_web is True
+        finally:
+            del os.environ["HELPING_HANDS_ENABLE_EXECUTION"]
+            del os.environ["HELPING_HANDS_ENABLE_WEB"]
 
     def test_from_env_loads_dotenv(self, tmp_path: Path, monkeypatch: object) -> None:
         loaded_paths: list[Path] = []

@@ -14,6 +14,7 @@ from helping_hands.lib.ai_providers.anthropic import (
 )
 from helping_hands.lib.ai_providers.google import GOOGLE_PROVIDER, GoogleProvider
 from helping_hands.lib.ai_providers.litellm import LITELLM_PROVIDER, LiteLLMProvider
+from helping_hands.lib.ai_providers.ollama import OLLAMA_PROVIDER, OllamaProvider
 from helping_hands.lib.ai_providers.openai import OPENAI_PROVIDER, OpenAIProvider
 from helping_hands.lib.ai_providers.types import AIProvider
 
@@ -22,17 +23,20 @@ PROVIDERS: dict[str, AIProvider] = {
     ANTHROPIC_PROVIDER.name: ANTHROPIC_PROVIDER,
     GOOGLE_PROVIDER.name: GOOGLE_PROVIDER,
     LITELLM_PROVIDER.name: LITELLM_PROVIDER,
+    OLLAMA_PROVIDER.name: OLLAMA_PROVIDER,
 }
 
 __all__ = [
     "ANTHROPIC_PROVIDER",
     "GOOGLE_PROVIDER",
     "LITELLM_PROVIDER",
+    "OLLAMA_PROVIDER",
     "OPENAI_PROVIDER",
     "PROVIDERS",
     "AIProvider",
     "AnthropicProvider",
     "GoogleProvider",
     "LiteLLMProvider",
+    "OllamaProvider",
     "OpenAIProvider",
 ]

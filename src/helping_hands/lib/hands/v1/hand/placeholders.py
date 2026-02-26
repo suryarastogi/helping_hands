@@ -905,8 +905,8 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _COMMAND_ENV_VAR = "HELPING_HANDS_GOOSE_CLI_CMD"
     _DEFAULT_CLI_CMD = "goose run --with-builtin developer --text"
     _DEFAULT_MODEL = ""
-    _GOOSE_DEFAULT_PROVIDER = "openai"
-    _GOOSE_DEFAULT_MODEL = "gpt-5.2"
+    _GOOSE_DEFAULT_PROVIDER = "ollama"
+    _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
         if tokens == ["goose"]:
@@ -956,6 +956,8 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             return "anthropic"
         if lowered.startswith(("gemini", "google/")):
             return "google"
+        if lowered.startswith(("llama", "ollama/")):
+            return "ollama"
         return "openai"
 
     def _resolve_goose_provider_model_from_config(self) -> tuple[str, str]:

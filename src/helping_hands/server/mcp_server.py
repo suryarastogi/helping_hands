@@ -12,6 +12,11 @@ Tools:
   - write_file: Write a UTF-8 file in a repository.
   - mkdir: Create a directory in a repository.
   - path_exists: Check whether a repo-relative path exists.
+  - run_python_code: Execute inline Python code (default Python 3.13).
+  - run_python_script: Execute a repo-relative Python script.
+  - run_bash_script: Execute a repo-relative or inline bash script.
+  - web_search: Search the web (DuckDuckGo endpoint wrapper).
+  - web_browse: Browse and extract text from a URL.
 
 Resources:
   - repo://{path}: Read a file from an indexed repo.
@@ -29,7 +34,9 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from helping_hands.lib.config import Config
+from helping_hands.lib.meta.tools import command as exec_tools
 from helping_hands.lib.meta.tools import filesystem as fs_tools
+from helping_hands.lib.meta.tools import web as web_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.server.task_result import normalize_task_result
 
@@ -51,6 +58,19 @@ def _repo_root(repo_path: str) -> Path:
         msg = f"Repository path not found: {repo_path}"
         raise FileNotFoundError(msg)
     return root
+
+
+def _command_result_to_dict(result: exec_tools.CommandResult) -> dict:
+    """Convert command result dataclass into JSON-safe dict."""
+    return {
+        "success": result.success,
+        "command": result.command,
+        "cwd": result.cwd,
+        "exit_code": result.exit_code,
+        "timed_out": result.timed_out,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    }
 
 
 @mcp.tool()
@@ -82,6 +102,8 @@ def build_feature(
     model: str | None = None,
     max_iterations: int = 6,
     no_pr: bool = False,
+    enable_execution: bool = False,
+    enable_web: bool = False,
 ) -> dict:
     """Enqueue a hand task via Celery and return the task ID.
 
@@ -94,6 +116,8 @@ def build_feature(
         model: Optional model override.
         max_iterations: Iteration cap for basic backends.
         no_pr: Disable final PR push/create side effects.
+        enable_execution: Enable python/bash execution tools.
+        enable_web: Enable web.search/web.browse tools.
 
     Returns:
         Dict with task_id and status.
@@ -110,6 +134,8 @@ def build_feature(
         model=model,
         max_iterations=max_iterations,
         no_pr=no_pr,
+        enable_execution=enable_execution,
+        enable_web=enable_web,
     )
     return {"task_id": task.id, "status": "queued", "backend": backend}
 
@@ -216,12 +242,118 @@ def path_exists(repo_path: str, path: str) -> bool:
 
 
 @mcp.tool()
+def run_python_code(
+    repo_path: str,
+    code: str,
+    python_version: str = "3.13",
+    args: list[str] | None = None,
+    timeout_s: int = 60,
+    cwd: str | None = None,
+) -> dict:
+    """Execute inline Python code from a repository context."""
+    root = _repo_root(repo_path)
+    result = exec_tools.run_python_code(
+        root,
+        code=code,
+        python_version=python_version,
+        args=args,
+        timeout_s=timeout_s,
+        cwd=cwd,
+    )
+    return _command_result_to_dict(result)
+
+
+@mcp.tool()
+def run_python_script(
+    repo_path: str,
+    script_path: str,
+    python_version: str = "3.13",
+    args: list[str] | None = None,
+    timeout_s: int = 60,
+    cwd: str | None = None,
+) -> dict:
+    """Execute a repo-relative Python script from a repository context."""
+    root = _repo_root(repo_path)
+    result = exec_tools.run_python_script(
+        root,
+        script_path=script_path,
+        python_version=python_version,
+        args=args,
+        timeout_s=timeout_s,
+        cwd=cwd,
+    )
+    return _command_result_to_dict(result)
+
+
+@mcp.tool()
+def run_bash_script(
+    repo_path: str,
+    script_path: str | None = None,
+    inline_script: str | None = None,
+    args: list[str] | None = None,
+    timeout_s: int = 60,
+    cwd: str | None = None,
+) -> dict:
+    """Execute a repo-relative or inline bash script from repo context."""
+    root = _repo_root(repo_path)
+    result = exec_tools.run_bash_script(
+        root,
+        script_path=script_path,
+        inline_script=inline_script,
+        args=args,
+        timeout_s=timeout_s,
+        cwd=cwd,
+    )
+    return _command_result_to_dict(result)
+
+
+@mcp.tool()
+def web_search(
+    query: str,
+    max_results: int = 5,
+    timeout_s: int = 20,
+) -> dict:
+    """Search the web and return lightweight result entries."""
+    result = web_tools.search_web(query, max_results=max_results, timeout_s=timeout_s)
+    return {
+        "query": result.query,
+        "results": [
+            {
+                "title": item.title,
+                "url": item.url,
+                "snippet": item.snippet,
+            }
+            for item in result.results
+        ],
+    }
+
+
+@mcp.tool()
+def web_browse(
+    url: str,
+    max_chars: int = 12000,
+    timeout_s: int = 20,
+) -> dict:
+    """Browse a URL and return extracted text content."""
+    result = web_tools.browse_url(url, max_chars=max_chars, timeout_s=timeout_s)
+    return {
+        "url": result.url,
+        "final_url": result.final_url,
+        "status_code": result.status_code,
+        "truncated": result.truncated,
+        "content": result.content,
+    }
+
+
+@mcp.tool()
 def get_config() -> dict:
     """Return the current helping_hands configuration (from env vars)."""
     cfg = Config.from_env()
     return {
         "model": cfg.model,
         "verbose": cfg.verbose,
+        "enable_execution": cfg.enable_execution,
+        "enable_web": cfg.enable_web,
         "repo": cfg.repo or None,
     }
 

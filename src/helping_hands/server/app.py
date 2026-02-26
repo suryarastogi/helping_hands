@@ -14,6 +14,7 @@ from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, ValidationError
 
+from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.server.celery_app import build_feature
 from helping_hands.server.task_result import normalize_task_result
 
@@ -41,6 +42,8 @@ class BuildRequest(BaseModel):
     model: str | None = None
     max_iterations: int = 6
     no_pr: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
     pr_number: int | None = None
 
 
@@ -206,7 +209,7 @@ _UI_HTML = """<!doctype html>
           <div>
             <label for="prompt">Prompt</label>
             <textarea id="prompt" name="prompt" required>
-Update README.md</textarea>
+__DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           </div>
           <div class="row">
             <div>
@@ -246,6 +249,16 @@ Update README.md</textarea>
             <div class="checkbox-row">
               <input id="no_pr" name="no_pr" type="checkbox" />
               <label for="no_pr">Disable final PR push/create</label>
+            </div>
+            <div class="checkbox-row">
+              <input id="enable_execution" name="enable_execution" type="checkbox" />
+              <label for="enable_execution">Enable execution tools</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="checkbox-row">
+              <input id="enable_web" name="enable_web" type="checkbox" />
+              <label for="enable_web">Enable web tools</label>
             </div>
             <div>
               <label for="task_id">Task ID (for manual monitor)</label>
@@ -364,6 +377,8 @@ Update README.md</textarea>
         const maxIterations = params.get("max_iterations");
         const prNumber = params.get("pr_number");
         const noPr = params.get("no_pr");
+        const enableExecution = params.get("enable_execution");
+        const enableWeb = params.get("enable_web");
         const taskId = params.get("task_id");
         const status = params.get("status");
         const error = params.get("error");
@@ -389,6 +404,12 @@ Update README.md</textarea>
         if (noPr === "1" || noPr === "true") {
           document.getElementById("no_pr").checked = true;
         }
+        if (enableExecution === "1" || enableExecution === "true") {
+          document.getElementById("enable_execution").checked = true;
+        }
+        if (enableWeb === "1" || enableWeb === "true") {
+          document.getElementById("enable_web").checked = true;
+        }
         if (error) {
           setStatus("error");
           setOutput({ error });
@@ -412,12 +433,16 @@ Update README.md</textarea>
         const maxIterationsRaw = document.getElementById("max_iterations").value.trim();
         const prRaw = document.getElementById("pr_number").value.trim();
         const noPr = document.getElementById("no_pr").checked;
+        const enableExecution = document.getElementById("enable_execution").checked;
+        const enableWeb = document.getElementById("enable_web").checked;
         const payload = {
           repo_path: repoPath,
           prompt,
           backend,
           max_iterations: maxIterationsRaw ? Number(maxIterationsRaw) : 6,
           no_pr: noPr,
+          enable_execution: enableExecution,
+          enable_web: enableWeb,
         };
         if (model) {
           payload.model = model;
@@ -470,7 +495,11 @@ Update README.md</textarea>
 @app.get("/", response_class=HTMLResponse)
 def home() -> HTMLResponse:
     """Simple browser UI to submit and monitor build runs."""
-    return HTMLResponse(_UI_HTML)
+    rendered = _UI_HTML.replace(
+        "__DEFAULT_SMOKE_TEST_PROMPT__",
+        html.escape(DEFAULT_SMOKE_TEST_PROMPT),
+    )
+    return HTMLResponse(rendered)
 
 
 @app.get("/health")
@@ -489,6 +518,8 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         model=req.model,
         max_iterations=req.max_iterations,
         no_pr=req.no_pr,
+        enable_execution=req.enable_execution,
+        enable_web=req.enable_web,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -675,6 +706,8 @@ def enqueue_build_form(
     model: str | None = Form(None),
     max_iterations: int = Form(6),
     no_pr: bool = Form(False),
+    enable_execution: bool = Form(False),
+    enable_web: bool = Form(False),
     pr_number: int | None = Form(None),
 ) -> RedirectResponse:
     """Fallback form endpoint so UI submits still enqueue without JS."""
@@ -692,6 +725,10 @@ def enqueue_build_form(
             query["model"] = model
         if no_pr:
             query["no_pr"] = "1"
+        if enable_execution:
+            query["enable_execution"] = "1"
+        if enable_web:
+            query["enable_web"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
@@ -704,6 +741,8 @@ def enqueue_build_form(
             model=model,
             max_iterations=max_iterations,
             no_pr=no_pr,
+            enable_execution=enable_execution,
+            enable_web=enable_web,
             pr_number=pr_number,
         )
     except ValidationError as exc:
@@ -727,6 +766,10 @@ def enqueue_build_form(
             query["model"] = model
         if no_pr:
             query["no_pr"] = "1"
+        if enable_execution:
+            query["enable_execution"] = "1"
+        if enable_web:
+            query["enable_web"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
@@ -744,6 +787,10 @@ def enqueue_build_form(
         query["model"] = req.model
     if req.no_pr:
         query["no_pr"] = "1"
+    if req.enable_execution:
+        query["enable_execution"] = "1"
+    if req.enable_web:
+        query["enable_web"] = "1"
     if req.pr_number is not None:
         query["pr_number"] = str(req.pr_number)
     return RedirectResponse(url=f"/monitor/{response.task_id}", status_code=303)

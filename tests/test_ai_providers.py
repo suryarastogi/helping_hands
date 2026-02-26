@@ -6,12 +6,14 @@ from helping_hands.lib.ai_providers import (
     ANTHROPIC_PROVIDER,
     GOOGLE_PROVIDER,
     LITELLM_PROVIDER,
+    OLLAMA_PROVIDER,
     OPENAI_PROVIDER,
     PROVIDERS,
 )
 from helping_hands.lib.ai_providers.anthropic import AnthropicProvider
 from helping_hands.lib.ai_providers.google import GoogleProvider
 from helping_hands.lib.ai_providers.litellm import LiteLLMProvider
+from helping_hands.lib.ai_providers.ollama import OllamaProvider
 from helping_hands.lib.ai_providers.openai import OpenAIProvider
 from helping_hands.lib.ai_providers.types import AIProvider, normalize_messages
 
@@ -67,7 +69,8 @@ def test_provider_registry_contains_all_wrappers() -> None:
     assert isinstance(ANTHROPIC_PROVIDER, AnthropicProvider)
     assert isinstance(GOOGLE_PROVIDER, GoogleProvider)
     assert isinstance(LITELLM_PROVIDER, LiteLLMProvider)
-    assert set(PROVIDERS) == {"openai", "anthropic", "google", "litellm"}
+    assert isinstance(OLLAMA_PROVIDER, OllamaProvider)
+    assert set(PROVIDERS) == {"openai", "anthropic", "google", "litellm", "ollama"}
 
 
 def test_openai_provider_complete_uses_inner_client() -> None:
@@ -138,4 +141,25 @@ def test_litellm_provider_complete_uses_inner_library() -> None:
     result = provider.complete("hello")
     assert result == {"ok": True}
     assert calls["model"] == "gpt-5.2"
+    assert calls["messages"] == [{"role": "user", "content": "hello"}]
+
+
+def test_ollama_provider_complete_uses_inner_client() -> None:
+    calls: dict[str, Any] = {}
+
+    class _ChatCompletions:
+        def create(self, **kwargs: Any) -> dict[str, Any]:
+            calls.update(kwargs)
+            return {"ok": True}
+
+    class _Chat:
+        completions = _ChatCompletions()
+
+    class _Inner:
+        chat = _Chat()
+
+    provider = OllamaProvider(inner=_Inner())
+    result = provider.complete("hello")
+    assert result == {"ok": True}
+    assert calls["model"] == "llama3.2:latest"
     assert calls["messages"] == [{"role": "user", "content": "hello"}]

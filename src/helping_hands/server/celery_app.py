@@ -157,6 +157,8 @@ def _update_progress(
     model: str | None,
     max_iterations: int,
     no_pr: bool,
+    enable_execution: bool,
+    enable_web: bool,
     workspace: str | None = None,
 ) -> None:
     update_state = getattr(task, "update_state", None)
@@ -171,6 +173,8 @@ def _update_progress(
         "model": model,
         "max_iterations": max_iterations,
         "no_pr": no_pr,
+        "enable_execution": enable_execution,
+        "enable_web": enable_web,
         "updates": list(updates),
     }
     if workspace:
@@ -191,6 +195,8 @@ async def _collect_stream(
     model: str | None,
     max_iterations: int,
     no_pr: bool,
+    enable_execution: bool,
+    enable_web: bool,
     workspace: str | None,
 ) -> str:
     parts: list[str] = []
@@ -214,6 +220,8 @@ async def _collect_stream(
                 model=model,
                 max_iterations=max_iterations,
                 no_pr=no_pr,
+                enable_execution=enable_execution,
+                enable_web=enable_web,
                 workspace=workspace,
             )
 
@@ -231,6 +239,8 @@ def build_feature(
     model: str | None = None,
     max_iterations: int = 6,
     no_pr: bool = False,
+    enable_execution: bool = False,
+    enable_web: bool = False,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -257,7 +267,9 @@ def build_feature(
         updates,
         (
             f"Task received. backend={requested_backend}, model={model or 'default'}, "
-            f"repo={repo_path}, max_iterations={resolved_iterations}, no_pr={no_pr}"
+            f"repo={repo_path}, max_iterations={resolved_iterations}, "
+            f"no_pr={no_pr}, enable_execution={enable_execution}, "
+            f"enable_web={enable_web}"
         ),
     )
     _update_progress(
@@ -271,10 +283,19 @@ def build_feature(
         model=model,
         max_iterations=resolved_iterations,
         no_pr=no_pr,
+        enable_execution=enable_execution,
+        enable_web=enable_web,
     )
 
     if runtime_backend == "e2e":
-        config = Config.from_env(overrides={"repo": repo_path, "model": model})
+        config = Config.from_env(
+            overrides={
+                "repo": repo_path,
+                "model": model,
+                "enable_execution": enable_execution,
+                "enable_web": enable_web,
+            }
+        )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         hand = E2EHand(config, repo_index)
         _append_update(updates, "Running E2E hand.")
@@ -289,6 +310,8 @@ def build_feature(
             model=config.model,
             max_iterations=resolved_iterations,
             no_pr=no_pr,
+            enable_execution=enable_execution,
+            enable_web=enable_web,
         )
         response = hand.run(
             prompt,
@@ -313,6 +336,8 @@ def build_feature(
         raise
 
     overrides = {"repo": str(resolved_repo_path), "model": model}
+    overrides["enable_execution"] = enable_execution
+    overrides["enable_web"] = enable_web
     config = Config.from_env(overrides=overrides)
     repo_index = RepoIndex.from_path(Path(config.repo))
 
@@ -344,6 +369,8 @@ def build_feature(
         model=config.model,
         max_iterations=resolved_iterations,
         no_pr=no_pr,
+        enable_execution=enable_execution,
+        enable_web=enable_web,
         workspace=str(resolved_repo_path),
     )
 
@@ -406,6 +433,8 @@ def build_feature(
             model=config.model,
             max_iterations=resolved_iterations,
             no_pr=no_pr,
+            enable_execution=enable_execution,
+            enable_web=enable_web,
             workspace=str(resolved_repo_path),
         )
     )
@@ -419,6 +448,8 @@ def build_feature(
         "model": config.model,
         "max_iterations": str(resolved_iterations),
         "no_pr": str(no_pr).lower(),
+        "enable_execution": str(enable_execution).lower(),
+        "enable_web": str(enable_web).lower(),
         "message": message,
         "updates": updates,
     }

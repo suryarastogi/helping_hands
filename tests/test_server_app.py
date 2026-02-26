@@ -11,6 +11,7 @@ import pytest
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
+from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.server.app import app
 
 
@@ -36,6 +37,16 @@ class TestHomeUI:
         assert '<option value="codexcli">codexcli</option>' in response.text
         assert '<option value="claudecodecli">claudecodecli</option>' in response.text
         assert '<option value="goose">goose</option>' in response.text
+
+    def test_home_ui_uses_smoke_test_default_prompt(self) -> None:
+        client = TestClient(app)
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert DEFAULT_SMOKE_TEST_PROMPT in response.text
+        assert 'id="enable_execution"' in response.text
+        assert 'id="enable_web"' in response.text
 
 
 class TestBuildForm:
@@ -79,6 +90,8 @@ class TestBuildForm:
             "model": "gpt-5.2",
             "max_iterations": 4,
             "no_pr": True,
+            "enable_execution": False,
+            "enable_web": False,
         }
 
     def test_enqueues_codexcli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -116,6 +129,8 @@ class TestBuildForm:
             "model": "gpt-5.2",
             "max_iterations": 3,
             "no_pr": False,
+            "enable_execution": False,
+            "enable_web": False,
         }
 
     def test_enqueues_claudecodecli_backend(
@@ -155,6 +170,8 @@ class TestBuildForm:
             "model": "anthropic/claude-sonnet-4-5",
             "max_iterations": 3,
             "no_pr": False,
+            "enable_execution": False,
+            "enable_web": False,
         }
 
     def test_enqueues_goose_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -191,7 +208,39 @@ class TestBuildForm:
             "model": None,
             "max_iterations": 3,
             "no_pr": False,
+            "enable_execution": False,
+            "enable_web": False,
         }
+
+    def test_enqueues_with_tools_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-tools")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "suryarastogi/helping_hands",
+                "prompt": "run tools",
+                "backend": "basic-langgraph",
+                "enable_execution": "on",
+                "enable_web": "on",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/monitor/task-tools"
+        assert captured["enable_execution"] is True
+        assert captured["enable_web"] is True
 
     def test_redirects_with_error_for_invalid_backend(
         self, monkeypatch: pytest.MonkeyPatch

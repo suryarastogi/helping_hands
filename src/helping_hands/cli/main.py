@@ -13,6 +13,7 @@ from tempfile import mkdtemp
 from typing import cast
 
 from helping_hands.lib.config import Config
+from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand import (
     BasicAtomicHand,
     BasicLangGraphHand,
@@ -40,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--prompt",
-        default="Analyze the repository and start implementing the requested task.",
+        default=DEFAULT_SMOKE_TEST_PROMPT,
         help="Prompt to pass to the selected hand.",
     )
     parser.add_argument(
@@ -84,6 +85,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="AI model to use (overrides env/config).",
     )
     parser.add_argument(
+        "--enable-execution",
+        action="store_true",
+        help="Enable python.run_code/python.run_script/bash.run_script tools.",
+    )
+    parser.add_argument(
+        "--enable-web",
+        action="store_true",
+        help="Enable web.search/web.browse tools.",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -100,7 +111,13 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.e2e:
         config = Config.from_env(
-            overrides={"repo": args.repo, "model": args.model, "verbose": args.verbose}
+            overrides={
+                "repo": args.repo,
+                "model": args.model,
+                "verbose": args.verbose,
+                "enable_execution": args.enable_execution,
+                "enable_web": args.enable_web,
+            }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         response = E2EHand(config, repo_index).run(
@@ -123,7 +140,13 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Cloned {cloned_from} to {repo_path}")
 
     config = Config.from_env(
-        overrides={"repo": str(repo_path), "model": args.model, "verbose": args.verbose}
+        overrides={
+            "repo": str(repo_path),
+            "model": args.model,
+            "verbose": args.verbose,
+            "enable_execution": args.enable_execution,
+            "enable_web": args.enable_web,
+        }
     )
     repo_index = RepoIndex.from_path(Path(config.repo))
 

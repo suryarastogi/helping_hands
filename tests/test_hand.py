@@ -24,6 +24,11 @@ from helping_hands.lib.hands.v1.hand import (
     HandResponse,
     LangGraphHand,
 )
+from helping_hands.lib.meta.tools.command import CommandResult
+from helping_hands.lib.meta.tools.web import (
+    WebSearchItem,
+    WebSearchResult,
+)
 from helping_hands.lib.repo import RepoIndex
 
 # ---------------------------------------------------------------------------
@@ -352,6 +357,150 @@ class TestBasicLangGraphHand:
             "print('after')"
         )
 
+    @patch(
+        "helping_hands.lib.hands.v1.hand.iterative.system_exec_tools.run_python_code"
+    )
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_supports_tool_requests(
+        self,
+        mock_build: MagicMock,
+        mock_run_python_code: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=config.repo,
+            model=config.model,
+            enable_execution=True,
+        )
+        mock_run_python_code.return_value = CommandResult(
+            command=["uv", "run", "--python", "3.13", "python", "-c", "print('ok')"],
+            cwd=str(repo_index.root.resolve()),
+            exit_code=0,
+            stdout="ok\n",
+            stderr="",
+            timed_out=False,
+        )
+        call_count = 0
+
+        def fake_invoke(payload: dict[str, Any]) -> dict[str, list[Any]]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                msg = MagicMock()
+                msg.content = (
+                    "@@TOOL: python.run_code\n"
+                    "```json\n"
+                    '{"code":"print(\\"ok\\")","python_version":"3.13"}\n'
+                    "```\n"
+                    "SATISFIED: no"
+                )
+                return {"messages": [msg]}
+            prompt = payload["messages"][0]["content"]
+            assert "@@TOOL_RESULT: python.run_code" in prompt
+            assert "status: success" in prompt
+            assert "ok" in prompt
+            msg = MagicMock()
+            msg.content = "Done.\nSATISFIED: yes"
+            return {"messages": [msg]}
+
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = fake_invoke
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index, max_iterations=3)
+        resp = hand.run("run python helper")
+
+        assert resp.metadata["iterations"] == 2
+        assert "@@TOOL_RESULT: python.run_code" in resp.message
+        mock_run_python_code.assert_called_once()
+
+    @patch(
+        "helping_hands.lib.hands.v1.hand.iterative.system_exec_tools.run_python_code"
+    )
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_rejects_execution_tools_when_disabled(
+        self,
+        mock_build: MagicMock,
+        mock_run_python_code: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        msg = MagicMock()
+        msg.content = (
+            "@@TOOL: python.run_code\n"
+            "```json\n"
+            '{"code":"print(\\"blocked\\")","python_version":"3.13"}\n'
+            "```\n"
+            "SATISFIED: yes"
+        )
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [msg]}
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index, max_iterations=1)
+        resp = hand.run("run blocked tool")
+
+        assert "enable_execution=true" in resp.message
+        mock_run_python_code.assert_not_called()
+
+    @patch("helping_hands.lib.hands.v1.hand.iterative.system_web_tools.search_web")
+    @patch.object(BasicLangGraphHand, "_build_agent")
+    def test_run_supports_web_search_tools(
+        self,
+        mock_build: MagicMock,
+        mock_search_web: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=config.repo,
+            model=config.model,
+            enable_web=True,
+        )
+        mock_search_web.return_value = WebSearchResult(
+            query="python release",
+            results=[
+                WebSearchItem(
+                    title="Python release",
+                    url="https://example.com/python",
+                    snippet="Python release notes",
+                )
+            ],
+        )
+        call_count = 0
+
+        def fake_invoke(payload: dict[str, Any]) -> dict[str, list[Any]]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                msg = MagicMock()
+                msg.content = (
+                    "@@TOOL: web.search\n"
+                    "```json\n"
+                    '{"query":"python release","max_results":1}\n'
+                    "```\n"
+                    "SATISFIED: no"
+                )
+                return {"messages": [msg]}
+            prompt = payload["messages"][0]["content"]
+            assert "@@TOOL_RESULT: web.search" in prompt
+            assert "result_count: 1" in prompt
+            msg = MagicMock()
+            msg.content = "Done.\nSATISFIED: yes"
+            return {"messages": [msg]}
+
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = fake_invoke
+        mock_build.return_value = mock_agent
+
+        hand = BasicLangGraphHand(config, repo_index, max_iterations=3)
+        resp = hand.run("run web search")
+
+        assert resp.metadata["iterations"] == 2
+        assert "@@TOOL_RESULT: web.search" in resp.message
+        mock_search_web.assert_called_once()
+
     @patch.object(BasicLangGraphHand, "_build_agent")
     def test_run_bootstraps_readme_agent_and_tree(
         self,
@@ -372,7 +521,7 @@ class TestBasicLangGraphHand:
             assert "Project intro" in prompt
             assert "AGENT.md" in prompt
             assert "Team conventions" in prompt
-            assert "Repository tree snapshot (depth <= 3)" in prompt
+            assert "Repository tree snapshot (depth <= 4)" in prompt
             assert "- main.py" in prompt
             return {"messages": [msg]}
 
@@ -627,6 +776,63 @@ class TestBasicAtomicHand:
             "print('after')"
         )
 
+    @patch(
+        "helping_hands.lib.hands.v1.hand.iterative.system_exec_tools.run_python_code"
+    )
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_run_supports_tool_requests(
+        self,
+        mock_build: MagicMock,
+        mock_run_python_code: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=config.repo,
+            model=config.model,
+            enable_execution=True,
+        )
+        mock_run_python_code.return_value = CommandResult(
+            command=["uv", "run", "--python", "3.13", "python", "-c", "print('ok')"],
+            cwd=str(repo_index.root.resolve()),
+            exit_code=0,
+            stdout="ok\n",
+            stderr="",
+            timed_out=False,
+        )
+        call_count = 0
+
+        def fake_run(step_input: Any):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                first = MagicMock()
+                first.chat_message = (
+                    "@@TOOL: python.run_code\n"
+                    "```json\n"
+                    '{"code":"print(\\"ok\\")","python_version":"3.13"}\n'
+                    "```\n"
+                    "SATISFIED: no"
+                )
+                return first
+            assert "@@TOOL_RESULT: python.run_code" in step_input.chat_message
+            assert "status: success" in step_input.chat_message
+            second = MagicMock()
+            second.chat_message = "Done.\nSATISFIED: yes"
+            return second
+
+        mock_agent = MagicMock()
+        mock_agent.run.side_effect = fake_run
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index, max_iterations=3)
+        hand._input_schema = _FakeInputSchema
+        resp = hand.run("run python helper")
+
+        assert resp.metadata["iterations"] == 2
+        assert "@@TOOL_RESULT: python.run_code" in resp.message
+        mock_run_python_code.assert_called_once()
+
     @patch.object(BasicAtomicHand, "_build_agent")
     def test_run_bootstraps_readme_agent_and_tree(
         self,
@@ -644,7 +850,7 @@ class TestBasicAtomicHand:
             assert "Project intro" in prompt
             assert "AGENT.md" in prompt
             assert "Team conventions" in prompt
-            assert "Repository tree snapshot (depth <= 3)" in prompt
+            assert "Repository tree snapshot (depth <= 4)" in prompt
             assert "- main.py" in prompt
             partial = MagicMock()
             partial.chat_message = "Done.\nSATISFIED: yes"
@@ -1560,8 +1766,8 @@ class TestGooseCLIHand:
 
         env = hand._build_subprocess_env()
 
-        assert env["GOOSE_PROVIDER"] == "openai"
-        assert env["GOOSE_MODEL"] == "gpt-5.2"
+        assert env["GOOSE_PROVIDER"] == "ollama"
+        assert env["GOOSE_MODEL"] == "llama3.2:latest"
 
     def test_build_subprocess_env_maps_provider_model_from_helping_hands_model(
         self,

@@ -13,7 +13,9 @@ These classes implement the Hand interface while depending on
 from __future__ import annotations
 
 import asyncio
+import json
 import re
+import shlex
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -24,7 +26,9 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     build_langchain_chat_model,
     resolve_hand_model,
 )
+from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
+from helping_hands.lib.meta.tools import web as system_web_tools
 
 
 class _BasicIterativeHand(Hand):
@@ -42,9 +46,15 @@ class _BasicIterativeHand(Hand):
         r"(?i)(?:content(?:s)? of(?: the)? file|read(?: the)? file)\s*[`\"]"
         r"(?P<path>[^`\"\n]+)[`\"]"
     )
+    _TOOL_PATTERN = re.compile(
+        r"@@TOOL:\s*(?P<name>[A-Za-z0-9_.-]+)\n"
+        r"```(?:json)?\n(?P<payload>.*?)\n```",
+        flags=re.DOTALL,
+    )
     _MAX_READ_CHARS = 12000
+    _MAX_TOOL_OUTPUT_CHARS = 4000
     _MAX_BOOTSTRAP_DOC_CHARS = 12000
-    _BOOTSTRAP_TREE_MAX_DEPTH = 3
+    _BOOTSTRAP_TREE_MAX_DEPTH = 4
     _BOOTSTRAP_TREE_MAX_ENTRIES = 250
 
     def __init__(
@@ -57,8 +67,62 @@ class _BasicIterativeHand(Hand):
         super().__init__(config, repo_index)
         self.max_iterations = max(1, max_iterations)
 
-    @staticmethod
+    def _execution_tools_enabled(self) -> bool:
+        return bool(getattr(self.config, "enable_execution", False))
+
+    def _web_tools_enabled(self) -> bool:
+        return bool(getattr(self.config, "enable_web", False))
+
+    def _tool_instructions(self) -> str:
+        lines: list[str] = []
+        if self._execution_tools_enabled():
+            lines.extend(
+                [
+                    "Execution tools enabled for this run:",
+                    "@@TOOL: python.run_code",
+                    "```json",
+                    '{"code":"print(\'hello\')","python_version":"3.13","args":[]}',
+                    "```",
+                    "@@TOOL: python.run_script",
+                    "```json",
+                    '{"script_path":"scripts/task.py","python_version":"3.13","args":[]}',
+                    "```",
+                    "@@TOOL: bash.run_script",
+                    "```json",
+                    '{"script_path":"scripts/task.sh","args":[]}',
+                    "```",
+                ]
+            )
+        else:
+            lines.append(
+                "Execution tools are disabled for this run "
+                "(python.run_code/python.run_script/bash.run_script)."
+            )
+
+        if self._web_tools_enabled():
+            lines.extend(
+                [
+                    "Web tools enabled for this run:",
+                    "@@TOOL: web.search",
+                    "```json",
+                    '{"query":"latest python release", "max_results": 5}',
+                    "```",
+                    "@@TOOL: web.browse",
+                    "```json",
+                    '{"url":"https://example.com","max_chars":6000}',
+                    "```",
+                ]
+            )
+        else:
+            lines.append("Web tools are disabled for this run (web.search/web.browse).")
+        lines.append(
+            "Tool results are returned as @@TOOL_RESULT blocks "
+            "in the next iteration summary."
+        )
+        return "\n".join(lines)
+
     def _build_iteration_prompt(
+        self,
         *,
         prompt: str,
         iteration: int,
@@ -87,6 +151,7 @@ class _BasicIterativeHand(Hand):
             "<full file content>\n"
             "```\n"
             "You may include multiple @@FILE blocks.\n"
+            f"{self._tool_instructions()}\n"
             "Read results are returned as @@READ_RESULT blocks in the next "
             "iteration summary.\n"
             "At the end of your response include exactly one line in this form:\n"
@@ -120,11 +185,37 @@ class _BasicIterativeHand(Hand):
             for m in cls._READ_FALLBACK_PATTERN.finditer(content)
         ]
 
+    @classmethod
+    def _extract_tool_requests(
+        cls,
+        content: str,
+    ) -> list[tuple[str, dict[str, Any], str | None]]:
+        requests: list[tuple[str, dict[str, Any], str | None]] = []
+        for match in cls._TOOL_PATTERN.finditer(content):
+            tool_name = match.group("name").strip()
+            payload_text = match.group("payload").strip()
+            try:
+                payload = json.loads(payload_text)
+            except json.JSONDecodeError as exc:
+                requests.append(
+                    (
+                        tool_name,
+                        {},
+                        f"invalid JSON payload ({exc.msg})",
+                    )
+                )
+                continue
+            if not isinstance(payload, dict):
+                requests.append((tool_name, {}, "payload must be a JSON object"))
+                continue
+            requests.append((tool_name, payload, None))
+        return requests
+
     @staticmethod
-    def _merge_iteration_summary(content: str, read_feedback: str) -> str:
-        if not read_feedback:
+    def _merge_iteration_summary(content: str, tool_feedback: str) -> str:
+        if not tool_feedback:
             return content
-        return f"{content}\n\nTool results:\n{read_feedback}"
+        return f"{content}\n\nTool results:\n{tool_feedback}"
 
     def _execute_read_requests(self, content: str) -> str:
         root = self.repo_index.root.resolve()
@@ -159,6 +250,277 @@ class _BasicIterativeHand(Hand):
             chunks.append(
                 f"@@READ_RESULT: {display_path}\n```text\n{text}\n```{truncated_note}"
             )
+        return "\n\n".join(chunks).strip()
+
+    @staticmethod
+    def _parse_str_list(
+        payload: dict[str, Any],
+        *,
+        key: str,
+    ) -> list[str]:
+        raw = payload.get(key, [])
+        if raw is None:
+            return []
+        if not isinstance(raw, list):
+            raise ValueError(f"{key} must be a list of strings")
+        values: list[str] = []
+        for value in raw:
+            if not isinstance(value, str):
+                raise ValueError(f"{key} must contain only strings")
+            values.append(value)
+        return values
+
+    @staticmethod
+    def _parse_positive_int(
+        payload: dict[str, Any],
+        *,
+        key: str,
+        default: int,
+    ) -> int:
+        raw = payload.get(key, default)
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            raise ValueError(f"{key} must be an integer")
+        if raw <= 0:
+            raise ValueError(f"{key} must be > 0")
+        return raw
+
+    @staticmethod
+    def _parse_optional_str(
+        payload: dict[str, Any],
+        *,
+        key: str,
+    ) -> str | None:
+        raw = payload.get(key)
+        if raw is None:
+            return None
+        if not isinstance(raw, str):
+            raise ValueError(f"{key} must be a string")
+        text = raw.strip()
+        return text or None
+
+    @staticmethod
+    def _format_command(command: list[str]) -> str:
+        return " ".join(shlex.quote(token) for token in command)
+
+    @classmethod
+    def _truncate_tool_output(cls, text: str) -> tuple[str, bool]:
+        if len(text) <= cls._MAX_TOOL_OUTPUT_CHARS:
+            return text, False
+        return text[: cls._MAX_TOOL_OUTPUT_CHARS], True
+
+    @classmethod
+    def _format_command_result(
+        cls,
+        *,
+        tool_name: str,
+        result: system_exec_tools.CommandResult,
+    ) -> str:
+        stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
+        stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
+        stdout_note = "\n[truncated]" if stdout_truncated else ""
+        stderr_note = "\n[truncated]" if stderr_truncated else ""
+        status = "success" if result.success else "failure"
+        return (
+            f"@@TOOL_RESULT: {tool_name}\n"
+            f"status: {status}\n"
+            f"exit_code: {result.exit_code}\n"
+            f"timed_out: {str(result.timed_out).lower()}\n"
+            f"cwd: {result.cwd}\n"
+            f"command: {cls._format_command(result.command)}\n"
+            f"stdout:\n```text\n{stdout}\n```{stdout_note}\n"
+            f"stderr:\n```text\n{stderr}\n```{stderr_note}"
+        )
+
+    @classmethod
+    def _format_web_search_result(
+        cls,
+        *,
+        tool_name: str,
+        result: system_web_tools.WebSearchResult,
+    ) -> str:
+        items = [
+            {
+                "title": item.title,
+                "url": item.url,
+                "snippet": item.snippet,
+            }
+            for item in result.results
+        ]
+        payload = json.dumps(items, ensure_ascii=False, indent=2)
+        payload_text, truncated = cls._truncate_tool_output(payload)
+        truncated_note = "\n[truncated]" if truncated else ""
+        return (
+            f"@@TOOL_RESULT: {tool_name}\n"
+            "status: success\n"
+            f"query: {result.query}\n"
+            f"result_count: {len(result.results)}\n"
+            f"results:\n```json\n{payload_text}\n```{truncated_note}"
+        )
+
+    @classmethod
+    def _format_web_browse_result(
+        cls,
+        *,
+        tool_name: str,
+        result: system_web_tools.WebBrowseResult,
+    ) -> str:
+        text, output_truncated = cls._truncate_tool_output(result.content)
+        truncated_note = "\n[truncated]" if output_truncated else ""
+        return (
+            f"@@TOOL_RESULT: {tool_name}\n"
+            "status: success\n"
+            f"url: {result.url}\n"
+            f"final_url: {result.final_url}\n"
+            f"status_code: {result.status_code}\n"
+            f"source_truncated: {str(result.truncated).lower()}\n"
+            f"content:\n```text\n{text}\n```{truncated_note}"
+        )
+
+    @staticmethod
+    def _tool_disabled_error(tool_name: str) -> ValueError:
+        if tool_name.startswith(("python.", "bash.")):
+            return ValueError(
+                f"{tool_name} is disabled; re-run with enable_execution=true"
+            )
+        if tool_name.startswith("web."):
+            return ValueError(f"{tool_name} is disabled; re-run with enable_web=true")
+        return ValueError(f"{tool_name} is disabled")
+
+    def _run_tool_request(
+        self,
+        *,
+        root: Path,
+        tool_name: str,
+        payload: dict[str, Any],
+    ) -> str:
+        args = self._parse_str_list(payload, key="args")
+        timeout_s = self._parse_positive_int(
+            payload,
+            key="timeout_s",
+            default=60,
+        )
+        cwd = self._parse_optional_str(payload, key="cwd")
+
+        if tool_name == "python.run_code":
+            if not self._execution_tools_enabled():
+                raise self._tool_disabled_error(tool_name)
+            code = payload.get("code")
+            if not isinstance(code, str) or not code.strip():
+                raise ValueError("code must be a non-empty string")
+            python_version = self._parse_optional_str(payload, key="python_version")
+            result = system_exec_tools.run_python_code(
+                root,
+                code=code,
+                python_version=python_version or "3.13",
+                args=args,
+                timeout_s=timeout_s,
+                cwd=cwd,
+            )
+            return self._format_command_result(tool_name=tool_name, result=result)
+
+        if tool_name == "python.run_script":
+            if not self._execution_tools_enabled():
+                raise self._tool_disabled_error(tool_name)
+            script_path = payload.get("script_path")
+            if not isinstance(script_path, str) or not script_path.strip():
+                raise ValueError("script_path must be a non-empty string")
+            python_version = self._parse_optional_str(payload, key="python_version")
+            result = system_exec_tools.run_python_script(
+                root,
+                script_path=script_path,
+                python_version=python_version or "3.13",
+                args=args,
+                timeout_s=timeout_s,
+                cwd=cwd,
+            )
+            return self._format_command_result(tool_name=tool_name, result=result)
+
+        if tool_name == "bash.run_script":
+            if not self._execution_tools_enabled():
+                raise self._tool_disabled_error(tool_name)
+            script_path = payload.get("script_path")
+            inline_script = payload.get("inline_script")
+            if script_path is not None and not isinstance(script_path, str):
+                raise ValueError("script_path must be a string")
+            if inline_script is not None and not isinstance(inline_script, str):
+                raise ValueError("inline_script must be a string")
+            result = system_exec_tools.run_bash_script(
+                root,
+                script_path=script_path,
+                inline_script=inline_script,
+                args=args,
+                timeout_s=timeout_s,
+                cwd=cwd,
+            )
+            return self._format_command_result(tool_name=tool_name, result=result)
+
+        if tool_name == "web.search":
+            if not self._web_tools_enabled():
+                raise self._tool_disabled_error(tool_name)
+            query = payload.get("query")
+            if not isinstance(query, str) or not query.strip():
+                raise ValueError("query must be a non-empty string")
+            max_results = self._parse_positive_int(
+                payload,
+                key="max_results",
+                default=5,
+            )
+            result = system_web_tools.search_web(
+                query,
+                max_results=max_results,
+                timeout_s=timeout_s,
+            )
+            return self._format_web_search_result(tool_name=tool_name, result=result)
+
+        if tool_name == "web.browse":
+            if not self._web_tools_enabled():
+                raise self._tool_disabled_error(tool_name)
+            url = payload.get("url")
+            if not isinstance(url, str) or not url.strip():
+                raise ValueError("url must be a non-empty string")
+            max_chars = self._parse_positive_int(
+                payload,
+                key="max_chars",
+                default=self._MAX_READ_CHARS,
+            )
+            result = system_web_tools.browse_url(
+                url,
+                max_chars=max_chars,
+                timeout_s=timeout_s,
+            )
+            return self._format_web_browse_result(tool_name=tool_name, result=result)
+
+        raise ValueError(f"unsupported tool: {tool_name}")
+
+    def _execute_tool_requests(self, content: str) -> str:
+        root = self.repo_index.root.resolve()
+        requests = self._extract_tool_requests(content)
+        if not requests:
+            return ""
+
+        chunks: list[str] = []
+        for tool_name, payload, error in requests:
+            if error:
+                chunks.append(f"@@TOOL_RESULT: {tool_name}\nERROR: {error}")
+                continue
+            try:
+                result = self._run_tool_request(
+                    root=root,
+                    tool_name=tool_name,
+                    payload=payload,
+                )
+            except (
+                FileNotFoundError,
+                IsADirectoryError,
+                NotADirectoryError,
+                OSError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                chunks.append(f"@@TOOL_RESULT: {tool_name}\nERROR: {exc}")
+                continue
+            chunks.append(result)
         return "\n\n".join(chunks).strip()
 
     def _apply_inline_edits(self, content: str) -> list[str]:
@@ -309,12 +671,16 @@ class BasicLangGraphHand(_BasicIterativeHand):
             content = self._result_content(result)
             changed = self._apply_inline_edits(content)
             read_feedback = self._execute_read_requests(content)
+            tool_feedback = self._execute_tool_requests(content)
+            combined_feedback = "\n\n".join(
+                part for part in (read_feedback, tool_feedback) if part
+            ).strip()
             transcripts.append(f"[iteration {iteration}]\n{content}")
             if changed:
                 transcripts.append(f"[files updated] {', '.join(changed)}")
-            if read_feedback:
-                transcripts.append(f"[tool results]\n{read_feedback}")
-            prior = self._merge_iteration_summary(content, read_feedback)
+            if combined_feedback:
+                transcripts.append(f"[tool results]\n{combined_feedback}")
+            prior = self._merge_iteration_summary(content, combined_feedback)
             if self._is_satisfied(content):
                 completed = True
                 break
@@ -388,9 +754,13 @@ class BasicLangGraphHand(_BasicIterativeHand):
             if changed:
                 yield f"\n[files updated] {', '.join(changed)}\n"
             read_feedback = self._execute_read_requests(content)
-            if read_feedback:
-                yield f"\n[tool results]\n{read_feedback}\n"
-            prior = self._merge_iteration_summary(content, read_feedback)
+            tool_feedback = self._execute_tool_requests(content)
+            combined_feedback = "\n\n".join(
+                part for part in (read_feedback, tool_feedback) if part
+            ).strip()
+            if combined_feedback:
+                yield f"\n[tool results]\n{combined_feedback}\n"
+            prior = self._merge_iteration_summary(content, combined_feedback)
             if self._is_satisfied(content):
                 yield "\n\nTask marked satisfied.\n"
                 pr_metadata = self._finalize_repo_pr(
@@ -491,12 +861,16 @@ class BasicAtomicHand(_BasicIterativeHand):
             content = self._extract_message(response)
             changed = self._apply_inline_edits(content)
             read_feedback = self._execute_read_requests(content)
+            tool_feedback = self._execute_tool_requests(content)
+            combined_feedback = "\n\n".join(
+                part for part in (read_feedback, tool_feedback) if part
+            ).strip()
             transcripts.append(f"[iteration {iteration}]\n{content}")
             if changed:
                 transcripts.append(f"[files updated] {', '.join(changed)}")
-            if read_feedback:
-                transcripts.append(f"[tool results]\n{read_feedback}")
-            prior = self._merge_iteration_summary(content, read_feedback)
+            if combined_feedback:
+                transcripts.append(f"[tool results]\n{combined_feedback}")
+            prior = self._merge_iteration_summary(content, combined_feedback)
             if self._is_satisfied(content):
                 completed = True
                 break
@@ -596,9 +970,13 @@ class BasicAtomicHand(_BasicIterativeHand):
             if changed:
                 yield f"\n[files updated] {', '.join(changed)}\n"
             read_feedback = self._execute_read_requests(stream_text)
-            if read_feedback:
-                yield f"\n[tool results]\n{read_feedback}\n"
-            prior = self._merge_iteration_summary(stream_text, read_feedback)
+            tool_feedback = self._execute_tool_requests(stream_text)
+            combined_feedback = "\n\n".join(
+                part for part in (read_feedback, tool_feedback) if part
+            ).strip()
+            if combined_feedback:
+                yield f"\n[tool results]\n{combined_feedback}\n"
+            prior = self._merge_iteration_summary(stream_text, combined_feedback)
             if self._is_satisfied(stream_text):
                 yield "\n\nTask marked satisfied.\n"
                 pr_metadata = self._finalize_repo_pr(

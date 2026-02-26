@@ -16,7 +16,11 @@ Browse the auto-generated docs from source:
 
 - Server mode: server enqueues a hand task, then the hand executes.
 - App UI (`/`) can submit runs with backend/model/max-iterations/no-pr options.
-- App UI defaults prompt input to `Update README.md` (editable).
+- App UI defaults prompt input to a smoke-test `README.md` updater that
+  exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
+  `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
+  (editable).
+- Execution and web tools are opt-in per run (`enable_execution`, `enable_web`).
 - JS monitor path polls `/tasks/{task_id}` for live status/updates.
 - No-JS fallback path redirects to `/monitor/{task_id}` (auto-refresh HTML monitor).
 - Monitor views use fixed-size task/status/update/payload cells so layout remains
@@ -108,7 +112,7 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 - `goose run` calls include `--with-builtin developer` by default (or it is
   auto-injected) so file editing/shell tools are available.
 - `GOOSE_PROVIDER`/`GOOSE_MODEL` are auto-derived from `HELPING_HANDS_MODEL`
-  (fallback: `openai` + `gpt-5.2`) so `goose configure` is not required.
+  (fallback: `ollama` + `llama3.2:latest`) so `goose configure` is not required.
 - Runtime mirrors the available token into both `GH_TOKEN` and `GITHUB_TOKEN`
   for Goose subprocesses.
 - Local GitHub auth fallback is disabled for Goose backend runs.

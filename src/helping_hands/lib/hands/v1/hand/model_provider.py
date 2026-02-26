@@ -6,6 +6,7 @@ backend-specific runtime objects used by hand implementations.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -25,15 +26,24 @@ def resolve_hand_model(model: str | None) -> HandModel:
     """Resolve user model input into a provider wrapper + concrete model name.
 
     Supported forms:
-    - ``default`` or empty: defaults to OpenAI provider default model.
+    - ``default`` or empty: defaults to Ollama provider default model.
+    - ``provider``: provider default model (e.g. ``ollama``).
     - ``provider/model``: explicit provider selection (e.g. ``anthropic/claude...``).
     - bare model names: provider inferred by common model prefix heuristics.
     """
     raw = (model or "").strip() or "default"
 
     if raw == "default":
-        provider = PROVIDERS["openai"]
+        provider = PROVIDERS["ollama"]
         return HandModel(provider=provider, model=provider.default_model, raw=raw)
+
+    direct_provider = PROVIDERS.get(raw)
+    if direct_provider is not None:
+        return HandModel(
+            provider=direct_provider,
+            model=direct_provider.default_model,
+            raw=raw,
+        )
 
     if "/" in raw:
         maybe_provider, maybe_model = raw.split("/", 1)
@@ -53,6 +63,8 @@ def _infer_provider_name(model: str) -> str:
         return "anthropic"
     if lowered.startswith("gemini"):
         return "google"
+    if lowered.startswith("llama"):
+        return "ollama"
     return "openai"
 
 
@@ -63,6 +75,17 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(model_name=hand_model.model, streaming=streaming)
+    if provider == "ollama":
+        from langchain_openai import ChatOpenAI
+
+        base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+        api_key = os.environ.get("OLLAMA_API_KEY", "ollama")
+        return ChatOpenAI(
+            model_name=hand_model.model,
+            streaming=streaming,
+            base_url=base_url,
+            api_key=api_key,
+        )
     if provider == "anthropic":
         try:
             from langchain_anthropic import ChatAnthropic
