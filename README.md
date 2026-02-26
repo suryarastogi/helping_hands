@@ -48,6 +48,8 @@ runs, UUIDs are generated in-hand as needed.
   `provider/model` forms) before adapting to backend-specific model clients.
 - Push uses token-authenticated GitHub remote configuration and disables
   interactive credential prompts.
+- When `enable_execution` is on, final PR flow runs `uv run pre-commit run --all-files`
+  (auto-fix + validation retry) before commit/push.
 
 ### Key ideas
 
@@ -253,7 +255,7 @@ helping_hands/
 │   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
 │   │   └── hands/v1/
 │   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, placeholders)
+│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
@@ -406,6 +408,8 @@ Goose backend notes:
 - Provider/model are auto-injected for automation:
   - `GOOSE_PROVIDER` and `GOOSE_MODEL` are derived from `HELPING_HANDS_MODEL`
     (or default to `ollama` + `llama3.2:latest`).
+- For remote Ollama instances, set `OLLAMA_HOST` (e.g.
+  `http://192.168.1.143:11434`).
 - Interactive `goose configure` is not required for helping_hands runs.
 - Goose runs require `GH_TOKEN` or `GITHUB_TOKEN`.
 - If only one of `GH_TOKEN` / `GITHUB_TOKEN` is set, runtime mirrors it to both

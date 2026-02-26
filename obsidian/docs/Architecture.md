@@ -17,7 +17,7 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 1. **Config** (`Config.from_env`) — Loads `.env` from cwd and target repo (when local), merges env + CLI overrides.
 2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
 3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, plus CLI scaffold hands.
-   - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `langgraph.py`, `atomic.py`, `iterative.py`, `e2e.py`, `placeholders.py`, `__init__.py` export surface).
+   - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `langgraph.py`, `atomic.py`, `iterative.py`, `e2e.py`, `cli/*.py`, `placeholders.py` compatibility shim, `__init__.py` export surface).
 4. **AI provider wrappers** (`lib.ai_providers`) — Provider-specific wrappers (`openai`, `anthropic`, `google`, `litellm`, `ollama`) with a common interface and lazy `inner` client/library.
 5. **Model adapter layer** (`lib/hands/v1/hand/model_provider.py`) — Resolves model strings (including `provider/model`) into backend-adapted runtime clients for LangGraph/Atomic hands.
 6. **System tools layer** (`lib.meta.tools.filesystem`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands and MCP filesystem tools.
@@ -30,8 +30,10 @@ Hands now share a finalization helper that runs by default unless explicitly dis
 
 1. Detect in-repo git state and pending changes.
 2. Resolve GitHub repo from `origin`.
-3. Create branch, commit changes, push using token-authenticated non-interactive remote config.
-4. Open PR with generated summary body.
+3. If execution tools are enabled, run `uv run pre-commit run --all-files`
+   (auto-fix + validation retry).
+4. Create branch, commit changes, push using token-authenticated non-interactive remote config.
+5. Open PR with generated summary body.
 
 CLI flag `--no-pr` disables this final step for iterative/basic backends and maps to dry-run in E2E mode.
 

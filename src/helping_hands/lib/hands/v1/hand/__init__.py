@@ -14,18 +14,18 @@ kept for backward-compatible patch targets in tests.
 from helping_hands.lib.hands.v1.hand import base as _base_module
 from helping_hands.lib.hands.v1.hand.atomic import AtomicHand
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.cli import (
+    ClaudeCodeHand,
+    CodexCLIHand,
+    GeminiCLIHand,
+    GooseCLIHand,
+)
 from helping_hands.lib.hands.v1.hand.e2e import E2EHand
 from helping_hands.lib.hands.v1.hand.iterative import (
     BasicAtomicHand,
     BasicLangGraphHand,
 )
 from helping_hands.lib.hands.v1.hand.langgraph import LangGraphHand
-from helping_hands.lib.hands.v1.hand.placeholders import (
-    ClaudeCodeHand,
-    CodexCLIHand,
-    GeminiCLIHand,
-    GooseCLIHand,
-)
 
 # Backward-compatible patch target for tests and external users.
 subprocess = _base_module.subprocess

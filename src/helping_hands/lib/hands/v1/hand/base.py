@@ -143,6 +143,63 @@ class Hand(abc.ABC):
             msg = f"failed to configure authenticated push remote: {stderr}"
             raise RuntimeError(msg)
 
+    def _should_run_precommit_before_pr(self) -> bool:
+        return bool(getattr(self.config, "enable_execution", False))
+
+    @staticmethod
+    def _run_precommit_checks_and_fixes(repo_dir: Path) -> None:
+        command = ["uv", "run", "pre-commit", "run", "--all-files"]
+
+        def _run_once() -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                command,
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        try:
+            first_pass = _run_once()
+        except FileNotFoundError as exc:
+            msg = (
+                "failed to run pre-commit before PR finalization: uv is not available. "
+                "Install uv/pre-commit or disable execution tools."
+            )
+            raise RuntimeError(msg) from exc
+
+        if first_pass.returncode == 0:
+            return
+
+        try:
+            second_pass = _run_once()
+        except FileNotFoundError as exc:
+            msg = (
+                "failed to run pre-commit before PR finalization: uv is not available. "
+                "Install uv/pre-commit or disable execution tools."
+            )
+            raise RuntimeError(msg) from exc
+        if second_pass.returncode == 0:
+            return
+
+        stdout = second_pass.stdout.strip()
+        stderr = second_pass.stderr.strip()
+        output_parts: list[str] = []
+        if stdout:
+            output_parts.append(f"stdout:\n{stdout}")
+        if stderr:
+            output_parts.append(f"stderr:\n{stderr}")
+        combined_output = "\n\n".join(output_parts) or "no output captured"
+        if len(combined_output) > 4000:
+            combined_output = f"{combined_output[:4000]}\n...[truncated]"
+        msg = (
+            "pre-commit checks failed after an auto-fix retry. "
+            "Resolve hook failures locally before PR push.\n"
+            f"command: {' '.join(command)}\n"
+            f"{combined_output}"
+        )
+        raise RuntimeError(msg)
+
     def _finalize_repo_pr(
         self,
         *,
@@ -183,6 +240,18 @@ class Hand(abc.ABC):
         if not repo:
             metadata["pr_status"] = "no_github_origin"
             return metadata
+
+        if self._should_run_precommit_before_pr():
+            try:
+                self._run_precommit_checks_and_fixes(repo_dir)
+            except RuntimeError as exc:
+                metadata["pr_status"] = "precommit_failed"
+                metadata["pr_error"] = str(exc)
+                return metadata
+            has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
+            if not has_changes:
+                metadata["pr_status"] = "no_changes"
+                return metadata
 
         from helping_hands.lib.github import GitHubClient
 

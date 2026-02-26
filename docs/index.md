@@ -32,6 +32,8 @@ Browse the auto-generated docs from source:
 - Basic iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`)
   stream multi-step output and, by default, attempt a final commit/push/PR step
   unless disabled via `--no-pr`.
+- When `enable_execution` is set, PR finalization runs `uv run pre-commit run --all-files`
+  (auto-fix + validation retry) before commit/push.
 - CLI-driven backends (`codexcli`, `claudecodecli`, `goose`) run a two-phase flow:
   initialize/learn first, then execute the user task.
 - `codexcli` passes `--model gpt-5.2` by default when model is unset/default.
@@ -113,6 +115,8 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
   auto-injected) so file editing/shell tools are available.
 - `GOOSE_PROVIDER`/`GOOSE_MODEL` are auto-derived from `HELPING_HANDS_MODEL`
   (fallback: `ollama` + `llama3.2:latest`) so `goose configure` is not required.
+- For remote Ollama instances, set `OLLAMA_HOST`
+  (for example `http://192.168.1.143:11434`).
 - Runtime mirrors the available token into both `GH_TOKEN` and `GITHUB_TOKEN`
   for Goose subprocesses.
 - Local GitHub auth fallback is disabled for Goose backend runs.

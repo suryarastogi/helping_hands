@@ -48,6 +48,14 @@ def repo_index(tmp_path: Path) -> RepoIndex:
     return RepoIndex.from_path(tmp_path)
 
 
+class _StubFinalizeHand(Hand):
+    def run(self, prompt: str) -> HandResponse:
+        return HandResponse(message=prompt)
+
+    async def stream(self, prompt: str):  # type: ignore[override]
+        yield prompt
+
+
 # ---------------------------------------------------------------------------
 # HandResponse
 # ---------------------------------------------------------------------------
@@ -145,6 +153,186 @@ class TestHandABC:
                 "owner/repo",
                 "ghp_test_token",
             )
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_precommit_checks_and_fixes_retries_once_after_failure(
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_run.side_effect = [
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=1,
+                stdout="files were reformatted",
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="all hooks passed",
+                stderr="",
+            ),
+        ]
+
+        Hand._run_precommit_checks_and_fixes(tmp_path)
+
+        assert mock_run.call_count == 2
+        cmd = mock_run.call_args_list[0].args[0]
+        assert cmd == ["uv", "run", "pre-commit", "run", "--all-files"]
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_precommit_checks_and_fixes_raises_after_second_failure(
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_run.side_effect = [
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=1,
+                stdout="reformatted one file",
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=1,
+                stdout="",
+                stderr="ruff failed",
+            ),
+        ]
+
+        with pytest.raises(RuntimeError, match="pre-commit checks failed"):
+            Hand._run_precommit_checks_and_fixes(tmp_path)
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_finalize_repo_pr_runs_precommit_when_execution_enabled(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=str(repo_index.root),
+            model="test-model",
+            enable_execution=True,
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_gh = MagicMock()
+        mock_gh.token = "ghp_test"
+        mock_gh.add_and_commit.return_value = "abc123"
+        mock_gh.create_pr.return_value = MagicMock(
+            number=1,
+            url="https://example/pr/1",
+        )
+        mock_gh.get_repo.return_value = MagicMock(default_branch="main")
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
+            patch.object(Hand, "_run_precommit_checks_and_fixes") as mock_precommit,
+        ):
+            metadata = hand._finalize_repo_pr(
+                backend="stub",
+                prompt="implement",
+                summary="done",
+            )
+
+        assert metadata["pr_status"] == "created"
+        mock_precommit.assert_called_once_with(repo_index.root.resolve())
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_finalize_repo_pr_skips_precommit_when_execution_disabled(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=str(repo_index.root),
+            model="test-model",
+            enable_execution=False,
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_gh = MagicMock()
+        mock_gh.token = "ghp_test"
+        mock_gh.add_and_commit.return_value = "abc123"
+        mock_gh.create_pr.return_value = MagicMock(
+            number=1,
+            url="https://example/pr/1",
+        )
+        mock_gh.get_repo.return_value = MagicMock(default_branch="main")
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
+            patch.object(Hand, "_run_precommit_checks_and_fixes") as mock_precommit,
+        ):
+            metadata = hand._finalize_repo_pr(
+                backend="stub",
+                prompt="implement",
+                summary="done",
+            )
+
+        assert metadata["pr_status"] == "created"
+        mock_precommit.assert_not_called()
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_finalize_repo_pr_sets_precommit_failed_status(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=str(repo_index.root),
+            model="test-model",
+            enable_execution=True,
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(
+                Hand,
+                "_run_precommit_checks_and_fixes",
+                side_effect=RuntimeError("pre-commit checks failed"),
+            ),
+        ):
+            metadata = hand._finalize_repo_pr(
+                backend="stub",
+                prompt="implement",
+                summary="done",
+            )
+
+        assert metadata["pr_status"] == "precommit_failed"
+        assert "pre-commit checks failed" in metadata["pr_error"]
+        mock_gh_cls.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -1761,6 +1949,8 @@ class TestGooseCLIHand:
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
         monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
         monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        monkeypatch.delenv("OLLAMA_HOST", raising=False)
+        monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
         config = Config(repo="/tmp/fake", model="default")
         hand = GooseCLIHand(config, repo_index)
 
@@ -1768,6 +1958,44 @@ class TestGooseCLIHand:
 
         assert env["GOOSE_PROVIDER"] == "ollama"
         assert env["GOOSE_MODEL"] == "llama3.2:latest"
+        assert env["OLLAMA_HOST"] == "http://localhost:11434"
+
+    def test_build_subprocess_env_uses_explicit_ollama_host(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GH_TOKEN", "ghp_primary")
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        monkeypatch.setenv("OLLAMA_HOST", "192.168.1.143:11434")
+        config = Config(repo="/tmp/fake", model="default")
+        hand = GooseCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert env["GOOSE_PROVIDER"] == "ollama"
+        assert env["OLLAMA_HOST"] == "http://192.168.1.143:11434"
+
+    def test_build_subprocess_env_derives_ollama_host_from_base_url(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GH_TOKEN", "ghp_primary")
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        monkeypatch.delenv("OLLAMA_HOST", raising=False)
+        monkeypatch.setenv("OLLAMA_BASE_URL", "http://192.168.1.143:11434/v1")
+        config = Config(repo="/tmp/fake", model="default")
+        hand = GooseCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert env["GOOSE_PROVIDER"] == "ollama"
+        assert env["OLLAMA_HOST"] == "http://192.168.1.143:11434"
 
     def test_build_subprocess_env_maps_provider_model_from_helping_hands_model(
         self,
