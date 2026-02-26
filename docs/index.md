@@ -82,6 +82,12 @@ Browse the auto-generated docs from source:
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
 
+## Full Docker dev reset
+
+```bash
+docker compose down && docker compose up --build
+```
+
 ## Codex backend requirements
 
 - `codex` CLI installed and on `PATH`.

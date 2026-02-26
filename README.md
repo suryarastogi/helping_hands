@@ -117,6 +117,7 @@ uv run helping-hands owner/repo --e2e --pr-number 1 --prompt "Update PR 1"
 
 # App mode: start the full stack with Docker Compose
 cp .env.example .env  # edit as needed
+docker compose down
 docker compose up --build
 ```
 
@@ -132,6 +133,12 @@ changes so the worker image includes required CLIs:
 ```bash
 docker compose build --no-cache
 docker compose up
+```
+
+For a clean full Docker dev reset/restart:
+
+```bash
+docker compose down && docker compose up --build
 ```
 
 If you update `.env` auth values (like `OPENAI_API_KEY`), recreate running
@@ -151,6 +158,51 @@ App/worker services in the provided Dockerfile run as a non-root `app` user.
 `npx -y @anthropic-ai/claude-code`.
 For deterministic/offline worker runs, prefer a worker image that preinstalls
 Claude Code CLI instead of relying on runtime `npx` download.
+
+### Local Celery setup (Dockerized data services)
+
+Run `server`/`worker`/`beat`/`flower` locally with `uv`, while keeping only
+`postgres` and `redis` in Docker:
+
+```bash
+# 1) Prepare env + install server deps
+cp .env.example .env
+uv sync --extra server
+
+# 2) Start data services only
+docker compose up -d postgres redis
+
+# 3) Start local app/celery processes (background)
+./scripts/run-local-stack.sh start
+
+# 4) Check status / logs
+./scripts/run-local-stack.sh status
+./scripts/run-local-stack.sh logs worker
+```
+
+Useful commands:
+
+```bash
+# Tail all local process logs
+./scripts/run-local-stack.sh logs
+
+# Restart local processes
+./scripts/run-local-stack.sh restart
+
+# Stop local processes
+./scripts/run-local-stack.sh stop
+
+# Stop dockerized data services
+docker compose stop postgres redis
+```
+
+Notes:
+
+- Script path: `scripts/run-local-stack.sh`
+- Process logs/PIDs: `runs/local-stack/logs` and `runs/local-stack/pids`
+- If `.env` uses docker hostnames like `redis://redis:6379/0`, the script
+  automatically rewrites them to `localhost` for local runs.
+- To keep docker hostnames unchanged, set `HH_LOCAL_STACK_KEEP_DOCKER_HOSTS=1`.
 
 The built-in UI at `http://localhost:8000/` supports:
 - backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`)
