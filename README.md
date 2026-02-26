@@ -12,6 +12,8 @@
 
 **Last updated:** February 26, 2026
 
+**Smoke test:** `PYTHONPATH=src python -m pytest -q -m "not integration"` → `258 passed, 1 deselected` (Python 3.12.10)
+
 ## What is this?
 
 `helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal) or **app mode** (server with background workers).
