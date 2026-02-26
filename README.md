@@ -587,6 +587,10 @@ uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
 
+### Smoke test
+
+- `PYTHONPATH=src HELPING_HANDS_RUN_E2E_INTEGRATION=0 python -m pytest -q -m "not integration"` → `238 passed, 1 deselected` (Python 3.12.10)
+
 ### Compose env defaults
 
 `compose.yaml` now sets default in-network Celery/Redis URLs for all app-mode
