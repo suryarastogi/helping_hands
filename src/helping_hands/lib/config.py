@@ -33,6 +33,7 @@ class Config:
     verbose: bool = False
     enable_execution: bool = False
     enable_web: bool = False
+    use_native_cli_auth: bool = False
     config_path: Path | None = None
 
     @classmethod
@@ -54,6 +55,10 @@ class Config:
             in ("1", "true", "yes"),
             "enable_web": os.environ.get("HELPING_HANDS_ENABLE_WEB", "").lower()
             in ("1", "true", "yes"),
+            "use_native_cli_auth": os.environ.get(
+                "HELPING_HANDS_USE_NATIVE_CLI_AUTH", ""
+            ).lower()
+            in ("1", "true", "yes"),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
@@ -66,4 +71,7 @@ class Config:
             verbose=bool(merged.get("verbose", cls.verbose)),
             enable_execution=bool(merged.get("enable_execution", cls.enable_execution)),
             enable_web=bool(merged.get("enable_web", cls.enable_web)),
+            use_native_cli_auth=bool(
+                merged.get("use_native_cli_auth", cls.use_native_cli_auth)
+            ),
         )

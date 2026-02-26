@@ -47,6 +47,7 @@ class TestHomeUI:
         assert DEFAULT_SMOKE_TEST_PROMPT in response.text
         assert 'id="enable_execution"' in response.text
         assert 'id="enable_web"' in response.text
+        assert 'id="use_native_cli_auth"' in response.text
 
 
 class TestBuildForm:
@@ -92,6 +93,7 @@ class TestBuildForm:
             "no_pr": True,
             "enable_execution": False,
             "enable_web": False,
+            "use_native_cli_auth": False,
         }
 
     def test_enqueues_codexcli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -131,6 +133,7 @@ class TestBuildForm:
             "no_pr": False,
             "enable_execution": False,
             "enable_web": False,
+            "use_native_cli_auth": False,
         }
 
     def test_enqueues_claudecodecli_backend(
@@ -172,6 +175,7 @@ class TestBuildForm:
             "no_pr": False,
             "enable_execution": False,
             "enable_web": False,
+            "use_native_cli_auth": False,
         }
 
     def test_enqueues_goose_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -210,6 +214,7 @@ class TestBuildForm:
             "no_pr": False,
             "enable_execution": False,
             "enable_web": False,
+            "use_native_cli_auth": False,
         }
 
     def test_enqueues_with_tools_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -233,6 +238,7 @@ class TestBuildForm:
                 "backend": "basic-langgraph",
                 "enable_execution": "on",
                 "enable_web": "on",
+                "use_native_cli_auth": "on",
             },
             follow_redirects=False,
         )
@@ -241,6 +247,7 @@ class TestBuildForm:
         assert response.headers["location"] == "/monitor/task-tools"
         assert captured["enable_execution"] is True
         assert captured["enable_web"] is True
+        assert captured["use_native_cli_auth"] is True
 
     def test_redirects_with_error_for_invalid_backend(
         self, monkeypatch: pytest.MonkeyPatch

@@ -17,6 +17,7 @@ class TestConfigDefaults:
         assert config.verbose is False
         assert config.enable_execution is False
         assert config.enable_web is False
+        assert config.use_native_cli_auth is False
 
     def test_from_env_picks_up_env_var(self, monkeypatch: object) -> None:
         os.environ["HELPING_HANDS_MODEL"] = "gpt-test"
@@ -37,13 +38,16 @@ class TestConfigDefaults:
     def test_from_env_picks_up_tool_flags(self) -> None:
         os.environ["HELPING_HANDS_ENABLE_EXECUTION"] = "1"
         os.environ["HELPING_HANDS_ENABLE_WEB"] = "true"
+        os.environ["HELPING_HANDS_USE_NATIVE_CLI_AUTH"] = "yes"
         try:
             config = Config.from_env()
             assert config.enable_execution is True
             assert config.enable_web is True
+            assert config.use_native_cli_auth is True
         finally:
             del os.environ["HELPING_HANDS_ENABLE_EXECUTION"]
             del os.environ["HELPING_HANDS_ENABLE_WEB"]
+            del os.environ["HELPING_HANDS_USE_NATIVE_CLI_AUTH"]
 
     def test_from_env_loads_dotenv(self, tmp_path: Path, monkeypatch: object) -> None:
         loaded_paths: list[Path] = []

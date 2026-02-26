@@ -159,6 +159,7 @@ def _update_progress(
     no_pr: bool,
     enable_execution: bool,
     enable_web: bool,
+    use_native_cli_auth: bool,
     workspace: str | None = None,
 ) -> None:
     update_state = getattr(task, "update_state", None)
@@ -175,6 +176,7 @@ def _update_progress(
         "no_pr": no_pr,
         "enable_execution": enable_execution,
         "enable_web": enable_web,
+        "use_native_cli_auth": use_native_cli_auth,
         "updates": list(updates),
     }
     if workspace:
@@ -197,6 +199,7 @@ async def _collect_stream(
     no_pr: bool,
     enable_execution: bool,
     enable_web: bool,
+    use_native_cli_auth: bool,
     workspace: str | None,
 ) -> str:
     parts: list[str] = []
@@ -222,6 +225,7 @@ async def _collect_stream(
                 no_pr=no_pr,
                 enable_execution=enable_execution,
                 enable_web=enable_web,
+                use_native_cli_auth=use_native_cli_auth,
                 workspace=workspace,
             )
 
@@ -241,6 +245,7 @@ def build_feature(
     no_pr: bool = False,
     enable_execution: bool = False,
     enable_web: bool = False,
+    use_native_cli_auth: bool = False,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -269,7 +274,7 @@ def build_feature(
             f"Task received. backend={requested_backend}, model={model or 'default'}, "
             f"repo={repo_path}, max_iterations={resolved_iterations}, "
             f"no_pr={no_pr}, enable_execution={enable_execution}, "
-            f"enable_web={enable_web}"
+            f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}"
         ),
     )
     _update_progress(
@@ -285,6 +290,7 @@ def build_feature(
         no_pr=no_pr,
         enable_execution=enable_execution,
         enable_web=enable_web,
+        use_native_cli_auth=use_native_cli_auth,
     )
 
     if runtime_backend == "e2e":
@@ -294,6 +300,7 @@ def build_feature(
                 "model": model,
                 "enable_execution": enable_execution,
                 "enable_web": enable_web,
+                "use_native_cli_auth": use_native_cli_auth,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -312,6 +319,7 @@ def build_feature(
             no_pr=no_pr,
             enable_execution=enable_execution,
             enable_web=enable_web,
+            use_native_cli_auth=use_native_cli_auth,
         )
         response = hand.run(
             prompt,
@@ -338,6 +346,7 @@ def build_feature(
     overrides = {"repo": str(resolved_repo_path), "model": model}
     overrides["enable_execution"] = enable_execution
     overrides["enable_web"] = enable_web
+    overrides["use_native_cli_auth"] = use_native_cli_auth
     config = Config.from_env(overrides=overrides)
     repo_index = RepoIndex.from_path(Path(config.repo))
 
@@ -371,6 +380,7 @@ def build_feature(
         no_pr=no_pr,
         enable_execution=enable_execution,
         enable_web=enable_web,
+        use_native_cli_auth=use_native_cli_auth,
         workspace=str(resolved_repo_path),
     )
 
@@ -435,6 +445,7 @@ def build_feature(
             no_pr=no_pr,
             enable_execution=enable_execution,
             enable_web=enable_web,
+            use_native_cli_auth=use_native_cli_auth,
             workspace=str(resolved_repo_path),
         )
     )
@@ -450,6 +461,7 @@ def build_feature(
         "no_pr": str(no_pr).lower(),
         "enable_execution": str(enable_execution).lower(),
         "enable_web": str(enable_web).lower(),
+        "use_native_cli_auth": str(use_native_cli_auth).lower(),
         "message": message,
         "updates": updates,
     }

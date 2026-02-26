@@ -1176,6 +1176,25 @@ class TestClaudeCodeHand:
         joined = " ".join(cmd)
         assert "--model" not in joined
 
+    def test_build_subprocess_env_strips_anthropic_key_in_native_auth_mode(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "anth-test")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        config = Config(
+            repo="/tmp/fake",
+            model="default",
+            use_native_cli_auth=True,
+        )
+        hand = ClaudeCodeHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert "ANTHROPIC_API_KEY" not in env
+        assert env["OPENAI_API_KEY"] == "sk-test"
+
     def test_render_command_can_disable_dangerous_skip_permissions(
         self,
         config: Config,
@@ -1592,6 +1611,25 @@ class TestCodexCLIHand:
         assert "--model gpt-5.2" in joined
         assert "openai/gpt-5.2" not in joined
 
+    def test_build_subprocess_env_strips_openai_key_in_native_auth_mode(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "anth-test")
+        config = Config(
+            repo="/tmp/fake",
+            model="default",
+            use_native_cli_auth=True,
+        )
+        hand = CodexCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert "OPENAI_API_KEY" not in env
+        assert env["ANTHROPIC_API_KEY"] == "anth-test"
+
     def test_render_command_expands_placeholders(
         self,
         config: Config,
@@ -1685,6 +1723,33 @@ class TestCodexCLIHand:
         assert "codex exec" in joined
         assert "--sandbox" in joined
         assert "--skip-git-repo-check" in joined
+
+    @patch("helping_hands.lib.hands.v1.hand.placeholders.shutil.which")
+    def test_render_command_container_omits_openai_key_in_native_auth_mode(
+        self,
+        mock_which: MagicMock,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        mock_which.return_value = "/usr/bin/docker"
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "codex")
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CONTAINER", "1")
+        monkeypatch.setenv(
+            "HELPING_HANDS_CODEX_CONTAINER_IMAGE",
+            "ghcr.io/example/codex:latest",
+        )
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        config = Config(
+            repo="/tmp/fake",
+            model="default",
+            use_native_cli_auth=True,
+        )
+        hand = CodexCLIHand(config, repo_index)
+
+        cmd = hand._render_command("hello world")
+        joined = " ".join(cmd)
+
+        assert "-e OPENAI_API_KEY=sk-test" not in joined
 
     def test_render_command_container_missing_image_raises(
         self,

@@ -21,6 +21,9 @@ Browse the auto-generated docs from source:
   `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
   (editable).
 - Execution and web tools are opt-in per run (`enable_execution`, `enable_web`).
+- Native CLI auth is opt-in per run (`use_native_cli_auth`) and currently
+  applies to `codexcli`/`claudecodecli` by stripping provider API key env vars
+  from subprocess execution.
 - JS monitor path polls `/tasks/{task_id}` for live status/updates.
 - No-JS fallback path redirects to `/monitor/{task_id}` (auto-refresh HTML monitor).
 - Monitor views use fixed-size task/status/update/payload cells so layout remains

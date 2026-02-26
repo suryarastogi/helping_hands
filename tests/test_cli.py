@@ -21,9 +21,17 @@ class TestCli:
 
     def test_cli_parser_supports_tool_enable_flags(self) -> None:
         parser = build_parser()
-        args = parser.parse_args(["/tmp/repo", "--enable-execution", "--enable-web"])
+        args = parser.parse_args(
+            [
+                "/tmp/repo",
+                "--enable-execution",
+                "--enable-web",
+                "--use-native-cli-auth",
+            ]
+        )
         assert args.enable_execution is True
         assert args.enable_web is True
+        assert args.use_native_cli_auth is True
 
     def test_cli_runs_on_valid_dir(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]

@@ -32,6 +32,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         "approve this operation",
     )
 
+    def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        return ("ANTHROPIC_API_KEY",)
+
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-2000:]

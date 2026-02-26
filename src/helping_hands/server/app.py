@@ -44,6 +44,7 @@ class BuildRequest(BaseModel):
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
+    use_native_cli_auth: bool = False
     pr_number: int | None = None
 
 
@@ -260,6 +261,18 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
               <input id="enable_web" name="enable_web" type="checkbox" />
               <label for="enable_web">Enable web tools</label>
             </div>
+            <div class="checkbox-row">
+              <input
+                id="use_native_cli_auth"
+                name="use_native_cli_auth"
+                type="checkbox"
+              />
+              <label for="use_native_cli_auth">
+                Use native CLI auth (Codex/Claude)
+              </label>
+            </div>
+          </div>
+          <div class="row">
             <div>
               <label for="task_id">Task ID (for manual monitor)</label>
               <input id="task_id" name="task_id" />
@@ -379,6 +392,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const noPr = params.get("no_pr");
         const enableExecution = params.get("enable_execution");
         const enableWeb = params.get("enable_web");
+        const useNativeCliAuth = params.get("use_native_cli_auth");
         const taskId = params.get("task_id");
         const status = params.get("status");
         const error = params.get("error");
@@ -410,6 +424,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         if (enableWeb === "1" || enableWeb === "true") {
           document.getElementById("enable_web").checked = true;
         }
+        if (useNativeCliAuth === "1" || useNativeCliAuth === "true") {
+          document.getElementById("use_native_cli_auth").checked = true;
+        }
         if (error) {
           setStatus("error");
           setOutput({ error });
@@ -435,6 +452,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const noPr = document.getElementById("no_pr").checked;
         const enableExecution = document.getElementById("enable_execution").checked;
         const enableWeb = document.getElementById("enable_web").checked;
+        const useNativeCliAuth = document.getElementById("use_native_cli_auth").checked;
         const payload = {
           repo_path: repoPath,
           prompt,
@@ -443,6 +461,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           no_pr: noPr,
           enable_execution: enableExecution,
           enable_web: enableWeb,
+          use_native_cli_auth: useNativeCliAuth,
         };
         if (model) {
           payload.model = model;
@@ -520,6 +539,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         no_pr=req.no_pr,
         enable_execution=req.enable_execution,
         enable_web=req.enable_web,
+        use_native_cli_auth=req.use_native_cli_auth,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -708,6 +728,7 @@ def enqueue_build_form(
     no_pr: bool = Form(False),
     enable_execution: bool = Form(False),
     enable_web: bool = Form(False),
+    use_native_cli_auth: bool = Form(False),
     pr_number: int | None = Form(None),
 ) -> RedirectResponse:
     """Fallback form endpoint so UI submits still enqueue without JS."""
@@ -729,6 +750,8 @@ def enqueue_build_form(
             query["enable_execution"] = "1"
         if enable_web:
             query["enable_web"] = "1"
+        if use_native_cli_auth:
+            query["use_native_cli_auth"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
@@ -743,6 +766,7 @@ def enqueue_build_form(
             no_pr=no_pr,
             enable_execution=enable_execution,
             enable_web=enable_web,
+            use_native_cli_auth=use_native_cli_auth,
             pr_number=pr_number,
         )
     except ValidationError as exc:
@@ -770,6 +794,8 @@ def enqueue_build_form(
             query["enable_execution"] = "1"
         if enable_web:
             query["enable_web"] = "1"
+        if use_native_cli_auth:
+            query["use_native_cli_auth"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
@@ -791,6 +817,8 @@ def enqueue_build_form(
         query["enable_execution"] = "1"
     if req.enable_web:
         query["enable_web"] = "1"
+    if req.use_native_cli_auth:
+        query["use_native_cli_auth"] = "1"
     if req.pr_number is not None:
         query["pr_number"] = str(req.pr_number)
     return RedirectResponse(url=f"/monitor/{response.task_id}", status_code=303)

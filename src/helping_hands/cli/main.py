@@ -95,6 +95,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enable web.search/web.browse tools.",
     )
     parser.add_argument(
+        "--use-native-cli-auth",
+        action="store_true",
+        help=(
+            "For codexcli/claudecodecli, prefer existing native CLI auth/session "
+            "by removing provider API key env vars from subprocess execution."
+        ),
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -117,6 +125,7 @@ def main(argv: list[str] | None = None) -> None:
                 "verbose": args.verbose,
                 "enable_execution": args.enable_execution,
                 "enable_web": args.enable_web,
+                "use_native_cli_auth": args.use_native_cli_auth,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -146,6 +155,7 @@ def main(argv: list[str] | None = None) -> None:
             "verbose": args.verbose,
             "enable_execution": args.enable_execution,
             "enable_web": args.enable_web,
+            "use_native_cli_auth": args.use_native_cli_auth,
         }
     )
     repo_index = RepoIndex.from_path(Path(config.repo))

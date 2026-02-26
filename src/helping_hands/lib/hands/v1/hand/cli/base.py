@@ -143,6 +143,21 @@ class _TwoPhaseCLIHand(Hand):
             "HELPING_HANDS_MODEL",
         )
 
+    def _use_native_cli_auth(self) -> bool:
+        return bool(getattr(self.config, "use_native_cli_auth", False))
+
+    def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        return ()
+
+    def _effective_container_env_names(self) -> tuple[str, ...]:
+        env_names = self._container_env_names()
+        if not self._use_native_cli_auth():
+            return env_names
+        blocked = set(self._native_cli_auth_env_names())
+        if not blocked:
+            return env_names
+        return tuple(name for name in env_names if name not in blocked)
+
     def _wrap_container_if_enabled(self, cmd: list[str]) -> list[str]:
         if not self._container_enabled():
             return cmd
@@ -164,7 +179,7 @@ class _TwoPhaseCLIHand(Hand):
             "-w",
             "/workspace",
         ]
-        for env_name in self._container_env_names():
+        for env_name in self._effective_container_env_names():
             value = os.environ.get(env_name)
             if value:
                 docker_cmd.extend(["-e", f"{env_name}={value}"])
@@ -209,7 +224,12 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _build_subprocess_env(self) -> dict[str, str]:
-        return dict(os.environ)
+        env = dict(os.environ)
+        if not self._use_native_cli_auth():
+            return env
+        for env_name in self._native_cli_auth_env_names():
+            env.pop(env_name, None)
+        return env
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         tail = output.strip()[-2000:]

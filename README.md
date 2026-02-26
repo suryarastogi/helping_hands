@@ -94,6 +94,9 @@ uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --prompt "Imp
 # Run Claude Code CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend claudecodecli --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
 
+# Force native Codex/Claude auth session usage (ignore provider API key env vars)
+uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --use-native-cli-auth --prompt "Implement X"
+
 # Run Goose CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend goose --prompt "Implement X"
 
@@ -153,6 +156,7 @@ The built-in UI at `http://localhost:8000/` supports:
 - `no_pr` toggle
 - `enable_execution` toggle (python/bash tools; default off)
 - `enable_web` toggle (web search/browse tools; default off)
+- `use_native_cli_auth` toggle (Codex/Claude: prefer local CLI auth over env keys)
 - default editable prompt text: smoke-test prompt that updates `README.md` and
   exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
   `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
@@ -308,6 +312,7 @@ Key settings:
 | `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
+| `use_native_cli_auth` | `HELPING_HANDS_USE_NATIVE_CLI_AUTH` | For `codexcli`/`claudecodecli`, strip provider API key env vars so native CLI auth/session is used |
 
 Key CLI flags:
 
@@ -318,6 +323,7 @@ Key CLI flags:
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
+- `--use-native-cli-auth` — for `codexcli`/`claudecodecli`, ignore provider API key env vars and rely on local CLI auth/session
 
 Codex CLI backend notes:
 
@@ -337,6 +343,10 @@ Codex CLI backend notes:
   - `HELPING_HANDS_CODEX_CONTAINER=1`
   - `HELPING_HANDS_CODEX_CONTAINER_IMAGE=<image-with-codex-cli>`
   - container mode bind-mounts only the target repo to `/workspace`
+- Optional native auth mode:
+  - `--use-native-cli-auth` (CLI/app request)
+  - or `HELPING_HANDS_USE_NATIVE_CLI_AUTH=1` (env default)
+  - strips `OPENAI_API_KEY` from Codex subprocess/container env
 
 Codex backend requirements:
 
@@ -386,6 +396,10 @@ Claude Code backend notes:
 - Optional container mode:
   - `HELPING_HANDS_CLAUDE_CONTAINER=1`
   - `HELPING_HANDS_CLAUDE_CONTAINER_IMAGE=<image-with-claude-cli>`
+- Optional native auth mode:
+  - `--use-native-cli-auth` (CLI/app request)
+  - or `HELPING_HANDS_USE_NATIVE_CLI_AUTH=1` (env default)
+  - strips `ANTHROPIC_API_KEY` from Claude subprocess/container env
 
 Claude Code backend requirements:
 

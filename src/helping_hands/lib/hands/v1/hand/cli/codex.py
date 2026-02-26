@@ -23,6 +23,9 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     _CONTAINER_ENABLED_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER"
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER_IMAGE"
 
+    def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        return ("OPENAI_API_KEY",)
+
     @staticmethod
     def _build_codex_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-2000:]
