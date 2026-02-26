@@ -13,3 +13,13 @@ repos:
         language: system
         pass_filenames: false
         types_or: [python, pyi]
+      - id: frontend-lint
+        name: frontend-lint
+        entry: npm --prefix frontend run lint
+        language: system
+        pass_filenames: false
+      - id: frontend-typecheck
+        name: frontend-typecheck
+        entry: npm --prefix frontend run typecheck
+        language: system
+        pass_filenames: false

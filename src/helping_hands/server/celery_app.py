@@ -89,7 +89,7 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
 
 def _normalize_backend(backend: str | None) -> tuple[str, str]:
     """Resolve requested backend and runtime backend implementation."""
-    requested = (backend or "e2e").strip().lower()
+    requested = (backend or "codexcli").strip().lower()
     if requested not in _SUPPORTED_BACKENDS:
         choices = ", ".join(sorted(_SUPPORTED_BACKENDS))
         msg = f"unsupported backend {requested!r}; expected one of: {choices}"
@@ -245,7 +245,7 @@ def build_feature(
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
-    backend: str = "e2e",
+    backend: str = "codexcli",
     model: str | None = None,
     max_iterations: int = 6,
     no_pr: bool = False,

@@ -34,7 +34,7 @@ class TestHomeUI:
         response = client.get("/")
 
         assert response.status_code == 200
-        assert '<option value="codexcli">codexcli</option>' in response.text
+        assert '<option value="codexcli" selected>codexcli</option>' in response.text
         assert '<option value="claudecodecli">claudecodecli</option>' in response.text
         assert '<option value="goose">goose</option>' in response.text
         assert '<option value="geminicli">geminicli</option>' in response.text
@@ -366,3 +366,128 @@ class TestMonitorPage:
         assert '<meta http-equiv="refresh" content="2">' not in response.text
         assert "done" in response.text
         assert "SUCCESS" in response.text
+
+
+class TestCurrentTasksEndpoint:
+    def test_returns_flower_tasks_when_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._fetch_flower_current_tasks",
+            lambda: [
+                {
+                    "task_id": "uuid-flower-1",
+                    "status": "STARTED",
+                    "backend": "codexcli",
+                    "repo_path": "suryarastogi/helping_hands",
+                    "worker": "worker@a",
+                    "source": "flower",
+                }
+            ],
+        )
+        monkeypatch.setattr(
+            "helping_hands.server.app._collect_celery_current_tasks",
+            lambda: [],
+        )
+
+        client = TestClient(app)
+        response = client.get("/tasks/current")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["source"] == "flower"
+        assert payload["tasks"] == [
+            {
+                "task_id": "uuid-flower-1",
+                "status": "STARTED",
+                "backend": "codexcli",
+                "repo_path": "suryarastogi/helping_hands",
+                "worker": "worker@a",
+                "source": "flower",
+            }
+        ]
+
+    def test_falls_back_to_celery_when_flower_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._fetch_flower_current_tasks",
+            lambda: [],
+        )
+        monkeypatch.setattr(
+            "helping_hands.server.app._collect_celery_current_tasks",
+            lambda: [
+                {
+                    "task_id": "uuid-celery-1",
+                    "status": "RECEIVED",
+                    "backend": "geminicli",
+                    "repo_path": "owner/repo",
+                    "worker": "worker@b",
+                    "source": "celery",
+                }
+            ],
+        )
+
+        client = TestClient(app)
+        response = client.get("/tasks/current")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["source"] == "celery"
+        assert payload["tasks"] == [
+            {
+                "task_id": "uuid-celery-1",
+                "status": "RECEIVED",
+                "backend": "geminicli",
+                "repo_path": "owner/repo",
+                "worker": "worker@b",
+                "source": "celery",
+            }
+        ]
+
+    def test_merges_same_uuid_from_flower_and_celery(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._fetch_flower_current_tasks",
+            lambda: [
+                {
+                    "task_id": "uuid-merged-1",
+                    "status": "PENDING",
+                    "backend": None,
+                    "repo_path": None,
+                    "worker": None,
+                    "source": "flower",
+                }
+            ],
+        )
+        monkeypatch.setattr(
+            "helping_hands.server.app._collect_celery_current_tasks",
+            lambda: [
+                {
+                    "task_id": "uuid-merged-1",
+                    "status": "STARTED",
+                    "backend": "codexcli",
+                    "repo_path": "owner/repo",
+                    "worker": "worker@c",
+                    "source": "celery",
+                }
+            ],
+        )
+
+        client = TestClient(app)
+        response = client.get("/tasks/current")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["source"] == "celery+flower"
+        assert payload["tasks"] == [
+            {
+                "task_id": "uuid-merged-1",
+                "status": "STARTED",
+                "backend": "codexcli",
+                "repo_path": "owner/repo",
+                "worker": "worker@c",
+                "source": "celery+flower",
+            }
+        ]

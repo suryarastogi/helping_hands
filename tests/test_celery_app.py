@@ -42,10 +42,10 @@ class TestResolveCeleryUrls:
 
 
 class TestNormalizeBackend:
-    def test_defaults_to_e2e(self) -> None:
+    def test_defaults_to_codexcli(self) -> None:
         requested, runtime = celery_app._normalize_backend(None)
-        assert requested == "e2e"
-        assert runtime == "e2e"
+        assert requested == "codexcli"
+        assert runtime == "codexcli"
 
     def test_basic_agent_maps_to_atomic_runtime(self) -> None:
         requested, runtime = celery_app._normalize_backend("basic-agent")

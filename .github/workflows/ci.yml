@@ -51,5 +51,49 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
+          flags: backend
+          name: backend
+          disable_search: true
+          verbose: true
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  frontend-check:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Run frontend tests with coverage
+        run: npm run coverage
+
+      - name: Upload frontend coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend
+          disable_search: true
+          verbose: true
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}

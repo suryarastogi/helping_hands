@@ -98,7 +98,7 @@ def build_feature(
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
-    backend: str = "e2e",
+    backend: str = "codexcli",
     model: str | None = None,
     max_iterations: int = 6,
     no_pr: bool = False,

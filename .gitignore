@@ -10,6 +10,16 @@ build/
 .venv/
 venv/
 
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/.env*.local
+
 # uv
 uv.lock
 
@@ -38,3 +48,6 @@ htmlcov/
 # Runtime hand workspaces
 runs/*
 !runs/README.md
+
+# Celery beat runtime files
+celerybeat-schedule*

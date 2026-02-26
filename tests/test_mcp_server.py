@@ -292,7 +292,7 @@ class TestBuildFeature:
 
         assert result["task_id"] == "task-abc-123"
         assert result["status"] == "queued"
-        assert result["backend"] == "e2e"
+        assert result["backend"] == "codexcli"
         assert (
             mock_mod.build_feature.delay.call_args.kwargs["enable_execution"] is False
         )

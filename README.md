@@ -119,6 +119,11 @@ uv run helping-hands owner/repo --e2e --pr-number 1 --prompt "Update PR 1"
 cp .env.example .env  # edit as needed
 docker compose down
 docker compose up --build
+
+# Optional: run React frontend wrapper for submit/monitor flows
+cd frontend
+npm install
+npm run dev
 ```
 
 ### Trigger a run in app mode
@@ -217,6 +222,8 @@ The built-in UI at `http://localhost:8000/` supports:
   exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
   `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
 - JS polling monitor via `/tasks/{task_id}`
+- dynamic current-task discovery via `/tasks/current` (Flower when configured,
+  plus Celery inspect fallback)
 - no-JS fallback monitor via `/monitor/{task_id}` (auto-refresh)
 - fixed-size monitor cells for task/status, updates, and payload panels (scrolls inside each cell)
 
@@ -235,6 +242,9 @@ curl -sS -X POST "http://localhost:8000/build" \
 
 # Check task status (replace <TASK_ID> from /build response)
 curl -sS "http://localhost:8000/tasks/<TASK_ID>"
+
+# List current active/queued task UUIDs
+curl -sS "http://localhost:8000/tasks/current"
 
 # Open HTML monitor page (auto-refresh, no JS required)
 # http://localhost:8000/monitor/<TASK_ID>
@@ -572,6 +582,7 @@ uv run pytest -v --cov-report=term-missing --cov-report=xml
 
 # CI uploads coverage.xml from the Python 3.12 job to Codecov
 # (set CODECOV_TOKEN in repo secrets if required)
+# Frontend CI uploads frontend/coverage/lcov.info as a separate Codecov flag.
 
 # Run live E2E integration test (opt-in; requires token + repo access)
 HELPING_HANDS_RUN_E2E_INTEGRATION=1 HELPING_HANDS_E2E_PR_NUMBER=1 uv run pytest -k e2e_integration -v
@@ -581,6 +592,12 @@ HELPING_HANDS_RUN_E2E_INTEGRATION=1 HELPING_HANDS_E2E_PR_NUMBER=1 uv run pytest 
 
 # Set up pre-commit hooks (one-time)
 uv run pre-commit install
+
+# Frontend quality checks
+npm --prefix frontend run lint
+npm --prefix frontend run typecheck
+npm --prefix frontend run test
+npm --prefix frontend run coverage
 
 # Build API docs locally
 uv sync --extra docs --extra server
@@ -595,6 +612,8 @@ services if they are not set in `.env`:
 - `REDIS_URL=redis://redis:6379/0`
 - `CELERY_BROKER_URL=redis://redis:6379/0`
 - `CELERY_RESULT_BACKEND=redis://redis:6379/1`
+- `HELPING_HANDS_FLOWER_API_URL=http://flower:5555` (server-side `/tasks/current`
+  discovery path)
 
 ## License
 

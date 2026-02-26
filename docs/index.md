@@ -25,6 +25,8 @@ Browse the auto-generated docs from source:
   applies to `codexcli`/`claudecodecli` by stripping provider API key env vars
   from subprocess execution.
 - JS monitor path polls `/tasks/{task_id}` for live status/updates.
+- Task sidebar discovers live UUIDs through `/tasks/current`
+  (Flower API when configured, Celery inspect fallback).
 - No-JS fallback path redirects to `/monitor/{task_id}` (auto-refresh HTML monitor).
 - Monitor views use fixed-size task/status/update/payload cells so layout remains
   stable while polling; long content scrolls inside each cell.
@@ -77,8 +79,9 @@ Browse the auto-generated docs from source:
   for repo-safe reads/writes and path validation.
 - MCP now exposes filesystem tools backed by the same layer:
   `read_file`, `write_file`, `mkdir`, and `path_exists`.
-- CI test runs include coverage reporting and upload `coverage.xml` to Codecov
-  from the Python 3.12 job.
+- CI test runs include coverage reporting and upload:
+  - `coverage.xml` from the Python 3.12 backend job.
+  - `frontend/coverage/lcov.info` from the frontend job.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
 
@@ -86,6 +89,21 @@ Browse the auto-generated docs from source:
 
 ```bash
 docker compose down && docker compose up --build
+```
+
+## React frontend wrapper
+
+An optional React + TypeScript frontend now lives in `frontend/` and wraps
+task submission/tracking against `/build`, `/tasks/{task_id}`, and
+`/tasks/current`.
+
+```bash
+cd frontend
+npm install
+npm run dev
+npm run lint
+npm run typecheck
+npm run coverage
 ```
 
 ## Codex backend requirements
