@@ -17,9 +17,51 @@ RUN uv sync --frozen --no-dev
 
 FROM base AS app-deps
 ARG CODEX_CLI_VERSION=0.80.0
+ARG NODEJS_MAJOR=22
+ARG GOOSE_CLI_VERSION=stable
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends nodejs npm \
-    && npm install -g "@openai/codex@${CODEX_CLI_VERSION}" \
+    && apt-get install -y --no-install-recommends curl ca-certificates bzip2 xz-utils libxcb1 \
+    && retry() { \
+        n=1; \
+        until "$@"; do \
+            if [ "$n" -ge 5 ]; then \
+                return 1; \
+            fi; \
+            sleep $((n * 2)); \
+            n=$((n + 1)); \
+        done; \
+    } \
+    && install_node() { \
+        case "$(uname -m)" in \
+            x86_64) node_arch="x64" ;; \
+            aarch64|arm64) node_arch="arm64" ;; \
+            *) echo "Unsupported architecture: $(uname -m)" >&2; return 1 ;; \
+        esac; \
+        node_dist_url="https://nodejs.org/dist/latest-v${NODEJS_MAJOR}.x"; \
+        node_tarball="$(curl -fsSL "${node_dist_url}/SHASUMS256.txt" | awk "/linux-${node_arch}\\.tar\\.xz$/ {print \$2; exit}")"; \
+        if [ -z "${node_tarball}" ]; then \
+            echo "Unable to resolve Node.js tarball for arch ${node_arch}" >&2; \
+            return 1; \
+        fi; \
+        curl -fsSL "${node_dist_url}/${node_tarball}" | tar -xJ -C /usr/local --strip-components=1; \
+    } \
+    && install_goose() { \
+        if [ "${GOOSE_CLI_VERSION}" = "stable" ]; then \
+            curl -fsSL "https://github.com/block/goose/releases/download/${GOOSE_CLI_VERSION}/download_cli.sh" \
+            | CONFIGURE=false bash; \
+        else \
+            curl -fsSL "https://github.com/block/goose/releases/download/${GOOSE_CLI_VERSION}/download_cli.sh" \
+            | CONFIGURE=false GOOSE_VERSION="${GOOSE_CLI_VERSION}" bash; \
+        fi; \
+    } \
+    && retry install_node \
+    && retry install_goose \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-factor 2 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && retry npm install -g "@openai/codex@${CODEX_CLI_VERSION}" \
+    && install -m 0755 /root/.local/bin/goose /usr/local/bin/goose \
     && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 RUN uv sync --frozen --no-dev --extra server --extra github --extra langchain --extra atomic

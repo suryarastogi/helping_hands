@@ -79,7 +79,7 @@ Browse the auto-generated docs from source:
   - `HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK=0`
 - App mode supports `codexcli`, `claudecodecli`, and `goose`; ensure the Celery worker
   environment has corresponding CLIs installed and authenticated.
-- Docker app/worker images in this repo install `@openai/codex`; rebuild images after updates.
+- Docker app/worker images in this repo install `@openai/codex` and Goose CLI; rebuild images after updates.
 
 Quick check:
 

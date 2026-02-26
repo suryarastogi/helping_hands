@@ -114,8 +114,8 @@ docker compose up --build
 App mode enqueues Celery tasks through the FastAPI server and supports `e2e`,
 iterative/basic backends, and CLI backends (`codexcli`, `claudecodecli`, `goose`).
 
-For `codexcli` in app mode, rebuild images after pulling latest changes so
-the worker image includes `codex`:
+For `codexcli`/`goose` in app mode, rebuild images after pulling latest
+changes so the worker image includes required CLIs:
 
 ```bash
 docker compose build --no-cache
@@ -338,7 +338,7 @@ Codex backend requirements:
 - By default, codex automation uses `--skip-git-repo-check` for non-interactive worker/CLI runs.
 - If you enable container mode, Docker must be installed and the image must include the `codex` executable.
 - App mode supports `codexcli`, `claudecodecli`, and `goose`; ensure the worker runtime has each CLI installed/authenticated as needed.
-- The included Dockerfile installs `@openai/codex` in app/worker images.
+- The included Dockerfile installs `@openai/codex` and Goose CLI in app/worker images.
 - The included Dockerfile does **not** install Claude Code CLI by default.
 - No extra Python optional dependency is required for `codexcli` itself (unlike `--extra langchain` and `--extra atomic` used by other iterative backends).
 

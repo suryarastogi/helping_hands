@@ -1479,6 +1479,16 @@ class TestCodexCLIHand:
 
 
 class TestGooseCLIHand:
+    def test_command_not_found_message_mentions_docker_rebuild(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = GooseCLIHand(config, repo_index)
+        msg = hand._command_not_found_message("goose")
+        assert "HELPING_HANDS_GOOSE_CLI_CMD" in msg
+        assert "rebuild worker images" in msg
+
     def test_render_command_defaults_to_goose_run_text(
         self,
         repo_index: RepoIndex,
