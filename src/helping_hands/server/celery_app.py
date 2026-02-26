@@ -62,6 +62,28 @@ _MAX_UPDATE_LINE_CHARS = 800
 _BUFFER_FLUSH_CHARS = 180
 
 
+def _github_clone_url(repo: str) -> str:
+    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
+    if token:
+        return f"https://x-access-token:{token}@github.com/{repo}.git"
+    return f"https://github.com/{repo}.git"
+
+
+def _git_noninteractive_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GCM_INTERACTIVE"] = "never"
+    return env
+
+
+def _redact_sensitive(text: str) -> str:
+    return re.sub(
+        r"(https://x-access-token:)[^@]+(@github\.com/)",
+        r"\1***\2",
+        text,
+    )
+
+
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
     """Resolve local repo path or clone an owner/repo reference."""
     path = Path(repo).expanduser().resolve()
@@ -71,15 +93,17 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
     if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         dest_root = Path(mkdtemp(prefix="helping_hands_repo_"))
         dest = dest_root / "repo"
-        url = f"https://github.com/{repo}.git"
+        url = _github_clone_url(repo)
         result = subprocess.run(
             ["git", "clone", "--depth", "1", url, str(dest)],
             capture_output=True,
             text=True,
             check=False,
+            env=_git_noninteractive_env(),
         )
         if result.returncode != 0:
             stderr = result.stderr.strip() or "unknown git clone error"
+            stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
         return dest.resolve(), repo

@@ -181,8 +181,13 @@ _UI_HTML = """<!doctype html>
       * {
         box-sizing: border-box;
       }
+      html,
+      body {
+        min-height: 100%;
+      }
       body {
         margin: 0;
+        min-height: 100vh;
         font-family: "Space Grotesk", "Segoe UI", sans-serif;
         color: var(--foreground);
         background:
@@ -192,6 +197,7 @@ _UI_HTML = """<!doctype html>
       }
       .page {
         max-width: 1280px;
+        min-height: 100vh;
         margin: 0 auto;
         padding: 28px 20px 36px;
         display: grid;
@@ -1710,8 +1716,13 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
       * {{
         box-sizing: border-box;
       }}
+      html,
+      body {{
+        min-height: 100%;
+      }}
       body {{
         margin: 0;
+        min-height: 100vh;
         font-family: "Space Grotesk", "Segoe UI", sans-serif;
         color: var(--foreground);
         background:
@@ -1721,6 +1732,7 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
       }}
       .page {{
         max-width: 1200px;
+        min-height: 100vh;
         margin: 0 auto;
         padding: 28px 20px 36px;
         display: grid;

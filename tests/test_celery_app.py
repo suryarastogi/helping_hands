@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 pytest.importorskip("celery")
@@ -39,6 +43,65 @@ class TestResolveCeleryUrls:
 
         assert broker == "redis://broker-host:6379/0"
         assert backend == "redis://broker-host:6379/0"
+
+
+class TestResolveRepoPath:
+    def test_clone_owner_repo_uses_token_and_noninteractive_env(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "gh-test-token")
+        monkeypatch.setenv("GH_TOKEN", "gh-test-token")
+        with (
+            patch("helping_hands.server.celery_app.Path.is_dir", return_value=False),
+            patch(
+                "helping_hands.server.celery_app.mkdtemp",
+                return_value="/tmp/helping_hands_repo_test",
+            ),
+            patch("helping_hands.server.celery_app.subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="",
+                stderr="",
+            )
+            repo_path, cloned_from = celery_app._resolve_repo_path("owner/repo")
+
+        clone_cmd = mock_run.call_args.args[0]
+        clone_env = mock_run.call_args.kwargs["env"]
+        assert clone_cmd[0:4] == ["git", "clone", "--depth", "1"]
+        assert (
+            clone_cmd[4]
+            == "https://x-access-token:gh-test-token@github.com/owner/repo.git"
+        )
+        assert clone_env["GIT_TERMINAL_PROMPT"] == "0"
+        assert clone_env["GCM_INTERACTIVE"] == "never"
+        assert repo_path == Path("/tmp/helping_hands_repo_test/repo").resolve()
+        assert cloned_from == "owner/repo"
+
+    def test_clone_owner_repo_falls_back_to_plain_https_without_token(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        with (
+            patch("helping_hands.server.celery_app.Path.is_dir", return_value=False),
+            patch(
+                "helping_hands.server.celery_app.mkdtemp",
+                return_value="/tmp/helping_hands_repo_test_plain",
+            ),
+            patch("helping_hands.server.celery_app.subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="",
+                stderr="",
+            )
+            celery_app._resolve_repo_path("owner/repo")
+
+        clone_cmd = mock_run.call_args.args[0]
+        assert clone_cmd[4] == "https://github.com/owner/repo.git"
 
 
 class TestNormalizeBackend:

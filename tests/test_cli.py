@@ -66,9 +66,11 @@ class TestCli:
         mock_is_dir: MagicMock,
         mock_from_path: MagicMock,
         mock_run: MagicMock,
+        monkeypatch,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "gh-test-token")
         mock_is_dir.side_effect = [False, True]
         mock_run.return_value = subprocess.CompletedProcess(
             args=[],
@@ -85,6 +87,15 @@ class TestCli:
         captured = capsys.readouterr()
         assert "Cloned suryarastogi/helping_hands" in captured.out
         assert "Ready. Indexed" in captured.out
+        clone_cmd = mock_run.call_args.args[0]
+        clone_env = mock_run.call_args.kwargs["env"]
+        assert clone_cmd[0:4] == ["git", "clone", "--depth", "1"]
+        assert (
+            clone_cmd[4]
+            == "https://x-access-token:gh-test-token@github.com/suryarastogi/helping_hands.git"
+        )
+        assert clone_env["GIT_TERMINAL_PROMPT"] == "0"
+        assert clone_env["GCM_INTERACTIVE"] == "never"
 
     @patch("helping_hands.cli.main.subprocess.run")
     @patch("helping_hands.cli.main.Path.is_dir", return_value=False)
