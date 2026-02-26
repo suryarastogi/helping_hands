@@ -14,7 +14,7 @@
 
 ## What is this?
 
-`helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal) or **app mode** (server with background workers).
+`helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal), **app mode** (server with background workers), or as an **MCP server** (tool provider for MCP clients).
 
 ### Modes
 
@@ -22,6 +22,7 @@
   - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
   - external CLI: `codexcli`, `claudecodecli`, `goose`, `geminicli`
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
+- **MCP server mode** — Runs an MCP tool server (`helping-hands-mcp`) so MCP clients (Claude Desktop, Cursor, etc.) can index repos, read/write files, and enqueue build tasks.
 
 ### Execution flow
 
@@ -78,6 +79,13 @@ uv sync --dev
 
 # Run in CLI mode (default) against a target repo
 uv run helping-hands <local-path-or-owner/repo>
+
+# MCP server (stdio, for Claude Desktop / Cursor)
+# (requires `uv sync --extra mcp` if you didn't install `--dev`)
+uv run helping-hands-mcp
+
+# MCP server over HTTP (streamable-http transport)
+uv run helping-hands-mcp --http
 
 # Run iterative LangGraph backend (owner/repo is auto-cloned)
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4
@@ -502,6 +510,8 @@ Goose backend notes:
     (or default to `ollama` + `llama3.2:latest`).
 - For remote Ollama instances, set `OLLAMA_HOST` (e.g.
   `http://192.168.1.143:11434`).
+- For `helping_hands` built-in Ollama provider wrapper (OpenAI-compatible),
+  set `OLLAMA_BASE_URL` (e.g. `http://192.168.1.143:11434/v1`).
 - Interactive `goose configure` is not required for helping_hands runs.
 - Goose runs require `GH_TOKEN` or `GITHUB_TOKEN`.
 - If only one of `GH_TOKEN` / `GITHUB_TOKEN` is set, runtime mirrors it to both

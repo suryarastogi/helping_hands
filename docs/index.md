@@ -85,6 +85,25 @@ Browse the auto-generated docs from source:
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
 
+## MCP server
+
+`helping_hands` includes an MCP tool server (`helping-hands-mcp`) so MCP clients
+(Claude Desktop, Cursor, etc.) can index repos, read/write files, and enqueue
+build tasks.
+
+```bash
+# stdio transport (desktop clients)
+uv run helping-hands-mcp
+
+# streamable-http transport (network clients)
+uv run helping-hands-mcp --http
+```
+
+Notes:
+
+- Install dependencies with `uv sync --extra mcp` (and `--extra server` for `build_feature`).
+- `build_feature` enqueues Celery tasks; run the app/worker stack (Redis + worker) for async execution.
+
 ## Full Docker dev reset
 
 ```bash
@@ -151,6 +170,8 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
   (fallback: `ollama` + `llama3.2:latest`) so `goose configure` is not required.
 - For remote Ollama instances, set `OLLAMA_HOST`
   (for example `http://192.168.1.143:11434`).
+- For `helping_hands` built-in Ollama provider wrapper (OpenAI-compatible),
+  set `OLLAMA_BASE_URL` (for example `http://192.168.1.143:11434/v1`).
 - Runtime mirrors the available token into both `GH_TOKEN` and `GITHUB_TOKEN`
   for Goose subprocesses.
 - Local GitHub auth fallback is disabled for Goose backend runs.
