@@ -604,6 +604,13 @@ uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
 
+### Smoke test results
+
+_Last run: 2026-02-26 (darwin / Python 3.12.10)_
+
+- `PYTHONPATH=src python -m helping_hands.cli.main .` → `Ready. Indexed 156 files.`
+- `HELPING_HANDS_RUN_E2E_INTEGRATION=0 COVERAGE_FILE=/tmp/helping_hands_coverage PYTHONPYCACHEPREFIX=/tmp/helping_hands_pycache python -m pytest -q -p no:cacheprovider` → `258 passed, 1 skipped`
+
 ### Compose env defaults
 
 `compose.yaml` now sets default in-network Celery/Redis URLs for all app-mode
