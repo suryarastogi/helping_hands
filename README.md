@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 25, 2026
+**Last updated:** February 26, 2026
 
 ## What is this?
 
@@ -20,7 +20,7 @@
 
 - **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace). You can index only, or run iterative backends plus external-CLI backends with streamed output:
   - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
-  - external CLI: `codexcli`, `claudecodecli`, `goose`
+  - external CLI: `codexcli`, `claudecodecli`, `goose`, `geminicli`
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -94,6 +94,9 @@ uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --prompt "Imp
 # Run Claude Code CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend claudecodecli --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
 
+# Run Gemini CLI backend (two-phase: initialize repo context, then execute task)
+uv run helping-hands owner/repo --backend geminicli --prompt "Implement X"
+
 # Force native Codex/Claude auth session usage (ignore provider API key env vars)
 uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --use-native-cli-auth --prompt "Implement X"
 
@@ -120,7 +123,8 @@ docker compose up --build
 ### Trigger a run in app mode
 
 App mode enqueues Celery tasks through the FastAPI server and supports `e2e`,
-iterative/basic backends, and CLI backends (`codexcli`, `claudecodecli`, `goose`).
+iterative/basic backends, and CLI backends (`codexcli`, `claudecodecli`,
+`goose`, `geminicli`).
 
 For `codexcli`/`goose` in app mode, rebuild images after pulling latest
 changes so the worker image includes required CLIs:
@@ -149,7 +153,7 @@ For deterministic/offline worker runs, prefer a worker image that preinstalls
 Claude Code CLI instead of relying on runtime `npx` download.
 
 The built-in UI at `http://localhost:8000/` supports:
-- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`)
+- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`)
 - model override
 - max iterations
 - optional PR number
@@ -222,6 +226,15 @@ curl -sS -X POST "http://localhost:8000/build" \
     "repo_path": "suryarastogi/helping_hands",
     "prompt": "Implement one small safe improvement",
     "backend": "goose"
+  }'
+
+# Example geminicli run in app mode
+curl -sS -X POST "http://localhost:8000/build" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_path": "suryarastogi/helping_hands",
+    "prompt": "Implement one small safe improvement",
+    "backend": "geminicli"
   }'
 ```
 
@@ -320,6 +333,7 @@ Key CLI flags:
 - `--backend codexcli` — run Codex CLI backend (initialize/learn repo, then execute task)
 - `--backend claudecodecli` — run Claude Code CLI backend (initialize/learn repo, then execute task)
 - `--backend goose` — run Goose CLI backend (initialize/learn repo, then execute task)
+- `--backend geminicli` — run Gemini CLI backend (initialize/learn repo, then execute task)
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
@@ -357,7 +371,7 @@ Codex backend requirements:
 - By default, codex commands run with host/container-aware sandbox mode (`workspace-write` on host, `danger-full-access` in containers).
 - By default, codex automation uses `--skip-git-repo-check` for non-interactive worker/CLI runs.
 - If you enable container mode, Docker must be installed and the image must include the `codex` executable.
-- App mode supports `codexcli`, `claudecodecli`, and `goose`; ensure the worker runtime has each CLI installed/authenticated as needed.
+- App mode supports `codexcli`, `claudecodecli`, `goose`, and `geminicli`; ensure the worker runtime has each CLI installed/authenticated as needed.
 - The included Dockerfile installs `@openai/codex` and Goose CLI in app/worker images.
 - The included Dockerfile does **not** install Claude Code CLI by default.
 - No extra Python optional dependency is required for `codexcli` itself (unlike `--extra langchain` and `--extra atomic` used by other iterative backends).
@@ -372,9 +386,11 @@ CLI subprocess runtime controls (all CLI backends):
 
 - `HELPING_HANDS_CLI_IO_POLL_SECONDS` (default: `2`) — stdout polling interval.
 - `HELPING_HANDS_CLI_HEARTBEAT_SECONDS` (default: `20`) — emit a
-  "still running" line when command output is quiet.
-- `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default: `300`) — terminate a
-  subprocess that produces no output for too long.
+  "still running" line (including elapsed/timeout seconds) when command output
+  is quiet.
+- `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default: `300`, except
+  `geminicli` default `900`) — terminate a subprocess that produces no output
+  for too long.
 
 Claude Code backend notes:
 
@@ -440,6 +456,18 @@ uv run helping-hands owner/repo --backend goose --model gpt-5.2 --prompt "Implem
 uv run helping-hands owner/repo --backend goose --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
 ```
 
+Gemini CLI note:
+
+- Gemini `-p` runs may be quiet before producing output; `helping-hands`
+  heartbeats continue while waiting.
+- `geminicli` injects `--approval-mode auto_edit` by default for
+  non-interactive scripted runs (override by explicitly setting
+  `--approval-mode` in `HELPING_HANDS_GEMINI_CLI_CMD`).
+- Default idle timeout for `geminicli` is 900s (other CLI backends remain 300s).
+- Override with `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS=<seconds>` when needed.
+- If Gemini rejects a deprecated/unavailable model, `geminicli` retries once
+  without `--model` so Gemini CLI can pick a default available model.
+
 
 Backend command examples:
 
@@ -461,6 +489,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend claudecodecli --mode
 
 # goose
 uv run helping-hands "suryarastogi/helping_hands" --backend goose --prompt "Implement one small safe improvement"
+
+# geminicli
+uv run helping-hands "suryarastogi/helping_hands" --backend geminicli --prompt "Implement one small safe improvement"
 
 # e2e
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"

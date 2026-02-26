@@ -37,7 +37,7 @@ Browse the auto-generated docs from source:
   unless disabled via `--no-pr`.
 - When `enable_execution` is set, PR finalization runs `uv run pre-commit run --all-files`
   (auto-fix + validation retry) before commit/push.
-- CLI-driven backends (`codexcli`, `claudecodecli`, `goose`) run a two-phase flow:
+- CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run a two-phase flow:
   initialize/learn first, then execute the user task.
 - `codexcli` passes `--model gpt-5.2` by default when model is unset/default.
 - `codexcli` sets sandbox mode automatically:
@@ -58,10 +58,17 @@ Browse the auto-generated docs from source:
   retry, the run fails with a clear error instead of returning success.
 - For edit-intent prompts, `claudecodecli` auto-runs one follow-up apply pass
   when the first task pass reports no repository file changes.
+- `geminicli` uses `gemini -p` by default and supports command override via
+  `HELPING_HANDS_GEMINI_CLI_CMD`.
+- `geminicli` injects `--approval-mode auto_edit` by default for
+  non-interactive scripted runs (unless an explicit `--approval-mode` is
+  already provided in `HELPING_HANDS_GEMINI_CLI_CMD`).
+- If Gemini rejects a deprecated/unavailable model, `geminicli` retries once
+  without `--model` so Gemini CLI can select a default available model.
 - CLI subprocess controls (all CLI backends):
   - `HELPING_HANDS_CLI_IO_POLL_SECONDS` (default `2`)
-  - `HELPING_HANDS_CLI_HEARTBEAT_SECONDS` (default `20`)
-  - `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default `300`)
+  - `HELPING_HANDS_CLI_HEARTBEAT_SECONDS` (default `20`, emits elapsed/timeout details)
+  - `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default `300`, `geminicli` default `900`)
 - Basic iterative hands preload iteration-1 context with `README.md`/`AGENT.md`
   (when present) and a bounded-depth repo tree snapshot.
 - Model selection resolves through `lib.ai_providers` wrappers, including
@@ -86,7 +93,7 @@ Browse the auto-generated docs from source:
   - `HELPING_HANDS_CODEX_CONTAINER_IMAGE=<image-with-codex-cli>`
 - You can disable automatic `--skip-git-repo-check` with:
   - `HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK=0`
-- App mode supports `codexcli`, `claudecodecli`, and `goose`; ensure the Celery worker
+- App mode supports `codexcli`, `claudecodecli`, `goose`, and `geminicli`; ensure the Celery worker
   environment has corresponding CLIs installed and authenticated.
 - Docker app/worker images in this repo install `@openai/codex` and Goose CLI; rebuild images after updates.
 
@@ -124,6 +131,17 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
   for Goose subprocesses.
 - Local GitHub auth fallback is disabled for Goose backend runs.
 
+## Gemini backend requirements
+
+- `gemini` CLI on `PATH`.
+- `GEMINI_API_KEY` set in the runtime.
+- Gemini `-p` can be quiet before first output; heartbeats continue while
+  waiting.
+- `geminicli` uses a 900s default idle timeout (override with
+  `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS`).
+- If a requested Gemini model is unavailable, `geminicli` retries once without
+  `--model`.
+
 ## CLI examples
 
 ```bash
@@ -144,6 +162,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend claudecodecli --mode
 
 # goose
 uv run helping-hands "suryarastogi/helping_hands" --backend goose --prompt "Implement one small safe improvement"
+
+# geminicli
+uv run helping-hands "suryarastogi/helping_hands" --backend geminicli --prompt "Implement one small safe improvement"
 
 # e2e (new PR)
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"

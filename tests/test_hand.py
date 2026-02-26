@@ -1195,7 +1195,21 @@ class TestClaudeCodeHand:
         hand = ClaudeCodeHand(config, repo_index)
         cmd = hand._render_command("hello world")
         assert cmd[:3] == ["claude", "--dangerously-skip-permissions", "-p"]
-        assert cmd[-1] == "hello world"
+        assert cmd[3] == "hello world"
+
+    def test_render_command_places_prompt_after_flag_when_model_is_set(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CLI_CMD", "claude -p")
+        config = Config(repo="/tmp/fake", model="anthropic/claude-sonnet-4-5")
+        hand = ClaudeCodeHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        prompt_index = cmd.index("-p") + 1
+        assert cmd[prompt_index] == "hello world"
+        assert "--model" in cmd
+        assert "claude-sonnet-4-5" in cmd
 
     def test_render_command_skips_openai_default_model(
         self,
@@ -2192,6 +2206,23 @@ class TestGeminiCLIHand:
         assert "authentication failed" in msg
         assert "GEMINI_API_KEY" in msg
 
+    def test_build_gemini_failure_message_for_model_not_found(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = GeminiCLIHand(config, repo_index)
+        msg = hand._build_gemini_failure_message(
+            return_code=1,
+            output=(
+                "ModelNotFoundError: This model models/gemini-2.0-flash is no "
+                "longer available to new users."
+            ),
+        )
+        assert "model is unavailable" in msg
+        assert "gemini-2.0-flash" in msg
+        assert "omit --model" in msg
+
     def test_render_command_defaults_to_gemini_prompt_mode(
         self,
         repo_index: RepoIndex,
@@ -2201,10 +2232,57 @@ class TestGeminiCLIHand:
         config = Config(repo="/tmp/fake", model="gemini-2.0-flash")
         hand = GeminiCLIHand(config, repo_index)
         cmd = hand._render_command("hello world")
-        assert cmd[:2] == ["gemini", "-p"]
+        assert cmd[0] == "gemini"
+        assert "--approval-mode" in cmd
+        assert cmd[cmd.index("--approval-mode") + 1] == "auto_edit"
+        assert "-p" in cmd
+        assert cmd[cmd.index("-p") + 1] == "hello world"
         assert "--model" in cmd
         assert "gemini-2.0-flash" in cmd
-        assert cmd[-1] == "hello world"
+
+    def test_render_command_respects_explicit_approval_mode(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv(
+            "HELPING_HANDS_GEMINI_CLI_CMD",
+            "gemini -p --approval-mode default",
+        )
+        hand = GeminiCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        assert cmd.count("--approval-mode") == 1
+        assert cmd[cmd.index("--approval-mode") + 1] == "default"
+
+    def test_retry_command_after_model_not_found_strips_model_flag(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = GeminiCLIHand(config, repo_index)
+        cmd = ["gemini", "-p", "hello world", "--model", "gemini-2.0-flash"]
+        retry = hand._retry_command_after_failure(
+            cmd,
+            output=(
+                "ModelNotFoundError: This model models/gemini-2.0-flash is no "
+                "longer available to new users."
+            ),
+            return_code=1,
+        )
+        assert retry is not None
+        assert "--model" not in retry
+        assert "gemini-2.0-flash" not in retry
+
+    def test_idle_timeout_defaults_to_15_minutes(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS", raising=False)
+        hand = GeminiCLIHand(config, repo_index)
+        assert hand._idle_timeout_seconds() == 900.0
 
     def test_build_subprocess_env_requires_gemini_key(
         self,
@@ -2254,7 +2332,9 @@ class TestGeminiCLIHand:
 
         assert len(prompts) == 2
         assert "Initialization phase" in prompts[0]
+        assert "helping_hands script started by the user" in prompts[0]
         assert "User task request" in prompts[1]
+        assert "helping_hands script started by the user" in prompts[1]
         assert "Init summary." in prompts[1]
         assert "Task output." in resp.message
         assert resp.metadata["backend"] == "geminicli"

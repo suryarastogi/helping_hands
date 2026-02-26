@@ -78,6 +78,28 @@ class _TwoPhaseCLIHand(Hand):
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
         return cmd
 
+    @staticmethod
+    def _inject_prompt_argument(cmd: list[str], prompt: str) -> bool:
+        """Insert/replace prompt values for explicit prompt flags.
+
+        Returns True when the prompt was wired into an explicit prompt flag.
+        """
+        for idx, token in enumerate(cmd):
+            if token in {"-p", "--prompt"}:
+                next_idx = idx + 1
+                if next_idx < len(cmd) and not cmd[next_idx].startswith("-"):
+                    cmd[next_idx] = prompt
+                else:
+                    cmd.insert(next_idx, prompt)
+                return True
+            if token.startswith("--prompt="):
+                cmd[idx] = f"--prompt={prompt}"
+                return True
+            if token.startswith("-p="):
+                cmd[idx] = f"-p={prompt}"
+                return True
+        return False
+
     def _render_command(self, prompt: str) -> list[str]:
         resolved_model = self._resolve_cli_model()
         placeholders = {
@@ -109,7 +131,9 @@ class _TwoPhaseCLIHand(Hand):
         ):
             rendered.extend(["--model", resolved_model])
 
-        if not has_prompt_placeholder:
+        if not has_prompt_placeholder and not self._inject_prompt_argument(
+            rendered, prompt
+        ):
             rendered.append(prompt)
         rendered = self._apply_backend_defaults(rendered)
         return self._wrap_container_if_enabled(rendered)
@@ -259,12 +283,16 @@ class _TwoPhaseCLIHand(Hand):
             file_list = "- (no indexed files)"
         return (
             "Initialization phase: learn this repository before task execution.\n"
+            "Execution context: this hand is running inside a non-interactive "
+            "helping_hands script started by the user.\n"
             f"Repository root: {self.repo_index.root}\n"
             "Goals:\n"
             "1. Read README.md and AGENT.md if they exist.\n"
             "2. Learn conventions from the file tree snapshot.\n"
             "3. Output a concise implementation-oriented summary.\n"
             "Do not ask the user for file contents.\n"
+            "Use only tools that are actually available in this runtime.\n"
+            "If a tool/action is unavailable, do not loop on retries.\n"
             "Do not perform edits in this phase.\n\n"
             "Indexed files:\n"
             f"{file_list}\n"
@@ -281,6 +309,12 @@ class _TwoPhaseCLIHand(Hand):
             f"{summary or '(no summary produced)'}\n\n"
             "User task request:\n"
             f"{prompt}\n\n"
+            "Execution context: this hand is running inside a non-interactive "
+            "helping_hands script started by the user.\n"
+            "Do not ask the user for additional approvals or interactive input.\n"
+            "Use only tools that are actually available in this runtime.\n"
+            "If required write/edit tools are unavailable, report that briefly "
+            "and stop instead of retrying unavailable tools.\n"
             "Implement the task directly in the repository. "
             "Do not ask the user to paste files."
         )
@@ -435,7 +469,8 @@ class _TwoPhaseCLIHand(Hand):
                     if now - last_heartbeat_ts >= heartbeat_seconds:
                         await emit(
                             f"[{self._CLI_LABEL}] still running "
-                            f"({int(idle_seconds)}s since last output)...\n"
+                            f"({int(idle_seconds)}s since last output; "
+                            f"timeout={int(idle_timeout_seconds)}s)...\n"
                         )
                         last_heartbeat_ts = now
                     if idle_seconds >= idle_timeout_seconds:
@@ -468,7 +503,7 @@ class _TwoPhaseCLIHand(Hand):
                     if retry_cmd and retry_cmd != cmd:
                         await emit(
                             f"[{self._CLI_LABEL}] command failed; retrying with "
-                            "adjusted permissions flags.\n"
+                            "adjusted arguments.\n"
                         )
                         return await self._invoke_cli_with_cmd(retry_cmd, emit=emit)
                     msg = self._build_failure_message(
