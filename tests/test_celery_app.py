@@ -67,6 +67,11 @@ class TestNormalizeBackend:
         assert requested == "goose"
         assert runtime == "goose"
 
+    def test_geminicli_backend_is_supported(self) -> None:
+        requested, runtime = celery_app._normalize_backend("geminicli")
+        assert requested == "geminicli"
+        assert runtime == "geminicli"
+
     def test_invalid_backend_raises(self) -> None:
         with pytest.raises(ValueError, match="unsupported backend"):
             celery_app._normalize_backend("unknown-backend")
@@ -91,3 +96,13 @@ class TestCodexAuth:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.setenv("HOME", str(tmp_path))
         assert celery_app._has_codex_auth() is False
+
+
+class TestGeminiAuth:
+    def test_has_gemini_auth_with_key(self, monkeypatch) -> None:
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        assert celery_app._has_gemini_auth() is True
+
+    def test_has_gemini_auth_false_without_key(self, monkeypatch) -> None:
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        assert celery_app._has_gemini_auth() is False

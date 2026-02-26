@@ -143,6 +143,12 @@ class Hand(abc.ABC):
             msg = f"failed to configure authenticated push remote: {stderr}"
             raise RuntimeError(msg)
 
+    def _use_native_git_auth_for_push(self, *, github_token: str) -> bool:
+        """Whether PR push should use the repo's existing git auth setup."""
+        if github_token.strip():
+            return False
+        return bool(getattr(self.config, "use_native_cli_auth", False))
+
     def _should_run_precommit_before_pr(self) -> bool:
         return bool(getattr(self.config, "enable_execution", False))
 
@@ -272,7 +278,8 @@ class Hand(abc.ABC):
                     repo_dir,
                     f"feat({backend}): apply hand updates",
                 )
-                self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
+                if not self._use_native_git_auth_for_push(github_token=gh.token):
+                    self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
                 prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
                 prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
                 os.environ["GIT_TERMINAL_PROMPT"] = "0"

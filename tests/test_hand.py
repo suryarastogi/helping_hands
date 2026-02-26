@@ -98,6 +98,39 @@ class TestHandABC:
         assert "utils.py" in prompt
         assert str(repo_index.root) in prompt
 
+    def test_use_native_git_auth_for_push_prefers_token(
+        self, repo_index: RepoIndex
+    ) -> None:
+        config = Config(
+            repo=str(repo_index.root),
+            model="test-model",
+            use_native_cli_auth=True,
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+        assert hand._use_native_git_auth_for_push(github_token="ghp_test") is False
+
+    def test_use_native_git_auth_for_push_without_token_uses_flag(
+        self, repo_index: RepoIndex
+    ) -> None:
+        enabled = _StubFinalizeHand(
+            Config(
+                repo=str(repo_index.root),
+                model="test-model",
+                use_native_cli_auth=True,
+            ),
+            repo_index,
+        )
+        disabled = _StubFinalizeHand(
+            Config(
+                repo=str(repo_index.root),
+                model="test-model",
+                use_native_cli_auth=False,
+            ),
+            repo_index,
+        )
+        assert enabled._use_native_git_auth_for_push(github_token="") is True
+        assert disabled._use_native_git_auth_for_push(github_token="") is False
+
     def test_system_prompt_mentions_conventions(
         self, config: Config, repo_index: RepoIndex
     ) -> None:
@@ -2141,26 +2174,134 @@ class TestGooseCLIHand:
 
 
 # ---------------------------------------------------------------------------
-# GeminiCLIHand (scaffolding)
+# GeminiCLIHand
 # ---------------------------------------------------------------------------
 
 
 class TestGeminiCLIHand:
-    def test_run_returns_placeholder(
-        self, config: Config, repo_index: RepoIndex
+    def test_build_gemini_failure_message_for_auth_error(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
     ) -> None:
+        hand = GeminiCLIHand(config, repo_index)
+        msg = hand._build_gemini_failure_message(
+            return_code=1,
+            output="ERROR: unauthorized: missing GEMINI_API_KEY",
+        )
+        assert "authentication failed" in msg
+        assert "GEMINI_API_KEY" in msg
+
+    def test_render_command_defaults_to_gemini_prompt_mode(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GEMINI_CLI_CMD", "gemini")
+        config = Config(repo="/tmp/fake", model="gemini-2.0-flash")
+        hand = GeminiCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        assert cmd[:2] == ["gemini", "-p"]
+        assert "--model" in cmd
+        assert "gemini-2.0-flash" in cmd
+        assert cmd[-1] == "hello world"
+
+    def test_build_subprocess_env_requires_gemini_key(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        hand = GeminiCLIHand(config, repo_index)
+        with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
+            hand._build_subprocess_env()
+
+    @patch.object(GeminiCLIHand, "_finalize_repo_pr")
+    @patch.object(GeminiCLIHand, "_invoke_gemini", autospec=True)
+    def test_run_executes_init_then_task(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: GeminiCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "Init summary.\n" if len(prompts) == 1 else "Task output.\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/88",
+            "pr_number": "88",
+            "pr_branch": "helping-hands/geminicli-test",
+            "pr_commit": "abc123",
+        }
+
         hand = GeminiCLIHand(config, repo_index)
         resp = hand.run("do something")
-        assert "not yet implemented" in resp.message
-        assert resp.metadata["backend"] == "geminicli"
 
-    def test_stream_yields_placeholder(
-        self, config: Config, repo_index: RepoIndex
+        assert len(prompts) == 2
+        assert "Initialization phase" in prompts[0]
+        assert "User task request" in prompts[1]
+        assert "Init summary." in prompts[1]
+        assert "Task output." in resp.message
+        assert resp.metadata["backend"] == "geminicli"
+        mock_finalize.assert_called_once()
+
+    @patch.object(GeminiCLIHand, "_finalize_repo_pr")
+    @patch.object(GeminiCLIHand, "_invoke_gemini", autospec=True)
+    def test_stream_runs_two_phases_and_emits_pr_result(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
     ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: GeminiCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "init output\n" if len(prompts) == 1 else "task output\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/8",
+            "pr_number": "8",
+            "pr_branch": "helping-hands/geminicli-test",
+            "pr_commit": "abc123",
+        }
+
         hand = GeminiCLIHand(config, repo_index)
         chunks = asyncio.run(_collect_stream(hand, "hello"))
-        assert len(chunks) == 1
-        assert "not yet implemented" in chunks[0]
+        text = "".join(chunks)
+
+        assert "[phase 1/2]" in text
+        assert "[phase 2/2]" in text
+        assert "init output" in text
+        assert "task output" in text
+        assert "PR created" in text
+        assert len(prompts) == 2
 
 
 # ---------------------------------------------------------------------------

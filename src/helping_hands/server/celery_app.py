@@ -55,6 +55,7 @@ _SUPPORTED_BACKENDS = {
     "codexcli",
     "claudecodecli",
     "goose",
+    "geminicli",
 }
 _MAX_STORED_UPDATES = 200
 _MAX_UPDATE_LINE_CHARS = 800
@@ -104,6 +105,11 @@ def _has_codex_auth() -> bool:
         return True
     auth_file = Path.home() / ".codex" / "auth.json"
     return auth_file.is_file()
+
+
+def _has_gemini_auth() -> bool:
+    """Return whether runtime has credentials for Gemini CLI calls."""
+    return bool(os.environ.get("GEMINI_API_KEY", "").strip())
 
 
 def _trim_updates(updates: list[str]) -> None:
@@ -260,6 +266,7 @@ def build_feature(
         ClaudeCodeHand,
         CodexCLIHand,
         E2EHand,
+        GeminiCLIHand,
         GooseCLIHand,
     )
     from helping_hands.lib.repo import RepoIndex
@@ -360,6 +367,13 @@ def build_feature(
         )
         _append_update(updates, msg)
         raise RuntimeError(msg)
+    if runtime_backend == "geminicli" and not _has_gemini_auth():
+        msg = (
+            "Gemini authentication is missing in worker runtime. "
+            "Set GEMINI_API_KEY in .env and recreate containers."
+        )
+        _append_update(updates, msg)
+        raise RuntimeError(msg)
     _append_update(
         updates,
         (
@@ -403,6 +417,11 @@ def build_feature(
             )
         elif runtime_backend == "goose":
             hand = GooseCLIHand(
+                config,
+                repo_index,
+            )
+        elif runtime_backend == "geminicli":
+            hand = GeminiCLIHand(
                 config,
                 repo_index,
             )

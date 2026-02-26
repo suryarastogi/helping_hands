@@ -37,6 +37,7 @@ class TestHomeUI:
         assert '<option value="codexcli">codexcli</option>' in response.text
         assert '<option value="claudecodecli">claudecodecli</option>' in response.text
         assert '<option value="goose">goose</option>' in response.text
+        assert '<option value="geminicli">geminicli</option>' in response.text
 
     def test_home_ui_uses_smoke_test_default_prompt(self) -> None:
         client = TestClient(app)
@@ -210,6 +211,46 @@ class TestBuildForm:
             "pr_number": None,
             "backend": "goose",
             "model": None,
+            "max_iterations": 3,
+            "no_pr": False,
+            "enable_execution": False,
+            "enable_web": False,
+            "use_native_cli_auth": False,
+        }
+
+    def test_enqueues_geminicli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-gemini")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "suryarastogi/helping_hands",
+                "prompt": "small gemini task",
+                "backend": "geminicli",
+                "model": "gemini-2.0-flash",
+                "max_iterations": "3",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/monitor/task-gemini"
+        assert captured == {
+            "repo_path": "suryarastogi/helping_hands",
+            "prompt": "small gemini task",
+            "pr_number": None,
+            "backend": "geminicli",
+            "model": "gemini-2.0-flash",
             "max_iterations": 3,
             "no_pr": False,
             "enable_execution": False,
