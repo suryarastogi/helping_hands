@@ -394,7 +394,6 @@ export function upsertTaskHistory(
 
 export default function App() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
-  const [taskIdInput, setTaskIdInput] = useState("");
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState("idle");
   const [payload, setPayload] = useState<Record<string, unknown> | null>(null);
@@ -567,7 +566,6 @@ export default function App() {
     }
 
     if (queryTaskId) {
-      setTaskIdInput(queryTaskId);
       setTaskId(queryTaskId);
       setMainView("monitor");
       setStatus(queryStatus || "queued");
@@ -659,12 +657,10 @@ export default function App() {
     setPayload(null);
     setUpdates([]);
     setTaskId(null);
-    setTaskIdInput("");
   };
 
   const selectTask = (selectedTaskId: string) => {
     setMainView("monitor");
-    setTaskIdInput(selectedTaskId);
     setTaskId(selectedTaskId);
     setStatus("monitoring");
     setPayload(null);
@@ -721,7 +717,6 @@ export default function App() {
       const data = (await response.json()) as BuildResponse;
       setMainView("monitor");
       setTaskId(data.task_id);
-      setTaskIdInput(data.task_id);
       setStatus(data.status);
       setPayload(data as unknown as Record<string, unknown>);
       setIsPolling(true);
@@ -738,28 +733,6 @@ export default function App() {
       setPayload({ error: String(error) });
       setIsPolling(false);
     }
-  };
-
-  const monitorTask = () => {
-    const id = taskIdInput.trim();
-    if (!id) {
-      setStatus("error");
-      setPayload({ error: "Provide a task ID first." });
-      return;
-    }
-    setMainView("monitor");
-    setTaskId(id);
-    setStatus("monitoring");
-    setPayload(null);
-    setUpdates([]);
-    setIsPolling(true);
-    setTaskHistory((current) =>
-      upsertTaskHistory(current, {
-        taskId: id,
-        status: "monitoring",
-        repoPath: form.repo_path.trim(),
-      })
-    );
   };
 
   return (
@@ -842,117 +815,109 @@ export default function App() {
                 />
               </label>
 
-              <div className="row two-col">
-                <label>
-                  Backend
-                  <select
-                    value={form.backend}
-                    onChange={(event) =>
-                      updateField("backend", event.target.value as Backend)
-                    }
-                  >
-                    {BACKEND_OPTIONS.map((backend) => (
-                      <option key={backend} value={backend}>
-                        {backend}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <details className="advanced-settings">
+                <summary>Advanced settings</summary>
+                <div className="advanced-settings-body">
+                  <div className="row two-col">
+                    <label>
+                      Backend
+                      <select
+                        value={form.backend}
+                        onChange={(event) =>
+                          updateField("backend", event.target.value as Backend)
+                        }
+                      >
+                        {BACKEND_OPTIONS.map((backend) => (
+                          <option key={backend} value={backend}>
+                            {backend}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                <label>
-                  Model (optional)
-                  <input
-                    value={form.model}
-                    onChange={(event) => updateField("model", event.target.value)}
-                    placeholder="gpt-5.2"
-                  />
-                </label>
-              </div>
+                    <label>
+                      Model (optional)
+                      <input
+                        value={form.model}
+                        onChange={(event) => updateField("model", event.target.value)}
+                        placeholder="gpt-5.2"
+                      />
+                    </label>
+                  </div>
 
-              <div className="row three-col">
-                <label>
-                  Max iterations
-                  <input
-                    type="number"
-                    min={1}
-                    value={form.max_iterations}
-                    onChange={(event) =>
-                      updateField(
-                        "max_iterations",
-                        Math.max(1, Number(event.target.value || 1))
-                      )
-                    }
-                  />
-                </label>
+                  <div className="row two-col">
+                    <label>
+                      Max iterations
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.max_iterations}
+                        onChange={(event) =>
+                          updateField(
+                            "max_iterations",
+                            Math.max(1, Number(event.target.value || 1))
+                          )
+                        }
+                      />
+                    </label>
 
-                <label>
-                  PR number (optional)
-                  <input
-                    type="number"
-                    min={1}
-                    value={form.pr_number}
-                    onChange={(event) => updateField("pr_number", event.target.value)}
-                    placeholder="1"
-                  />
-                </label>
+                    <label>
+                      PR number (optional)
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.pr_number}
+                        onChange={(event) => updateField("pr_number", event.target.value)}
+                      />
+                    </label>
+                  </div>
 
-                <label>
-                  Task ID (manual monitor)
-                  <input
-                    value={taskIdInput}
-                    onChange={(event) => setTaskIdInput(event.target.value)}
-                    placeholder="task-..."
-                  />
-                </label>
-              </div>
+                  <div className="row three-col check-grid">
+                    <label className="check-row">
+                      <input
+                        type="checkbox"
+                        checked={form.no_pr}
+                        onChange={(event) => updateField("no_pr", event.target.checked)}
+                      />
+                      Disable final PR push/create
+                    </label>
 
-              <div className="row three-col check-grid">
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={form.no_pr}
-                    onChange={(event) => updateField("no_pr", event.target.checked)}
-                  />
-                  Disable final PR push/create
-                </label>
+                    <label className="check-row">
+                      <input
+                        type="checkbox"
+                        checked={form.enable_execution}
+                        onChange={(event) =>
+                          updateField("enable_execution", event.target.checked)
+                        }
+                      />
+                      Enable execution tools
+                    </label>
 
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={form.enable_execution}
-                    onChange={(event) =>
-                      updateField("enable_execution", event.target.checked)
-                    }
-                  />
-                  Enable execution tools
-                </label>
+                    <label className="check-row">
+                      <input
+                        type="checkbox"
+                        checked={form.enable_web}
+                        onChange={(event) => updateField("enable_web", event.target.checked)}
+                      />
+                      Enable web tools
+                    </label>
 
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={form.enable_web}
-                    onChange={(event) => updateField("enable_web", event.target.checked)}
-                  />
-                  Enable web tools
-                </label>
-
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={form.use_native_cli_auth}
-                    onChange={(event) =>
-                      updateField("use_native_cli_auth", event.target.checked)
-                    }
-                  />
-                  Use native CLI auth (Codex/Claude)
-                </label>
-              </div>
+                    <label className="check-row">
+                      <input
+                        type="checkbox"
+                        checked={form.use_native_cli_auth}
+                        onChange={(event) =>
+                          updateField("use_native_cli_auth", event.target.checked)
+                        }
+                      />
+                      Use native CLI auth (Codex/Claude)
+                    </label>
+                  </div>
+                </div>
+              </details>
 
               <div className="actions">
                 <button type="submit">Submit run</button>
-                <button type="button" className="secondary" onClick={monitorTask}>
-                  Monitor task
-                </button>
               </div>
             </form>
           </section>
