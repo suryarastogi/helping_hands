@@ -430,6 +430,40 @@ uv run helping-hands "suryarastogi/helping_hands" --backend goose --prompt "Impl
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"
 ```
 
+## Smoke test (agent) — 2026-02-26
+
+This section captures a quick smoke test of the repo + agent workflow tools.
+
+### Capabilities exercised
+
+- **Repo file inspection (`@@READ`)**: ok (inspected `README.md` and `AGENT.md`).
+- **Applying edits (`@@FILE`)**: ok (this README update; plus added `scripts/smoke_test.py` and `scripts/smoke_test.sh`).
+- **Execution tools**:
+  - Dedicated `python.run_code` / `python.run_script` / `bash.run_script` tools were **not available** in this environment.
+  - Equivalent checks were executed via the local shell.
+- **Inline Python execution**: ok.
+  - Requested target: Python **3.13**
+  - Available in this environment: Python **3.12.10**
+- **Script execution**: ok (ran the scripts below).
+- **Web tools (`web.search` / `web.browse`)**: not available in this environment.
+- **Lightweight quality gates**: ok (ran `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest -q`).
+
+### Local results
+
+Environment (this run): macOS arm64, Python 3.12.10.
+
+```bash
+# Tiny inline check
+python -c 'import sys, json; print(sys.version); print(json.loads("{\"a\": 1}")["a"])'
+
+# Smoke scripts (offline, side-effect free)
+python scripts/smoke_test.py
+bash scripts/smoke_test.sh
+```
+
+Expected output includes `smoke_test: ok` / `smoke_test.sh: ok` and confirms the
+import path points at `./src/helping_hands/...`.
+
 ## Development
 
 ```bash
