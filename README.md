@@ -587,6 +587,14 @@ uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
 
+### Smoke test (local)
+
+Last run: 2026-02-26 (darwin, Python 3.12.10)
+
+- `ruff format --check .`: 56 files already formatted
+- `ruff check .`: All checks passed!
+- `pytest -m "not integration" -q`: 238 passed, 1 deselected in 5.03s
+
 ### Compose env defaults
 
 `compose.yaml` now sets default in-network Celery/Redis URLs for all app-mode
