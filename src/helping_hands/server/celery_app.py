@@ -54,6 +54,7 @@ _SUPPORTED_BACKENDS = {
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "goose",
 }
 _MAX_STORED_UPDATES = 200
 _MAX_UPDATE_LINE_CHARS = 800
@@ -244,6 +245,7 @@ def build_feature(
         ClaudeCodeHand,
         CodexCLIHand,
         E2EHand,
+        GooseCLIHand,
     )
     from helping_hands.lib.repo import RepoIndex
 
@@ -359,6 +361,11 @@ def build_feature(
             )
         elif runtime_backend == "claudecodecli":
             hand = ClaudeCodeHand(
+                config,
+                repo_index,
+            )
+        elif runtime_backend == "goose":
+            hand = GooseCLIHand(
                 config,
                 repo_index,
             )

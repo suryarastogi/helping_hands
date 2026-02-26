@@ -19,6 +19,7 @@ from helping_hands.lib.hands.v1.hand import (
     ClaudeCodeHand,
     CodexCLIHand,
     E2EHand,
+    GooseCLIHand,
     Hand,
 )
 from helping_hands.lib.repo import RepoIndex
@@ -61,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
             "basic-agent",
             "codexcli",
             "claudecodecli",
+            "goose",
         ),
         default=None,
         help="Run an iterative coding hand in CLI mode.",
@@ -138,6 +140,8 @@ def main(argv: list[str] | None = None) -> None:
                 hand = CodexCLIHand(config, repo_index)
             elif args.backend == "claudecodecli":
                 hand = ClaudeCodeHand(config, repo_index)
+            elif args.backend == "goose":
+                hand = GooseCLIHand(config, repo_index)
             else:
                 hand = BasicAtomicHand(
                     config,
@@ -188,7 +192,7 @@ def main(argv: list[str] | None = None) -> None:
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            if args.backend in {"codexcli", "claudecodecli"}:
+            if args.backend in {"codexcli", "claudecodecli", "goose"}:
                 print(f"Error: {msg}", file=sys.stderr)
                 sys.exit(1)
             raise

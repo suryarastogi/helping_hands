@@ -24,6 +24,7 @@ from helping_hands.lib.hands.v1.hand.placeholders import (
     ClaudeCodeHand,
     CodexCLIHand,
     GeminiCLIHand,
+    GooseCLIHand,
 )
 
 # Backward-compatible patch target for tests and external users.
@@ -37,6 +38,7 @@ __all__ = [
     "CodexCLIHand",
     "E2EHand",
     "GeminiCLIHand",
+    "GooseCLIHand",
     "Hand",
     "HandResponse",
     "LangGraphHand",

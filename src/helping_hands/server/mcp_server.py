@@ -90,7 +90,7 @@ def build_feature(
         prompt: Description of the feature or change to build.
         pr_number: Optional existing PR number to resume/update.
         backend: One of e2e/basic-langgraph/basic-atomic/basic-agent/
-            codexcli/claudecodecli.
+            codexcli/claudecodecli/goose.
         model: Optional model override.
         max_iterations: Iteration cap for basic backends.
         no_pr: Disable final PR push/create side effects.

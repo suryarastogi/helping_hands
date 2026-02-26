@@ -28,7 +28,7 @@ Browse the auto-generated docs from source:
 - Basic iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`)
   stream multi-step output and, by default, attempt a final commit/push/PR step
   unless disabled via `--no-pr`.
-- CLI-driven backends (`codexcli`, `claudecodecli`) run a two-phase flow:
+- CLI-driven backends (`codexcli`, `claudecodecli`, `goose`) run a two-phase flow:
   initialize/learn first, then execute the user task.
 - `codexcli` passes `--model gpt-5.2` by default when model is unset/default.
 - `codexcli` sets sandbox mode automatically:
@@ -77,7 +77,7 @@ Browse the auto-generated docs from source:
   - `HELPING_HANDS_CODEX_CONTAINER_IMAGE=<image-with-codex-cli>`
 - You can disable automatic `--skip-git-repo-check` with:
   - `HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK=0`
-- App mode supports `codexcli` and `claudecodecli`; ensure the Celery worker
+- App mode supports `codexcli`, `claudecodecli`, and `goose`; ensure the Celery worker
   environment has corresponding CLIs installed and authenticated.
 - Docker app/worker images in this repo install `@openai/codex`; rebuild images after updates.
 
@@ -101,6 +101,18 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 - If relying on `npx` fallback in app mode, worker runtime needs network access
   to download `@anthropic-ai/claude-code`.
 
+## Goose backend requirements
+
+- `goose` CLI on `PATH`.
+- `GH_TOKEN` or `GITHUB_TOKEN` must be set.
+- `goose run` calls include `--with-builtin developer` by default (or it is
+  auto-injected) so file editing/shell tools are available.
+- `GOOSE_PROVIDER`/`GOOSE_MODEL` are auto-derived from `HELPING_HANDS_MODEL`
+  (fallback: `openai` + `gpt-5.2`) so `goose configure` is not required.
+- Runtime mirrors the available token into both `GH_TOKEN` and `GITHUB_TOKEN`
+  for Goose subprocesses.
+- Local GitHub auth fallback is disabled for Goose backend runs.
+
 ## CLI examples
 
 ```bash
@@ -118,6 +130,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend codexcli --model gpt
 
 # claudecodecli
 uv run helping-hands "suryarastogi/helping_hands" --backend claudecodecli --model anthropic/claude-sonnet-4-5 --prompt "Implement one small safe improvement"
+
+# goose
+uv run helping-hands "suryarastogi/helping_hands" --backend goose --prompt "Implement one small safe improvement"
 
 # e2e (new PR)
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"

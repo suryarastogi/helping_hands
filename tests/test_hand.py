@@ -19,6 +19,7 @@ from helping_hands.lib.hands.v1.hand import (
     CodexCLIHand,
     E2EHand,
     GeminiCLIHand,
+    GooseCLIHand,
     Hand,
     HandResponse,
     LangGraphHand,
@@ -1470,6 +1471,149 @@ class TestCodexCLIHand:
         assert "[phase 2/2]" not in text
         assert len(prompts) == 1
         mock_finalize.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# GooseCLIHand
+# ---------------------------------------------------------------------------
+
+
+class TestGooseCLIHand:
+    def test_render_command_defaults_to_goose_run_text(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_GOOSE_CLI_CMD", raising=False)
+        config = Config(repo="/tmp/fake", model="default")
+        hand = GooseCLIHand(config, repo_index)
+
+        cmd = hand._render_command("hello world")
+
+        assert cmd[:5] == ["goose", "run", "--with-builtin", "developer", "--text"]
+        assert cmd[-1] == "hello world"
+
+    def test_render_command_normalizes_instructions_flag_to_text(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GOOSE_CLI_CMD", "goose run --instructions")
+        config = Config(repo="/tmp/fake", model="default")
+        hand = GooseCLIHand(config, repo_index)
+
+        cmd = hand._render_command("hello world")
+
+        assert cmd[:5] == ["goose", "run", "--with-builtin", "developer", "--text"]
+        assert cmd[-1] == "hello world"
+
+    def test_render_command_injects_developer_builtin_when_missing(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GOOSE_CLI_CMD", "goose run --text")
+        config = Config(repo="/tmp/fake", model="default")
+        hand = GooseCLIHand(config, repo_index)
+
+        cmd = hand._render_command("hello world")
+
+        assert cmd[:5] == ["goose", "run", "--with-builtin", "developer", "--text"]
+        assert cmd[-1] == "hello world"
+
+    def test_build_subprocess_env_uses_github_token_when_gh_token_missing(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+        hand = GooseCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert env["GH_TOKEN"] == "ghp_test"
+        assert env["GITHUB_TOKEN"] == "ghp_test"
+
+    def test_build_subprocess_env_sets_default_provider_and_model(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GH_TOKEN", "ghp_primary")
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        config = Config(repo="/tmp/fake", model="default")
+        hand = GooseCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert env["GOOSE_PROVIDER"] == "openai"
+        assert env["GOOSE_MODEL"] == "gpt-5.2"
+
+    def test_build_subprocess_env_maps_provider_model_from_helping_hands_model(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GH_TOKEN", "ghp_primary")
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        config = Config(repo="/tmp/fake", model="anthropic/claude-sonnet-4-5")
+        hand = GooseCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert env["GOOSE_PROVIDER"] == "anthropic"
+        assert env["GOOSE_MODEL"] == "claude-sonnet-4-5"
+
+    def test_build_subprocess_env_respects_explicit_goose_provider_and_model(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GH_TOKEN", "ghp_primary")
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.setenv("GOOSE_PROVIDER", "anthropic")
+        monkeypatch.setenv("GOOSE_MODEL", "claude-sonnet-4-5")
+        config = Config(repo="/tmp/fake", model="default")
+        hand = GooseCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert env["GOOSE_PROVIDER"] == "anthropic"
+        assert env["GOOSE_MODEL"] == "claude-sonnet-4-5"
+
+    def test_build_subprocess_env_prefers_gh_token(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GH_TOKEN", "ghp_primary")
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_secondary")
+        hand = GooseCLIHand(config, repo_index)
+
+        env = hand._build_subprocess_env()
+
+        assert env["GH_TOKEN"] == "ghp_primary"
+        assert env["GITHUB_TOKEN"] == "ghp_primary"
+
+    def test_build_subprocess_env_requires_token(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        hand = GooseCLIHand(config, repo_index)
+
+        with pytest.raises(RuntimeError, match="GH_TOKEN or GITHUB_TOKEN"):
+            hand._build_subprocess_env()
 
 
 # ---------------------------------------------------------------------------

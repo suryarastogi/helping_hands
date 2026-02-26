@@ -35,6 +35,7 @@ class TestHomeUI:
         assert response.status_code == 200
         assert '<option value="codexcli">codexcli</option>' in response.text
         assert '<option value="claudecodecli">claudecodecli</option>' in response.text
+        assert '<option value="goose">goose</option>' in response.text
 
 
 class TestBuildForm:
@@ -152,6 +153,42 @@ class TestBuildForm:
             "pr_number": None,
             "backend": "claudecodecli",
             "model": "anthropic/claude-sonnet-4-5",
+            "max_iterations": 3,
+            "no_pr": False,
+        }
+
+    def test_enqueues_goose_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-goose")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "suryarastogi/helping_hands",
+                "prompt": "small goose task",
+                "backend": "goose",
+                "max_iterations": "3",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/monitor/task-goose"
+        assert captured == {
+            "repo_path": "suryarastogi/helping_hands",
+            "prompt": "small goose task",
+            "pr_number": None,
+            "backend": "goose",
+            "model": None,
             "max_iterations": 3,
             "no_pr": False,
         }

@@ -36,6 +36,7 @@ class BuildRequest(BaseModel):
         "basic-agent",
         "codexcli",
         "claudecodecli",
+        "goose",
     ] = "e2e"
     model: str | None = None
     max_iterations: int = 6
@@ -50,6 +51,7 @@ BackendName = Literal[
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "goose",
 ]
 
 
@@ -77,6 +79,7 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     "basic-agent": "basic-agent",
     "codexcli": "codexcli",
     "claudecodecli": "claudecodecli",
+    "goose": "goose",
 }
 
 
@@ -215,6 +218,7 @@ Update README.md</textarea>
                 <option value="basic-agent">basic-agent</option>
                 <option value="codexcli">codexcli</option>
                 <option value="claudecodecli">claudecodecli</option>
+                <option value="goose">goose</option>
               </select>
             </div>
             <div>
@@ -657,7 +661,7 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
     """Enqueue a hand task and return the task ID.
 
     Supports E2E and iterative backends (`basic-langgraph`, `basic-atomic`,
-    `basic-agent`) plus `codexcli`/`claudecodecli`, using CLI-equivalent
+    `basic-agent`) plus `codexcli`/`claudecodecli`/`goose`, using CLI-equivalent
     backend options.
     """
     return _enqueue_build_task(req)

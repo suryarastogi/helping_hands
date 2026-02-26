@@ -7,6 +7,7 @@ This module provides subprocess-backed two-phase backends that:
 Implemented:
 - ``CodexCLIHand``
 - ``ClaudeCodeHand``
+- ``GooseCLIHand``
 
 Scaffold:
 - ``GeminiCLIHand``
@@ -221,6 +222,9 @@ class _TwoPhaseCLIHand(Hand):
             default=self._DEFAULT_IDLE_TIMEOUT_SECONDS,
         )
 
+    def _build_subprocess_env(self) -> dict[str, str]:
+        return dict(os.environ)
+
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         tail = output.strip()[-2000:]
         return f"{self._CLI_DISPLAY_NAME} failed (exit={return_code}). Output:\n{tail}"
@@ -365,7 +369,7 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
-        env = dict(os.environ)
+        env = self._build_subprocess_env()
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -890,6 +894,104 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
         return await self._invoke_claude(prompt, emit=emit)
+
+
+class GooseCLIHand(_TwoPhaseCLIHand):
+    """Hand backed by Goose CLI subprocess execution."""
+
+    _BACKEND_NAME = "goose"
+    _CLI_LABEL = "goose"
+    _CLI_DISPLAY_NAME = "Goose CLI"
+    _COMMAND_ENV_VAR = "HELPING_HANDS_GOOSE_CLI_CMD"
+    _DEFAULT_CLI_CMD = "goose run --with-builtin developer --text"
+    _DEFAULT_MODEL = ""
+    _GOOSE_DEFAULT_PROVIDER = "openai"
+    _GOOSE_DEFAULT_MODEL = "gpt-5.2"
+
+    def _normalize_base_command(self, tokens: list[str]) -> list[str]:
+        if tokens == ["goose"]:
+            return ["goose", "run", "--with-builtin", "developer", "--text"]
+        if tokens == ["goose", "run"]:
+            return ["goose", "run", "--with-builtin", "developer", "--text"]
+        # Backward compatibility for older local env examples.
+        if tokens == ["goose", "run", "--instructions"]:
+            return ["goose", "run", "--with-builtin", "developer", "--text"]
+        return super()._normalize_base_command(tokens)
+
+    @staticmethod
+    def _has_goose_builtin_flag(cmd: list[str]) -> bool:
+        return any(
+            token == "--with-builtin" or token.startswith("--with-builtin=")
+            for token in cmd
+        )
+
+    def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        if len(cmd) < 2 or cmd[0] != "goose" or cmd[1] != "run":
+            return cmd
+        if self._has_goose_builtin_flag(cmd):
+            return cmd
+        return [*cmd[:2], "--with-builtin", "developer", *cmd[2:]]
+
+    @staticmethod
+    def _normalize_goose_provider(provider: str) -> str:
+        value = provider.strip().lower()
+        if not value:
+            return ""
+        if value == "gemini":
+            return "google"
+        return value
+
+    @staticmethod
+    def _infer_goose_provider_from_model(model: str) -> str:
+        lowered = model.strip().lower()
+        if lowered.startswith(("claude", "anthropic/")):
+            return "anthropic"
+        if lowered.startswith(("gemini", "google/")):
+            return "google"
+        return "openai"
+
+    def _resolve_goose_provider_model_from_config(self) -> tuple[str, str]:
+        raw_model = str(self.config.model).strip()
+        if not raw_model or raw_model == "default":
+            return self._GOOSE_DEFAULT_PROVIDER, self._GOOSE_DEFAULT_MODEL
+
+        provider = ""
+        model = raw_model
+        if "/" in raw_model:
+            provider_prefix, _, provider_model = raw_model.partition("/")
+            if provider_model:
+                provider = self._normalize_goose_provider(provider_prefix)
+                model = provider_model.strip()
+        if not model:
+            model = self._GOOSE_DEFAULT_MODEL
+        if not provider:
+            provider = self._infer_goose_provider_from_model(model)
+        return provider, model
+
+    def _build_subprocess_env(self) -> dict[str, str]:
+        env = super()._build_subprocess_env()
+        gh_token = env.get("GH_TOKEN", "").strip()
+        github_token = env.get("GITHUB_TOKEN", "").strip()
+        token = gh_token or github_token
+        if not token:
+            msg = (
+                "Goose backend requires GH_TOKEN or GITHUB_TOKEN. "
+                "Set one of these env vars; local GitHub auth fallback is disabled."
+            )
+            raise RuntimeError(msg)
+        env["GH_TOKEN"] = token
+        env["GITHUB_TOKEN"] = token
+
+        default_provider, default_model = (
+            self._resolve_goose_provider_model_from_config()
+        )
+        goose_model = env.get("GOOSE_MODEL", "").strip() or default_model
+        goose_provider = self._normalize_goose_provider(env.get("GOOSE_PROVIDER", ""))
+        if not goose_provider:
+            goose_provider = self._infer_goose_provider_from_model(goose_model)
+        env["GOOSE_PROVIDER"] = goose_provider or default_provider
+        env["GOOSE_MODEL"] = goose_model
+        return env
 
 
 class GeminiCLIHand(Hand):
