@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 25, 2026
+**Last updated:** February 26, 2026
 
 ## What is this?
 
@@ -467,6 +467,33 @@ uv run pre-commit install
 uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
+
+### Agent/tooling smoke test (2026-02-26)
+
+This README update includes a tiny smoke test verifying the repo-local agent-style
+capabilities used by `helping_hands` hands:
+
+- `@@READ` — successfully inspected `README.md`.
+- `@@FILE` — successfully applied edits to `README.md` (including this section).
+- `python.run_code (python_version=3.13)` — attempted to run with Python 3.13, but
+  `python3.13` was not available in the environment; `python` was **3.12.10**.
+- `python.run_script` — created and ran `scripts/smoke_test.py`:
+
+  ```bash
+  PYTHONPATH=src python scripts/smoke_test.py
+  ```
+
+  Result: OK (imports `helping_hands`, `helping_hands.cli.main`, `helping_hands.server.app`).
+
+- `bash.run_script` — created and ran `scripts/smoke_test.sh`:
+
+  ```bash
+  bash scripts/smoke_test.sh
+  ```
+
+  Result: OK.
+
+Both scripts are designed to be safe/minimal (no network calls, no git operations).
 
 ### Compose env defaults
 
