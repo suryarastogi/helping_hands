@@ -145,6 +145,42 @@ class TestHandABC:
         prompt = hand._build_system_prompt()
         assert "conventions" in prompt.lower()
 
+    @patch.object(
+        Hand,
+        "_run_git_read",
+        return_value="https://x-access-token:ghp_test@github.com/owner/repo.git",
+    )
+    def test_github_repo_from_origin_accepts_tokenized_https_remote(
+        self,
+        _mock_git_read: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        assert Hand._github_repo_from_origin(tmp_path) == "owner/repo"
+
+    @patch.object(
+        Hand,
+        "_run_git_read",
+        return_value="https://github.com/owner/repo.git",
+    )
+    def test_github_repo_from_origin_accepts_plain_https_remote(
+        self,
+        _mock_git_read: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        assert Hand._github_repo_from_origin(tmp_path) == "owner/repo"
+
+    @patch.object(
+        Hand,
+        "_run_git_read",
+        return_value="git@github.com:owner/repo.git",
+    )
+    def test_github_repo_from_origin_accepts_scp_remote(
+        self,
+        _mock_git_read: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        assert Hand._github_repo_from_origin(tmp_path) == "owner/repo"
+
     @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
     def test_configure_authenticated_push_remote(
         self,

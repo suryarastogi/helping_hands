@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -97,15 +98,22 @@ class Hand(abc.ABC):
         remote = cls._run_git_read(repo_dir, "remote", "get-url", "origin")
         if not remote:
             return ""
-        patterns = (
-            r"^https://github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+
+        parsed = urlparse(remote)
+        hostname = (parsed.hostname or "").lower()
+        if parsed.scheme in {"http", "https", "ssh"} and hostname == "github.com":
+            repo = parsed.path.lstrip("/")
+            if repo.endswith(".git"):
+                repo = repo[:-4]
+            if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+                return repo
+
+        scp_like = re.match(
             r"^git@github\.com:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
-            r"^ssh://git@github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+            remote,
         )
-        for pattern in patterns:
-            match = re.match(pattern, remote)
-            if match:
-                return match.group("repo")
+        if scp_like:
+            return scp_like.group("repo")
         return ""
 
     @staticmethod
