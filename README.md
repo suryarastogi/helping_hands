@@ -587,6 +587,13 @@ uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
 
+### Smoke test (local)
+
+Ran on 2026-02-26 (Python 3.12.10, darwin):
+
+- `python -m helping_hands.cli.main --help`
+- `python -m pytest -q -m "not integration"` (238 passed, 1 deselected)
+
 ### Compose env defaults
 
 `compose.yaml` now sets default in-network Celery/Redis URLs for all app-mode
