@@ -10,7 +10,23 @@
 
 ---
 
-**Last updated:** February 26, 2026
+**Last updated:** February 27, 2026
+
+## Smoke test results
+
+Last run: 2026-02-27T15:47Z | Runtime: Claude Code (claude-opus-4-6)
+
+| # | Capability | Tool / Method | Result |
+|---|---|---|---|
+| 1 | Read file | `Read README.md` | OK — 621 lines read |
+| 2 | Write/edit file | `Edit README.md` | OK — date updated, this section added |
+| 3 | Inline Python | `python3 -c "..."` | OK — Python 3.12.10, Darwin arm64 |
+| 4 | Python script | `scripts/smoke_test.py` | OK — created and executed |
+| 5 | Bash script | `scripts/smoke_test.sh` | OK — created and executed (Bash 3.2.57) |
+| 6 | Web search | `WebSearch` | OK — returned 10 results |
+| 7 | Web browse | `WebFetch github.com` | OK — page loaded |
+
+All seven capabilities passed.
 
 ## What is this?
 
