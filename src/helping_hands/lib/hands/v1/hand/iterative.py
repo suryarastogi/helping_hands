@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import shlex
 from collections.abc import AsyncIterator
@@ -607,6 +608,13 @@ class BasicLangGraphHand(_BasicIterativeHand):
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
 
+        _env_name = self._hand_model.provider.api_key_env_var
+        _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
+        yield (
+            f"[basic-langgraph] provider={self._hand_model.provider.name}"
+            f" | auth={_env_name} ({_present})\n"
+        )
+
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():
                 yield "\n[interrupted]\n"
@@ -796,6 +804,13 @@ class BasicAtomicHand(_BasicIterativeHand):
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
+
+        _env_name = self._hand_model.provider.api_key_env_var
+        _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
+        yield (
+            f"[basic-atomic] provider={self._hand_model.provider.name}"
+            f" | auth={_env_name} ({_present})\n"
+        )
 
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():
