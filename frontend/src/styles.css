@@ -1147,3 +1147,43 @@ button.worker-sprite:disabled .worker-caption {
     min-height: 320px;
   }
 }
+
+.service-health-bar {
+  position: fixed;
+  bottom: 14px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(11, 18, 38, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  z-index: 100;
+  backdrop-filter: blur(4px);
+  user-select: none;
+}
+
+.service-health-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.service-health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.service-health-dot--checking {
+  animation: blinker-pulse 1.4s ease-in-out infinite;
+}
+
+.service-health-label {
+  opacity: 0.75;
+}

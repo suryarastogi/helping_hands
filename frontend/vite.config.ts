@@ -23,6 +23,14 @@ export default defineConfig(({ mode }) => {
           target,
           changeOrigin: true,
         },
+        "/workers": {
+          target,
+          changeOrigin: true,
+        },
+        "/config": {
+          target,
+          changeOrigin: true,
+        },
       },
     },
   };

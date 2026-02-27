@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from tempfile import mkdtemp
@@ -84,14 +85,31 @@ def _redact_sensitive(text: str) -> str:
     )
 
 
-def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
-    """Resolve local repo path or clone an owner/repo reference."""
+def _repo_tmp_dir() -> Path | None:
+    """Return the directory to use for temporary repo clones.
+
+    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
+    """
+    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
+    if d:
+        p = Path(d).expanduser()
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    return None
+
+
+def _resolve_repo_path(repo: str) -> tuple[Path, str | None, Path | None]:
+    """Resolve local repo path or clone an owner/repo reference.
+
+    Returns (repo_path, cloned_from, temp_root) where temp_root is the
+    directory to clean up after use (None for local paths).
+    """
     path = Path(repo).expanduser().resolve()
     if path.is_dir():
-        return path, None
+        return path, None, None
 
     if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
-        dest_root = Path(mkdtemp(prefix="helping_hands_repo_"))
+        dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
         dest = dest_root / "repo"
         url = _github_clone_url(repo)
         result = subprocess.run(
@@ -102,11 +120,12 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
             env=_git_noninteractive_env(),
         )
         if result.returncode != 0:
+            shutil.rmtree(dest_root, ignore_errors=True)
             stderr = result.stderr.strip() or "unknown git clone error"
             stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
-        return dest.resolve(), repo
+        return dest.resolve(), repo, dest_root
 
     raise ValueError(f"{repo} is not a directory or owner/repo reference")
 
@@ -395,122 +414,51 @@ def build_feature(
         }
 
     try:
-        resolved_repo_path, cloned_from = _resolve_repo_path(repo_path)
+        resolved_repo_path, cloned_from, _tmp_root = _resolve_repo_path(repo_path)
     except ValueError as exc:
         _append_update(updates, f"Repo resolution failed: {exc}")
         raise
 
-    overrides = {"repo": str(resolved_repo_path), "model": model}
-    overrides["enable_execution"] = enable_execution
-    overrides["enable_web"] = enable_web
-    overrides["use_native_cli_auth"] = use_native_cli_auth
-    overrides["enabled_skills"] = selected_skills
-    config = Config.from_env(overrides=overrides)
-    repo_index = RepoIndex.from_path(Path(config.repo))
-
-    if cloned_from:
-        _append_update(updates, f"Cloned {cloned_from} to {resolved_repo_path}")
-    if runtime_backend == "codexcli" and not _has_codex_auth():
-        msg = (
-            "Codex authentication is missing in worker runtime. "
-            "Set OPENAI_API_KEY in .env and recreate containers, "
-            "or run `codex login` in the worker environment."
-        )
-        _append_update(updates, msg)
-        raise RuntimeError(msg)
-    if runtime_backend == "geminicli" and not _has_gemini_auth():
-        msg = (
-            "Gemini authentication is missing in worker runtime. "
-            "Set GEMINI_API_KEY in .env and recreate containers."
-        )
-        _append_update(updates, msg)
-        raise RuntimeError(msg)
-    _append_update(
-        updates,
-        (
-            f"Running hand. backend={requested_backend} "
-            f"(runtime={runtime_backend}), model={config.model}"
-        ),
-    )
-    _update_progress(
-        self,
-        task_id=task_id,
-        stage="running",
-        updates=updates,
-        prompt=prompt,
-        pr_number=pr_number,
-        backend=requested_backend,
-        runtime_backend=runtime_backend,
-        repo_path=repo_path,
-        model=config.model,
-        max_iterations=resolved_iterations,
-        no_pr=no_pr,
-        enable_execution=enable_execution,
-        enable_web=enable_web,
-        use_native_cli_auth=use_native_cli_auth,
-        skills=selected_skills,
-        workspace=str(resolved_repo_path),
-    )
-
     try:
-        if runtime_backend == "basic-langgraph":
-            hand = BasicLangGraphHand(
-                config,
-                repo_index,
-                max_iterations=resolved_iterations,
-            )
-        elif runtime_backend == "codexcli":
-            hand = CodexCLIHand(
-                config,
-                repo_index,
-            )
-        elif runtime_backend == "claudecodecli":
-            hand = ClaudeCodeHand(
-                config,
-                repo_index,
-            )
-        elif runtime_backend == "goose":
-            hand = GooseCLIHand(
-                config,
-                repo_index,
-            )
-        elif runtime_backend == "geminicli":
-            hand = GeminiCLIHand(
-                config,
-                repo_index,
-            )
-        else:
-            hand = BasicAtomicHand(
-                config,
-                repo_index,
-                max_iterations=resolved_iterations,
-            )
-    except ModuleNotFoundError as exc:
-        if runtime_backend == "basic-langgraph":
-            extra = "langchain"
-        elif runtime_backend in {"basic-atomic", "basic-agent"}:
-            extra = "atomic"
-        else:
-            extra = None
-        if extra:
-            install_hint = f"Install with: uv sync --extra {extra}"
-        else:
-            install_hint = "Check runtime setup."
-        msg = (
-            f"Missing dependency for backend {requested_backend}: {exc}. {install_hint}"
-        )
-        _append_update(updates, msg)
-        raise RuntimeError(msg) from exc
+        overrides = {"repo": str(resolved_repo_path), "model": model}
+        overrides["enable_execution"] = enable_execution
+        overrides["enable_web"] = enable_web
+        overrides["use_native_cli_auth"] = use_native_cli_auth
+        overrides["enabled_skills"] = selected_skills
+        config = Config.from_env(overrides=overrides)
+        repo_index = RepoIndex.from_path(Path(config.repo))
 
-    hand.auto_pr = not no_pr
-    message = asyncio.run(
-        _collect_stream(
-            hand,
-            prompt,
-            task=self,
+        if cloned_from:
+            _append_update(updates, f"Cloned {cloned_from} to {resolved_repo_path}")
+        if runtime_backend == "codexcli" and not _has_codex_auth():
+            msg = (
+                "Codex authentication is missing in worker runtime. "
+                "Set OPENAI_API_KEY in .env and recreate containers, "
+                "or run `codex login` in the worker environment."
+            )
+            _append_update(updates, msg)
+            raise RuntimeError(msg)
+        if runtime_backend == "geminicli" and not _has_gemini_auth():
+            msg = (
+                "Gemini authentication is missing in worker runtime. "
+                "Set GEMINI_API_KEY in .env and recreate containers."
+            )
+            _append_update(updates, msg)
+            raise RuntimeError(msg)
+        _append_update(
+            updates,
+            (
+                f"Running hand. backend={requested_backend} "
+                f"(runtime={runtime_backend}), model={config.model}"
+            ),
+        )
+        _update_progress(
+            self,
             task_id=task_id,
-            pr_number=pr_number,
+            stage="running",
             updates=updates,
+            prompt=prompt,
+            pr_number=pr_number,
             backend=requested_backend,
             runtime_backend=runtime_backend,
             repo_path=repo_path,
@@ -523,23 +471,99 @@ def build_feature(
             skills=selected_skills,
             workspace=str(resolved_repo_path),
         )
-    )
-    _append_update(updates, "Task complete.")
-    return {
-        "status": "ok",
-        "prompt": prompt,
-        "pr_number": pr_number,
-        "backend": requested_backend,
-        "runtime_backend": runtime_backend,
-        "repo": repo_path,
-        "workspace": str(resolved_repo_path),
-        "model": config.model,
-        "max_iterations": str(resolved_iterations),
-        "no_pr": str(no_pr).lower(),
-        "enable_execution": str(enable_execution).lower(),
-        "enable_web": str(enable_web).lower(),
-        "use_native_cli_auth": str(use_native_cli_auth).lower(),
-        "skills": list(selected_skills),
-        "message": message,
-        "updates": updates,
-    }
+
+        try:
+            if runtime_backend == "basic-langgraph":
+                hand = BasicLangGraphHand(
+                    config,
+                    repo_index,
+                    max_iterations=resolved_iterations,
+                )
+            elif runtime_backend == "codexcli":
+                hand = CodexCLIHand(
+                    config,
+                    repo_index,
+                )
+            elif runtime_backend == "claudecodecli":
+                hand = ClaudeCodeHand(
+                    config,
+                    repo_index,
+                )
+            elif runtime_backend == "goose":
+                hand = GooseCLIHand(
+                    config,
+                    repo_index,
+                )
+            elif runtime_backend == "geminicli":
+                hand = GeminiCLIHand(
+                    config,
+                    repo_index,
+                )
+            else:
+                hand = BasicAtomicHand(
+                    config,
+                    repo_index,
+                    max_iterations=resolved_iterations,
+                )
+        except ModuleNotFoundError as exc:
+            if runtime_backend == "basic-langgraph":
+                extra = "langchain"
+            elif runtime_backend in {"basic-atomic", "basic-agent"}:
+                extra = "atomic"
+            else:
+                extra = None
+            if extra:
+                install_hint = f"Install with: uv sync --extra {extra}"
+            else:
+                install_hint = "Check runtime setup."
+            msg = (
+                f"Missing dependency for backend {requested_backend}:"
+                f" {exc}. {install_hint}"
+            )
+            _append_update(updates, msg)
+            raise RuntimeError(msg) from exc
+
+        hand.auto_pr = not no_pr
+        message = asyncio.run(
+            _collect_stream(
+                hand,
+                prompt,
+                task=self,
+                task_id=task_id,
+                pr_number=pr_number,
+                updates=updates,
+                backend=requested_backend,
+                runtime_backend=runtime_backend,
+                repo_path=repo_path,
+                model=config.model,
+                max_iterations=resolved_iterations,
+                no_pr=no_pr,
+                enable_execution=enable_execution,
+                enable_web=enable_web,
+                use_native_cli_auth=use_native_cli_auth,
+                skills=selected_skills,
+                workspace=str(resolved_repo_path),
+            )
+        )
+        _append_update(updates, "Task complete.")
+        return {
+            "status": "ok",
+            "prompt": prompt,
+            "pr_number": pr_number,
+            "backend": requested_backend,
+            "runtime_backend": runtime_backend,
+            "repo": repo_path,
+            "workspace": str(resolved_repo_path),
+            "model": config.model,
+            "max_iterations": str(resolved_iterations),
+            "no_pr": str(no_pr).lower(),
+            "enable_execution": str(enable_execution).lower(),
+            "enable_web": str(enable_web).lower(),
+            "use_native_cli_auth": str(use_native_cli_auth).lower(),
+            "skills": list(selected_skills),
+            "message": message,
+            "updates": updates,
+        }
+    finally:
+        if _tmp_root is not None:
+            shutil.rmtree(_tmp_root, ignore_errors=True)

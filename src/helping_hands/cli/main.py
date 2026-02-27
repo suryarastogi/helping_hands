@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import atexit
 import os
 import re
+import shutil
 import subprocess
 import sys
 from collections.abc import AsyncIterator
@@ -287,13 +289,29 @@ def _redact_sensitive(text: str) -> str:
     )
 
 
+def _repo_tmp_dir() -> Path | None:
+    """Return the directory to use for temporary repo clones.
+
+    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
+    Setting this to a known path (e.g. /tmp/helping_hands or a project tmp/)
+    keeps clones out of /var/folders and makes manual cleanup easy.
+    """
+    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
+    if d:
+        p = Path(d).expanduser()
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    return None
+
+
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
     path = Path(repo).expanduser().resolve()
     if path.is_dir():
         return path, None
 
     if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
-        dest_root = Path(mkdtemp(prefix="helping_hands_repo_"))
+        dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
+        atexit.register(shutil.rmtree, dest_root, True)
         dest = dest_root / "repo"
         url = _github_clone_url(repo)
         result = subprocess.run(
