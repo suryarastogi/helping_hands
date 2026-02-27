@@ -101,6 +101,13 @@ type SceneWorker = {
   phaseChangedAt: number;
 };
 
+type PlayerPosition = {
+  x: number;
+  y: number;
+};
+
+type PlayerDirection = "down" | "up" | "left" | "right";
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
 const TASK_HISTORY_LIMIT = 60;
@@ -135,6 +142,11 @@ const INITIAL_FORM: FormState = {
 const DASHBOARD_VIEW_STORAGE_KEY = "helping_hands_dashboard_view_v1";
 const SCENE_PHASE_DURATION_MS = 900;
 const DEFAULT_WORLD_MAX_WORKERS = 8;
+
+const PLAYER_MOVE_STEP = 1.2;
+const PLAYER_SIZE = { width: 3.5, height: 4 };
+const DESK_SIZE = { width: 8, height: 7 };
+const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
 
 const DEFAULT_CHARACTER_STYLE: CharacterStyle = {
   bodyColor: "#64748b",
@@ -412,6 +424,33 @@ function buildDeskSlots(capacity: number): DeskSlot[] {
   return slots;
 }
 
+function checkDeskCollision(
+  playerX: number,
+  playerY: number,
+  deskSlots: DeskSlot[]
+): boolean {
+  const playerLeft = playerX - PLAYER_SIZE.width / 2;
+  const playerRight = playerX + PLAYER_SIZE.width / 2;
+  const playerTop = playerY - PLAYER_SIZE.height / 2;
+  const playerBottom = playerY + PLAYER_SIZE.height / 2;
+
+  for (const desk of deskSlots) {
+    const deskLeft = desk.left - DESK_SIZE.width / 2;
+    const deskRight = desk.left + DESK_SIZE.width / 2;
+    const deskTop = desk.top - DESK_SIZE.height / 2;
+    const deskBottom = desk.top + DESK_SIZE.height / 2;
+
+    const overlapsX = playerRight > deskLeft && playerLeft < deskRight;
+    const overlapsY = playerBottom > deskTop && playerTop < deskBottom;
+
+    if (overlapsX && overlapsY) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function extractUpdates(result: Record<string, unknown> | null): string[] {
   if (!result || typeof result !== "object") {
     return [];
@@ -663,7 +702,11 @@ export default function App() {
   const [dashboardView, setDashboardView] = useState<DashboardView>("classic");
   const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
+  const [playerPosition, setPlayerPosition] = useState<PlayerPosition>({ x: 50, y: 50 });
+  const [playerDirection, setPlayerDirection] = useState<PlayerDirection>("down");
+  const [isPlayerWalking, setIsPlayerWalking] = useState(false);
   const slotByTaskRef = useRef<Record<string, number>>({});
+  const sceneRef = useRef<HTMLDivElement>(null);
 
   const payloadText = useMemo(() => {
     if (!payload) {
@@ -1039,6 +1082,89 @@ export default function App() {
       window.clearInterval(handle);
     };
   }, [sceneWorkers.length]);
+
+  useEffect(() => {
+    if (dashboardView !== "world") {
+      return;
+    }
+
+    const keysPressed = new Set<string>();
+    let animationFrame: number | null = null;
+
+    const movePlayer = () => {
+      if (keysPressed.size === 0) {
+        setIsPlayerWalking(false);
+        animationFrame = null;
+        return;
+      }
+
+      setIsPlayerWalking(true);
+
+      setPlayerPosition((current) => {
+        let newX = current.x;
+        let newY = current.y;
+
+        if (keysPressed.has("ArrowUp") || keysPressed.has("w")) {
+          newY -= PLAYER_MOVE_STEP;
+          setPlayerDirection("up");
+        }
+        if (keysPressed.has("ArrowDown") || keysPressed.has("s")) {
+          newY += PLAYER_MOVE_STEP;
+          setPlayerDirection("down");
+        }
+        if (keysPressed.has("ArrowLeft") || keysPressed.has("a")) {
+          newX -= PLAYER_MOVE_STEP;
+          setPlayerDirection("left");
+        }
+        if (keysPressed.has("ArrowRight") || keysPressed.has("d")) {
+          newX += PLAYER_MOVE_STEP;
+          setPlayerDirection("right");
+        }
+
+        newX = Math.max(OFFICE_BOUNDS.minX, Math.min(OFFICE_BOUNDS.maxX, newX));
+        newY = Math.max(OFFICE_BOUNDS.minY, Math.min(OFFICE_BOUNDS.maxY, newY));
+
+        if (checkDeskCollision(newX, newY, deskSlots)) {
+          return current;
+        }
+
+        return { x: newX, y: newY };
+      });
+
+      animationFrame = requestAnimationFrame(movePlayer);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key;
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d"].includes(key)) {
+        event.preventDefault();
+        if (!keysPressed.has(key)) {
+          keysPressed.add(key);
+          if (animationFrame === null) {
+            animationFrame = requestAnimationFrame(movePlayer);
+          }
+        }
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      keysPressed.delete(event.key);
+      if (keysPressed.size === 0) {
+        setIsPlayerWalking(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [dashboardView, deskSlots]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1701,10 +1827,12 @@ export default function App() {
               </header>
 
               <div
+                ref={sceneRef}
                 className="world-scene office-scene"
                 role="list"
                 aria-label="Current office workers"
                 style={worldSceneStyle}
+                tabIndex={0}
               >
                 <div className="office-border" aria-hidden="true" />
                 <div className="office-main-floor" aria-hidden="true" />
@@ -1722,10 +1850,46 @@ export default function App() {
                   </div>
                 ))}
 
-                {sceneWorkerEntries.length === 0 ? (
-                  <p className="world-empty">No active workers in the office.</p>
-                ) : (
-                  sceneWorkerEntries.map((worker) => (
+                <div className="office-status-summary">
+                  <div className="status-summary-header">Office Status</div>
+                  <div className="status-summary-stat">
+                    <span className="stat-icon">&#128187;</span>
+                    <span>{maxOfficeWorkers} Desks</span>
+                  </div>
+                  <div className="status-summary-stat">
+                    <span className="stat-icon">&#129302;</span>
+                    <span>{sceneWorkerEntries.length} Active</span>
+                  </div>
+                  <div className="status-summary-stat">
+                    <span className="stat-icon">&#128100;</span>
+                    <span>You: ({Math.round(playerPosition.x)}, {Math.round(playerPosition.y)})</span>
+                  </div>
+                  <div className="status-summary-hint">Use arrow keys to walk</div>
+                </div>
+
+                <div
+                  className={`human-player ${playerDirection}${isPlayerWalking ? " walking" : ""}`}
+                  style={{
+                    left: `${playerPosition.x}%`,
+                    top: `${playerPosition.y}%`,
+                  }}
+                  aria-label="You (player character)"
+                >
+                  <span className="human-shadow" />
+                  <span className="human-body">
+                    <span className="human-head" />
+                    <span className="human-hair" />
+                    <span className="human-eye human-eye-left" />
+                    <span className="human-eye human-eye-right" />
+                    <span className="human-torso" />
+                    <span className="human-arm human-arm-left" />
+                    <span className="human-arm human-arm-right" />
+                    <span className="human-leg human-leg-left" />
+                    <span className="human-leg human-leg-right" />
+                  </span>
+                </div>
+
+                {sceneWorkerEntries.map((worker) => (
                     <button
                       key={worker.taskId}
                       type="button"
@@ -1852,8 +2016,7 @@ export default function App() {
                         </span>
                       </span>
                     </button>
-                  ))
-                )}
+                  ))}
               </div>
 
             </section>
