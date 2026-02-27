@@ -12,6 +12,8 @@
 
 **Last updated:** February 27, 2026
 
+**Smoke test:** 226 passed, 2 skipped, 63% coverage (4.20s)
+
 ## What is this?
 
 `helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal) or **app mode** (server with background workers).
