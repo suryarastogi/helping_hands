@@ -10,7 +10,9 @@
 
 ---
 
-**Last updated:** February 26, 2026
+**Last updated:** February 27, 2026
+
+**Smoke test:** 226 passed, 2 skipped (64% coverage) — Python 3.12.10, pytest 9.0.2
 
 ## What is this?
 
