@@ -10,7 +10,9 @@
 
 ---
 
-**Last updated:** February 26, 2026
+**Last updated:** February 27, 2026
+
+**Smoke test:** 226 passed, 2 skipped, 64% coverage (3.94s)
 
 ## What is this?
 
