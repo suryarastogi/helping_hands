@@ -65,7 +65,9 @@ class TestResolveRepoPath:
                 stdout="",
                 stderr="",
             )
-            repo_path, cloned_from = celery_app._resolve_repo_path("owner/repo")
+            repo_path, cloned_from, temp_root = celery_app._resolve_repo_path(
+                "owner/repo"
+            )
 
         clone_cmd = mock_run.call_args.args[0]
         clone_env = mock_run.call_args.kwargs["env"]
@@ -78,6 +80,7 @@ class TestResolveRepoPath:
         assert clone_env["GCM_INTERACTIVE"] == "never"
         assert repo_path == Path("/tmp/helping_hands_repo_test/repo").resolve()
         assert cloned_from == "owner/repo"
+        assert temp_root == Path("/tmp/helping_hands_repo_test")
 
     def test_clone_owner_repo_falls_back_to_plain_https_without_token(
         self, monkeypatch
