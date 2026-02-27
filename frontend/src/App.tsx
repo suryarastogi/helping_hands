@@ -78,6 +78,22 @@ type TaskHistoryPatch = {
   repoPath?: string;
 };
 
+type ServerConfig = {
+  in_docker: boolean;
+  native_auth_default: boolean;
+};
+
+type ServiceHealth = {
+  redis: "ok" | "error";
+  db: "ok" | "error" | "na";
+  workers: "ok" | "error";
+};
+
+type ServiceHealthState = {
+  reachable: boolean;
+  health: ServiceHealth | null;
+};
+
 type OutputTab = "updates" | "raw" | "payload";
 type MainView = "submission" | "monitor";
 type DashboardView = "classic" | "world";
@@ -128,8 +144,8 @@ const DEFAULT_PROMPT =
 const INITIAL_FORM: FormState = {
   repo_path: "suryarastogi/helping_hands",
   prompt: DEFAULT_PROMPT,
-  backend: "codexcli",
-  model: "",
+  backend: "claudecodecli",
+  model: "claude-opus-4-5",
   max_iterations: 6,
   pr_number: "",
   skills: "",
@@ -390,6 +406,31 @@ async function fetchWorkerCapacity(): Promise<number | null> {
       return data.max_workers;
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchServiceHealth(): Promise<ServiceHealthState> {
+  try {
+    const response = await fetch(apiUrl("/health/services"), { cache: "no-store" });
+    if (!response.ok) {
+      return { reachable: false, health: null };
+    }
+    const health = (await response.json()) as ServiceHealth;
+    return { reachable: true, health };
+  } catch {
+    return { reachable: false, health: null };
+  }
+}
+
+async function fetchServerConfig(): Promise<ServerConfig | null> {
+  try {
+    const response = await fetch(apiUrl("/config"), { cache: "no-store" });
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as ServerConfig;
   } catch {
     return null;
   }
@@ -707,6 +748,8 @@ export default function App() {
   const [isPlayerWalking, setIsPlayerWalking] = useState(false);
   const slotByTaskRef = useRef<Record<string, number>>({});
   const sceneRef = useRef<HTMLDivElement>(null);
+  const [serviceHealthState, setServiceHealthState] = useState<ServiceHealthState | null>(null);
+
 
   const payloadText = useMemo(() => {
     if (!payload) {
@@ -1286,7 +1329,10 @@ export default function App() {
       next.no_pr = parseBool(params.get("no_pr"));
       next.enable_execution = parseBool(params.get("enable_execution"));
       next.enable_web = parseBool(params.get("enable_web"));
-      next.use_native_cli_auth = parseBool(params.get("use_native_cli_auth"));
+      const nativeAuthParam = params.get("use_native_cli_auth");
+      if (nativeAuthParam !== null) {
+        next.use_native_cli_auth = parseBool(nativeAuthParam);
+      }
 
       return next;
     });
@@ -1311,6 +1357,38 @@ export default function App() {
         })
       );
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      const result = await fetchServiceHealth();
+      if (!cancelled) {
+        setServiceHealthState(result);
+      }
+    };
+    void check();
+    const handle = window.setInterval(() => void check(), 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hasExplicitNativeAuth = params.get("use_native_cli_auth") !== null;
+    if (hasExplicitNativeAuth) {
+      return;
+    }
+    fetchServerConfig().then((config) => {
+      if (config) {
+        setForm((current) => ({
+          ...current,
+          use_native_cli_auth: config.native_auth_default,
+        }));
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -1488,6 +1566,7 @@ export default function App() {
     event.preventDefault();
 
     setStatus("submitting");
+    setMainView("monitor");
     setPayload(null);
     setUpdates([]);
 
@@ -1547,12 +1626,64 @@ export default function App() {
     } catch (error) {
       setStatus("error");
       setPayload({ error: String(error) });
+      setUpdates([`Error: ${String(error)}`]);
       setIsPolling(false);
     }
   };
 
   const blinkerColor = statusBlinkerColor(status);
   const isBlinkerAnimated = statusTone(status) === "run";
+
+  const serviceHealthIndicators: { key: string; label: string; state: "ok" | "error" | "na" | null }[] = [
+    {
+      key: "api",
+      label: "api",
+      state: serviceHealthState === null ? null : serviceHealthState.reachable ? "ok" : "error",
+    },
+    {
+      key: "redis",
+      label: "redis",
+      state: serviceHealthState?.health?.redis ?? null,
+    },
+    {
+      key: "db",
+      label: "db",
+      state: serviceHealthState?.health?.db ?? null,
+    },
+    {
+      key: "workers",
+      label: "workers",
+      state: serviceHealthState?.health?.workers ?? null,
+    },
+  ];
+
+  const serviceHealthBar = (
+    <div className="service-health-bar" aria-label="Service health">
+      {serviceHealthIndicators
+        .filter((item) => item.state !== "na")
+        .map((item) => {
+          const color =
+            item.state === "ok"
+              ? "var(--success)"
+              : item.state === "error"
+                ? "var(--danger)"
+                : "#4b5563";
+          const title =
+            item.state === null
+              ? `${item.label}: checking…`
+              : `${item.label}: ${item.state}`;
+          return (
+            <span key={item.key} className="service-health-item" title={title}>
+              <span
+                className={`service-health-dot${item.state === null ? " service-health-dot--checking" : ""}`}
+                style={{ backgroundColor: color }}
+              />
+              <span className="service-health-label">{item.label}</span>
+            </span>
+          );
+        })}
+    </div>
+  );
 
   const submissionCard = (
     <section className="card form-card compact-form">
@@ -1740,6 +1871,7 @@ export default function App() {
   );
 
   return (
+    <>
     <main className="page">
       <aside className="card task-list-card">
         <div className="view-toggle" role="tablist" aria-label="Dashboard view">
@@ -2026,5 +2158,7 @@ export default function App() {
         )}
       </div>
     </main>
+    {serviceHealthBar}
+    </>
   );
 }

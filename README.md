@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 26, 2026
+**Last updated:** February 27, 2026
 
 ## What is this?
 
@@ -18,7 +18,7 @@
 
 ### Modes
 
-- **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace). You can index only, or run iterative backends plus external-CLI backends with streamed output:
+- **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace, cleaned up on exit). You can index only, or run iterative backends plus external-CLI backends with streamed output:
   - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
   - external CLI: `codexcli`, `claudecodecli`, `goose`, `geminicli`
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
@@ -362,7 +362,7 @@ helping_hands/
 
 ## How it works
 
-1. **Ingest** — You provide a local repo path or GitHub `owner/repo` reference. The CLI indexes local paths directly and auto-clones `owner/repo` inputs to a temp workspace.
+1. **Ingest** — You provide a local repo path or GitHub `owner/repo` reference. The CLI indexes local paths directly and auto-clones `owner/repo` inputs to a temp workspace (deleted automatically on exit; configure the location with `HELPING_HANDS_REPO_TMP`).
 2. **Understand** — The tool feeds repo context (file tree, key files, existing conventions) to an AI model so it can reason about the codebase.
 3. **Build** — You describe the feature or change you want. The agent proposes a plan, writes the code, and presents diffs for your review.
 4. **Iterate** — Accept, reject, or refine. The agent learns from your feedback and adjusts its approach.
@@ -388,6 +388,7 @@ Key settings:
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 | `use_native_cli_auth` | `HELPING_HANDS_USE_NATIVE_CLI_AUTH` | For `codexcli`/`claudecodecli`, strip provider API key env vars so native CLI auth/session is used |
+| — | `HELPING_HANDS_REPO_TMP` | Directory for temporary repo clones. Defaults to the OS temp dir (`/var/folders/…` on macOS). Set to a known path (e.g. `/tmp/helping_hands`) to keep clones out of the OS temp dir. Clones are deleted automatically after each run. |
 
 Key CLI flags:
 
@@ -401,8 +402,41 @@ Key CLI flags:
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
 - `--use-native-cli-auth` — for `codexcli`/`claudecodecli`, ignore provider API key env vars and rely on local CLI auth/session
 
+### Backend environment variables
+
+Each backend requires different API keys and env vars depending on whether it
+calls an external CLI subprocess or uses a Python AI provider SDK directly.
+
+| Backend | Auth method | Required env vars | Notes |
+|---|---|---|---|
+| `e2e` | — | `GITHUB_TOKEN` | No AI model; tests clone/edit/commit/push/PR flow only |
+| `basic-langgraph` | **API key** (Python SDK) | Provider-dependent (see below) | Uses `langchain` + provider SDK in-process |
+| `basic-atomic` | **API key** (Python SDK) | Provider-dependent (see below) | Uses `atomic-agents` + `instructor` SDK in-process |
+| `basic-agent` | **API key** (Python SDK) | Provider-dependent (see below) | Same deps as `basic-atomic` |
+| `codexcli` | **Native CLI** (`codex exec`) | `OPENAI_API_KEY` | Runs `codex` as subprocess; **native CLI auth** supported via `--use-native-cli-auth` (strips `OPENAI_API_KEY` from subprocess env, uses `codex login` session instead) |
+| `claudecodecli` | **Native CLI** (`claude -p`) | `ANTHROPIC_API_KEY` | Runs `claude` as subprocess; **native CLI auth** supported via `--use-native-cli-auth` (strips `ANTHROPIC_API_KEY` from subprocess env, uses `claude auth` session instead) |
+| `goose` | **Native CLI** (`goose run`) | Depends on `GOOSE_PROVIDER`: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or Ollama vars | Runs `goose` as subprocess; provider/model injected via `GOOSE_PROVIDER`/`GOOSE_MODEL` env vars. Also requires `GH_TOKEN` or `GITHUB_TOKEN` |
+| `geminicli` | **Native CLI** (`gemini -p`) | `GEMINI_API_KEY` | Runs `gemini` as subprocess; API key is **always required** (no native-CLI-auth toggle) |
+
+**Iterative backend provider env vars** (`basic-langgraph`, `basic-atomic`, `basic-agent`):
+
+These backends resolve the `--model` flag through the AI provider system. The
+required API key depends on which provider the model maps to:
+
+| Provider | Env var | Example `--model` values |
+|---|---|---|
+| OpenAI | `OPENAI_API_KEY` | `gpt-5.2`, `openai/gpt-5.2` |
+| Anthropic | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet-latest`, `anthropic/claude-sonnet-4-5` |
+| Google | `GOOGLE_API_KEY` | `gemini-2.0-flash`, `google/gemini-2.0-flash` |
+| Ollama (default) | `OLLAMA_API_KEY` (optional), `OLLAMA_BASE_URL` | `llama3.2:latest`, `ollama/llama3.2:latest`, or `default` |
+| LiteLLM | (via litellm config) | `basic-atomic`/`basic-agent` only |
+
+When `--model` is unset or `default`, all iterative backends default to **Ollama**
+(`llama3.2:latest`) — no cloud API key required.
+
 Codex CLI backend notes:
 
+- **Env vars:** `OPENAI_API_KEY` (API key mode, default) or local `codex login` session (**native CLI auth** mode via `--use-native-cli-auth`)
 - Default command: `codex exec`
 - Default model passed to codex: `gpt-5.2` (unless overridden with `--model` or command override)
 - Default Codex safety mode:
@@ -450,12 +484,12 @@ CLI subprocess runtime controls (all CLI backends):
 - `HELPING_HANDS_CLI_HEARTBEAT_SECONDS` (default: `20`) — emit a
   "still running" line (including elapsed/timeout seconds) when command output
   is quiet.
-- `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default: `300`, except
-  `geminicli` default `900`) — terminate a subprocess that produces no output
+- `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default: `900`) — terminate a subprocess that produces no output
   for too long.
 
 Claude Code backend notes:
 
+- **Env vars:** `ANTHROPIC_API_KEY` (API key mode, default) or local `claude auth` session (**native CLI auth** mode via `--use-native-cli-auth`)
 - Default command: `claude -p`
 - If `claude` is missing and `npx` is available, backend auto-falls back to:
   `npx -y @anthropic-ai/claude-code -p ...`
@@ -493,6 +527,7 @@ Claude Code backend requirements:
 
 Goose backend notes:
 
+- **Env vars:** Depends on `GOOSE_PROVIDER` — `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama, default). Always requires `GH_TOKEN` or `GITHUB_TOKEN`.
 - Default command: `goose run --with-builtin developer --text`
 - Override command via `HELPING_HANDS_GOOSE_CLI_CMD`
 - The backend auto-adds `--with-builtin developer` for `goose run` commands if
@@ -520,12 +555,13 @@ uv run helping-hands owner/repo --backend goose --model anthropic/claude-sonnet-
 
 Gemini CLI note:
 
+- **Env vars:** `GEMINI_API_KEY` (always required; no native-CLI-auth toggle)
 - Gemini `-p` runs may be quiet before producing output; `helping-hands`
   heartbeats continue while waiting.
 - `geminicli` injects `--approval-mode auto_edit` by default for
   non-interactive scripted runs (override by explicitly setting
   `--approval-mode` in `HELPING_HANDS_GEMINI_CLI_CMD`).
-- Default idle timeout for `geminicli` is 900s (other CLI backends remain 300s).
+- Default idle timeout is now 900s for all CLI backends.
 - Override with `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS=<seconds>` when needed.
 - If Gemini rejects a deprecated/unavailable model, `geminicli` retries once
   without `--model` so Gemini CLI can pick a default available model.

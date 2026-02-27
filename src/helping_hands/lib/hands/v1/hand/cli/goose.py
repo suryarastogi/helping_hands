@@ -19,6 +19,20 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _GOOSE_DEFAULT_PROVIDER = "ollama"
     _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
 
+    def _describe_auth(self) -> str:
+        import os
+
+        provider, _model = self._resolve_goose_provider_model_from_config()
+        env_map = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "google": "GOOGLE_API_KEY",
+            "ollama": "OLLAMA_HOST",
+        }
+        env_var = env_map.get(provider, provider)
+        present = "set" if os.environ.get(env_var, "").strip() else "not set"
+        return f"auth=GOOSE_PROVIDER={provider} ({env_var} {present})"
+
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
         if tokens == ["goose"]:
             return ["goose", "run", "--with-builtin", "developer", "--text"]

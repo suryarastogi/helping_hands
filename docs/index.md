@@ -41,6 +41,14 @@ Browse the auto-generated docs from source:
   (auto-fix + validation retry) before commit/push.
 - CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run a two-phase flow:
   initialize/learn first, then execute the user task.
+- `codexcli` — **env:** `OPENAI_API_KEY` (API key mode, default) or local `codex login` session (**native CLI auth** via `--use-native-cli-auth`).
+- `claudecodecli` — **env:** `ANTHROPIC_API_KEY` (API key mode, default) or local `claude auth` session (**native CLI auth** via `--use-native-cli-auth`).
+- `goose` — **env:** depends on `GOOSE_PROVIDER`: `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama, default). Always requires `GH_TOKEN`/`GITHUB_TOKEN`.
+- `geminicli` — **env:** `GEMINI_API_KEY` (always required; no native-CLI-auth toggle).
+- Iterative backends (`basic-langgraph`, `basic-atomic`, `basic-agent`) — **env:**
+  provider-dependent API key resolved from `--model`: `OPENAI_API_KEY` (OpenAI),
+  `ANTHROPIC_API_KEY` (Anthropic), `GOOGLE_API_KEY` (Google), or Ollama vars
+  (default, no cloud key required).
 - `codexcli` passes `--model gpt-5.2` by default when model is unset/default.
 - `codexcli` sets sandbox mode automatically:
   - host: `workspace-write`
@@ -70,7 +78,7 @@ Browse the auto-generated docs from source:
 - CLI subprocess controls (all CLI backends):
   - `HELPING_HANDS_CLI_IO_POLL_SECONDS` (default `2`)
   - `HELPING_HANDS_CLI_HEARTBEAT_SECONDS` (default `20`, emits elapsed/timeout details)
-  - `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default `300`, `geminicli` default `900`)
+  - `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS` (default `900`)
 - Basic iterative hands preload iteration-1 context with `README.md`/`AGENT.md`
   (when present) and a bounded-depth repo tree snapshot.
 - Model selection resolves through `lib.ai_providers` wrappers, including
@@ -108,6 +116,7 @@ npm run coverage
 
 ## Codex backend requirements
 
+- **Env vars:** `OPENAI_API_KEY` (API key mode, default) or local `codex login` session (**native CLI auth** mode via `--use-native-cli-auth`).
 - `codex` CLI installed and on `PATH`.
 - Authenticated codex session in your shell (`codex login`) or equivalent key-based setup.
 - `GITHUB_TOKEN` or `GH_TOKEN` set if you want final commit/push/PR creation.
@@ -129,8 +138,8 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 
 ## Claude Code backend requirements
 
+- **Env vars:** `ANTHROPIC_API_KEY` (API key mode, default) or local `claude auth` session (**native CLI auth** mode via `--use-native-cli-auth`).
 - `claude` CLI on `PATH`, or `npx` available for fallback execution.
-- Auth configured for CLI execution (typically `ANTHROPIC_API_KEY`).
 - `GITHUB_TOKEN` or `GH_TOKEN` set if you want final commit/push/PR creation.
 - Optional container mode:
   - `HELPING_HANDS_CLAUDE_CONTAINER=1`
@@ -143,8 +152,8 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 
 ## Goose backend requirements
 
+- **Env vars:** Depends on `GOOSE_PROVIDER` — `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama, default). Always requires `GH_TOKEN` or `GITHUB_TOKEN`.
 - `goose` CLI on `PATH`.
-- `GH_TOKEN` or `GITHUB_TOKEN` must be set.
 - `goose run` calls include `--with-builtin developer` by default (or it is
   auto-injected) so file editing/shell tools are available.
 - `GOOSE_PROVIDER`/`GOOSE_MODEL` are auto-derived from `HELPING_HANDS_MODEL`
@@ -157,8 +166,8 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
 
 ## Gemini backend requirements
 
+- **Env vars:** `GEMINI_API_KEY` (always required; no native-CLI-auth toggle).
 - `gemini` CLI on `PATH`.
-- `GEMINI_API_KEY` set in the runtime.
 - Gemini `-p` can be quiet before first output; heartbeats continue while
   waiting.
 - `geminicli` uses a 900s default idle timeout (override with

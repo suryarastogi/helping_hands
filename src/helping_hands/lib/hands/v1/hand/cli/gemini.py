@@ -17,10 +17,13 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_CLI_CMD = "gemini -p"
     _DEFAULT_MODEL = ""
     _DEFAULT_APPEND_ARGS = ("-p",)
-    # Gemini non-interactive calls can be quiet for several minutes before
-    # first token/output, so use a safer backend-specific idle timeout.
-    _DEFAULT_IDLE_TIMEOUT_SECONDS = 900.0
     _DEFAULT_APPROVAL_MODE = "auto_edit"
+
+    def _describe_auth(self) -> str:
+        import os
+
+        present = "set" if os.environ.get("GEMINI_API_KEY", "").strip() else "not set"
+        return f"auth=GEMINI_API_KEY ({present})"
 
     @staticmethod
     def _looks_like_model_not_found(output: str) -> bool:

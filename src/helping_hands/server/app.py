@@ -9,6 +9,7 @@ import ast
 import html
 import json
 import os
+from pathlib import Path
 from typing import Any, Literal
 from urllib import error as urllib_error
 from urllib import request as urllib_request
@@ -44,7 +45,7 @@ class BuildRequest(BaseModel):
         "claudecodecli",
         "goose",
         "geminicli",
-    ] = "codexcli"
+    ] = "claudecodecli"
     model: str | None = None
     max_iterations: int = 6
     no_pr: bool = False
@@ -123,6 +124,13 @@ class WorkerCapacityResponse(BaseModel):
     workers: dict[str, int] = Field(default_factory=dict)
 
 
+class ServerConfig(BaseModel):
+    """Runtime configuration exposed to the frontend."""
+
+    in_docker: bool
+    native_auth_default: bool
+
+
 _TERMINAL_TASK_STATES = {"SUCCESS", "FAILURE", "REVOKED"}
 _CURRENT_TASK_STATES = {
     "PENDING",
@@ -176,7 +184,7 @@ _UI_HTML = """<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>helping_hands runner</title>
+    <title>helping_hands · server ui</title>
     <style>
       :root {
         --background: #020817;
@@ -582,6 +590,38 @@ _UI_HTML = """<!doctype html>
           flex-direction: column;
         }
       }
+      .server-ui-badge {
+        font-size: 0.6em;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #93c5fd;
+        background: rgba(37, 99, 235, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 6px;
+        padding: 2px 7px;
+        vertical-align: middle;
+      }
+      .status-blinker {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        flex-shrink: 0;
+        display: inline-block;
+        cursor: help;
+      }
+      .status-blinker.pulse {
+        animation: blinker-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes blinker-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+      }
+      .status-with-blinker {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
     </style>
   </head>
   <body>
@@ -607,7 +647,7 @@ _UI_HTML = """<!doctype html>
       <div class="main-column">
         <section id="submission-view" class="card">
           <header class="header">
-            <h1>helping_hands runner</h1>
+            <h1>helping_hands <span class="server-ui-badge">server&nbsp;ui</span></h1>
             <p>
               Submit runs to <code>/build</code> and track progress from
               <code>/tasks/{task_id}</code>.
@@ -729,7 +769,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           <div class="meta-grid">
             <div class="meta-item">
               <span class="meta-label">Status</span>
-              <strong id="status">idle</strong>
+              <strong class="status-with-blinker">
+                <span id="status-blinker" class="status-blinker"
+                  style="background-color:#6b7280" title="idle"></span>
+                <span id="status">idle</span>
+              </strong>
             </div>
             <div class="meta-item">
               <span class="meta-label">Task</span>
@@ -779,6 +823,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       const taskLabelEl = document.getElementById("task_label");
       const pollingLabelEl = document.getElementById("polling_label");
       const outputTextEl = document.getElementById("output_text");
+      const statusBlinkerEl = document.getElementById("status-blinker");
       const tabButtons = Array.from(document.querySelectorAll("[data-output-tab]"));
       const historyStorageKey = "helping_hands_task_history_v1";
       const terminalStatuses = new Set(["SUCCESS", "FAILURE", "REVOKED"]);
@@ -803,6 +848,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       function setStatus(value) {
         status = value;
         statusEl.textContent = value;
+        const tone = statusTone(value);
+        statusBlinkerEl.style.backgroundColor = statusBlinkerColor(tone);
+        statusBlinkerEl.title = value;
+        statusBlinkerEl.classList.toggle("pulse", tone === "run");
       }
 
       function setTaskId(value) {
@@ -863,6 +912,13 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           return "run";
         }
         return "idle";
+      }
+
+      function statusBlinkerColor(tone) {
+        if (tone === "ok") return "#22c55e";
+        if (tone === "fail") return "#ef4444";
+        if (tone === "run") return "#eab308";
+        return "#6b7280";
       }
 
       function parseOptimisticUpdates(rawUpdates) {
@@ -995,10 +1051,16 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           top.className = "task-row-top";
           const idCode = document.createElement("code");
           idCode.textContent = shortTaskId(item.taskId);
+          const tone = statusTone(item.status);
+          const rowBlinker = document.createElement("span");
+          rowBlinker.className = `status-blinker${tone === "run" ? " pulse" : ""}`;
+          rowBlinker.style.backgroundColor = statusBlinkerColor(tone);
+          rowBlinker.title = item.status;
           const statusPill = document.createElement("span");
-          statusPill.className = `status-pill ${statusTone(item.status)}`;
+          statusPill.className = `status-pill ${tone}`;
           statusPill.textContent = item.status;
           top.appendChild(idCode);
+          top.appendChild(rowBlinker);
           top.appendChild(statusPill);
 
           const meta = document.createElement("span");
@@ -1333,6 +1395,78 @@ def home() -> HTMLResponse:
 def health() -> dict[str, str]:
     """Health check."""
     return {"status": "ok"}
+
+
+class ServiceHealthResponse(BaseModel):
+    """Per-service connectivity status."""
+
+    redis: Literal["ok", "error"]
+    db: Literal["ok", "error", "na"]
+    workers: Literal["ok", "error"]
+
+
+def _check_redis_health() -> Literal["ok", "error"]:
+    try:
+        import redis as redis_lib  # bundled with celery[redis]
+
+        broker_url = celery_app.conf.broker_url or "redis://localhost:6379/0"
+        r = redis_lib.Redis.from_url(
+            broker_url,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
+        r.ping()
+        return "ok"
+    except Exception:
+        return "error"
+
+
+def _check_db_health() -> Literal["ok", "error", "na"]:
+    db_url = os.environ.get("DATABASE_URL", "").strip()
+    if not db_url:
+        return "na"
+    try:
+        import psycopg2  # psycopg2-binary is a declared dependency
+
+        conn = psycopg2.connect(db_url, connect_timeout=3)
+        conn.close()
+        return "ok"
+    except Exception:
+        return "error"
+
+
+def _check_workers_health() -> Literal["ok", "error"]:
+    try:
+        inspector = celery_app.control.inspect(timeout=2.0)
+        ping = inspector.ping()
+        return "ok" if ping else "error"
+    except Exception:
+        return "error"
+
+
+@app.get("/health/services", response_model=ServiceHealthResponse)
+def health_services() -> ServiceHealthResponse:
+    """Check connectivity to Redis, Postgres, and Celery workers."""
+    return ServiceHealthResponse(
+        redis=_check_redis_health(),
+        db=_check_db_health(),
+        workers=_check_workers_health(),
+    )
+
+
+def _is_running_in_docker() -> bool:
+    """Return True when the process is running inside a Docker container."""
+    if Path("/.dockerenv").exists():
+        return True
+    raw = os.environ.get("HELPING_HANDS_IN_DOCKER", "").strip().lower()
+    return raw in {"1", "true", "yes"}
+
+
+@app.get("/config", response_model=ServerConfig)
+def get_server_config() -> ServerConfig:
+    """Return runtime configuration used to seed frontend defaults."""
+    in_docker = _is_running_in_docker()
+    return ServerConfig(in_docker=in_docker, native_auth_default=not in_docker)
 
 
 def _enqueue_build_task(req: BuildRequest) -> BuildResponse:

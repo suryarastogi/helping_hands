@@ -30,7 +30,7 @@ class _TwoPhaseCLIHand(Hand):
     _SUMMARY_CHAR_LIMIT = 6000
     _DEFAULT_IO_POLL_SECONDS = 2.0
     _DEFAULT_HEARTBEAT_SECONDS = 20.0
-    _DEFAULT_IDLE_TIMEOUT_SECONDS = 300.0
+    _DEFAULT_IDLE_TIMEOUT_SECONDS = 900.0
 
     class _Emitter(Protocol):
         async def __call__(self, chunk: str) -> None: ...
@@ -172,6 +172,19 @@ class _TwoPhaseCLIHand(Hand):
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         return ()
+
+    def _describe_auth(self) -> str:
+        """Return a human-readable auth summary for the startup banner."""
+        native_env_names = self._native_cli_auth_env_names()
+        if not native_env_names:
+            return ""
+        env_label = ", ".join(native_env_names)
+        if self._use_native_cli_auth():
+            return f"auth=native-cli ({env_label} stripped)"
+        set_vars = [n for n in native_env_names if os.environ.get(n, "").strip()]
+        if set_vars:
+            return f"auth={', '.join(set_vars)}"
+        return f"auth=native-cli (no {env_label} set, using CLI session)"
 
     def _effective_container_env_names(self) -> tuple[str, ...]:
         env_names = self._container_env_names()
@@ -525,7 +538,11 @@ class _TwoPhaseCLIHand(Hand):
         emit: _Emitter,
     ) -> str:
         self.reset_interrupt()
-        await emit(f"[{self._CLI_LABEL}] isolation={self._execution_mode()}\n")
+        auth = self._describe_auth()
+        auth_part = f" | {auth}" if auth else ""
+        await emit(
+            f"[{self._CLI_LABEL}] isolation={self._execution_mode()}{auth_part}\n"
+        )
         await emit(
             f"[{self._CLI_LABEL}] [phase 1/2] Initializing repository context...\n"
         )
