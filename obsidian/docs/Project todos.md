@@ -30,3 +30,6 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- `goose` backend auto-injects `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`, falling back to `ollama` + `llama3.2:latest`; `--with-builtin developer` is auto-added for file editing tools; `GH_TOKEN`/`GITHUB_TOKEN` are mirrored for consistent auth.
+- `geminicli` backend defaults to `--approval-mode auto_edit` for non-interactive automation and retries with model fallback when the requested model is unavailable; default idle timeout is 900s.
+- All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) share common subprocess controls: IO poll interval, heartbeat interval, and configurable idle timeout.

@@ -139,4 +139,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-27 — provider-wrapper model resolution, iterative bootstrap context, coverage/docs reconciliation, and Goose/Gemini CLI backend support.*
