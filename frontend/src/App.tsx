@@ -308,6 +308,11 @@ const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
   other: DEFAULT_CHARACTER_STYLE,
 };
 
+function backendDisplayName(backend: string): string {
+  if (backend === "e2e") return "Smoke Test (internal)";
+  return backend;
+}
+
 function providerFromBackend(backend: string): string {
   const normalized = backend.trim().toLowerCase();
   if (normalized.includes("claude")) {
@@ -342,7 +347,7 @@ function formatProviderName(provider: string): string {
     return "OpenAI / Codex";
   }
   if (provider === "e2e") {
-    return "E2E";
+    return "Smoke Test";
   }
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
@@ -680,8 +685,8 @@ export function parseOptimisticUpdates(rawUpdates: string[]): string[] {
       continue;
     }
 
-    if (trimmed.startsWith("[codexcli] still running")) {
-      pushUnique(trimmed.replace("[codexcli] ", ""));
+    if (trimmed.startsWith("[codexcli] still running") || trimmed.startsWith("[claudecodecli] still running")) {
+      pushUnique(trimmed.replace(/^\[(codexcli|claudecodecli)\] /, ""));
       continue;
     }
 
@@ -710,7 +715,7 @@ export function parseOptimisticUpdates(rawUpdates: string[]): string[] {
       continue;
     }
 
-    if (trimmed.length <= 180 && !trimmed.startsWith("- ")) {
+    if (trimmed.length <= 250 && !trimmed.startsWith("- ")) {
       pushUnique(trimmed);
     }
   }
@@ -835,6 +840,11 @@ export default function App() {
   const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
   const floatingIdRef = useRef(0);
   const updateCountsRef = useRef<Map<string, number>>(new Map());
+  const [toasts, setToasts] = useState<{ id: number; taskId: string; status: string }[]>([]);
+  const toastIdRef = useRef(0);
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission>(
+    typeof Notification !== "undefined" ? Notification.permission : "denied"
+  );
 
   const spawnFloatingNumber = useCallback((forTaskId: string, delta: number) => {
     if (delta <= 0) return;
@@ -844,6 +854,52 @@ export default function App() {
     setTimeout(() => {
       setFloatingNumbers((prev) => prev.filter((f) => f.id !== id));
     }, 1200);
+  }, []);
+
+  const removeToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const addToast = useCallback((toastTaskId: string, toastStatus: string) => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, taskId: toastTaskId, status: toastStatus }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
+
+  const swReg = useRef<ServiceWorkerRegistration | null>(null);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker
+      .register("/notif-sw.js")
+      .then((reg) => {
+        swReg.current = reg;
+        console.log("[HH] Notification SW registered");
+      })
+      .catch((err) => console.warn("[HH] SW registration failed:", err));
+  }, []);
+
+  const sendBrowserNotification = useCallback((notifTaskId: string, notifStatus: string) => {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const tone = notifStatus.toUpperCase() === "SUCCESS" ? "completed successfully" : "failed";
+    const body = `Task ${shortTaskId(notifTaskId)} ${tone}`;
+    const reg = swReg.current;
+    if (reg) {
+      reg.showNotification("Helping Hands", { body, tag: notifTaskId }).catch((err) =>
+        console.error("[HH] showNotification failed:", err)
+      );
+    } else {
+      try { new Notification("Helping Hands", { body }); } catch (_) { /* fallback */ }
+    }
+  }, []);
+
+  const requestNotifPermission = useCallback(() => {
+    if (typeof Notification === "undefined") return;
+    Notification.requestPermission().then((perm) => {
+      setNotifPerm(perm);
+    });
   }, []);
 
   const payloadText = useMemo(() => {
@@ -1552,6 +1608,8 @@ export default function App() {
         );
 
         if (isTerminalTaskStatus(data.status)) {
+          addToast(data.task_id, data.status);
+          sendBrowserNotification(data.task_id, data.status);
           setIsPolling(false);
         }
       } catch (error) {
@@ -1579,7 +1637,7 @@ export default function App() {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [isPolling, taskId, spawnFloatingNumber]);
+  }, [isPolling, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1648,6 +1706,15 @@ export default function App() {
       setTaskHistory((current) => {
         let next = current;
         for (const patch of patches) {
+          const prev = current.find((h) => h.taskId === patch.taskId);
+          if (
+            patch.status &&
+            isTerminalTaskStatus(patch.status) &&
+            (!prev || !isTerminalTaskStatus(prev.status))
+          ) {
+            addToast(patch.taskId, patch.status);
+            sendBrowserNotification(patch.taskId, patch.status);
+          }
           next = upsertTaskHistory(next, patch);
         }
         return next;
@@ -1663,7 +1730,7 @@ export default function App() {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [isPolling, taskHistory, taskId, spawnFloatingNumber]);
+  }, [isPolling, taskHistory, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1947,6 +2014,31 @@ export default function App() {
     },
   ];
 
+  const testNotification = () => {
+    if (typeof Notification === "undefined") {
+      alert("Notification API not available in this context");
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission().then((perm) => {
+        setNotifPerm(perm);
+        if (perm === "granted") testNotification();
+      });
+      return;
+    }
+    const body = "If you see this, OS notifications are working!";
+    const reg = swReg.current;
+    if (reg) {
+      reg.showNotification("Helping Hands — Test", { body }).catch((err) =>
+        alert("showNotification failed: " + String(err))
+      );
+    } else {
+      try { new Notification("Helping Hands — Test", { body }); } catch (err) {
+        alert("Notification failed: " + String(err));
+      }
+    }
+  };
+
   const serviceHealthBar = (
     <div className="service-health-bar" aria-label="Service health">
       {serviceHealthIndicators
@@ -1972,6 +2064,15 @@ export default function App() {
             </span>
           );
         })}
+      <button
+        type="button"
+        className="service-health-item"
+        style={{ cursor: "pointer", background: "none", border: "none", color: "inherit", fontSize: "inherit", padding: 0 }}
+        onClick={testNotification}
+        title="Send a test OS notification"
+      >
+        <span className="service-health-label" style={{ textDecoration: "underline", opacity: 0.7 }}>test notification</span>
+      </button>
     </div>
   );
 
@@ -2008,7 +2109,7 @@ export default function App() {
                 >
                   {BACKEND_OPTIONS.map((backend) => (
                     <option key={backend} value={backend}>
-                      {backend}
+                      {backendDisplayName(backend)}
                     </option>
                   ))}
                 </select>
@@ -2273,7 +2374,7 @@ export default function App() {
                       onChange={(e) => updateScheduleField("backend", e.target.value as Backend)}
                     >
                       {BACKEND_OPTIONS.map((b) => (
-                        <option key={b} value={b}>{b}</option>
+                        <option key={b} value={b}>{backendDisplayName(b)}</option>
                       ))}
                     </select>
                   </label>
@@ -2759,6 +2860,27 @@ export default function App() {
         )}
       </div>
     </main>
+    {notifPerm === "default" && (
+      <div className="notif-banner">
+        <span>Enable OS notifications for task updates?</span>
+        <button onClick={requestNotifPermission}>Enable</button>
+        <button onClick={() => setNotifPerm("denied")}>Dismiss</button>
+      </div>
+    )}
+    {toasts.length > 0 && (
+      <div className="toast-container">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast--${statusTone(t.status)}`}>
+            <span className="toast-text">
+              Task {shortTaskId(t.taskId)} — {t.status}
+            </span>
+            <button className="toast-close" onClick={() => removeToast(t.id)} aria-label="Dismiss">
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
     {serviceHealthBar}
     </>
   );

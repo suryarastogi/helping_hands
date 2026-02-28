@@ -16,7 +16,7 @@ from urllib import request as urllib_request
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
@@ -710,6 +710,56 @@ _UI_HTML = """<!doctype html>
         align-items: center;
         gap: 6px;
       }
+      .toast-container {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 200;
+        pointer-events: none;
+      }
+      .toast {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #111b31;
+        border: 1px solid #1f2937;
+        border-left: 3px solid #94a3b8;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.8rem;
+        color: #e2e8f0;
+        backdrop-filter: blur(8px);
+        pointer-events: auto;
+        animation: toast-slide-in 0.3s ease-out;
+        min-width: 240px;
+        max-width: 380px;
+      }
+      .toast--ok { border-left-color: #22c55e; }
+      .toast--fail { border-left-color: #ef4444; }
+      .toast-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .toast-close {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 1.1rem;
+        padding: 0 2px;
+        line-height: 1;
+      }
+      .toast-close:hover { color: #e2e8f0; }
+      @keyframes toast-slide-in {
+        from { opacity: 0; transform: translateX(100%); }
+        to { opacity: 1; transform: translateX(0); }
+      }
     </style>
   </head>
   <body>
@@ -774,7 +824,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                   <label for="backend">
                     Backend
                     <select id="backend" name="backend">
-                      <option value="e2e">e2e</option>
+                      <option value="e2e">Smoke Test (internal)</option>
                       <option value="basic-langgraph">basic-langgraph</option>
                       <option value="basic-atomic">basic-atomic</option>
                       <option value="basic-agent">basic-agent</option>
@@ -1107,6 +1157,43 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         return `${value.slice(0, 10)}...${value.slice(-8)}`;
       }
 
+      let toastCounter = 0;
+      const toastContainerEl = document.getElementById("toast-container");
+
+      function showToast(tid, tStatus) {
+        const tone = statusTone(tStatus);
+        const el = document.createElement("div");
+        el.className = "toast toast--" + tone;
+        el.innerHTML =
+          '<span class="toast-text">Task ' + shortTaskId(tid) + " \u2014 " + tStatus + "</span>" +
+          '<button class="toast-close" aria-label="Dismiss">\u00d7</button>';
+        el.querySelector(".toast-close").onclick = function () { el.remove(); };
+        toastContainerEl.appendChild(el);
+        setTimeout(function () { el.remove(); }, 5000);
+      }
+
+      var _swReg = null;
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/notif-sw.js").then(function(reg) {
+          _swReg = reg;
+        }).catch(function() {});
+      }
+
+      function sendBrowserNotification(tid, tStatus) {
+        if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+        var tone = tStatus.toUpperCase() === "SUCCESS" ? "completed successfully" : "failed";
+        var body = "Task " + shortTaskId(tid) + " " + tone;
+        if (_swReg) {
+          _swReg.showNotification("Helping Hands", { body: body, tag: tid });
+        } else {
+          try { new Notification("Helping Hands", { body: body }); } catch(e) {}
+        }
+      }
+
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+
       function statusTone(value) {
         const normalized = String(value || "").trim().toUpperCase();
         if (normalized === "SUCCESS") {
@@ -1340,6 +1427,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           status: data.status,
         });
         if (terminalStatuses.has(data.status)) {
+          showToast(data.task_id, data.status);
+          sendBrowserNotification(data.task_id, data.status);
           stopPolling();
         }
       }
@@ -1782,6 +1871,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
       };
     </script>
+    <div id="toast-container" class="toast-container"></div>
   </body>
 </html>
 """
@@ -1795,6 +1885,27 @@ def home() -> HTMLResponse:
         html.escape(DEFAULT_SMOKE_TEST_PROMPT),
     )
     return HTMLResponse(rendered)
+
+
+_NOTIF_SW_JS = """\
+self.addEventListener("notificationclick", function(event) {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window" }).then(function(list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url && "focus" in list[i]) return list[i].focus();
+      }
+      if (clients.openWindow) return clients.openWindow("/");
+    })
+  );
+});
+"""
+
+
+@app.get("/notif-sw.js")
+def notif_sw() -> Response:
+    """Minimal service worker for OS notifications."""
+    return Response(content=_NOTIF_SW_JS, media_type="application/javascript")
 
 
 @app.get("/health")

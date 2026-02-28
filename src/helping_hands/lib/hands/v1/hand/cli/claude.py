@@ -32,6 +32,12 @@ class _StreamJsonEmitter:
                 continue
             await self._process_line(stripped)
 
+    async def flush(self) -> None:
+        """Process any remaining data in the buffer."""
+        if self._buffer.strip():
+            await self._process_line(self._buffer.strip())
+            self._buffer = ""
+
     async def _process_line(self, line: str) -> None:
         try:
             event = json.loads(line)
@@ -41,37 +47,50 @@ class _StreamJsonEmitter:
             return
 
         event_type = event.get("type", "")
+
         if event_type == "assistant":
+            # Claude Code stream-json: message is a full Anthropic API message
+            # with message.content[] array of {type: "text"} / {type: "tool_use"}.
             message = event.get("message", {})
-            msg_type = message.get("type", "")
-            if msg_type == "tool_use":
-                name = message.get("name", "unknown")
-                input_data = message.get("input", {})
-                summary = self._summarize_tool(name, input_data)
-                await self._emit(f"[{self._label}] {summary}\n")
-            elif msg_type == "text":
-                text = message.get("text", "")
-                if text:
-                    self._text_parts.append(text)
-                    preview = text.strip().replace("\n", " ")
-                    if len(preview) > 200:
-                        preview = preview[:197] + "..."
-                    if preview:
-                        await self._emit(f"[{self._label}] {preview}\n")
-        elif event_type == "tool_result":
-            content = event.get("content", "")
-            if isinstance(content, list):
-                content = " ".join(
-                    item.get("text", "") for item in content if isinstance(item, dict)
-                )
-            if isinstance(content, str) and content.strip():
-                preview = content.strip().replace("\n", " ")
-                if len(preview) > 150:
-                    preview = preview[:147] + "..."
-                await self._emit(f"[{self._label}] -> {preview}\n")
+            for block in message.get("content", []):
+                block_type = block.get("type", "")
+                if block_type == "tool_use":
+                    name = block.get("name", "unknown")
+                    input_data = block.get("input", {})
+                    summary = self._summarize_tool(name, input_data)
+                    await self._emit(f"[{self._label}] {summary}\n")
+                elif block_type == "text":
+                    text = block.get("text", "")
+                    if text:
+                        self._text_parts.append(text)
+                        preview = text.strip().replace("\n", " ")
+                        if len(preview) > 200:
+                            preview = preview[:197] + "..."
+                        if preview:
+                            await self._emit(f"[{self._label}] {preview}\n")
+
+        elif event_type == "user":
+            # Tool results: message.content[] array of {type: "tool_result"}.
+            message = event.get("message", {})
+            for block in message.get("content", []):
+                if block.get("type") != "tool_result":
+                    continue
+                content = block.get("content", "")
+                if isinstance(content, list):
+                    content = " ".join(
+                        item.get("text", "")
+                        for item in content
+                        if isinstance(item, dict)
+                    )
+                if isinstance(content, str) and content.strip():
+                    preview = content.strip().replace("\n", " ")
+                    if len(preview) > 150:
+                        preview = preview[:147] + "..."
+                    await self._emit(f"[{self._label}] -> {preview}\n")
+
         elif event_type == "result":
             self._result = event.get("result", "")
-            cost = event.get("cost_usd")
+            cost = event.get("total_cost_usd")
             duration = event.get("duration_ms")
             parts: list[str] = []
             if cost is not None:
@@ -278,6 +297,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         cmd = self._inject_output_format(cmd, "stream-json")
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
         raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
+        await parser.flush()
         return parser.result_text() or raw
 
     async def _invoke_backend(

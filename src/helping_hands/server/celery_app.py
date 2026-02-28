@@ -295,6 +295,25 @@ async def _collect_stream(
             )
 
     collector.flush()
+    _update_progress(
+        task,
+        task_id=task_id,
+        stage="running",
+        updates=updates,
+        prompt=prompt,
+        pr_number=pr_number,
+        backend=backend,
+        runtime_backend=runtime_backend,
+        repo_path=repo_path,
+        model=model,
+        max_iterations=max_iterations,
+        no_pr=no_pr,
+        enable_execution=enable_execution,
+        enable_web=enable_web,
+        use_native_cli_auth=use_native_cli_auth,
+        skills=skills,
+        workspace=workspace,
+    )
     return "".join(parts)
 
 
