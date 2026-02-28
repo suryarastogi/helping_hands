@@ -139,4 +139,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — docs/docstrings/obsidian reconciliation: corrected hand file mappings, added missing goose/geminicli/ollama/schedules references across all docs.*
