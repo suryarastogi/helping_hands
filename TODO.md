@@ -56,11 +56,13 @@
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+  - [x] **Claude CLI execution** — Implemented subprocess-backed claude flow with two-phase init/task, streaming output, interruption, `npx` fallback, root/sudo retry, and no-change enforcement pass.
   - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [x] **Goose CLI execution** — Implemented subprocess-backed goose flow with two-phase init/task, auto-injected `--with-builtin developer`, `GOOSE_PROVIDER`/`GOOSE_MODEL` derivation, and `GH_TOKEN` mirroring.
+  - [x] **Gemini CLI execution** — Implemented subprocess-backed gemini flow with two-phase init/task, `--approval-mode auto_edit` injection, and model-unavailable retry.
+  - [x] **Backend selection/routing (full matrix)** — All backends (`basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`, `e2e`) routed through CLI and app UI.
+  - [x] **Streaming for CLI hands** — All CLI hands use shared `_TwoPhaseCLIHand` base with real incremental subprocess streaming, heartbeats, and idle timeout.
+  - [x] **Cron scheduling** — `ScheduleManager` with RedBeat + Redis persistence, CRUD API endpoints (`/schedules`), `scheduled_build` Celery task, cron presets.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
 ---

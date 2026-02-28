@@ -60,11 +60,15 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
 2. Task execution pass that applies requested changes directly.
+
+All CLI backends share a common `_TwoPhaseCLIHand` base class providing
+streaming output, interruption support, heartbeat updates during quiet periods,
+and configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 For `claudecodecli`, non-interactive runs default to
 `--dangerously-skip-permissions` and now include one automatic follow-up apply
@@ -75,8 +79,15 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+
+For `goose`, provider/model are auto-injected via `GOOSE_PROVIDER`/`GOOSE_MODEL`
+env vars (derived from `HELPING_HANDS_MODEL`; default: `ollama` +
+`llama3.2:latest`). The backend auto-adds `--with-builtin developer` and always
+requires `GH_TOKEN`/`GITHUB_TOKEN`.
+
+For `geminicli`, `--approval-mode auto_edit` is injected by default for
+non-interactive runs. If a requested model is unavailable, `geminicli` retries
+once without `--model` so the CLI can pick a default.
 
 ## Provider wrappers and model resolution
 
@@ -126,6 +137,10 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Cron scheduling (current implementation)
+
+App mode supports cron-scheduled builds via `server/schedules.py`. A `ScheduleManager` backed by RedBeat + Redis provides CRUD for scheduled tasks. Each schedule stores a cron expression (or a preset name like `hourly`, `daily`), a build configuration (repo, prompt, backend, model, etc.), and run metadata. On each cron tick, a `scheduled_build` Celery task dispatches `build_feature` with the stored config. API endpoints under `/schedules` expose create/read/update/delete plus manual trigger and enable/disable toggles.
 
 ## Project Log
 

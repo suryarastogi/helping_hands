@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+pytest.importorskip("celery")
+
 from helping_hands.server.schedules import (
     CRON_PRESETS,
     ScheduledTask,
