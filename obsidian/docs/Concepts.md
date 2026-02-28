@@ -41,7 +41,11 @@ This means a rerun updates the same PR state instead of creating drift between o
 
 ## Basic hand semantics (current implementation)
 
-`BasicLangGraphHand` and `BasicAtomicHand` run iterative repo-aware loops with:
+`BasicLangGraphHand` and `BasicAtomicHand` run iterative repo-aware loops.
+The `basic-agent` backend is a routing alias for `BasicAtomicHand` (same class
+and deps as `basic-atomic`).
+
+Features:
 
 - streamed per-iteration output
 - cooperative interruption
@@ -73,6 +77,10 @@ All CLI backends share:
 - Async subprocess streaming with heartbeat monitoring and idle timeout
 - Configurable controls: `HELPING_HANDS_CLI_IO_POLL_SECONDS`,
   `HELPING_HANDS_CLI_HEARTBEAT_SECONDS`, `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS`
+- Optional container mode (`HELPING_HANDS_<BACKEND>_CONTAINER=1`)
+- Native CLI auth toggle (`--use-native-cli-auth` / `HELPING_HANDS_USE_NATIVE_CLI_AUTH`)
+  for `codexcli` and `claudecodecli` — strips provider API key env vars from the
+  subprocess so the CLI's own auth session is used instead
 
 Backend-specific behaviors:
 - `claudecodecli`: NPX fallback, `--dangerously-skip-permissions` for non-root,

@@ -56,7 +56,10 @@ This reduces first-iteration drift and gives the model conventions/context befor
 Requirements:
 
 1. `codex` CLI installed and available on `PATH`.
-2. Authenticated codex session (`codex login`) or equivalent API-key setup in the shell.
+2. Authenticated codex session (`codex login`) or `OPENAI_API_KEY` in the shell.
+   Optional native CLI auth mode (`--use-native-cli-auth` /
+   `HELPING_HANDS_USE_NATIVE_CLI_AUTH`) strips `OPENAI_API_KEY` from the
+   subprocess env so the CLI's own session is used instead.
 3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
 4. Access to the selected model (`gpt-5.2` is the backend default when model is unset/default).
 5. Codex command safety defaults are runtime-aware:
@@ -77,6 +80,9 @@ environment.
 1. `claude` CLI installed and available on `PATH`, or `npx` available for
    automatic fallback execution.
 2. Auth configured for CLI execution (typically `ANTHROPIC_API_KEY`).
+   Optional native CLI auth mode (`--use-native-cli-auth` /
+   `HELPING_HANDS_USE_NATIVE_CLI_AUTH`) strips `ANTHROPIC_API_KEY` from the
+   subprocess env so the CLI's own auth session is used instead.
 3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
 4. Optional command/container overrides:
    - `HELPING_HANDS_CLAUDE_CLI_CMD`

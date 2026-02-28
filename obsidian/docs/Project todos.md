@@ -12,7 +12,9 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+3. **Autodocs generation and serving on GitHub:** MkDocs Material + mkdocstrings; `docs/` source with API reference pages for lib, cli, server. Build in CI, publish to GitHub Pages.
+
+4. **Hand backend scaffolding vs implementation:** Dotenv bootstrap, E2E hand flow, task ID propagation, PR resume/update, live integration coverage, safe CI gating, all CLI hand backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`), basic iterative hands (`basic-langgraph`, `basic-atomic`, `basic-agent`), full backend selection/routing, streaming for all backends. Remaining: E2E hardening (branch collision handling, draft PR mode, idempotency guards).
 
 ## Design notes
 
