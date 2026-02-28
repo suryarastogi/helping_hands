@@ -87,6 +87,11 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backend base class**: All CLI-driven backends share `_TwoPhaseCLIHand` in `cli/base.py` for subprocess lifecycle, heartbeat, idle timeout, and container wrapping. (2026-02-23)
+- **Goose backend**: Auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`; mirrors `GH_TOKEN`/`GITHUB_TOKEN`; disables local GitHub auth fallback. (2026-02-27)
+- **Gemini backend**: Uses `--approval-mode auto_edit` for non-interactive runs; retries without `--model` on unavailable models. (2026-02-27)
+- **Scheduled tasks**: Cron-scheduled builds via RedBeat with CRUD REST API (`/schedules`), cron presets, and manual trigger support. Implementation in `server/schedules.py`. (2026-02-28)
+- **Rich PR descriptions**: `pr_description.py` generates PR title+body via external CLI tool; hands override `_pr_description_cmd()` to opt in. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -139,4 +144,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/obsidian; added goose, gemini, scheduling, and PR description decisions.*

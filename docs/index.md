@@ -10,7 +10,7 @@ Browse the auto-generated docs from source:
 
 - **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
-- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md)
+- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [schedules](api/server/schedules.md), [task_result](api/server/task_result.md), [mcp_server](api/server/mcp_server.md)
 
 ## Runtime flow
 
@@ -90,6 +90,18 @@ Browse the auto-generated docs from source:
 - CI test runs include coverage reporting and upload:
   - `coverage.xml` from the Python 3.12 backend job.
   - `frontend/coverage/lcov.info` from the frontend job.
+- **Scheduled tasks**: App mode supports cron-scheduled builds via RedBeat.
+  - `POST /schedules` — create a scheduled task (cron expression + build params).
+  - `GET /schedules` — list all scheduled tasks.
+  - `GET /schedules/{schedule_id}` — get a single schedule.
+  - `PUT /schedules/{schedule_id}` — update a schedule.
+  - `DELETE /schedules/{schedule_id}` — delete a schedule.
+  - `POST /schedules/{schedule_id}/enable` — enable a schedule.
+  - `POST /schedules/{schedule_id}/disable` — disable a schedule.
+  - `POST /schedules/{schedule_id}/trigger` — manually trigger a run.
+  - `GET /schedules/presets` — list available cron expression presets.
+  - Celery Beat fires `scheduled_build` tasks at cron time, which enqueue
+    standard `build_feature` tasks with stored parameters.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
 

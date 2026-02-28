@@ -1,6 +1,6 @@
 # Vision
 
-**helping_hands** is a Python tool that turns a git repo into a collaborative build environment. You point it at a codebase; an AI "hand" understands the repo and helps you add features, fix bugs, and evolve the code in conversation. It can run as a **CLI** (interactive in the terminal) or as an **app** (server + background workers for async and scheduled jobs).
+**helping_hands** is a Python tool that turns a git repo into a collaborative build environment. You point it at a codebase; an AI "hand" understands the repo and helps you add features, fix bugs, and evolve the code in conversation. It can run as a **CLI** (interactive in the terminal), as an **app** (server + background workers for async and scheduled jobs), or as an **MCP server** (exposing repo-building tools over the Model Context Protocol for integration with AI editors and agents).
 
 ## Why
 

@@ -60,29 +60,42 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) all
+share a common two-phase subprocess base (`_TwoPhaseCLIHand`):
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
 2. Task execution pass that applies requested changes directly.
 
-For `claudecodecli`, non-interactive runs default to
-`--dangerously-skip-permissions` and now include one automatic follow-up apply
-pass for edit-intent prompts when the first task pass produces no git changes.
-When running as root/sudo, the backend avoids or strips that flag and retries
-automatically if Claude rejects it.
-When `claude` is not installed but `npx` is available, backend command
-resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
-If Claude still requests interactive write approval and no edits are applied,
-the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+All CLI backends share these runtime controls:
+- heartbeat lines when output is quiet (`HELPING_HANDS_CLI_HEARTBEAT_SECONDS`)
+- configurable idle timeout (`HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS`)
+- non-interactive stdin (`DEVNULL`)
+- optional container execution wrapper
+
+Backend-specific behaviors:
+
+**`codexcli`**: Runtime-aware sandbox mode (`workspace-write` on host,
+`danger-full-access` in containers). Default model `gpt-5.2`.
+
+**`claudecodecli`**: Non-interactive runs default to
+`--dangerously-skip-permissions`; one automatic follow-up apply pass for
+edit-intent prompts when no git changes detected. Root/sudo auto-retry without
+the flag. `npx` fallback when `claude` is missing. Fails on interactive write
+approval after retries.
+
+**`goose`**: Auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from
+`HELPING_HANDS_MODEL` (default: `ollama` + `llama3.2:latest`). Auto-injects
+`--with-builtin developer`. Mirrors `GH_TOKEN`/`GITHUB_TOKEN` for subprocesses.
+
+**`geminicli`**: Injects `--approval-mode auto_edit` for non-interactive runs.
+Retries once without `--model` when a model is rejected as unavailable.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -119,6 +132,30 @@ App mode has two monitoring paths:
 
 In logs, either repeated `/tasks/...` or repeated `/monitor/...` requests are
 valid indicators that monitoring is active.
+
+## Scheduled tasks (app mode)
+
+App mode supports cron-scheduled build tasks via RedBeat (Redis-backed Celery
+Beat scheduler). Schedules are managed through `/schedules` REST endpoints:
+
+- CRUD operations for schedule definitions (cron expression + build params)
+- Enable/disable toggle per schedule
+- Manual trigger to run a scheduled task immediately
+- Cron presets for common patterns (e.g. hourly, daily, weekly)
+
+When Beat fires a `scheduled_build` task, it enqueues a standard
+`build_feature` Celery task with the schedule's stored parameters. The worker
+flow is identical to ad-hoc `/build` runs.
+
+## PR description generation
+
+Hands can generate rich PR descriptions using an external CLI tool (e.g.
+`claude -p`). The `pr_description.py` module accepts a diff summary and prompt,
+runs the CLI, and parses the output into a title + body. If the CLI is
+unavailable or fails, finalization falls back to the generic PR body template.
+
+CLI hand subclasses can override `_pr_description_cmd()` to provide a command
+for rich descriptions.
 
 ## Repo input behavior
 
