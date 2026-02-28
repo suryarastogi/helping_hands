@@ -87,6 +87,9 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backend two-phase pattern**: All CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) follow the same two-phase flow: initialize/learn repo context, then execute the user task. Shared subprocess liveness guards (heartbeat, idle timeout) apply to all. (2026-02-28)
+- **Skills as composable bundles**: Tool capabilities are grouped as skills (`execution`, `web`, `prd`, `ralph`) in `lib/meta/skills/`. Per-run selection via `skills` field; legacy `enable_execution`/`enable_web` flags fold in automatically. (2026-02-28)
+- **Cron scheduling via RedBeat**: App-mode scheduled tasks use RedBeat + Redis for persistence and Beat for dispatch; full CRUD via `/schedules` endpoints. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -116,6 +119,8 @@ what the code does.
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
+| celery-redbeat | server | Redis-backed dynamic beat scheduler for cron tasks |
+| croniter | server | Cron expression parsing and next-run calculation |
 
 ---
 
@@ -139,4 +144,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/obsidian; added goose, geminicli, ollama, skills, and cron scheduling across all documentation sources.*

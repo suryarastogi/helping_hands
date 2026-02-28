@@ -50,7 +50,7 @@ docker compose up --build
 
 ## Architecture
 
-**`helping_hands` is an AI-powered repo builder** — point it at a codebase and it uses AI to add features, fix bugs, and evolve code. Runs as CLI, FastAPI server (with Celery workers), or MCP server.
+**`helping_hands` is an AI-powered repo builder** — point it at a codebase and it uses AI to add features, fix bugs, and evolve code. Runs as CLI, FastAPI server (with Celery workers and cron scheduling), or MCP server.
 
 ### Core abstraction: Hands
 
@@ -66,13 +66,13 @@ Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands
 
 ### Provider abstraction
 
-AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProvider` interface. Models are specified as bare strings (`gpt-5.2`) or `provider/model` format (`anthropic/claude-sonnet-4-5`). Resolution happens in `model_provider.py`.
+AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProvider` interface (`openai`, `anthropic`, `google`, `litellm`, `ollama`). Models are specified as bare strings (`gpt-5.2`) or `provider/model` format (`anthropic/claude-sonnet-4-5`). Resolution happens in `model_provider.py`. When `--model` is unset or `default`, iterative backends default to Ollama (`llama3.2:latest`).
 
 ### Module boundaries
 
 - `src/helping_hands/lib/` — core library (config, repo indexing, GitHub API, hands, meta tools, AI providers)
 - `src/helping_hands/cli/` — CLI entry point, depends on lib
-- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server, depends on lib
+- `src/helping_hands/server/` — FastAPI app + Celery tasks + RedBeat cron scheduling + MCP server, depends on lib
 - `frontend/` — React + TypeScript + Vite UI
 - `tests/` — pytest suite
 
@@ -80,7 +80,7 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 ### System tool isolation
 
-All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
+All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer. Dynamic skills (`src/helping_hands/lib/meta/skills/`) bundle tool capabilities (`execution`, `web`, `prd`, `ralph`) for per-run selection.
 
 ## Code Conventions
 

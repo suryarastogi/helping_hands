@@ -21,6 +21,9 @@ Browse the auto-generated docs from source:
   `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
   (editable).
 - Execution and web tools are opt-in per run (`enable_execution`, `enable_web`).
+- Dynamic skill selection is available per run via the `skills` field
+  (`execution`, `web`, `prd`, `ralph`). Legacy boolean flags are automatically
+  folded into skill selection.
 - Native CLI auth is opt-in per run (`use_native_cli_auth`) and currently
   applies to `codexcli`/`claudecodecli` by stripping provider API key env vars
   from subprocess execution.
@@ -92,6 +95,17 @@ Browse the auto-generated docs from source:
   - `frontend/coverage/lcov.info` from the frontend job.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
+- **Cron scheduling**: `/schedules` endpoints provide full CRUD for scheduled
+  build tasks. Uses RedBeat + Redis for persistence. Beat worker dispatches
+  `scheduled_build` tasks on the configured cadence. UI includes a
+  scheduled-tasks view with cron expression presets and manual trigger.
+- `goose` — **env:** depends on `GOOSE_PROVIDER`: `OPENAI_API_KEY` (openai),
+  `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or
+  `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama, default). Always requires
+  `GH_TOKEN`/`GITHUB_TOKEN`. Provider/model auto-derived from
+  `HELPING_HANDS_MODEL`.
+- `geminicli` — **env:** `GEMINI_API_KEY` (always required; no native-CLI-auth
+  toggle). Injects `--approval-mode auto_edit` by default.
 
 ## Full Docker dev reset
 

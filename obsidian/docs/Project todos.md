@@ -4,15 +4,15 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 ## Summary (from TODO.md)
 
-1. **Set up Python project** under `src/helping_hands`:
-   - **Layout:** `lib/` (core), `cli/` (CLI, uses lib), `server/` (app mode, uses lib)
-   - **Tooling:** uv, ruff, `ty` type checking, pre-commit
-   - **CI/CD:** Push/PR pipeline runs uv sync, tests, Ruff; E2E integration is opt-in and push-safe in matrix
-   - **Tests:** pytest under `tests/`, run in CI
+1. **Set up Python project** under `src/helping_hands` ✓ — Layout, tooling, CI/CD, tests all complete.
 
-2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
+2. **Dockerise app mode and add Compose** ✓ — `compose.yaml` with server, workers, beat, Redis, Postgres, Flower.
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+3. **Autodocs generation and serving on GitHub** ✓ — MkDocs Material + mkdocstrings; CI builds and deploys to GitHub Pages.
+
+4. **Hand backend scaffolding vs implementation** — All CLI backends now implemented (`codexcli`, `claudecodecli`, `goose`, `geminicli`). Full backend routing in CLI and app mode. Remaining: E2E hardening (branch collision, draft PR, idempotency).
+
+5. **Skills and scheduling** ✓ — Dynamic skill registry (`execution`, `web`, `prd`, `ralph`) in `lib/meta/skills/`. Cron scheduling via RedBeat + Redis with `/schedules` CRUD and scheduled-tasks UI.
 
 ## Design notes
 
@@ -30,3 +30,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- `goose` backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL` (default: `ollama`/`llama3.2:latest`), injects `--with-builtin developer`, and mirrors `GH_TOKEN`↔`GITHUB_TOKEN`.
+- `geminicli` backend injects `--approval-mode auto_edit` for non-interactive runs and retries once without `--model` on deprecated-model rejection.
+- Skills system (`lib/meta/skills/`) provides composable tool bundles (`execution`, `web`, `prd`, `ralph`) selected per run via `skills` field; legacy `enable_execution`/`enable_web` flags are automatically folded in.
+- Cron scheduling via RedBeat + Redis (`server/schedules.py`); full CRUD on `/schedules` endpoints; Beat dispatches `scheduled_build` Celery tasks; UI has a scheduled-tasks view with cron presets.
