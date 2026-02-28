@@ -18,6 +18,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_CLI_CMD = "gemini -p"
     _DEFAULT_MODEL = ""
     _DEFAULT_APPEND_ARGS = ("-p",)
+    _VERBOSE_CLI_FLAGS = ("--verbose",)
     _DEFAULT_APPROVAL_MODE = "auto_edit"
 
     def _pr_description_cmd(self) -> list[str] | None:

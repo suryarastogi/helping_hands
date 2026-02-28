@@ -62,9 +62,10 @@ _SUPPORTED_BACKENDS = {
     "goose",
     "geminicli",
 }
-_MAX_STORED_UPDATES = 200
-_MAX_UPDATE_LINE_CHARS = 800
-_BUFFER_FLUSH_CHARS = 180
+_VERBOSE = os.environ.get("HELPING_HANDS_VERBOSE", "").lower() in ("1", "true", "yes")
+_MAX_STORED_UPDATES = 2000 if _VERBOSE else 200
+_MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800
+_BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
 
 
 def _github_clone_url(repo: str) -> str:
@@ -272,7 +273,7 @@ async def _collect_stream(
         parts.append(text)
         collector.feed(text)
         chunk_count += 1
-        if chunk_count % 8 == 0:
+        if chunk_count % (2 if _VERBOSE else 8) == 0:
             _update_progress(
                 task,
                 task_id=task_id,
@@ -434,6 +435,21 @@ def build_feature(
 
         if cloned_from:
             _append_update(updates, f"Cloned {cloned_from} to {resolved_repo_path}")
+        if pr_number is not None and cloned_from:
+            _append_update(updates, f"Checking out PR #{pr_number} branch...")
+            from helping_hands.lib.github import GitHubClient as _GHClient
+
+            with _GHClient() as _gh:
+                _pr_info = _gh.get_pr(cloned_from, pr_number)
+                _pr_branch = str(_pr_info["head"])
+                _gh.fetch_branch(resolved_repo_path, _pr_branch)
+                _gh.switch_branch(resolved_repo_path, _pr_branch)
+                _gh.pull(resolved_repo_path, branch=_pr_branch)
+            _append_update(
+                updates,
+                f"Checked out branch {_pr_branch} for PR #{pr_number} (up to date)",
+            )
+            repo_index = RepoIndex.from_path(Path(config.repo))
         if runtime_backend == "codexcli" and not _has_codex_auth():
             msg = (
                 "Codex authentication is missing in worker runtime. "
@@ -528,6 +544,7 @@ def build_feature(
             raise RuntimeError(msg) from exc
 
         hand.auto_pr = not no_pr
+        hand.pr_number = pr_number
         message = asyncio.run(
             _collect_stream(
                 hand,

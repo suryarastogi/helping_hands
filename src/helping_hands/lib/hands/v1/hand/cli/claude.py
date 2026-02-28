@@ -2,10 +2,115 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+
+class _StreamJsonEmitter:
+    """Parse Claude Code ``--output-format stream-json`` and emit progress."""
+
+    def __init__(
+        self,
+        emit: _TwoPhaseCLIHand._Emitter,
+        label: str,
+    ) -> None:
+        self._emit = emit
+        self._label = label
+        self._buffer = ""
+        self._result = ""
+        self._text_parts: list[str] = []
+
+    async def __call__(self, chunk: str) -> None:
+        self._buffer += chunk
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            stripped = line.strip()
+            if not stripped:
+                continue
+            await self._process_line(stripped)
+
+    async def _process_line(self, line: str) -> None:
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, TypeError):
+            # Not JSON (verbose logs, heartbeats) — pass through.
+            await self._emit(line + "\n")
+            return
+
+        event_type = event.get("type", "")
+        if event_type == "assistant":
+            message = event.get("message", {})
+            msg_type = message.get("type", "")
+            if msg_type == "tool_use":
+                name = message.get("name", "unknown")
+                input_data = message.get("input", {})
+                summary = self._summarize_tool(name, input_data)
+                await self._emit(f"[{self._label}] {summary}\n")
+            elif msg_type == "text":
+                text = message.get("text", "")
+                if text:
+                    self._text_parts.append(text)
+                    preview = text.strip().replace("\n", " ")
+                    if len(preview) > 200:
+                        preview = preview[:197] + "..."
+                    if preview:
+                        await self._emit(f"[{self._label}] {preview}\n")
+        elif event_type == "tool_result":
+            content = event.get("content", "")
+            if isinstance(content, list):
+                content = " ".join(
+                    item.get("text", "") for item in content if isinstance(item, dict)
+                )
+            if isinstance(content, str) and content.strip():
+                preview = content.strip().replace("\n", " ")
+                if len(preview) > 150:
+                    preview = preview[:147] + "..."
+                await self._emit(f"[{self._label}] -> {preview}\n")
+        elif event_type == "result":
+            self._result = event.get("result", "")
+            cost = event.get("cost_usd")
+            duration = event.get("duration_ms")
+            parts: list[str] = []
+            if cost is not None:
+                parts.append(f"${cost:.4f}")
+            if duration is not None:
+                parts.append(f"{duration / 1000:.1f}s")
+            if parts:
+                await self._emit(f"[{self._label}] api: {', '.join(parts)}\n")
+
+    @staticmethod
+    def _summarize_tool(name: str, input_data: dict) -> str:
+        if name == "Read":
+            path = input_data.get("file_path", "")
+            return f"Read {path}"
+        if name == "Edit":
+            path = input_data.get("file_path", "")
+            return f"Edit {path}"
+        if name == "Write":
+            path = input_data.get("file_path", "")
+            return f"Write {path}"
+        if name == "Bash":
+            cmd = input_data.get("command", "")
+            if len(cmd) > 80:
+                cmd = cmd[:77] + "..."
+            return f"$ {cmd}"
+        if name == "Glob":
+            pattern = input_data.get("pattern", "")
+            return f"Glob {pattern}"
+        if name == "Grep":
+            pattern = input_data.get("pattern", "")
+            return f"Grep /{pattern}/"
+        return f"tool: {name}"
+
+    def result_text(self) -> str:
+        if self._result:
+            return self._result
+        if self._text_parts:
+            return "".join(self._text_parts)
+        return ""
 
 
 class ClaudeCodeHand(_TwoPhaseCLIHand):
@@ -20,6 +125,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     _DEFAULT_APPEND_ARGS = ("-p",)
     _CONTAINER_ENABLED_ENV_VAR = "HELPING_HANDS_CLAUDE_CONTAINER"
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CLAUDE_CONTAINER_IMAGE"
+    _VERBOSE_CLI_FLAGS = ("--verbose",)
     _DEFAULT_SKIP_PERMISSIONS = "1"
     _RETRY_ON_NO_CHANGES = True
     _ROOT_PERMISSION_ERROR = (
@@ -151,13 +257,28 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             return None
         return ["npx", "-y", "@anthropic-ai/claude-code", *cmd[1:]]
 
+    @staticmethod
+    def _inject_output_format(cmd: list[str], fmt: str) -> list[str]:
+        """Insert ``--output-format <fmt>`` before the ``-p`` flag."""
+        if any(t == "--output-format" or t.startswith("--output-format=") for t in cmd):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--output-format", fmt, *cmd[p_idx:]]
+
     async def _invoke_claude(
         self,
         prompt: str,
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
-        return await self._invoke_cli(prompt, emit=emit)
+        cmd = self._render_command(prompt)
+        cmd = self._inject_output_format(cmd, "stream-json")
+        parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
+        raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
+        return parser.result_text() or raw
 
     async def _invoke_backend(
         self,

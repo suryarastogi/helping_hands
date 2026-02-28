@@ -12,6 +12,7 @@ consistent regardless of which concrete hand class is selected.
 from __future__ import annotations
 
 import abc
+import contextlib
 import os
 import re
 import subprocess
@@ -45,6 +46,7 @@ class Hand(abc.ABC):
         self.repo_index = repo_index
         self._interrupt_event = Event()
         self.auto_pr = True
+        self.pr_number: int | None = None
 
     def _build_system_prompt(self) -> str:
         """Build a system prompt that includes repo context."""
@@ -223,6 +225,210 @@ class Hand(abc.ABC):
         )
         raise RuntimeError(msg)
 
+    @staticmethod
+    def _push_noninteractive(
+        gh: Any,
+        repo_dir: Path,
+        branch: str,
+    ) -> None:
+        """Push with git credential prompts suppressed."""
+        prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
+        prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
+        os.environ["GIT_TERMINAL_PROMPT"] = "0"
+        os.environ["GCM_INTERACTIVE"] = "never"
+        try:
+            gh.push(repo_dir, branch=branch, set_upstream=True)
+        finally:
+            if prior_prompt is None:
+                os.environ.pop("GIT_TERMINAL_PROMPT", None)
+            else:
+                os.environ["GIT_TERMINAL_PROMPT"] = prior_prompt
+            if prior_gcm_interactive is None:
+                os.environ.pop("GCM_INTERACTIVE", None)
+            else:
+                os.environ["GCM_INTERACTIVE"] = prior_gcm_interactive
+
+    def _push_to_existing_pr(
+        self,
+        *,
+        gh: Any,
+        repo: str,
+        repo_dir: Path,
+        backend: str,
+        prompt: str,
+        summary: str,
+        metadata: dict[str, str],
+    ) -> dict[str, str]:
+        """Commit and push to an existing PR's branch, updating description if owned.
+
+        If the push fails (e.g. unexpected remote changes), a new PR is created
+        against the original PR's base branch, referencing the original PR.
+        """
+        assert self.pr_number is not None
+
+        pr_info = gh.get_pr(repo, self.pr_number)
+        branch = str(pr_info["head"])
+        base_branch = str(pr_info["base"])
+        pr_url = str(pr_info["url"])
+
+        commit_sha = gh.add_and_commit(
+            repo_dir,
+            f"feat({backend}): apply hand updates",
+        )
+
+        try:
+            self._push_noninteractive(gh, repo_dir, branch)
+        except RuntimeError:
+            # Branch diverged — create a PR targeting the original PR branch.
+            return self._create_pr_for_diverged_branch(
+                gh=gh,
+                repo=repo,
+                repo_dir=repo_dir,
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+                metadata=metadata,
+                pr_branch=branch,
+                commit_sha=commit_sha,
+            )
+
+        # Push succeeded — update PR description if the PR was created by us.
+        pr_creator = str(pr_info.get("user", ""))
+        try:
+            token_user = gh.whoami().get("login", "")
+        except Exception:
+            token_user = ""
+        if pr_creator and token_user and pr_creator == token_user:
+            self._update_pr_description(
+                gh=gh,
+                repo=repo,
+                repo_dir=repo_dir,
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+                base_branch=base_branch,
+                commit_sha=commit_sha,
+            )
+
+        metadata.update(
+            {
+                "pr_status": "updated",
+                "pr_url": pr_url,
+                "pr_number": str(self.pr_number),
+                "pr_branch": branch,
+                "pr_commit": commit_sha,
+            }
+        )
+        return metadata
+
+    def _update_pr_description(
+        self,
+        *,
+        gh: Any,
+        repo: str,
+        repo_dir: Path,
+        backend: str,
+        prompt: str,
+        summary: str,
+        base_branch: str,
+        commit_sha: str,
+    ) -> None:
+        """Generate and update the PR description for an owned PR."""
+        assert self.pr_number is not None
+        stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            generate_pr_description,
+        )
+
+        rich_desc = generate_pr_description(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            base_branch=base_branch,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        )
+        if rich_desc is not None:
+            pr_body = rich_desc.body
+        else:
+            pr_body = self._build_generic_pr_body(
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+                commit_sha=commit_sha,
+                stamp_utc=stamp,
+            )
+        with contextlib.suppress(Exception):
+            gh.update_pr_body(repo, self.pr_number, body=pr_body)
+
+    def _create_pr_for_diverged_branch(
+        self,
+        *,
+        gh: Any,
+        repo: str,
+        repo_dir: Path,
+        backend: str,
+        prompt: str,
+        summary: str,
+        metadata: dict[str, str],
+        pr_branch: str,
+        commit_sha: str,
+    ) -> dict[str, str]:
+        """Create a PR-of-PR when push to the original PR branch was rejected.
+
+        The new PR targets the original PR's head branch so it can be merged
+        into the existing PR rather than going directly to the base branch.
+        """
+        assert self.pr_number is not None
+        new_branch = f"helping-hands/{backend}-{uuid4().hex[:8]}"
+        gh.create_branch(repo_dir, new_branch)
+        self._push_noninteractive(gh, repo_dir, new_branch)
+
+        stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            generate_pr_description,
+        )
+
+        rich_desc = generate_pr_description(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            base_branch=pr_branch,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        )
+        if rich_desc is not None:
+            pr_title = rich_desc.title
+            pr_body = rich_desc.body
+        else:
+            pr_title = f"feat({backend}): automated hand update"
+            pr_body = self._build_generic_pr_body(
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+                commit_sha=commit_sha,
+                stamp_utc=stamp,
+            )
+        pr_body += f"\n\n---\nFollow-up to #{self.pr_number}."
+
+        pr = gh.create_pr(
+            repo,
+            title=pr_title,
+            body=pr_body,
+            head=new_branch,
+            base=pr_branch,
+        )
+        metadata.update(
+            {
+                "pr_status": "created",
+                "pr_url": pr.url,
+                "pr_number": str(pr.number),
+                "pr_branch": new_branch,
+                "pr_commit": commit_sha,
+            }
+        )
+        return metadata
+
     def _finalize_repo_pr(
         self,
         *,
@@ -289,29 +495,27 @@ class Hand(abc.ABC):
                 )
                 gh.set_local_identity(repo_dir, name=git_name, email=git_email)
 
+                if not self._use_native_git_auth_for_push(github_token=gh.token):
+                    self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
+
+                if self.pr_number is not None:
+                    return self._push_to_existing_pr(
+                        gh=gh,
+                        repo=repo,
+                        repo_dir=repo_dir,
+                        backend=backend,
+                        prompt=prompt,
+                        summary=summary,
+                        metadata=metadata,
+                    )
+
                 branch = f"helping-hands/{backend}-{uuid4().hex[:8]}"
                 gh.create_branch(repo_dir, branch)
                 commit_sha = gh.add_and_commit(
                     repo_dir,
                     f"feat({backend}): apply hand updates",
                 )
-                if not self._use_native_git_auth_for_push(github_token=gh.token):
-                    self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
-                prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
-                prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
-                os.environ["GIT_TERMINAL_PROMPT"] = "0"
-                os.environ["GCM_INTERACTIVE"] = "never"
-                try:
-                    gh.push(repo_dir, branch=branch, set_upstream=True)
-                finally:
-                    if prior_prompt is None:
-                        os.environ.pop("GIT_TERMINAL_PROMPT", None)
-                    else:
-                        os.environ["GIT_TERMINAL_PROMPT"] = prior_prompt
-                    if prior_gcm_interactive is None:
-                        os.environ.pop("GCM_INTERACTIVE", None)
-                    else:
-                        os.environ["GCM_INTERACTIVE"] = prior_gcm_interactive
+                self._push_noninteractive(gh, repo_dir, branch)
 
                 base_branch = self._default_base_branch()
                 try:

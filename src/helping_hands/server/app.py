@@ -150,6 +150,7 @@ class ScheduleRequest(BaseModel):
     backend: BackendName = "claudecodecli"
     model: str | None = None
     max_iterations: int = Field(default=6, ge=1)
+    pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
@@ -183,6 +184,7 @@ class ScheduleResponse(BaseModel):
     backend: str
     model: str | None = None
     max_iterations: int = 6
+    pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
@@ -785,7 +787,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
 
                   <label for="model">
                     Model (optional)
-                    <input id="model" name="model" placeholder="gpt-5.2" />
+                    <input id="model" name="model" placeholder="claude-opus-4-6" />
                   </label>
                 </div>
 
@@ -976,9 +978,13 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     </label>
                     <label for="schedule_model">
                       Model (optional)
-                      <input id="schedule_model" name="model" placeholder="gpt-5.2" />
+                      <input id="schedule_model" name="model" placeholder="claude-opus-4-6" />
                     </label>
                   </div>
+                  <label for="schedule_pr_number">
+                    PR number (optional)
+                    <input id="schedule_pr_number" name="pr_number" type="number" min="1" />
+                  </label>
                   <div class="row check-grid">
                     <label class="check-row" for="schedule_no_pr">
                       <input id="schedule_no_pr" name="no_pr" type="checkbox" />
@@ -1692,6 +1698,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           prompt: document.getElementById("schedule_prompt").value,
           backend: document.getElementById("schedule_backend").value,
           model: document.getElementById("schedule_model").value || null,
+          pr_number: document.getElementById("schedule_pr_number").value ? Number(document.getElementById("schedule_pr_number").value) : null,
           no_pr: document.getElementById("schedule_no_pr").checked,
           enabled: document.getElementById("schedule_enabled").checked
         };
@@ -1728,6 +1735,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           document.getElementById("schedule_prompt").value = s.prompt;
           document.getElementById("schedule_backend").value = s.backend;
           document.getElementById("schedule_model").value = s.model || "";
+          document.getElementById("schedule_pr_number").value = s.pr_number != null ? s.pr_number : "";
           document.getElementById("schedule_no_pr").checked = s.no_pr;
           document.getElementById("schedule_enabled").checked = s.enabled;
 
@@ -2643,6 +2651,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         backend=task.backend,
         model=task.model,
         max_iterations=task.max_iterations,
+        pr_number=task.pr_number,
         no_pr=task.no_pr,
         enable_execution=task.enable_execution,
         enable_web=task.enable_web,
@@ -2694,6 +2703,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         backend=request.backend,
         model=request.model,
         max_iterations=request.max_iterations,
+        pr_number=request.pr_number,
         no_pr=request.no_pr,
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,
@@ -2740,6 +2750,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         backend=request.backend,
         model=request.model,
         max_iterations=request.max_iterations,
+        pr_number=request.pr_number,
         no_pr=request.no_pr,
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,

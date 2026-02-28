@@ -7,6 +7,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import time
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Any, Protocol
@@ -27,9 +28,11 @@ class _TwoPhaseCLIHand(Hand):
     _CONTAINER_ENABLED_ENV_VAR = ""
     _CONTAINER_IMAGE_ENV_VAR = ""
     _RETRY_ON_NO_CHANGES = False
+    _VERBOSE_CLI_FLAGS: tuple[str, ...] = ()
     _SUMMARY_CHAR_LIMIT = 6000
     _DEFAULT_IO_POLL_SECONDS = 2.0
     _DEFAULT_HEARTBEAT_SECONDS = 20.0
+    _DEFAULT_HEARTBEAT_SECONDS_VERBOSE = 5.0
     _DEFAULT_IDLE_TIMEOUT_SECONDS = 900.0
 
     class _Emitter(Protocol):
@@ -76,6 +79,20 @@ class _TwoPhaseCLIHand(Hand):
         return model
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        return cmd
+
+    def _apply_verbose_flags(self, cmd: list[str]) -> list[str]:
+        """Inject verbose CLI flags before the prompt argument.
+
+        Flags are inserted right after the binary name (index 1) so they
+        appear before ``-p``/``--prompt`` and the prompt text itself.
+        Some CLIs ignore flags that appear after the prompt argument.
+        """
+        if not self.config.verbose or not self._VERBOSE_CLI_FLAGS:
+            return cmd
+        for flag in self._VERBOSE_CLI_FLAGS:
+            if flag not in cmd:
+                cmd = [cmd[0], flag, *cmd[1:]]
         return cmd
 
     @staticmethod
@@ -136,6 +153,7 @@ class _TwoPhaseCLIHand(Hand):
         ):
             rendered.append(prompt)
         rendered = self._apply_backend_defaults(rendered)
+        rendered = self._apply_verbose_flags(rendered)
         return self._wrap_container_if_enabled(rendered)
 
     def _container_enabled(self) -> bool:
@@ -249,9 +267,14 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _heartbeat_seconds(self) -> float:
+        default = (
+            self._DEFAULT_HEARTBEAT_SECONDS_VERBOSE
+            if self.config.verbose
+            else self._DEFAULT_HEARTBEAT_SECONDS
+        )
         return self._float_env(
             "HELPING_HANDS_CLI_HEARTBEAT_SECONDS",
-            default=self._DEFAULT_HEARTBEAT_SECONDS,
+            default=default,
         )
 
     def _idle_timeout_seconds(self) -> float:
@@ -423,10 +446,15 @@ class _TwoPhaseCLIHand(Hand):
         emit: _Emitter,
     ) -> str:
         env = self._build_subprocess_env()
+        cwd = str(self.repo_index.root.resolve())
+        if self.config.verbose:
+            await emit(f"[{self._CLI_LABEL}] cmd: {shlex.join(cmd)}\n")
+            await emit(f"[{self._CLI_LABEL}] cwd: {cwd}\n")
+        start_time = time.monotonic()
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
-                cwd=str(self.repo_index.root.resolve()),
+                cwd=cwd,
                 stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
@@ -506,6 +534,12 @@ class _TwoPhaseCLIHand(Hand):
 
             if not self._is_interrupted():
                 return_code = await process.wait()
+                elapsed = time.monotonic() - start_time
+                if self.config.verbose:
+                    await emit(
+                        f"[{self._CLI_LABEL}] finished in {elapsed:.1f}s "
+                        f"(exit={return_code})\n"
+                    )
                 if return_code != 0:
                     output = "".join(chunks)
                     retry_cmd = self._retry_command_after_failure(
@@ -543,6 +577,14 @@ class _TwoPhaseCLIHand(Hand):
         await emit(
             f"[{self._CLI_LABEL}] isolation={self._execution_mode()}{auth_part}\n"
         )
+        if self.config.verbose:
+            model = self._resolve_cli_model() or "(default)"
+            await emit(
+                f"[{self._CLI_LABEL}] verbose=on | model={model} "
+                f"| heartbeat={self._heartbeat_seconds():.0f}s "
+                f"| idle_timeout={self._idle_timeout_seconds():.0f}s\n"
+            )
+        run_start = time.monotonic()
         await emit(
             f"[{self._CLI_LABEL}] [phase 1/2] Initializing repository context...\n"
         )
@@ -550,12 +592,25 @@ class _TwoPhaseCLIHand(Hand):
         if self._is_interrupted():
             await emit(f"[{self._CLI_LABEL}] Interrupted during initialization.\n")
             return init_output
+        if self.config.verbose:
+            phase1_elapsed = time.monotonic() - run_start
+            await emit(
+                f"[{self._CLI_LABEL}] phase 1 completed in {phase1_elapsed:.1f}s\n"
+            )
 
+        phase2_start = time.monotonic()
         await emit(f"[{self._CLI_LABEL}] [phase 2/2] Executing user task...\n")
         task_output = await self._invoke_backend(
             self._build_task_prompt(prompt=prompt, learned_summary=init_output),
             emit=emit,
         )
+        if self.config.verbose:
+            phase2_elapsed = time.monotonic() - phase2_start
+            total_elapsed = time.monotonic() - run_start
+            await emit(
+                f"[{self._CLI_LABEL}] phase 2 completed in {phase2_elapsed:.1f}s "
+                f"| total elapsed: {total_elapsed:.1f}s\n"
+            )
         combined_output = f"{init_output}{task_output}"
 
         if self._should_retry_without_changes(prompt):
@@ -619,6 +674,9 @@ class _TwoPhaseCLIHand(Hand):
         if status == "created":
             pr_url = metadata.get("pr_url", "")
             return f"[{self._CLI_LABEL}] PR created: {pr_url}"
+        if status == "updated":
+            pr_url = metadata.get("pr_url", "")
+            return f"[{self._CLI_LABEL}] PR updated: {pr_url}"
         if status == "disabled":
             return f"[{self._CLI_LABEL}] PR disabled (--no-pr)."
         if status == "no_changes":

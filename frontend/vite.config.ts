@@ -31,6 +31,10 @@ export default defineConfig(({ mode }) => {
           target,
           changeOrigin: true,
         },
+        "/schedules": {
+          target,
+          changeOrigin: true,
+        },
       },
     },
   };

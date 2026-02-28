@@ -87,6 +87,7 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **Frontend dual-UI updates**: There are two frontend UIs that must both be updated when adding or modifying UI features: (1) the inline HTML UI served by the FastAPI server in `_UI_HTML` inside `src/helping_hands/server/app.py`, and (2) the React frontend in `frontend/src/App.tsx` + `frontend/src/styles.css`. Always update both so they stay in sync. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -139,4 +140,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — frontend dual-file update convention (App.tsx + styles.css).*

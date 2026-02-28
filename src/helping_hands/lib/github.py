@@ -151,6 +151,19 @@ class GitHubClient:
         )
 
     @staticmethod
+    def pull(
+        repo_path: Path | str,
+        *,
+        remote: str = "origin",
+        branch: str | None = None,
+    ) -> None:
+        """Pull latest changes from remote into the current branch."""
+        cmd = ["git", "pull", remote]
+        if branch:
+            cmd.append(branch)
+        _run_git(cmd, cwd=repo_path)
+
+    @staticmethod
     def current_branch(repo_path: Path | str) -> str:
         """Return the name of the current branch."""
         result = _run_git(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_path)
@@ -310,6 +323,7 @@ class GitHubClient:
             "base": pr.base.ref,
             "mergeable": pr.mergeable,
             "merged": pr.merged,
+            "user": pr.user.login if pr.user else "",
         }
 
     def default_branch(self, full_name: str) -> str:

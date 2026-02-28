@@ -34,7 +34,7 @@ class Config:
 
     repo: str = ""
     model: str = "default"
-    verbose: bool = False
+    verbose: bool = True
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False

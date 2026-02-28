@@ -1275,6 +1275,35 @@ button.worker-sprite:disabled .worker-caption {
   color: #dbeafe;
 }
 
+.floating-number {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.55rem;
+  color: rgba(203, 213, 225, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 20;
+  animation: float-up 1.2s ease-out forwards;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  70% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-32px);
+  }
+}
+
 @keyframes worker-arrive {
   0% {
     transform: translate(-50%, 86px);
@@ -1394,4 +1423,49 @@ button.worker-sprite:disabled .worker-caption {
 
 .service-health-label {
   opacity: 0.75;
+}
+
+/* --- Schedules --- */
+
+.schedule-item {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #0b1326;
+}
+
+.schedule-item:hover {
+  border-color: var(--ring);
+  background: #101a31;
+}
+
+.schedule-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.schedule-item-header strong {
+  font-size: 0.9rem;
+}
+
+.schedule-item-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.schedule-item-meta code {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: #93c5fd;
+}
+
+.schedule-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
 }
