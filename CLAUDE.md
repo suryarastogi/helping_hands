@@ -80,7 +80,12 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 ### System tool isolation
 
-All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
+All filesystem/command/web operations for hands route through `src/helping_hands/lib/meta/tools/`:
+- `filesystem.py` — path-safe file operations (prevents path traversal via `resolve_repo_target()`)
+- `command.py` — repo-aware command execution (`run_python_code`, `run_python_script`, `run_bash_script`)
+- `web.py` — web search and browsing (`search_web`, `browse_url`)
+
+MCP tools use the same layer.
 
 ## Code Conventions
 

@@ -30,3 +30,10 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- `goose` backend fully implemented: two-phase subprocess flow with auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL`, `--with-builtin developer` injection, `GH_TOKEN`/`GITHUB_TOKEN` mirroring, and local GitHub auth fallback disabled.
+- `geminicli` backend fully implemented: two-phase subprocess flow with `--approval-mode auto_edit` default, model-unavailable retry (retries once without `--model`), and `GEMINI_API_KEY` always required.
+- All CLI backends now share a common two-phase subprocess base (`cli/base.py`) with heartbeat/idle-timeout liveness guards and streaming output.
+- Full backend routing matrix complete: all eight backends (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`) are routed in CLI, app mode, and Celery workers.
+- Cron-scheduled builds via RedBeat scheduler with CRUD management, presets, and Redis metadata storage (`server/schedules.py`).
+- System tools expanded: `command.py` (repo-aware python/bash execution) and `web.py` (web search/browse) now sit alongside `filesystem.py` in `lib/meta/tools/`.
+- PR descriptions can be auto-generated using CLI tools (`claude -p`, `gemini -p`) via `pr_description.py`.

@@ -87,6 +87,9 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI hand base class**: All CLI-driven backends share a common two-phase subprocess base (`cli/base.py`) with heartbeat/idle-timeout liveness guards. (2026-02-28)
+- **Full backend routing**: All eight backends (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`) are fully implemented and routed in CLI, app mode, and Celery workers. (2026-02-28)
+- **Cron scheduling**: Cron-scheduled builds use RedBeat scheduler with CRUD management via `server/schedules.py`. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -115,6 +118,8 @@ what the code does.
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
+| celery-redbeat | server | RedBeat scheduler for cron-scheduled builds |
+| duckduckgo-search | runtime | Web search backend for `meta.tools.web.search_web` |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
 
 ---
@@ -139,4 +144,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — full backend routing, cron scheduling, system tools expansion, docs/obsidian reconciliation.*

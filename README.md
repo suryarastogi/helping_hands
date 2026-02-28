@@ -333,16 +333,19 @@ helping_hands/
 │   │   ├── meta/
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Shared filesystem tools for hands + MCP
+│   │   │       ├── command.py     # Repo-aware command execution (python/bash)
+│   │   │       └── web.py         # Web search and browsing tools
 │   │   └── hands/v1/
 │   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
+│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, pr_description, model_provider, cli/*)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
+│       ├── schedules.py      # Cron-scheduled builds (RedBeat)
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
