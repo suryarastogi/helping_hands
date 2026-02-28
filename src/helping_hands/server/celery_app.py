@@ -1,4 +1,4 @@
-"""Celery application and task definitions."""
+"""Celery application, task definitions, and cron-scheduled build support."""
 
 from __future__ import annotations
 

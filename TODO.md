@@ -42,7 +42,7 @@
 - [x] **Build in CI** — `.github/workflows/docs.yml` builds on push to main (docs/, mkdocs.yml, src/ changes)
 - [x] **Serve on GitHub** — Deploys to GitHub Pages via `actions/deploy-pages`
 
-## 4. Hand backend scaffolding vs implementation
+## 4. Hand backend implementation
 
 - [x] **Dotenv bootstrap** — `Config.from_env()` loads `.env` from cwd and repo path (without overriding exported env vars)
 - [x] **E2E hand flow implemented** — `E2EHand` executes clone -> minimal edit -> commit -> push -> PR, with hand UUID and `{hand_uuid}/git/{repo}` workspace layout
@@ -50,17 +50,18 @@
 - [x] **PR resume/update support** — optional `pr_number` updates an existing PR branch instead of opening a new PR
 - [x] **Live integration coverage** — opt-in pytest integration test can run E2E hand against CI-provided GitHub token/repo
 - [x] **Safe CI gating** — integration test auto-runs dry-run off `master`; only `master` performs real PR updates
-  - [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand/`.
+  - [x] **CLI hand implementations** — `ClaudeCodeHand`, `CodexCLIHand`, `GeminiCLIHand`, and `GooseCLIHand` are fully implemented with two-phase subprocess execution (initialize/learn, then task), streaming output, idle timeout, and final PR integration.
   - [x] **Basic iterative hands implemented** — `BasicLangGraphHand` and `BasicAtomicHand` stream iterative progress, support interruption, and can apply inline file edits.
-  - [x] **Backend selection/routing (CLI basic + E2E)** — CLI supports `--backend {basic-langgraph,basic-atomic,basic-agent}` and `--e2e`.
+  - [x] **Backend selection/routing (full matrix)** — CLI supports `--backend {basic-langgraph,basic-atomic,basic-agent,codexcli,claudecodecli,goose,geminicli}` and `--e2e`.
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [x] **Claude CLI execution** — Subprocess-backed claude flow with two phases, streaming, `npx` fallback, root/sudo auto-retry, no-change enforcement pass for edit-intent prompts, and `--dangerously-skip-permissions` in non-root mode.
+  - [x] **Codex CLI execution** — Subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
+  - [x] **Gemini CLI execution** — Subprocess-backed gemini flow with two phases, streaming output, `--approval-mode auto_edit` for scripted runs, and model-unavailable retry.
+  - [x] **Goose CLI execution** — Subprocess-backed goose flow with two phases, provider/model auto-injection via `GOOSE_PROVIDER`/`GOOSE_MODEL`, `--with-builtin developer` default, and `GH_TOKEN`/`GITHUB_TOKEN` mirroring.
+  - [x] **Streaming for all CLI hands** — All CLI backends use real incremental subprocess streaming with heartbeat and idle timeout.
+  - [x] **Cron-scheduled tasks** — App mode supports cron-scheduled builds via RedBeat scheduler with CRUD schedule management API.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
 ---

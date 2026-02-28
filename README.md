@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** February 28, 2026
 
 ## What is this?
 
@@ -391,6 +391,8 @@ Key settings:
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 | `use_native_cli_auth` | `HELPING_HANDS_USE_NATIVE_CLI_AUTH` | For `codexcli`/`claudecodecli`, strip provider API key env vars so native CLI auth/session is used |
 | — | `HELPING_HANDS_REPO_TMP` | Directory for temporary repo clones. Defaults to the OS temp dir (`/var/folders/…` on macOS). Set to a known path (e.g. `/tmp/helping_hands`) to keep clones out of the OS temp dir. Clones are deleted automatically after each run. |
+| — | `HELPING_HANDS_BASE_BRANCH` | Override the default base branch (`main`) for PR creation. |
+| — | `HELPING_HANDS_WORK_ROOT` | Override the E2E workspace root directory (default `.`). |
 
 Key CLI flags:
 

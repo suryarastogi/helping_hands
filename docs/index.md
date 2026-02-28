@@ -14,7 +14,8 @@ Browse the auto-generated docs from source:
 
 ## Runtime flow
 
-- Server mode: server enqueues a hand task, then the hand executes.
+- Server mode: server enqueues a hand task, then the hand executes. Cron-scheduled
+  builds are supported via RedBeat scheduler with CRUD API at `/schedules`.
 - App UI (`/`) can submit runs with backend/model/max-iterations/no-pr options.
 - App UI defaults prompt input to a smoke-test `README.md` updater that
   exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
@@ -85,11 +86,15 @@ Browse the auto-generated docs from source:
   `provider/model` forms, before backend-specific model adaptation.
 - Iterative/basic hands use shared system file tooling from `lib.meta.tools`
   for repo-safe reads/writes and path validation.
-- MCP now exposes filesystem tools backed by the same layer:
+- MCP exposes filesystem tools backed by the same layer:
   `read_file`, `write_file`, `mkdir`, and `path_exists`.
+- MCP also exposes code execution tools (`run_python_code`, `run_python_script`,
+  `run_bash_script`) and web tools (`web_search`, `web_browse`).
 - CI test runs include coverage reporting and upload:
   - `coverage.xml` from the Python 3.12 backend job.
   - `frontend/coverage/lcov.info` from the frontend job.
+- `HELPING_HANDS_BASE_BRANCH` overrides the default base branch (`main`) for PR creation.
+- `HELPING_HANDS_WORK_ROOT` overrides the E2E workspace root directory (default `.`).
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
 

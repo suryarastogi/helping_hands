@@ -87,6 +87,8 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backend two-phase flow**: All CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) use a shared two-phase pattern: repo initialization/learning pass followed by task execution pass. (2026-02-28)
+- **Cron-scheduled tasks**: App mode supports cron-scheduled builds via RedBeat scheduler; schedule CRUD is exposed at `/schedules`. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -116,6 +118,7 @@ what the code does.
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
+| celery-redbeat | server | RedBeat scheduler for cron-scheduled Celery tasks |
 
 ---
 
@@ -139,4 +142,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/obsidian; added goose/gemini/cron coverage across all documentation surfaces.*

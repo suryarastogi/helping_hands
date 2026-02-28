@@ -1,6 +1,9 @@
 """FastAPI application for app mode.
 
-Exposes an HTTP API that enqueues repo-building jobs via Celery.
+Exposes an HTTP API that enqueues repo-building jobs via Celery and provides
+schedule management (CRUD) for cron-scheduled builds. Supports all backends:
+e2e, basic-langgraph, basic-atomic, basic-agent, codexcli, claudecodecli,
+goose, and geminicli.
 """
 
 from __future__ import annotations

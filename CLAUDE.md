@@ -50,7 +50,7 @@ docker compose up --build
 
 ## Architecture
 
-**`helping_hands` is an AI-powered repo builder** — point it at a codebase and it uses AI to add features, fix bugs, and evolve code. Runs as CLI, FastAPI server (with Celery workers), or MCP server.
+**`helping_hands` is an AI-powered repo builder** — point it at a codebase and it uses AI to add features, fix bugs, and evolve code. Runs as CLI, FastAPI server (with Celery workers and cron-scheduled tasks via RedBeat), or MCP server.
 
 ### Core abstraction: Hands
 
@@ -66,13 +66,13 @@ Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands
 
 ### Provider abstraction
 
-AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProvider` interface. Models are specified as bare strings (`gpt-5.2`) or `provider/model` format (`anthropic/claude-sonnet-4-5`). Resolution happens in `model_provider.py`.
+AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProvider` interface (`openai`, `anthropic`, `google`, `litellm`, `ollama`). Models are specified as bare strings (`gpt-5.2`) or `provider/model` format (`anthropic/claude-sonnet-4-5`). Resolution happens in `model_provider.py`. When `--model` is unset or `default`, iterative backends default to Ollama (`llama3.2:latest`).
 
 ### Module boundaries
 
 - `src/helping_hands/lib/` — core library (config, repo indexing, GitHub API, hands, meta tools, AI providers)
 - `src/helping_hands/cli/` — CLI entry point, depends on lib
-- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server, depends on lib
+- `src/helping_hands/server/` — FastAPI app + Celery tasks + cron schedules + MCP server, depends on lib
 - `frontend/` — React + TypeScript + Vite UI
 - `tests/` — pytest suite
 
@@ -101,6 +101,9 @@ All filesystem/command operations for hands route through `src/helping_hands/lib
 - Git push uses token-authenticated (`GITHUB_TOKEN`) non-interactive remotes
 - `owner/repo` CLI inputs are auto-cloned to temp workspaces
 - `AGENT.md` is a living document that AI agents update as they learn repo conventions
+- CLI backends (`claudecodecli`) fall back to `npx -y @anthropic-ai/claude-code` when `claude` is not installed
+- `HELPING_HANDS_BASE_BRANCH` overrides the default base branch (`main`) for PR creation
+- `HELPING_HANDS_WORK_ROOT` overrides the E2E workspace root directory
 
 ## CI
 
