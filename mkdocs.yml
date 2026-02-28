@@ -44,6 +44,7 @@ nav:
               - tools/filesystem: api/lib/meta/tools/filesystem.md
               - tools/command: api/lib/meta/tools/command.md
               - tools/web: api/lib/meta/tools/web.md
+              - skills: api/lib/meta/skills.md
           - hands:
               - "v1/hand": api/lib/hands/v1/hand.md
       - cli:

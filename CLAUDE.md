@@ -82,6 +82,10 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 All filesystem/command/web operations for hands route through `src/helping_hands/lib/meta/tools/` — `filesystem.py` (path-safe file ops), `command.py` (Python/bash execution), and `web.py` (search/browse). MCP tools use the same layer.
 
+### Dynamic skills
+
+Composable capability bundles live in `src/helping_hands/lib/meta/skills/`. Skills (`execution`, `web`, `prd`, `ralph`) inject tool definitions and prompt instructions into iterative hands. Selected via `--skills` CLI flag or `/build` API parameter.
+
 ## Code Conventions & Design
 
 See [AGENT.md](AGENT.md) for the full living reference on code style, design

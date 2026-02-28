@@ -132,6 +132,19 @@ In CLI mode, non-E2E runs accept:
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
 
+## Dynamic skills
+
+Skills are composable capability bundles that can be selected per run via `--skills` (CLI) or the `skills` API parameter. Each skill declares prompt instructions and, optionally, tool handlers that the iterative hand dispatch loop can invoke via `@@TOOL` blocks.
+
+Built-in skills:
+
+- **execution** — `python.run_code`, `python.run_script`, `bash.run_script` (same tools as `--enable-execution`).
+- **web** — `web.search`, `web.browse` (same tools as `--enable-web`).
+- **prd** — prompt-only skill for structured feature planning (PRD generation).
+- **ralph** — prompt-only skill for PRD-to-`prd.json` conversion.
+
+The skills registry (`lib/meta/skills/`) also merges the legacy `--enable-execution` / `--enable-web` boolean flags into skill selection, so older invocations continue to work transparently.
+
 ## Project Log
 
 Progress notes live under **Project Log** and can be edited by **users** or **hands**. Each week has a note (e.g. [[Project Log/2026-W08]]). Entries are tagged by author: human or hand, with optional short context. That gives a shared, auditable log of what was done and who contributed. See [[Project Log/Weekly progress]] for the format.

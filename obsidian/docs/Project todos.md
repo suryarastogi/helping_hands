@@ -36,3 +36,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - MkDocs API docs now include the `ollama` provider page alongside openai/anthropic/google/litellm.
 - Key class docstrings (`Hand`, `_TwoPhaseCLIHand`, `_BasicIterativeHand`, CLI hand classes, `E2EHand`) expanded to describe contracts, behaviors, and extension points for MkDocs autodoc generation.
 - MkDocs API docs now include `command.py` and `web.py` tool pages, plus `schedules.py` and `task_result.py` server pages. `docs/index.md` links all provider subpages including `types`.
+- Dynamic skills registry (`lib/meta/skills/`) introduced for composable capability bundles (`execution`, `web`, `prd`, `ralph`) selectable via `--skills` CLI flag or `/build` API parameter. Legacy `--enable-execution`/`--enable-web` flags are folded into skill selection automatically.
+- MkDocs API docs now include the `skills` module page alongside tools. `docs/index.md` and `mkdocs.yml` nav updated.

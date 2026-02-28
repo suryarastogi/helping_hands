@@ -40,6 +40,10 @@ runs, UUIDs are generated in-hand as needed.
   `README.md`/`AGENT.md` (when present) and a bounded repository tree snapshot.
 - Iterative basic hands can request file contents using `@@READ: path` and
   apply edits using `@@FILE` blocks in-model.
+- Dynamic skills (`--skills`) let runs opt into composable capability bundles
+  (execution, web, prd, ralph) that inject tool definitions and instructions
+  into iterative hand prompts.  `--enable-execution` / `--enable-web` are
+  legacy shortcuts folded into the skills system.
 - System filesystem actions for hands (path-safe read/write/mkdir checks) are
   centralized in `lib/meta/tools/filesystem.py`.
 - Provider-level wrappers and model/env defaults are centralized in
@@ -218,6 +222,7 @@ The built-in UI at `http://localhost:8000/` supports:
 - `enable_execution` toggle (python/bash tools; default off)
 - `enable_web` toggle (web search/browse tools; default off)
 - `use_native_cli_auth` toggle (Codex/Claude: prefer local CLI auth over env keys)
+- `skills` multi-select (execution, web, prd, ralph)
 - default editable prompt text: smoke-test prompt that updates `README.md` and
   exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
   `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
@@ -320,6 +325,7 @@ helping_hands/
 ├── src/helping_hands/        # Main package
 │   ├── lib/                  # Core library (config, repo, github, hands, meta tools)
 │   │   ├── config.py
+│   │   ├── default_prompts.py  # Shared default prompts for CLI + app
 │   │   ├── repo.py
 │   │   ├── github.py
 │   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
@@ -331,6 +337,7 @@ helping_hands/
 │   │   │   ├── ollama.py
 │   │   │   └── types.py
 │   │   ├── meta/
+│   │   │   ├── skills/            # Dynamic skill registry for hands
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
 │   │   │       ├── filesystem.py  # Path-safe file operations for hands + MCP
@@ -338,7 +345,7 @@ helping_hands/
 │   │   │       └── web.py         # Web search/browse helpers for hands + MCP
 │   │   └── hands/v1/
 │   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, cli/*)
+│   │       └── hand/         # Hand package (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, placeholders, cli/*)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
@@ -406,6 +413,7 @@ Key CLI flags:
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
 - `--use-native-cli-auth` — for `codexcli`/`claudecodecli`, ignore provider API key env vars and rely on local CLI auth/session
+- `--skills execution,web,prd,ralph` — inject dynamic skills into iterative hands (comma-separated; `execution`/`web` supersede `--enable-execution`/`--enable-web`)
 
 ### Backend environment variables
 

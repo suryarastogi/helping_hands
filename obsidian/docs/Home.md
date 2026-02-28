@@ -5,7 +5,7 @@ Design notes and progress for the **helping_hands** project. The repo README is 
 ## Project
 
 - [[Vision]] — What we're building and why
-- [[Concepts]] — Key ideas: hands, repo-awareness, AGENT.md
+- [[Concepts]] — Key ideas: hands, repo-awareness, AGENT.md, skills
 - [[Architecture]] — How the pieces fit (high-level; details in repo)
 - [[Project todos]] — Checklist and design notes (canonical list: repo root `TODO.md`)
 

@@ -24,8 +24,10 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
    - `filesystem` — path-safe file read/write/mkdir/exists with repo-confined path resolution
    - `command` — Python code/script and bash script execution with version-constrained runners
    - `web` — web search (DuckDuckGo) and page fetch helpers
-7. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
-8. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
+7. **Dynamic skills layer** (`lib.meta.skills`) — Composable capability bundles selected per run via `--skills`. Each skill declares prompt instructions and tool handlers; the registry merges legacy `--enable-execution`/`--enable-web` flags into the same dispatch surface. Built-in skills: `execution`, `web`, `prd`, `ralph`.
+8. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
+9. **Scheduled tasks** (`server.schedules`) — CRUD for Redis-backed cron schedules via RedBeat; scheduled builds trigger `build_feature` Celery tasks.
+10. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
 
 ## Finalization workflow (all hands)
 
