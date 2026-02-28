@@ -2023,10 +2023,8 @@ export default function App() {
                 >
                   <span className="human-shadow" />
                   <span className="human-body">
-                    <span className="human-head" />
-                    <span className="human-hair" />
-                    <span className="human-eye human-eye-left" />
-                    <span className="human-eye human-eye-right" />
+                    <span className="human-helmet" />
+                    <span className="human-visor" />
                     <span className="human-torso" />
                     <span className="human-arm human-arm-left" />
                     <span className="human-arm human-arm-right" />

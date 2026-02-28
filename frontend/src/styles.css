@@ -891,44 +891,39 @@ h2 {
   image-rendering: pixelated;
 }
 
-.human-head {
+.human-helmet {
   position: absolute;
-  left: 8px;
-  top: 2px;
-  width: 20px;
-  height: 18px;
-  background: #fcd9b6;
-  border: 2px solid #8b5a2b;
-  border-radius: 6px 6px 4px 4px;
+  left: 6px;
+  top: 0px;
+  width: 24px;
+  height: 20px;
+  background: linear-gradient(135deg, #2d3748 0%, #1a202c 50%, #2d3748 100%);
+  border: 2px solid #0f1419;
+  border-radius: 8px 8px 6px 6px;
+  box-shadow:
+    inset 1px 1px 2px rgba(255, 255, 255, 0.15),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.human-hair {
+.human-visor {
   position: absolute;
   left: 8px;
-  top: 0px;
+  top: 6px;
   width: 20px;
   height: 10px;
-  background: #4a3728;
-  border: 2px solid #2e1f16;
-  border-radius: 6px 6px 0 0;
-  border-bottom: none;
-}
-
-.human-eye {
-  position: absolute;
-  top: 10px;
-  width: 3px;
-  height: 3px;
-  background: #2e1f16;
-  border-radius: 1px;
-}
-
-.human-eye-left {
-  left: 12px;
-}
-
-.human-eye-right {
-  left: 21px;
+  background: linear-gradient(
+    135deg,
+    #06b6d4 0%,
+    #3b82f6 25%,
+    #8b5cf6 50%,
+    #ec4899 75%,
+    #f97316 100%
+  );
+  border: 1px solid #0f1419;
+  border-radius: 3px 3px 4px 4px;
+  box-shadow:
+    inset 0 1px 3px rgba(255, 255, 255, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .human-torso {
@@ -1034,14 +1029,12 @@ h2 {
   transform: translate(-50%, -50%) scaleX(-1);
 }
 
-.human-player.up .human-eye,
-.human-player.up .human-hair {
+.human-player.up .human-visor {
   visibility: hidden;
 }
 
-.human-player.up .human-head {
-  background: #4a3728;
-  border-color: #2e1f16;
+.human-player.up .human-helmet {
+  background: linear-gradient(135deg, #1a202c 0%, #2d3748 50%, #1a202c 100%);
 }
 
 button.worker-sprite {
