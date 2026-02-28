@@ -140,6 +140,7 @@ This makes reruns deterministic: existing PR description and status comment are 
 User → CLI
   index mode:    Config → RepoIndex → ready/indexed output
   basic backend: Config → Basic*Hand iterative stream → optional final PR
+  cli backend:   Config → _TwoPhaseCLIHand (init pass + task pass) → optional final PR
   --e2e mode:    Config → E2EHand → GitHubClient → branch/PR updates
 ```
 

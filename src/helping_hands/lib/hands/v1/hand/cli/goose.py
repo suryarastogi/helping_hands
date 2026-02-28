@@ -1,4 +1,9 @@
-"""Goose CLI hand implementation."""
+"""Goose CLI hand implementation.
+
+Runs ``goose run --with-builtin developer --text`` as an external
+subprocess.  See ``_TwoPhaseCLIHand`` for shared two-phase execution
+details.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,19 @@ from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 
 class GooseCLIHand(_TwoPhaseCLIHand):
-    """Hand backed by Goose CLI subprocess execution."""
+    """Hand backed by Goose CLI (``goose run``) subprocess.
+
+    Backend-specific behaviors:
+
+    * Multi-provider support: ``GOOSE_PROVIDER`` / ``GOOSE_MODEL`` are
+      auto-derived from ``HELPING_HANDS_MODEL`` (or default to
+      ``ollama`` + ``llama3.2:latest``).
+    * ``--with-builtin developer`` auto-injected for ``goose run``
+      commands so file-editing tools are available.
+    * Requires ``GH_TOKEN`` or ``GITHUB_TOKEN``; runtime mirrors the
+      value to both variables.
+    * Local GitHub auth fallback intentionally disabled.
+    """
 
     _BACKEND_NAME = "goose"
     _CLI_LABEL = "goose"

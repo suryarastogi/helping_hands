@@ -34,7 +34,25 @@ from helping_hands.lib.meta.tools import web as system_web_tools
 
 
 class _BasicIterativeHand(Hand):
-    """Shared helpers for iterative hands."""
+    """Shared iteration loop for basic hands (LangGraph / Atomic).
+
+    Runs a multi-turn prompt loop where the model can:
+
+    * Read files via ``@@READ: <path>`` markers (response includes file
+      content on the next iteration).
+    * Write files via ``@@FILE: <path>`` fenced code blocks (full file
+      content applied to disk).
+    * Invoke system tools via ``@@TOOL: <name>`` JSON blocks (execution,
+      web, and filesystem tools when enabled).
+    * Signal completion with ``SATISFIED: yes``.
+
+    On iteration 1 the prompt is prepended with bootstrap context:
+    ``README.md``, ``AGENT.md`` (when present), and a bounded repo tree
+    snapshot.  Subsequent iterations feed back tool/read results.
+
+    After the loop completes, finalization (commit/push/PR) runs unless
+    ``--no-pr`` is set.
+    """
 
     _EDIT_PATTERN = re.compile(
         r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",

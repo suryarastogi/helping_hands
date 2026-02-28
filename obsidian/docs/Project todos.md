@@ -30,3 +30,8 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) share `_TwoPhaseCLIHand` as their common base class, providing two-phase execution, async subprocess streaming, heartbeat monitoring, idle timeout, and optional containerized execution.
+- `goose` backend now supports multi-provider selection (OpenAI/Anthropic/Google/Ollama) with auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`.
+- `geminicli` backend injects `--approval-mode auto_edit` by default and retries once without `--model` when Gemini rejects an unavailable model.
+- MkDocs API docs now include the `ollama` provider page alongside openai/anthropic/google/litellm.
+- Key class docstrings (`Hand`, `_TwoPhaseCLIHand`, `_BasicIterativeHand`, CLI hand classes, `E2EHand`) expanded to describe contracts, behaviors, and extension points for MkDocs autodoc generation.

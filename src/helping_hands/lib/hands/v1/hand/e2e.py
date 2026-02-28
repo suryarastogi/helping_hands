@@ -19,7 +19,14 @@ from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
 
 class E2EHand(Hand):
-    """Minimal end-to-end hand for validating clone/edit/PR workflow."""
+    """End-to-end hand for live clone/edit/commit/push/PR integration.
+
+    Supports both **new PR** and **resume existing PR** (``pr_number``)
+    paths.  Uses a deterministic workspace layout
+    ``{hand_uuid}/git/{repo}``.  In live mode, updates both the PR body
+    and a marker-tagged status comment so reruns refresh existing state
+    rather than creating drift.
+    """
 
     def __init__(self, config: Any, repo_index: Any) -> None:
         super().__init__(config, repo_index)

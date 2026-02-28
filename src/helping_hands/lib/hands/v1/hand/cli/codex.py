@@ -1,4 +1,8 @@
-"""Codex CLI hand implementation."""
+"""Codex CLI hand implementation.
+
+Runs ``codex exec`` as an external subprocess.  See
+``_TwoPhaseCLIHand`` for shared two-phase execution details.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +13,20 @@ from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 
 class CodexCLIHand(_TwoPhaseCLIHand):
-    """Hand backed by Codex CLI subprocess execution."""
+    """Hand backed by Codex CLI (``codex exec``) subprocess.
+
+    Backend-specific behaviors:
+
+    * Default model: ``gpt-5.2``.
+    * Runtime-aware sandbox mode: ``--sandbox workspace-write`` on host,
+      ``--sandbox danger-full-access`` inside containers (avoids
+      landlock failures).  Override via
+      ``HELPING_HANDS_CODEX_SANDBOX_MODE``.
+    * ``--skip-git-repo-check`` added by default for non-interactive
+      runs (toggle via ``HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK``).
+    * Optional Docker container execution via
+      ``HELPING_HANDS_CODEX_CONTAINER``.
+    """
 
     _BACKEND_NAME = "codexcli"
     _CLI_LABEL = "codexcli"

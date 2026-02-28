@@ -1,4 +1,8 @@
-"""Gemini CLI hand implementation."""
+"""Gemini CLI hand implementation.
+
+Runs ``gemini -p`` as an external subprocess.  See
+``_TwoPhaseCLIHand`` for shared two-phase execution details.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +13,17 @@ from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 
 class GeminiCLIHand(_TwoPhaseCLIHand):
-    """Hand backed by Gemini CLI subprocess execution."""
+    """Hand backed by Gemini CLI (``gemini -p``) subprocess.
+
+    Backend-specific behaviors:
+
+    * ``GEMINI_API_KEY`` always required (no native-CLI-auth toggle).
+    * ``--approval-mode auto_edit`` injected by default for
+      non-interactive scripted runs.
+    * Model-unavailability retry: if Gemini rejects the requested
+      model, retries once without ``--model`` so the CLI picks its own
+      default.
+    """
 
     _BACKEND_NAME = "geminicli"
     _CLI_LABEL = "geminicli"
