@@ -10,7 +10,7 @@ Browse the auto-generated docs from source:
 
 - **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
-- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md)
+- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md), [schedules](api/server/schedules.md)
 
 ## Runtime flow
 
@@ -87,11 +87,17 @@ Browse the auto-generated docs from source:
   for repo-safe reads/writes and path validation.
 - MCP now exposes filesystem tools backed by the same layer:
   `read_file`, `write_file`, `mkdir`, and `path_exists`.
+- MCP also exposes execution tools (`run_python_code`, `run_python_script`,
+  `run_bash_script`) and web tools (`web_search`, `web_browse`).
 - CI test runs include coverage reporting and upload:
   - `coverage.xml` from the Python 3.12 backend job.
   - `frontend/coverage/lcov.info` from the frontend job.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
+- App mode supports cron-scheduled build tasks via RedBeat. Schedules are managed
+  through `/schedules` REST endpoints (CRUD, enable/disable, manual trigger).
+  The `scheduled_build` Celery task fires on cron triggers and delegates to
+  `build_feature`.
 
 ## Full Docker dev reset
 

@@ -57,9 +57,9 @@ docker compose up --build
 Everything flows through the **Hand** base class (`src/helping_hands/lib/hands/v1/hand/base.py`). Hands are the execution backends — each one implements `run()`/`stream()` and represents a different approach to AI-driven code changes:
 
 - **E2EHand** (`e2e.py`) — clone/edit/commit/push/PR flow for integration testing
-- **IterativeHand** (`iterative.py`) — base for loop-based hands with `@@READ`/`@@FILE` in-model file operations
-- **BasicLangGraphHand** (`langgraph.py`) — LangGraph agent loop (requires `--extra langchain`)
-- **BasicAtomicHand** (`atomic.py`) — Atomic Agents loop (requires `--extra atomic`)
+- **LangGraphHand** (`langgraph.py`) — direct LangGraph agent loop (requires `--extra langchain`)
+- **AtomicHand** (`atomic.py`) — direct Atomic Agents loop (requires `--extra atomic`)
+- **BasicLangGraphHand** / **BasicAtomicHand** (`iterative.py`) — iterative hands with `@@READ`/`@@FILE` in-model file operations, streaming, and interruption
 - **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`
 
 Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands attempt it by default; disable with `--no-pr`.
@@ -101,6 +101,10 @@ All filesystem/command operations for hands route through `src/helping_hands/lib
 - Git push uses token-authenticated (`GITHUB_TOKEN`) non-interactive remotes
 - `owner/repo` CLI inputs are auto-cloned to temp workspaces
 - `AGENT.md` is a living document that AI agents update as they learn repo conventions
+
+### Scheduled tasks (cron)
+
+App mode supports cron-scheduled build tasks via RedBeat (Redis-backed Celery Beat). Schedules are managed through REST endpoints (`/schedules`) and persisted in Redis. The `scheduled_build` Celery task fires on cron triggers. Key server module: `src/helping_hands/server/schedules.py`.
 
 ## CI
 

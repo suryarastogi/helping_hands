@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -82,10 +82,11 @@ terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
+  - When `--model` is unset or `default`, resolution defaults to Ollama (`llama3.2:latest`) — no cloud API key required.
 - The resolver adapts provider wrappers to backend-specific model/client interfaces (LangGraph and Atomic).
 
 ## CI race-condition guard
@@ -126,6 +127,10 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Scheduled tasks (cron)
+
+App mode supports cron-scheduled build tasks via RedBeat (Redis-backed Celery Beat). Schedules are created/managed through REST endpoints under `/schedules` and support standard cron expressions or preset names (e.g. `hourly`, `daily`, `weekdays`). The `scheduled_build` Celery task fires on cron triggers, resolves schedule metadata from Redis, and delegates to `build_feature`. See [[Architecture]] for implementation details.
 
 ## Project Log
 
