@@ -85,13 +85,19 @@ Browse the auto-generated docs from source:
   `provider/model` forms, before backend-specific model adaptation.
 - Iterative/basic hands use shared system file tooling from `lib.meta.tools`
   for repo-safe reads/writes and path validation.
-- MCP now exposes filesystem tools backed by the same layer:
-  `read_file`, `write_file`, `mkdir`, and `path_exists`.
+- MCP exposes filesystem tools (`read_file`, `write_file`, `mkdir`,
+  `path_exists`), execution tools (`run_python_code`, `run_python_script`,
+  `run_bash_script`), and web tools (`web_search`, `web_browse`) backed by the
+  same shared layer.
 - CI test runs include coverage reporting and upload:
   - `coverage.xml` from the Python 3.12 backend job.
   - `frontend/coverage/lcov.info` from the frontend job.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
+- App mode supports cron-scheduled submission tasks via `/schedules` CRUD
+  endpoints backed by RedBeat (Redis-backed Celery Beat scheduler). Schedules
+  define a `BuildRequest` payload and cron expression; Beat fires tasks at the
+  specified cadence.
 
 ## Full Docker dev reset
 

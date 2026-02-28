@@ -1,6 +1,7 @@
 """FastAPI application for app mode.
 
-Exposes an HTTP API that enqueues repo-building jobs via Celery.
+Exposes an HTTP API that enqueues repo-building jobs via Celery and manages
+cron-scheduled submission tasks via RedBeat.
 """
 
 from __future__ import annotations

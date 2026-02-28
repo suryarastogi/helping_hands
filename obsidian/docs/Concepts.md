@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -75,14 +75,19 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
+For `goose`, provider/model are auto-derived from `HELPING_HANDS_MODEL` (fallback:
+`ollama` + `llama3.2:latest`), and `--with-builtin developer` is auto-injected.
+`GH_TOKEN`/`GITHUB_TOKEN` is always required for Goose runs.
+For `geminicli`, `--approval-mode auto_edit` is injected by default for
+non-interactive runs, and `GEMINI_API_KEY` is always required.
+CLI subprocess execution emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -119,6 +124,10 @@ App mode has two monitoring paths:
 
 In logs, either repeated `/tasks/...` or repeated `/monitor/...` requests are
 valid indicators that monitoring is active.
+
+## Scheduled submission tasks
+
+App mode supports cron-scheduled submission tasks via `/schedules` CRUD endpoints. Schedules are persisted through RedBeat (Redis-backed Celery Beat scheduler). Each schedule defines a `BuildRequest` payload and a cron expression; the Beat process fires tasks at the specified cadence.
 
 ## Repo input behavior
 
