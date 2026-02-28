@@ -333,10 +333,12 @@ helping_hands/
 │   │   ├── meta/
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Path-safe file operations for hands + MCP
+│   │   │       ├── command.py     # Python/bash execution tools for hands + MCP
+│   │   │       └── web.py         # Web search/browse helpers for hands + MCP
 │   │   └── hands/v1/
 │   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
+│   │       └── hand/         # Hand package (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, cli/*)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)

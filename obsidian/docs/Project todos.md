@@ -21,7 +21,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - Pre-commit now includes `ty` for type checks; current rule ignores are intentional until optional backend imports/protocol signatures are tightened.
 - Basic iterative backends now default to a final commit/push/PR step; explicit `--no-pr` disables side effects (and maps to dry-run for E2E).
 - Non-E2E CLI supports `owner/repo` input by cloning to temporary workspace before indexing/iteration.
-- Hand internals were split from a single `hand.py` into a package module (`lib/hands/v1/hand/`); shared filesystem system tools now live in `lib/meta/tools/filesystem.py` and are also exposed via MCP filesystem tools.
+- Hand internals were split from a single `hand.py` into a package module (`lib/hands/v1/hand/`); system tools live in `lib/meta/tools/` (`filesystem.py`, `command.py`, `web.py`) and are exposed via MCP tools.
 - Provider routing is now centralized in `lib/ai_providers/` plus `lib/hands/v1/hand/model_provider.py`, replacing direct provider client construction in hands.
 - Basic iterative hands now preload iteration-1 context from `README.md`, `AGENT.md`, and a bounded file-tree snapshot.
 - CI and local test runs now include coverage reporting (`pytest-cov`), and README shows a Codecov badge.
@@ -35,3 +35,4 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `geminicli` backend injects `--approval-mode auto_edit` by default and retries once without `--model` when Gemini rejects an unavailable model.
 - MkDocs API docs now include the `ollama` provider page alongside openai/anthropic/google/litellm.
 - Key class docstrings (`Hand`, `_TwoPhaseCLIHand`, `_BasicIterativeHand`, CLI hand classes, `E2EHand`) expanded to describe contracts, behaviors, and extension points for MkDocs autodoc generation.
+- MkDocs API docs now include `command.py` and `web.py` tool pages, plus `schedules.py` and `task_result.py` server pages. `docs/index.md` links all provider subpages including `types`.

@@ -42,6 +42,8 @@ nav:
           - meta:
               - tools: api/lib/meta/tools.md
               - tools/filesystem: api/lib/meta/tools/filesystem.md
+              - tools/command: api/lib/meta/tools/command.md
+              - tools/web: api/lib/meta/tools/web.md
           - hands:
               - "v1/hand": api/lib/hands/v1/hand.md
       - cli:
@@ -49,6 +51,8 @@ nav:
       - server:
           - app: api/server/app.md
           - celery_app: api/server/celery_app.md
+          - schedules: api/server/schedules.md
+          - task_result: api/server/task_result.md
           - mcp_server: api/server/mcp_server.md
 
 plugins:

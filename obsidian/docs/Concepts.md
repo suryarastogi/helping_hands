@@ -54,9 +54,11 @@ Final PR behavior is enabled by default and can be disabled explicitly (`--no-pr
 When enabled, push is token-authenticated and non-interactive to avoid OS credential popups.
 
 Implementation note: hand code is now organized as a package module under
-`src/helping_hands/lib/hands/v1/hand/`, and iterative file operations route
-through shared system helpers in
-`src/helping_hands/lib/meta/tools/filesystem.py`.
+`src/helping_hands/lib/hands/v1/hand/`, and system tool operations route
+through shared helpers in `src/helping_hands/lib/meta/tools/`:
+- `filesystem.py` — path-safe file read/write/mkdir/exists
+- `command.py` — Python code/script and bash script execution
+- `web.py` — web search and page fetch helpers
 
 ## CLI backend semantics (current implementation)
 
