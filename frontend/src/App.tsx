@@ -478,11 +478,13 @@ function checkDeskCollision(
   for (const desk of deskSlots) {
     const deskLeft = desk.left - DESK_SIZE.width / 2;
     const deskRight = desk.left + DESK_SIZE.width / 2;
-    const deskTop = desk.top - DESK_SIZE.height / 2;
+    // Only use the bottom portion of the desk for collision so sprites can
+    // walk "behind" the desk from above without stopping mid-way.
+    const collisionTop = desk.top + DESK_SIZE.height * 0.1;
     const deskBottom = desk.top + DESK_SIZE.height / 2;
 
     const overlapsX = playerRight > deskLeft && playerLeft < deskRight;
-    const overlapsY = playerBottom > deskTop && playerTop < deskBottom;
+    const overlapsY = playerBottom > collisionTop && playerTop < deskBottom;
 
     if (overlapsX && overlapsY) {
       return true;
