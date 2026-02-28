@@ -60,29 +60,40 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
 2. Task execution pass that applies requested changes directly.
 
+All CLI backends share common subprocess runtime controls: periodic heartbeat
+lines when output is quiet and configurable idle timeout termination
+(`HELPING_HANDS_CLI_*` controls).
+
 For `claudecodecli`, non-interactive runs default to
-`--dangerously-skip-permissions` and now include one automatic follow-up apply
+`--dangerously-skip-permissions` and include one automatic follow-up apply
 pass for edit-intent prompts when the first task pass produces no git changes.
 When running as root/sudo, the backend avoids or strips that flag and retries
 automatically if Claude rejects it.
 When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
-the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+the backend fails the run instead of silently returning success/no-op.
+
+For `goose`, provider/model are auto-derived from `HELPING_HANDS_MODEL`
+(default: `ollama` + `llama3.2:latest`). The backend auto-injects
+`--with-builtin developer` for file editing tools and mirrors the available
+GitHub token to both `GH_TOKEN` and `GITHUB_TOKEN`.
+
+For `geminicli`, non-interactive runs default to `--approval-mode auto_edit`.
+If a requested model is unavailable, the backend retries once without `--model`
+so Gemini CLI can select a default.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).

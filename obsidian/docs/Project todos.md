@@ -12,7 +12,9 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+3. **Autodocs generation and serving on GitHub:** MkDocs Material + mkdocstrings; build in CI, publish to GitHub Pages.
+
+4. **Hand backend implementation:** All backends implemented — E2E, basic iterative (`basic-langgraph`, `basic-atomic`, `basic-agent`), and all CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) with real subprocess streaming, heartbeat, and idle timeout. Remaining: E2E hardening (branch collision, draft PR, idempotency).
 
 ## Design notes
 
@@ -30,3 +32,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- `goose` backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`, mirrors GitHub token to both `GH_TOKEN`/`GITHUB_TOKEN`, and auto-injects `--with-builtin developer`.
+- `geminicli` backend defaults to `--approval-mode auto_edit` for non-interactive runs and retries without `--model` if the requested model is unavailable.
+- Cron-scheduled task submission is now supported via RedBeat (`server/schedules.py`) with CRUD API endpoints and preset cron expressions.
+- System tools layer now includes `command.py` (python/bash execution) and `web.py` (search/browse) alongside `filesystem.py`.

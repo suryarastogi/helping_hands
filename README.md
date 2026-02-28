@@ -330,10 +330,14 @@ helping_hands/
 │   │   │   ├── litellm.py
 │   │   │   ├── ollama.py
 │   │   │   └── types.py
+│   │   ├── default_prompts.py   # Default/smoke-test prompt text
 │   │   ├── meta/
+│   │   │   ├── skills/          # Skill management and configuration
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── command.py     # Code/script execution tools (python, bash)
+│   │   │       └── web.py         # Web search and browsing tools
 │   │   └── hands/v1/
 │   │       ├── __init__.py
 │   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
@@ -343,6 +347,7 @@ helping_hands/
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
+│       ├── schedules.py      # Cron-scheduled task management (RedBeat)
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
