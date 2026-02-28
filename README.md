@@ -226,6 +226,8 @@ The built-in UI at `http://localhost:8000/` supports:
   plus Celery inspect fallback)
 - no-JS fallback monitor via `/monitor/{task_id}` (auto-refresh)
 - fixed-size monitor cells for task/status, updates, and payload panels (scrolls inside each cell)
+- **World view**: toggle between "classic" and "world" dashboard views; world view displays an isometric agent office visualization where active workers appear at desks
+- **Keyboard navigation** (world view only): use arrow keys or WASD to move the player character around the office; WASD keys are disabled when typing in input fields to allow normal text entry
 
 ```bash
 # Visit the built-in UI in your browser:
