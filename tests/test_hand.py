@@ -131,6 +131,12 @@ class TestHandABC:
         assert enabled._use_native_git_auth_for_push(github_token="") is True
         assert disabled._use_native_git_auth_for_push(github_token="") is False
 
+    def test_pr_description_cmd_returns_none_by_default(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        assert hand._pr_description_cmd() is None
+
     def test_system_prompt_mentions_conventions(
         self, config: Config, repo_index: RepoIndex
     ) -> None:
@@ -1672,6 +1678,29 @@ class TestClaudeCodeHand:
         assert len(prompts) == 3
         mock_finalize.assert_not_called()
 
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    def test_pr_description_cmd_returns_claude(
+        self,
+        _mock_which: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = ClaudeCodeHand(config, repo_index)
+        cmd = hand._pr_description_cmd()
+        assert cmd is not None
+        assert cmd[0] == "claude"
+        assert "-p" in cmd
+
+    @patch("shutil.which", return_value=None)
+    def test_pr_description_cmd_returns_none_when_claude_missing(
+        self,
+        _mock_which: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = ClaudeCodeHand(config, repo_index)
+        assert hand._pr_description_cmd() is None
+
 
 # ---------------------------------------------------------------------------
 # CodexCLIHand
@@ -2056,6 +2085,15 @@ class TestCodexCLIHand:
         assert len(prompts) == 1
         mock_finalize.assert_not_called()
 
+    def test_pr_description_cmd_returns_none(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        """Codex has no safe prompt-only mode for PR description."""
+        hand = CodexCLIHand(config, repo_index)
+        assert hand._pr_description_cmd() is None
+
 
 # ---------------------------------------------------------------------------
 # GooseCLIHand
@@ -2264,6 +2302,36 @@ class TestGooseCLIHand:
         with pytest.raises(RuntimeError, match="GH_TOKEN or GITHUB_TOKEN"):
             hand._build_subprocess_env()
 
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    def test_pr_description_cmd_uses_claude_when_anthropic_provider(
+        self,
+        _mock_which: MagicMock,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(repo="/tmp/fake", model="anthropic/claude-sonnet-4-5")
+        hand = GooseCLIHand(config, repo_index)
+        cmd = hand._pr_description_cmd()
+        assert cmd is not None
+        assert cmd[0] == "claude"
+
+    @patch("shutil.which", return_value=None)
+    def test_pr_description_cmd_returns_none_when_claude_missing(
+        self,
+        _mock_which: MagicMock,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(repo="/tmp/fake", model="anthropic/claude-sonnet-4-5")
+        hand = GooseCLIHand(config, repo_index)
+        assert hand._pr_description_cmd() is None
+
+    def test_pr_description_cmd_returns_none_for_non_anthropic(
+        self,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(repo="/tmp/fake", model="openai/gpt-5.2")
+        hand = GooseCLIHand(config, repo_index)
+        assert hand._pr_description_cmd() is None
+
 
 # ---------------------------------------------------------------------------
 # GeminiCLIHand
@@ -2460,6 +2528,29 @@ class TestGeminiCLIHand:
         assert "task output" in text
         assert "PR created" in text
         assert len(prompts) == 2
+
+    @patch("shutil.which", return_value="/usr/local/bin/gemini")
+    def test_pr_description_cmd_returns_gemini(
+        self,
+        _mock_which: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = GeminiCLIHand(config, repo_index)
+        cmd = hand._pr_description_cmd()
+        assert cmd is not None
+        assert cmd[0] == "gemini"
+        assert "-p" in cmd
+
+    @patch("shutil.which", return_value=None)
+    def test_pr_description_cmd_returns_none_when_gemini_missing(
+        self,
+        _mock_which: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = GeminiCLIHand(config, repo_index)
+        assert hand._pr_description_cmd() is None
 
 
 # ---------------------------------------------------------------------------

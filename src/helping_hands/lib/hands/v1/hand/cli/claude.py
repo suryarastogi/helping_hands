@@ -35,6 +35,11 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         return ("ANTHROPIC_API_KEY",)
 
+    def _pr_description_cmd(self) -> list[str] | None:
+        if shutil.which("claude") is not None:
+            return ["claude", "-p", "--output-format", "text"]
+        return None
+
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-2000:]

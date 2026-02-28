@@ -157,6 +157,15 @@ class Hand(abc.ABC):
             return False
         return bool(getattr(self.config, "use_native_cli_auth", False))
 
+    def _pr_description_cmd(self) -> list[str] | None:
+        """Return CLI command for generating a rich PR description.
+
+        Subclasses override this to return a command that accepts a prompt
+        via stdin and writes text to stdout (e.g. ``["claude", "-p"]``).
+        Return ``None`` to skip rich description and use the generic body.
+        """
+        return None
+
     def _should_run_precommit_before_pr(self) -> bool:
         return bool(getattr(self.config, "enable_execution", False))
 
@@ -313,16 +322,36 @@ class Hand(abc.ABC):
                     pass
 
                 stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
-                pr = gh.create_pr(
-                    repo,
-                    title=f"feat({backend}): automated hand update",
-                    body=self._build_generic_pr_body(
+
+                from helping_hands.lib.hands.v1.hand.pr_description import (
+                    generate_pr_description,
+                )
+
+                rich_desc = generate_pr_description(
+                    cmd=self._pr_description_cmd(),
+                    repo_dir=repo_dir,
+                    base_branch=base_branch,
+                    backend=backend,
+                    prompt=prompt,
+                    summary=summary,
+                )
+                if rich_desc is not None:
+                    pr_title = rich_desc.title
+                    pr_body = rich_desc.body
+                else:
+                    pr_title = f"feat({backend}): automated hand update"
+                    pr_body = self._build_generic_pr_body(
                         backend=backend,
                         prompt=prompt,
                         summary=summary,
                         commit_sha=commit_sha,
                         stamp_utc=stamp,
-                    ),
+                    )
+
+                pr = gh.create_pr(
+                    repo,
+                    title=pr_title,
+                    body=pr_body,
                     head=branch,
                     base=base_branch,
                 )

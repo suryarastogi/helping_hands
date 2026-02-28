@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from urllib.parse import urlparse
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
@@ -18,6 +19,12 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_MODEL = ""
     _GOOSE_DEFAULT_PROVIDER = "ollama"
     _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
+
+    def _pr_description_cmd(self) -> list[str] | None:
+        provider, _model = self._resolve_goose_provider_model_from_config()
+        if provider == "anthropic" and shutil.which("claude") is not None:
+            return ["claude", "-p", "--output-format", "text"]
+        return None
 
     def _describe_auth(self) -> str:
         import os

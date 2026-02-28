@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
@@ -18,6 +19,11 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_MODEL = ""
     _DEFAULT_APPEND_ARGS = ("-p",)
     _DEFAULT_APPROVAL_MODE = "auto_edit"
+
+    def _pr_description_cmd(self) -> list[str] | None:
+        if shutil.which("gemini") is not None:
+            return ["gemini", "-p"]
+        return None
 
     def _describe_auth(self) -> str:
         import os
