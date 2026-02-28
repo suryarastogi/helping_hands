@@ -60,11 +60,13 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
 2. Task execution pass that applies requested changes directly.
+
+All CLI backends share a common two-phase subprocess base (`cli/base.py`) with streaming output, interruption support, heartbeat lines during quiet periods, and configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 For `claudecodecli`, non-interactive runs default to
 `--dangerously-skip-permissions` and now include one automatic follow-up apply
@@ -75,14 +77,31 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+
+For `goose`, provider/model are auto-injected via `GOOSE_PROVIDER`/`GOOSE_MODEL` derived from `--model` (default: `ollama` + `llama3.2:latest`). `goose run` auto-includes `--with-builtin developer`. `GH_TOKEN`/`GITHUB_TOKEN` is always required.
+
+For `geminicli`, `--approval-mode auto_edit` is injected by default for non-interactive runs. If a requested model is unavailable, backend retries once without `--model`.
+
+## Execution and web tools
+
+Iterative hands support opt-in tool categories that expand what the model can do during its loop:
+
+- **Execution tools** (`enable_execution`): `python.run_code`, `python.run_script`, `bash.run_script` — allow the model to run code in the target repo.
+- **Web tools** (`enable_web`): `web.search`, `web.browse` — allow the model to search the web and browse URLs.
+
+Both are disabled by default and toggled per-run via CLI flags or app UI checkboxes.
+
+When `enable_execution` is on, the finalization step runs `uv run pre-commit run --all-files` (auto-fix + validation retry) before commit/push.
+
+## Native CLI auth
+
+For `codexcli` and `claudecodecli`, the `--use-native-cli-auth` flag (or `HELPING_HANDS_USE_NATIVE_CLI_AUTH=1`) strips provider API key env vars from subprocess execution, forcing the CLI tool to use its own local auth session (`codex login` / `claude auth`) instead of an API key.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).

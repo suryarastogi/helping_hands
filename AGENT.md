@@ -87,6 +87,10 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI hand shared base**: All CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) share a common two-phase subprocess base (`cli/base.py`) with streaming, heartbeat, and idle timeout. (2026-02-28)
+- **Goose backend provider injection**: `goose` backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from `--model` and always requires `GH_TOKEN`/`GITHUB_TOKEN`. (2026-02-28)
+- **Gemini CLI auto-edit mode**: `geminicli` injects `--approval-mode auto_edit` by default for non-interactive runs and retries without `--model` on deprecated model errors. (2026-02-28)
+- **Cron scheduling**: App mode supports cron-scheduled build tasks via RedBeat + Redis, managed through CRUD endpoints and a dashboard UI tab. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -115,6 +119,8 @@ what the code does.
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
+| celery-redbeat | server | Redis-backed periodic task scheduler for cron-scheduled builds |
+| croniter | server | Cron expression parsing for schedule validation |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
 
 ---
@@ -139,4 +145,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — goose/gemini CLI backends, shared CLI base, cron scheduling, docs/obsidian reconciliation.*
