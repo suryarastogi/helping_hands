@@ -82,25 +82,18 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
 
-## Code Conventions
+## Code Conventions & Design
 
-- **Python 3.12+**, `uv` for package management
-- **Formatter/linter**: `ruff` (line length 88, rules: E, W, F, I, N, UP, B, SIM, RUF)
-- **Type hints everywhere**: prefer `X | None` over `Optional[X]`
-- **Imports**: absolute (`from helping_hands.lib.config import Config`), grouped as stdlib → third-party → local
-- **Naming**: `snake_case` functions/variables, `PascalCase` classes, `_` prefix for private helpers
-- **Docstrings**: Google-style, required for public functions/classes
-- **Tests**: pytest in `tests/`, coverage enabled by default in pytest config
-- **No global state**: configuration is passed explicitly, no module-level singletons
-- **Streaming-first**: AI responses should be streamable as they arrive
+See [AGENT.md](AGENT.md) for the full living reference on code style, design
+preferences, tone, recurring decisions, and dependencies. Key points:
 
-## Key Architectural Decisions
-
-- Hand implementations stay split under `hands/v1/hand/` — avoid regressing to a monolithic `hand.py`
-- Iterative hands preload `README.md`, `AGENT.md`, and bounded repo tree snapshot on iteration 1
-- Git push uses token-authenticated (`GITHUB_TOKEN`) non-interactive remotes
-- `owner/repo` CLI inputs are auto-cloned to temp workspaces
-- `AGENT.md` is a living document that AI agents update as they learn repo conventions
+- **Python 3.12+**, `uv`, `ruff` (line 88), `ty` type checker
+- **Type hints everywhere**: `X | None` over `Optional[X]`
+- **Imports**: absolute, grouped stdlib → third-party → local
+- **Naming**: `snake_case` functions/variables, `PascalCase` classes
+- **Docstrings**: Google-style for public APIs
+- **No global state**; **streaming-first**
+- Hand implementations stay split under `hands/v1/hand/` — no monolithic `hand.py`
 
 ## CI
 

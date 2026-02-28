@@ -60,23 +60,26 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) all
+share a common `_TwoPhaseCLIHand` base and run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
 2. Task execution pass that applies requested changes directly.
 
-For `claudecodecli`, non-interactive runs default to
-`--dangerously-skip-permissions` and now include one automatic follow-up apply
-pass for edit-intent prompts when the first task pass produces no git changes.
-When running as root/sudo, the backend avoids or strips that flag and retries
-automatically if Claude rejects it.
-When `claude` is not installed but `npx` is available, backend command
-resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
-If Claude still requests interactive write approval and no edits are applied,
-the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+All CLI backends share:
+- Async subprocess streaming with heartbeat monitoring and idle timeout
+- Configurable controls: `HELPING_HANDS_CLI_IO_POLL_SECONDS`,
+  `HELPING_HANDS_CLI_HEARTBEAT_SECONDS`, `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS`
+
+Backend-specific behaviors:
+- `claudecodecli`: NPX fallback, `--dangerously-skip-permissions` for non-root,
+  automatic edit-enforcement retry, root/sudo flag stripping.
+- `codexcli`: Runtime-aware sandbox mode (host vs. container), `--skip-git-repo-check`.
+- `goose`: Multi-provider support (OpenAI/Anthropic/Google/Ollama), auto-derived
+  `GOOSE_PROVIDER`/`GOOSE_MODEL`, `--with-builtin developer` auto-injection.
+- `geminicli`: `--approval-mode auto_edit` for non-interactive runs,
+  model-unavailability retry without `--model`.
 
 ## Provider wrappers and model resolution
 

@@ -87,6 +87,8 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backend base class**: All CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) extend `_TwoPhaseCLIHand` for shared two-phase execution, async subprocess streaming, heartbeat monitoring, and idle timeout. (2026-02-28)
+- **Documentation single-source-of-truth**: README.md is the canonical reference for runtime details, backend requirements, and CLI examples. `docs/index.md` should be a thin API-reference landing page, not duplicate README content. `AGENT.md` is the canonical code-style reference; `CLAUDE.md` cross-references it rather than duplicating. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -139,4 +141,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — docs consolidation: single-source-of-truth policy, CLI backend base class decision, goose/geminicli completion.*

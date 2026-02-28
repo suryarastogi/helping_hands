@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** February 28, 2026
 
 ## What is this?
 
@@ -342,6 +342,7 @@ helping_hands/
 │   └── server/               # App-mode server (depends on lib)
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
+│       ├── schedules.py      # Cron-scheduled submission tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
