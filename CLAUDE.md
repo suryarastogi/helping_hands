@@ -57,30 +57,32 @@ docker compose up --build
 Everything flows through the **Hand** base class (`src/helping_hands/lib/hands/v1/hand/base.py`). Hands are the execution backends — each one implements `run()`/`stream()` and represents a different approach to AI-driven code changes:
 
 - **E2EHand** (`e2e.py`) — clone/edit/commit/push/PR flow for integration testing
-- **IterativeHand** (`iterative.py`) — base for loop-based hands with `@@READ`/`@@FILE` in-model file operations
-- **BasicLangGraphHand** (`langgraph.py`) — LangGraph agent loop (requires `--extra langchain`)
-- **BasicAtomicHand** (`atomic.py`) — Atomic Agents loop (requires `--extra atomic`)
-- **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`
+- **`_BasicIterativeHand`** (`iterative.py`) — private base for loop-based hands with `@@READ`/`@@FILE` in-model file operations
+- **BasicLangGraphHand** (`iterative.py`) — iterative LangGraph agent loop (requires `--extra langchain`)
+- **BasicAtomicHand** (`iterative.py`) — iterative Atomic Agents loop (requires `--extra atomic`); also aliased as `basic-agent` backend
+- **LangGraphHand** (`langgraph.py`) — direct (non-iterative) LangGraph backend
+- **AtomicHand** (`atomic.py`) — direct (non-iterative) Atomic backend
+- **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `CodexCLIHand` (`codex.py`), `ClaudeCodeHand` (`claude.py`), `GooseCLIHand` (`goose.py`), `GeminiCLIHand` (`gemini.py`)
 
 Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands attempt it by default; disable with `--no-pr`.
 
 ### Provider abstraction
 
-AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProvider` interface. Models are specified as bare strings (`gpt-5.2`) or `provider/model` format (`anthropic/claude-sonnet-4-5`). Resolution happens in `model_provider.py`.
+AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProvider` interface (`openai`, `anthropic`, `google`, `litellm`, `ollama`). Models are specified as bare strings (`gpt-5.2`) or `provider/model` format (`anthropic/claude-sonnet-4-5`). Resolution happens in `model_provider.py`. Default when unset: Ollama (`llama3.2:latest`).
 
 ### Module boundaries
 
-- `src/helping_hands/lib/` — core library (config, repo indexing, GitHub API, hands, meta tools, AI providers)
+- `src/helping_hands/lib/` — core library (config, repo indexing, GitHub API, hands, meta tools, AI providers, skills, default prompts)
 - `src/helping_hands/cli/` — CLI entry point, depends on lib
-- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server, depends on lib
+- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server + cron schedules, depends on lib
 - `frontend/` — React + TypeScript + Vite UI
 - `tests/` — pytest suite
 
 These layers communicate through plain data (dicts, dataclasses), not by importing each other's internals.
 
-### System tool isolation
+### System tool and skill isolation
 
-All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
+All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). Command execution tools live in `meta/tools/command.py`, web tools in `meta/tools/web.py`. MCP tools use the same filesystem layer. Dynamic skills (`meta/skills/`) bundle tool capabilities (execution, web, prd, ralph) that can be selected per run.
 
 ## Code Conventions
 
@@ -101,6 +103,8 @@ All filesystem/command operations for hands route through `src/helping_hands/lib
 - Git push uses token-authenticated (`GITHUB_TOKEN`) non-interactive remotes
 - `owner/repo` CLI inputs are auto-cloned to temp workspaces
 - `AGENT.md` is a living document that AI agents update as they learn repo conventions
+- Cron-scheduled submission tasks use RedBeat + Redis for persistence (`server/schedules.py`)
+- Skills are composable tool bundles selected per run; `enable_execution`/`enable_web` flags fold into the skill system via `merge_with_legacy_tool_flags`
 
 ## CI
 

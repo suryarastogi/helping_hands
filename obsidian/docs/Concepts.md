@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -75,14 +75,24 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
+
+For `goose`, provider/model are auto-injected via `GOOSE_PROVIDER`/`GOOSE_MODEL`
+derived from `HELPING_HANDS_MODEL` (default: `ollama` + `llama3.2:latest`).
+The backend auto-adds `--with-builtin developer` and mirrors
+`GH_TOKEN`/`GITHUB_TOKEN` for Goose subprocesses.
+
+For `geminicli`, non-interactive runs default to `--approval-mode auto_edit`.
+If the requested model is unavailable, the backend retries once without
+`--model` so Gemini CLI can select a default.
+
+CLI subprocess execution emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -126,6 +136,26 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Dynamic skills
+
+Skills (`lib/meta/skills/`) are composable bundles of tool capabilities selected per run:
+
+- **execution** — Python/Bash runtime actions (`python.run_code`, `python.run_script`, `bash.run_script`)
+- **web** — Web search and browse (`web.search`, `web.browse`)
+- **prd** — PRD generator workflow (prompt-only, no tools)
+- **ralph** — PRD-to-prd.json conversion workflow (prompt-only, no tools)
+
+Legacy `enable_execution`/`enable_web` boolean flags fold into the skill system via `merge_with_legacy_tool_flags`. Skills are injected into hand prompts and dispatch logic at runtime.
+
+## Cron-scheduled tasks
+
+App mode supports cron-scheduled submission tasks via RedBeat + Redis (`server/schedules.py`):
+
+- CRUD API at `/schedules` (create, read, update, delete, enable/disable, trigger)
+- Cron expression presets via `/schedules/presets`
+- Schedules persist across worker restarts via Redis
+- UI integration in the built-in dashboard
 
 ## Project Log
 

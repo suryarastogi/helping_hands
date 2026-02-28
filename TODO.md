@@ -56,11 +56,14 @@
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+  - [x] **Claude CLI execution** — Implemented subprocess-backed claude flow with two phases, streaming output, `--dangerously-skip-permissions` default, npx fallback, root/sudo retry, and edit-intent enforcement pass.
   - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [x] **Gemini CLI execution** — Implemented subprocess-backed gemini flow with `--approval-mode auto_edit` default, model-unavailable retry, and configurable idle timeout.
+  - [x] **Goose CLI execution** — Implemented subprocess-backed goose flow with provider/model auto-injection, `--with-builtin developer` default, and GH_TOKEN mirroring.
+  - [x] **Backend selection/routing (full matrix)** — CLI and app-mode routing supports all backends: `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`.
+  - [x] **Streaming for CLI hands** — All CLI hands stream subprocess output with heartbeat and idle-timeout controls.
+  - [x] **Dynamic skill system** — `lib/meta/skills/` provides composable tool bundles (execution, web, prd, ralph) selectable per run; legacy `enable_execution`/`enable_web` flags fold into skills.
+  - [x] **Cron-scheduled tasks** — RedBeat-backed cron scheduling with CRUD API (`/schedules`), cron presets, enable/disable/trigger controls, and UI integration.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
 ---

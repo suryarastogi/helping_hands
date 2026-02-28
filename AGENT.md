@@ -87,6 +87,8 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **Dynamic skills over hardcoded tools**: Tool capabilities (execution, web, prd, ralph) should be composed via the skill registry (`lib/meta/skills/`) rather than hardcoded in hand implementations. Legacy `enable_execution`/`enable_web` flags fold into skills. (2026-02-28)
+- **Cron scheduling via RedBeat**: Scheduled submission tasks use RedBeat + Redis for persistence, with CRUD API at `/schedules`. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -113,6 +115,8 @@ what the code does.
 | openai | atomic | OpenAI client for atomic-agents |
 | PyGithub | github / dev | GitHub API client for auth, clone, PRs (used by agents as a tool) |
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
+| celery-redbeat | server | Redis-backed cron scheduler for scheduled submission tasks |
+| croniter | server | Cron expression parsing/validation for scheduled tasks |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
@@ -139,4 +143,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/obsidian; added skills, scheduling, goose/gemini CLI backends to recurring decisions and dependencies.*

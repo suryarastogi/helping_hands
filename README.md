@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** February 28, 2026
 
 ## What is this?
 
@@ -318,10 +318,11 @@ stable while polling.
 ```
 helping_hands/
 ├── src/helping_hands/        # Main package
-│   ├── lib/                  # Core library (config, repo, github, hands, meta tools)
+│   ├── lib/                  # Core library (config, repo, github, hands, meta, ai_providers)
 │   │   ├── config.py
 │   │   ├── repo.py
 │   │   ├── github.py
+│   │   ├── default_prompts.py  # Shared prompt templates (smoke test, etc.)
 │   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
 │   │   │   ├── __init__.py
 │   │   │   ├── openai.py
@@ -331,18 +332,23 @@ helping_hands/
 │   │   │   ├── ollama.py
 │   │   │   └── types.py
 │   │   ├── meta/
+│   │   │   ├── skills/       # Dynamic skill registry (execution, web, prd, ralph)
+│   │   │   │   └── __init__.py
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Shared filesystem tools for hands + MCP
+│   │   │       ├── command.py     # Python/Bash execution tools
+│   │   │       └── web.py         # Web search/browse tools
 │   │   └── hands/v1/
 │   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
+│   │       └── hand/         # Hand package (base, iterative, langgraph, atomic, e2e, cli/*)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
+│       ├── schedules.py      # RedBeat cron-scheduled task management
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
