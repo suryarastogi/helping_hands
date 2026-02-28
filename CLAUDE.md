@@ -57,7 +57,7 @@ docker compose up --build
 Everything flows through the **Hand** base class (`src/helping_hands/lib/hands/v1/hand/base.py`). Hands are the execution backends — each one implements `run()`/`stream()` and represents a different approach to AI-driven code changes:
 
 - **E2EHand** (`e2e.py`) — clone/edit/commit/push/PR flow for integration testing
-- **_BasicIterativeHand / BasicLangGraphHand / BasicAtomicHand** (`iterative.py`) — shared loop base and concrete iterative backends with `@@READ`/`@@FILE` in-model file operations
+- **_BasicIterativeHand / BasicLangGraphHand / BasicAtomicHand** (`iterative.py`) — shared loop base and concrete iterative backends with `@@READ`/`@@FILE` in-model file operations (`basic-agent` is a CLI alias for `BasicAtomicHand`)
 - **LangGraphHand** (`langgraph.py`) — direct (non-iterative) LangGraph agent (requires `--extra langchain`)
 - **AtomicHand** (`atomic.py`) — direct (non-iterative) Atomic Agents agent (requires `--extra atomic`)
 - **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`

@@ -29,6 +29,7 @@ nav:
   - API Reference:
       - lib:
           - config: api/lib/config.md
+          - default_prompts: api/lib/default_prompts.md
           - repo: api/lib/repo.md
           - github: api/lib/github.md
           - ai_providers:

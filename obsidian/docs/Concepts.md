@@ -41,7 +41,7 @@ This means a rerun updates the same PR state instead of creating drift between o
 
 ## Basic hand semantics (current implementation)
 
-`BasicLangGraphHand` and `BasicAtomicHand` run iterative repo-aware loops with:
+`BasicLangGraphHand` and `BasicAtomicHand` (`basic-agent` is a CLI alias for `BasicAtomicHand`) run iterative repo-aware loops with:
 
 - streamed per-iteration output
 - cooperative interruption
