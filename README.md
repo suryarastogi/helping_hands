@@ -10,7 +10,10 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** February 28, 2026
+
+**Latest smoke test** (February 28, 2026 — Python 3.12, `uv`):
+ruff lint ✅ all checks passed · ruff format ✅ 62 files clean · pytest ✅ 281 passed, 2 skipped (4.24 s)
 
 ## What is this?
 
