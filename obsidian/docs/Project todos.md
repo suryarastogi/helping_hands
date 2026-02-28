@@ -30,3 +30,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) now have full subprocess-backed implementations with two-phase execution, streaming, heartbeat, and idle timeout via shared `_TwoPhaseCLIHand` base.
+- Backend routing covers the full matrix in both CLI and app mode.
+- AI-generated PR descriptions via `pr_description.py` — CLI tools (e.g. `claude -p`, `gemini -p`) produce rich PR titles/bodies from git diffs during finalization.
+- Cron-scheduled tasks via RedBeat/Redis with CRUD API endpoints, presets, and a scheduling UI in the built-in app page.

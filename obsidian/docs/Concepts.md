@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -78,11 +78,20 @@ the backend now fails the run instead of silently returning success/no-op.
 CLI subprocess execution now also emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
+For `goose`, `GOOSE_PROVIDER`/`GOOSE_MODEL` are auto-derived from
+`HELPING_HANDS_MODEL` (default: `ollama` + `llama3.2:latest`), and the backend
+auto-adds `--with-builtin developer`. Runtime mirrors the available GitHub token
+into both `GH_TOKEN` and `GITHUB_TOKEN`.
+
+For `geminicli`, `--approval-mode auto_edit` is injected by default for
+non-interactive runs. If Gemini rejects a deprecated/unavailable model,
+the backend retries once without `--model`.
+
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -126,6 +135,23 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Cron-scheduled tasks (current implementation)
+
+App mode supports cron-scheduled builds via RedBeat (celery-redbeat):
+
+- Schedules are persisted in Redis and picked up by Celery Beat.
+- Standard cron expressions plus named presets (`every_5_minutes`, `hourly`, `daily`, `weekly`, `monthly`).
+- CRUD API: `POST /schedules`, `GET /schedules`, `GET /schedules/{id}`, `PUT /schedules/{id}`, `DELETE /schedules/{id}`, `POST /schedules/{id}/trigger`.
+- Built-in app UI includes a scheduling panel for managing recurring builds.
+
+## PR description generation
+
+During hand finalization, `pr_description.py` can invoke a CLI tool (e.g.
+`claude -p`, `gemini -p`) to produce a rich PR title and body from the git diff.
+Falls back gracefully when no CLI is available or generation fails. Configurable
+via `HELPING_HANDS_DISABLE_PR_DESCRIPTION`, `HELPING_HANDS_PR_DESCRIPTION_TIMEOUT`,
+and `HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT`.
 
 ## Project Log
 

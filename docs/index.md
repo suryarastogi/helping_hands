@@ -10,7 +10,7 @@ Browse the auto-generated docs from source:
 
 - **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
-- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md)
+- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md), [schedules](api/server/schedules.md)
 
 ## Runtime flow
 
@@ -92,6 +92,13 @@ Browse the auto-generated docs from source:
   - `frontend/coverage/lcov.info` from the frontend job.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
+- Cron-scheduled tasks are backed by celery-redbeat/Redis. CRUD endpoints:
+  `POST /schedules`, `GET /schedules`, `GET /schedules/{id}`,
+  `PUT /schedules/{id}`, `DELETE /schedules/{id}`, `POST /schedules/{id}/trigger`.
+  The built-in app UI includes a scheduling panel.
+- PR finalization can generate rich PR titles/bodies from git diffs using a CLI
+  tool (e.g. `claude -p`, `gemini -p`) via `pr_description.py`. Configurable via
+  `HELPING_HANDS_DISABLE_PR_DESCRIPTION`.
 
 ## Full Docker dev reset
 

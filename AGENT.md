@@ -113,6 +113,8 @@ what the code does.
 | openai | atomic | OpenAI client for atomic-agents |
 | PyGithub | github / dev | GitHub API client for auth, clone, PRs (used by agents as a tool) |
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
+| celery-redbeat | server | Redis-backed cron scheduler for Celery Beat |
+| croniter | server | Cron expression parsing/validation for scheduled tasks |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
@@ -139,4 +141,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — docs/docstrings/obsidian reconciliation; added scheduling deps, goose/geminicli backends, PR description generation.*
