@@ -92,6 +92,8 @@ Browse the auto-generated docs from source:
   - `frontend/coverage/lcov.info` from the frontend job.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
+- Cron-scheduled submissions are managed by `ScheduleManager` (`server/schedules.py`)
+  using RedBeat + Redis, with CRUD API endpoints and cron presets.
 
 ## Full Docker dev reset
 

@@ -90,7 +90,7 @@ what the code does.
 
 ## Dependencies `[auto-update]`
 
-<!-- Agents: keep this in sync with requirements.txt. Note why each
+<!-- Agents: keep this in sync with pyproject.toml. Note why each
      dependency exists so future agents don't accidentally remove
      something important. -->
 
@@ -105,6 +105,9 @@ what the code does.
 | uvicorn | server | ASGI server |
 | celery[redis] | server | Task queue + Redis broker |
 | flower | server | Celery monitoring UI |
+| celery-redbeat | server | Redis-backed cron scheduler for periodic build tasks |
+| croniter | server | Cron expression parsing/validation for scheduled tasks |
+| redis | server | Redis client used by ScheduleManager for schedule metadata |
 | psycopg2-binary | server | Postgres driver |
 | langchain-openai | langchain | LangChain LLM wrapper for LangGraphHand |
 | langgraph | langchain | Agent graph framework for LangGraphHand |
@@ -139,4 +142,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/Obsidian; added goose/geminicli/cron deps; fixed pyproject.toml reference.*

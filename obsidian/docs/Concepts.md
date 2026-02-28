@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -78,11 +78,19 @@ the backend now fails the run instead of silently returning success/no-op.
 CLI subprocess execution now also emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
+For `goose`, provider/model are auto-derived from `HELPING_HANDS_MODEL` (default:
+`ollama` + `llama3.2:latest`), and `--with-builtin developer` is auto-injected so
+file editing tools are available. `GH_TOKEN`/`GITHUB_TOKEN` is always required.
+
+For `geminicli`, `--approval-mode auto_edit` is injected by default for scripted
+runs. If a requested model is unavailable, the backend retries once without
+`--model` to let Gemini CLI pick a default.
+
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
