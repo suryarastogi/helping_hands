@@ -57,10 +57,10 @@ docker compose up --build
 Everything flows through the **Hand** base class (`src/helping_hands/lib/hands/v1/hand/base.py`). Hands are the execution backends — each one implements `run()`/`stream()` and represents a different approach to AI-driven code changes:
 
 - **E2EHand** (`e2e.py`) — clone/edit/commit/push/PR flow for integration testing
-- **IterativeHand** (`iterative.py`) — base for loop-based hands with `@@READ`/`@@FILE` in-model file operations
-- **BasicLangGraphHand** (`langgraph.py`) — LangGraph agent loop (requires `--extra langchain`)
-- **BasicAtomicHand** (`atomic.py`) — Atomic Agents loop (requires `--extra atomic`)
-- **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`
+- **BasicLangGraphHand** / **BasicAtomicHand** (`iterative.py`) — iterative loop-based hands with `@@READ`/`@@FILE`/`@@TOOL` in-model operations
+- **LangGraphHand** (`langgraph.py`) — direct (non-iterative) LangGraph agent (requires `--extra langchain`)
+- **AtomicHand** (`atomic.py`) — direct (non-iterative) Atomic Agents agent (requires `--extra atomic`)
+- **CLI Hands** (`cli/`) — two-phase subprocess wrappers: `codex.py`, `claude.py`, `goose.py`, `gemini.py`
 
 Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands attempt it by default; disable with `--no-pr`.
 
@@ -80,7 +80,13 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 ### System tool isolation
 
-All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
+All filesystem/command/web operations for hands route through `src/helping_hands/lib/meta/tools/` for path-safe behavior:
+
+- `filesystem.py` — path-confined read/write/mkdir operations (prevents path traversal via `resolve_repo_target()`)
+- `command.py` — sandboxed Python/Bash command execution
+- `web.py` — web search and URL browsing helpers
+
+MCP tools and iterative hands use the same layer. Runtime-selectable **skills** (`src/helping_hands/lib/meta/skills/`) inject additional prompt context into iterative hands.
 
 ## Code Conventions
 

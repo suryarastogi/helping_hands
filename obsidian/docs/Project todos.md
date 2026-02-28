@@ -30,3 +30,8 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- Goose CLI backend (`goose`) auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`, requires `GH_TOKEN`/`GITHUB_TOKEN`, and injects `--with-builtin developer` for file editing tools.
+- Gemini CLI backend (`geminicli`) injects `--approval-mode auto_edit` by default for non-interactive runs and retries without `--model` when a model is unavailable.
+- **Skills** (`lib/meta/skills/`) are runtime-selectable prompt bundles injected into iterative hands via `--skills`. CLI and app mode both support the `skills` option.
+- **Cron-scheduled tasks**: App mode supports named cron schedules via RedBeat scheduler. `/schedules` CRUD endpoints manage schedules; Celery Beat fires tasks on cron match; `/schedules/{id}/trigger` forces an immediate run.
+- All four CLI hand implementations (`codexcli`, `claudecodecli`, `goose`, `geminicli`) are now fully implemented with real subprocess streaming, not scaffolds.

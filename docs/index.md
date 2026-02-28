@@ -8,9 +8,9 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 
 Browse the auto-generated docs from source:
 
-- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
+- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md) ([ollama](api/lib/ai_providers/ollama.md)), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md) ([filesystem](api/lib/meta/tools/filesystem.md), [command](api/lib/meta/tools/command.md), [web](api/lib/meta/tools/web.md))
 - **cli** — CLI entry point: [main](api/cli/main.md)
-- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md)
+- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [task_result](api/server/task_result.md), [mcp_server](api/server/mcp_server.md)
 
 ## Runtime flow
 
@@ -85,8 +85,13 @@ Browse the auto-generated docs from source:
   `provider/model` forms, before backend-specific model adaptation.
 - Iterative/basic hands use shared system file tooling from `lib.meta.tools`
   for repo-safe reads/writes and path validation.
-- MCP now exposes filesystem tools backed by the same layer:
-  `read_file`, `write_file`, `mkdir`, and `path_exists`.
+- MCP now exposes filesystem, command, and web tools backed by the same layer:
+  `read_file`, `write_file`, `mkdir`, `path_exists`, `run_python_code`,
+  `run_python_script`, `run_bash_script`, `web_search`, `web_browse`.
+- Runtime-selectable **skills** (`--skills`) inject additional prompt context
+  into iterative hands for domain-specific behavior.
+- App mode supports **cron-scheduled tasks** via RedBeat. CRUD at `/schedules`;
+  manual trigger at `/schedules/{id}/trigger`.
 - CI test runs include coverage reporting and upload:
   - `coverage.xml` from the Python 3.12 backend job.
   - `frontend/coverage/lcov.info` from the frontend job.

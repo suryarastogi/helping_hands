@@ -60,11 +60,13 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
 2. Task execution pass that applies requested changes directly.
+
+All CLI backends share a common two-phase subprocess base (`cli/base.py`) with heartbeat emission and configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 For `claudecodecli`, non-interactive runs default to
 `--dangerously-skip-permissions` and now include one automatic follow-up apply
@@ -75,14 +77,20 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+
+For `goose`, provider/model are auto-derived from `HELPING_HANDS_MODEL` into
+`GOOSE_PROVIDER`/`GOOSE_MODEL` env vars. `GH_TOKEN`/`GITHUB_TOKEN` is always
+required and mirrored to both variables.
+
+For `geminicli`, `--approval-mode auto_edit` is injected by default for
+non-interactive runs. If a requested model is unavailable, the backend retries
+once without `--model` so Gemini CLI can select a default.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -126,6 +134,14 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Skills (runtime-selectable prompt bundles)
+
+**Skills** (`lib/meta/skills/`) are optional prompt context bundles that hands inject on demand. CLI flag `--skills` selects which skill bundles to activate for a run. Skills let the same hand backend behave differently depending on which domain-specific instructions are loaded — for example, a "docs" skill could inject documentation guidelines into each iteration's prompt.
+
+## Scheduled tasks (cron)
+
+App mode supports **cron-scheduled submission tasks** via RedBeat. Named schedules store a backend, model, prompt, and execution options, and Celery Beat fires them on cron expression match. CRUD endpoints at `/schedules` manage schedules; `/schedules/{id}/trigger` forces an immediate run.
 
 ## Project Log
 
