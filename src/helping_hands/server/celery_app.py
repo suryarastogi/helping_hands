@@ -45,6 +45,10 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    # RedBeat scheduler configuration for cron-scheduled tasks
+    beat_scheduler="redbeat.RedBeatScheduler",
+    redbeat_redis_url=_BROKER_URL,
+    redbeat_key_prefix="redbeat:",
 )
 
 
@@ -567,3 +571,59 @@ def build_feature(
     finally:
         if _tmp_root is not None:
             shutil.rmtree(_tmp_root, ignore_errors=True)
+
+
+@celery_app.task(bind=True, name="helping_hands.scheduled_build")
+def scheduled_build(
+    self: object,
+    schedule_id: str,
+) -> dict[str, Any]:  # pragma: no cover - exercised in integration
+    """Execute a scheduled build task.
+
+    This task is triggered by RedBeat scheduler and looks up the schedule
+    configuration to run the appropriate build_feature task.
+    """
+    from helping_hands.server.schedules import get_schedule_manager
+
+    manager = get_schedule_manager(celery_app)
+    schedule = manager.get_schedule(schedule_id)
+
+    if schedule is None:
+        return {
+            "status": "error",
+            "message": f"Schedule {schedule_id} not found",
+            "schedule_id": schedule_id,
+        }
+
+    if not schedule.enabled:
+        return {
+            "status": "skipped",
+            "message": f"Schedule {schedule_id} is disabled",
+            "schedule_id": schedule_id,
+        }
+
+    # Trigger the actual build task
+    result = build_feature.delay(
+        repo_path=schedule.repo_path,
+        prompt=schedule.prompt,
+        backend=schedule.backend,
+        model=schedule.model,
+        max_iterations=schedule.max_iterations,
+        no_pr=schedule.no_pr,
+        enable_execution=schedule.enable_execution,
+        enable_web=schedule.enable_web,
+        use_native_cli_auth=schedule.use_native_cli_auth,
+        skills=schedule.skills,
+    )
+
+    # Record the run
+    manager.record_run(schedule_id, result.id)
+
+    return {
+        "status": "triggered",
+        "schedule_id": schedule_id,
+        "schedule_name": schedule.name,
+        "build_task_id": result.id,
+        "prompt": schedule.prompt,
+        "repo_path": schedule.repo_path,
+    }
