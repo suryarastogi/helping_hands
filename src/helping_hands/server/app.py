@@ -24,6 +24,9 @@ from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.task_result import normalize_task_result
 
+# Lazy import for optional schedule dependencies
+_schedule_manager = None
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
@@ -129,6 +132,89 @@ class ServerConfig(BaseModel):
 
     in_docker: bool
     native_auth_default: bool
+
+
+# --- Scheduled Task Models ---
+
+
+class ScheduleRequest(BaseModel):
+    """Request body for creating/updating a scheduled task."""
+
+    name: str = Field(min_length=1, max_length=100)
+    cron_expression: str = Field(
+        min_length=1,
+        description="Cron expression (e.g., '0 0 * * *') or preset name",
+    )
+    repo_path: str
+    prompt: str
+    backend: BackendName = "claudecodecli"
+    model: str | None = None
+    max_iterations: int = Field(default=6, ge=1)
+    no_pr: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
+    use_native_cli_auth: bool = False
+    skills: list[str] = Field(default_factory=list)
+    enabled: bool = True
+
+    @field_validator("skills", mode="before")
+    @classmethod
+    def _coerce_skills(
+        cls, value: str | list[str] | tuple[str, ...] | None
+    ) -> list[str]:
+        normalized = meta_skills.normalize_skill_selection(value)
+        return list(normalized)
+
+    @field_validator("skills")
+    @classmethod
+    def _validate_skills(cls, value: list[str]) -> list[str]:
+        meta_skills.validate_skill_names(tuple(value))
+        return value
+
+
+class ScheduleResponse(BaseModel):
+    """Response for a scheduled task."""
+
+    schedule_id: str
+    name: str
+    cron_expression: str
+    repo_path: str
+    prompt: str
+    backend: str
+    model: str | None = None
+    max_iterations: int = 6
+    no_pr: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
+    use_native_cli_auth: bool = False
+    skills: list[str] = Field(default_factory=list)
+    enabled: bool = True
+    created_at: str
+    last_run_at: str | None = None
+    last_run_task_id: str | None = None
+    run_count: int = 0
+    next_run_at: str | None = None
+
+
+class ScheduleListResponse(BaseModel):
+    """Response for listing scheduled tasks."""
+
+    schedules: list[ScheduleResponse]
+    total: int
+
+
+class ScheduleTriggerResponse(BaseModel):
+    """Response for manually triggering a scheduled task."""
+
+    schedule_id: str
+    task_id: str
+    message: str
+
+
+class CronPresetsResponse(BaseModel):
+    """Response for listing available cron presets."""
+
+    presets: dict[str, str]
 
 
 _TERMINAL_TASK_STATES = {"SUCCESS", "FAILURE", "REVOKED"}
@@ -634,6 +720,14 @@ _UI_HTML = """<!doctype html>
         >
           New submission
         </button>
+        <button
+          type="button"
+          id="schedules-btn"
+          class="new-submission-button"
+          style="margin-top: 8px;"
+        >
+          Scheduled tasks
+        </button>
         <div class="task-list-header">
           <h2>Submitted tasks</h2>
           <button type="button" id="clear-history-btn" class="text-button">
@@ -807,6 +901,104 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
             <pre id="output_text">No updates yet.</pre>
           </article>
         </section>
+
+        <section id="schedules-view" class="card is-hidden">
+          <header class="header">
+            <h1>Scheduled tasks <span class="server-ui-badge">cron</span></h1>
+            <p>Create and monitor recurring builds with cron expressions.</p>
+          </header>
+
+          <div class="actions" style="margin-bottom: 16px;">
+            <button type="button" id="new-schedule-btn">New schedule</button>
+            <button type="button" id="refresh-schedules-btn" class="secondary">
+              Refresh
+            </button>
+          </div>
+
+          <div id="schedules-list">
+            <p class="empty-list">No scheduled tasks yet.</p>
+          </div>
+
+          <div id="schedule-form-container" class="is-hidden" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <h2 id="schedule-form-title" style="margin-bottom: 12px;">New schedule</h2>
+            <form id="schedule-form" class="form-grid">
+              <input type="hidden" id="schedule_id" name="schedule_id" />
+              <label for="schedule_name">
+                Name
+                <input id="schedule_name" name="name" required placeholder="e.g. Daily docs update" />
+              </label>
+
+              <div class="row two-col">
+                <label for="schedule_cron">
+                  Cron expression
+                  <input id="schedule_cron" name="cron_expression" required placeholder="0 0 * * * (midnight)" />
+                </label>
+                <label for="schedule_preset">
+                  Or preset
+                  <select id="schedule_preset">
+                    <option value="">Custom</option>
+                    <option value="every_minute">Every minute</option>
+                    <option value="every_5_minutes">Every 5 minutes</option>
+                    <option value="every_15_minutes">Every 15 minutes</option>
+                    <option value="hourly">Hourly</option>
+                    <option value="daily">Daily (midnight)</option>
+                    <option value="weekly">Weekly (Sunday midnight)</option>
+                    <option value="monthly">Monthly (1st midnight)</option>
+                    <option value="weekdays">Weekdays (9am)</option>
+                  </select>
+                </label>
+              </div>
+
+              <label for="schedule_repo">
+                Repo path (owner/repo)
+                <input id="schedule_repo" name="repo_path" required placeholder="owner/repo" />
+              </label>
+
+              <label for="schedule_prompt">
+                Prompt
+                <textarea id="schedule_prompt" name="prompt" required rows="4" placeholder="Update documentation..."></textarea>
+              </label>
+
+              <details class="advanced-settings">
+                <summary>Advanced settings</summary>
+                <div class="advanced-settings-body">
+                  <div class="row two-col">
+                    <label for="schedule_backend">
+                      Backend
+                      <select id="schedule_backend" name="backend">
+                        <option value="claudecodecli" selected>claudecodecli</option>
+                        <option value="codexcli">codexcli</option>
+                        <option value="basic-langgraph">basic-langgraph</option>
+                        <option value="basic-atomic">basic-atomic</option>
+                        <option value="goose">goose</option>
+                        <option value="geminicli">geminicli</option>
+                      </select>
+                    </label>
+                    <label for="schedule_model">
+                      Model (optional)
+                      <input id="schedule_model" name="model" placeholder="gpt-5.2" />
+                    </label>
+                  </div>
+                  <div class="row check-grid">
+                    <label class="check-row" for="schedule_no_pr">
+                      <input id="schedule_no_pr" name="no_pr" type="checkbox" />
+                      Disable final PR
+                    </label>
+                    <label class="check-row" for="schedule_enabled">
+                      <input id="schedule_enabled" name="enabled" type="checkbox" checked />
+                      Enabled
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              <div class="actions">
+                <button type="submit" id="schedule-submit-btn">Create schedule</button>
+                <button type="button" id="schedule-cancel-btn" class="secondary">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </section>
       </div>
     </main>
 
@@ -838,11 +1030,39 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       let discoveryHandle = null;
       let taskHistory = loadTaskHistory();
 
+      // Schedule elements
+      const schedulesBtn = document.getElementById("schedules-btn");
+      const schedulesView = document.getElementById("schedules-view");
+      const schedulesList = document.getElementById("schedules-list");
+      const newScheduleBtn = document.getElementById("new-schedule-btn");
+      const refreshSchedulesBtn = document.getElementById("refresh-schedules-btn");
+      const scheduleFormContainer = document.getElementById("schedule-form-container");
+      const scheduleForm = document.getElementById("schedule-form");
+      const scheduleFormTitle = document.getElementById("schedule-form-title");
+      const scheduleSubmitBtn = document.getElementById("schedule-submit-btn");
+      const scheduleCancelBtn = document.getElementById("schedule-cancel-btn");
+      const schedulePreset = document.getElementById("schedule_preset");
+      const scheduleCron = document.getElementById("schedule_cron");
+
+      const cronPresets = {
+        "every_minute": "* * * * *",
+        "every_5_minutes": "*/5 * * * *",
+        "every_15_minutes": "*/15 * * * *",
+        "hourly": "0 * * * *",
+        "daily": "0 0 * * *",
+        "weekly": "0 0 * * 0",
+        "monthly": "0 0 1 * *",
+        "weekdays": "0 9 * * 1-5"
+      };
+
       function setView(nextView) {
         const isSubmission = nextView === "submission";
+        const isSchedules = nextView === "schedules";
         submissionView.classList.toggle("is-hidden", !isSubmission);
-        monitorView.classList.toggle("is-hidden", isSubmission);
+        monitorView.classList.toggle("is-hidden", isSubmission || isSchedules);
+        schedulesView.classList.toggle("is-hidden", !isSchedules);
         newSubmissionBtn.classList.toggle("active", isSubmission);
+        schedulesBtn.classList.toggle("active", isSchedules);
       }
 
       function setStatus(value) {
@@ -1375,6 +1595,184 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           discoveryHandle = null;
         }
       });
+
+      // Schedule management functions
+      schedulesBtn.addEventListener("click", () => {
+        setView("schedules");
+        loadSchedules();
+      });
+
+      schedulePreset.addEventListener("change", (e) => {
+        const preset = e.target.value;
+        if (preset && cronPresets[preset]) {
+          scheduleCron.value = cronPresets[preset];
+        }
+      });
+
+      newScheduleBtn.addEventListener("click", () => {
+        scheduleFormTitle.textContent = "New schedule";
+        scheduleSubmitBtn.textContent = "Create schedule";
+        scheduleForm.reset();
+        document.getElementById("schedule_id").value = "";
+        document.getElementById("schedule_enabled").checked = true;
+        scheduleFormContainer.classList.remove("is-hidden");
+      });
+
+      scheduleCancelBtn.addEventListener("click", () => {
+        scheduleFormContainer.classList.add("is-hidden");
+        scheduleForm.reset();
+      });
+
+      refreshSchedulesBtn.addEventListener("click", loadSchedules);
+
+      async function loadSchedules() {
+        try {
+          const response = await fetch("/schedules");
+          if (!response.ok) throw new Error("Failed to load schedules");
+          const data = await response.json();
+          renderSchedules(data.schedules);
+        } catch (err) {
+          schedulesList.innerHTML = `<p class="empty-list" style="color:#ef4444;">Error: ${err.message}</p>`;
+        }
+      }
+
+      function renderSchedules(schedules) {
+        if (!schedules || schedules.length === 0) {
+          schedulesList.innerHTML = '<p class="empty-list">No scheduled tasks yet.</p>';
+          return;
+        }
+        let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+        for (const s of schedules) {
+          const statusColor = s.enabled ? "#22c55e" : "#6b7280";
+          const statusText = s.enabled ? "enabled" : "disabled";
+          const nextRun = s.next_run_at ? new Date(s.next_run_at).toLocaleString() : "N/A";
+          const lastRun = s.last_run_at ? new Date(s.last_run_at).toLocaleString() : "Never";
+          html += `
+            <div class="schedule-item" style="background: var(--secondary); border-radius: 8px; padding: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong>${escapeHtml(s.name)}</strong>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span class="status-blinker" style="background-color: ${statusColor};"></span>
+                  <span class="status-pill" style="background: ${statusColor};">${statusText}</span>
+                </span>
+              </div>
+              <div style="font-size: 12px; color: var(--muted); display: grid; gap: 4px;">
+                <div><strong>Cron:</strong> <code>${escapeHtml(s.cron_expression)}</code></div>
+                <div><strong>Repo:</strong> ${escapeHtml(s.repo_path)}</div>
+                <div><strong>Prompt:</strong> ${escapeHtml(s.prompt.substring(0, 80))}${s.prompt.length > 80 ? "..." : ""}</div>
+                <div><strong>Next run:</strong> ${nextRun}</div>
+                <div><strong>Last run:</strong> ${lastRun} (${s.run_count} runs)</div>
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 8px;">
+                <button type="button" class="secondary" onclick="editSchedule('${s.schedule_id}')" style="font-size: 12px; padding: 4px 8px;">Edit</button>
+                <button type="button" class="secondary" onclick="triggerSchedule('${s.schedule_id}')" style="font-size: 12px; padding: 4px 8px;">Run now</button>
+                <button type="button" class="secondary" onclick="toggleSchedule('${s.schedule_id}', ${!s.enabled})" style="font-size: 12px; padding: 4px 8px;">${s.enabled ? "Disable" : "Enable"}</button>
+                <button type="button" class="secondary" onclick="deleteSchedule('${s.schedule_id}')" style="font-size: 12px; padding: 4px 8px; color: #ef4444;">Delete</button>
+              </div>
+            </div>
+          `;
+        }
+        html += '</div>';
+        schedulesList.innerHTML = html;
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str || "";
+        return div.innerHTML;
+      }
+
+      scheduleForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const scheduleId = document.getElementById("schedule_id").value;
+        const payload = {
+          name: document.getElementById("schedule_name").value,
+          cron_expression: document.getElementById("schedule_cron").value,
+          repo_path: document.getElementById("schedule_repo").value,
+          prompt: document.getElementById("schedule_prompt").value,
+          backend: document.getElementById("schedule_backend").value,
+          model: document.getElementById("schedule_model").value || null,
+          no_pr: document.getElementById("schedule_no_pr").checked,
+          enabled: document.getElementById("schedule_enabled").checked
+        };
+
+        try {
+          const url = scheduleId ? `/schedules/${scheduleId}` : "/schedules";
+          const method = scheduleId ? "PUT" : "POST";
+          const response = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Failed to save schedule");
+          }
+          scheduleFormContainer.classList.add("is-hidden");
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      });
+
+      window.editSchedule = async function(scheduleId) {
+        try {
+          const response = await fetch(`/schedules/${scheduleId}`);
+          if (!response.ok) throw new Error("Schedule not found");
+          const s = await response.json();
+
+          document.getElementById("schedule_id").value = s.schedule_id;
+          document.getElementById("schedule_name").value = s.name;
+          document.getElementById("schedule_cron").value = s.cron_expression;
+          document.getElementById("schedule_repo").value = s.repo_path;
+          document.getElementById("schedule_prompt").value = s.prompt;
+          document.getElementById("schedule_backend").value = s.backend;
+          document.getElementById("schedule_model").value = s.model || "";
+          document.getElementById("schedule_no_pr").checked = s.no_pr;
+          document.getElementById("schedule_enabled").checked = s.enabled;
+
+          scheduleFormTitle.textContent = "Edit schedule";
+          scheduleSubmitBtn.textContent = "Update schedule";
+          scheduleFormContainer.classList.remove("is-hidden");
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
+
+      window.triggerSchedule = async function(scheduleId) {
+        if (!confirm("Run this schedule now?")) return;
+        try {
+          const response = await fetch(`/schedules/${scheduleId}/trigger`, { method: "POST" });
+          if (!response.ok) throw new Error("Failed to trigger schedule");
+          const data = await response.json();
+          alert(`Triggered! Task ID: ${data.task_id}`);
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
+
+      window.toggleSchedule = async function(scheduleId, enable) {
+        try {
+          const action = enable ? "enable" : "disable";
+          const response = await fetch(`/schedules/${scheduleId}/${action}`, { method: "POST" });
+          if (!response.ok) throw new Error(`Failed to ${action} schedule`);
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
+
+      window.deleteSchedule = async function(scheduleId) {
+        if (!confirm("Delete this schedule? This cannot be undone.")) return;
+        try {
+          const response = await fetch(`/schedules/${scheduleId}`, { method: "DELETE" });
+          if (!response.ok) throw new Error("Failed to delete schedule");
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
     </script>
   </body>
 </html>
@@ -2201,3 +2599,209 @@ def get_current_tasks() -> CurrentTasksResponse:
 def get_task(task_id: str) -> TaskStatus:
     """Check the status of an enqueued task."""
     return _build_task_status(task_id)
+
+
+# --- Schedule Endpoints ---
+
+
+def _get_schedule_manager():
+    """Get or create the schedule manager singleton."""
+    global _schedule_manager
+    if _schedule_manager is None:
+        try:
+            from helping_hands.server.schedules import get_schedule_manager
+
+            _schedule_manager = get_schedule_manager(celery_app)
+        except ImportError as exc:
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=503,
+                detail=f"Scheduling not available: {exc}. "
+                "Install with: uv sync --extra server",
+            ) from exc
+    return _schedule_manager
+
+
+def _schedule_to_response(task) -> ScheduleResponse:
+    """Convert a ScheduledTask to a ScheduleResponse."""
+    import contextlib
+
+    from helping_hands.server.schedules import next_run_time
+
+    next_run = None
+    if task.enabled:
+        with contextlib.suppress(Exception):
+            next_run = next_run_time(task.cron_expression).isoformat()
+
+    return ScheduleResponse(
+        schedule_id=task.schedule_id,
+        name=task.name,
+        cron_expression=task.cron_expression,
+        repo_path=task.repo_path,
+        prompt=task.prompt,
+        backend=task.backend,
+        model=task.model,
+        max_iterations=task.max_iterations,
+        no_pr=task.no_pr,
+        enable_execution=task.enable_execution,
+        enable_web=task.enable_web,
+        use_native_cli_auth=task.use_native_cli_auth,
+        skills=task.skills,
+        enabled=task.enabled,
+        created_at=task.created_at,
+        last_run_at=task.last_run_at,
+        last_run_task_id=task.last_run_task_id,
+        run_count=task.run_count,
+        next_run_at=next_run,
+    )
+
+
+@app.get("/schedules/presets", response_model=CronPresetsResponse)
+def get_cron_presets() -> CronPresetsResponse:
+    """Get available cron expression presets."""
+    from helping_hands.server.schedules import CRON_PRESETS
+
+    return CronPresetsResponse(presets=CRON_PRESETS)
+
+
+@app.get("/schedules", response_model=ScheduleListResponse)
+def list_schedules() -> ScheduleListResponse:
+    """List all scheduled tasks."""
+    manager = _get_schedule_manager()
+    tasks = manager.list_schedules()
+    return ScheduleListResponse(
+        schedules=[_schedule_to_response(t) for t in tasks],
+        total=len(tasks),
+    )
+
+
+@app.post("/schedules", response_model=ScheduleResponse, status_code=201)
+def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
+    """Create a new scheduled task."""
+    from fastapi import HTTPException
+
+    from helping_hands.server.schedules import ScheduledTask, generate_schedule_id
+
+    manager = _get_schedule_manager()
+
+    task = ScheduledTask(
+        schedule_id=generate_schedule_id(),
+        name=request.name,
+        cron_expression=request.cron_expression,
+        repo_path=request.repo_path,
+        prompt=request.prompt,
+        backend=request.backend,
+        model=request.model,
+        max_iterations=request.max_iterations,
+        no_pr=request.no_pr,
+        enable_execution=request.enable_execution,
+        enable_web=request.enable_web,
+        use_native_cli_auth=request.use_native_cli_auth,
+        skills=request.skills,
+        enabled=request.enabled,
+    )
+
+    try:
+        created = manager.create_schedule(task)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _schedule_to_response(created)
+
+
+@app.get("/schedules/{schedule_id}", response_model=ScheduleResponse)
+def get_schedule(schedule_id: str) -> ScheduleResponse:
+    """Get a scheduled task by ID."""
+    from fastapi import HTTPException
+
+    manager = _get_schedule_manager()
+    task = manager.get_schedule(schedule_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return _schedule_to_response(task)
+
+
+@app.put("/schedules/{schedule_id}", response_model=ScheduleResponse)
+def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleResponse:
+    """Update a scheduled task."""
+    from fastapi import HTTPException
+
+    from helping_hands.server.schedules import ScheduledTask
+
+    manager = _get_schedule_manager()
+
+    task = ScheduledTask(
+        schedule_id=schedule_id,
+        name=request.name,
+        cron_expression=request.cron_expression,
+        repo_path=request.repo_path,
+        prompt=request.prompt,
+        backend=request.backend,
+        model=request.model,
+        max_iterations=request.max_iterations,
+        no_pr=request.no_pr,
+        enable_execution=request.enable_execution,
+        enable_web=request.enable_web,
+        use_native_cli_auth=request.use_native_cli_auth,
+        skills=request.skills,
+        enabled=request.enabled,
+    )
+
+    try:
+        updated = manager.update_schedule(task)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return _schedule_to_response(updated)
+
+
+@app.delete("/schedules/{schedule_id}", status_code=204)
+def delete_schedule(schedule_id: str) -> None:
+    """Delete a scheduled task."""
+    from fastapi import HTTPException
+
+    manager = _get_schedule_manager()
+    if not manager.delete_schedule(schedule_id):
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+
+@app.post("/schedules/{schedule_id}/enable", response_model=ScheduleResponse)
+def enable_schedule(schedule_id: str) -> ScheduleResponse:
+    """Enable a scheduled task."""
+    from fastapi import HTTPException
+
+    manager = _get_schedule_manager()
+    task = manager.enable_schedule(schedule_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return _schedule_to_response(task)
+
+
+@app.post("/schedules/{schedule_id}/disable", response_model=ScheduleResponse)
+def disable_schedule(schedule_id: str) -> ScheduleResponse:
+    """Disable a scheduled task."""
+    from fastapi import HTTPException
+
+    manager = _get_schedule_manager()
+    task = manager.disable_schedule(schedule_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return _schedule_to_response(task)
+
+
+@app.post("/schedules/{schedule_id}/trigger", response_model=ScheduleTriggerResponse)
+def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
+    """Manually trigger a scheduled task to run immediately."""
+    from fastapi import HTTPException
+
+    manager = _get_schedule_manager()
+    task_id = manager.trigger_now(schedule_id)
+    if task_id is None:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    return ScheduleTriggerResponse(
+        schedule_id=schedule_id,
+        task_id=task_id,
+        message="Schedule triggered successfully",
+    )
