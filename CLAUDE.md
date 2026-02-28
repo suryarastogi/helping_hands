@@ -80,7 +80,18 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 ### System tool isolation
 
-All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
+All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer:
+- `filesystem.py` — path-safe read/write/mkdir
+- `command.py` — Python/Bash execution (repo-confined)
+- `web.py` — web search (DuckDuckGo) and URL browsing
+
+### Skills system
+
+Dynamic skill registry in `src/helping_hands/lib/meta/skills/` bundles tool capabilities per run. Built-in skills: `execution` (Python/Bash), `web` (search/browse), `prd` (feature planning), `ralph` (PRD-to-JSON). Legacy `enable_execution`/`enable_web` flags are folded into skills automatically.
+
+### Scheduled tasks
+
+Cron-scheduled builds in `src/helping_hands/server/schedules.py` use RedBeat (Redis-backed) + croniter. CRUD via `/schedules` API; Beat service dispatches runs.
 
 ## Code Conventions
 

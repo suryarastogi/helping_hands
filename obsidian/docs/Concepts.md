@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -78,11 +78,18 @@ the backend now fails the run instead of silently returning success/no-op.
 CLI subprocess execution now also emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
+For `goose`, the backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from the
+helping_hands model config, injects `--with-builtin developer`, and mirrors
+`GH_TOKEN`/`GITHUB_TOKEN` for subprocess auth.
+
+For `geminicli`, the backend injects `--approval-mode auto_edit` by default and
+retries without `--model` if the requested model is unavailable.
+
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -126,6 +133,36 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Skills system
+
+Skills are composable bundles of tool capabilities that can be selected per run.
+The registry lives in `src/helping_hands/lib/meta/skills/` and currently
+provides:
+
+- **execution** — Python/Bash runtime actions (`python.run_code`, `python.run_script`, `bash.run_script`)
+- **web** — Web search and browsing (`web.search`, `web.browse`)
+- **prd** — PRD generator workflow for feature planning (prompt-only, no tools)
+- **ralph** — PRD-to-`prd.json` conversion workflow (prompt-only, no tools)
+
+Legacy `enable_execution`/`enable_web` boolean flags are automatically folded
+into the skills system. Skills inject instructions and tool specs into iterative
+hand prompts, and tool dispatch routes through `build_tool_runner_map()`.
+
+## Scheduled tasks (app mode)
+
+App mode now supports cron-scheduled build tasks via RedBeat (Redis-backed
+Celery Beat scheduler) + croniter for cron expression parsing. The
+`ScheduleManager` in `server/schedules.py` provides full CRUD:
+
+- Create/update/delete scheduled tasks with cron expressions or presets
+- Enable/disable individual schedules
+- Manual trigger for immediate execution
+- Run tracking (last run time, task ID, count)
+
+The `/schedules` REST API and built-in app UI expose these operations. Beat must
+be running for cron dispatch (included in `compose.yaml` and
+`run-local-stack.sh`).
 
 ## Project Log
 

@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** February 28, 2026
 
 ## What is this?
 
@@ -50,6 +50,12 @@ runs, UUIDs are generated in-hand as needed.
   interactive credential prompts.
 - When `enable_execution` is on, final PR flow runs `uv run pre-commit run --all-files`
   (auto-fix + validation retry) before commit/push.
+- **Skills** are composable tool bundles selected per run (`execution`, `web`,
+  `prd`, `ralph`). Legacy `enable_execution`/`enable_web` flags are folded into
+  the skills system automatically.
+- **Scheduled tasks** (app mode) use RedBeat + croniter for Redis-backed cron
+  scheduling. The `/schedules` API supports CRUD, enable/disable, manual
+  trigger, and cron presets. Beat must be running for cron dispatch.
 
 ### Key ideas
 
@@ -313,6 +319,43 @@ in logs (common when browser JS is blocked), use `/monitor/<id>`; that endpoint
 refreshes server-side without client-side JavaScript and keeps monitor card sizes
 stable while polling.
 
+### Scheduled tasks (cron)
+
+App mode supports cron-scheduled build tasks via RedBeat (Redis-backed). Requires
+Beat to be running (included in `compose.yaml` and `run-local-stack.sh`).
+
+```bash
+# List available cron presets
+curl -sS "http://localhost:8000/schedules/presets"
+
+# Create a scheduled task
+curl -sS -X POST "http://localhost:8000/schedules" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Daily docs update",
+    "cron_expression": "0 0 * * *",
+    "repo_path": "suryarastogi/helping_hands",
+    "prompt": "Update documentation",
+    "backend": "claudecodecli"
+  }'
+
+# List all schedules
+curl -sS "http://localhost:8000/schedules"
+
+# Manually trigger a schedule
+curl -sS -X POST "http://localhost:8000/schedules/<SCHEDULE_ID>/trigger"
+
+# Enable/disable a schedule
+curl -sS -X POST "http://localhost:8000/schedules/<SCHEDULE_ID>/enable"
+curl -sS -X POST "http://localhost:8000/schedules/<SCHEDULE_ID>/disable"
+
+# Delete a schedule
+curl -sS -X DELETE "http://localhost:8000/schedules/<SCHEDULE_ID>"
+```
+
+The built-in UI includes a "Scheduled tasks" view for managing schedules
+through the browser.
+
 ## Project structure
 
 ```
@@ -331,9 +374,13 @@ helping_hands/
 │   │   │   ├── ollama.py
 │   │   │   └── types.py
 │   │   ├── meta/
+│   │   │   ├── skills/            # Dynamic skill registry (execution, web, prd, ralph)
+│   │   │   │   └── __init__.py
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── command.py     # Python/Bash execution tools
+│   │   │       └── web.py         # Web search/browse tools
 │   │   └── hands/v1/
 │   │       ├── __init__.py
 │   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
@@ -343,6 +390,7 @@ helping_hands/
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
+│       ├── schedules.py      # Cron-scheduled task management (RedBeat + croniter)
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs

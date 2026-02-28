@@ -4,15 +4,12 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 ## Summary (from TODO.md)
 
-1. **Set up Python project** under `src/helping_hands`:
-   - **Layout:** `lib/` (core), `cli/` (CLI, uses lib), `server/` (app mode, uses lib)
-   - **Tooling:** uv, ruff, `ty` type checking, pre-commit
-   - **CI/CD:** Push/PR pipeline runs uv sync, tests, Ruff; E2E integration is opt-in and push-safe in matrix
-   - **Tests:** pytest under `tests/`, run in CI
-
-2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
-
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+1. **Set up Python project** — done (layout, tooling, CI/CD, tests)
+2. **Dockerise app mode and add Compose** — done (server, workers, beat, redis, postgres, flower)
+3. **Autodocs generation** — done (MkDocs Material + mkdocstrings, CI deploy to GitHub Pages)
+4. **Hand backend scaffolding vs implementation** — all CLI backends implemented (`codexcli`, `claudecodecli`, `goose`, `geminicli`); E2E hardening still pending
+5. **Skills system** — done (execution, web, prd, ralph)
+6. **Scheduled tasks** — done (RedBeat + croniter, `/schedules` API, app UI)
 
 ## Design notes
 
@@ -30,3 +27,9 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) are now fully implemented with two-phase flows, subprocess streaming, heartbeats, and idle timeout.
+- `goose` backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from model config, injects `--with-builtin developer`, and mirrors GH_TOKEN for subprocess auth.
+- `geminicli` backend injects `--approval-mode auto_edit` by default and retries without `--model` on model unavailability.
+- Dynamic skill registry (`lib/meta/skills/`) provides composable tool bundles; `enable_execution`/`enable_web` flags fold into skills automatically.
+- Cron-scheduled build tasks implemented via RedBeat + croniter (`server/schedules.py`); `/schedules` REST API + built-in UI for CRUD/trigger/presets.
+- System tools expanded: `lib/meta/tools/command.py` (Python/Bash execution) and `lib/meta/tools/web.py` (search/browse) alongside `filesystem.py`.

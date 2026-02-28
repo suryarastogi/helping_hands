@@ -56,12 +56,27 @@
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+  - [x] **Claude CLI execution** — Implemented subprocess-backed `claudecodecli` flow with two-phase init/task, `--dangerously-skip-permissions` default, npx fallback, root/sudo retry, and no-op failure detection.
   - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [x] **Gemini CLI execution** — Implemented subprocess-backed `geminicli` flow with `--approval-mode auto_edit`, model unavailability retry, and `GEMINI_API_KEY` auth.
+  - [x] **Goose CLI execution** — Implemented subprocess-backed `goose` flow with auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL`, `--with-builtin developer` injection, and GH_TOKEN mirroring.
+  - [x] **Backend selection/routing (full matrix)** — All backends (`basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`) routed through CLI, app UI, and Celery.
+  - [x] **Streaming for CLI hands** — All CLI backends use real incremental subprocess streaming with heartbeats and idle timeout.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
+
+## 5. Skills system
+
+- [x] **Dynamic skill registry** — `lib/meta/skills/` with composable tool bundles (`execution`, `web`, `prd`, `ralph`)
+- [x] **Legacy flag folding** — `enable_execution`/`enable_web` automatically merged into skills
+- [x] **Skill-aware prompts** — Iterative hands inject skill instructions and tool specs
+- [x] **Per-run selection** — CLI `--skills` flag and app UI support for skill selection
+
+## 6. Scheduled tasks (app mode)
+
+- [x] **RedBeat + croniter integration** — `server/schedules.py` with `ScheduleManager` CRUD
+- [x] **REST API** — `/schedules` endpoints for create/read/update/delete, enable/disable, trigger, presets
+- [x] **Celery Beat dispatch** — `scheduled_build` task wired through RedBeat scheduler
+- [x] **UI support** — Built-in schedule management view in app mode HTML
 
 ---
 

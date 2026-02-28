@@ -8,9 +8,9 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 
 Browse the auto-generated docs from source:
 
-- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
+- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md), [meta tools.command](api/lib/meta/tools/command.md), [meta tools.web](api/lib/meta/tools/web.md), [meta skills](api/lib/meta/skills.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
-- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md)
+- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md), [schedules](api/server/schedules.md)
 
 ## Runtime flow
 
@@ -20,7 +20,8 @@ Browse the auto-generated docs from source:
   exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
   `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
   (editable).
-- Execution and web tools are opt-in per run (`enable_execution`, `enable_web`).
+- Execution and web tools are opt-in per run (`enable_execution`, `enable_web`),
+  now folded into the dynamic skills system (`execution`, `web`, `prd`, `ralph`).
 - Native CLI auth is opt-in per run (`use_native_cli_auth`) and currently
   applies to `codexcli`/`claudecodecli` by stripping provider API key env vars
   from subprocess execution.
@@ -92,6 +93,9 @@ Browse the auto-generated docs from source:
   - `frontend/coverage/lcov.info` from the frontend job.
 - Compose defaults include in-network Redis/Celery URLs for app-mode services
   (`REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`).
+- **Scheduled tasks**: `/schedules` API provides CRUD, enable/disable, manual
+  trigger, and cron presets for Redis-backed cron scheduling via RedBeat + croniter.
+  Beat must be running for cron dispatch.
 
 ## Full Docker dev reset
 

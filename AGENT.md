@@ -87,6 +87,9 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **Skills system**: Tool bundles are composable skills (`execution`, `web`, `prd`, `ralph`) in `lib/meta/skills/`; legacy `enable_execution`/`enable_web` flags fold into skills automatically. (2026-02-28)
+- **Scheduled tasks**: App-mode cron scheduling uses RedBeat + croniter via `server/schedules.py`; `/schedules` REST API + UI for CRUD/trigger/presets. (2026-02-28)
+- **CLI backend parity**: All CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) are fully implemented with two-phase flows, streaming, heartbeats, and idle timeout. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -113,6 +116,9 @@ what the code does.
 | openai | atomic | OpenAI client for atomic-agents |
 | PyGithub | github / dev | GitHub API client for auth, clone, PRs (used by agents as a tool) |
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
+| celery-redbeat | server | Redis-backed cron scheduler for scheduled build tasks |
+| croniter | server | Cron expression parsing/validation for scheduled tasks |
+| redis | server | Redis client for schedule metadata persistence |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
@@ -139,4 +145,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/obsidian; added skills system, scheduled tasks, CLI backend parity to recurring decisions and dependencies.*
