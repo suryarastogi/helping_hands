@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 import html
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -23,6 +24,8 @@ from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.task_result import normalize_task_result
+
+logger = logging.getLogger(__name__)
 
 # Lazy import for optional schedule dependencies
 _schedule_manager = None
@@ -156,6 +159,13 @@ class ScheduleRequest(BaseModel):
     use_native_cli_auth: bool = False
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
+
+    @field_validator("cron_expression")
+    @classmethod
+    def _validate_cron_expression(cls, value: str) -> str:
+        from helping_hands.server.schedules import validate_cron_expression
+
+        return validate_cron_expression(value)
 
     @field_validator("skills", mode="before")
     @classmethod
@@ -1816,6 +1826,7 @@ def _check_redis_health() -> Literal["ok", "error"]:
         r.ping()
         return "ok"
     except Exception:
+        logger.warning("Redis health check failed", exc_info=True)
         return "error"
 
 
@@ -1830,6 +1841,7 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
         conn.close()
         return "ok"
     except Exception:
+        logger.warning("Database health check failed", exc_info=True)
         return "error"
 
 
@@ -1839,6 +1851,7 @@ def _check_workers_health() -> Literal["ok", "error"]:
         ping = inspector.ping()
         return "ok" if ping else "error"
     except Exception:
+        logger.warning("Worker health check failed", exc_info=True)
         return "error"
 
 
@@ -2552,7 +2565,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
                         if isinstance(concurrency, int) and concurrency > 0:
                             per_worker[worker_name] = concurrency
     except Exception:
-        pass
+        logger.warning("Worker capacity introspection failed", exc_info=True)
 
     if per_worker:
         return WorkerCapacityResponse(

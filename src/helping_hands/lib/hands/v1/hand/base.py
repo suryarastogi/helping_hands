@@ -12,6 +12,7 @@ consistent regardless of which concrete hand class is selected.
 from __future__ import annotations
 
 import abc
+import logging
 import os
 import re
 import subprocess
@@ -23,6 +24,8 @@ from threading import Event
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
@@ -319,7 +322,12 @@ class Hand(abc.ABC):
                     if getattr(repo_obj, "default_branch", ""):
                         base_branch = str(repo_obj.default_branch)
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Could not detect default branch for %s; falling back to %s",
+                        repo,
+                        base_branch,
+                        exc_info=True,
+                    )
 
                 stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
 

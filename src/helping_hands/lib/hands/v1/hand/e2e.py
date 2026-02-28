@@ -7,6 +7,7 @@ push, PR create/update, and status-comment refresh.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import AsyncIterator
@@ -16,6 +17,8 @@ from typing import Any
 from uuid import uuid4
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+logger = logging.getLogger(__name__)
 
 
 class E2EHand(Hand):
@@ -113,6 +116,12 @@ class E2EHand(Hand):
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
                 except Exception:
+                    logger.debug(
+                        "Could not detect default branch for %s; "
+                        "cloning without explicit branch",
+                        repo,
+                        exc_info=True,
+                    )
                     clone_branch = None
 
             gh.clone(repo, repo_dir, branch=clone_branch, depth=1)
