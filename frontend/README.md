@@ -44,6 +44,15 @@ The root CI workflow runs a dedicated `frontend-check` job that executes:
 
 `frontend/coverage/lcov.info` is uploaded to Codecov under a frontend flag.
 
+## Keyboard controls
+
+In the "world" dashboard view, you can navigate the player character:
+
+- **Arrow keys**: Move up/down/left/right
+- **WASD**: Alternative movement keys (W=up, A=left, S=down, D=right)
+
+WASD keys are automatically disabled when focus is on an input field, allowing normal text entry in the prompt and other form fields.
+
 ## Configuration
 
 - `VITE_PROXY_TARGET` (dev-only): proxy target for `/build`, `/tasks`, `/monitor`, `/health`

@@ -1179,7 +1179,21 @@ export default function App() {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key;
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d"].includes(key)) {
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable;
+
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
+        event.preventDefault();
+        if (!keysPressed.has(key)) {
+          keysPressed.add(key);
+          if (animationFrame === null) {
+            animationFrame = requestAnimationFrame(movePlayer);
+          }
+        }
+      } else if (["w", "a", "s", "d"].includes(key) && !isTyping) {
         event.preventDefault();
         if (!keysPressed.has(key)) {
           keysPressed.add(key);
