@@ -68,6 +68,9 @@ select = [
     "SIM",   # flake8-simplify
     "RUF",   # ruff-specific
 ]
+ignore = [
+    "E501",  # line too long — handled by formatter, not enforced in lint
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["helping_hands"]
