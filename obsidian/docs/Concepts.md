@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -75,14 +75,23 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+All CLI subprocess backends emit heartbeat lines when output is quiet and
+terminate after a configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+
+For `goose`, the backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from
+`HELPING_HANDS_MODEL` (default: `ollama` + `llama3.2:latest`) and auto-injects
+`--with-builtin developer` for `goose run` commands. Runtime mirrors the
+available GitHub token into both `GH_TOKEN` and `GITHUB_TOKEN`.
+
+For `geminicli`, the backend injects `--approval-mode auto_edit` by default for
+non-interactive scripted runs and retries once without `--model` when Gemini
+rejects a deprecated/unavailable model.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -104,7 +113,7 @@ The repo now uses `ty` as part of pre-commit alongside Ruff. Current baseline in
 - `unresolved-import`
 - `invalid-method-override`
 
-This keeps type checks actionable while optional-backend implementation is still in scaffold state.
+This keeps type checks actionable while optional-backend imports are still conditionally loaded.
 
 ## App-mode monitoring semantics
 

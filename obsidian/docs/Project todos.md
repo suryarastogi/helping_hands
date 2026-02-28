@@ -30,3 +30,6 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- `goose` and `geminicli` CLI backends are now fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls, and auto-derived provider/model env wiring.
+- Cron-scheduled submissions are now supported via `ScheduleManager` (RedBeat + Redis metadata) with server CRUD endpoints and a `scheduled_build` Celery task.
+- `ollama` provider wrapper added to `lib/ai_providers/`, completing the five-provider set (openai, anthropic, google, litellm, ollama).

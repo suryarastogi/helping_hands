@@ -72,7 +72,7 @@ AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProv
 
 - `src/helping_hands/lib/` — core library (config, repo indexing, GitHub API, hands, meta tools, AI providers)
 - `src/helping_hands/cli/` — CLI entry point, depends on lib
-- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server, depends on lib
+- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server + cron schedules, depends on lib
 - `frontend/` — React + TypeScript + Vite UI
 - `tests/` — pytest suite
 

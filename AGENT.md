@@ -87,6 +87,8 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backend completeness**: All four CLI-backed hands (`codexcli`, `claudecodecli`, `goose`, `geminicli`) are fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls, and final PR integration. (2026-02-28)
+- **Cron scheduling**: Server supports cron-scheduled submissions via `ScheduleManager` (RedBeat + Redis metadata) with CRUD API endpoints. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -115,6 +117,9 @@ what the code does.
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
+| celery-redbeat | server | Redis-backed cron scheduler for Celery Beat |
+| croniter | server | Cron expression parsing and next-run calculation |
+| redis | server | Redis client (used by ScheduleManager for metadata persistence) |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
 
 ---
@@ -139,4 +144,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconcile docs/docstrings/obsidian; mark CLI backends complete; add scheduling deps.*
