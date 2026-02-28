@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -78,11 +78,28 @@ the backend now fails the run instead of silently returning success/no-op.
 CLI subprocess execution now also emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
+For `goose`, provider/model are auto-injected via `GOOSE_PROVIDER`/`GOOSE_MODEL`
+derived from `HELPING_HANDS_MODEL`; `--with-builtin developer` is added
+automatically for file editing tools. Goose runs always require `GH_TOKEN` or
+`GITHUB_TOKEN`.
+
+For `geminicli`, `--approval-mode auto_edit` is injected by default for
+non-interactive runs. If Gemini rejects a deprecated/unavailable model,
+the backend retries once without `--model`.
+
+## Cron-scheduled tasks (app mode)
+
+App mode supports cron-scheduled build tasks that run automatically on a
+configurable schedule. Schedules persist in Redis via RedBeat and support
+standard cron expressions or named presets (`hourly`, `daily`, `weekly`, etc.).
+Each scheduled task carries the same fields as a `/build` request (repo, prompt,
+backend, model, etc.) and can be enabled/disabled or triggered on demand.
+
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).

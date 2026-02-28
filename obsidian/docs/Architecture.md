@@ -6,8 +6,8 @@ High-level view of how helping_hands is built. For file layout and config, see t
 
 The project currently exposes three runtime surfaces:
 
-- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`).
-- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, and `claudecodecli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to a smoke-test `README.md` updater that exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`, `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`. Execution and web tools are opt-in (`enable_execution`, `enable_web`). Monitor cells remain fixed dimensions with in-cell scrolling.
+- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`).
+- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, and `geminicli`. Supports cron-scheduled tasks via RedBeat. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to a smoke-test `README.md` updater that exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`, `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`. Execution and web tools are opt-in (`enable_execution`, `enable_web`). Monitor cells remain fixed dimensions with in-cell scrolling.
 - **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
@@ -16,7 +16,7 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 
 1. **Config** (`Config.from_env`) — Loads `.env` from cwd and target repo (when local), merges env + CLI overrides.
 2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
-3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, plus CLI scaffold hands.
+3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands (`BasicLangGraphHand`, `BasicAtomicHand` in `iterative.py`), plus CLI hands (`cli/codex.py`, `cli/claude.py`, `cli/goose.py`, `cli/gemini.py`).
    - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `langgraph.py`, `atomic.py`, `iterative.py`, `e2e.py`, `cli/*.py`, `placeholders.py` compatibility shim, `__init__.py` export surface).
 4. **AI provider wrappers** (`lib.ai_providers`) — Provider-specific wrappers (`openai`, `anthropic`, `google`, `litellm`, `ollama`) with a common interface and lazy `inner` client/library.
 5. **Model adapter layer** (`lib/hands/v1/hand/model_provider.py`) — Resolves model strings (including `provider/model`) into backend-adapted runtime clients for LangGraph/Atomic hands.
@@ -94,6 +94,39 @@ environment.
 9. Default Docker app/worker runtime uses non-root `app` user, enabling
    non-interactive Claude permission mode by default.
 
+## Goose CLI backend requirements
+
+`goose` uses the external `goose` executable from the user environment.
+
+1. `goose` CLI installed and on `PATH`.
+2. Auth depends on `GOOSE_PROVIDER`: `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama, default).
+3. Always requires `GH_TOKEN` or `GITHUB_TOKEN`.
+4. `GOOSE_PROVIDER`/`GOOSE_MODEL` are auto-derived from `HELPING_HANDS_MODEL`.
+5. Backend auto-adds `--with-builtin developer` for file editing tools.
+6. Override command via `HELPING_HANDS_GOOSE_CLI_CMD`.
+7. Docker app/worker images install Goose CLI.
+
+## Gemini CLI backend requirements
+
+`geminicli` uses the external `gemini` executable from the user environment.
+
+1. `gemini` CLI installed and on `PATH`.
+2. `GEMINI_API_KEY` always required (no native-CLI-auth toggle).
+3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
+4. `geminicli` injects `--approval-mode auto_edit` by default for non-interactive runs.
+5. If Gemini rejects a deprecated/unavailable model, retries once without `--model`.
+6. Override command via `HELPING_HANDS_GEMINI_CLI_CMD`.
+
+## Cron scheduling (app mode)
+
+App mode supports cron-scheduled build tasks via RedBeat (Redis-backed scheduler):
+
+1. `ScheduleManager` in `server/schedules.py` provides CRUD for scheduled tasks.
+2. Schedules use standard cron expressions or named presets (`hourly`, `daily`, `weekly`, etc.).
+3. API endpoints: `/schedules` (CRUD), `/schedules/{id}/trigger` (immediate run).
+4. Scheduled task configuration mirrors `/build` request fields (repo, prompt, backend, model, etc.).
+5. Requires `celery-redbeat` and `croniter` dependencies (included in `--extra server`).
+
 ## E2E workflow (source of truth)
 
 `E2EHand` currently drives the production-tested path:
@@ -128,7 +161,7 @@ User/Client → FastAPI /build → Celery queue
                                ↓
                        worker task build_feature
                                ↓
-          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand / ClaudeCodeHand)
+          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand / ClaudeCodeHand / GooseCLIHand / GeminiCLIHand)
                                ↓
       task status/result available via /tasks/{task_id} (JSON)
       no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)
