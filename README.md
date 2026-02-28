@@ -12,6 +12,17 @@
 
 **Last updated:** February 28, 2026
 
+### Smoke test results (February 28, 2026 — `claudecodecli` hand)
+
+| Check | Result |
+|---|---|
+| `ruff check .` | All checks passed |
+| `ruff format --check .` | 62 files already formatted |
+| `pytest` (281 collected, 2 skipped) | **281 passed** · 60% coverage |
+| `ty check src` | 4 diagnostics (all in `schedules.py` — `RedBeat` union types) |
+
+> `test_schedules.py` requires `--extra server` (celery); excluded from default dev run.
+
 ## What is this?
 
 `helping_hands` is a Python tool that takes a git repository as input, understands its structure and conventions, and collaborates with you to add features, fix bugs, and evolve the codebase using AI. It can run in **CLI mode** (interactive in the terminal) or **app mode** (server with background workers).
