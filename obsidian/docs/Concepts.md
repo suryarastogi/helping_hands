@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -75,14 +75,22 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
+
+For `goose`, provider/model are auto-derived from `HELPING_HANDS_MODEL` (default:
+`ollama` + `llama3.2:latest`). The backend auto-adds `--with-builtin developer`
+and requires `GH_TOKEN`/`GITHUB_TOKEN`.
+
+For `geminicli`, `--approval-mode auto_edit` is injected by default. If a model
+is rejected, the backend retries once without `--model`.
+
+CLI subprocess execution emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -126,6 +134,15 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Scheduled builds
+
+App mode supports cron-scheduled submissions via RedBeat scheduler. The
+`/schedules` API endpoints allow CRUD management of recurring build tasks.
+Each schedule stores repo path, prompt, backend, model, and other build
+parameters. When a schedule fires, it triggers a `scheduled_build` Celery task
+that looks up the schedule config and enqueues the corresponding `build_feature`
+task.
 
 ## Project Log
 

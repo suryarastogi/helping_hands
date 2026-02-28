@@ -78,6 +78,15 @@ class E2EHand(Hand):
         pr_number: int | None = None,
         dry_run: bool = False,
     ) -> HandResponse:
+        """Execute the E2E clone/edit/commit/push/PR workflow.
+
+        Args:
+            prompt: User-facing task description written into the marker file.
+            hand_uuid: Unique run identifier. Generated if not provided.
+            pr_number: Existing PR to resume/update instead of creating a new one.
+            dry_run: When ``True``, perform local clone/edit only — skip
+                commit, push, and PR side effects.
+        """
         from helping_hands.lib.github import GitHubClient
 
         repo = self.config.repo.strip()

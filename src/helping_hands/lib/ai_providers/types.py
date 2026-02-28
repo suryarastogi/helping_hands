@@ -36,6 +36,12 @@ class AIProvider(abc.ABC):
     default_model: str
 
     def __init__(self, *, inner: Any | None = None) -> None:
+        """Initialise a provider wrapper.
+
+        Args:
+            inner: Pre-built SDK client. When ``None`` (default), the client
+                is lazily constructed on first access via ``_build_inner``.
+        """
         self._inner = inner
 
     @property

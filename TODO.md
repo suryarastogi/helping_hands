@@ -50,17 +50,19 @@
 - [x] **PR resume/update support** — optional `pr_number` updates an existing PR branch instead of opening a new PR
 - [x] **Live integration coverage** — opt-in pytest integration test can run E2E hand against CI-provided GitHub token/repo
 - [x] **Safe CI gating** — integration test auto-runs dry-run off `master`; only `master` performs real PR updates
-  - [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand/`.
+  - [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, `GooseCLIHand`, and `GeminiCLIHand` backends exist in `src/helping_hands/lib/hands/v1/hand/cli/`.
   - [x] **Basic iterative hands implemented** — `BasicLangGraphHand` and `BasicAtomicHand` stream iterative progress, support interruption, and can apply inline file edits.
   - [x] **Backend selection/routing (CLI basic + E2E)** — CLI supports `--backend {basic-langgraph,basic-atomic,basic-agent}` and `--e2e`.
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [x] **Claude CLI execution** — Subprocess-backed `claudecodecli` flow with two-phase execution, streaming output, `npx` fallback, permission skip/retry, and edit-intent enforcement pass.
+  - [x] **Codex CLI execution** — Subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
+  - [x] **Gemini CLI execution** — Subprocess-backed `geminicli` flow with auto `--approval-mode auto_edit`, model unavailability retry, and heartbeat/idle-timeout liveness guards.
+  - [x] **Goose CLI execution** — Subprocess-backed `goose` flow with auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL`, `--with-builtin developer` injection, and `GH_TOKEN`/`GITHUB_TOKEN` mirroring.
+  - [x] **Backend selection/routing (full matrix)** — All backends (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`) routed through CLI, app UI, and Celery task.
+  - [x] **Streaming for CLI hands** — All CLI backends use real incremental subprocess streaming with heartbeat and idle-timeout liveness guards.
+  - [x] **Cron-scheduled submissions** — RedBeat scheduler with `/schedules` API for CRUD management of recurring build tasks.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
 ---

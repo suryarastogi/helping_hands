@@ -87,6 +87,10 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **Default fallback provider**: When `--model` is unset or `default`, iterative backends fall back to Ollama (`llama3.2:latest`) — no cloud API key required. (2026-02-28)
+- **Goose CLI backend**: `goose` auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`, always requires `GH_TOKEN`/`GITHUB_TOKEN`, and disables local GitHub auth fallback. (2026-02-28)
+- **Gemini CLI backend**: `geminicli` injects `--approval-mode auto_edit` by default and retries without `--model` when Gemini rejects a deprecated model. (2026-02-28)
+- **Cron-scheduled submissions**: App mode supports RedBeat-based cron scheduling via `/schedules` API endpoints with CRUD management and `scheduled_build` Celery task. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
@@ -110,7 +114,8 @@ what the code does.
 | langgraph | langchain | Agent graph framework for LangGraphHand |
 | atomic-agents | atomic | Atomic Agents framework for AtomicHand (Python 3.12+) |
 | instructor | atomic | Structured LLM output for atomic-agents |
-| openai | atomic | OpenAI client for atomic-agents |
+| openai | atomic | OpenAI client for atomic-agents and Ollama OpenAI-compatible wrapper |
+| redbeat | server | RedBeat scheduler for cron-scheduled Celery tasks |
 | PyGithub | github / dev | GitHub API client for auth, clone, PRs (used by agents as a tool) |
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
@@ -139,4 +144,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/obsidian; added ollama default fallback, goose/geminicli decisions, cron-scheduled submissions, redbeat dependency.*

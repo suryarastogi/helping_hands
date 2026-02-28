@@ -41,6 +41,12 @@ class Hand(abc.ABC):
     """Abstract base for all Hand backends."""
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        """Initialise a hand backend.
+
+        Args:
+            config: Runtime configuration (model, repo, flags).
+            repo_index: Indexed file tree for the target repository.
+        """
         self.config = config
         self.repo_index = repo_index
         self._interrupt_event = Event()

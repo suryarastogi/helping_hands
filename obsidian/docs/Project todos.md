@@ -12,7 +12,9 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+3. **Autodocs generation and serving on GitHub:** MkDocs Material + mkdocstrings; `docs/` source with API reference pages, built in CI, deployed to GitHub Pages.
+
+4. **Hand backend scaffolding vs implementation:** All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) fully implemented. Cron-scheduled submissions added via RedBeat.
 
 ## Design notes
 
@@ -30,3 +32,8 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) are fully implemented with subprocess streaming, heartbeat liveness, idle-timeout termination, and final PR integration.
+- `goose` backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`, auto-injects `--with-builtin developer`, and mirrors `GH_TOKEN`/`GITHUB_TOKEN`.
+- `geminicli` backend injects `--approval-mode auto_edit` by default and retries without `--model` when Gemini rejects a deprecated model.
+- Provider wrappers now include `ollama` (default fallback when no cloud key is set) alongside `openai`, `anthropic`, `google`, and `litellm`.
+- Cron-scheduled submissions are supported via RedBeat scheduler with `/schedules` API endpoints for CRUD management of recurring build tasks.
