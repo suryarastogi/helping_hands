@@ -17,9 +17,10 @@ Tools:
   - run_bash_script: Execute a repo-relative or inline bash script.
   - web_search: Search the web (DuckDuckGo endpoint wrapper).
   - web_browse: Browse and extract text from a URL.
+  - get_config: Return the current helping_hands configuration.
 
 Resources:
-  - repo://{path}: Read a file from an indexed repo.
+  - repo://indexed: List all currently indexed repositories.
 
 Run with:
   uv run helping-hands-mcp          (stdio, for Claude Desktop / Cursor)

@@ -12,7 +12,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+3. **Autodocs generation and serving on GitHub:** MkDocs Material + mkdocstrings; build in CI, publish to GitHub Pages.
 
 ## Design notes
 
