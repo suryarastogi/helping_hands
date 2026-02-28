@@ -7,9 +7,11 @@ import os
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 from collections.abc import AsyncIterator
 from contextlib import suppress
+from pathlib import Path
 from typing import Any, Protocol
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
@@ -41,6 +43,7 @@ class _TwoPhaseCLIHand(Hand):
     def __init__(self, config: Any, repo_index: Any) -> None:
         super().__init__(config, repo_index)
         self._active_process: asyncio.subprocess.Process | None = None
+        self._skill_catalog_dir: Path | None = None
 
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
@@ -334,11 +337,48 @@ class _TwoPhaseCLIHand(Hand):
             f"{file_list}\n"
         )
 
+    def _stage_skill_catalog(self) -> None:
+        """Stage selected skill catalog files to a temp directory."""
+        from helping_hands.lib.meta import skills as system_skills
+
+        if not self._selected_skills:
+            return
+        self._skill_catalog_dir = Path(tempfile.mkdtemp(prefix="helping_hands_skills_"))
+        system_skills.stage_skill_catalog(
+            self._selected_skills, self._skill_catalog_dir
+        )
+
+    def _cleanup_skill_catalog(self) -> None:
+        """Remove the staged skill catalog temp directory."""
+        if self._skill_catalog_dir is not None:
+            shutil.rmtree(self._skill_catalog_dir, ignore_errors=True)
+            self._skill_catalog_dir = None
+
     def _build_task_prompt(self, *, prompt: str, learned_summary: str) -> str:
+        from helping_hands.lib.meta import skills as system_skills
+        from helping_hands.lib.meta.tools import registry as tool_reg
+
         summary = self._truncate_summary(
             learned_summary,
             limit=self._SUMMARY_CHAR_LIMIT,
         )
+
+        tool_section = ""
+        if self._selected_tool_categories:
+            tool_text = tool_reg.format_tool_instructions_for_cli(
+                self._selected_tool_categories
+            )
+            if tool_text:
+                tool_section = f"\n\nEnabled tools and capabilities:\n{tool_text}"
+
+        skill_section = ""
+        if self._selected_skills:
+            skill_text = system_skills.format_skill_catalog_instructions(
+                self._selected_skills, self._skill_catalog_dir
+            )
+            if skill_text:
+                skill_section = f"\n\nSkill knowledge catalog:\n{skill_text}"
+
         return (
             "Task execution phase.\n\n"
             "Repository context learned from initialization:\n"
@@ -353,6 +393,8 @@ class _TwoPhaseCLIHand(Hand):
             "and stop instead of retrying unavailable tools.\n"
             "Implement the task directly in the repository. "
             "Do not ask the user to paste files."
+            f"{tool_section}"
+            f"{skill_section}"
         )
 
     def _repo_has_changes(self) -> bool:
@@ -572,6 +614,18 @@ class _TwoPhaseCLIHand(Hand):
         emit: _Emitter,
     ) -> str:
         self.reset_interrupt()
+        self._stage_skill_catalog()
+        try:
+            return await self._run_two_phase_inner(prompt, emit=emit)
+        finally:
+            self._cleanup_skill_catalog()
+
+    async def _run_two_phase_inner(
+        self,
+        prompt: str,
+        *,
+        emit: _Emitter,
+    ) -> str:
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""
         await emit(

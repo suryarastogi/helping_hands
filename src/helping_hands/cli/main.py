@@ -28,6 +28,7 @@ from helping_hands.lib.hands.v1.hand import (
     Hand,
 )
 from helping_hands.lib.meta import skills as meta_skills
+from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 
 
@@ -109,10 +110,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--tools",
+        default=None,
+        help=(
+            "Comma-separated tool category names "
+            f"(available: {', '.join(meta_tools.available_tool_category_names())})."
+        ),
+    )
+    parser.add_argument(
         "--skills",
         default=None,
         help=(
-            "Comma-separated skill names to inject into iterative hands "
+            "Comma-separated skill knowledge files to inject "
             f"(available: {', '.join(meta_skills.available_skill_names())})."
         ),
     )
@@ -131,6 +140,13 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        selected_tools = meta_tools.normalize_tool_selection(args.tools)
+        meta_tools.validate_tool_category_names(selected_tools)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
         selected_skills = meta_skills.normalize_skill_selection(args.skills)
         meta_skills.validate_skill_names(selected_skills)
     except ValueError as exc:
@@ -146,6 +162,7 @@ def main(argv: list[str] | None = None) -> None:
                 "enable_execution": args.enable_execution,
                 "enable_web": args.enable_web,
                 "use_native_cli_auth": args.use_native_cli_auth,
+                "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
             }
         )
@@ -177,6 +194,7 @@ def main(argv: list[str] | None = None) -> None:
             "enable_execution": args.enable_execution,
             "enable_web": args.enable_web,
             "use_native_cli_auth": args.use_native_cli_auth,
+            "enabled_tools": selected_tools,
             "enabled_skills": selected_skills,
         }
     )

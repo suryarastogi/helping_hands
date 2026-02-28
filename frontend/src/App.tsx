@@ -55,6 +55,7 @@ type FormState = {
   model: string;
   max_iterations: number;
   pr_number: string;
+  tools: string;
   skills: string;
   no_pr: boolean;
   enable_execution: boolean;
@@ -108,6 +109,7 @@ type ScheduleItem = {
   enable_execution: boolean;
   enable_web: boolean;
   use_native_cli_auth: boolean;
+  tools: string[];
   skills: string[];
   enabled: boolean;
   created_at: string;
@@ -130,6 +132,7 @@ type ScheduleFormState = {
   enable_execution: boolean;
   enable_web: boolean;
   use_native_cli_auth: boolean;
+  tools: string;
   skills: string;
   enabled: boolean;
 };
@@ -195,6 +198,7 @@ const INITIAL_FORM: FormState = {
   model: "claude-opus-4-6",
   max_iterations: 6,
   pr_number: "",
+  tools: "",
   skills: "",
   no_pr: false,
   enable_execution: false,
@@ -227,6 +231,7 @@ const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   enable_execution: false,
   enable_web: false,
   use_native_cli_auth: false,
+  tools: "",
   skills: "",
   enabled: true,
 };
@@ -846,6 +851,10 @@ export default function App() {
     typeof Notification !== "undefined" ? Notification.permission : "denied"
   );
 
+  const monitorOutputRef = useRef<HTMLPreElement>(null);
+  const autoScrollRef = useRef(true);
+  const [monitorHeight, setMonitorHeight] = useState<number | null>(null);
+
   const spawnFloatingNumber = useCallback((forTaskId: string, delta: number) => {
     if (delta <= 0) return;
     const id = ++floatingIdRef.current;
@@ -902,6 +911,31 @@ export default function App() {
     });
   }, []);
 
+  const handleMonitorScroll = useCallback(() => {
+    const el = monitorOutputRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+    autoScrollRef.current = atBottom;
+  }, []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const el = monitorOutputRef.current;
+    if (!el) return;
+    const startY = e.clientY;
+    const startH = el.getBoundingClientRect().height;
+    const onMove = (ev: MouseEvent) => {
+      const newH = Math.max(60, startH + ev.clientY - startY);
+      setMonitorHeight(newH);
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
   const payloadText = useMemo(() => {
     if (!payload) {
       return "{}";
@@ -933,6 +967,13 @@ export default function App() {
     }
     return optimisticUpdatesText;
   }, [optimisticUpdatesText, outputTab, payloadText, rawUpdatesText]);
+
+  useEffect(() => {
+    const el = monitorOutputRef.current;
+    if (el && autoScrollRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [activeOutputText]);
 
   const selectedTask = useMemo(
     () => (taskId ? taskHistory.find((item) => item.taskId === taskId) ?? null : null),
@@ -1083,6 +1124,7 @@ export default function App() {
     const enableExecution = readBoolish(["enable_execution"]);
     const enableWeb = readBoolish(["enable_web"]);
     const useNativeAuth = readBoolish(["use_native_cli_auth"]);
+    const tools = readSkills(["tools"]);
     const skills = readSkills(["skills"]);
 
     if (repoPath) {
@@ -1111,6 +1153,9 @@ export default function App() {
     }
     if (useNativeAuth) {
       items.push({ label: "Native CLI auth", value: useNativeAuth });
+    }
+    if (tools) {
+      items.push({ label: "Tools", value: tools });
     }
     if (skills) {
       items.push({ label: "Skills", value: skills });
@@ -1486,6 +1531,11 @@ export default function App() {
         next.pr_number = prNumber;
       }
 
+      const tools = params.get("tools");
+      if (tools) {
+        next.tools = tools;
+      }
+
       const skills = params.get("skills");
       if (skills) {
         next.skills = skills;
@@ -1752,6 +1802,7 @@ export default function App() {
     setPayload(null);
     setUpdates([]);
     setIsPolling(true);
+    autoScrollRef.current = true;
     setTaskHistory((current) =>
       upsertTaskHistory(current, {
         taskId: selectedTaskId,
@@ -1785,6 +1836,12 @@ export default function App() {
     }
     if (form.pr_number.trim()) {
       body.pr_number = Number(form.pr_number.trim());
+    }
+    if (form.tools.trim()) {
+      body.tools = form.tools
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
     }
     if (form.skills.trim()) {
       body.skills = form.skills
@@ -1882,6 +1939,7 @@ export default function App() {
         enable_execution: item.enable_execution,
         enable_web: item.enable_web,
         use_native_cli_auth: item.use_native_cli_auth,
+        tools: (item.tools ?? []).join(", "),
         skills: item.skills.join(", "),
         enabled: item.enabled,
       });
@@ -1911,6 +1969,12 @@ export default function App() {
     };
     if (scheduleForm.model.trim()) body.model = scheduleForm.model.trim();
     if (scheduleForm.pr_number.trim()) body.pr_number = Number(scheduleForm.pr_number.trim());
+    if (scheduleForm.tools.trim()) {
+      body.tools = scheduleForm.tools
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
     if (scheduleForm.skills.trim()) {
       body.skills = scheduleForm.skills
         .split(",")
@@ -2146,6 +2210,14 @@ export default function App() {
               </label>
             </div>
             <label>
+              Tools
+              <input
+                value={form.tools}
+                onChange={(event) => updateField("tools", event.target.value)}
+                placeholder="execution,web"
+              />
+            </label>
+            <label>
               Skills
               <input
                 value={form.skills}
@@ -2239,7 +2311,13 @@ export default function App() {
           </span>
         </div>
       </div>
-      <pre className="monitor-output">{activeOutputText}</pre>
+      <pre
+        ref={monitorOutputRef}
+        className="monitor-output"
+        onScroll={handleMonitorScroll}
+        style={monitorHeight != null ? { height: monitorHeight, minHeight: 60, maxHeight: "none" } : undefined}
+      >{activeOutputText}</pre>
+      <div className="monitor-resize-handle" onMouseDown={handleResizeStart} title="Drag to resize" />
 
       <details className="compact-advanced monitor-inputs">
         <summary>Task inputs</summary>
@@ -2409,6 +2487,14 @@ export default function App() {
                     />
                   </label>
                 </div>
+                <label>
+                  Tools
+                  <input
+                    value={scheduleForm.tools}
+                    onChange={(e) => updateScheduleField("tools", e.target.value)}
+                    placeholder="execution,web"
+                  />
+                </label>
                 <label>
                   Skills
                   <input
@@ -2650,8 +2736,8 @@ export default function App() {
           <>
             <section className="card hand-world-card">
               <header className="header">
-                <h1>agent office</h1>
-                <p>{maxOfficeWorkers} desks &middot; click a worker to stream its output</p>
+                <h1>Hand Office</h1>
+                <p>{maxOfficeWorkers} desks &middot; click a hand to stream its output</p>
               </header>
 
               <div
@@ -2854,7 +2940,7 @@ export default function App() {
 
             </section>
             {submissionCard}
-            {monitorCard}
+            {mainView === "monitor" && taskId && monitorCard}
             {mainView === "schedules" && schedulesCard}
           </>
         )}

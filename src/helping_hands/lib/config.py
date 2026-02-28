@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from helping_hands.lib.meta import skills as meta_skills
+from helping_hands.lib.meta.tools import registry as meta_tools
 
 try:
     from dotenv import load_dotenv
@@ -38,6 +39,7 @@ class Config:
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    enabled_tools: tuple[str, ...] = ()
     enabled_skills: tuple[str, ...] = ()
     config_path: Path | None = None
 
@@ -64,12 +66,19 @@ class Config:
                 "HELPING_HANDS_USE_NATIVE_CLI_AUTH", ""
             ).lower()
             in ("1", "true", "yes"),
+            "enabled_tools": os.environ.get("HELPING_HANDS_TOOLS"),
             "enabled_skills": os.environ.get("HELPING_HANDS_SKILLS"),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
         if overrides:
             merged.update({k: v for k, v in overrides.items() if v is not None})
+
+        raw_tool_selection = merged.get("enabled_tools", cls.enabled_tools)
+        if isinstance(raw_tool_selection, bool):
+            normalized_tools_input: str | tuple[str, ...] | None = ()
+        else:
+            normalized_tools_input = raw_tool_selection
 
         raw_skill_selection = merged.get("enabled_skills", cls.enabled_skills)
         if isinstance(raw_skill_selection, bool):
@@ -86,6 +95,7 @@ class Config:
             use_native_cli_auth=bool(
                 merged.get("use_native_cli_auth", cls.use_native_cli_auth)
             ),
+            enabled_tools=meta_tools.normalize_tool_selection(normalized_tools_input),
             enabled_skills=meta_skills.normalize_skill_selection(
                 normalized_skills_input
             ),

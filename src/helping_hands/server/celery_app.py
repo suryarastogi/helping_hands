@@ -216,6 +216,7 @@ def _update_progress(
     enable_execution: bool,
     enable_web: bool,
     use_native_cli_auth: bool,
+    tools: tuple[str, ...],
     skills: tuple[str, ...],
     workspace: str | None = None,
 ) -> None:
@@ -236,6 +237,7 @@ def _update_progress(
         "enable_execution": enable_execution,
         "enable_web": enable_web,
         "use_native_cli_auth": use_native_cli_auth,
+        "tools": list(tools),
         "skills": list(skills),
         "updates": list(updates),
     }
@@ -261,6 +263,7 @@ async def _collect_stream(
     enable_execution: bool,
     enable_web: bool,
     use_native_cli_auth: bool,
+    tools: tuple[str, ...],
     skills: tuple[str, ...],
     workspace: str | None,
 ) -> str:
@@ -290,6 +293,7 @@ async def _collect_stream(
                 enable_execution=enable_execution,
                 enable_web=enable_web,
                 use_native_cli_auth=use_native_cli_auth,
+                tools=tools,
                 skills=skills,
                 workspace=workspace,
             )
@@ -311,6 +315,7 @@ async def _collect_stream(
         enable_execution=enable_execution,
         enable_web=enable_web,
         use_native_cli_auth=use_native_cli_auth,
+        tools=tools,
         skills=skills,
         workspace=workspace,
     )
@@ -330,6 +335,7 @@ def build_feature(
     enable_execution: bool = False,
     enable_web: bool = False,
     use_native_cli_auth: bool = False,
+    tools: list[str] | None = None,
     skills: list[str] | None = None,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
@@ -349,11 +355,14 @@ def build_feature(
         GooseCLIHand,
     )
     from helping_hands.lib.meta import skills as meta_skills
+    from helping_hands.lib.meta.tools import registry as meta_tools
     from helping_hands.lib.repo import RepoIndex
 
     task_id = getattr(getattr(self, "request", None), "id", None)
     requested_backend, runtime_backend = _normalize_backend(backend)
     resolved_iterations = max(1, int(max_iterations))
+    selected_tools = meta_tools.normalize_tool_selection(tools)
+    meta_tools.validate_tool_category_names(selected_tools)
     selected_skills = meta_skills.normalize_skill_selection(skills)
     meta_skills.validate_skill_names(selected_skills)
     updates: list[str] = []
@@ -364,6 +373,7 @@ def build_feature(
             f"repo={repo_path}, max_iterations={resolved_iterations}, "
             f"no_pr={no_pr}, enable_execution={enable_execution}, "
             f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}, "
+            f"tools={','.join(selected_tools) or 'none'}, "
             f"skills={','.join(selected_skills) or 'none'}"
         ),
     )
@@ -383,6 +393,7 @@ def build_feature(
         enable_execution=enable_execution,
         enable_web=enable_web,
         use_native_cli_auth=use_native_cli_auth,
+        tools=selected_tools,
         skills=selected_skills,
     )
 
@@ -394,6 +405,7 @@ def build_feature(
                 "enable_execution": enable_execution,
                 "enable_web": enable_web,
                 "use_native_cli_auth": use_native_cli_auth,
+                "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
             }
         )
@@ -416,6 +428,7 @@ def build_feature(
             enable_execution=enable_execution,
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
+            tools=selected_tools,
             skills=selected_skills,
         )
         response = hand.run(
@@ -448,6 +461,7 @@ def build_feature(
         overrides["enable_execution"] = enable_execution
         overrides["enable_web"] = enable_web
         overrides["use_native_cli_auth"] = use_native_cli_auth
+        overrides["enabled_tools"] = selected_tools
         overrides["enabled_skills"] = selected_skills
         config = Config.from_env(overrides=overrides)
         repo_index = RepoIndex.from_path(Path(config.repo))
@@ -507,6 +521,7 @@ def build_feature(
             enable_execution=enable_execution,
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
+            tools=selected_tools,
             skills=selected_skills,
             workspace=str(resolved_repo_path),
         )
@@ -581,6 +596,7 @@ def build_feature(
                 enable_execution=enable_execution,
                 enable_web=enable_web,
                 use_native_cli_auth=use_native_cli_auth,
+                tools=selected_tools,
                 skills=selected_skills,
                 workspace=str(resolved_repo_path),
             )
@@ -600,6 +616,7 @@ def build_feature(
             "enable_execution": str(enable_execution).lower(),
             "enable_web": str(enable_web).lower(),
             "use_native_cli_auth": str(use_native_cli_auth).lower(),
+            "tools": list(selected_tools),
             "skills": list(selected_skills),
             "message": message,
             "updates": updates,
@@ -649,6 +666,7 @@ def scheduled_build(
         enable_execution=schedule.enable_execution,
         enable_web=schedule.enable_web,
         use_native_cli_auth=schedule.use_native_cli_auth,
+        tools=getattr(schedule, "tools", []),
         skills=schedule.skills,
     )
 

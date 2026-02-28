@@ -68,6 +68,7 @@ class ScheduledTask:
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     enabled: bool = True
     created_at: str = ""
@@ -95,6 +96,7 @@ class ScheduledTask:
             "enable_execution": self.enable_execution,
             "enable_web": self.enable_web,
             "use_native_cli_auth": self.use_native_cli_auth,
+            "tools": self.tools,
             "skills": self.skills,
             "enabled": self.enabled,
             "created_at": self.created_at,
@@ -120,6 +122,7 @@ class ScheduledTask:
             enable_execution=data.get("enable_execution", False),
             enable_web=data.get("enable_web", False),
             use_native_cli_auth=data.get("use_native_cli_auth", False),
+            tools=data.get("tools", []),
             skills=data.get("skills", []),
             enabled=data.get("enabled", True),
             created_at=data.get("created_at", ""),
@@ -483,6 +486,7 @@ class ScheduleManager:
             enable_execution=task.enable_execution,
             enable_web=task.enable_web,
             use_native_cli_auth=task.use_native_cli_auth,
+            tools=task.tools,
             skills=task.skills,
         )
 

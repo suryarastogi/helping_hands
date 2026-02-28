@@ -25,6 +25,9 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from helping_hands.lib.meta import skills as system_skills
+from helping_hands.lib.meta.tools import registry as tool_registry
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -47,6 +50,25 @@ class Hand(abc.ABC):
         self._interrupt_event = Event()
         self.auto_pr = True
         self.pr_number: int | None = None
+
+        # Resolve TOOLS (callable capabilities) — independent axis.
+        tool_selection = tool_registry.normalize_tool_selection(
+            getattr(self.config, "enabled_tools", ())
+        )
+        merged_tools = tool_registry.merge_with_legacy_tool_flags(
+            tool_selection,
+            enable_execution=bool(getattr(self.config, "enable_execution", False)),
+            enable_web=bool(getattr(self.config, "enable_web", False)),
+        )
+        self._selected_tool_categories = tool_registry.resolve_tool_categories(
+            merged_tools
+        )
+
+        # Resolve SKILLS (knowledge catalog) — independent axis.
+        skill_names = system_skills.normalize_skill_selection(
+            getattr(self.config, "enabled_skills", ())
+        )
+        self._selected_skills = system_skills.resolve_skills(skill_names)
 
     def _build_system_prompt(self) -> str:
         """Build a system prompt that includes repo context."""

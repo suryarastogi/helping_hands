@@ -14,10 +14,11 @@ class TestConfigDefaults:
         config = Config()
         assert config.repo == ""
         assert config.model == "default"
-        assert config.verbose is False
+        assert config.verbose is True
         assert config.enable_execution is False
         assert config.enable_web is False
         assert config.use_native_cli_auth is False
+        assert config.enabled_tools == ()
         assert config.enabled_skills == ()
 
     def test_from_env_picks_up_env_var(self, monkeypatch: object) -> None:

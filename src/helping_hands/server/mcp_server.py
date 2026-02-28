@@ -37,6 +37,7 @@ from helping_hands.lib.config import Config
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import command as exec_tools
 from helping_hands.lib.meta.tools import filesystem as fs_tools
+from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.meta.tools import web as web_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.server.task_result import normalize_task_result
@@ -105,6 +106,7 @@ def build_feature(
     no_pr: bool = False,
     enable_execution: bool = False,
     enable_web: bool = False,
+    tools: list[str] | None = None,
     skills: list[str] | None = None,
 ) -> dict:
     """Enqueue a hand task via Celery and return the task ID.
@@ -120,7 +122,8 @@ def build_feature(
         no_pr: Disable final PR push/create side effects.
         enable_execution: Enable python/bash execution tools.
         enable_web: Enable web.search/web.browse tools.
-        skills: Optional selected dynamic skills to inject.
+        tools: Optional tool categories to enable (e.g. execution, web).
+        skills: Optional skill knowledge files to inject.
 
     Returns:
         Dict with task_id and status.
@@ -129,6 +132,8 @@ def build_feature(
         build_feature as celery_build,
     )
 
+    selected_tools = meta_tools.normalize_tool_selection(tools)
+    meta_tools.validate_tool_category_names(selected_tools)
     selected_skills = meta_skills.normalize_skill_selection(skills)
     meta_skills.validate_skill_names(selected_skills)
 
@@ -142,6 +147,7 @@ def build_feature(
         no_pr=no_pr,
         enable_execution=enable_execution,
         enable_web=enable_web,
+        tools=list(selected_tools),
         skills=list(selected_skills),
     )
     return {"task_id": task.id, "status": "queued", "backend": backend}

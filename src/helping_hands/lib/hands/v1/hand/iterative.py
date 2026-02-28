@@ -30,6 +30,7 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
+from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.meta.tools import web as system_web_tools
 
 
@@ -68,16 +69,10 @@ class _BasicIterativeHand(Hand):
     ) -> None:
         super().__init__(config, repo_index)
         self.max_iterations = max(1, max_iterations)
-        selected = system_skills.normalize_skill_selection(
-            getattr(self.config, "enabled_skills", ())
+        # _selected_tool_categories is resolved by Hand.__init__(); build dispatch map.
+        self._tool_runners = tool_registry.build_tool_runner_map(
+            self._selected_tool_categories
         )
-        merged = system_skills.merge_with_legacy_tool_flags(
-            selected,
-            enable_execution=bool(getattr(self.config, "enable_execution", False)),
-            enable_web=bool(getattr(self.config, "enable_web", False)),
-        )
-        self._selected_skills = system_skills.resolve_skills(merged)
-        self._tool_runners = system_skills.build_tool_runner_map(self._selected_skills)
 
     def _execution_tools_enabled(self) -> bool:
         return bool(getattr(self.config, "enable_execution", False))
@@ -86,11 +81,14 @@ class _BasicIterativeHand(Hand):
         return bool(getattr(self.config, "enable_web", False))
 
     def _tool_instructions(self) -> str:
-        lines = [system_skills.format_skill_instructions(self._selected_skills)]
+        lines = [tool_registry.format_tool_instructions(self._selected_tool_categories)]
         lines.append(
             "Tool results are returned as @@TOOL_RESULT blocks "
             "in the next iteration summary."
         )
+        skill_knowledge = system_skills.format_skill_knowledge(self._selected_skills)
+        if skill_knowledge:
+            lines.append(skill_knowledge)
         return "\n".join(lines)
 
     def _build_iteration_prompt(
@@ -350,16 +348,10 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _tool_disabled_error(tool_name: str) -> ValueError:
-        required_skill = system_skills.skill_name_for_tool(tool_name)
-        if required_skill == "execution":
+        required_category = tool_registry.category_name_for_tool(tool_name)
+        if required_category:
             return ValueError(
-                f"{tool_name} is disabled; re-run with enable_execution=true"
-            )
-        if required_skill == "web":
-            return ValueError(f"{tool_name} is disabled; re-run with enable_web=true")
-        if required_skill:
-            return ValueError(
-                f"{tool_name} is disabled; re-run with --skills {required_skill}"
+                f"{tool_name} is disabled; re-run with --tools {required_category}"
             )
         return ValueError(f"unsupported tool: {tool_name}")
 

@@ -1,242 +1,64 @@
-"""Dynamic skill registry shared by iterative hands and runtime entrypoints.
+"""Skill catalog: knowledge files selected via ``--skills``.
 
-Skills are composable bundles of tool capabilities that can be selected per run
-and injected into hand prompts/dispatch logic.
+Skills are composable bundles of domain knowledge (Markdown files) that can be
+selected per run and injected into hand prompts.  Unlike *tools* (callable
+capabilities in ``meta.tools.registry``), skills carry no executable code —
+they are pure knowledge artifacts.
 """
 
 from __future__ import annotations
 
-import json
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
-
-from helping_hands.lib.meta.tools import command as command_tools
-from helping_hands.lib.meta.tools import web as web_tools
-
-
-@dataclass(frozen=True)
-class SkillTool:
-    """One callable tool exposed by a skill."""
-
-    name: str
-    payload_example: dict[str, Any]
-    runner: Any
 
 
 @dataclass(frozen=True)
 class SkillSpec:
-    """Declarative skill metadata and attached tool handlers."""
+    """Declarative skill metadata loaded from the catalog."""
 
     name: str
     title: str
-    tools: tuple[SkillTool, ...]
-    instructions: str = ""
+    content: str
 
 
-def _parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
-    raw = payload.get(key, [])
-    if raw is None:
-        return []
-    if not isinstance(raw, list):
-        raise ValueError(f"{key} must be a list of strings")
-    values: list[str] = []
-    for value in raw:
-        if not isinstance(value, str):
-            raise ValueError(f"{key} must contain only strings")
-        values.append(value)
-    return values
+# ---------------------------------------------------------------------------
+# Catalog discovery
+# ---------------------------------------------------------------------------
+
+_CATALOG_DIR = Path(__file__).parent / "catalog"
 
 
-def _parse_positive_int(
-    payload: dict[str, Any],
-    *,
-    key: str,
-    default: int,
-) -> int:
-    raw = payload.get(key, default)
-    if isinstance(raw, bool) or not isinstance(raw, int):
-        raise ValueError(f"{key} must be an integer")
-    if raw <= 0:
-        raise ValueError(f"{key} must be > 0")
-    return raw
+def _discover_catalog() -> dict[str, SkillSpec]:
+    """Scan ``catalog/*.md`` and build a name → SkillSpec mapping."""
+    skills: dict[str, SkillSpec] = {}
+    if not _CATALOG_DIR.is_dir():
+        return skills
+    for md_file in sorted(_CATALOG_DIR.glob("*.md")):
+        name = md_file.stem
+        text = md_file.read_text(encoding="utf-8")
+        # Extract title from the first ``# Heading`` line.
+        title = name.replace("-", " ").replace("_", " ").title()
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# "):
+                title = stripped[2:].strip()
+                break
+        skills[name] = SkillSpec(name=name, title=title, content=text)
+    return skills
 
 
-def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
-    raw = payload.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, str):
-        raise ValueError(f"{key} must be a string")
-    value = raw.strip()
-    return value or None
+_SKILLS: dict[str, SkillSpec] = _discover_catalog()
 
 
-def _run_python_code(
-    root: Path, payload: dict[str, Any]
-) -> command_tools.CommandResult:
-    code = payload.get("code")
-    if not isinstance(code, str) or not code.strip():
-        raise ValueError("code must be a non-empty string")
-    python_version = _parse_optional_str(payload, key="python_version") or "3.13"
-    return command_tools.run_python_code(
-        root,
-        code=code,
-        python_version=python_version,
-        args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=60),
-        cwd=_parse_optional_str(payload, key="cwd"),
-    )
-
-
-def _run_python_script(
-    root: Path,
-    payload: dict[str, Any],
-) -> command_tools.CommandResult:
-    script_path = payload.get("script_path")
-    if not isinstance(script_path, str) or not script_path.strip():
-        raise ValueError("script_path must be a non-empty string")
-    python_version = _parse_optional_str(payload, key="python_version") or "3.13"
-    return command_tools.run_python_script(
-        root,
-        script_path=script_path,
-        python_version=python_version,
-        args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=60),
-        cwd=_parse_optional_str(payload, key="cwd"),
-    )
-
-
-def _run_bash_script(
-    root: Path, payload: dict[str, Any]
-) -> command_tools.CommandResult:
-    script_path = payload.get("script_path")
-    inline_script = payload.get("inline_script")
-    if script_path is not None and not isinstance(script_path, str):
-        raise ValueError("script_path must be a string")
-    if inline_script is not None and not isinstance(inline_script, str):
-        raise ValueError("inline_script must be a string")
-    return command_tools.run_bash_script(
-        root,
-        script_path=script_path,
-        inline_script=inline_script,
-        args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=60),
-        cwd=_parse_optional_str(payload, key="cwd"),
-    )
-
-
-def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchResult:
-    del root
-    query = payload.get("query")
-    if not isinstance(query, str) or not query.strip():
-        raise ValueError("query must be a non-empty string")
-    return web_tools.search_web(
-        query,
-        max_results=_parse_positive_int(payload, key="max_results", default=5),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=20),
-    )
-
-
-def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseResult:
-    del root
-    url = payload.get("url")
-    if not isinstance(url, str) or not url.strip():
-        raise ValueError("url must be a non-empty string")
-    return web_tools.browse_url(
-        url,
-        max_chars=_parse_positive_int(payload, key="max_chars", default=12000),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=20),
-    )
-
-
-_SKILLS: dict[str, SkillSpec] = {
-    "execution": SkillSpec(
-        name="execution",
-        title="Execution tools for Python/Bash runtime actions.",
-        instructions=(
-            "Use execution tools for deterministic local validation (scripts, "
-            "tests, and quick checks) and include concise result summaries."
-        ),
-        tools=(
-            SkillTool(
-                name="python.run_code",
-                payload_example={
-                    "code": "print('hello')",
-                    "python_version": "3.13",
-                    "args": [],
-                },
-                runner=_run_python_code,
-            ),
-            SkillTool(
-                name="python.run_script",
-                payload_example={
-                    "script_path": "scripts/task.py",
-                    "python_version": "3.13",
-                    "args": [],
-                },
-                runner=_run_python_script,
-            ),
-            SkillTool(
-                name="bash.run_script",
-                payload_example={"script_path": "scripts/task.sh", "args": []},
-                runner=_run_bash_script,
-            ),
-        ),
-    ),
-    "web": SkillSpec(
-        name="web",
-        title="Web search and browsing tools.",
-        instructions=(
-            "Use web tools for targeted research and source verification when "
-            "the task needs external context."
-        ),
-        tools=(
-            SkillTool(
-                name="web.search",
-                payload_example={"query": "latest python release", "max_results": 5},
-                runner=_run_web_search,
-            ),
-            SkillTool(
-                name="web.browse",
-                payload_example={"url": "https://example.com", "max_chars": 6000},
-                runner=_run_web_browse,
-            ),
-        ),
-    ),
-    "prd": SkillSpec(
-        name="prd",
-        title="PRD generator workflow for feature planning.",
-        instructions=(
-            "When planning a feature, ask a few critical clarifying questions "
-            "first, then produce a structured PRD with measurable goals, "
-            "user stories, acceptance criteria, functional requirements, "
-            "non-goals, and success metrics."
-        ),
-        tools=(),
-    ),
-    "ralph": SkillSpec(
-        name="ralph",
-        title="Ralph PRD-to-prd.json conversion workflow.",
-        instructions=(
-            "Convert PRDs into Ralph-compatible `prd.json` output. Keep each "
-            "story small enough for one autonomous iteration, order stories "
-            "by dependency, and ensure acceptance criteria are verifiable."
-        ),
-        tools=(),
-    ),
-}
-
-_TOOL_TO_SKILL = {
-    tool.name: skill_name
-    for skill_name, skill in _SKILLS.items()
-    for tool in skill.tools
-}
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 
 def available_skill_names() -> tuple[str, ...]:
-    """Return all supported runtime-selectable skills."""
-    return tuple(_SKILLS.keys())
+    """Return all supported runtime-selectable skills (alphabetical)."""
+    return tuple(sorted(_SKILLS.keys()))
 
 
 def normalize_skill_selection(
@@ -283,67 +105,76 @@ def resolve_skills(skill_names: tuple[str, ...]) -> tuple[SkillSpec, ...]:
     return tuple(_SKILLS[name] for name in skill_names)
 
 
-def merge_with_legacy_tool_flags(
-    skill_names: tuple[str, ...],
-    *,
-    enable_execution: bool,
-    enable_web: bool,
-) -> tuple[str, ...]:
-    """Fold old boolean tool flags into dynamic skill selection."""
-    merged: list[str] = list(skill_names)
-    if enable_execution:
-        merged.insert(0, "execution")
-    if enable_web:
-        merged.append("web")
-    return normalize_skill_selection(tuple(merged))
+# ---------------------------------------------------------------------------
+# Skill knowledge formatting
+# ---------------------------------------------------------------------------
 
 
-def build_tool_runner_map(skills: tuple[SkillSpec, ...]) -> dict[str, Any]:
-    """Build tool_name -> callable runner mapping for selected skills."""
-    mapping: dict[str, Any] = {}
-    for skill in skills:
-        for tool in skill.tools:
-            mapping[tool.name] = tool.runner
-    return mapping
-
-
-def skill_name_for_tool(tool_name: str) -> str | None:
-    """Return the owning skill for a known tool name."""
-    return _TOOL_TO_SKILL.get(tool_name)
-
-
-def format_skill_instructions(skills: tuple[SkillSpec, ...]) -> str:
-    """Build prompt-ready instructions for selected skills."""
+def format_skill_knowledge(skills: tuple[SkillSpec, ...]) -> str:
+    """Embed full skill ``.md`` content labeled per skill (for iterative prompts)."""
     if not skills:
-        return "No dynamic skills enabled for this run."
-
+        return ""
     lines: list[str] = []
     for skill in skills:
-        lines.append(f"Skill enabled: {skill.name} — {skill.title}")
-        if skill.instructions:
-            lines.append(skill.instructions)
-        for tool in skill.tools:
-            payload = json.dumps(tool.payload_example, ensure_ascii=False)
-            lines.extend(
-                [
-                    f"@@TOOL: {tool.name}",
-                    "```json",
-                    payload,
-                    "```",
-                ]
-            )
+        lines.append(f"Skill enabled: {skill.name} \u2014 {skill.title}")
+        lines.append(skill.content.strip())
+    return "\n\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Skill catalog staging (for CLI subprocess hands)
+# ---------------------------------------------------------------------------
+
+
+def stage_skill_catalog(
+    skills: tuple[SkillSpec, ...],
+    target_dir: Path,
+) -> None:
+    """Copy selected skill ``.md`` files to *target_dir*.
+
+    CLI subprocess hands run outside the helping_hands package, so they cannot
+    directly access the catalog directory.  This function copies the relevant
+    files to a temp directory that the subprocess can ``Read``.
+    """
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for skill in skills:
+        src = _CATALOG_DIR / f"{skill.name}.md"
+        if src.is_file():
+            shutil.copy2(src, target_dir / f"{skill.name}.md")
+
+
+def format_skill_catalog_instructions(
+    skills: tuple[SkillSpec, ...],
+    catalog_dir: Path | None,
+) -> str:
+    """Tell a CLI subprocess where staged skill files live.
+
+    Returns a prompt snippet listing skill names and the directory path.
+    """
+    if not skills:
+        return ""
+    lines: list[str] = [
+        "The following skill knowledge files are available for reference:"
+    ]
+    for skill in skills:
+        if catalog_dir:
+            lines.append(f"  - {skill.name}: {catalog_dir / (skill.name + '.md')}")
+        else:
+            lines.append(f"  - {skill.name}: {skill.title}")
+    if catalog_dir:
+        lines.append(
+            "Read the relevant skill file(s) when you need guidance on that topic."
+        )
     return "\n".join(lines)
 
 
 __all__ = [
     "SkillSpec",
-    "SkillTool",
     "available_skill_names",
-    "build_tool_runner_map",
-    "format_skill_instructions",
-    "merge_with_legacy_tool_flags",
+    "format_skill_catalog_instructions",
+    "format_skill_knowledge",
     "normalize_skill_selection",
     "resolve_skills",
-    "skill_name_for_tool",
+    "stage_skill_catalog",
     "validate_skill_names",
 ]

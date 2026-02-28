@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.meta import skills as meta_skills
+from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.task_result import normalize_task_result
 
@@ -56,7 +57,22 @@ class BuildRequest(BaseModel):
     enable_web: bool = False
     use_native_cli_auth: bool = False
     pr_number: int | None = None
+    tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
+
+    @field_validator("tools", mode="before")
+    @classmethod
+    def _coerce_tools(
+        cls, value: str | list[str] | tuple[str, ...] | None
+    ) -> list[str]:
+        normalized = meta_tools.normalize_tool_selection(value)
+        return list(normalized)
+
+    @field_validator("tools")
+    @classmethod
+    def _validate_tools(cls, value: list[str]) -> list[str]:
+        meta_tools.validate_tool_category_names(tuple(value))
+        return value
 
     @field_validator("skills", mode="before")
     @classmethod
@@ -155,8 +171,23 @@ class ScheduleRequest(BaseModel):
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
+
+    @field_validator("tools", mode="before")
+    @classmethod
+    def _coerce_tools(
+        cls, value: str | list[str] | tuple[str, ...] | None
+    ) -> list[str]:
+        normalized = meta_tools.normalize_tool_selection(value)
+        return list(normalized)
+
+    @field_validator("tools")
+    @classmethod
+    def _validate_tools(cls, value: list[str]) -> list[str]:
+        meta_tools.validate_tool_category_names(tuple(value))
+        return value
 
     @field_validator("skills", mode="before")
     @classmethod
@@ -189,6 +220,7 @@ class ScheduleResponse(BaseModel):
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
     created_at: str
@@ -859,12 +891,21 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                   </label>
                 </div>
 
+                <label for="tools">
+                  Tools (comma-separated, optional)
+                  <input
+                    id="tools"
+                    name="tools"
+                    placeholder="execution,web"
+                  />
+                </label>
+
                 <label for="skills">
                   Skills (comma-separated, optional)
                   <input
                     id="skills"
                     name="skills"
-                    placeholder="execution,web,prd,ralph"
+                    placeholder="prd,ralph"
                   />
                 </label>
 
@@ -1494,6 +1535,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const enableExecution = params.get("enable_execution");
         const enableWeb = params.get("enable_web");
         const useNativeCliAuth = params.get("use_native_cli_auth");
+        const tools = params.get("tools");
         const skills = params.get("skills");
         const taskId = params.get("task_id");
         const status = params.get("status");
@@ -1516,6 +1558,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (prNumber) {
           document.getElementById("pr_number").value = prNumber;
+        }
+        if (tools) {
+          document.getElementById("tools").value = tools;
         }
         if (skills) {
           document.getElementById("skills").value = skills;
@@ -1622,6 +1667,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const model = document.getElementById("model").value.trim();
         const maxIterationsRaw = document.getElementById("max_iterations").value.trim();
         const prRaw = document.getElementById("pr_number").value.trim();
+        const toolsRaw = document.getElementById("tools").value.trim();
         const skillsRaw = document.getElementById("skills").value.trim();
         const noPr = document.getElementById("no_pr").checked;
         const enableExecution = document.getElementById("enable_execution").checked;
@@ -1642,6 +1688,12 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (prRaw) {
           payload.pr_number = Number(prRaw);
+        }
+        if (toolsRaw) {
+          payload.tools = toolsRaw
+            .split(",")
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
         }
         if (skillsRaw) {
           payload.skills = skillsRaw
@@ -1999,6 +2051,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         enable_execution=req.enable_execution,
         enable_web=req.enable_web,
         use_native_cli_auth=req.use_native_cli_auth,
+        tools=req.tools,
         skills=req.skills,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
@@ -2545,6 +2598,7 @@ def enqueue_build_form(
     enable_web: bool = Form(False),
     use_native_cli_auth: bool = Form(False),
     pr_number: int | None = Form(None),
+    tools: str | None = Form(None),
     skills: str | None = Form(None),
 ) -> RedirectResponse:
     """Fallback form endpoint so UI submits still enqueue without JS."""
@@ -2570,6 +2624,8 @@ def enqueue_build_form(
             query["use_native_cli_auth"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
+        if tools and tools.strip():
+            query["tools"] = tools
         if skills and skills.strip():
             query["skills"] = skills
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
@@ -2586,6 +2642,7 @@ def enqueue_build_form(
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
             pr_number=pr_number,
+            tools=list(meta_tools.normalize_tool_selection(tools)),
             skills=list(meta_skills.normalize_skill_selection(skills)),
         )
     except ValidationError as exc:
@@ -2617,6 +2674,8 @@ def enqueue_build_form(
             query["use_native_cli_auth"] = "1"
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
+        if tools and tools.strip():
+            query["tools"] = tools
         if skills and skills.strip():
             query["skills"] = skills
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
@@ -2642,6 +2701,8 @@ def enqueue_build_form(
         query["use_native_cli_auth"] = "1"
     if req.pr_number is not None:
         query["pr_number"] = str(req.pr_number)
+    if req.tools:
+        query["tools"] = ",".join(req.tools)
     if req.skills:
         query["skills"] = ",".join(req.skills)
     return RedirectResponse(url=f"/monitor/{response.task_id}", status_code=303)
@@ -2767,6 +2828,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         enable_execution=task.enable_execution,
         enable_web=task.enable_web,
         use_native_cli_auth=task.use_native_cli_auth,
+        tools=getattr(task, "tools", []),
         skills=task.skills,
         enabled=task.enabled,
         created_at=task.created_at,
@@ -2819,6 +2881,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,
         use_native_cli_auth=request.use_native_cli_auth,
+        tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,
     )
@@ -2866,6 +2929,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,
         use_native_cli_auth=request.use_native_cli_auth,
+        tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,
     )

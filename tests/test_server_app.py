@@ -98,6 +98,7 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "tools": [],
             "skills": [],
         }
 
@@ -139,6 +140,7 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "tools": [],
             "skills": [],
         }
 
@@ -182,6 +184,7 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "tools": [],
             "skills": [],
         }
 
@@ -222,6 +225,7 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "tools": [],
             "skills": [],
         }
 
@@ -263,6 +267,7 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "tools": [],
             "skills": [],
         }
 

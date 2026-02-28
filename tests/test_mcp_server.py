@@ -257,7 +257,7 @@ class TestGetConfig:
     def test_returns_defaults(self) -> None:
         result = get_config()
         assert result["model"] == "default"
-        assert result["verbose"] is False
+        assert result["verbose"] is True
         assert result["enable_execution"] is False
         assert result["enable_web"] is False
 

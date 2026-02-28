@@ -411,6 +411,93 @@ class TestHandABC:
 
 
 # ---------------------------------------------------------------------------
+# Hand skill resolution
+# ---------------------------------------------------------------------------
+
+
+class TestHandSkillResolution:
+    def test_base_hand_resolves_tools_from_config(self, repo_index: RepoIndex) -> None:
+        config = Config(
+            repo="/tmp/fake",
+            model="test",
+            enabled_tools=("execution", "web"),
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+        cat_names = [c.name for c in hand._selected_tool_categories]
+        assert "execution" in cat_names
+        assert "web" in cat_names
+
+    def test_base_hand_resolves_skills_from_config(self, repo_index: RepoIndex) -> None:
+        config = Config(
+            repo="/tmp/fake",
+            model="test",
+            enabled_skills=("prd", "ralph"),
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+        skill_names = [s.name for s in hand._selected_skills]
+        assert "prd" in skill_names
+        assert "ralph" in skill_names
+
+    def test_base_hand_merges_legacy_tool_flags(self, repo_index: RepoIndex) -> None:
+        config = Config(
+            repo="/tmp/fake",
+            model="test",
+            enable_web=True,
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+        cat_names = [c.name for c in hand._selected_tool_categories]
+        assert "web" in cat_names
+
+    def test_base_hand_empty_by_default(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        assert hand._selected_skills == ()
+        assert hand._selected_tool_categories == ()
+
+    def test_cli_hand_task_prompt_includes_skills(self, repo_index: RepoIndex) -> None:
+        config = Config(
+            repo="/tmp/fake",
+            model="test",
+            enabled_skills=("prd",),
+        )
+        hand = CodexCLIHand(config, repo_index)
+        prompt = hand._build_task_prompt(
+            prompt="build a feature",
+            learned_summary="repo has main.py",
+        )
+        assert "prd" in prompt
+
+    def test_cli_hand_task_prompt_includes_tool_guidance(
+        self, repo_index: RepoIndex
+    ) -> None:
+        config = Config(
+            repo="/tmp/fake",
+            model="test",
+            enabled_tools=("execution",),
+        )
+        hand = ClaudeCodeHand(config, repo_index)
+        prompt = hand._build_task_prompt(
+            prompt="run tests",
+            learned_summary="repo has tests/",
+        )
+        assert "Tool category enabled: execution" in prompt
+        assert "python.run_code" in prompt
+        assert "@@TOOL" not in prompt
+
+    def test_cli_hand_task_prompt_no_tools_no_skills_no_section(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = CodexCLIHand(config, repo_index)
+        prompt = hand._build_task_prompt(
+            prompt="build a feature",
+            learned_summary="repo has main.py",
+        )
+        assert "Tool category enabled" not in prompt
+        assert "Skill knowledge catalog" not in prompt
+
+
+# ---------------------------------------------------------------------------
 # LangGraphHand
 # ---------------------------------------------------------------------------
 
@@ -692,7 +779,7 @@ class TestBasicLangGraphHand:
         config = Config(
             repo=config.repo,
             model=config.model,
-            enabled_skills=("execution",),
+            enabled_tools=("execution",),
         )
         mock_run_python_code.return_value = CommandResult(
             command=["uv", "run", "--python", "3.13", "python", "-c", "print('ok')"],
@@ -746,7 +833,7 @@ class TestBasicLangGraphHand:
         hand = BasicLangGraphHand(config, repo_index, max_iterations=1)
         resp = hand.run("run blocked tool")
 
-        assert "enable_execution=true" in resp.message
+        assert "--tools execution" in resp.message
         mock_run_python_code.assert_not_called()
 
     @patch("helping_hands.lib.hands.v1.hand.iterative.system_web_tools.search_web")
