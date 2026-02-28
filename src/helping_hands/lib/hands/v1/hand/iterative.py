@@ -102,6 +102,12 @@ class _BasicIterativeHand(Hand):
         previous_summary: str,
         bootstrap_context: str,
     ) -> str:
+        """Build the prompt for a single iteration of the loop.
+
+        Combines task request, iteration counter, prior summary, optional
+        bootstrap context (iteration 1 only), and @@READ/@@FILE/@@TOOL
+        instructions into a single prompt string.
+        """
         previous = previous_summary.strip() or "none"
         bootstrap = (
             f"Bootstrap repository context:\n{bootstrap_context}\n\n"
@@ -133,6 +139,7 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _is_satisfied(content: str) -> bool:
+        """Return True if the model response contains ``SATISFIED: yes``."""
         match = re.search(r"SATISFIED:\s*(yes|no)", content, flags=re.IGNORECASE)
         if match:
             return match.group(1).lower() == "yes"
@@ -190,6 +197,7 @@ class _BasicIterativeHand(Hand):
         return f"{content}\n\nTool results:\n{tool_feedback}"
 
     def _execute_read_requests(self, content: str) -> str:
+        """Process ``@@READ`` requests in model output and return feedback."""
         root = self.repo_index.root.resolve()
         requests = list(dict.fromkeys(self._extract_read_requests(content)))
         if not requests:
@@ -384,6 +392,7 @@ class _BasicIterativeHand(Hand):
         raise TypeError(f"unsupported tool result type: {type(result)!r}")
 
     def _execute_tool_requests(self, content: str) -> str:
+        """Process ``@@TOOL`` requests in model output and return feedback."""
         root = self.repo_index.root.resolve()
         requests = self._extract_tool_requests(content)
         if not requests:
@@ -415,6 +424,7 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     def _apply_inline_edits(self, content: str) -> list[str]:
+        """Write ``@@FILE`` blocks to disk and return changed file paths."""
         root = self.repo_index.root.resolve()
         changed: list[str] = []
         for rel_path, body in self._extract_inline_edits(content):
@@ -478,6 +488,7 @@ class _BasicIterativeHand(Hand):
         return "\n".join(lines)
 
     def _build_bootstrap_context(self) -> str:
+        """Build iteration-1 context from README, AGENT.md, and tree snapshot."""
         root = self.repo_index.root.resolve()
         sections: list[str] = []
 

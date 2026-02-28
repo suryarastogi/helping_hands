@@ -90,7 +90,7 @@ what the code does.
 
 ## Dependencies `[auto-update]`
 
-<!-- Agents: keep this in sync with requirements.txt. Note why each
+<!-- Agents: keep this in sync with pyproject.toml. Note why each
      dependency exists so future agents don't accidentally remove
      something important. -->
 
@@ -115,7 +115,7 @@ what the code does.
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
-| python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
+| python-dotenv | main | Loads `.env` values into process env for config/hand setup |
 
 ---
 
@@ -139,4 +139,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-02-28 — reconciled docs/docstrings/obsidian; fixed pyproject.toml reference; added goose/gemini/ollama coverage.*

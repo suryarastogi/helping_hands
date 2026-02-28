@@ -1,4 +1,4 @@
-"""Configuration loading: CLI flags → env vars → TOML file."""
+"""Configuration loading: CLI flags → env vars → defaults."""
 
 from __future__ import annotations
 

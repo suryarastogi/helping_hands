@@ -101,6 +101,7 @@ class _TwoPhaseCLIHand(Hand):
         return False
 
     def _render_command(self, prompt: str) -> list[str]:
+        """Build the final subprocess command with placeholders and model flag."""
         resolved_model = self._resolve_cli_model()
         placeholders = {
             "{prompt}": prompt,
@@ -291,6 +292,7 @@ class _TwoPhaseCLIHand(Hand):
         return None
 
     def _build_init_prompt(self) -> str:
+        """Build phase-1 prompt: learn repo context before task execution."""
         file_list = "\n".join(f"- {path}" for path in self.repo_index.files[:200])
         if not file_list:
             file_list = "- (no indexed files)"
@@ -312,6 +314,7 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _build_task_prompt(self, *, prompt: str, learned_summary: str) -> str:
+        """Build phase-2 prompt: execute the user task with learned context."""
         summary = self._truncate_summary(
             learned_summary,
             limit=self._SUMMARY_CHAR_LIMIT,
@@ -537,6 +540,7 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
+        """Orchestrate init + task phases with optional no-change retry."""
         self.reset_interrupt()
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""
