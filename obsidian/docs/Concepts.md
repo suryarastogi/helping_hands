@@ -90,7 +90,7 @@ Model/provider behavior now routes through shared provider abstractions:
 - `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `ollama`, and `litellm`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
-  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
+  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-sonnet-4-5`).
 - The resolver adapts provider wrappers to backend-specific model/client interfaces (LangGraph and Atomic).
 
 ## CI race-condition guard
