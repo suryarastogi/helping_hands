@@ -78,6 +78,14 @@ class Config:
     config_path: Path | None = None
 
     def __post_init__(self) -> None:
+        """Validate config fields on creation.
+
+        Checks that ``repo`` is either empty, a filesystem path, or an
+        ``owner/repo`` GitHub reference.  Logs a warning when ``model``
+        contains unexpected characters (expected: bare name like
+        ``gpt-5.2`` or ``provider/model`` like
+        ``anthropic/claude-sonnet-4-5``).
+        """
         _validate_repo(self.repo)
         _validate_model(self.model)
 

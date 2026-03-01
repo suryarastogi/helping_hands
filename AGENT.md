@@ -92,6 +92,8 @@ what the code does.
 - **GitHub API error handling**: All PyGithub API calls in `github.py` should be wrapped with `GithubException` handling that produces clear error messages with HTTP status and actionable hints. (2026-03-01)
 - **E2E idempotency**: E2EHand handles branch collisions (switch to existing), supports draft PRs (`HELPING_HANDS_DRAFT_PR`), and detects/reuses existing open PRs for the same head branch. (2026-03-01)
 - **Config input validation**: `Config.__post_init__` validates `repo` format (filesystem path or `owner/repo`) and warns on unexpected `model` name patterns. (2026-03-01)
+- **API request validation**: `BuildRequest` and `ScheduleRequest` validate input at the API boundary (`min_length`, `ge`/`le` bounds) and `ScheduleRequest` validates cron expression syntax via `croniter`. (2026-03-01)
+- **Health check observability**: Health check exceptions should be logged at warning level with `exc_info=True` for production debugging — never silently swallowed. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -147,4 +149,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — production robustness: GitHub API error handling, E2E hardening (branch collision, draft PR, idempotency), config validation.*
+*Last updated: 2026-03-01 — API validation hardening: BuildRequest/ScheduleRequest input bounds, cron syntax validation, health check logging, documentation reconciliation.*

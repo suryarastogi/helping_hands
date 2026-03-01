@@ -38,3 +38,6 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - GitHub API calls in `github.py` are now wrapped with `GithubException` handling — clear error messages with HTTP status, detail, and actionable hints (auth, rate limits, 404s, validation failures).
 - E2E hardening complete: branch collision handling (switch to existing branch instead of failing), optional draft PR mode (`HELPING_HANDS_DRAFT_PR` env var), and idempotency guard (detect/reuse existing open PR for head branch via `find_open_pr_for_branch`).
 - `Config` now validates `repo` format (filesystem path or `owner/repo` pattern) and warns on unexpected `model` name patterns via `__post_init__`.
+- `BuildRequest` and `ScheduleRequest` now validate input at the API boundary: `repo_path` and `prompt` require `min_length=1`, `max_iterations` has `ge=1, le=100`, `pr_number` has `ge=1`, and `ScheduleRequest.cron_expression` validates syntax via `croniter`.
+- Health check functions (`_check_redis_health`, `_check_db_health`, `_check_workers_health`, `_resolve_worker_capacity`) now log exceptions at warning level with full traceback for production observability.
+- Obsidian `AGENT.md` is now a conventions summary for vault readers instead of a bare redirect.
