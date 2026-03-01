@@ -41,6 +41,7 @@ class Hand(abc.ABC):
     """Abstract base for all Hand backends."""
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        """Initialise the hand with application config and a repo index."""
         self.config = config
         self.repo_index = repo_index
         self._interrupt_event = Event()
@@ -230,6 +231,13 @@ class Hand(abc.ABC):
         prompt: str,
         summary: str,
     ) -> dict[str, str]:
+        """Create a branch, commit pending changes, push, and open a PR.
+
+        Returns a metadata dict with keys ``pr_status``, ``pr_url``,
+        ``pr_number``, ``pr_branch``, ``pr_commit``, and optionally
+        ``pr_error``.  Skips gracefully when auto-PR is disabled, no repo
+        is present, there are no changes, or GitHub auth is unavailable.
+        """
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
             "pr_status": "not_attempted",

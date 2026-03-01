@@ -78,6 +78,15 @@ class E2EHand(Hand):
         pr_number: int | None = None,
         dry_run: bool = False,
     ) -> HandResponse:
+        """Execute the full E2E clone/edit/commit/push/PR flow.
+
+        Args:
+            prompt: Task prompt written to the E2E marker file.
+            hand_uuid: Optional deterministic UUID; generated if omitted.
+            pr_number: If set, resume/update an existing PR instead of
+                creating a new one.
+            dry_run: When ``True``, skip commit/push/PR side effects.
+        """
         from helping_hands.lib.github import GitHubClient
 
         repo = self.config.repo.strip()
@@ -210,4 +219,5 @@ class E2EHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Yield a single chunk containing the ``run()`` result message."""
         yield self.run(prompt).message

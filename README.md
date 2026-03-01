@@ -336,13 +336,14 @@ helping_hands/
 │   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
 │   │   └── hands/v1/
 │   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
+│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*, pr_description, model_provider)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
+│       ├── schedules.py      # RedBeat-backed cron scheduling for recurring builds
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs

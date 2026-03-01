@@ -59,6 +59,7 @@ class AtomicHand(Hand):
         return self._input_schema(chat_message=prompt)
 
     def run(self, prompt: str) -> HandResponse:
+        """Invoke the Atomic agent synchronously and return a response."""
         response = self._agent.run(self._make_input(prompt))
         message = response.chat_message
         pr_metadata = self._finalize_repo_pr(
@@ -77,6 +78,7 @@ class AtomicHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream Atomic agent output, with sync-to-async fallback."""
         parts: list[str] = []
         user_input = self._make_input(prompt)
         try:

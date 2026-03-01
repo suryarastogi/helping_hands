@@ -538,6 +538,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
     def run(self, prompt: str) -> HandResponse:
+        """Run the iterative LangGraph loop synchronously to completion."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -604,6 +605,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream per-iteration output from the LangGraph agent loop."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -737,6 +739,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         return str(response)
 
     def run(self, prompt: str) -> HandResponse:
+        """Run the iterative Atomic agent loop synchronously to completion."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -801,6 +804,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream per-iteration output from the Atomic agent loop."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()

@@ -87,10 +87,13 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backends share a base**: All CLI-driven hands (`codexcli`, `claudecodecli`, `goose`, `geminicli`) extend `_TwoPhaseCLIHand` in `cli/base.py` for consistent two-phase (init + task) subprocess execution. (2026-03-01)
+- **Cron scheduling**: App mode supports RedBeat-backed cron schedules for recurring build tasks via `server/schedules.py`; CRUD endpoints and manual triggers are exposed through the FastAPI server. (2026-03-01)
+- **Rich PR descriptions**: Hands generate PR title/body via `pr_description.py` using a CLI tool (e.g. `claude -p`, `gemini -p`) from the git diff; generation is optional and falls back gracefully. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
-<!-- Agents: keep this in sync with requirements.txt. Note why each
+<!-- Agents: keep this in sync with pyproject.toml. Note why each
      dependency exists so future agents don't accidentally remove
      something important. -->
 
@@ -106,6 +109,9 @@ what the code does.
 | celery[redis] | server | Task queue + Redis broker |
 | flower | server | Celery monitoring UI |
 | psycopg2-binary | server | Postgres driver |
+| celery-redbeat | server | Redis-backed cron schedule persistence for Celery Beat |
+| croniter | server | Cron expression parsing/validation for scheduled tasks |
+| redis | server | Redis client for schedule metadata storage |
 | langchain-openai | langchain | LangChain LLM wrapper for LangGraphHand |
 | langgraph | langchain | Agent graph framework for LangGraphHand |
 | atomic-agents | atomic | Atomic Agents framework for AtomicHand (Python 3.12+) |
@@ -139,4 +145,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-03-01 — reconciled docs/docstrings/obsidian; added CLI backend base, cron scheduling, and PR description decisions/deps.*

@@ -637,6 +637,7 @@ class _TwoPhaseCLIHand(Hand):
             process.terminate()
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the two-phase CLI flow synchronously and return a response."""
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
         return HandResponse(
@@ -649,6 +650,7 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream CLI output chunks as they arrive from the subprocess."""
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()
         collected: list[str] = []
 

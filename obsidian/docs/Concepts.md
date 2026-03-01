@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) all extend a shared two-phase base (`_TwoPhaseCLIHand` in `cli/base.py`) and run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -78,11 +78,19 @@ the backend now fails the run instead of silently returning success/no-op.
 CLI subprocess execution now also emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 
+For `goose`, provider/model are injected via `GOOSE_PROVIDER`/`GOOSE_MODEL` env
+vars (auto-derived from `HELPING_HANDS_MODEL`; default: `ollama` +
+`llama3.2:latest`). `GH_TOKEN`/`GITHUB_TOKEN` is always required.
+
+For `geminicli`, `GEMINI_API_KEY` is always required (no native-CLI-auth
+toggle). Non-interactive runs default to `--approval-mode auto_edit`. If a
+requested model is unavailable, `geminicli` retries once without `--model`.
+
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
@@ -126,6 +134,14 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Cron-scheduled builds
+
+App mode supports cron-scheduled recurring build tasks via `server/schedules.py`. Schedules are persisted to Redis via RedBeat and managed through CRUD operations. Each schedule specifies a cron expression (or preset like `daily`, `hourly`), a repo/prompt/backend configuration, and enable/disable state. Manual triggers are also supported.
+
+## Rich PR descriptions
+
+Hands can generate descriptive PR titles and bodies using a CLI tool (e.g. `claude -p`, `gemini -p`) from the git diff. This is implemented in `pr_description.py` and called from the finalization workflow. Generation is optional and falls back gracefully when no CLI is available or when generation fails.
 
 ## Project Log
 

@@ -44,6 +44,7 @@ class LangGraphHand(Hand):
         )
 
     def run(self, prompt: str) -> HandResponse:
+        """Invoke the LangGraph agent synchronously and return a response."""
         result = self._agent.invoke({"messages": [{"role": "user", "content": prompt}]})
         last_msg = result["messages"][-1]
         content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
@@ -63,6 +64,7 @@ class LangGraphHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream LangGraph agent output chunks as they arrive."""
         parts: list[str] = []
         async for event in self._agent.astream_events(
             {"messages": [{"role": "user", "content": prompt}]},
