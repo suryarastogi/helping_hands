@@ -230,6 +230,15 @@ class Hand(abc.ABC):
         prompt: str,
         summary: str,
     ) -> dict[str, str]:
+        """Run the shared commit/push/PR finalization workflow.
+
+        Detects pending git changes, optionally runs pre-commit checks,
+        creates a branch, commits, pushes with token-authenticated remote
+        config, and opens a pull request.  Returns a metadata dict with
+        keys ``pr_status``, ``pr_url``, ``pr_number``, ``pr_branch``,
+        and ``pr_commit``.  Skipped gracefully when ``auto_pr`` is
+        disabled or no changes are present.
+        """
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
             "pr_status": "not_attempted",

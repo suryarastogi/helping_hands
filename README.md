@@ -333,7 +333,9 @@ helping_hands/
 │   │   ├── meta/
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── command.py     # Command execution tools for repo-aware runtime actions
+│   │   │       └── web.py         # Web browsing and search helpers for tool-enabled hands
 │   │   └── hands/v1/
 │   │       ├── __init__.py
 │   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)

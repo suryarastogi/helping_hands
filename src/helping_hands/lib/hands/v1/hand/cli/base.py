@@ -15,7 +15,14 @@ from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
 
 class _TwoPhaseCLIHand(Hand):
-    """Shared two-phase subprocess hand logic for CLI-driven backends."""
+    """Shared two-phase subprocess hand logic for CLI-driven backends.
+
+    Phase 1 (initialization) feeds repo context (README, AGENT.md, file
+    tree) to the external CLI so it learns the codebase.  Phase 2 (task
+    execution) sends the user prompt with the learned summary.  Subclasses
+    (``CodexCLIHand``, ``ClaudeCodeHand``, ``GooseCLIHand``,
+    ``GeminiCLIHand``) override command construction and auth wiring.
+    """
 
     _BACKEND_NAME = "external-cli"
     _CLI_LABEL = "external-cli"

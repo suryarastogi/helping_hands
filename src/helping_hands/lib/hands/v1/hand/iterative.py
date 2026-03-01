@@ -34,7 +34,14 @@ from helping_hands.lib.meta.tools import web as system_web_tools
 
 
 class _BasicIterativeHand(Hand):
-    """Shared helpers for iterative hands."""
+    """Shared loop mechanics and prompt protocol for iterative hands.
+
+    Subclasses (``BasicLangGraphHand``, ``BasicAtomicHand``) inherit iteration
+    scaffolding, the ``@@READ``/``@@FILE``/``@@TOOL`` in-model protocol, and
+    bootstrap context loading.  On iteration 1 the hand prepends
+    ``README.md``, ``AGENT.md``, and a bounded repo-tree snapshot so the model
+    starts with project context before requesting additional reads.
+    """
 
     _EDIT_PATTERN = re.compile(
         r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",
@@ -102,6 +109,13 @@ class _BasicIterativeHand(Hand):
         previous_summary: str,
         bootstrap_context: str,
     ) -> str:
+        """Build the per-iteration prompt including the in-model protocol.
+
+        The prompt instructs the model to use ``@@READ: path`` for file
+        reads, ``@@FILE: path`` fenced blocks for full-file edits,
+        ``@@TOOL: name`` fenced JSON blocks for tool invocations, and
+        ``SATISFIED: yes|no`` to signal task completion.
+        """
         previous = previous_summary.strip() or "none"
         bootstrap = (
             f"Bootstrap repository context:\n{bootstrap_context}\n\n"
@@ -478,6 +492,12 @@ class _BasicIterativeHand(Hand):
         return "\n".join(lines)
 
     def _build_bootstrap_context(self) -> str:
+        """Assemble iteration-1 bootstrap context.
+
+        Includes ``README.md``, ``AGENT.md`` (when present), and a
+        depth-limited repository tree snapshot so the model has project
+        conventions and structure before its first ``@@READ`` request.
+        """
         root = self.repo_index.root.resolve()
         sections: list[str] = []
 
