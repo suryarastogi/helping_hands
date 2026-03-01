@@ -10,7 +10,18 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 1, 2026
+
+### Smoke test results (February 28, 2026 — `claudecodecli` hand)
+
+| Check | Result |
+|---|---|
+| `ruff check .` | All checks passed |
+| `ruff format --check .` | 62 files already formatted |
+| `pytest` (281 collected, 2 skipped) | **281 passed** · 60% coverage |
+| `ty check src` | 4 diagnostics (all in `schedules.py` — `RedBeat` union types) |
+
+> `test_schedules.py` requires `--extra server` (celery); excluded from default dev run.
 
 ## What is this?
 
@@ -40,6 +51,10 @@ runs, UUIDs are generated in-hand as needed.
   `README.md`/`AGENT.md` (when present) and a bounded repository tree snapshot.
 - Iterative basic hands can request file contents using `@@READ: path` and
   apply edits using `@@FILE` blocks in-model.
+- Dynamic skills (`--skills`) let runs opt into composable capability bundles
+  (execution, web, prd, ralph) that inject tool definitions and instructions
+  into iterative hand prompts.  `--enable-execution` / `--enable-web` are
+  legacy shortcuts folded into the skills system.
 - System filesystem actions for hands (path-safe read/write/mkdir checks) are
   centralized in `lib/meta/tools/filesystem.py`.
 - Provider-level wrappers and model/env defaults are centralized in
@@ -218,6 +233,7 @@ The built-in UI at `http://localhost:8000/` supports:
 - `enable_execution` toggle (python/bash tools; default off)
 - `enable_web` toggle (web search/browse tools; default off)
 - `use_native_cli_auth` toggle (Codex/Claude: prefer local CLI auth over env keys)
+- `skills` multi-select (execution, web, prd, ralph)
 - default editable prompt text: smoke-test prompt that updates `README.md` and
   exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,
   `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`
@@ -320,6 +336,7 @@ helping_hands/
 ├── src/helping_hands/        # Main package
 │   ├── lib/                  # Core library (config, repo, github, hands, meta tools)
 │   │   ├── config.py
+│   │   ├── default_prompts.py  # Shared default prompts for CLI + app
 │   │   ├── repo.py
 │   │   ├── github.py
 │   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
@@ -331,17 +348,21 @@ helping_hands/
 │   │   │   ├── ollama.py
 │   │   │   └── types.py
 │   │   ├── meta/
+│   │   │   ├── skills/            # Dynamic skill registry for hands
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Path-safe file operations for hands + MCP
+│   │   │       ├── command.py     # Python/bash execution tools for hands + MCP
+│   │   │       └── web.py         # Web search/browse helpers for hands + MCP
 │   │   └── hands/v1/
 │   │       ├── __init__.py
-│   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
+│   │       └── hand/         # Hand package (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, placeholders, cli/*)
 │   ├── cli/                  # CLI entry point (depends on lib)
 │   │   └── main.py
 │   └── server/               # App-mode server (depends on lib)
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
+│       ├── schedules.py      # Cron-scheduled submission tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
@@ -386,7 +407,7 @@ Key settings:
 
 | Setting | Env var | Description |
 |---|---|---|
-| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
+| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-sonnet-4-5`) |
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 | `use_native_cli_auth` | `HELPING_HANDS_USE_NATIVE_CLI_AUTH` | For `codexcli`/`claudecodecli`, strip provider API key env vars so native CLI auth/session is used |
@@ -403,6 +424,7 @@ Key CLI flags:
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
 - `--use-native-cli-auth` — for `codexcli`/`claudecodecli`, ignore provider API key env vars and rely on local CLI auth/session
+- `--skills execution,web,prd,ralph` — inject dynamic skills into iterative hands (comma-separated; `execution`/`web` supersede `--enable-execution`/`--enable-web`)
 
 ### Backend environment variables
 
@@ -428,7 +450,7 @@ required API key depends on which provider the model maps to:
 | Provider | Env var | Example `--model` values |
 |---|---|---|
 | OpenAI | `OPENAI_API_KEY` | `gpt-5.2`, `openai/gpt-5.2` |
-| Anthropic | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet-latest`, `anthropic/claude-sonnet-4-5` |
+| Anthropic | `ANTHROPIC_API_KEY` | `claude-sonnet-4-5`, `anthropic/claude-sonnet-4-5` |
 | Google | `GOOGLE_API_KEY` | `gemini-2.0-flash`, `google/gemini-2.0-flash` |
 | Ollama (default) | `OLLAMA_API_KEY` (optional), `OLLAMA_BASE_URL` | `llama3.2:latest`, `ollama/llama3.2:latest`, or `default` |
 | LiteLLM | (via litellm config) | `basic-atomic`/`basic-agent` only |

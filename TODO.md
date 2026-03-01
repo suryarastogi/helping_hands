@@ -56,11 +56,12 @@
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [x] **Claude CLI execution** — Subprocess-backed claude flow with two phases, streaming output, NPX fallback, permission handling, and final PR integration.
+  - [x] **Codex CLI execution** — Subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
+  - [x] **Gemini CLI execution** — Subprocess-backed gemini flow with two phases, streaming output, model-unavailability retry, and final PR integration.
+  - [x] **Goose CLI execution** — Subprocess-backed goose flow with two phases, multi-provider support (OpenAI/Anthropic/Google/Ollama), streaming output, and final PR integration.
+  - [x] **Backend selection/routing (full matrix)** — CLI and app-mode routing covers all backends: `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`, `e2e`.
+  - [x] **Streaming for CLI hands** — All CLI backends use real incremental subprocess streaming via shared `_TwoPhaseCLIHand` base with heartbeat, idle timeout, and async queue-based emission.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
 
 ---

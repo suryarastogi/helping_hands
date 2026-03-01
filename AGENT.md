@@ -87,10 +87,12 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backend base class**: All CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) extend `_TwoPhaseCLIHand` for shared two-phase execution, async subprocess streaming, heartbeat monitoring, and idle timeout. (2026-02-28)
+- **Documentation single-source-of-truth**: README.md is the canonical reference for runtime details, backend requirements, and CLI examples. `docs/index.md` should be a thin API-reference landing page, not duplicate README content. `AGENT.md` is the canonical code-style reference; `CLAUDE.md` cross-references it rather than duplicating. (2026-02-28)
 
 ## Dependencies `[auto-update]`
 
-<!-- Agents: keep this in sync with requirements.txt. Note why each
+<!-- Agents: keep this in sync with pyproject.toml. Note why each
      dependency exists so future agents don't accidentally remove
      something important. -->
 
@@ -102,10 +104,12 @@ what the code does.
 | ty | dev | Type checker used in pre-commit |
 | pre-commit | dev | Git hook manager |
 | fastapi | server | HTTP/WS API for app mode |
-| uvicorn | server | ASGI server |
+| uvicorn[standard] | server | ASGI server |
 | celery[redis] | server | Task queue + Redis broker |
+| celery-redbeat | server | Redis-backed cron scheduling for Celery Beat |
 | flower | server | Celery monitoring UI |
 | psycopg2-binary | server | Postgres driver |
+| croniter | server | Cron expression parsing for scheduled tasks |
 | langchain-openai | langchain | LangChain LLM wrapper for LangGraphHand |
 | langgraph | langchain | Agent graph framework for LangGraphHand |
 | atomic-agents | atomic | Atomic Agents framework for AtomicHand (Python 3.12+) |
@@ -139,4 +143,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-03-01 — deps table: added celery-redbeat, croniter, fixed uvicorn[standard]; stale requirements.txt comment updated to pyproject.toml.*

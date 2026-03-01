@@ -1,4 +1,11 @@
-"""Shared two-phase subprocess base for CLI-backed hands."""
+"""Shared two-phase subprocess base for CLI-backed hands.
+
+Defines ``_TwoPhaseCLIHand``, the abstract base that all external-CLI
+hand backends inherit.  Provides the two-phase execution model
+(initialization + task), async subprocess streaming with heartbeat and
+idle-timeout, optional Docker container wrapping, and native-CLI-auth
+support.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,32 @@ from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
 
 class _TwoPhaseCLIHand(Hand):
-    """Shared two-phase subprocess hand logic for CLI-driven backends."""
+    """Shared two-phase subprocess base for CLI-driven backends.
+
+    All CLI hands (``codexcli``, ``claudecodecli``, ``goose``,
+    ``geminicli``) extend this class and run in two phases:
+
+    1. **Initialization pass** — feeds repo context (README, AGENT.md,
+       file tree snapshot) to the external CLI so it understands the
+       codebase before making changes.
+    2. **Task pass** — sends the user prompt to the CLI to apply the
+       requested changes directly.
+
+    Shared infrastructure:
+
+    * Async subprocess streaming with configurable I/O poll interval,
+      heartbeat logging during quiet periods, and idle-timeout
+      termination.
+    * Optional containerized execution (Docker bind-mount of target
+      repo).
+    * Native CLI auth toggle (``--use-native-cli-auth``) to strip
+      provider API key env vars from the subprocess environment.
+    * Final PR finalization inherited from ``Hand``.
+
+    Subclasses override ``_base_command()``,
+    ``_apply_backend_defaults()``, and ``_build_*_prompt()`` methods to
+    specialize behavior for each CLI tool.
+    """
 
     _BACKEND_NAME = "external-cli"
     _CLI_LABEL = "external-cli"

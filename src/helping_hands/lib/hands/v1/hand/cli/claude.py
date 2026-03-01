@@ -1,4 +1,9 @@
-"""Claude Code CLI hand implementation."""
+"""Claude Code CLI hand implementation.
+
+Runs ``claude -p`` (or ``npx -y @anthropic-ai/claude-code``) as an
+external subprocess.  See ``_TwoPhaseCLIHand`` for shared two-phase
+execution details.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,21 @@ from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 
 class ClaudeCodeHand(_TwoPhaseCLIHand):
-    """Hand backed by Claude Code CLI subprocess execution."""
+    """Hand backed by Claude Code CLI (``claude -p``) subprocess.
+
+    Backend-specific behaviors:
+
+    * Falls back to ``npx -y @anthropic-ai/claude-code`` when ``claude``
+      is not on PATH.
+    * Adds ``--dangerously-skip-permissions`` for non-root runtimes
+      (disable via ``HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0``).
+    * Automatically retries without the permissions flag when running as
+      root/sudo.
+    * Re-runs with an edit-enforcement prompt when the task phase
+      produces no git changes on an edit-intent request.
+    * Fails explicitly when interactive write-approval markers appear
+      in output after retries.
+    """
 
     _BACKEND_NAME = "claudecodecli"
     _CLI_LABEL = "claudecodecli"

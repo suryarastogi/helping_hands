@@ -38,7 +38,24 @@ class HandResponse:
 
 
 class Hand(abc.ABC):
-    """Abstract base for all Hand backends."""
+    """Abstract base for all Hand backends.
+
+    Every concrete hand implements ``run()`` (blocking) and ``stream()``
+    (async iterator) to execute AI-driven code changes against a target
+    repository.
+
+    Shared behavior provided by this base class:
+
+    * **Finalization** — ``_finalize_repo_pr()`` detects pending git
+      changes, runs pre-commit checks when execution tools are enabled,
+      creates a branch, commits, pushes via token-authenticated remote,
+      and opens a PR.  Controlled by ``auto_pr`` (default ``True``) and
+      the ``--no-pr`` CLI flag.
+    * **Cooperative interruption** — ``interrupt()`` sets an event that
+      long-running loops can check via ``_is_interrupted()``.
+    * **System prompt** — ``_build_system_prompt()`` prepends repo
+      context (file tree, root path) so the model knows the codebase.
+    """
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         self.config = config

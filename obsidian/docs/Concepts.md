@@ -41,51 +41,57 @@ This means a rerun updates the same PR state instead of creating drift between o
 
 ## Basic hand semantics (current implementation)
 
-`BasicLangGraphHand` and `BasicAtomicHand` run iterative repo-aware loops with:
+`BasicLangGraphHand` and `BasicAtomicHand` (`basic-agent` is a CLI alias for `BasicAtomicHand`) run iterative repo-aware loops with:
 
 - streamed per-iteration output
 - cooperative interruption
 - iteration-1 bootstrap context from `README.md`/`AGENT.md` (when present) and a bounded repo tree snapshot
 - file reads via `@@READ: ...` and read-result feedback blocks
 - inline file edits via `@@FILE: ...` fenced full-content blocks
+- system tool invocation via `@@TOOL: <name>` JSON blocks (execution, web, and filesystem tools when enabled via skills)
 - default final commit/push/PR step
 
 Final PR behavior is enabled by default and can be disabled explicitly (`--no-pr`).
 When enabled, push is token-authenticated and non-interactive to avoid OS credential popups.
 
 Implementation note: hand code is now organized as a package module under
-`src/helping_hands/lib/hands/v1/hand/`, and iterative file operations route
-through shared system helpers in
-`src/helping_hands/lib/meta/tools/filesystem.py`.
+`src/helping_hands/lib/hands/v1/hand/`, and system tool operations route
+through shared helpers in `src/helping_hands/lib/meta/tools/`:
+- `filesystem.py` — path-safe file read/write/mkdir/exists
+- `command.py` — Python code/script and bash script execution
+- `web.py` — web search and page fetch helpers
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) all
+share a common `_TwoPhaseCLIHand` base and run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
 2. Task execution pass that applies requested changes directly.
 
-For `claudecodecli`, non-interactive runs default to
-`--dangerously-skip-permissions` and now include one automatic follow-up apply
-pass for edit-intent prompts when the first task pass produces no git changes.
-When running as root/sudo, the backend avoids or strips that flag and retries
-automatically if Claude rejects it.
-When `claude` is not installed but `npx` is available, backend command
-resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
-If Claude still requests interactive write approval and no edits are applied,
-the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+All CLI backends share:
+- Async subprocess streaming with heartbeat monitoring and idle timeout
+- Configurable controls: `HELPING_HANDS_CLI_IO_POLL_SECONDS`,
+  `HELPING_HANDS_CLI_HEARTBEAT_SECONDS`, `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS`
+
+Backend-specific behaviors:
+- `claudecodecli`: NPX fallback, `--dangerously-skip-permissions` for non-root,
+  automatic edit-enforcement retry, root/sudo flag stripping.
+- `codexcli`: Runtime-aware sandbox mode (host vs. container), `--skip-git-repo-check`.
+- `goose`: Multi-provider support (OpenAI/Anthropic/Google/Ollama), auto-derived
+  `GOOSE_PROVIDER`/`GOOSE_MODEL`, `--with-builtin developer` auto-injection.
+- `geminicli`: `--approval-mode auto_edit` for non-interactive runs,
+  model-unavailability retry without `--model`.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `ollama`, and `litellm`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
-  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
+  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-sonnet-4-5`).
 - The resolver adapts provider wrappers to backend-specific model/client interfaces (LangGraph and Atomic).
 
 ## CI race-condition guard
@@ -126,6 +132,19 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Dynamic skills
+
+Skills are composable capability bundles that can be selected per run via `--skills` (CLI) or the `skills` API parameter. Each skill declares prompt instructions and, optionally, tool handlers that the iterative hand dispatch loop can invoke via `@@TOOL` blocks.
+
+Built-in skills:
+
+- **execution** — `python.run_code`, `python.run_script`, `bash.run_script` (same tools as `--enable-execution`).
+- **web** — `web.search`, `web.browse` (same tools as `--enable-web`).
+- **prd** — prompt-only skill for structured feature planning (PRD generation).
+- **ralph** — prompt-only skill for PRD-to-`prd.json` conversion.
+
+The skills registry (`lib/meta/skills/`) also merges the legacy `--enable-execution` / `--enable-web` boolean flags into skill selection, so older invocations continue to work transparently.
 
 ## Project Log
 

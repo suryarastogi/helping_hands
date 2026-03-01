@@ -6,9 +6,9 @@ High-level view of how helping_hands is built. For file layout and config, see t
 
 The project currently exposes three runtime surfaces:
 
-- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`).
-- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, and `claudecodecli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to a smoke-test `README.md` updater that exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`, `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`. Execution and web tools are opt-in (`enable_execution`, `enable_web`). Monitor cells remain fixed dimensions with in-cell scrolling.
-- **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
+- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`).
+- **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, and `geminicli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to a smoke-test `README.md` updater that exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`, `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`. Execution and web tools are opt-in (`enable_execution`, `enable_web`). Monitor cells remain fixed dimensions with in-cell scrolling.
+- **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), execution tools (`run_python_code`, `run_python_script`, `run_bash_script`), web tools (`web_search`, `web_browse`), and config inspection.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
 
@@ -16,13 +16,18 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 
 1. **Config** (`Config.from_env`) — Loads `.env` from cwd and target repo (when local), merges env + CLI overrides.
 2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
-3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, plus CLI scaffold hands.
-   - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `langgraph.py`, `atomic.py`, `iterative.py`, `e2e.py`, `cli/*.py`, `placeholders.py` compatibility shim, `__init__.py` export surface).
+3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, plus fully implemented CLI hands (`CodexCLIHand`, `ClaudeCodeHand`, `GooseCLIHand`, `GeminiCLIHand`).
+   - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `iterative.py`, `langgraph.py`, `atomic.py`, `e2e.py`, `model_provider.py`, `pr_description.py`, `cli/*.py`, `placeholders.py` compatibility shim, `__init__.py` export surface).
 4. **AI provider wrappers** (`lib.ai_providers`) — Provider-specific wrappers (`openai`, `anthropic`, `google`, `litellm`, `ollama`) with a common interface and lazy `inner` client/library.
 5. **Model adapter layer** (`lib/hands/v1/hand/model_provider.py`) — Resolves model strings (including `provider/model`) into backend-adapted runtime clients for LangGraph/Atomic hands.
-6. **System tools layer** (`lib.meta.tools.filesystem`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands and MCP filesystem tools.
-7. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
-8. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
+6. **System tools layer** (`lib.meta.tools`) — Shared helpers consumed by iterative hands and MCP tools:
+   - `filesystem` — path-safe file read/write/mkdir/exists with repo-confined path resolution
+   - `command` — Python code/script and bash script execution with version-constrained runners
+   - `web` — web search (DuckDuckGo) and page fetch helpers
+7. **Dynamic skills layer** (`lib.meta.skills`) — Composable capability bundles selected per run via `--skills`. Each skill declares prompt instructions and tool handlers; the registry merges legacy `--enable-execution`/`--enable-web` flags into the same dispatch surface. Built-in skills: `execution`, `web`, `prd`, `ralph`.
+8. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
+9. **Scheduled tasks** (`server.schedules`) — CRUD for Redis-backed cron schedules via RedBeat; scheduled builds trigger `build_feature` Celery tasks.
+10. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
 
 ## Finalization workflow (all hands)
 
@@ -94,6 +99,28 @@ environment.
 9. Default Docker app/worker runtime uses non-root `app` user, enabling
    non-interactive Claude permission mode by default.
 
+## Goose CLI backend requirements
+
+`goose` uses the external `goose` executable from the user environment.
+
+1. `goose` CLI installed and available on `PATH`.
+2. Provider/model auto-derived from `HELPING_HANDS_MODEL` (or defaults to
+   `ollama` + `llama3.2:latest`); `goose configure` is not required.
+3. `GH_TOKEN` or `GITHUB_TOKEN` always required; runtime mirrors to both vars.
+4. `--with-builtin developer` auto-injected for `goose run` commands.
+5. Local GitHub auth fallback intentionally disabled.
+
+## Gemini CLI backend requirements
+
+`geminicli` uses the external `gemini` executable from the user environment.
+
+1. `gemini` CLI installed and available on `PATH`.
+2. `GEMINI_API_KEY` always required (no native-CLI-auth toggle).
+3. `--approval-mode auto_edit` injected by default for non-interactive runs.
+4. Model-unavailability retry: if Gemini rejects a model, retries once
+   without `--model` so Gemini CLI picks a default.
+5. Default 900s idle timeout (shared with all CLI backends).
+
 ## E2E workflow (source of truth)
 
 `E2EHand` currently drives the production-tested path:
@@ -118,6 +145,7 @@ This makes reruns deterministic: existing PR description and status comment are 
 User → CLI
   index mode:    Config → RepoIndex → ready/indexed output
   basic backend: Config → Basic*Hand iterative stream → optional final PR
+  cli backend:   Config → _TwoPhaseCLIHand (init pass + task pass) → optional final PR
   --e2e mode:    Config → E2EHand → GitHubClient → branch/PR updates
 ```
 
@@ -128,7 +156,7 @@ User/Client → FastAPI /build → Celery queue
                                ↓
                        worker task build_feature
                                ↓
-          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand / ClaudeCodeHand)
+          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand / ClaudeCodeHand / GooseCLIHand / GeminiCLIHand)
                                ↓
       task status/result available via /tasks/{task_id} (JSON)
       no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)

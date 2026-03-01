@@ -3,6 +3,7 @@
 This package contains reusable system-facing helpers:
 - ``filesystem`` for path-confined repo file operations.
 - ``command`` for path-confined Python/Bash command execution.
+- ``web`` for web search and page-fetch helpers.
 """
 
 from helping_hands.lib.meta.tools.command import (

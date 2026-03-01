@@ -57,9 +57,9 @@ docker compose up --build
 Everything flows through the **Hand** base class (`src/helping_hands/lib/hands/v1/hand/base.py`). Hands are the execution backends — each one implements `run()`/`stream()` and represents a different approach to AI-driven code changes:
 
 - **E2EHand** (`e2e.py`) — clone/edit/commit/push/PR flow for integration testing
-- **IterativeHand** (`iterative.py`) — base for loop-based hands with `@@READ`/`@@FILE` in-model file operations
-- **BasicLangGraphHand** (`langgraph.py`) — LangGraph agent loop (requires `--extra langchain`)
-- **BasicAtomicHand** (`atomic.py`) — Atomic Agents loop (requires `--extra atomic`)
+- **_BasicIterativeHand / BasicLangGraphHand / BasicAtomicHand** (`iterative.py`) — shared loop base and concrete iterative backends with `@@READ`/`@@FILE` in-model file operations (`basic-agent` is a CLI alias for `BasicAtomicHand`)
+- **LangGraphHand** (`langgraph.py`) — direct (non-iterative) LangGraph agent (requires `--extra langchain`)
+- **AtomicHand** (`atomic.py`) — direct (non-iterative) Atomic Agents agent (requires `--extra atomic`)
 - **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`
 
 Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands attempt it by default; disable with `--no-pr`.
@@ -80,27 +80,24 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 ### System tool isolation
 
-All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
+All filesystem/command/web operations for hands route through `src/helping_hands/lib/meta/tools/` — `filesystem.py` (path-safe file ops), `command.py` (Python/bash execution), and `web.py` (search/browse). MCP tools use the same layer.
 
-## Code Conventions
+### Dynamic skills
 
-- **Python 3.12+**, `uv` for package management
-- **Formatter/linter**: `ruff` (line length 88, rules: E, W, F, I, N, UP, B, SIM, RUF)
-- **Type hints everywhere**: prefer `X | None` over `Optional[X]`
-- **Imports**: absolute (`from helping_hands.lib.config import Config`), grouped as stdlib → third-party → local
-- **Naming**: `snake_case` functions/variables, `PascalCase` classes, `_` prefix for private helpers
-- **Docstrings**: Google-style, required for public functions/classes
-- **Tests**: pytest in `tests/`, coverage enabled by default in pytest config
-- **No global state**: configuration is passed explicitly, no module-level singletons
-- **Streaming-first**: AI responses should be streamable as they arrive
+Composable capability bundles live in `src/helping_hands/lib/meta/skills/`. Skills (`execution`, `web`, `prd`, `ralph`) inject tool definitions and prompt instructions into iterative hands. Selected via `--skills` CLI flag or `/build` API parameter.
 
-## Key Architectural Decisions
+## Code Conventions & Design
 
-- Hand implementations stay split under `hands/v1/hand/` — avoid regressing to a monolithic `hand.py`
-- Iterative hands preload `README.md`, `AGENT.md`, and bounded repo tree snapshot on iteration 1
-- Git push uses token-authenticated (`GITHUB_TOKEN`) non-interactive remotes
-- `owner/repo` CLI inputs are auto-cloned to temp workspaces
-- `AGENT.md` is a living document that AI agents update as they learn repo conventions
+See [AGENT.md](AGENT.md) for the full living reference on code style, design
+preferences, tone, recurring decisions, and dependencies. Key points:
+
+- **Python 3.12+**, `uv`, `ruff` (line 88), `ty` type checker
+- **Type hints everywhere**: `X | None` over `Optional[X]`
+- **Imports**: absolute, grouped stdlib → third-party → local
+- **Naming**: `snake_case` functions/variables, `PascalCase` classes
+- **Docstrings**: Google-style for public APIs
+- **No global state**; **streaming-first**
+- Hand implementations stay split under `hands/v1/hand/` — no monolithic `hand.py`
 
 ## CI
 
