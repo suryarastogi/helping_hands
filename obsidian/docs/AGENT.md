@@ -27,12 +27,19 @@
 - Iterative hands preload `README.md`, `AGENT.md`, and bounded tree on iteration 1
 - All request models validate input at the API boundary (min_length, bounds)
 - Health check exceptions are logged at warning level for observability
+- GitHub API calls wrapped with `GithubException` handling — clear messages with actionable hints
+- E2E idempotency: branch collision handling, draft PR mode, PR reuse guard
+- No-op exception patterns (`except Exception: raise`) are noise — only catch when handling/logging
+- Hand constructors use concrete `Config`/`RepoIndex` types (via `TYPE_CHECKING`) instead of `Any`
+- `Config.__post_init__` validates repo format, model name patterns, and skill names at creation time
+- CLI `--verbose` wires to `logging.basicConfig()`; silent exception blocks use `logger.debug()`
 
 ## Testing
 
-- pytest in `tests/`, coverage enabled by default
+- pytest in `tests/`, coverage enabled by default — **510 tests passing** (as of 2026-03-01)
 - `uv run pytest -v` runs the full suite
 - E2E integration is opt-in (`HELPING_HANDS_RUN_E2E_INTEGRATION=1`)
+- Key coverage areas: filesystem (40), CLI hands (75+), schedule manager (22), Celery helpers (15), skills (34), MCP (17), server app (47), AI providers (28)
 
 ## For More Detail
 

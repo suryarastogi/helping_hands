@@ -55,6 +55,7 @@ nav:
               - "v1/hand/e2e": api/lib/hands/v1/hand/e2e.md
               - "v1/hand/model_provider": api/lib/hands/v1/hand/model_provider.md
               - "v1/hand/pr_description": api/lib/hands/v1/hand/pr_description.md
+              - "v1/hand/placeholders": api/lib/hands/v1/hand/placeholders.md
               - cli:
                   - "base": api/lib/hands/v1/hand/cli/base.md
                   - "claude": api/lib/hands/v1/hand/cli/claude.md

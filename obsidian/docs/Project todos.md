@@ -8,7 +8,7 @@ All major milestones are complete. Two CI items remain intentionally deferred:
 
 1. **Set up Python project** — complete (layout, tooling, CI/CD, tests)
 2. **Dockerise app mode** — complete (Dockerfile, Compose, all services)
-3. **Autodocs** — complete (MkDocs Material + mkdocstrings, 35 API pages, GitHub Pages)
+3. **Autodocs** — complete (MkDocs Material + mkdocstrings, 36 API pages, GitHub Pages)
 4. **Hand backends** — complete (E2E, iterative, all 4 CLI hands, cron scheduling, hardening)
 5. **MCP server** — complete (filesystem, execution, web, build, config tools)
 6. **Skills system** — complete (normalization, validation, prompt injection)
@@ -61,7 +61,7 @@ Key architectural decisions and implementation notes. For the full list of recur
 
 ### Documentation and testing
 
-- MkDocs: 35 API doc pages covering all 13 Hand modules individually plus all subsystems.
+- MkDocs: 36 API doc pages covering all 13 Hand modules (12 implementation + 1 package surface) plus backward-compat shim and all subsystems.
 - Docstrings: Google-style on all public methods; `_TwoPhaseCLIHand`, `AIProvider`, and all `run()`/`stream()` methods documented.
-- Tests: 488 tests covering filesystem (40), CLI hands (75+), schedule manager (22), Celery helpers (15), skills (30), MCP (17), server app (47).
+- Tests: 510 tests covering filesystem (40), CLI hands (75+), schedule manager (22), Celery helpers (15), skills (30+4 config validation), MCP (17), server app (47), AI providers (28).
 - PEP 561: `py.typed` marker + `Typing :: Typed` classifier in `pyproject.toml`.
