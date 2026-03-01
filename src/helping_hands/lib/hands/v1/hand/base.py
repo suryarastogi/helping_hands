@@ -74,14 +74,17 @@ class Hand(abc.ABC):
         self._interrupt_event.clear()
 
     def _is_interrupted(self) -> bool:
+        """Return whether cooperative interruption has been requested."""
         return self._interrupt_event.is_set()
 
     @staticmethod
     def _default_base_branch() -> str:
+        """Return the target base branch for PRs (env override or ``main``)."""
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
 
     @staticmethod
     def _run_git_read(repo_dir: Path, *args: str) -> str:
+        """Run a git command and return stdout, or empty string on failure."""
         result = subprocess.run(
             ["git", *args],
             cwd=repo_dir,
@@ -95,6 +98,7 @@ class Hand(abc.ABC):
 
     @classmethod
     def _github_repo_from_origin(cls, repo_dir: Path) -> str:
+        """Extract ``owner/repo`` from the git origin URL, or empty string."""
         remote = cls._run_git_read(repo_dir, "remote", "get-url", "origin")
         if not remote:
             return ""
@@ -125,6 +129,7 @@ class Hand(abc.ABC):
         commit_sha: str,
         stamp_utc: str,
     ) -> str:
+        """Build a fallback PR body when rich description generation is unavailable."""
         return (
             f"Automated update from `{backend}`.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -138,6 +143,7 @@ class Hand(abc.ABC):
     def _configure_authenticated_push_remote(
         repo_dir: Path, repo: str, token: str
     ) -> None:
+        """Set the push URL to a token-authenticated HTTPS remote."""
         push_url = f"https://x-access-token:{token}@github.com/{repo}.git"
         result = subprocess.run(
             ["git", "remote", "set-url", "--push", "origin", push_url],

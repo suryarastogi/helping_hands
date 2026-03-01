@@ -58,6 +58,7 @@ def resolve_hand_model(model: str | None) -> HandModel:
 
 
 def _infer_provider_name(model: str) -> str:
+    """Infer provider name from a bare model string using prefix heuristics."""
     lowered = model.lower()
     if lowered.startswith("claude"):
         return "anthropic"

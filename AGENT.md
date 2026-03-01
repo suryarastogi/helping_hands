@@ -144,4 +144,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-28 — reconcile docs/docstrings/obsidian; mark CLI backends complete; add scheduling deps.*
+*Last updated: 2026-03-01 — reconcile docs/docstrings/obsidian; add missing API doc pages (skills, command, web, task_result); fill docstring gaps.*

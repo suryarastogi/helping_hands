@@ -80,12 +80,15 @@ class _BasicIterativeHand(Hand):
         self._tool_runners = system_skills.build_tool_runner_map(self._selected_skills)
 
     def _execution_tools_enabled(self) -> bool:
+        """Return whether execution skills (Python/Bash) are active."""
         return bool(getattr(self.config, "enable_execution", False))
 
     def _web_tools_enabled(self) -> bool:
+        """Return whether web skills (search/browse) are active."""
         return bool(getattr(self.config, "enable_web", False))
 
     def _tool_instructions(self) -> str:
+        """Build prompt-ready instructions for all enabled skills."""
         lines = [system_skills.format_skill_instructions(self._selected_skills)]
         lines.append(
             "Tool results are returned as @@TOOL_RESULT blocks "
@@ -102,6 +105,7 @@ class _BasicIterativeHand(Hand):
         previous_summary: str,
         bootstrap_context: str,
     ) -> str:
+        """Assemble the full prompt for a single iteration of the loop."""
         previous = previous_summary.strip() or "none"
         bootstrap = (
             f"Bootstrap repository context:\n{bootstrap_context}\n\n"
@@ -133,6 +137,7 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _is_satisfied(content: str) -> bool:
+        """Check if the model response contains ``SATISFIED: yes``."""
         match = re.search(r"SATISFIED:\s*(yes|no)", content, flags=re.IGNORECASE)
         if match:
             return match.group(1).lower() == "yes"
@@ -140,6 +145,7 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_inline_edits(cls, content: str) -> list[tuple[str, str]]:
+        """Extract ``@@FILE`` blocks from model output as (path, content) pairs."""
         return [
             (m.group("path").strip(), m.group("content"))
             for m in cls._EDIT_PATTERN.finditer(content)
@@ -147,6 +153,7 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_read_requests(cls, content: str) -> list[str]:
+        """Extract ``@@READ`` file path requests from model output."""
         explicit = [
             m.group("path").strip() for m in cls._READ_PATTERN.finditer(content)
         ]
