@@ -112,6 +112,8 @@ what the code does.
 - **Module `__all__` exports**: All source modules with public API surfaces now declare `__all__` — including all 5 AI provider wrappers, all 5 CLI hand modules, all 3 meta tools modules, `langgraph.py`, `atomic.py`, `iterative.py`, `default_prompts.py`, `cli/main.py`, all 3 server modules, and all 5 package `__init__.py` files. Total: 45 modules with `__all__` across the project. (2026-03-01)
 - **Validation test coverage**: `lib/validation.py` now has a dedicated `test_validation.py` with edge-case coverage for all three public functions (`parse_str_list`, `parse_positive_int`, `parse_optional_str`), complementing indirect coverage from skills/config tests. (2026-03-01)
 - **E2EHand helper test coverage**: Static helpers (`_safe_repo_dir`, `_work_base`, `_configured_base_branch`, `_draft_pr_enabled`, `_build_e2e_pr_body`, `_build_e2e_pr_comment`) now have unit tests in `test_e2e_helpers.py` that run without GitHub credentials. (2026-03-01)
+- **DRY git utilities**: Shared git helpers (`github_clone_url`, `git_noninteractive_env`, `redact_sensitive`, `repo_tmp_dir`) live in `lib/git_utils.py`. Previously duplicated across `cli/main.py`, `server/celery_app.py`, and `lib/github.py`. Consumers import from the shared module. (2026-03-01)
+- **Health check exception specificity**: `_check_redis_health` catches `(ImportError, OSError, ValueError)`, `_check_db_health` catches `(ImportError, OSError)`, `_check_workers_health` catches `(OSError, AttributeError)` — not bare `except Exception`. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -167,4 +169,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — Module `__all__` exports expanded to 45 modules (added 5 package `__init__.py` files). Error messages enriched in `filesystem.py`. `assert` guards replaced with `RuntimeError` in `schedules.py`. 624 total tests passing.*
+*Last updated: 2026-03-01 — 46 modules with `__all__` (added `lib/git_utils.py`). Duplicate git helpers extracted to shared `lib/git_utils.py`. Health check `except Exception` patterns replaced with specific types. 38 MkDocs API pages. 624 total tests passing.*

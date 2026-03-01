@@ -8,7 +8,6 @@ import argparse
 import asyncio
 import atexit
 import logging
-import os
 import re
 import shutil
 import subprocess
@@ -20,6 +19,18 @@ from typing import cast
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.git_utils import (
+    git_noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.git_utils import (
+    github_clone_url as _github_clone_url,
+)
+from helping_hands.lib.git_utils import (
+    redact_sensitive as _redact_sensitive,
+)
+from helping_hands.lib.git_utils import (
+    repo_tmp_dir as _repo_tmp_dir,
+)
 from helping_hands.lib.hands.v1.hand import (
     BasicAtomicHand,
     BasicLangGraphHand,
@@ -275,46 +286,6 @@ async def _stream_hand(hand: Hand, prompt: str) -> None:
     async for chunk in stream:
         print(chunk, end="", flush=True)
     print()
-
-
-def _github_clone_url(repo: str) -> str:
-    """Build a GitHub clone URL, using token auth when available."""
-    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
-    if token:
-        return f"https://x-access-token:{token}@github.com/{repo}.git"
-    return f"https://github.com/{repo}.git"
-
-
-def _git_noninteractive_env() -> dict[str, str]:
-    """Return a copy of the environment with interactive git prompts disabled."""
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    return env
-
-
-def _redact_sensitive(text: str) -> str:
-    """Replace GitHub access tokens in URLs with ``***``."""
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
-
-
-def _repo_tmp_dir() -> Path | None:
-    """Return the directory to use for temporary repo clones.
-
-    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
-    Setting this to a known path (e.g. /tmp/helping_hands or a project tmp/)
-    keeps clones out of /var/folders and makes manual cleanup easy.
-    """
-    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
-    if d:
-        p = Path(d).expanduser()
-        p.mkdir(parents=True, exist_ok=True)
-        return p
-    return None
 
 
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:

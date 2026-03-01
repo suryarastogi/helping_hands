@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,18 +17,11 @@ from github import Auth, Github, GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
+from helping_hands.lib.git_utils import redact_sensitive as _redact_sensitive
+
 __all__ = ["GitHubClient", "PRResult"]
 
 logger = logging.getLogger(__name__)
-
-
-def _redact_sensitive(text: str) -> str:
-    """Redact token-bearing GitHub URLs in logs/errors."""
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
 
 
 def _github_error_message(action: str, exc: GithubException) -> str:

@@ -31,6 +31,7 @@ nav:
           - config: api/lib/config.md
           - repo: api/lib/repo.md
           - github: api/lib/github.md
+          - git_utils: api/lib/git_utils.md
           - default_prompts: api/lib/default_prompts.md
           - validation: api/lib/validation.md
           - ai_providers:

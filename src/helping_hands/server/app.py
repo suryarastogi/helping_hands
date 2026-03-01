@@ -1848,7 +1848,7 @@ def _check_redis_health() -> Literal["ok", "error"]:
         )
         r.ping()
         return "ok"
-    except Exception as e:
+    except (ImportError, OSError, ValueError) as e:
         logger.warning("Redis health check failed: %s", e, exc_info=True)
         return "error"
 
@@ -1864,7 +1864,7 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
         conn = psycopg2.connect(db_url, connect_timeout=3)
         conn.close()
         return "ok"
-    except Exception as e:
+    except (ImportError, OSError) as e:
         logger.warning("Database health check failed: %s", e, exc_info=True)
         return "error"
 
@@ -1875,7 +1875,7 @@ def _check_workers_health() -> Literal["ok", "error"]:
         inspector = celery_app.control.inspect(timeout=2.0)
         ping = inspector.ping()
         return "ok" if ping else "error"
-    except Exception as e:
+    except (OSError, AttributeError) as e:
         logger.warning("Worker health check failed: %s", e, exc_info=True)
         return "error"
 

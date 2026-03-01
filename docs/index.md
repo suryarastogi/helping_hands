@@ -10,7 +10,8 @@ Browse the auto-generated docs from source:
 
 - **lib** — Core library:
   - Config & data: [config](api/lib/config.md), [repo](api/lib/repo.md),
-    [github](api/lib/github.md), [default_prompts](api/lib/default_prompts.md),
+    [github](api/lib/github.md), [git_utils](api/lib/git_utils.md),
+    [default_prompts](api/lib/default_prompts.md),
     [validation](api/lib/validation.md)
   - AI providers: [package](api/lib/ai_providers.md),
     [types](api/lib/ai_providers/types.md),

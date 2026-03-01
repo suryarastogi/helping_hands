@@ -18,7 +18,7 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 1b. **Validation utilities** (`lib.validation`) — Shared payload validation helpers (`parse_str_list`, `parse_positive_int`, `parse_optional_str`) used by iterative hands and skills for typed argument extraction with clear error messages. Extracted to avoid duplication across modules.
 2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
 3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, and CLI-backed hands.
-   - Current code shape is a package module: `lib/hands/v1/hand/` with 12 implementation files (`base.py`, `iterative.py`, `langgraph.py`, `atomic.py`, `e2e.py`, `model_provider.py`, `pr_description.py`, `cli/base.py`, `cli/claude.py`, `cli/codex.py`, `cli/goose.py`, `cli/gemini.py`) + 1 package surface (`__init__.py`) + 1 backward-compat shim (`placeholders.py`). Note: `basic-agent` is a backend alias that routes to `BasicAtomicHand` at runtime. All 14 modules have dedicated MkDocs API doc pages (37 total across the project).
+   - Current code shape is a package module: `lib/hands/v1/hand/` with 12 implementation files (`base.py`, `iterative.py`, `langgraph.py`, `atomic.py`, `e2e.py`, `model_provider.py`, `pr_description.py`, `cli/base.py`, `cli/claude.py`, `cli/codex.py`, `cli/goose.py`, `cli/gemini.py`) + 1 package surface (`__init__.py`) + 1 backward-compat shim (`placeholders.py`). Note: `basic-agent` is a backend alias that routes to `BasicAtomicHand` at runtime. All 14 modules have dedicated MkDocs API doc pages (38 total across the project).
 4. **AI provider wrappers** (`lib.ai_providers`) — Provider-specific wrappers (`openai`, `anthropic`, `google`, `litellm`, `ollama`) with a common interface and lazy `inner` client/library.
 5. **Model adapter layer** (`lib/hands/v1/hand/model_provider.py`) — Resolves model strings (including `provider/model`) into backend-adapted runtime clients for LangGraph/Atomic hands.
 6. **System tools layer** (`lib.meta.tools`) — Three tool modules consumed by iterative hands and MCP:
@@ -27,6 +27,7 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
    - `web.py` — web tools (`search_web`, `browse_url`)
 7. **Skills layer** (`lib.meta.skills`) — Dynamic skill normalization, validation, and prompt injection for iterative hands. Skills are opt-in per run.
 8. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
+8b. **Git utilities** (`lib.git_utils`) — Shared helpers for token-authenticated clone URLs, non-interactive git environment, credential redaction, and temp directory management. Consumed by CLI, server, and `GitHubClient`.
 9. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
 
 ## Finalization workflow (all hands)
@@ -195,4 +196,4 @@ alongside arbitrary cron expressions.
 
 ---
 
-*Last updated: 2026-03-01 — 37 MkDocs API pages, 14 hand modules documented, 624 tests passing. 45 modules now declare `__all__` exports (`server/app.py` expanded to 15 public models, `skills/__init__.py` `__all__` relocated to top). All cross-surface metrics reconciled.*
+*Last updated: 2026-03-01 — 38 MkDocs API pages (added `git_utils`), 14 hand modules documented, 624 tests passing. 46 modules now declare `__all__` exports. Duplicate git helpers extracted to shared `lib/git_utils.py`.*

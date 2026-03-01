@@ -38,6 +38,7 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 | [package-exports-error-enrichment-doc-reconciliation](../../completed/PRD-2026-03-01-package-exports-error-enrichment-doc-reconciliation.md) | `__all__` for 5 package `__init__.py` (45 total), `filesystem.py` error enrichment, `schedules.py` assert→RuntimeError |
 | [code-quality-exports-doc-reconciliation](../../completed/PRD-2026-03-01-code-quality-exports-doc-reconciliation.md) | Module-level imports, `server/app.py` `__all__` completion (15 exports), skills `__all__` relocation, CLI hand docstrings, README↔CLAUDE.md reconciliation |
 | [cross-surface-reconciliation-doc-hygiene](../../completed/PRD-2026-03-01-cross-surface-reconciliation-doc-hygiene.md) | PRD naming fix, W10→W09 log entry migration, README structure tree update, cross-surface metric verification |
+| [dry-git-utils-exception-specificity-doc-reconciliation](../../completed/PRD-2026-03-01-dry-git-utils-exception-specificity-doc-reconciliation.md) | Extract 4 duplicate git helpers to shared `lib/git_utils.py`, replace 3 bare `except Exception` in health checks, 38 MkDocs pages |
 
 ## Earlier PRDs (undated)
 
@@ -49,4 +50,4 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 ---
 
-*Last updated: 2026-03-01 — 31 completed PRDs indexed.*
+*Last updated: 2026-03-01 — 32 completed PRDs indexed.*

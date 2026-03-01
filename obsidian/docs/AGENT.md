@@ -40,10 +40,10 @@
 
 ## Documentation
 
-- MkDocs: **37 API doc pages** covering all 14 hand modules (12 impl + 1 package + 1 backward-compat shim) plus all subsystems (including `validation`)
+- MkDocs: **38 API doc pages** covering all 14 hand modules (12 impl + 1 package + 1 backward-compat shim) plus all subsystems (including `validation`, `git_utils`)
 - CLI hand base docstrings: `_TwoPhaseCLIHand` public/semi-public methods documented for mkdocstrings completeness
 - PEP 561: `py.typed` marker + `Typing :: Typed` classifier in `pyproject.toml`
-- Module exports: **45 modules** declare `__all__` for explicit public API surfaces (including `server/app.py` with all 15 public models)
+- Module exports: **46 modules** declare `__all__` for explicit public API surfaces (including `server/app.py` with all 15 public models, `lib/git_utils.py`)
 
 ## Testing
 
