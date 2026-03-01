@@ -139,6 +139,28 @@ In CLI mode, non-E2E runs accept:
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
 
+## MCP mode
+
+helping_hands exposes its capabilities over the **Model Context Protocol** so AI clients (Claude Desktop, Cursor, etc.) can use it as a tool provider. The MCP server (`server/mcp_server.py`) offers tools in three categories:
+
+- **Filesystem tools**: `read_file`, `write_file`, `mkdir`, `path_exists` — all path-safe via `lib/meta/tools/filesystem.py`.
+- **Execution tools**: `run_python_code`, `run_python_script`, `run_bash_script` — via `lib/meta/tools/command.py`.
+- **Web tools**: `web_search`, `web_browse` — via `lib/meta/tools/web.py`.
+
+Plus repo indexing (`index_repo`), build enqueue/status (`build_feature`, `get_task_status`), and config inspection (`get_config`). Run with `uv run helping-hands-mcp` (stdio) or `uv run helping-hands-mcp --http` (streamable HTTP).
+
+## Scheduled tasks (cron)
+
+App mode supports **cron-scheduled build submissions** via `ScheduleManager` (`server/schedules.py`), backed by Redis + RedBeat. Schedules are CRUD-managed through server API endpoints and persisted as RedBeat scheduler entries plus Redis-stored task metadata. The `scheduled_build` Celery task resolves schedule metadata, enqueues a standard `build_feature` run, and records run history. Cron presets (e.g. `hourly`, `daily`, `weekdays`) are available alongside arbitrary cron expressions validated via `croniter`.
+
+## Skills system
+
+The **skills layer** (`lib/meta/skills/`) lets hands inject dynamic capabilities at runtime. Skills are normalized from comma-separated input, validated against the known skill set, and merged into hand prompts. This is opt-in per run via `--skills` (CLI) or the `skills` field in API requests.
+
+## React frontend
+
+An optional **React + TypeScript + Vite** frontend (`frontend/`) wraps the FastAPI server for task submission and monitoring. It includes backend selection, model override, max iterations, PR options, execution/web tool toggles, native CLI auth toggle, and an editable default prompt. Monitoring uses JS polling via `/tasks/{task_id}` with a sidebar that discovers live UUIDs via `/tasks/current`. A "world view" mode shows an isometric agent office visualization with keyboard navigation.
+
 ## Project Log
 
 Progress notes live under **Project Log** and can be edited by **users** or **hands**. Each week has a note (e.g. [[Project Log/2026-W08]]). Entries are tagged by author: human or hand, with optional short context. That gives a shared, auditable log of what was done and who contributed. See [[Project Log/Weekly progress]] for the format.

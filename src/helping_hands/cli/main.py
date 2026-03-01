@@ -261,6 +261,7 @@ def main(argv: list[str] | None = None) -> None:
 
 
 async def _stream_hand(hand: Hand, prompt: str) -> None:
+    """Stream hand output to stdout, printing chunks as they arrive."""
     stream = cast(AsyncIterator[str], hand.stream(prompt))
     async for chunk in stream:
         print(chunk, end="", flush=True)
@@ -268,6 +269,7 @@ async def _stream_hand(hand: Hand, prompt: str) -> None:
 
 
 def _github_clone_url(repo: str) -> str:
+    """Build a GitHub clone URL, using token auth when available."""
     token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
     if token:
         return f"https://x-access-token:{token}@github.com/{repo}.git"
@@ -275,6 +277,7 @@ def _github_clone_url(repo: str) -> str:
 
 
 def _git_noninteractive_env() -> dict[str, str]:
+    """Return a copy of the environment with interactive git prompts disabled."""
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
@@ -282,6 +285,7 @@ def _git_noninteractive_env() -> dict[str, str]:
 
 
 def _redact_sensitive(text: str) -> str:
+    """Replace GitHub access tokens in URLs with ``***``."""
     return re.sub(
         r"(https://x-access-token:)[^@]+(@github\.com/)",
         r"\1***\2",
@@ -305,6 +309,11 @@ def _repo_tmp_dir() -> Path | None:
 
 
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
+    """Resolve a local path or clone an ``owner/repo`` GitHub reference.
+
+    Returns (resolved_path, cloned_from) where cloned_from is the original
+    ``owner/repo`` string if a clone was performed, or None for local paths.
+    """
     path = Path(repo).expanduser().resolve()
     if path.is_dir():
         return path, None

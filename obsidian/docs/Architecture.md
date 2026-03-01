@@ -8,7 +8,7 @@ The project currently exposes three runtime surfaces:
 
 - **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`).
 - **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, and `geminicli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. Cron-scheduled submissions are managed via `ScheduleManager` + RedBeat with CRUD endpoints. The UI defaults prompt text to a smoke-test `README.md` updater that exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`, `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`. Execution and web tools are opt-in (`enable_execution`, `enable_web`). Monitor cells remain fixed dimensions with in-cell scrolling.
-- **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), execution tools (`run_python_code`, `run_python_script`, `run_bash_script`), web tools (`web_search`, `web_browse`), and config inspection.
+- **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), execution tools (`run_python_code`, `run_python_script`, `run_bash_script`), web tools (`web_search`, `web_browse`), and config inspection. All tool categories route through shared `lib/meta/tools/` modules (`filesystem.py`, `command.py`, `web.py`) for consistent path-safe behavior.
 
 App-mode foundations are present (server, worker, broker/backend wiring), while product-level scheduling/state workflows are still evolving.
 
@@ -20,9 +20,13 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
    - Current code shape is a package module: `lib/hands/v1/hand/` (`base.py`, `langgraph.py`, `atomic.py`, `iterative.py`, `e2e.py`, `cli/*.py`, `placeholders.py` backward-compat shim, `__init__.py` export surface).
 4. **AI provider wrappers** (`lib.ai_providers`) — Provider-specific wrappers (`openai`, `anthropic`, `google`, `litellm`, `ollama`) with a common interface and lazy `inner` client/library.
 5. **Model adapter layer** (`lib/hands/v1/hand/model_provider.py`) — Resolves model strings (including `provider/model`) into backend-adapted runtime clients for LangGraph/Atomic hands.
-6. **System tools layer** (`lib.meta.tools.filesystem`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands and MCP filesystem tools.
-7. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
-8. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
+6. **System tools layer** (`lib.meta.tools`) — Three tool modules consumed by iterative hands and MCP:
+   - `filesystem.py` — path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation)
+   - `command.py` — execution tools (`run_python_code`, `run_python_script`, `run_bash_script`)
+   - `web.py` — web tools (`search_web`, `browse_url`)
+7. **Skills layer** (`lib.meta.skills`) — Dynamic skill normalization, validation, and prompt injection for iterative hands. Skills are opt-in per run.
+8. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
+9. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
 
 ## Finalization workflow (all hands)
 
@@ -136,6 +140,25 @@ User/Client → FastAPI /build → Celery queue
       no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)
       monitor UI uses fixed-size task/status/update/payload cells for stable polling layout
 ```
+
+## React frontend
+
+An optional React + TypeScript + Vite frontend lives in `frontend/`. It wraps the FastAPI server endpoints:
+
+- **Task submission**: form with backend selection, model override, max iterations, PR options, execution/web tool toggles, native CLI auth toggle, and editable default prompt.
+- **Task monitoring**: JS polling via `/tasks/{task_id}`; sidebar discovers live UUIDs via `/tasks/current` (Flower API + Celery inspect fallback).
+- **World view**: isometric agent office visualization where active workers appear at desks; keyboard navigation via arrow keys/WASD.
+- **Quality**: `npm run lint`, `npm run typecheck`, `npm run test` (Vitest with coverage). Frontend CI uploads `frontend/coverage/lcov.info` to Codecov.
+
+## Skills system
+
+The skills layer (`lib/meta/skills/`) lets hands inject dynamic capabilities at runtime:
+
+- `normalize_skill_selection()` — parses comma-separated skill names from CLI or API input.
+- `validate_skill_names()` — rejects unknown skill names before execution.
+- Skill definitions are merged into hand prompts for iterative runs.
+
+Skills are opt-in per run via `--skills` (CLI) or the `skills` field in API requests.
 
 ## Design principles
 

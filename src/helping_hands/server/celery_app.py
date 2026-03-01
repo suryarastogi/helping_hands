@@ -68,6 +68,7 @@ _BUFFER_FLUSH_CHARS = 180
 
 
 def _github_clone_url(repo: str) -> str:
+    """Build a GitHub clone URL, using token auth when available."""
     token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
     if token:
         return f"https://x-access-token:{token}@github.com/{repo}.git"
@@ -75,6 +76,7 @@ def _github_clone_url(repo: str) -> str:
 
 
 def _git_noninteractive_env() -> dict[str, str]:
+    """Return a copy of the environment with interactive git prompts disabled."""
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
@@ -82,6 +84,7 @@ def _git_noninteractive_env() -> dict[str, str]:
 
 
 def _redact_sensitive(text: str) -> str:
+    """Replace GitHub access tokens in URLs with ``***``."""
     return re.sub(
         r"(https://x-access-token:)[^@]+(@github\.com/)",
         r"\1***\2",
@@ -160,11 +163,13 @@ def _has_gemini_auth() -> bool:
 
 
 def _trim_updates(updates: list[str]) -> None:
+    """Discard oldest entries when the update list exceeds the storage cap."""
     if len(updates) > _MAX_STORED_UPDATES:
         del updates[: len(updates) - _MAX_STORED_UPDATES]
 
 
 def _append_update(updates: list[str], text: str) -> None:
+    """Append a cleaned, length-capped line to the update list."""
     clean = text.strip()
     if not clean:
         return
@@ -178,10 +183,12 @@ class _UpdateCollector:
     """Collect and compact stream chunks into line-like update entries."""
 
     def __init__(self, updates: list[str]) -> None:
+        """Initialize collector with a shared update list."""
         self._updates = updates
         self._buffer = ""
 
     def feed(self, chunk: str) -> None:
+        """Buffer incoming text; flush complete lines as update entries."""
         if not chunk:
             return
         self._buffer += chunk
@@ -193,6 +200,7 @@ class _UpdateCollector:
             self._buffer = ""
 
     def flush(self) -> None:
+        """Emit any remaining buffered text as a final update entry."""
         if self._buffer:
             _append_update(self._updates, self._buffer)
             self._buffer = ""
@@ -218,6 +226,7 @@ def _update_progress(
     skills: tuple[str, ...],
     workspace: str | None = None,
 ) -> None:
+    """Push a PROGRESS state update to the Celery result backend."""
     update_state = getattr(task, "update_state", None)
     if not callable(update_state):
         return
@@ -263,6 +272,7 @@ async def _collect_stream(
     skills: tuple[str, ...],
     workspace: str | None,
 ) -> str:
+    """Stream hand output, collect into updates, and return full text."""
     parts: list[str] = []
     collector = _UpdateCollector(updates)
     chunk_count = 0
