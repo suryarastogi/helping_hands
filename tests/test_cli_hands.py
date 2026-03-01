@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -884,3 +885,152 @@ class TestTwoPhaseCLIHandBase:
         )
         assert "Fix the bug" in prompt
         assert "enforcement" in prompt.lower()
+
+
+# ===========================================================================
+# Stream and Interrupt
+# ===========================================================================
+
+
+class TestTwoPhaseCLIHandStream:
+    """Tests for the async stream() method."""
+
+    def test_stream_yields_chunks(self, config: Config, repo_index: RepoIndex) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        chunks_emitted = ["init output", "task output"]
+
+        async def fake_two_phase(prompt: str, *, emit: Any) -> str:
+            for chunk in chunks_emitted:
+                await emit(chunk)
+            return "".join(chunks_emitted)
+
+        with (
+            patch.object(hand, "_run_two_phase", side_effect=fake_two_phase),
+            patch.object(
+                hand, "_finalize_after_run", return_value={"pr_status": "disabled"}
+            ),
+        ):
+
+            async def collect() -> list[str]:
+                result = []
+                async for chunk in hand.stream("test prompt"):
+                    result.append(chunk)
+                return result
+
+            collected = asyncio.run(collect())
+            assert "init output" in collected
+            assert "task output" in collected
+
+    def test_stream_includes_pr_status(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+
+        async def fake_two_phase(prompt: str, *, emit: Any) -> str:
+            await emit("output")
+            return "output"
+
+        with (
+            patch.object(hand, "_run_two_phase", side_effect=fake_two_phase),
+            patch.object(
+                hand,
+                "_finalize_after_run",
+                return_value={"pr_status": "created", "pr_url": "https://example.com"},
+            ),
+        ):
+
+            async def collect() -> list[str]:
+                result = []
+                async for chunk in hand.stream("test prompt"):
+                    result.append(chunk)
+                return result
+
+            collected = asyncio.run(collect())
+            full = "".join(collected)
+            assert "PR created" in full
+
+
+class TestTwoPhaseCLIHandInterrupt:
+    """Tests for cooperative interruption."""
+
+    def test_interrupt_sets_event(self, config: Config, repo_index: RepoIndex) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        assert not hand._is_interrupted()
+        hand.interrupt()
+        assert hand._is_interrupted()
+
+    def test_reset_interrupt_clears_event(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        hand.interrupt()
+        assert hand._is_interrupted()
+        hand.reset_interrupt()
+        assert not hand._is_interrupted()
+
+    def test_interrupt_terminates_active_process(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        mock_process = AsyncMock()
+        mock_process.returncode = None
+        mock_process.terminate = lambda: None
+        hand._active_process = mock_process
+        hand.interrupt()
+        assert hand._is_interrupted()
+
+    def test_interrupt_noop_when_no_process(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        hand._active_process = None
+        hand.interrupt()
+        assert hand._is_interrupted()
+
+
+class TestTwoPhaseCLIHandTerminateProcess:
+    """Tests for _terminate_active_process."""
+
+    def test_terminate_noop_when_no_process(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        hand._active_process = None
+        asyncio.run(hand._terminate_active_process())
+
+    def test_terminate_noop_when_already_exited(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        hand._active_process = mock_process
+        asyncio.run(hand._terminate_active_process())
+
+    def test_terminate_sends_sigterm(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _make_hand(ClaudeCodeHand, config, repo_index)
+        mock_process = AsyncMock()
+        mock_process.returncode = None
+        mock_process.terminate = AsyncMock()
+
+        async def fake_wait() -> int:
+            mock_process.returncode = 0
+            return 0
+
+        mock_process.wait = fake_wait
+        hand._active_process = mock_process
+        asyncio.run(hand._terminate_active_process())
+        mock_process.terminate.assert_called_once()
+
+
+class TestMaxRetryDepth:
+    """Tests for recursive retry depth limiting."""
+
+    def test_max_retry_depth_class_attribute(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        assert _TwoPhaseCLIHand._MAX_CLI_RETRY_DEPTH >= 1

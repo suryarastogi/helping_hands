@@ -28,6 +28,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_codex_failure_message(*, return_code: int, output: str) -> str:
+        """Build a user-facing error message, detecting 401 auth failures in the output."""
         tail = output.strip()[-2000:]
         lower_tail = tail.lower()
         if (
@@ -120,6 +121,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the Codex CLI with *prompt* and return its output."""
         return await self._invoke_cli(prompt, emit=emit)
 
     async def _invoke_backend(

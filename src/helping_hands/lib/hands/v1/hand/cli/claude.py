@@ -36,6 +36,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     )
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return Anthropic API key env var for native CLI auth stripping."""
         return ("ANTHROPIC_API_KEY",)
 
     def _pr_description_cmd(self) -> list[str] | None:
@@ -45,6 +46,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
+        """Build a user-facing error message, detecting auth failures in the output tail."""
         tail = output.strip()[-2000:]
         lower_tail = tail.lower()
         if any(
@@ -97,7 +99,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             try:
                 if int(geteuid()) == 0:
                     return False
-            except Exception:
+            except (ValueError, TypeError, OSError):
                 logger.debug("geteuid() check failed", exc_info=True)
         return True
 
@@ -178,6 +180,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the Claude Code CLI with *prompt* and return its output."""
         return await self._invoke_cli(prompt, emit=emit)
 
     async def _invoke_backend(

@@ -35,6 +35,8 @@
 - CLI `--verbose` wires to `logging.basicConfig()`; silent exception blocks use `logger.debug()`
 - Exception handler ordering: catch subclass exceptions before parent classes (e.g. `UnicodeError` before `ValueError`)
 - Skills payload validation: reject empty/missing payloads at the validation layer, not downstream
+- Exception specificity: catch `(ValueError, TypeError, OSError)` instead of bare `except Exception` in CLI hands
+- Recursive retry depth: `_invoke_cli_with_cmd` retries bounded by `_MAX_CLI_RETRY_DEPTH` (default 2)
 
 ## Documentation
 
@@ -44,11 +46,12 @@
 
 ## Testing
 
-- pytest in `tests/`, coverage enabled by default — **510 tests passing** (as of 2026-03-01)
+- pytest in `tests/`, coverage enabled by default — **579 tests passing** (as of 2026-03-01)
 - `uv run pytest -v` runs the full suite
 - E2E integration is opt-in (`HELPING_HANDS_RUN_E2E_INTEGRATION=1`)
-- Key coverage areas: filesystem (40), CLI hands (75+), schedule manager (22), Celery helpers (15), skills (34), MCP (17), server app (47), AI providers (28)
+- Key coverage areas: filesystem (40), CLI hands (111 incl. stream/interrupt), schedule manager (22), Celery helpers (15), skills (34), MCP (17), server app (47), AI providers (28)
 - All four CLI hand implementations have dedicated unit tests (model filtering, auth detection, fallback/retry, defaults injection)
+- `stream()`, `interrupt()`, `_terminate_active_process()` have dedicated tests
 - Server/MCP internal helpers have dedicated tests (task extraction, Flower/Celery integration, health checks, config endpoints)
 
 ## For More Detail

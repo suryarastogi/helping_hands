@@ -57,6 +57,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _has_goose_builtin_flag(cmd: list[str]) -> bool:
+        """Return True if *cmd* already contains a ``--with-builtin`` flag."""
         return any(
             token == "--with-builtin" or token.startswith("--with-builtin=")
             for token in cmd
@@ -80,6 +81,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _normalize_goose_provider(provider: str) -> str:
+        """Normalize a provider string, mapping ``gemini`` to ``google``."""
         value = provider.strip().lower()
         if not value:
             return ""
@@ -89,6 +91,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _infer_goose_provider_from_model(model: str) -> str:
+        """Infer the Goose provider from a model name prefix (e.g. ``claude`` -> ``anthropic``)."""
         lowered = model.strip().lower()
         if lowered.startswith(("claude", "anthropic/")):
             return "anthropic"
@@ -100,6 +103,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _normalize_ollama_host(value: str) -> str:
+        """Normalize an Ollama host URL, prepending ``http://`` if no scheme is present."""
         candidate = value.strip()
         if not candidate:
             return ""
@@ -112,6 +116,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @classmethod
     def _resolve_ollama_host(cls, env: dict[str, str]) -> str:
+        """Resolve the Ollama host from ``OLLAMA_HOST``, ``OLLAMA_BASE_URL``, or default."""
         explicit_host = cls._normalize_ollama_host(env.get("OLLAMA_HOST", ""))
         if explicit_host:
             return explicit_host

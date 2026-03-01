@@ -35,6 +35,7 @@ class _TwoPhaseCLIHand(Hand):
     _DEFAULT_IO_POLL_SECONDS = 2.0
     _DEFAULT_HEARTBEAT_SECONDS = 20.0
     _DEFAULT_IDLE_TIMEOUT_SECONDS = 900.0
+    _MAX_CLI_RETRY_DEPTH = 2
 
     class _Emitter(Protocol):
         async def __call__(self, chunk: str) -> None: ...
@@ -45,6 +46,7 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
+        """Trim *text* to *limit* characters, appending a truncation marker if needed."""
         clean = text.strip()
         if len(clean) <= limit:
             return clean
@@ -52,6 +54,7 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _is_truthy(value: str | None) -> bool:
+        """Return True when *value* is a truthy string (``1``, ``true``, ``yes``, ``on``)."""
         if value is None:
             return False
         return value.strip().lower() in {"1", "true", "yes", "on"}
@@ -288,6 +291,7 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _float_env(name: str, *, default: float) -> float:
+        """Read a positive float from env var *name*, returning *default* on absence or error."""
         raw = os.environ.get(name)
         if raw is None:
             return default
@@ -425,6 +429,7 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _looks_like_edit_request(prompt: str) -> bool:
+        """Return True when *prompt* contains action verbs suggesting file modifications."""
         lowered = prompt.lower()
         action_markers = (
             "update",
@@ -483,6 +488,7 @@ class _TwoPhaseCLIHand(Hand):
         return None
 
     async def _terminate_active_process(self) -> None:
+        """Send SIGTERM to the active subprocess, escalating to SIGKILL after 5s."""
         process = self._active_process
         if process is None or process.returncode is not None:
             return
@@ -507,11 +513,14 @@ class _TwoPhaseCLIHand(Hand):
         cmd: list[str],
         *,
         emit: _Emitter,
+        _depth: int = 0,
     ) -> str:
         """Run a CLI command, stream output via *emit*, and handle retries.
 
         Manages subprocess lifecycle including heartbeat emission, idle
         timeout detection, command-not-found fallback, and failure retry.
+        Recursive retries are bounded by ``_MAX_CLI_RETRY_DEPTH`` to prevent
+        unbounded recursion when multiple fallbacks fail.
         """
         env = self._build_subprocess_env()
         try:
@@ -525,7 +534,7 @@ class _TwoPhaseCLIHand(Hand):
             )
         except FileNotFoundError as exc:
             fallback = self._fallback_command_when_not_found(cmd)
-            if fallback and fallback != cmd:
+            if fallback and fallback != cmd and _depth < self._MAX_CLI_RETRY_DEPTH:
                 await emit(
                     f"[{self._CLI_LABEL}] {cmd[0]!r} not found; "
                     f"retrying with {fallback[0]!r}.\n"
@@ -535,7 +544,9 @@ class _TwoPhaseCLIHand(Hand):
                         f"[{self._CLI_LABEL}] npx fallback may take a while on "
                         "first run while the package is downloaded.\n"
                     )
-                return await self._invoke_cli_with_cmd(fallback, emit=emit)
+                return await self._invoke_cli_with_cmd(
+                    fallback, emit=emit, _depth=_depth + 1
+                )
             raise RuntimeError(self._command_not_found_message(cmd[0])) from exc
 
         self._active_process = process
@@ -604,12 +615,18 @@ class _TwoPhaseCLIHand(Hand):
                         output=output,
                         return_code=return_code,
                     )
-                    if retry_cmd and retry_cmd != cmd:
+                    if (
+                        retry_cmd
+                        and retry_cmd != cmd
+                        and _depth < self._MAX_CLI_RETRY_DEPTH
+                    ):
                         await emit(
                             f"[{self._CLI_LABEL}] command failed; retrying with "
                             "adjusted arguments.\n"
                         )
-                        return await self._invoke_cli_with_cmd(retry_cmd, emit=emit)
+                        return await self._invoke_cli_with_cmd(
+                            retry_cmd, emit=emit, _depth=_depth + 1
+                        )
                     msg = self._build_failure_message(
                         return_code=return_code,
                         output=output,
@@ -680,6 +697,7 @@ class _TwoPhaseCLIHand(Hand):
         return combined_output
 
     async def _collect_run_output(self, prompt: str) -> str:
+        """Run the two-phase flow and return the concatenated output as a string."""
         chunks: list[str] = []
 
         async def _emit(chunk: str) -> None:

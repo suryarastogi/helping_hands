@@ -105,6 +105,9 @@ what the code does.
 - **No-op exception patterns**: Do not write `except Exception: raise` — it's a no-op that adds noise. Only catch exceptions when you handle or log them. (2026-03-01)
 - **Hand constructor type annotations**: Hand subclass constructors should use `Config` and `RepoIndex` types (via `TYPE_CHECKING` import) instead of `Any` — maintains type safety across the inheritance hierarchy. (2026-03-01)
 - **Config skills validation**: `Config.__post_init__` warns on unrecognized `enabled_skills` entries at config creation time, catching typos early. (2026-03-01)
+- **Exception specificity in CLI hands**: Catch specific exception types (`ValueError`, `TypeError`, `OSError`) instead of bare `except Exception` — preserves debuggability while still handling expected failure modes. (2026-03-01)
+- **Recursive retry depth limit**: `_invoke_cli_with_cmd` recursive retries (fallback + failure retry) are bounded by `_MAX_CLI_RETRY_DEPTH` (default 2) to prevent unbounded recursion if future backends chain multiple fallbacks. (2026-03-01)
+- **CLI hand stream/interrupt test coverage**: `stream()`, `interrupt()`, `reset_interrupt()`, and `_terminate_active_process()` now have dedicated unit tests covering happy path streaming, PR status inclusion, cooperative interruption, and subprocess termination. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -160,4 +163,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — Docstring completion (AI providers, skills runners, meta/tools helpers), Obsidian reconciliation, 569 total tests passing.*
+*Last updated: 2026-03-01 — CLI hand robustness (exception specificity, retry depth guard), private method docstrings, stream/interrupt test coverage, Obsidian reconciliation, 579 total tests passing.*
