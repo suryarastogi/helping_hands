@@ -29,7 +29,19 @@ def normalize_messages(prompt_or_messages: PromptInput) -> list[dict[str, str]]:
 
 
 class AIProvider(abc.ABC):
-    """Common provider wrapper interface with lazy inner client loading."""
+    """Common provider wrapper interface with lazy inner client loading.
+
+    Subclasses set three class-level attributes and implement two abstract
+    methods to plug a new LLM provider into helping_hands.
+
+    Attributes:
+        name: Short identifier for the provider (e.g. ``"openai"``,
+            ``"anthropic"``).  Used in logs and metadata.
+        api_key_env_var: Name of the environment variable that holds
+            the API key (e.g. ``"OPENAI_API_KEY"``).
+        default_model: Fallback model identifier when the caller does
+            not specify one (e.g. ``"gpt-5.2"``).
+    """
 
     name: str
     api_key_env_var: str

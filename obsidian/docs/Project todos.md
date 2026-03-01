@@ -50,3 +50,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - AGENT.md dependency table now clarifies that `redis` is a transitive dependency (via `celery[redis]`) and `croniter` is explicitly in `pyproject.toml` under the server extra.
 - MCP server `read_file` exception handler ordering fixed — `UnicodeError` (subclass of `ValueError`) now caught before `ValueError` for correct binary file error messages.
 - MCP server and server app internal helpers now have dedicated edge-case/unit tests (`test_mcp_server.py` +17, `test_server_app_helpers.py` +47), bringing total test count to 488.
+- All public `run()`/`stream()` methods across Hand implementations now have Google-style docstrings: `_BasicIterativeHand` (LangGraph), `BasicAtomicHand`, and `E2EHand`.
+- `AIProvider` base class docstring now documents all class attributes (`name`, `api_key_env_var`, `default_model`); `OllamaProvider` documents its extra attributes (`base_url_env_var`, `default_base_url`).

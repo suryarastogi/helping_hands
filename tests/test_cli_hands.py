@@ -85,9 +85,7 @@ class TestClaudeCodeHandSkipPermissions:
         ):
             assert hand._skip_permissions_enabled() is True
 
-    def test_disabled_for_root(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_disabled_for_root(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         with (
             patch.dict(
@@ -98,9 +96,7 @@ class TestClaudeCodeHandSkipPermissions:
         ):
             assert hand._skip_permissions_enabled() is False
 
-    def test_disabled_by_env_var(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_disabled_by_env_var(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         with patch.dict(
             "os.environ",
@@ -121,7 +117,9 @@ class TestClaudeCodeHandSkipPermissions:
     ) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         with patch.object(hand, "_skip_permissions_enabled", return_value=True):
-            cmd = hand._apply_backend_defaults(["npx", "-y", "@anthropic-ai/claude-code", "-p", "hello"])
+            cmd = hand._apply_backend_defaults(
+                ["npx", "-y", "@anthropic-ai/claude-code", "-p", "hello"]
+            )
             assert "--dangerously-skip-permissions" not in cmd
 
     def test_apply_backend_defaults_no_double_inject(
@@ -175,9 +173,7 @@ class TestClaudeCodeHandRetry:
         )
         assert result is None
 
-    def test_fallback_to_npx(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_fallback_to_npx(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         with patch("shutil.which", return_value="/usr/bin/npx"):
             result = hand._fallback_command_when_not_found(["claude", "-p", "hello"])
@@ -255,9 +251,7 @@ class TestClaudeCodeHandPermissionPromptDetection:
 class TestClaudeCodeHandNativeAuth:
     """Native CLI auth env name."""
 
-    def test_native_auth_env_names(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_native_auth_env_names(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         assert "ANTHROPIC_API_KEY" in hand._native_cli_auth_env_names()
 
@@ -280,9 +274,7 @@ class TestCodexCLIHandModel:
         hand = _make_hand(CodexCLIHand, cfg, repo_index)
         assert hand._resolve_cli_model() == "gpt-4o"
 
-    def test_normalize_bare_codex(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_normalize_bare_codex(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(CodexCLIHand, config, repo_index)
         result = hand._normalize_base_command(["codex"])
         assert result == ["codex", "exec"]
@@ -291,9 +283,7 @@ class TestCodexCLIHandModel:
 class TestCodexCLIHandSandbox:
     """Sandbox mode auto-detection."""
 
-    def test_host_sandbox_mode(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_host_sandbox_mode(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(CodexCLIHand, config, repo_index)
         with patch.object(Path, "exists", return_value=False):
             assert hand._auto_sandbox_mode() == "workspace-write"
@@ -330,9 +320,7 @@ class TestCodexCLIHandSandbox:
         self, config: Config, repo_index: RepoIndex
     ) -> None:
         hand = _make_hand(CodexCLIHand, config, repo_index)
-        cmd = hand._apply_codex_exec_sandbox_defaults(
-            ["codex", "chat", "do something"]
-        )
+        cmd = hand._apply_codex_exec_sandbox_defaults(["codex", "chat", "do something"])
         assert "--sandbox" not in cmd
 
     def test_sandbox_mode_env_override(
@@ -373,9 +361,7 @@ class TestCodexCLIHandGitRepoCheck:
         ):
             assert hand._skip_git_repo_check_enabled() is False
 
-    def test_skip_flag_injected(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_skip_flag_injected(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(CodexCLIHand, config, repo_index)
         with patch.object(hand, "_skip_git_repo_check_enabled", return_value=True):
             cmd = hand._apply_codex_exec_git_repo_check_defaults(
@@ -383,9 +369,7 @@ class TestCodexCLIHandGitRepoCheck:
             )
             assert "--skip-git-repo-check" in cmd
 
-    def test_skip_flag_not_doubled(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_skip_flag_not_doubled(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(CodexCLIHand, config, repo_index)
         with patch.object(hand, "_skip_git_repo_check_enabled", return_value=True):
             cmd = hand._apply_codex_exec_git_repo_check_defaults(
@@ -415,9 +399,7 @@ class TestCodexCLIHandFailureMessages:
 class TestCodexCLIHandNativeAuth:
     """Native CLI auth env name."""
 
-    def test_native_auth_env_names(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_native_auth_env_names(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(CodexCLIHand, config, repo_index)
         assert "OPENAI_API_KEY" in hand._native_cli_auth_env_names()
 
@@ -484,13 +466,22 @@ class TestGooseCLIHandOllamaHost:
     """Ollama host normalization."""
 
     def test_plain_host_gets_http_prefix(self) -> None:
-        assert GooseCLIHand._normalize_ollama_host("localhost:11434") == "http://localhost:11434"
+        assert (
+            GooseCLIHand._normalize_ollama_host("localhost:11434")
+            == "http://localhost:11434"
+        )
 
     def test_http_url_preserved(self) -> None:
-        assert GooseCLIHand._normalize_ollama_host("http://192.168.1.143:11434") == "http://192.168.1.143:11434"
+        assert (
+            GooseCLIHand._normalize_ollama_host("http://192.168.1.143:11434")
+            == "http://192.168.1.143:11434"
+        )
 
     def test_https_url_preserved(self) -> None:
-        assert GooseCLIHand._normalize_ollama_host("https://ollama.example.com") == "https://ollama.example.com"
+        assert (
+            GooseCLIHand._normalize_ollama_host("https://ollama.example.com")
+            == "https://ollama.example.com"
+        )
 
     def test_empty_returns_empty(self) -> None:
         assert GooseCLIHand._normalize_ollama_host("") == ""
@@ -518,9 +509,7 @@ class TestGooseCLIHandOllamaHost:
 class TestGooseCLIHandGitHubToken:
     """GitHub token requirement."""
 
-    def test_missing_token_raises(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_missing_token_raises(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(GooseCLIHand, config, repo_index)
         with (
             patch.dict("os.environ", {}, clear=True),
@@ -528,9 +517,7 @@ class TestGooseCLIHandGitHubToken:
         ):
             hand._build_subprocess_env()
 
-    def test_gh_token_mirrored(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_gh_token_mirrored(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(GooseCLIHand, config, repo_index)
         with patch.dict(
             "os.environ",
@@ -541,9 +528,7 @@ class TestGooseCLIHandGitHubToken:
             assert env["GH_TOKEN"] == "tok123"
             assert env["GITHUB_TOKEN"] == "tok123"
 
-    def test_github_token_mirrored(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_github_token_mirrored(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(GooseCLIHand, config, repo_index)
         with patch.dict(
             "os.environ",
@@ -567,9 +552,7 @@ class TestGooseCLIHandBackendDefaults:
         builtin_idx = cmd.index("--with-builtin")
         assert cmd[builtin_idx + 1] == "developer"
 
-    def test_builtin_not_doubled(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_builtin_not_doubled(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(GooseCLIHand, config, repo_index)
         cmd = hand._apply_backend_defaults(
             ["goose", "run", "--with-builtin", "developer", "--text", "hello"]
@@ -587,16 +570,12 @@ class TestGooseCLIHandBackendDefaults:
 class TestGooseCLIHandNormalizeBase:
     """Base command normalization."""
 
-    def test_bare_goose_expanded(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_bare_goose_expanded(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(GooseCLIHand, config, repo_index)
         result = hand._normalize_base_command(["goose"])
         assert result == ["goose", "run", "--with-builtin", "developer", "--text"]
 
-    def test_goose_run_expanded(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_goose_run_expanded(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(GooseCLIHand, config, repo_index)
         result = hand._normalize_base_command(["goose", "run"])
         assert result == ["goose", "run", "--with-builtin", "developer", "--text"]
@@ -622,13 +601,21 @@ class TestGooseCLIHandProviderInference:
     """Provider inference from model name."""
 
     def test_claude_infers_anthropic(self) -> None:
-        assert GooseCLIHand._infer_goose_provider_from_model("claude-3-5-sonnet") == "anthropic"
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("claude-3-5-sonnet")
+            == "anthropic"
+        )
 
     def test_gemini_infers_google(self) -> None:
-        assert GooseCLIHand._infer_goose_provider_from_model("gemini-2.0-flash") == "google"
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("gemini-2.0-flash")
+            == "google"
+        )
 
     def test_llama_infers_ollama(self) -> None:
-        assert GooseCLIHand._infer_goose_provider_from_model("llama3.2:latest") == "ollama"
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("llama3.2:latest") == "ollama"
+        )
 
     def test_gpt_infers_openai(self) -> None:
         assert GooseCLIHand._infer_goose_provider_from_model("gpt-5.2") == "openai"
@@ -739,9 +726,7 @@ class TestGeminiCLIHandModelNotFound:
         assert result is not None
         assert "--model" not in result
 
-    def test_no_retry_on_success(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_no_retry_on_success(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(GeminiCLIHand, config, repo_index)
         result = hand._retry_command_after_failure(
             ["gemini", "--model", "ok", "-p", "hello"],
@@ -816,18 +801,14 @@ class TestTwoPhaseCLIHandBase:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         assert hand._truncate_summary("hello", limit=100) == "hello"
 
-    def test_truncate_summary_long(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_truncate_summary_long(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         long_text = "x" * 200
         result = hand._truncate_summary(long_text, limit=50)
         assert len(result) < 200
         assert "truncated" in result
 
-    def test_is_truthy_values(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_is_truthy_values(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         assert hand._is_truthy("1") is True
         assert hand._is_truthy("true") is True
@@ -846,17 +827,13 @@ class TestTwoPhaseCLIHandBase:
         assert hand._looks_like_edit_request("Fix the bug in X") is True
         assert hand._looks_like_edit_request("Tell me about Python") is False
 
-    def test_float_env_default(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_float_env_default(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         with patch.dict("os.environ", {}, clear=False):
             result = hand._float_env("NONEXISTENT_VAR", default=42.0)
             assert result == 42.0
 
-    def test_float_env_valid(
-        self, config: Config, repo_index: RepoIndex
-    ) -> None:
+    def test_float_env_valid(self, config: Config, repo_index: RepoIndex) -> None:
         hand = _make_hand(ClaudeCodeHand, config, repo_index)
         with patch.dict("os.environ", {"TEST_FLOAT": "3.5"}):
             result = hand._float_env("TEST_FLOAT", default=1.0)

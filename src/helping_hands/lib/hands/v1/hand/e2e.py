@@ -90,6 +90,24 @@ class E2EHand(Hand):
         pr_number: int | None = None,
         dry_run: bool = False,
     ) -> HandResponse:
+        """Execute the full clone-branch-edit-commit-push-PR workflow.
+
+        Clones the target GitHub repository, creates (or resumes) a feature
+        branch, writes an ``HELPING_HANDS_E2E.md`` marker file, commits, pushes,
+        and opens or updates a pull request.
+
+        Args:
+            prompt: The task description used in commit messages and PR body.
+            hand_uuid: Optional UUID for the hand run; auto-generated if omitted.
+            pr_number: If set, resume an existing PR instead of creating a new one.
+            dry_run: When ``True``, skip push and PR creation.
+
+        Returns:
+            A ``HandResponse`` with the commit SHA, PR URL, and run metadata.
+
+        Raises:
+            ValueError: If ``config.repo`` is empty.
+        """
         from helping_hands.lib.github import GitHubClient
 
         repo = self.config.repo.strip()
@@ -236,4 +254,16 @@ class E2EHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the E2E workflow result as a single-chunk async iterator.
+
+        Delegates to ``run()`` and yields the complete response message.
+        E2E operations are inherently non-incremental (clone/push/PR are
+        atomic), so streaming emits a single chunk.
+
+        Args:
+            prompt: The task description passed through to ``run()``.
+
+        Yields:
+            The full response message from the synchronous ``run()`` call.
+        """
         yield self.run(prompt).message

@@ -545,6 +545,19 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the iterative LangGraph agent loop synchronously.
+
+        Runs up to ``max_iterations`` LangGraph invoke calls, applying inline
+        file edits and tool requests between iterations. The loop terminates
+        early when the model signals satisfaction or an interrupt is received.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Returns:
+            A ``HandResponse`` with the final message transcript and metadata
+            including iteration count, completion status, and any PR info.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -611,6 +624,19 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the iterative LangGraph agent loop as an async iterator.
+
+        Yields progress markers, model output tokens, file-update
+        notifications, and tool-result feedback as they arrive. The loop
+        runs up to ``max_iterations`` and terminates early on satisfaction
+        or interruption.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Yields:
+            Incremental text chunks representing the agent's progress.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -744,6 +770,19 @@ class BasicAtomicHand(_BasicIterativeHand):
         return str(response)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the iterative Atomic Agents loop synchronously.
+
+        Runs up to ``max_iterations`` Atomic Agents calls, applying inline
+        file edits and tool requests between iterations. The loop terminates
+        early when the model signals satisfaction or an interrupt is received.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Returns:
+            A ``HandResponse`` with the final message transcript and metadata
+            including iteration count, completion status, and any PR info.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -808,6 +847,19 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the iterative Atomic Agents loop as an async iterator.
+
+        Yields progress markers, model output tokens, file-update
+        notifications, and tool-result feedback as they arrive. Falls back
+        to synchronous ``run`` via ``asyncio.to_thread`` when the Atomic
+        SDK does not support native async streaming.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Yields:
+            Incremental text chunks representing the agent's progress.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
