@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
+__all__ = ["AtomicHand"]
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex

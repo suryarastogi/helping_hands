@@ -109,7 +109,7 @@ what the code does.
 - **Recursive retry depth limit**: `_invoke_cli_with_cmd` recursive retries (fallback + failure retry) are bounded by `_MAX_CLI_RETRY_DEPTH` (default 2) to prevent unbounded recursion if future backends chain multiple fallbacks. (2026-03-01)
 - **CLI hand stream/interrupt test coverage**: `stream()`, `interrupt()`, `reset_interrupt()`, and `_terminate_active_process()` now have dedicated unit tests covering happy path streaming, PR status inclusion, cooperative interruption, and subprocess termination. (2026-03-01)
 - **Server health check exception patterns**: Health check and Celery inspect boundary guards use `except Exception as e:` (not bare `except Exception:`) with enriched log messages that include the exception value. GitHub fallback paths in `e2e.py` and `base.py` catch `RuntimeError` specifically (matching what `GitHubClient.get_repo`/`default_branch` raise). (2026-03-01)
-- **Module `__all__` exports**: All 30+ source modules with public API surfaces now declare `__all__` — including all 5 AI provider wrappers, all 5 CLI hand modules, all 3 meta tools modules, `langgraph.py`, `default_prompts.py`, `cli/main.py`, and all 3 server modules. Total: 38 modules with `__all__` across the project. (2026-03-01)
+- **Module `__all__` exports**: All source modules with public API surfaces now declare `__all__` — including all 5 AI provider wrappers, all 5 CLI hand modules, all 3 meta tools modules, `langgraph.py`, `atomic.py`, `iterative.py`, `default_prompts.py`, `cli/main.py`, and all 3 server modules. Total: 40 modules with `__all__` across the project. (2026-03-01)
 - **Validation test coverage**: `lib/validation.py` now has a dedicated `test_validation.py` with edge-case coverage for all three public functions (`parse_str_list`, `parse_positive_int`, `parse_optional_str`), complementing indirect coverage from skills/config tests. (2026-03-01)
 - **E2EHand helper test coverage**: Static helpers (`_safe_repo_dir`, `_work_base`, `_configured_base_branch`, `_draft_pr_enabled`, `_build_e2e_pr_body`, `_build_e2e_pr_comment`) now have unit tests in `test_e2e_helpers.py` that run without GitHub credentials. (2026-03-01)
 
@@ -167,4 +167,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — Module `__all__` exports expanded from 11 to 38 modules, docstring completion (15 helpers), test_validation.py + E2EHand helper tests + model_provider expansion, Obsidian Concepts.md reconciliation, 624 total tests passing.*
+*Last updated: 2026-03-01 — Module `__all__` exports expanded to 40 modules (added `atomic.py`, `iterative.py`). Cross-surface doc reconciliation (test counts, API page counts). 624 total tests passing.*

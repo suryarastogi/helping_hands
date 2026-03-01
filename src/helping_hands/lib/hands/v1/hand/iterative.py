@@ -36,6 +36,8 @@ from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import web as system_web_tools
 
+__all__ = ["BasicAtomicHand", "BasicLangGraphHand"]
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
