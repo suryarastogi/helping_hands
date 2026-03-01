@@ -9,6 +9,11 @@ Design notes and progress for the **helping_hands** project. The repo README is 
 - [[Architecture]] — How the pieces fit (high-level; details in repo)
 - [[Project todos]] — Checklist and design notes (canonical list: repo root `TODO.md`)
 
+## PRDs
+
+- [[Completed PRDs]] — Index of all completed product requirement documents (with TODO checklists and activity logs)
+- `active/` directory (repo root) — PRDs currently in progress
+
 ## Project Log
 
 - [[Project Log]] — Weekly progress: how it works and where to add yours (latest week linked there)

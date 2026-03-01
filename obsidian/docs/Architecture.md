@@ -15,6 +15,7 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 ## Layers (shared)
 
 1. **Config** (`Config.from_env`) — Loads `.env` from cwd and target repo (when local), merges env + CLI overrides.
+1b. **Validation utilities** (`lib.validation`) — Shared payload validation helpers (`parse_str_list`, `parse_positive_int`, `parse_optional_str`) used by iterative hands and skills for typed argument extraction with clear error messages. Extracted to avoid duplication across modules.
 2. **Repo index** (`RepoIndex`) — Builds a file map from local repos; in E2E flow, repo content is acquired via Git clone first.
 3. **Hand backend** (`Hand` + implementations) — Common protocol with `E2EHand`, `LangGraphHand`, `AtomicHand`, basic iterative hands, and CLI-backed hands.
    - Current code shape is a package module: `lib/hands/v1/hand/` with 12 implementation files (`base.py`, `iterative.py`, `langgraph.py`, `atomic.py`, `e2e.py`, `model_provider.py`, `pr_description.py`, `cli/base.py`, `cli/claude.py`, `cli/codex.py`, `cli/goose.py`, `cli/gemini.py`) + 1 package surface (`__init__.py`) + 1 backward-compat shim (`placeholders.py`). Note: `basic-agent` is a backend alias that routes to `BasicAtomicHand` at runtime. All 14 modules have dedicated MkDocs API doc pages (36 total across the project).

@@ -19,6 +19,11 @@ All major milestones are complete. Two CI items remain intentionally deferred:
 - CI type check step: `ty` is in pre-commit but lacks a stable non-hook CI runner
 - Build/publish pipeline: project is pre-1.0 beta
 
+**PRD workflow:**
+- In-progress PRDs live in `active/` (repo root).
+- Completed PRDs are moved to `completed/` with a datetime-stamped, semantic filename.
+- See [[Completed PRDs]] for the full index.
+
 ## Design notes
 
 Key architectural decisions and implementation notes. For the full list of recurring decisions, see the root [`AGENT.md`](../../AGENT.md).

@@ -323,6 +323,7 @@ helping_hands/
 │   │   ├── repo.py
 │   │   ├── github.py
 │   │   ├── default_prompts.py
+│   │   ├── validation.py      # Shared payload validation helpers
 │   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
 │   │   │   ├── __init__.py
 │   │   │   ├── openai.py
@@ -736,6 +737,14 @@ services if they are not set in `.env`:
 - `CELERY_RESULT_BACKEND=redis://redis:6379/1`
 - `HELPING_HANDS_FLOWER_API_URL=http://flower:5555` (server-side `/tasks/current`
   discovery path)
+
+## Design documentation
+
+- **[obsidian/docs/](obsidian/docs/)** — Obsidian vault with vision, architecture, concepts, and weekly project log
+- **[docs/](docs/)** — MkDocs API reference (auto-generated from docstrings; [browse online](https://suryarastogi.github.io/helping_hands/))
+- **[completed/](completed/)** — Completed PRDs with TODO checklists and activity logs
+- **[AGENT.md](AGENT.md)** — AI agent guidelines (self-updating; code style, design preferences, recurring decisions)
+- **[CLAUDE.md](CLAUDE.md)** — Claude Code CLI-specific build/dev commands and conventions
 
 ## License
 
