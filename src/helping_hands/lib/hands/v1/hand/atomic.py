@@ -10,9 +10,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+if TYPE_CHECKING:
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     resolve_hand_model,
@@ -25,7 +29,7 @@ class AtomicHand(Hand):
     Requires the ``atomic`` extra to be installed.
     """
 
-    def __init__(self, config: Any, repo_index: Any) -> None:
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         super().__init__(config, repo_index)
         self._input_schema: type[Any] = None  # type: ignore[assignment]
         self._hand_model = resolve_hand_model(self.config.model)
@@ -90,8 +94,6 @@ class AtomicHand(Hand):
                 parts.append(text)
                 yield text
             async_result = None
-        except Exception:
-            raise
         if async_result is None:
             pass
         elif hasattr(async_result, "__aiter__"):

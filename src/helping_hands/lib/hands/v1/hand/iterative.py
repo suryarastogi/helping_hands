@@ -19,9 +19,13 @@ import re
 import shlex
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+if TYPE_CHECKING:
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     build_langchain_chat_model,
@@ -61,8 +65,8 @@ class _BasicIterativeHand(Hand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -509,8 +513,8 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -723,8 +727,8 @@ class BasicAtomicHand(_BasicIterativeHand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -899,8 +903,6 @@ class BasicAtomicHand(_BasicIterativeHand):
                 if delta:
                     yield delta
                 async_result = None
-            except Exception:
-                raise
             if async_result is not None and hasattr(async_result, "__aiter__"):
                 async for partial in async_result:
                     if self._is_interrupted():

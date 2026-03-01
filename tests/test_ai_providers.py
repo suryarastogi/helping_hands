@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import sys
 from typing import Any
+from unittest import mock
+
+import pytest
 
 from helping_hands.lib.ai_providers import (
     ANTHROPIC_PROVIDER,
@@ -163,3 +168,164 @@ def test_ollama_provider_complete_uses_inner_client() -> None:
     assert result == {"ok": True}
     assert calls["model"] == "llama3.2:latest"
     assert calls["messages"] == [{"role": "user", "content": "hello"}]
+
+
+# --------------- Provider attribute tests ---------------
+
+
+@pytest.mark.parametrize(
+    ("provider", "name", "env_var", "default_model", "hint"),
+    [
+        (OPENAI_PROVIDER, "openai", "OPENAI_API_KEY", "gpt-5.2", "uv add openai"),
+        (
+            ANTHROPIC_PROVIDER,
+            "anthropic",
+            "ANTHROPIC_API_KEY",
+            "claude-3-5-sonnet-latest",
+            "uv add anthropic",
+        ),
+        (
+            GOOGLE_PROVIDER,
+            "google",
+            "GOOGLE_API_KEY",
+            "gemini-2.0-flash",
+            "uv add google-genai",
+        ),
+        (
+            OLLAMA_PROVIDER,
+            "ollama",
+            "OLLAMA_API_KEY",
+            "llama3.2:latest",
+            "uv add openai",
+        ),
+        (
+            LITELLM_PROVIDER,
+            "litellm",
+            "LITELLM_API_KEY",
+            "gpt-5.2",
+            "uv add litellm",
+        ),
+    ],
+)
+def test_provider_attributes(
+    provider: AIProvider,
+    name: str,
+    env_var: str,
+    default_model: str,
+    hint: str,
+) -> None:
+    assert provider.name == name
+    assert provider.api_key_env_var == env_var
+    assert provider.default_model == default_model
+    assert provider.install_hint == hint
+
+
+# --------------- _build_inner ImportError tests ---------------
+
+
+def test_openai_build_inner_import_error() -> None:
+    provider = OpenAIProvider()
+    with (
+        mock.patch.dict(sys.modules, {"openai": None}),
+        pytest.raises(RuntimeError, match="OpenAI SDK is not installed"),
+    ):
+        provider._build_inner()
+
+
+def test_anthropic_build_inner_import_error() -> None:
+    provider = AnthropicProvider()
+    with (
+        mock.patch.dict(sys.modules, {"anthropic": None}),
+        pytest.raises(RuntimeError, match="Anthropic SDK is not installed"),
+    ):
+        provider._build_inner()
+
+
+def test_google_build_inner_import_error() -> None:
+    provider = GoogleProvider()
+    with (
+        mock.patch.dict(sys.modules, {"google": None, "google.genai": None}),
+        pytest.raises(RuntimeError, match="Google GenAI SDK is not installed"),
+    ):
+        provider._build_inner()
+
+
+def test_litellm_build_inner_import_error() -> None:
+    provider = LiteLLMProvider()
+    with (
+        mock.patch.dict(sys.modules, {"litellm": None}),
+        pytest.raises(RuntimeError, match="LiteLLM is not installed"),
+    ):
+        provider._build_inner()
+
+
+def test_ollama_build_inner_import_error() -> None:
+    provider = OllamaProvider()
+    with (
+        mock.patch.dict(sys.modules, {"openai": None}),
+        pytest.raises(RuntimeError, match="OpenAI SDK is not installed"),
+    ):
+        provider._build_inner()
+
+
+# --------------- Lazy inner initialization ---------------
+
+
+def test_inner_property_lazy_initialization() -> None:
+    provider = _FakeProvider()
+    assert provider._inner is None
+    inner = provider.inner
+    assert inner == {"client": "fake"}
+    assert provider._inner is inner
+    # Second access returns same object
+    assert provider.inner is inner
+
+
+def test_inner_property_uses_injected_value() -> None:
+    injected = {"client": "custom"}
+    provider = _FakeProvider(inner=injected)
+    assert provider.inner is injected
+
+
+# --------------- complete with explicit model ---------------
+
+
+def test_complete_with_explicit_model() -> None:
+    provider = _FakeProvider(inner={"client": "test"})
+    result = provider.complete("work", model="custom-model")
+    assert result["model"] == "custom-model"
+
+
+# --------------- acomplete async wrapper ---------------
+
+
+def test_acomplete_calls_complete() -> None:
+    provider = _FakeProvider(inner={"client": "test"})
+    result = asyncio.run(provider.acomplete("async work"))
+    assert result["messages"] == [{"role": "user", "content": "async work"}]
+    assert result["model"] == "fake-model"
+
+
+# --------------- Ollama URL configuration ---------------
+
+
+def test_ollama_provider_default_base_url() -> None:
+    assert OllamaProvider.base_url_env_var == "OLLAMA_BASE_URL"
+    assert OllamaProvider.default_base_url == "http://localhost:11434/v1"
+
+
+# --------------- normalize_messages edge cases ---------------
+
+
+def test_normalize_messages_empty_sequence() -> None:
+    assert normalize_messages([]) == []
+
+
+def test_normalize_messages_missing_role() -> None:
+    result = normalize_messages([{"content": "hi"}])
+    assert result == [{"role": "user", "content": "hi"}]
+
+
+def test_normalize_messages_missing_content() -> None:
+    result = normalize_messages([{"role": "assistant"}])
+    assert result == [{"role": "assistant", "content": ""}]

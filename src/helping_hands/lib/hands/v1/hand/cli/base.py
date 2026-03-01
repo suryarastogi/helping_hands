@@ -9,9 +9,13 @@ import shutil
 import subprocess
 from collections.abc import AsyncIterator
 from contextlib import suppress
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+if TYPE_CHECKING:
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 
 
 class _TwoPhaseCLIHand(Hand):
@@ -35,7 +39,7 @@ class _TwoPhaseCLIHand(Hand):
     class _Emitter(Protocol):
         async def __call__(self, chunk: str) -> None: ...
 
-    def __init__(self, config: Any, repo_index: Any) -> None:
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         super().__init__(config, repo_index)
         self._active_process: asyncio.subprocess.Process | None = None
 

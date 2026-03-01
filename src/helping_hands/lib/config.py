@@ -52,6 +52,20 @@ def _validate_model(model: str) -> None:
         )
 
 
+def _validate_skills(skills: tuple[str, ...]) -> None:
+    """Warn on unrecognized skill names at config time."""
+    if not skills:
+        return
+    known = meta_skills.available_skill_names()
+    unknown = [s for s in skills if s not in known]
+    if unknown:
+        logger.warning(
+            "Unrecognized skill(s): %s; available: %s",
+            ", ".join(sorted(unknown)),
+            ", ".join(known),
+        )
+
+
 def _load_env_files(repo: str | None = None) -> None:
     """Load dotenv files from cwd and target repo (if available)."""
     if load_dotenv is None:
@@ -88,6 +102,7 @@ class Config:
         """
         _validate_repo(self.repo)
         _validate_model(self.model)
+        _validate_skills(self.enabled_skills)
 
     @classmethod
     def from_env(cls, overrides: dict[str, ConfigValue] | None = None) -> Config:

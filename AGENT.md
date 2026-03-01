@@ -102,6 +102,9 @@ what the code does.
 - **PyPI classifiers**: `pyproject.toml` includes standard classifiers for Python versions (3.12–3.14), license (Apache-2.0), topics, and typing. (2026-03-01)
 - **MkDocs hand documentation**: All 13 Hand implementation modules now have individual MkDocs API doc pages (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, cli/base, cli/claude, cli/codex, cli/goose, cli/gemini) — not just the package-level `__init__.py`. (2026-03-01)
 - **CLI hand base docstrings**: `_TwoPhaseCLIHand` public/semi-public methods now have Google-style docstrings for mkdocstrings completeness (`run()`, `stream()`, `interrupt()`, command resolution, container wrapping, subprocess env, auth, retry/fallback hooks). (2026-03-01)
+- **No-op exception patterns**: Do not write `except Exception: raise` — it's a no-op that adds noise. Only catch exceptions when you handle or log them. (2026-03-01)
+- **Hand constructor type annotations**: Hand subclass constructors should use `Config` and `RepoIndex` types (via `TYPE_CHECKING` import) instead of `Any` — maintains type safety across the inheritance hierarchy. (2026-03-01)
+- **Config skills validation**: `Config.__post_init__` warns on unrecognized `enabled_skills` entries at config creation time, catching typos early. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -157,4 +160,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — MkDocs hand documentation expanded to 13 individual module pages, CLI hand base docstrings completed, cross-surface doc reconciliation.*
+*Last updated: 2026-03-01 — Type safety hardening (concrete types in hand constructors), error handling cleanup, AI provider test expansion (10→28 tests), config skills validation, 510 total tests passing.*
