@@ -17,8 +17,8 @@
     - [x] Install with uv, run tests (Python 3.12, 3.13, 3.14)
     - [x] ruff check + ruff format
     - [x] Coverage reporting (`pytest-cov`) + XML upload to Codecov (Python 3.12 job)
-    - [ ] Type check step (add when ty has a stable CI runner)
-    - [ ] Optional: build/publish or deploy steps
+    - [ ] Type check step — deferred: `ty` is in pre-commit but lacks a stable non-hook CI runner; revisit when ty publishes a GA release
+    - [ ] Optional: build/publish or deploy steps — deferred: project is pre-1.0 beta; no PyPI publish pipeline yet
 - [x] **Tests**
   - [x] `tests/` layout with test files for lib and cli (suite maintained and passing in CI)
   - [x] pytest as runner, configured in `pyproject.toml`

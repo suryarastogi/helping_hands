@@ -4,57 +4,64 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 ## Summary (from TODO.md)
 
-1. **Set up Python project** under `src/helping_hands`:
-   - **Layout:** `lib/` (core), `cli/` (CLI, uses lib), `server/` (app mode, uses lib)
-   - **Tooling:** uv, ruff, `ty` type checking, pre-commit
-   - **CI/CD:** Push/PR pipeline runs uv sync, tests, Ruff; E2E integration is opt-in and push-safe in matrix
-   - **Tests:** pytest under `tests/`, run in CI
+All major milestones are complete. Two CI items remain intentionally deferred:
 
-2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
+1. **Set up Python project** — complete (layout, tooling, CI/CD, tests)
+2. **Dockerise app mode** — complete (Dockerfile, Compose, all services)
+3. **Autodocs** — complete (MkDocs Material + mkdocstrings, 35 API pages, GitHub Pages)
+4. **Hand backends** — complete (E2E, iterative, all 4 CLI hands, cron scheduling, hardening)
+5. **MCP server** — complete (filesystem, execution, web, build, config tools)
+6. **Skills system** — complete (normalization, validation, prompt injection)
+7. **React frontend** — complete (task submission, monitoring, world view)
+8. **Additional features** — complete (PR description, verbose logging, config/API validation, exception hardening)
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+**Deferred:**
+- CI type check step: `ty` is in pre-commit but lacks a stable non-hook CI runner
+- Build/publish pipeline: project is pre-1.0 beta
 
 ## Design notes
 
-- E2E PR updates are now treated as **state refresh**: live runs update both PR body and marker comment with latest timestamp/commit/prompt.
-- CI integration policy: only `master` + Python `3.13` performs live push/update; other matrix jobs force dry-run to avoid PR branch race conditions.
-- Pre-commit now includes `ty` for type checks; current rule ignores are intentional until optional backend imports/protocol signatures are tightened.
-- Basic iterative backends now default to a final commit/push/PR step; explicit `--no-pr` disables side effects (and maps to dry-run for E2E).
-- Non-E2E CLI supports `owner/repo` input by cloning to temporary workspace before indexing/iteration.
-- Hand internals were split from a single `hand.py` into a package module (`lib/hands/v1/hand/`); shared filesystem system tools now live in `lib/meta/tools/filesystem.py` and are also exposed via MCP filesystem tools.
-- Provider routing is now centralized in `lib/ai_providers/` plus `lib/hands/v1/hand/model_provider.py`, replacing direct provider client construction in hands.
-- Basic iterative hands now preload iteration-1 context from `README.md`, `AGENT.md`, and a bounded file-tree snapshot.
-- CI and local test runs now include coverage reporting (`pytest-cov`), and README shows a Codecov badge.
-- App-mode monitoring now supports both JS polling (`/tasks/{task_id}`) and a no-JS fallback monitor (`/monitor/{task_id}` with auto-refresh), reducing browser-dependent failures.
-- Monitor UI now uses fixed-size task/status/update/payload cells with in-cell scrolling to keep layout stable during polling.
-- `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
-- `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
-- Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
-- `goose` and `geminicli` CLI backends are now fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls, and auto-derived provider/model env wiring.
-- Cron-scheduled submissions are now supported via `ScheduleManager` (RedBeat + Redis metadata) with server CRUD endpoints and a `scheduled_build` Celery task.
-- `ollama` provider wrapper added to `lib/ai_providers/`, completing the five-provider set (openai, anthropic, google, litellm, ollama).
-- `lib/meta/tools/filesystem.py` now has comprehensive test coverage (40 tests in `test_meta_tools_filesystem.py`): path traversal prevention, symlink escape rejection, read/write/mkdir/exists operations, and truncation behavior.
-- All CLI hand methods with non-trivial business logic now have Google-style docstrings for mkdocstrings API reference completeness.
-- GitHub API calls in `github.py` are now wrapped with `GithubException` handling — clear error messages with HTTP status, detail, and actionable hints (auth, rate limits, 404s, validation failures).
-- E2E hardening complete: branch collision handling (switch to existing branch instead of failing), optional draft PR mode (`HELPING_HANDS_DRAFT_PR` env var), and idempotency guard (detect/reuse existing open PR for head branch via `find_open_pr_for_branch`).
-- `Config` now validates `repo` format (filesystem path or `owner/repo` pattern) and warns on unexpected `model` name patterns via `__post_init__`.
-- `BuildRequest` and `ScheduleRequest` now validate input at the API boundary: `repo_path` and `prompt` require `min_length=1`, `max_iterations` has `ge=1, le=100`, `pr_number` has `ge=1`, and `ScheduleRequest.cron_expression` validates syntax via `croniter`.
-- Health check functions (`_check_redis_health`, `_check_db_health`, `_check_workers_health`, `_resolve_worker_capacity`) now log exceptions at warning level with full traceback for production observability.
-- Obsidian `AGENT.md` is now a conventions summary for vault readers instead of a bare redirect.
-- `ScheduleManager` now has comprehensive unit tests (22 tests with mocked Redis/RedBeat) covering CRUD, enable/disable, record_run, and trigger_now.
-- Celery helper functions (`_redact_sensitive`, `_github_clone_url`, `_repo_tmp_dir`, `_trim_updates`, `_append_update`, `_UpdateCollector`) now have unit tests.
-- Skills payload runner functions (`_run_python_code`, `_run_python_script`, `_run_bash_script`, `_run_web_search`, `_run_web_browse`) and internal parse helpers now have validation tests.
-- `_run_bash_script()` now validates that at least one of `script_path`/`inline_script` is a non-empty string (previously accepted empty payloads).
-- `default_prompts.py` is now documented in MkDocs API reference (`docs/api/lib/default_prompts.md` + `mkdocs.yml` nav).
-- All four CLI hand implementations (`claude.py`, `codex.py`, `goose.py`, `gemini.py`) now have dedicated unit tests in `tests/test_cli_hands.py` covering model filtering, auth detection, fallback/retry logic, failure parsing, sandbox auto-detection, and provider injection. `placeholders.py` and `default_prompts.py` also have test files.
-- AGENT.md dependency table now clarifies that `redis` is a transitive dependency (via `celery[redis]`) and `croniter` is explicitly in `pyproject.toml` under the server extra.
-- MCP server `read_file` exception handler ordering fixed — `UnicodeError` (subclass of `ValueError`) now caught before `ValueError` for correct binary file error messages.
-- MCP server and server app internal helpers now have dedicated edge-case/unit tests (`test_mcp_server.py` +17, `test_server_app_helpers.py` +47), bringing total test count to 488.
-- All public `run()`/`stream()` methods across Hand implementations now have Google-style docstrings: `_BasicIterativeHand` (LangGraph), `BasicAtomicHand`, and `E2EHand`.
-- `AIProvider` base class docstring now documents all class attributes (`name`, `api_key_env_var`, `default_model`); `OllamaProvider` documents its extra attributes (`base_url_env_var`, `default_base_url`).
-- CLI `--verbose` flag now wires to `logging.basicConfig()` in `main()` — DEBUG when verbose, WARNING otherwise. Previously the flag was accepted but had no effect.
-- Silent `except Exception: pass` blocks in `base.py`, `claude.py`, `e2e.py` replaced with `logger.debug(..., exc_info=True)` for debuggability without changing control flow.
-- Server Celery inspect helpers (`_safe_inspect_call`, `_collect_celery_current_tasks`) now log at DEBUG before returning sentinels.
-- `pyproject.toml` now includes standard PyPI classifiers (Python 3.12–3.14, Apache-2.0, topics, typing).
-- MkDocs API documentation now covers all 13 Hand implementation modules individually (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, plus 5 CLI hand modules). Previously only the package-level `__init__.py` had a doc page.
-- `_TwoPhaseCLIHand` (CLI hand base class) now has Google-style docstrings on all public/semi-public methods — `run()`, `stream()`, `interrupt()`, `_base_command()`, `_resolve_cli_model()`, `_render_command()`, `_container_image()`, `_wrap_container_if_enabled()`, `_build_subprocess_env()`, etc.
+Key architectural decisions and implementation notes. For the full list of recurring decisions, see the root [`AGENT.md`](../../AGENT.md).
+
+### Core execution model
+
+- Hand internals split into a package module (`lib/hands/v1/hand/`); avoid regressing to monolithic `hand.py`.
+- Basic iterative backends default to a final commit/push/PR step; `--no-pr` disables side effects (maps to dry-run for E2E).
+- Iterative hands preload iteration-1 context from `README.md`, `AGENT.md`, and a bounded file-tree snapshot.
+- Provider routing centralized in `lib/ai_providers/` + `model_provider.py`; five providers: openai, anthropic, google, litellm, ollama.
+- System file operations route through `lib/meta/tools/filesystem.py` for path safety; MCP filesystem tools share the same layer.
+
+### E2E and PR semantics
+
+- E2E PR updates are **state refresh**: live runs update both PR body and marker comment with latest timestamp/commit/prompt.
+- Branch collision handling: switch to existing branch instead of failing.
+- Draft PR mode (`HELPING_HANDS_DRAFT_PR`), idempotency guard (`find_open_pr_for_branch`).
+- GitHub API calls wrapped with `GithubException` handling — clear error messages with actionable hints.
+
+### CLI backends
+
+- All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls.
+- `claudecodecli`: edit-enforcement retry, `npx` fallback, non-interactive permissions skip.
+- `goose`: auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL`, auto-injected `--with-builtin developer`.
+- `geminicli`: `--approval-mode auto_edit`, model-unavailable retry.
+
+### App mode and scheduling
+
+- Compose file is `compose.yaml` with default in-network Redis/Celery URLs when `.env` is sparse.
+- Monitoring: JS polling + no-JS fallback with fixed-size monitor cells.
+- Cron scheduling via `ScheduleManager` (RedBeat + Redis metadata) with CRUD endpoints.
+- React frontend wraps task submission/monitoring with backend selection, world view, and keyboard navigation.
+
+### Validation and observability
+
+- `Config.__post_init__` validates repo format and model name patterns.
+- `BuildRequest`/`ScheduleRequest` validate input at the API boundary (bounds, cron syntax).
+- Health check exceptions logged at warning level with `exc_info=True`.
+- CLI `--verbose` wires to `logging.basicConfig()`; silent exception blocks use `logger.debug()`.
+
+### Documentation and testing
+
+- MkDocs: 35 API doc pages covering all 13 Hand modules individually plus all subsystems.
+- Docstrings: Google-style on all public methods; `_TwoPhaseCLIHand`, `AIProvider`, and all `run()`/`stream()` methods documented.
+- Tests: 488 tests covering filesystem (40), CLI hands (75+), schedule manager (22), Celery helpers (15), skills (30), MCP (17), server app (47).
+- PEP 561: `py.typed` marker + `Typing :: Typed` classifier in `pyproject.toml`.
