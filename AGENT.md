@@ -95,6 +95,7 @@ what the code does.
 - **API request validation**: `BuildRequest` and `ScheduleRequest` validate input at the API boundary (`min_length`, `ge`/`le` bounds) and `ScheduleRequest` validates cron expression syntax via `croniter`. (2026-03-01)
 - **Health check observability**: Health check exceptions should be logged at warning level with `exc_info=True` for production debugging — never silently swallowed. (2026-03-01)
 - **Skills payload validation**: Skill runner functions (`_run_bash_script`, etc.) must validate required fields before passing to underlying tools — reject empty/missing payloads at the validation layer, not downstream. (2026-03-01)
+- **CLI hand test coverage**: All four CLI hand implementations (`claude.py`, `codex.py`, `goose.py`, `gemini.py`) now have dedicated unit tests covering model filtering/resolution, auth detection, fallback/retry strategies, failure message parsing, and backend defaults injection. `placeholders.py` and `default_prompts.py` also have tests. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -124,8 +125,8 @@ what the code does.
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 | celery-redbeat | server | Redis-backed cron scheduler for Celery Beat |
-| croniter | server | Cron expression parsing and next-run calculation |
-| redis | server | Redis client (used by ScheduleManager for metadata persistence) |
+| croniter | server | Cron expression parsing and next-run calculation (in `pyproject.toml` server extra) |
+| redis | server (transitive) | Redis client — provided transitively via `celery[redis]`, not a direct dependency in `pyproject.toml` |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
 
 ---
@@ -150,4 +151,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — Test coverage expansion: ScheduleManager unit tests, Celery helper tests, skills payload runner validation tests, bash script validation fix, documentation reconciliation.*
+*Last updated: 2026-03-01 — CLI hand test coverage (claude, codex, goose, gemini), placeholders and default_prompts tests, dependency table reconciliation, documentation surface alignment.*

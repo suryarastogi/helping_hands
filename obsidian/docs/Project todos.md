@@ -46,3 +46,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - Skills payload runner functions (`_run_python_code`, `_run_python_script`, `_run_bash_script`, `_run_web_search`, `_run_web_browse`) and internal parse helpers now have validation tests.
 - `_run_bash_script()` now validates that at least one of `script_path`/`inline_script` is a non-empty string (previously accepted empty payloads).
 - `default_prompts.py` is now documented in MkDocs API reference (`docs/api/lib/default_prompts.md` + `mkdocs.yml` nav).
+- All four CLI hand implementations (`claude.py`, `codex.py`, `goose.py`, `gemini.py`) now have dedicated unit tests in `tests/test_cli_hands.py` covering model filtering, auth detection, fallback/retry logic, failure parsing, sandbox auto-detection, and provider injection. `placeholders.py` and `default_prompts.py` also have test files.
+- AGENT.md dependency table now clarifies that `redis` is a transitive dependency (via `celery[redis]`) and `croniter` is explicitly in `pyproject.toml` under the server extra.
