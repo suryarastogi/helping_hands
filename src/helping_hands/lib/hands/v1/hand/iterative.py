@@ -184,6 +184,12 @@ class _BasicIterativeHand(Hand):
         cls,
         content: str,
     ) -> list[tuple[str, dict[str, Any], str | None]]:
+        """Extract ``@@TOOL`` invocations from model output.
+
+        Returns:
+            List of (tool_name, payload_dict, error_or_none) tuples.
+            When the JSON payload is invalid the error string is populated.
+        """
         requests: list[tuple[str, dict[str, Any], str | None]] = []
         for match in cls._TOOL_PATTERN.finditer(content):
             tool_name = match.group("name").strip()
@@ -207,11 +213,13 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _merge_iteration_summary(content: str, tool_feedback: str) -> str:
+        """Combine model output with tool feedback for the next iteration prompt."""
         if not tool_feedback:
             return content
         return f"{content}\n\nTool results:\n{tool_feedback}"
 
     def _execute_read_requests(self, content: str) -> str:
+        """Resolve ``@@READ`` requests and return ``@@READ_RESULT`` blocks."""
         root = self.repo_index.root.resolve()
         requests = list(dict.fromkeys(self._extract_read_requests(content)))
         if not requests:
@@ -248,10 +256,12 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _format_command(command: list[str]) -> str:
+        """Shell-quote a command list into a single display string."""
         return " ".join(shlex.quote(token) for token in command)
 
     @classmethod
     def _truncate_tool_output(cls, text: str) -> tuple[str, bool]:
+        """Truncate *text* to ``_MAX_TOOL_OUTPUT_CHARS``, returning (text, was_truncated)."""
         if len(text) <= cls._MAX_TOOL_OUTPUT_CHARS:
             return text, False
         return text[: cls._MAX_TOOL_OUTPUT_CHARS], True
@@ -263,6 +273,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_exec_tools.CommandResult,
     ) -> str:
+        """Format a ``CommandResult`` into a ``@@TOOL_RESULT`` text block."""
         stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
         stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
         stdout_note = "\n[truncated]" if stdout_truncated else ""
@@ -286,6 +297,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebSearchResult,
     ) -> str:
+        """Format a ``WebSearchResult`` into a ``@@TOOL_RESULT`` text block."""
         items = [
             {
                 "title": item.title,
@@ -312,6 +324,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebBrowseResult,
     ) -> str:
+        """Format a ``WebBrowseResult`` into a ``@@TOOL_RESULT`` text block."""
         text, output_truncated = cls._truncate_tool_output(result.content)
         truncated_note = "\n[truncated]" if output_truncated else ""
         return (
@@ -326,6 +339,7 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _tool_disabled_error(tool_name: str) -> ValueError:
+        """Build a ``ValueError`` with an actionable message for a disabled tool."""
         required_skill = system_skills.skill_name_for_tool(tool_name)
         if required_skill == "execution":
             return ValueError(
@@ -346,6 +360,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         payload: dict[str, Any],
     ) -> str:
+        """Dispatch a single tool request and return its formatted result block."""
         runner = self._tool_runners.get(tool_name)
         if runner is None:
             raise self._tool_disabled_error(tool_name)
@@ -360,6 +375,7 @@ class _BasicIterativeHand(Hand):
         raise TypeError(f"unsupported tool result type: {type(result)!r}")
 
     def _execute_tool_requests(self, content: str) -> str:
+        """Run all ``@@TOOL`` requests in *content* and return combined results."""
         root = self.repo_index.root.resolve()
         requests = self._extract_tool_requests(content)
         if not requests:
@@ -391,6 +407,7 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     def _apply_inline_edits(self, content: str) -> list[str]:
+        """Write ``@@FILE`` edits to disk and return the list of changed paths."""
         root = self.repo_index.root.resolve()
         changed: list[str] = []
         for rel_path, body in self._extract_inline_edits(content):
