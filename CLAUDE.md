@@ -72,7 +72,7 @@ AI providers live in `src/helping_hands/lib/ai_providers/` with a common `AIProv
 
 - `src/helping_hands/lib/` — core library (config, repo indexing, GitHub API, hands, meta tools, AI providers)
 - `src/helping_hands/cli/` — CLI entry point, depends on lib
-- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server, depends on lib
+- `src/helping_hands/server/` — FastAPI app + Celery tasks + MCP server + cron schedules, depends on lib
 - `frontend/` — React + TypeScript + Vite UI
 - `tests/` — pytest suite
 
@@ -101,6 +101,7 @@ All filesystem/command operations for hands route through `src/helping_hands/lib
 - Git push uses token-authenticated (`GITHUB_TOKEN`) non-interactive remotes
 - `owner/repo` CLI inputs are auto-cloned to temp workspaces
 - `AGENT.md` is a living document that AI agents update as they learn repo conventions
+- App mode supports cron-scheduled builds via RedBeat (`server/schedules.py` + `/schedules` endpoints)
 
 ## CI
 

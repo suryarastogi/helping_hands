@@ -12,7 +12,11 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (MkDocs Material + mkdocstrings), build in CI, publish to GitHub Pages.
+
+4. **Hand backend implementation:** All backends implemented — `E2EHand`, `BasicLangGraphHand`, `BasicAtomicHand`, `CodexCLIHand`, `ClaudeCodeHand`, `GooseCLIHand`, `GeminiCLIHand`. Full CLI/app routing for all backends.
+
+5. **Scheduled tasks (cron):** RedBeat-backed cron scheduling with `/schedules` CRUD endpoints, `scheduled_build` Celery task, enable/disable/trigger controls, and built-in UI management view.
 
 ## Design notes
 
@@ -30,3 +34,6 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- `goose` backend implemented with auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL`, `--with-builtin developer` injection, and multi-provider support (openai, anthropic, google, ollama).
+- `geminicli` backend implemented with `--approval-mode auto_edit` default and automatic retry on unavailable models.
+- Cron-scheduled tasks added via `celery-redbeat`; `/schedules` REST endpoints manage schedule CRUD, enable/disable, and manual triggering; `scheduled_build` Celery task delegates to `build_feature`.

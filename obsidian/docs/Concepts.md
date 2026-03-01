@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -75,14 +75,28 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
+For `goose`, provider/model are auto-derived from `HELPING_HANDS_MODEL` via
+`GOOSE_PROVIDER`/`GOOSE_MODEL` env vars; `goose configure` is not required.
+For `geminicli`, `--approval-mode auto_edit` is injected by default for
+non-interactive runs, and unavailable models trigger an automatic retry without
+`--model`.
 CLI subprocess execution now also emits heartbeat lines when output is quiet and
 terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+
+## Scheduled tasks (cron)
+
+App mode supports cron-scheduled recurring builds. Schedules are managed via
+`/schedules` REST endpoints and persisted in Redis using `celery-redbeat`.
+Each schedule stores a cron expression, repo path, prompt, backend, and run
+options. On each cron tick, RedBeat triggers the `scheduled_build` Celery task,
+which delegates to `build_feature`. Schedules can be enabled/disabled and
+manually triggered on demand. The built-in UI exposes a "Scheduled tasks" view.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
   - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).

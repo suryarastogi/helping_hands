@@ -50,18 +50,22 @@
 - [x] **PR resume/update support** — optional `pr_number` updates an existing PR branch instead of opening a new PR
 - [x] **Live integration coverage** — opt-in pytest integration test can run E2E hand against CI-provided GitHub token/repo
 - [x] **Safe CI gating** — integration test auto-runs dry-run off `master`; only `master` performs real PR updates
-  - [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand/`.
+  - [x] **CLI hand backends implemented** — `CodexCLIHand`, `ClaudeCodeHand`, `GooseCLIHand`, and `GeminiCLIHand` with two-phase subprocess execution, streaming output, interruption, and final PR integration.
   - [x] **Basic iterative hands implemented** — `BasicLangGraphHand` and `BasicAtomicHand` stream iterative progress, support interruption, and can apply inline file edits.
-  - [x] **Backend selection/routing (CLI basic + E2E)** — CLI supports `--backend {basic-langgraph,basic-atomic,basic-agent}` and `--e2e`.
+  - [x] **Backend selection/routing (full matrix)** — CLI and app mode route all backends: `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`, and `--e2e`.
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
+  - [x] **Real-time streaming for all CLI hands** — all CLI backends emit incremental subprocess output with heartbeat and idle timeout controls.
   - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
+
+## 5. Scheduled tasks (cron)
+
+- [x] **RedBeat scheduler** — `celery-redbeat` for Redis-backed cron scheduling; configured in `celery_app.py`
+- [x] **Schedule CRUD endpoints** — `/schedules` REST API for create, read, update, delete scheduled tasks
+- [x] **`scheduled_build` task** — Celery task triggered by RedBeat that delegates to `build_feature`
+- [x] **Schedule management** — enable/disable, manual trigger via `/schedules/{id}/trigger`, run history recording
+- [x] **Built-in UI** — "Scheduled tasks" view in app mode with cron presets and form-based management
 
 ---
 

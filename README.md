@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 1, 2026
 
 ## What is this?
 
@@ -313,6 +313,39 @@ in logs (common when browser JS is blocked), use `/monitor/<id>`; that endpoint
 refreshes server-side without client-side JavaScript and keeps monitor card sizes
 stable while polling.
 
+### Scheduled tasks (cron)
+
+App mode supports cron-scheduled recurring builds via RedBeat (Redis-backed
+Celery Beat scheduler). Manage schedules through `/schedules` endpoints or the
+built-in UI "Scheduled tasks" view.
+
+```bash
+# Create a scheduled task (runs daily at midnight)
+curl -sS -X POST "http://localhost:8000/schedules" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Daily docs update",
+    "cron_expression": "0 0 * * *",
+    "repo_path": "owner/repo",
+    "prompt": "Update documentation",
+    "backend": "basic-langgraph",
+    "model": "gpt-5.2"
+  }'
+
+# List all schedules
+curl -sS "http://localhost:8000/schedules"
+
+# Manually trigger a schedule
+curl -sS -X POST "http://localhost:8000/schedules/<SCHEDULE_ID>/trigger"
+
+# Disable/enable a schedule
+curl -sS -X POST "http://localhost:8000/schedules/<SCHEDULE_ID>/disable"
+curl -sS -X POST "http://localhost:8000/schedules/<SCHEDULE_ID>/enable"
+
+# Delete a schedule
+curl -sS -X DELETE "http://localhost:8000/schedules/<SCHEDULE_ID>"
+```
+
 ## Project structure
 
 ```
@@ -343,6 +376,7 @@ helping_hands/
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
+│       ├── schedules.py      # Cron schedule management (RedBeat)
 │       └── task_result.py    # Task result normalization helpers
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
