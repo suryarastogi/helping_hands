@@ -481,9 +481,11 @@ class GitHubClient:
         self._gh.close()
 
     def __enter__(self) -> GitHubClient:
+        """Enter the context manager and return self."""
         return self
 
     def __exit__(self, *_: Any) -> None:
+        """Exit the context manager and close the connection."""
         self.close()
 
 

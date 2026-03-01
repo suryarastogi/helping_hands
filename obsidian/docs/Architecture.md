@@ -194,4 +194,4 @@ alongside arbitrary cron expressions.
 
 ---
 
-*Last updated: 2026-03-01 — 36 MkDocs API pages, 14 hand modules documented, 569 tests passing. All AI provider, skills runner, and meta/tools helper functions now have Google-style docstrings.*
+*Last updated: 2026-03-01 — 36 MkDocs API pages, 14 hand modules documented, 569 tests passing. All AI provider, skills runner, meta/tools helper, and `_build_agent` methods now have Google-style docstrings. `LangGraphHand` uses typed constructor parameters.*

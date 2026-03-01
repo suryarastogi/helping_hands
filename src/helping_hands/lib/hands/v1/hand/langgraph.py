@@ -9,7 +9,11 @@ that want LangChain/LangGraph execution semantics with shared final PR logic.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 from helping_hands.lib.hands.v1.hand.model_provider import (
@@ -24,12 +28,13 @@ class LangGraphHand(Hand):
     Requires the ``langchain`` extra to be installed.
     """
 
-    def __init__(self, config: Any, repo_index: Any) -> None:
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         super().__init__(config, repo_index)
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Build a LangGraph react agent with the resolved chat model."""
         from langgraph.prebuilt import create_react_agent
 
         llm = build_langchain_chat_model(

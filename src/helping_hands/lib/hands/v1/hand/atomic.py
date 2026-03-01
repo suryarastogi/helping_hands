@@ -36,6 +36,7 @@ class AtomicHand(Hand):
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Build an Atomic Agents agent with the resolved model client."""
         from atomic_agents import AgentConfig, AtomicAgent, BasicChatInputSchema
         from atomic_agents.context import (
             ChatHistory,
