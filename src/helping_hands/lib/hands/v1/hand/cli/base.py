@@ -101,6 +101,13 @@ class _TwoPhaseCLIHand(Hand):
         return False
 
     def _render_command(self, prompt: str) -> list[str]:
+        """Build the final CLI command list from base command, placeholders, and model.
+
+        Substitutes ``{prompt}``, ``{repo}``, ``{model}`` placeholders in the
+        command template, appends ``--model`` when not already present, injects
+        the prompt via ``-p``/``--prompt`` flags, applies backend defaults, and
+        optionally wraps in a Docker container command.
+        """
         resolved_model = self._resolve_cli_model()
         placeholders = {
             "{prompt}": prompt,
@@ -365,6 +372,12 @@ class _TwoPhaseCLIHand(Hand):
         return any(marker in lowered for marker in action_markers)
 
     def _should_retry_without_changes(self, prompt: str) -> bool:
+        """Return True if the backend should retry to enforce file edits.
+
+        Only applies when ``_RETRY_ON_NO_CHANGES`` is set, the prompt looks
+        like an edit request, the hand is not interrupted, and no git changes
+        were produced after the initial task execution.
+        """
         if not self._RETRY_ON_NO_CHANGES:
             return False
         if self._is_interrupted():
@@ -374,6 +387,7 @@ class _TwoPhaseCLIHand(Hand):
         return not self._repo_has_changes()
 
     def _build_apply_changes_prompt(self, *, prompt: str, task_output: str) -> str:
+        """Build a follow-up prompt that enforces direct file edits after a prose-only response."""
         summarized_output = self._truncate_summary(task_output, limit=2000)
         return (
             "Follow-up enforcement phase.\n"
@@ -537,6 +551,12 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
+        """Execute the two-phase CLI flow: init (learn repo) then task execution.
+
+        Phase 1 learns repo context; phase 2 executes the user's task. For
+        backends with ``_RETRY_ON_NO_CHANGES``, a third enforcement pass runs
+        when the task phase produces no git changes on an edit-intent prompt.
+        """
         self.reset_interrupt()
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""

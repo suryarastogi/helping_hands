@@ -77,6 +77,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         )
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--approval-mode auto_edit`` for non-interactive ``gemini`` runs."""
         if not cmd or cmd[0] != "gemini":
             return cmd
         if self._has_approval_mode_flag(cmd):
@@ -147,6 +148,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         output: str,
         return_code: int,
     ) -> list[str] | None:
+        """Retry without ``--model`` when Gemini rejects an unavailable model."""
         if return_code == 0:
             return None
         if not self._looks_like_model_not_found(output):

@@ -64,6 +64,10 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _resolve_cli_model(self) -> str:
+        """Return the model string for Claude CLI, filtering out non-Anthropic models.
+
+        GPT-family models are silently dropped so Claude uses its own default.
+        """
         model = super()._resolve_cli_model()
         if not model:
             return ""
@@ -73,6 +77,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return model
 
     def _skip_permissions_enabled(self) -> bool:
+        """Check whether ``--dangerously-skip-permissions`` should be injected.
+
+        Returns False when running as root (euid 0) since Claude rejects the
+        flag under elevated privileges, or when explicitly disabled via
+        ``HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS=0``.
+        """
         raw = os.environ.get(
             "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS",
             self._DEFAULT_SKIP_PERMISSIONS,
@@ -89,6 +99,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return True
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--dangerously-skip-permissions`` for non-root ``claude`` commands."""
         if (
             cmd
             and cmd[0] == "claude"
@@ -105,6 +116,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         output: str,
         return_code: int,
     ) -> list[str] | None:
+        """Retry without ``--dangerously-skip-permissions`` if Claude rejected it under root."""
         if return_code == 0:
             return None
         if "--dangerously-skip-permissions" not in cmd:
@@ -132,6 +144,11 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         prompt: str,
         combined_output: str,
     ) -> str | None:
+        """Return an error message if Claude requested interactive write approval.
+
+        When the combined output contains permission-prompt markers, it means
+        Claude could not apply edits in non-interactive mode.
+        """
         del prompt
         lowered = combined_output.lower()
         if any(marker in lowered for marker in self._PERMISSION_PROMPT_MARKERS):
@@ -145,6 +162,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return None
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
+        """Fall back to ``npx -y @anthropic-ai/claude-code`` when ``claude`` is missing."""
         if not cmd or cmd[0] != "claude":
             return None
         if shutil.which("npx") is None:

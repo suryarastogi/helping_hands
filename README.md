@@ -331,9 +331,12 @@ helping_hands/
 │   │   │   ├── ollama.py
 │   │   │   └── types.py
 │   │   ├── meta/
+│   │   │   ├── skills/            # Skills system (normalization, merging, building)
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Shared path-safe file operations for hands + MCP
+│   │   │       ├── command.py     # Execution tools (python/bash)
+│   │   │       └── web.py         # Web tools (search/browse)
 │   │   └── hands/v1/
 │   │       ├── __init__.py
 │   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
@@ -345,6 +348,7 @@ helping_hands/
 │       ├── mcp_server.py     # MCP server entry point/tools
 │       ├── schedules.py      # Cron-scheduled task management (RedBeat + Redis)
 │       └── task_result.py    # Task result normalization helpers
+├── frontend/                 # React + TypeScript UI (Vite)
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
 ├── .github/workflows/

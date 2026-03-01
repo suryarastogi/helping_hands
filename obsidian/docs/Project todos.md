@@ -33,3 +33,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `goose` and `geminicli` CLI backends are now fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls, and auto-derived provider/model env wiring.
 - Cron-scheduled submissions are now supported via `ScheduleManager` (RedBeat + Redis metadata) with server CRUD endpoints and a `scheduled_build` Celery task.
 - `ollama` provider wrapper added to `lib/ai_providers/`, completing the five-provider set (openai, anthropic, google, litellm, ollama).
+- `lib/meta/tools/filesystem.py` now has comprehensive test coverage (40 tests in `test_meta_tools_filesystem.py`): path traversal prevention, symlink escape rejection, read/write/mkdir/exists operations, and truncation behavior.
+- All CLI hand methods with non-trivial business logic now have Google-style docstrings for mkdocstrings API reference completeness.

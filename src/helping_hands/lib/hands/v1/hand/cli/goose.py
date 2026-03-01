@@ -63,6 +63,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         )
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--with-builtin developer`` for ``goose run`` when missing."""
         if len(cmd) < 2 or cmd[0] != "goose" or cmd[1] != "run":
             return cmd
         if self._has_goose_builtin_flag(cmd):
@@ -120,6 +121,11 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return "http://localhost:11434"
 
     def _resolve_goose_provider_model_from_config(self) -> tuple[str, str]:
+        """Derive ``(provider, model)`` for Goose from the ``config.model`` string.
+
+        Supports bare model names (inferred provider), explicit ``provider/model``
+        format, and defaults to ``ollama/llama3.2:latest`` when unset.
+        """
         raw_model = str(self.config.model).strip()
         if not raw_model or raw_model == "default":
             return self._GOOSE_DEFAULT_PROVIDER, self._GOOSE_DEFAULT_MODEL
@@ -138,6 +144,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return provider, model
 
     def _build_subprocess_env(self) -> dict[str, str]:
+        """Build env for Goose subprocess with provider/model and GitHub token injection."""
         env = super()._build_subprocess_env()
         gh_token = env.get("GH_TOKEN", "").strip()
         github_token = env.get("GITHUB_TOKEN", "").strip()
