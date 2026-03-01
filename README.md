@@ -350,6 +350,8 @@ helping_hands/
 │       ├── mcp_server.py     # MCP server entry point/tools
 │       ├── schedules.py      # Cron-scheduled task management (RedBeat + Redis)
 │       └── task_result.py    # Task result normalization helpers
+├── active/                   # In-progress PRDs
+├── completed/                # Completed PRDs with activity logs
 ├── frontend/                 # React + TypeScript UI (Vite)
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs

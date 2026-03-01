@@ -29,7 +29,7 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 | [mcp-app-test-hardening-doc-reconciliation](../../completed/PRD-2026-03-01-mcp-app-test-hardening-doc-reconciliation.md) | MCP and app test hardening |
 | [mkdocs-hand-documentation-expansion](../../completed/PRD-2026-03-01-mkdocs-hand-documentation-expansion.md) | MkDocs hand documentation expansion |
 | [test-coverage-expansion-robustness-hardening](../../completed/PRD-2026-03-01-test-coverage-expansion-robustness-hardening.md) | Test coverage expansion and robustness |
-| [docstring-completion-doc-reconciliation](../../completed/2026-03-01-docstring-completion-doc-reconciliation.md) | Docstring completion across 12 files |
+| [docstring-completion-doc-reconciliation](../../completed/PRD-2026-03-01-docstring-completion-doc-reconciliation.md) | Docstring completion across 12 files |
 | [docstring-exports-test-gaps-doc-reconciliation](../../completed/PRD-2026-03-01-docstring-exports-test-gaps-doc-reconciliation.md) | Docstrings, `__all__` exports, test_validation.py, E2EHand tests, Obsidian reconciliation |
 | [obsidian-completeness-prd-workflow-doc-reconciliation](../../completed/PRD-2026-03-01-obsidian-completeness-prd-workflow-doc-reconciliation.md) | Obsidian completeness, PRD workflow, active/ directory, validation in README |
 | [module-exports-doc-reconciliation-obsidian-sync](../../completed/PRD-2026-03-01-module-exports-doc-reconciliation-obsidian-sync.md) | `__all__` exports for 19 modules, Obsidian test count fix, Completed PRDs index fix |
@@ -37,6 +37,7 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 | [iterative-hand-docstrings-cross-surface-reconciliation](../../completed/PRD-2026-03-01-iterative-hand-docstrings-cross-surface-reconciliation.md) | 12 iterative.py private method docstrings, Obsidian AGENT.md module count fix (38→40) |
 | [package-exports-error-enrichment-doc-reconciliation](../../completed/PRD-2026-03-01-package-exports-error-enrichment-doc-reconciliation.md) | `__all__` for 5 package `__init__.py` (45 total), `filesystem.py` error enrichment, `schedules.py` assert→RuntimeError |
 | [code-quality-exports-doc-reconciliation](../../completed/PRD-2026-03-01-code-quality-exports-doc-reconciliation.md) | Module-level imports, `server/app.py` `__all__` completion (15 exports), skills `__all__` relocation, CLI hand docstrings, README↔CLAUDE.md reconciliation |
+| [cross-surface-reconciliation-doc-hygiene](../../completed/PRD-2026-03-01-cross-surface-reconciliation-doc-hygiene.md) | PRD naming fix, W10→W09 log entry migration, README structure tree update, cross-surface metric verification |
 
 ## Earlier PRDs (undated)
 
@@ -48,4 +49,4 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 ---
 
-*Last updated: 2026-03-01 — 30 completed PRDs indexed.*
+*Last updated: 2026-03-01 — 31 completed PRDs indexed.*
