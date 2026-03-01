@@ -56,3 +56,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - Silent `except Exception: pass` blocks in `base.py`, `claude.py`, `e2e.py` replaced with `logger.debug(..., exc_info=True)` for debuggability without changing control flow.
 - Server Celery inspect helpers (`_safe_inspect_call`, `_collect_celery_current_tasks`) now log at DEBUG before returning sentinels.
 - `pyproject.toml` now includes standard PyPI classifiers (Python 3.12–3.14, Apache-2.0, topics, typing).
+- MkDocs API documentation now covers all 13 Hand implementation modules individually (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, plus 5 CLI hand modules). Previously only the package-level `__init__.py` had a doc page.
+- `_TwoPhaseCLIHand` (CLI hand base class) now has Google-style docstrings on all public/semi-public methods — `run()`, `stream()`, `interrupt()`, `_base_command()`, `_resolve_cli_model()`, `_render_command()`, `_container_image()`, `_wrap_container_if_enabled()`, `_build_subprocess_env()`, etc.

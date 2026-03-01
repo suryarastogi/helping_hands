@@ -53,11 +53,26 @@ class _TwoPhaseCLIHand(Hand):
         return value.strip().lower() in {"1", "true", "yes", "on"}
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
+        """Append default arguments when the command is a bare executable.
+
+        When the user overrides the command env var with a single token
+        (e.g. ``claude``), the backend's ``_DEFAULT_APPEND_ARGS`` are
+        appended so the tool runs in the expected mode (e.g. ``-p``).
+        Multi-token commands are left as-is to respect explicit flags.
+        """
         if len(tokens) == 1 and self._DEFAULT_APPEND_ARGS:
             return [*tokens, *self._DEFAULT_APPEND_ARGS]
         return tokens
 
     def _base_command(self) -> list[str]:
+        """Resolve the CLI command tokens from env or backend defaults.
+
+        Reads ``_COMMAND_ENV_VAR`` from the environment, falling back to
+        ``_DEFAULT_CLI_CMD``. The result is shell-split and normalized.
+
+        Raises:
+            RuntimeError: If the resolved command is empty.
+        """
         raw = os.environ.get(self._COMMAND_ENV_VAR, self._DEFAULT_CLI_CMD)
         tokens = shlex.split(raw)
         if not tokens:
@@ -66,6 +81,12 @@ class _TwoPhaseCLIHand(Hand):
         return self._normalize_base_command(tokens)
 
     def _resolve_cli_model(self) -> str:
+        """Resolve the model string for the CLI ``--model`` flag.
+
+        Strips ``provider/`` prefixes (e.g. ``anthropic/claude-sonnet-4-5``
+        becomes ``claude-sonnet-4-5``) since CLI tools use bare model names.
+        Falls back to ``_DEFAULT_MODEL`` when the config model is unset.
+        """
         model = str(self.config.model).strip()
         if not model or model == "default":
             return self._DEFAULT_MODEL
@@ -76,6 +97,11 @@ class _TwoPhaseCLIHand(Hand):
         return model
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Apply backend-specific default flags to the rendered command.
+
+        Subclasses override this to inject flags like ``--sandbox`` or
+        ``--approval-mode`` before the command is executed.
+        """
         return cmd
 
     @staticmethod
@@ -146,6 +172,7 @@ class _TwoPhaseCLIHand(Hand):
         return self._wrap_container_if_enabled(rendered)
 
     def _container_enabled(self) -> bool:
+        """Return True when Docker container execution is enabled via env."""
         if not self._CONTAINER_ENABLED_ENV_VAR:
             return False
         raw = os.environ.get(self._CONTAINER_ENABLED_ENV_VAR, "")
@@ -154,6 +181,11 @@ class _TwoPhaseCLIHand(Hand):
         return self._is_truthy(raw)
 
     def _container_image(self) -> str:
+        """Resolve the Docker image name from the backend's env var.
+
+        Raises:
+            RuntimeError: If container mode is enabled but no image is set.
+        """
         if not self._CONTAINER_IMAGE_ENV_VAR:
             msg = "Container execution is not configured for this backend."
             raise RuntimeError(msg)
@@ -167,6 +199,7 @@ class _TwoPhaseCLIHand(Hand):
         return image
 
     def _container_env_names(self) -> tuple[str, ...]:
+        """Return env var names to forward into the Docker container."""
         return (
             "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY",
@@ -175,9 +208,15 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _use_native_cli_auth(self) -> bool:
+        """Return True when native CLI auth is enabled (API keys stripped)."""
         return bool(getattr(self.config, "use_native_cli_auth", False))
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return env var names to strip when using native CLI auth.
+
+        Subclasses override this to list provider-specific API key env vars
+        (e.g. ``ANTHROPIC_API_KEY``) so the CLI uses its own auth session.
+        """
         return ()
 
     def _describe_auth(self) -> str:
@@ -194,6 +233,7 @@ class _TwoPhaseCLIHand(Hand):
         return f"auth=native-cli (no {env_label} set, using CLI session)"
 
     def _effective_container_env_names(self) -> tuple[str, ...]:
+        """Return container env names minus any blocked by native CLI auth."""
         env_names = self._container_env_names()
         if not self._use_native_cli_auth():
             return env_names
@@ -203,6 +243,11 @@ class _TwoPhaseCLIHand(Hand):
         return tuple(name for name in env_names if name not in blocked)
 
     def _wrap_container_if_enabled(self, cmd: list[str]) -> list[str]:
+        """Wrap *cmd* in a ``docker run`` invocation when container mode is on.
+
+        Mounts the repo root at ``/workspace``, forwards configured env vars,
+        and runs the command inside the specified Docker image.
+        """
         if not self._container_enabled():
             return cmd
         image = self._container_image()
@@ -232,6 +277,7 @@ class _TwoPhaseCLIHand(Hand):
         return docker_cmd
 
     def _execution_mode(self) -> str:
+        """Return a human-readable label for the current execution mode."""
         if self._container_enabled():
             return "container+workspace-write"
         return "workspace-write"
@@ -268,6 +314,11 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _build_subprocess_env(self) -> dict[str, str]:
+        """Build the environment dict for CLI subprocess execution.
+
+        When native CLI auth is enabled, provider API key env vars are
+        removed so the CLI tool uses its own auth session instead.
+        """
         env = dict(os.environ)
         if not self._use_native_cli_auth():
             return env
@@ -276,16 +327,23 @@ class _TwoPhaseCLIHand(Hand):
         return env
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Format an error message from a failed CLI subprocess."""
         tail = output.strip()[-2000:]
         return f"{self._CLI_DISPLAY_NAME} failed (exit={return_code}). Output:\n{tail}"
 
     def _command_not_found_message(self, command: str) -> str:
+        """Format an error message when the CLI executable is missing."""
         return (
             f"{self._CLI_DISPLAY_NAME} command not found: {command!r}. "
             f"Set {self._COMMAND_ENV_VAR} to a valid command."
         )
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
+        """Return an alternative command when the primary CLI is missing.
+
+        Subclasses override this to provide fallback resolution (e.g.
+        ``npx -y @anthropic-ai/claude-code`` when ``claude`` is absent).
+        """
         return None
 
     def _retry_command_after_failure(
@@ -295,9 +353,16 @@ class _TwoPhaseCLIHand(Hand):
         output: str,
         return_code: int,
     ) -> list[str] | None:
+        """Return a modified command to retry after a non-zero exit.
+
+        Subclasses override this to handle recoverable failures (e.g.
+        stripping ``--dangerously-skip-permissions`` after a root rejection).
+        Returns ``None`` when no retry is applicable.
+        """
         return None
 
     def _build_init_prompt(self) -> str:
+        """Build the phase-1 initialization prompt for repo learning."""
         file_list = "\n".join(f"- {path}" for path in self.repo_index.files[:200])
         if not file_list:
             file_list = "- (no indexed files)"
@@ -319,6 +384,7 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _build_task_prompt(self, *, prompt: str, learned_summary: str) -> str:
+        """Build the phase-2 task execution prompt with repo context."""
         summary = self._truncate_summary(
             learned_summary,
             limit=self._SUMMARY_CHAR_LIMIT,
@@ -340,6 +406,7 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _repo_has_changes(self) -> bool:
+        """Return True when the repo working tree has uncommitted changes."""
         repo_root = self.repo_index.root.resolve()
         result = subprocess.run(
             ["git", "status", "--porcelain"],
@@ -428,6 +495,7 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
+        """Render the CLI command for *prompt* and invoke it."""
         return await self._invoke_cli_with_cmd(self._render_command(prompt), emit=emit)
 
     async def _invoke_cli_with_cmd(
@@ -436,6 +504,11 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
+        """Run a CLI command, stream output via *emit*, and handle retries.
+
+        Manages subprocess lifecycle including heartbeat emission, idle
+        timeout detection, command-not-found fallback, and failure retry.
+        """
         env = self._build_subprocess_env()
         try:
             process = await asyncio.create_subprocess_exec(
@@ -612,6 +685,7 @@ class _TwoPhaseCLIHand(Hand):
         return "".join(chunks)
 
     def _interrupted_pr_metadata(self) -> dict[str, str]:
+        """Return PR metadata dict indicating the run was interrupted."""
         return {
             "auto_pr": str(self.auto_pr).lower(),
             "pr_status": "interrupted",
@@ -622,6 +696,7 @@ class _TwoPhaseCLIHand(Hand):
         }
 
     def _finalize_after_run(self, *, prompt: str, message: str) -> dict[str, str]:
+        """Attempt PR finalization after run completes or was interrupted."""
         if self._is_interrupted():
             return self._interrupted_pr_metadata()
 
@@ -633,6 +708,7 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _format_pr_status_message(self, metadata: dict[str, str]) -> str | None:
+        """Format a human-readable PR status line from finalization metadata."""
         status = metadata.get("pr_status", "")
         if not status:
             return None
@@ -651,12 +727,18 @@ class _TwoPhaseCLIHand(Hand):
         return f"[{self._CLI_LABEL}] PR status: {status}"
 
     def interrupt(self) -> None:
+        """Signal cooperative interruption and terminate the active subprocess."""
         super().interrupt()
         process = self._active_process
         if process is not None and process.returncode is None:
             process.terminate()
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the two-phase CLI flow synchronously and return results.
+
+        Runs init (learn repo) then task execution, attempts PR finalization,
+        and returns a ``HandResponse`` with the combined output and metadata.
+        """
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
         return HandResponse(
@@ -669,6 +751,12 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Execute the two-phase CLI flow and yield output chunks as they arrive.
+
+        Streams real incremental subprocess output with heartbeat lines.
+        After the CLI finishes, attempts PR finalization and yields the
+        PR status as a final chunk.
+        """
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()
         collected: list[str] = []
 

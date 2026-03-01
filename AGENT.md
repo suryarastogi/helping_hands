@@ -100,6 +100,8 @@ what the code does.
 - **Server/MCP helper test coverage**: `test_server_app_helpers.py` and extended `test_mcp_server.py` now provide dedicated unit tests for all non-trivial internal helpers (task extraction, Flower/Celery integration, health checks, config endpoints, exception paths). (2026-03-01)
 - **CLI verbose logging**: `--verbose` / `-v` configures `logging.basicConfig()` in `main()` — DEBUG when verbose, WARNING otherwise. Silent `except Exception: pass` blocks should use `logger.debug(..., exc_info=True)` instead of bare `pass`. (2026-03-01)
 - **PyPI classifiers**: `pyproject.toml` includes standard classifiers for Python versions (3.12–3.14), license (Apache-2.0), topics, and typing. (2026-03-01)
+- **MkDocs hand documentation**: All 13 Hand implementation modules now have individual MkDocs API doc pages (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, cli/base, cli/claude, cli/codex, cli/goose, cli/gemini) — not just the package-level `__init__.py`. (2026-03-01)
+- **CLI hand base docstrings**: `_TwoPhaseCLIHand` public/semi-public methods now have Google-style docstrings for mkdocstrings completeness (`run()`, `stream()`, `interrupt()`, command resolution, container wrapping, subprocess env, auth, retry/fallback hooks). (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -155,4 +157,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — CLI verbose logging wired, silent exception handlers replaced with debug logging, pyproject.toml classifiers added, documentation reconciliation.*
+*Last updated: 2026-03-01 — MkDocs hand documentation expanded to 13 individual module pages, CLI hand base docstrings completed, cross-surface doc reconciliation.*
