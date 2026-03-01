@@ -327,7 +327,7 @@ class Hand(abc.ABC):
                     repo_obj = gh.get_repo(repo)
                     if getattr(repo_obj, "default_branch", ""):
                         base_branch = str(repo_obj.default_branch)
-                except Exception:
+                except RuntimeError:
                     logger.debug(
                         "Could not fetch default branch from GitHub for %s",
                         repo,

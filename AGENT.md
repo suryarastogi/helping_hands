@@ -108,6 +108,7 @@ what the code does.
 - **Exception specificity in CLI hands**: Catch specific exception types (`ValueError`, `TypeError`, `OSError`) instead of bare `except Exception` — preserves debuggability while still handling expected failure modes. (2026-03-01)
 - **Recursive retry depth limit**: `_invoke_cli_with_cmd` recursive retries (fallback + failure retry) are bounded by `_MAX_CLI_RETRY_DEPTH` (default 2) to prevent unbounded recursion if future backends chain multiple fallbacks. (2026-03-01)
 - **CLI hand stream/interrupt test coverage**: `stream()`, `interrupt()`, `reset_interrupt()`, and `_terminate_active_process()` now have dedicated unit tests covering happy path streaming, PR status inclusion, cooperative interruption, and subprocess termination. (2026-03-01)
+- **Server health check exception patterns**: Health check and Celery inspect boundary guards use `except Exception as e:` (not bare `except Exception:`) with enriched log messages that include the exception value. GitHub fallback paths in `e2e.py` and `base.py` catch `RuntimeError` specifically (matching what `GitHubClient.get_repo`/`default_branch` raise). (2026-03-01)
 
 ## Dependencies `[auto-update]`
 

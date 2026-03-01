@@ -142,7 +142,7 @@ class E2EHand(Hand):
                 try:
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
-                except Exception:
+                except RuntimeError:
                     logger.debug(
                         "Could not fetch default branch for %s, "
                         "falling back to clone default",
