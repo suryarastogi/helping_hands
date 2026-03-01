@@ -17,6 +17,11 @@ class LiteLLMProvider(AIProvider):
     install_hint = "uv add litellm"
 
     def _build_inner(self) -> Any:
+        """Lazily import the ``litellm`` module and configure its API key.
+
+        Sets ``litellm.api_key`` when ``LITELLM_API_KEY`` is in the
+        environment. Returns the module itself as the inner client.
+        """
         try:
             import litellm
         except ImportError as exc:
@@ -37,6 +42,7 @@ class LiteLLMProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Call LiteLLM's unified ``completion`` function."""
         return inner.completion(
             model=model,
             messages=messages,

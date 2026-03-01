@@ -17,6 +17,11 @@ class AnthropicProvider(AIProvider):
     install_hint = "uv add anthropic"
 
     def _build_inner(self) -> Any:
+        """Lazily construct an ``anthropic.Anthropic`` client.
+
+        Uses ``ANTHROPIC_API_KEY`` from the environment when available;
+        otherwise falls back to the SDK's default auth resolution.
+        """
         try:
             from anthropic import Anthropic
         except ImportError as exc:
@@ -37,6 +42,10 @@ class AnthropicProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Call the Anthropic Messages API via ``inner.messages.create``.
+
+        Defaults ``max_tokens`` to 1024 when not supplied in *kwargs*.
+        """
         max_tokens = kwargs.pop("max_tokens", 1024)
         return inner.messages.create(
             model=model,

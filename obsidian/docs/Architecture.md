@@ -194,4 +194,4 @@ alongside arbitrary cron expressions.
 
 ---
 
-*Last updated: 2026-03-01 — 36 MkDocs API pages, 14 hand modules documented, 510 tests passing.*
+*Last updated: 2026-03-01 — 36 MkDocs API pages, 14 hand modules documented, 569 tests passing. All AI provider, skills runner, and meta/tools helper functions now have Google-style docstrings.*

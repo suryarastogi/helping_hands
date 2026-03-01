@@ -17,6 +17,11 @@ class GoogleProvider(AIProvider):
     install_hint = "uv add google-genai"
 
     def _build_inner(self) -> Any:
+        """Lazily construct a ``google.genai.Client``.
+
+        Uses ``GOOGLE_API_KEY`` from the environment when available;
+        otherwise falls back to the SDK's default auth resolution.
+        """
         try:
             from google import genai
         except ImportError as exc:
@@ -37,6 +42,10 @@ class GoogleProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Call Google GenAI via ``inner.models.generate_content``.
+
+        Extracts message content strings as the ``contents`` list.
+        """
         contents = [m["content"] for m in messages if m["content"]]
         return inner.models.generate_content(
             model=model,

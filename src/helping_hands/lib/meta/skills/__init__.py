@@ -35,6 +35,7 @@ class SkillSpec:
 
 
 def _parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
+    """Extract and validate a list of strings from *payload* at *key*."""
     raw = payload.get(key, [])
     if raw is None:
         return []
@@ -54,6 +55,7 @@ def _parse_positive_int(
     key: str,
     default: int,
 ) -> int:
+    """Extract a positive integer from *payload* at *key*, or use *default*."""
     raw = payload.get(key, default)
     if isinstance(raw, bool) or not isinstance(raw, int):
         raise ValueError(f"{key} must be an integer")
@@ -63,6 +65,7 @@ def _parse_positive_int(
 
 
 def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
+    """Extract an optional trimmed string from *payload*, returning ``None`` if blank."""
     raw = payload.get(key)
     if raw is None:
         return None
@@ -75,6 +78,7 @@ def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
 def _run_python_code(
     root: Path, payload: dict[str, Any]
 ) -> command_tools.CommandResult:
+    """Validate payload and run inline Python code via ``command_tools``."""
     code = payload.get("code")
     if not isinstance(code, str) or not code.strip():
         raise ValueError("code must be a non-empty string")
@@ -93,6 +97,7 @@ def _run_python_script(
     root: Path,
     payload: dict[str, Any],
 ) -> command_tools.CommandResult:
+    """Validate payload and run a repo-relative Python script via ``command_tools``."""
     script_path = payload.get("script_path")
     if not isinstance(script_path, str) or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
@@ -110,6 +115,7 @@ def _run_python_script(
 def _run_bash_script(
     root: Path, payload: dict[str, Any]
 ) -> command_tools.CommandResult:
+    """Validate payload and run a bash script (file or inline) via ``command_tools``."""
     script_path = payload.get("script_path")
     inline_script = payload.get("inline_script")
     if script_path is not None and not isinstance(script_path, str):
@@ -133,6 +139,7 @@ def _run_bash_script(
 
 
 def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchResult:
+    """Validate payload and run a web search via ``web_tools``."""
     del root
     query = payload.get("query")
     if not isinstance(query, str) or not query.strip():
@@ -145,6 +152,7 @@ def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchR
 
 
 def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseResult:
+    """Validate payload and browse a URL via ``web_tools``."""
     del root
     url = payload.get("url")
     if not isinstance(url, str) or not url.strip():

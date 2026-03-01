@@ -26,6 +26,11 @@ class OllamaProvider(AIProvider):
     default_base_url = "http://localhost:11434/v1"
 
     def _build_inner(self) -> Any:
+        """Lazily construct an ``openai.OpenAI`` client pointing at Ollama.
+
+        Uses ``OLLAMA_BASE_URL`` (default ``http://localhost:11434/v1``)
+        and ``OLLAMA_API_KEY`` (default ``"ollama"``) for local server auth.
+        """
         try:
             from openai import OpenAI
         except ImportError as exc:
@@ -45,6 +50,7 @@ class OllamaProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Call Ollama via the OpenAI-compatible Chat Completions API."""
         return inner.chat.completions.create(
             model=model,
             messages=messages,

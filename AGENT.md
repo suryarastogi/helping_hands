@@ -160,4 +160,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — Type safety hardening (concrete types in hand constructors), error handling cleanup, AI provider test expansion (10→28 tests), config skills validation, 510 total tests passing.*
+*Last updated: 2026-03-01 — Docstring completion (AI providers, skills runners, meta/tools helpers), Obsidian reconciliation, 569 total tests passing.*
