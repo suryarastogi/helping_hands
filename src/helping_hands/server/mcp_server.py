@@ -185,9 +185,6 @@ def read_file(repo_path: str, file_path: str, max_chars: int | None = None) -> s
     root = _repo_root(repo_path)
     try:
         text, _, _ = fs_tools.read_text_file(root, file_path, max_chars=max_chars)
-    except ValueError as exc:
-        msg = f"Invalid file path: {file_path}"
-        raise ValueError(msg) from exc
     except FileNotFoundError as exc:
         msg = f"File not found: {file_path}"
         raise FileNotFoundError(msg) from exc
@@ -197,6 +194,9 @@ def read_file(repo_path: str, file_path: str, max_chars: int | None = None) -> s
     except UnicodeError as exc:
         msg = f"File is not UTF-8 text: {file_path}"
         raise UnicodeError(msg) from exc
+    except ValueError as exc:
+        msg = f"Invalid file path: {file_path}"
+        raise ValueError(msg) from exc
     return text
 
 

@@ -48,3 +48,5 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `default_prompts.py` is now documented in MkDocs API reference (`docs/api/lib/default_prompts.md` + `mkdocs.yml` nav).
 - All four CLI hand implementations (`claude.py`, `codex.py`, `goose.py`, `gemini.py`) now have dedicated unit tests in `tests/test_cli_hands.py` covering model filtering, auth detection, fallback/retry logic, failure parsing, sandbox auto-detection, and provider injection. `placeholders.py` and `default_prompts.py` also have test files.
 - AGENT.md dependency table now clarifies that `redis` is a transitive dependency (via `celery[redis]`) and `croniter` is explicitly in `pyproject.toml` under the server extra.
+- MCP server `read_file` exception handler ordering fixed — `UnicodeError` (subclass of `ValueError`) now caught before `ValueError` for correct binary file error messages.
+- MCP server and server app internal helpers now have dedicated edge-case/unit tests (`test_mcp_server.py` +17, `test_server_app_helpers.py` +47), bringing total test count to 488.
