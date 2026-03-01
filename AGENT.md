@@ -116,6 +116,8 @@ what the code does.
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
+| celery-redbeat | server | Redis-backed periodic task scheduler for cron jobs |
+| croniter | server | Cron expression parser used by scheduled task management |
 
 ---
 
@@ -139,4 +141,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-03-01 — docs/docstrings/obsidian reconciliation: checked off implemented CLI backends, added missing MkDocs pages (ollama, schedules, task_result), aligned obsidian with current backend roster.*

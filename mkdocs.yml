@@ -37,6 +37,7 @@ nav:
               - anthropic: api/lib/ai_providers/anthropic.md
               - google: api/lib/ai_providers/google.md
               - litellm: api/lib/ai_providers/litellm.md
+              - ollama: api/lib/ai_providers/ollama.md
               - types: api/lib/ai_providers/types.md
           - meta:
               - tools: api/lib/meta/tools.md
@@ -49,6 +50,8 @@ nav:
           - app: api/server/app.md
           - celery_app: api/server/celery_app.md
           - mcp_server: api/server/mcp_server.md
+          - schedules: api/server/schedules.md
+          - task_result: api/server/task_result.md
 
 plugins:
   - search
