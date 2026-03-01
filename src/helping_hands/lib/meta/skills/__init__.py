@@ -13,6 +13,17 @@ from typing import Any
 
 from helping_hands.lib.meta.tools import command as command_tools
 from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.validation import (
+    parse_optional_str,
+    parse_positive_int,
+    parse_str_list,
+)
+
+# Module-private aliases so existing callers (including tests that reference
+# ``meta_skills._parse_str_list``) continue to work unchanged.
+_parse_str_list = parse_str_list
+_parse_positive_int = parse_positive_int
+_parse_optional_str = parse_optional_str
 
 
 @dataclass(frozen=True)
@@ -32,47 +43,6 @@ class SkillSpec:
     title: str
     tools: tuple[SkillTool, ...]
     instructions: str = ""
-
-
-def _parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
-    """Extract and validate a list of strings from *payload* at *key*."""
-    raw = payload.get(key, [])
-    if raw is None:
-        return []
-    if not isinstance(raw, list):
-        raise ValueError(f"{key} must be a list of strings")
-    values: list[str] = []
-    for value in raw:
-        if not isinstance(value, str):
-            raise ValueError(f"{key} must contain only strings")
-        values.append(value)
-    return values
-
-
-def _parse_positive_int(
-    payload: dict[str, Any],
-    *,
-    key: str,
-    default: int,
-) -> int:
-    """Extract a positive integer from *payload* at *key*, or use *default*."""
-    raw = payload.get(key, default)
-    if isinstance(raw, bool) or not isinstance(raw, int):
-        raise ValueError(f"{key} must be an integer")
-    if raw <= 0:
-        raise ValueError(f"{key} must be > 0")
-    return raw
-
-
-def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
-    """Extract an optional trimmed string from *payload*, returning ``None`` if blank."""
-    raw = payload.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, str):
-        raise ValueError(f"{key} must be a string")
-    value = raw.strip()
-    return value or None
 
 
 def _run_python_code(

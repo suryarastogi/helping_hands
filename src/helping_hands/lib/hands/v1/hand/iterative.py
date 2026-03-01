@@ -40,18 +40,27 @@ from helping_hands.lib.meta.tools import web as system_web_tools
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
 
+    # Matches inline file edits: @@FILE: path/to/file\n```lang\ncontent\n```
+    # Captures: path (file path), content (file body between fences).
     _EDIT_PATTERN = re.compile(
         r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",
         flags=re.DOTALL,
     )
+    # Matches file read requests: @@READ: path/to/file (one per line).
+    # Captures: path (file path to read).
     _READ_PATTERN = re.compile(
         r"^@@READ:\s*(?P<path>[^\n]+)\s*$",
         flags=re.MULTILINE,
     )
+    # Fallback for natural-language read requests like 'contents of file `path`'
+    # or 'read the file "path"'. Case-insensitive.
+    # Captures: path (file path between backticks or quotes).
     _READ_FALLBACK_PATTERN = re.compile(
         r"(?i)(?:content(?:s)? of(?: the)? file|read(?: the)? file)\s*[`\"]"
         r"(?P<path>[^`\"\n]+)[`\"]"
     )
+    # Matches tool invocations: @@TOOL: tool.name\n```json\n{payload}\n```
+    # Captures: name (dotted tool identifier), payload (JSON body).
     _TOOL_PATTERN = re.compile(
         r"@@TOOL:\s*(?P<name>[A-Za-z0-9_.-]+)\n"
         r"```(?:json)?\n(?P<payload>.*?)\n```",
@@ -234,52 +243,6 @@ class _BasicIterativeHand(Hand):
                 f"@@READ_RESULT: {display_path}\n```text\n{text}\n```{truncated_note}"
             )
         return "\n\n".join(chunks).strip()
-
-    @staticmethod
-    def _parse_str_list(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> list[str]:
-        raw = payload.get(key, [])
-        if raw is None:
-            return []
-        if not isinstance(raw, list):
-            raise ValueError(f"{key} must be a list of strings")
-        values: list[str] = []
-        for value in raw:
-            if not isinstance(value, str):
-                raise ValueError(f"{key} must contain only strings")
-            values.append(value)
-        return values
-
-    @staticmethod
-    def _parse_positive_int(
-        payload: dict[str, Any],
-        *,
-        key: str,
-        default: int,
-    ) -> int:
-        raw = payload.get(key, default)
-        if isinstance(raw, bool) or not isinstance(raw, int):
-            raise ValueError(f"{key} must be an integer")
-        if raw <= 0:
-            raise ValueError(f"{key} must be > 0")
-        return raw
-
-    @staticmethod
-    def _parse_optional_str(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> str | None:
-        raw = payload.get(key)
-        if raw is None:
-            return None
-        if not isinstance(raw, str):
-            raise ValueError(f"{key} must be a string")
-        text = raw.strip()
-        return text or None
 
     @staticmethod
     def _format_command(command: list[str]) -> str:

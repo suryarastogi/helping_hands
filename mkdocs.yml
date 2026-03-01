@@ -32,6 +32,7 @@ nav:
           - repo: api/lib/repo.md
           - github: api/lib/github.md
           - default_prompts: api/lib/default_prompts.md
+          - validation: api/lib/validation.md
           - ai_providers:
               - package: api/lib/ai_providers.md
               - openai: api/lib/ai_providers/openai.md
