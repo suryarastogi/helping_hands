@@ -191,3 +191,7 @@ Redis-stored task metadata. The `scheduled_build` Celery task resolves
 schedule metadata, enqueues a standard `build_feature` run, and records run
 history. Cron presets (e.g. `hourly`, `daily`, `weekdays`) are available
 alongside arbitrary cron expressions.
+
+---
+
+*Last updated: 2026-03-01 — 36 MkDocs API pages, 14 hand modules documented, 510 tests passing.*

@@ -33,5 +33,6 @@ You can add dates or timestamps if useful. Multiple entries per week are fine; n
 
 - [[2026-W08]] — 17–23 Feb 2026
 - [[2026-W09]] — 24 Feb – 2 Mar 2026
+- [[2026-W10]] — 2–8 Mar 2026
 
 *(Add new weeks here as you create them.)*

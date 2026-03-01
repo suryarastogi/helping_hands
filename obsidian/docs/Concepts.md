@@ -168,3 +168,7 @@ An optional **React + TypeScript + Vite** frontend (`frontend/`) wraps the FastA
 ## Project Log
 
 Progress notes live under **Project Log** and can be edited by **users** or **hands**. Each week has a note (e.g. [[Project Log/2026-W08]]). Entries are tagged by author: human or hand, with optional short context. That gives a shared, auditable log of what was done and who contributed. See [[Project Log/Weekly progress]] for the format.
+
+---
+
+*Last updated: 2026-03-01 — All features described above are implemented and tested (510 tests). See the repo [[AGENT.md]] for the full recurring decisions log.*

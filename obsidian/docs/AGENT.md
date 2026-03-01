@@ -33,6 +33,8 @@
 - Hand constructors use concrete `Config`/`RepoIndex` types (via `TYPE_CHECKING`) instead of `Any`
 - `Config.__post_init__` validates repo format, model name patterns, and skill names at creation time
 - CLI `--verbose` wires to `logging.basicConfig()`; silent exception blocks use `logger.debug()`
+- Exception handler ordering: catch subclass exceptions before parent classes (e.g. `UnicodeError` before `ValueError`)
+- Skills payload validation: reject empty/missing payloads at the validation layer, not downstream
 
 ## Testing
 
