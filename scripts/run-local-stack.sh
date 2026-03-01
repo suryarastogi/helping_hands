@@ -253,7 +253,7 @@ start_all() {
 
   start_service \
     "worker" \
-    uv run --extra server celery -A "${CELERY_APP}" worker --loglevel=info
+    uv run --extra server celery -A "${CELERY_APP}" worker --pool=threads --concurrency=4 --loglevel=info
 
   start_service \
     "beat" \

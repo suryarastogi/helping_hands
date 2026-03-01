@@ -92,7 +92,7 @@ CMD ["uv", "run", "uvicorn", "helping_hands.server.app:app", "--host", "0.0.0.0"
 FROM app-deps AS worker
 ENV HOME=/home/app
 USER app
-CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "worker", "--loglevel=info"]
+CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "worker", "--pool=solo", "--loglevel=info"]
 
 FROM app-deps AS beat
 ENV HOME=/home/app

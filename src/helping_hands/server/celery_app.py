@@ -49,12 +49,6 @@ celery_app.conf.update(
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=_BROKER_URL,
     redbeat_key_prefix="redbeat:",
-    beat_schedule={
-        "log-claude-usage-hourly": {
-            "task": "helping_hands.log_claude_usage",
-            "schedule": 3600.0,  # every hour
-        },
-    },
 )
 
 
@@ -809,3 +803,35 @@ def log_claude_usage() -> dict[str, Any]:
         "session_pct": session_pct,
         "weekly_pct": weekly_pct,
     }
+
+
+def ensure_usage_schedule() -> None:
+    """Register the hourly claude-usage logging schedule in RedBeat (idempotent)."""
+    try:
+        from celery.schedules import schedule as interval_schedule
+        from redbeat import RedBeatSchedulerEntry
+
+        entry_name = "helping_hands:usage-logger"
+        try:
+            existing = RedBeatSchedulerEntry.from_key(
+                f"redbeat:{entry_name}", app=celery_app
+            )
+            if existing:
+                return  # already registered
+        except Exception:
+            pass  # doesn't exist yet
+
+        entry = RedBeatSchedulerEntry(
+            name=entry_name,
+            task="helping_hands.log_claude_usage",
+            schedule=interval_schedule(run_every=3600.0),
+            app=celery_app,
+        )
+        entry.save()
+    except Exception:
+        pass  # best-effort; Redis or redbeat may not be available
+
+
+@celery_app.on_after_finalize.connect  # type: ignore[union-attr]
+def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
+    ensure_usage_schedule()
