@@ -92,7 +92,7 @@ what the code does.
 
 ## Dependencies `[auto-update]`
 
-<!-- Agents: keep this in sync with requirements.txt. Note why each
+<!-- Agents: keep this in sync with pyproject.toml. Note why each
      dependency exists so future agents don't accidentally remove
      something important. -->
 
@@ -104,10 +104,12 @@ what the code does.
 | ty | dev | Type checker used in pre-commit |
 | pre-commit | dev | Git hook manager |
 | fastapi | server | HTTP/WS API for app mode |
-| uvicorn | server | ASGI server |
+| uvicorn[standard] | server | ASGI server |
 | celery[redis] | server | Task queue + Redis broker |
+| celery-redbeat | server | Redis-backed cron scheduling for Celery Beat |
 | flower | server | Celery monitoring UI |
 | psycopg2-binary | server | Postgres driver |
+| croniter | server | Cron expression parsing for scheduled tasks |
 | langchain-openai | langchain | LangChain LLM wrapper for LangGraphHand |
 | langgraph | langchain | Agent graph framework for LangGraphHand |
 | atomic-agents | atomic | Atomic Agents framework for AtomicHand (Python 3.12+) |
@@ -141,4 +143,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-28 — docs consolidation: single-source-of-truth policy, CLI backend base class decision, goose/geminicli completion.*
+*Last updated: 2026-03-01 — deps table: added celery-redbeat, croniter, fixed uvicorn[standard]; stale requirements.txt comment updated to pyproject.toml.*
