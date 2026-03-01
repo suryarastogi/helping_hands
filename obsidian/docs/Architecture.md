@@ -195,4 +195,4 @@ alongside arbitrary cron expressions.
 
 ---
 
-*Last updated: 2026-03-01 — 37 MkDocs API pages (added `validation`), 14 hand modules documented, 579 tests passing. Shared validation utilities extracted to `lib/validation.py` (DRY fix). `_finalize_repo_pr` refactored into `_push_with_non_interactive_env` and `_create_pr_from_branch` helpers. Broad `except Exception` replaced with specific types. All AI provider, skills runner, meta/tools helper, and `_build_agent` methods have Google-style docstrings.*
+*Last updated: 2026-03-01 — 37 MkDocs API pages (added `validation`), 14 hand modules documented, 611 tests passing. Shared validation utilities extracted to `lib/validation.py` (DRY fix). `_finalize_repo_pr` refactored into `_push_with_non_interactive_env` and `_create_pr_from_branch` helpers. Broad `except Exception` replaced with specific types. All AI provider, skills runner, meta/tools helper, `_build_agent`, and iterative hand helper methods have Google-style docstrings.*

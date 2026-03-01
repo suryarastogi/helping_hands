@@ -67,6 +67,6 @@ Key architectural decisions and implementation notes. For the full list of recur
 ### Documentation and testing
 
 - MkDocs: 37 API doc pages covering all 14 Hand modules (12 implementation + 1 package surface + 1 backward-compat shim) plus all subsystems (including `validation`).
-- Docstrings: Google-style on all public methods and key private helpers; `_TwoPhaseCLIHand` (incl. 20+ private helpers across all 4 CLI hands), `AIProvider` (including all `_build_inner`/`_complete_impl`), skills runners, meta/tools helpers, `_build_agent` methods, and `GitHubClient` context manager fully documented.
-- Tests: 579 tests covering filesystem (40), CLI hands (111 incl. stream/interrupt), schedule manager (22), Celery helpers (15), skills (30+4 config validation), MCP (17), server app (47), AI providers (28), command/web tools (30+).
+- Docstrings: Google-style on all public methods and key private helpers; `_TwoPhaseCLIHand` (incl. 20+ private helpers across all 4 CLI hands), `_BasicIterativeHand` (12 private helpers), `AIProvider` (including all `_build_inner`/`_complete_impl`), skills runners, meta/tools helpers, `_build_agent` methods, and `GitHubClient` context manager fully documented.
+- Tests: 611 tests covering filesystem (40), CLI hands (111 incl. stream/interrupt), schedule manager (22), Celery helpers (15), skills (30+4 config validation), MCP (17), server app (47), AI providers (28), command/web tools (30+), validation (32).
 - PEP 561: `py.typed` marker + `Typing :: Typed` classifier in `pyproject.toml`.

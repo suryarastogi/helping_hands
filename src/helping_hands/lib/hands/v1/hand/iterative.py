@@ -182,6 +182,7 @@ class _BasicIterativeHand(Hand):
         cls,
         content: str,
     ) -> list[tuple[str, dict[str, Any], str | None]]:
+        """Extract ``@@TOOL`` invocations from model output as (name, payload, error) triples."""
         requests: list[tuple[str, dict[str, Any], str | None]] = []
         for match in cls._TOOL_PATTERN.finditer(content):
             tool_name = match.group("name").strip()
@@ -205,11 +206,13 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _merge_iteration_summary(content: str, tool_feedback: str) -> str:
+        """Append tool-result feedback to model output for the next iteration."""
         if not tool_feedback:
             return content
         return f"{content}\n\nTool results:\n{tool_feedback}"
 
     def _execute_read_requests(self, content: str) -> str:
+        """Process ``@@READ`` requests in model output and return read results."""
         root = self.repo_index.root.resolve()
         requests = list(dict.fromkeys(self._extract_read_requests(content)))
         if not requests:
@@ -250,6 +253,7 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _truncate_tool_output(cls, text: str) -> tuple[str, bool]:
+        """Truncate text to the tool output character limit, returning a flag if cut."""
         if len(text) <= cls._MAX_TOOL_OUTPUT_CHARS:
             return text, False
         return text[: cls._MAX_TOOL_OUTPUT_CHARS], True
@@ -261,6 +265,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_exec_tools.CommandResult,
     ) -> str:
+        """Format a command execution result as a ``@@TOOL_RESULT`` block."""
         stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
         stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
         stdout_note = "\n[truncated]" if stdout_truncated else ""
@@ -284,6 +289,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebSearchResult,
     ) -> str:
+        """Format a web search result as a ``@@TOOL_RESULT`` block."""
         items = [
             {
                 "title": item.title,
@@ -310,6 +316,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebBrowseResult,
     ) -> str:
+        """Format a web browse result as a ``@@TOOL_RESULT`` block."""
         text, output_truncated = cls._truncate_tool_output(result.content)
         truncated_note = "\n[truncated]" if output_truncated else ""
         return (
@@ -358,6 +365,7 @@ class _BasicIterativeHand(Hand):
         raise TypeError(f"unsupported tool result type: {type(result)!r}")
 
     def _execute_tool_requests(self, content: str) -> str:
+        """Process ``@@TOOL`` requests in model output and return tool results."""
         root = self.repo_index.root.resolve()
         requests = self._extract_tool_requests(content)
         if not requests:
@@ -389,6 +397,7 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     def _apply_inline_edits(self, content: str) -> list[str]:
+        """Apply ``@@FILE`` edits from model output and return changed paths."""
         root = self.repo_index.root.resolve()
         changed: list[str] = []
         for rel_path, body in self._extract_inline_edits(content):
@@ -406,6 +415,7 @@ class _BasicIterativeHand(Hand):
         root: Path,
         candidates: tuple[str, ...],
     ) -> str:
+        """Read the first existing candidate doc file, truncated for bootstrap."""
         for rel_path in candidates:
             if not system_tools.path_exists(root, rel_path):
                 continue
@@ -423,6 +433,7 @@ class _BasicIterativeHand(Hand):
         return ""
 
     def _build_tree_snapshot(self) -> str:
+        """Build a bounded directory-tree snapshot for the bootstrap context."""
         entries: set[str] = set()
         for rel_path in sorted(self.repo_index.files):
             normalized = system_tools.normalize_relative_path(rel_path)
@@ -452,6 +463,7 @@ class _BasicIterativeHand(Hand):
         return "\n".join(lines)
 
     def _build_bootstrap_context(self) -> str:
+        """Assemble README, AGENT.md, and tree snapshot for iteration 1."""
         root = self.repo_index.root.resolve()
         sections: list[str] = []
 

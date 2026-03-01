@@ -10,6 +10,7 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 | PRD | Theme |
 |-----|-------|
+| [validation-tests-iterative-docstrings-doc-reconciliation](../../completed/PRD-2026-03-01-validation-tests-iterative-docstrings-doc-reconciliation.md) | `test_validation.py` (32 tests), iterative hand helper docstrings, doc reconciliation |
 | [cross-surface-reconciliation-packaging-polish](../../completed/PRD-2026-03-01-cross-surface-reconciliation-packaging-polish.md) | Cross-surface doc reconciliation, `pyproject.toml` URLs, Obsidian Home.md footer |
 | [dry-validation-finalize-refactor-doc-reconciliation](../../completed/PRD-2026-03-01-dry-validation-finalize-refactor-doc-reconciliation.md) | DRY `validation.py` extraction, `_finalize_repo_pr` refactor, 37th API page |
 | [exception-specificity-doc-reconciliation](../../completed/PRD-2026-03-01-exception-specificity-doc-reconciliation.md) | Replace 8 bare `except Exception` with specific types |
@@ -41,4 +42,4 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 ---
 
-*Last updated: 2026-03-01 — 23 completed PRDs indexed.*
+*Last updated: 2026-03-01 — 24 completed PRDs indexed.*

@@ -164,4 +164,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — CLI hand robustness (exception specificity, retry depth guard), private method docstrings, stream/interrupt test coverage, Obsidian reconciliation, 579 total tests passing.*
+*Last updated: 2026-03-01 — validation test coverage (32 tests), iterative hand helper docstrings, doc reconciliation, 611 total tests passing.*

@@ -171,4 +171,4 @@ Progress notes live under **Project Log** and can be edited by **users** or **ha
 
 ---
 
-*Last updated: 2026-03-01 — All features described above are implemented and tested (579 tests). All hand constructors use typed parameters. Exception handling hardened across server and hand modules. See the repo [[AGENT.md]] for the full recurring decisions log.*
+*Last updated: 2026-03-01 — All features described above are implemented and tested (611 tests). All hand constructors use typed parameters. Exception handling hardened across server and hand modules. See the repo [[AGENT.md]] for the full recurring decisions log.*
