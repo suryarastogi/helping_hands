@@ -41,3 +41,8 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `BuildRequest` and `ScheduleRequest` now validate input at the API boundary: `repo_path` and `prompt` require `min_length=1`, `max_iterations` has `ge=1, le=100`, `pr_number` has `ge=1`, and `ScheduleRequest.cron_expression` validates syntax via `croniter`.
 - Health check functions (`_check_redis_health`, `_check_db_health`, `_check_workers_health`, `_resolve_worker_capacity`) now log exceptions at warning level with full traceback for production observability.
 - Obsidian `AGENT.md` is now a conventions summary for vault readers instead of a bare redirect.
+- `ScheduleManager` now has comprehensive unit tests (22 tests with mocked Redis/RedBeat) covering CRUD, enable/disable, record_run, and trigger_now.
+- Celery helper functions (`_redact_sensitive`, `_github_clone_url`, `_repo_tmp_dir`, `_trim_updates`, `_append_update`, `_UpdateCollector`) now have unit tests.
+- Skills payload runner functions (`_run_python_code`, `_run_python_script`, `_run_bash_script`, `_run_web_search`, `_run_web_browse`) and internal parse helpers now have validation tests.
+- `_run_bash_script()` now validates that at least one of `script_path`/`inline_script` is a non-empty string (previously accepted empty payloads).
+- `default_prompts.py` is now documented in MkDocs API reference (`docs/api/lib/default_prompts.md` + `mkdocs.yml` nav).

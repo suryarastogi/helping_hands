@@ -322,6 +322,7 @@ helping_hands/
 │   │   ├── config.py
 │   │   ├── repo.py
 │   │   ├── github.py
+│   │   ├── default_prompts.py
 │   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
 │   │   │   ├── __init__.py
 │   │   │   ├── openai.py

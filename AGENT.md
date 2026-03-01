@@ -94,6 +94,7 @@ what the code does.
 - **Config input validation**: `Config.__post_init__` validates `repo` format (filesystem path or `owner/repo`) and warns on unexpected `model` name patterns. (2026-03-01)
 - **API request validation**: `BuildRequest` and `ScheduleRequest` validate input at the API boundary (`min_length`, `ge`/`le` bounds) and `ScheduleRequest` validates cron expression syntax via `croniter`. (2026-03-01)
 - **Health check observability**: Health check exceptions should be logged at warning level with `exc_info=True` for production debugging — never silently swallowed. (2026-03-01)
+- **Skills payload validation**: Skill runner functions (`_run_bash_script`, etc.) must validate required fields before passing to underlying tools — reject empty/missing payloads at the validation layer, not downstream. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -149,4 +150,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — API validation hardening: BuildRequest/ScheduleRequest input bounds, cron syntax validation, health check logging, documentation reconciliation.*
+*Last updated: 2026-03-01 — Test coverage expansion: ScheduleManager unit tests, Celery helper tests, skills payload runner validation tests, bash script validation fix, documentation reconciliation.*

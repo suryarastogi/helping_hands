@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from helping_hands.lib.meta import skills as meta_skills
@@ -72,3 +75,229 @@ class TestMetaSkills:
         )
         assert "Skill enabled: ralph" in formatted
         assert "prd.json" in formatted
+
+
+# ---------------------------------------------------------------------------
+# Payload runner validation tests
+# ---------------------------------------------------------------------------
+
+_DUMMY_ROOT = Path("/tmp/test_repo")
+
+
+class TestRunPythonCodeValidation:
+    """Tests for _run_python_code() payload validation."""
+
+    def test_missing_code_raises(self) -> None:
+        with pytest.raises(ValueError, match="code must be a non-empty string"):
+            meta_skills._run_python_code(_DUMMY_ROOT, {})
+
+    def test_non_string_code_raises(self) -> None:
+        with pytest.raises(ValueError, match="code must be a non-empty string"):
+            meta_skills._run_python_code(_DUMMY_ROOT, {"code": 42})
+
+    def test_empty_code_raises(self) -> None:
+        with pytest.raises(ValueError, match="code must be a non-empty string"):
+            meta_skills._run_python_code(_DUMMY_ROOT, {"code": "   "})
+
+    def test_valid_code_calls_runner(self) -> None:
+        mock_result = MagicMock()
+        with patch(
+            "helping_hands.lib.meta.skills.command_tools.run_python_code",
+            return_value=mock_result,
+        ) as mock_run:
+            result = meta_skills._run_python_code(_DUMMY_ROOT, {"code": "print('hi')"})
+        assert result is mock_result
+        mock_run.assert_called_once()
+
+    def test_invalid_timeout_raises(self) -> None:
+        with pytest.raises(ValueError, match="timeout_s must be an integer"):
+            meta_skills._run_python_code(
+                _DUMMY_ROOT, {"code": "x", "timeout_s": "fast"}
+            )
+
+    def test_negative_timeout_raises(self) -> None:
+        with pytest.raises(ValueError, match="timeout_s must be > 0"):
+            meta_skills._run_python_code(_DUMMY_ROOT, {"code": "x", "timeout_s": -1})
+
+    def test_bool_timeout_raises(self) -> None:
+        with pytest.raises(ValueError, match="timeout_s must be an integer"):
+            meta_skills._run_python_code(_DUMMY_ROOT, {"code": "x", "timeout_s": True})
+
+
+class TestRunPythonScriptValidation:
+    """Tests for _run_python_script() payload validation."""
+
+    def test_missing_script_path_raises(self) -> None:
+        with pytest.raises(ValueError, match="script_path must be a non-empty string"):
+            meta_skills._run_python_script(_DUMMY_ROOT, {})
+
+    def test_non_string_script_path_raises(self) -> None:
+        with pytest.raises(ValueError, match="script_path must be a non-empty string"):
+            meta_skills._run_python_script(_DUMMY_ROOT, {"script_path": 123})
+
+    def test_empty_script_path_raises(self) -> None:
+        with pytest.raises(ValueError, match="script_path must be a non-empty string"):
+            meta_skills._run_python_script(_DUMMY_ROOT, {"script_path": ""})
+
+    def test_valid_script_path_calls_runner(self) -> None:
+        mock_result = MagicMock()
+        with patch(
+            "helping_hands.lib.meta.skills.command_tools.run_python_script",
+            return_value=mock_result,
+        ) as mock_run:
+            result = meta_skills._run_python_script(
+                _DUMMY_ROOT, {"script_path": "test.py"}
+            )
+        assert result is mock_result
+        mock_run.assert_called_once()
+
+
+class TestRunBashScriptValidation:
+    """Tests for _run_bash_script() payload validation."""
+
+    def test_both_none_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least one of"):
+            meta_skills._run_bash_script(_DUMMY_ROOT, {})
+
+    def test_both_empty_strings_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least one of"):
+            meta_skills._run_bash_script(
+                _DUMMY_ROOT, {"script_path": "", "inline_script": "  "}
+            )
+
+    def test_non_string_script_path_raises(self) -> None:
+        with pytest.raises(ValueError, match="script_path must be a string"):
+            meta_skills._run_bash_script(_DUMMY_ROOT, {"script_path": 42})
+
+    def test_non_string_inline_script_raises(self) -> None:
+        with pytest.raises(ValueError, match="inline_script must be a string"):
+            meta_skills._run_bash_script(_DUMMY_ROOT, {"inline_script": 42})
+
+    def test_valid_script_path_calls_runner(self) -> None:
+        mock_result = MagicMock()
+        with patch(
+            "helping_hands.lib.meta.skills.command_tools.run_bash_script",
+            return_value=mock_result,
+        ) as mock_run:
+            result = meta_skills._run_bash_script(
+                _DUMMY_ROOT, {"script_path": "run.sh"}
+            )
+        assert result is mock_result
+        mock_run.assert_called_once()
+
+    def test_valid_inline_script_calls_runner(self) -> None:
+        mock_result = MagicMock()
+        with patch(
+            "helping_hands.lib.meta.skills.command_tools.run_bash_script",
+            return_value=mock_result,
+        ) as mock_run:
+            result = meta_skills._run_bash_script(
+                _DUMMY_ROOT, {"inline_script": "echo hi"}
+            )
+        assert result is mock_result
+        mock_run.assert_called_once()
+
+
+class TestRunWebSearchValidation:
+    """Tests for _run_web_search() payload validation."""
+
+    def test_missing_query_raises(self) -> None:
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            meta_skills._run_web_search(_DUMMY_ROOT, {})
+
+    def test_non_string_query_raises(self) -> None:
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            meta_skills._run_web_search(_DUMMY_ROOT, {"query": 42})
+
+    def test_empty_query_raises(self) -> None:
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            meta_skills._run_web_search(_DUMMY_ROOT, {"query": "   "})
+
+    def test_valid_query_calls_runner(self) -> None:
+        mock_result = MagicMock()
+        with patch(
+            "helping_hands.lib.meta.skills.web_tools.search_web",
+            return_value=mock_result,
+        ) as mock_search:
+            result = meta_skills._run_web_search(_DUMMY_ROOT, {"query": "python docs"})
+        assert result is mock_result
+        mock_search.assert_called_once()
+
+
+class TestRunWebBrowseValidation:
+    """Tests for _run_web_browse() payload validation."""
+
+    def test_missing_url_raises(self) -> None:
+        with pytest.raises(ValueError, match="url must be a non-empty string"):
+            meta_skills._run_web_browse(_DUMMY_ROOT, {})
+
+    def test_non_string_url_raises(self) -> None:
+        with pytest.raises(ValueError, match="url must be a non-empty string"):
+            meta_skills._run_web_browse(_DUMMY_ROOT, {"url": 42})
+
+    def test_empty_url_raises(self) -> None:
+        with pytest.raises(ValueError, match="url must be a non-empty string"):
+            meta_skills._run_web_browse(_DUMMY_ROOT, {"url": ""})
+
+    def test_valid_url_calls_runner(self) -> None:
+        mock_result = MagicMock()
+        with patch(
+            "helping_hands.lib.meta.skills.web_tools.browse_url",
+            return_value=mock_result,
+        ) as mock_browse:
+            result = meta_skills._run_web_browse(
+                _DUMMY_ROOT, {"url": "https://example.com"}
+            )
+        assert result is mock_result
+        mock_browse.assert_called_once()
+
+
+class TestParseHelpers:
+    """Tests for internal payload parsing helpers."""
+
+    def test_parse_str_list_valid(self) -> None:
+        assert meta_skills._parse_str_list({"args": ["a", "b"]}, key="args") == [
+            "a",
+            "b",
+        ]
+
+    def test_parse_str_list_none_returns_empty(self) -> None:
+        assert meta_skills._parse_str_list({"args": None}, key="args") == []
+
+    def test_parse_str_list_missing_returns_empty(self) -> None:
+        assert meta_skills._parse_str_list({}, key="args") == []
+
+    def test_parse_str_list_not_list_raises(self) -> None:
+        with pytest.raises(ValueError, match="args must be a list"):
+            meta_skills._parse_str_list({"args": "not-a-list"}, key="args")
+
+    def test_parse_str_list_non_string_element_raises(self) -> None:
+        with pytest.raises(ValueError, match="args must contain only strings"):
+            meta_skills._parse_str_list({"args": [1, 2]}, key="args")
+
+    def test_parse_positive_int_default(self) -> None:
+        assert meta_skills._parse_positive_int({}, key="x", default=10) == 10
+
+    def test_parse_positive_int_provided(self) -> None:
+        assert meta_skills._parse_positive_int({"x": 5}, key="x", default=10) == 5
+
+    def test_parse_positive_int_zero_raises(self) -> None:
+        with pytest.raises(ValueError, match="x must be > 0"):
+            meta_skills._parse_positive_int({"x": 0}, key="x", default=10)
+
+    def test_parse_positive_int_bool_raises(self) -> None:
+        with pytest.raises(ValueError, match="x must be an integer"):
+            meta_skills._parse_positive_int({"x": True}, key="x", default=10)
+
+    def test_parse_optional_str_present(self) -> None:
+        assert meta_skills._parse_optional_str({"k": "val"}, key="k") == "val"
+
+    def test_parse_optional_str_missing(self) -> None:
+        assert meta_skills._parse_optional_str({}, key="k") is None
+
+    def test_parse_optional_str_empty_returns_none(self) -> None:
+        assert meta_skills._parse_optional_str({"k": "  "}, key="k") is None
+
+    def test_parse_optional_str_non_string_raises(self) -> None:
+        with pytest.raises(ValueError, match="k must be a string"):
+            meta_skills._parse_optional_str({"k": 42}, key="k")

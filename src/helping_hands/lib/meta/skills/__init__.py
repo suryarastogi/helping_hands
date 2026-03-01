@@ -116,6 +116,12 @@ def _run_bash_script(
         raise ValueError("script_path must be a string")
     if inline_script is not None and not isinstance(inline_script, str):
         raise ValueError("inline_script must be a string")
+    has_path = isinstance(script_path, str) and script_path.strip()
+    has_inline = isinstance(inline_script, str) and inline_script.strip()
+    if not has_path and not has_inline:
+        raise ValueError(
+            "at least one of script_path or inline_script must be a non-empty string"
+        )
     return command_tools.run_bash_script(
         root,
         script_path=script_path,
