@@ -627,6 +627,9 @@ uv sync --extra mcp       # MCP server dependencies
 uv run ruff check .
 uv run ruff format --check .
 
+# Type check
+uv run ty check src --ignore unresolved-import --ignore invalid-method-override
+
 # Run tests
 uv run pytest -v
 

@@ -5,7 +5,23 @@ Exposes an HTTP API that enqueues repo-building jobs via Celery.
 
 from __future__ import annotations
 
-__all__ = ["BackendName", "BuildRequest", "BuildResponse", "TaskStatus", "app"]
+__all__ = [
+    "BackendName",
+    "BuildRequest",
+    "BuildResponse",
+    "CronPresetsResponse",
+    "CurrentTask",
+    "CurrentTasksResponse",
+    "ScheduleListResponse",
+    "ScheduleRequest",
+    "ScheduleResponse",
+    "ScheduleTriggerResponse",
+    "ServerConfig",
+    "ServiceHealthResponse",
+    "TaskStatus",
+    "WorkerCapacityResponse",
+    "app",
+]
 
 import ast
 import html

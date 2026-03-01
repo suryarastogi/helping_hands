@@ -26,6 +26,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER_IMAGE"
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return OpenAI API key env var for native CLI auth stripping."""
         return ("OPENAI_API_KEY",)
 
     @staticmethod

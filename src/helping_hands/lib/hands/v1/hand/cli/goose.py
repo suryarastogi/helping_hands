@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __all__ = ["GooseCLIHand"]
 
+import os
 import shutil
 from urllib.parse import urlparse
 
@@ -29,8 +30,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return None
 
     def _describe_auth(self) -> str:
-        import os
-
+        """Return a human-readable string showing the resolved Goose provider and its auth status."""
         provider, _model = self._resolve_goose_provider_model_from_config()
         env_map = {
             "openai": "OPENAI_API_KEY",
@@ -53,8 +53,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return super()._normalize_base_command(tokens)
 
     def _resolve_cli_model(self) -> str:
-        # Goose expects provider/model via env vars (GOOSE_PROVIDER/GOOSE_MODEL),
-        # not a generic CLI --model flag injected by the shared base.
+        """Return empty string; Goose uses env vars for provider/model, not a CLI flag."""
         return ""
 
     @staticmethod

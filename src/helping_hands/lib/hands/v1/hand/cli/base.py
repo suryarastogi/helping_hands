@@ -485,6 +485,12 @@ class _TwoPhaseCLIHand(Hand):
         prompt: str,
         combined_output: str,
     ) -> str | None:
+        """Return an error message if retries exhausted without changes, or None to accept.
+
+        Subclasses override this to detect backend-specific failure patterns
+        (e.g. Claude permission prompts). The default implementation accepts
+        any no-change outcome silently.
+        """
         del prompt
         del combined_output
         return None

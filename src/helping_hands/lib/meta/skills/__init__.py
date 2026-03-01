@@ -19,6 +19,19 @@ from helping_hands.lib.validation import (
     parse_str_list,
 )
 
+__all__ = [
+    "SkillSpec",
+    "SkillTool",
+    "available_skill_names",
+    "build_tool_runner_map",
+    "format_skill_instructions",
+    "merge_with_legacy_tool_flags",
+    "normalize_skill_selection",
+    "resolve_skills",
+    "skill_name_for_tool",
+    "validate_skill_names",
+]
+
 # Module-private aliases so existing callers (including tests that reference
 # ``meta_skills._parse_str_list``) continue to work unchanged.
 _parse_str_list = parse_str_list
@@ -317,17 +330,3 @@ def format_skill_instructions(skills: tuple[SkillSpec, ...]) -> str:
                 ]
             )
     return "\n".join(lines)
-
-
-__all__ = [
-    "SkillSpec",
-    "SkillTool",
-    "available_skill_names",
-    "build_tool_runner_map",
-    "format_skill_instructions",
-    "merge_with_legacy_tool_flags",
-    "normalize_skill_selection",
-    "resolve_skills",
-    "skill_name_for_tool",
-    "validate_skill_names",
-]

@@ -41,6 +41,7 @@ npm --prefix frontend run build
 npm --prefix frontend run lint
 npm --prefix frontend run typecheck
 npm --prefix frontend run test
+npm --prefix frontend run coverage
 
 # App mode (Docker)
 docker compose up --build

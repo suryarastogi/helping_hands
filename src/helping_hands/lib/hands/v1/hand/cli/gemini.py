@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __all__ = ["GeminiCLIHand"]
 
+import os
 import re
 import shutil
 
@@ -29,8 +30,6 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
 
     def _describe_auth(self) -> str:
         """Return a human-readable string showing whether ``GEMINI_API_KEY`` is set."""
-        import os
-
         present = "set" if os.environ.get("GEMINI_API_KEY", "").strip() else "not set"
         return f"auth=GEMINI_API_KEY ({present})"
 
