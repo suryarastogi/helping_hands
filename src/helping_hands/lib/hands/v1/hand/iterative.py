@@ -406,6 +406,7 @@ class _BasicIterativeHand(Hand):
         root: Path,
         candidates: tuple[str, ...],
     ) -> str:
+        """Read the first existing doc from *candidates* for bootstrap context."""
         for rel_path in candidates:
             if not system_tools.path_exists(root, rel_path):
                 continue
@@ -423,6 +424,7 @@ class _BasicIterativeHand(Hand):
         return ""
 
     def _build_tree_snapshot(self) -> str:
+        """Build a depth-limited tree listing of the repo for bootstrap context."""
         entries: set[str] = set()
         for rel_path in sorted(self.repo_index.files):
             normalized = system_tools.normalize_relative_path(rel_path)
@@ -452,6 +454,7 @@ class _BasicIterativeHand(Hand):
         return "\n".join(lines)
 
     def _build_bootstrap_context(self) -> str:
+        """Assemble iteration-1 bootstrap context from README, AGENT.md, and tree."""
         root = self.repo_index.root.resolve()
         sections: list[str] = []
 
@@ -486,6 +489,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Create a LangGraph react agent with the resolved model and system prompt."""
         from langgraph.prebuilt import create_react_agent
 
         llm = build_langchain_chat_model(
@@ -505,6 +509,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
     @staticmethod
     def _result_content(result: dict[str, Any]) -> str:
+        """Extract text content from the last message in a LangGraph result."""
         messages = result.get("messages") or []
         if not messages:
             return ""
@@ -701,6 +706,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Create an Atomic Agents agent with the resolved model and system prompt."""
         from atomic_agents import AgentConfig, AtomicAgent, BasicChatInputSchema
         from atomic_agents.context import (
             ChatHistory,
@@ -728,10 +734,12 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     def _make_input(self, prompt: str) -> Any:
+        """Wrap a prompt string into the Atomic Agents input schema."""
         return self._input_schema(chat_message=prompt)
 
     @staticmethod
     def _extract_message(response: Any) -> str:
+        """Extract text content from an Atomic Agents response object."""
         if hasattr(response, "chat_message") and response.chat_message:
             return str(response.chat_message)
         return str(response)

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+__all__ = ["normalize_task_result"]
+
 
 def normalize_task_result(status: str, raw_result: Any) -> dict[str, Any] | None:
     """Normalize Celery task results into JSON-serializable dicts.

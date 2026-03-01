@@ -18,6 +18,8 @@ from uuid import uuid4
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
+__all__ = ["E2EHand"]
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,15 +31,18 @@ class E2EHand(Hand):
 
     @staticmethod
     def _safe_repo_dir(repo: str) -> str:
+        """Sanitize a repo string into a filesystem-safe directory name."""
         return re.sub(r"[^A-Za-z0-9_.-]+", "_", repo.strip("/"))
 
     @staticmethod
     def _work_base() -> Path:
+        """Return the workspace root directory (env override or cwd)."""
         root = os.environ.get("HELPING_HANDS_WORK_ROOT", ".")
         return Path(root).expanduser()
 
     @staticmethod
     def _configured_base_branch() -> str:
+        """Return the env-configured base branch, or empty string if unset."""
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", "").strip()
 
     @staticmethod
@@ -57,8 +62,7 @@ class E2EHand(Hand):
         stamp_utc: str,
         commit_sha: str,
     ) -> str:
-        # E2E is deterministic; production hands should provide AI-authored
-        # PR summaries/comments when they own the PR workflow.
+        """Build the deterministic status comment body for an E2E PR."""
         return (
             "## helping_hands E2E update\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -75,6 +79,7 @@ class E2EHand(Hand):
         stamp_utc: str,
         commit_sha: str,
     ) -> str:
+        """Build the PR body text for an E2E validation pull request."""
         return (
             "Automated E2E validation PR.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"

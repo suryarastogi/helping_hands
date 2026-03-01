@@ -30,6 +30,7 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 | [mkdocs-hand-documentation-expansion](../../completed/PRD-2026-03-01-mkdocs-hand-documentation-expansion.md) | MkDocs hand documentation expansion |
 | [test-coverage-expansion-robustness-hardening](../../completed/PRD-2026-03-01-test-coverage-expansion-robustness-hardening.md) | Test coverage expansion and robustness |
 | [docstring-completion-doc-reconciliation](../../completed/2026-03-01-docstring-completion-doc-reconciliation.md) | Docstring completion across 12 files |
+| [docstring-exports-test-gaps-doc-reconciliation](../../completed/PRD-2026-03-01-docstring-exports-test-gaps-doc-reconciliation.md) | Docstrings, `__all__` exports, test_validation.py, E2EHand tests, Obsidian reconciliation |
 
 ## Earlier PRDs (undated)
 
@@ -41,4 +42,4 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 ---
 
-*Last updated: 2026-03-01 — 23 completed PRDs indexed.*
+*Last updated: 2026-03-01 — 24 completed PRDs indexed.*

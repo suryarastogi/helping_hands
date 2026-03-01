@@ -88,7 +88,11 @@ terminate after a configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
 For `goose`, the backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from
 `HELPING_HANDS_MODEL` (default: `ollama` + `llama3.2:latest`) and auto-injects
 `--with-builtin developer` for `goose run` commands. Runtime mirrors the
-available GitHub token into both `GH_TOKEN` and `GITHUB_TOKEN`.
+available GitHub token into both `GH_TOKEN` and `GITHUB_TOKEN`. Local GitHub
+auth fallback is disabled for Goose backend runs, so explicit token
+configuration is required. Supported `GOOSE_PROVIDER` values are `openai`,
+`anthropic`, `google`, and `ollama` (default), each resolved from the
+corresponding API key env var.
 
 For `geminicli`, the backend injects `--approval-mode auto_edit` by default for
 non-interactive scripted runs and retries once without `--model` when Gemini
@@ -171,4 +175,4 @@ Progress notes live under **Project Log** and can be edited by **users** or **ha
 
 ---
 
-*Last updated: 2026-03-01 — All features described above are implemented and tested (579 tests). All hand constructors use typed parameters. Exception handling hardened across server and hand modules. See the repo [[AGENT.md]] for the full recurring decisions log.*
+*Last updated: 2026-03-01 — All features described above are implemented and tested (624 tests). 11 core modules declare `__all__` exports. Goose backend detail expanded. See the repo [[AGENT.md]] for the full recurring decisions log.*

@@ -14,6 +14,13 @@ from typing import Any
 
 from celery import Celery
 
+__all__ = [
+    "CRON_PRESETS",
+    "ScheduleManager",
+    "ScheduledTask",
+    "validate_cron_expression",
+]
+
 # Lazy imports for optional dependencies
 _redbeat_available = True
 try:

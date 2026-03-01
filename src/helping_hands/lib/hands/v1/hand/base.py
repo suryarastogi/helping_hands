@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+__all__ = ["Hand", "HandResponse"]
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -176,10 +178,17 @@ class Hand(abc.ABC):
         return None
 
     def _should_run_precommit_before_pr(self) -> bool:
+        """Return whether pre-commit hooks should run before PR finalization."""
         return bool(getattr(self.config, "enable_execution", False))
 
     @staticmethod
     def _run_precommit_checks_and_fixes(repo_dir: Path) -> None:
+        """Run pre-commit hooks with one auto-fix retry before PR push.
+
+        Executes ``uv run pre-commit run --all-files`` twice: the first pass
+        lets auto-fixers apply corrections, and the second validates. Raises
+        ``RuntimeError`` if hooks still fail after the retry.
+        """
         command = ["uv", "run", "pre-commit", "run", "--all-files"]
 
         def _run_once() -> subprocess.CompletedProcess[str]:

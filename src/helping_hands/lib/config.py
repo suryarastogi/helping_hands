@@ -10,6 +10,8 @@ from pathlib import Path
 
 from helping_hands.lib.meta import skills as meta_skills
 
+__all__ = ["Config", "ConfigValue"]
+
 logger = logging.getLogger(__name__)
 
 _OWNER_REPO_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")

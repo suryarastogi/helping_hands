@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+__all__ = ["parse_optional_str", "parse_positive_int", "parse_str_list"]
+
 
 def parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
     """Extract and validate a list of strings from *payload* at *key*.
