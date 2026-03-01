@@ -8,6 +8,13 @@ These helpers provide a shared, path-confined execution surface for:
 
 from __future__ import annotations
 
+__all__ = [
+    "CommandResult",
+    "run_bash_script",
+    "run_python_code",
+    "run_python_script",
+]
+
 import os
 import shutil
 import subprocess
@@ -36,6 +43,7 @@ class CommandResult:
 
 
 def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
+    """Coerce *args* to a validated ``list[str]``, rejecting non-string items."""
     if not args:
         return []
     normalized: list[str] = []
@@ -48,6 +56,7 @@ def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
 
 
 def _resolve_cwd(repo_root: Path, cwd: str | None) -> Path:
+    """Resolve *cwd* to a path-safe directory under *repo_root*."""
     root = repo_root.resolve()
     if cwd is None or not cwd.strip():
         return root
@@ -59,6 +68,11 @@ def _resolve_cwd(repo_root: Path, cwd: str | None) -> Path:
 
 
 def _resolve_python_command(python_version: str) -> list[str]:
+    """Build the Python invocation command for the requested version.
+
+    Prefers ``uv run --python <version> python``; falls back to a
+    direct ``python<version>`` executable on ``PATH``.
+    """
     version = python_version.strip()
     if not version:
         raise ValueError("python_version is required")
@@ -78,6 +92,7 @@ def _resolve_python_command(python_version: str) -> list[str]:
 
 
 def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandResult:
+    """Execute *command* as a subprocess, capturing output and handling timeouts."""
     if timeout_s <= 0:
         raise ValueError("timeout_s must be > 0")
 

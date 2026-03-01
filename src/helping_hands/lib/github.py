@@ -8,26 +8,52 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from github import Auth, Github
+from github import Auth, Github, GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
+
+from helping_hands.lib.git_utils import redact_sensitive as _redact_sensitive
+
+__all__ = ["GitHubClient", "PRResult"]
 
 logger = logging.getLogger(__name__)
 
 
-def _redact_sensitive(text: str) -> str:
-    """Redact token-bearing GitHub URLs in logs/errors."""
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
+def _github_error_message(action: str, exc: GithubException) -> str:
+    """Build a clear error message from a PyGithub exception.
+
+    Args:
+        action: Human-readable description of what was attempted.
+        exc: The caught GithubException.
+
+    Returns:
+        An actionable error string including the HTTP status and detail.
+    """
+    status = getattr(exc, "status", None)
+    detail = getattr(exc, "data", {})
+    message = ""
+    if isinstance(detail, dict):
+        message = detail.get("message", "")
+    hints: dict[int, str] = {
+        401: "check GITHUB_TOKEN is valid and not expired",
+        403: "check token permissions or GitHub rate limits",
+        404: "resource not found — verify repo name and permissions",
+        422: "validation failed — branch may already exist or inputs invalid",
+    }
+    hint = hints.get(status, "") if status else ""
+    parts = [f"GitHub API error: failed to {action}"]
+    if status:
+        parts.append(f"(HTTP {status})")
+    if message:
+        parts.append(f"— {message}")
+    if hint:
+        parts.append(f"[hint: {hint}]")
+    return " ".join(parts)
 
 
 @dataclass
@@ -72,8 +98,13 @@ class GitHubClient:
 
     def whoami(self) -> dict[str, Any]:
         """Return the authenticated user's login and name."""
-        user = self._gh.get_user()
-        return {"login": user.login, "name": user.name, "url": user.html_url}
+        try:
+            user = self._gh.get_user()
+            return {"login": user.login, "name": user.name, "url": user.html_url}
+        except GithubException as exc:
+            msg = _github_error_message("authenticate", exc)
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
 
     # ------------------------------------------------------------------
     # Repository
@@ -81,7 +112,12 @@ class GitHubClient:
 
     def get_repo(self, full_name: str) -> Repository:
         """Get a repository by owner/name (e.g. ``"suryarastogi/helping_hands"``)."""
-        return self._gh.get_repo(full_name)
+        try:
+            return self._gh.get_repo(full_name)
+        except GithubException as exc:
+            msg = _github_error_message(f"access repo '{full_name}'", exc)
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
 
     # ------------------------------------------------------------------
     # Clone
@@ -155,6 +191,18 @@ class GitHubClient:
         """Return the name of the current branch."""
         result = _run_git(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_path)
         return result.stdout.strip()
+
+    @staticmethod
+    def local_branch_exists(repo_path: Path | str, branch_name: str) -> bool:
+        """Check whether a local branch exists in the repo."""
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
 
     # ------------------------------------------------------------------
     # Commit
@@ -250,9 +298,16 @@ class GitHubClient:
             A ``PRResult`` with the PR number, URL, title, head, and base.
         """
         repo = self.get_repo(full_name)
-        pr: PullRequest = repo.create_pull(
-            title=title, body=body, head=head, base=base, draft=draft
-        )
+        try:
+            pr: PullRequest = repo.create_pull(
+                title=title, body=body, head=head, base=base, draft=draft
+            )
+        except GithubException as exc:
+            msg = _github_error_message(
+                f"create PR '{head}' → '{base}' on '{full_name}'", exc
+            )
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
         logger.info("Created PR #%d: %s", pr.number, pr.html_url)
         return PRResult(
             number=pr.number,
@@ -281,9 +336,14 @@ class GitHubClient:
             limit: Maximum number of PRs to return.
         """
         repo = self.get_repo(full_name)
-        prs: list[PullRequest] = list(
-            repo.get_pulls(state=state, sort="created", direction="desc")
-        )[:limit]
+        try:
+            prs: list[PullRequest] = list(
+                repo.get_pulls(state=state, sort="created", direction="desc")
+            )[:limit]
+        except GithubException as exc:
+            msg = _github_error_message(f"list PRs for '{full_name}'", exc)
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
         return [
             {
                 "number": pr.number,
@@ -299,18 +359,23 @@ class GitHubClient:
     def get_pr(self, full_name: str, number: int) -> dict[str, Any]:
         """Get details of a single pull request."""
         repo = self.get_repo(full_name)
-        pr = repo.get_pull(number)
-        return {
-            "number": pr.number,
-            "title": pr.title,
-            "body": pr.body,
-            "url": pr.html_url,
-            "state": pr.state,
-            "head": pr.head.ref,
-            "base": pr.base.ref,
-            "mergeable": pr.mergeable,
-            "merged": pr.merged,
-        }
+        try:
+            pr = repo.get_pull(number)
+            return {
+                "number": pr.number,
+                "title": pr.title,
+                "body": pr.body,
+                "url": pr.html_url,
+                "state": pr.state,
+                "head": pr.head.ref,
+                "base": pr.base.ref,
+                "mergeable": pr.mergeable,
+                "merged": pr.merged,
+            }
+        except GithubException as exc:
+            msg = _github_error_message(f"get PR #{number} on '{full_name}'", exc)
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
 
     def default_branch(self, full_name: str) -> str:
         """Return the repository's default branch."""
@@ -320,8 +385,15 @@ class GitHubClient:
     def update_pr_body(self, full_name: str, number: int, *, body: str) -> None:
         """Update the body/description of an existing pull request."""
         repo = self.get_repo(full_name)
-        pr = repo.get_pull(number)
-        pr.edit(body=body)
+        try:
+            pr = repo.get_pull(number)
+            pr.edit(body=body)
+        except GithubException as exc:
+            msg = _github_error_message(
+                f"update PR #{number} body on '{full_name}'", exc
+            )
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
 
     def upsert_pr_comment(
         self,
@@ -337,19 +409,62 @@ class GitHubClient:
         Otherwise, a new comment is created.
         """
         repo = self.get_repo(full_name)
-        issue = repo.get_issue(number=number)
-        comment_body = body.rstrip()
-        if marker and marker not in comment_body:
-            comment_body = f"{comment_body}\n\n{marker}"
+        try:
+            issue = repo.get_issue(number=number)
+            comment_body = body.rstrip()
+            if marker and marker not in comment_body:
+                comment_body = f"{comment_body}\n\n{marker}"
 
-        for comment in issue.get_comments():
-            existing = comment.body or ""
-            if marker and marker in existing:
-                comment.edit(comment_body)
-                return int(comment.id)
+            for comment in issue.get_comments():
+                existing = comment.body or ""
+                if marker and marker in existing:
+                    comment.edit(comment_body)
+                    return int(comment.id)
 
-        created = issue.create_comment(comment_body)
-        return int(created.id)
+            created = issue.create_comment(comment_body)
+            return int(created.id)
+        except GithubException as exc:
+            msg = _github_error_message(
+                f"upsert comment on PR #{number} on '{full_name}'", exc
+            )
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
+
+    def find_open_pr_for_branch(
+        self,
+        full_name: str,
+        head_branch: str,
+    ) -> PRResult | None:
+        """Find an existing open PR with the given head branch.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            head_branch: Branch name to search for.
+
+        Returns:
+            A ``PRResult`` if an open PR exists for the branch, else ``None``.
+        """
+        try:
+            repo = self.get_repo(full_name)
+            prs = list(
+                repo.get_pulls(state="open", head=f"{repo.owner.login}:{head_branch}")
+            )
+            if prs:
+                pr = prs[0]
+                return PRResult(
+                    number=pr.number,
+                    url=pr.html_url,
+                    title=pr.title,
+                    head=pr.head.ref,
+                    base=pr.base.ref,
+                )
+        except GithubException as exc:
+            logger.warning(
+                "Could not check for existing PR on branch '%s': %s",
+                head_branch,
+                exc,
+            )
+        return None
 
     # ------------------------------------------------------------------
     # Cleanup
@@ -360,9 +475,11 @@ class GitHubClient:
         self._gh.close()
 
     def __enter__(self) -> GitHubClient:
+        """Enter the context manager and return self."""
         return self
 
     def __exit__(self, *_: Any) -> None:
+        """Exit the context manager and close the connection."""
         self.close()
 
 

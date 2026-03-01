@@ -7,6 +7,7 @@ push, PR create/update, and status-comment refresh.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import AsyncIterator
@@ -17,6 +18,10 @@ from uuid import uuid4
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
+__all__ = ["E2EHand"]
+
+logger = logging.getLogger(__name__)
+
 
 class E2EHand(Hand):
     """Minimal end-to-end hand for validating clone/edit/PR workflow."""
@@ -26,16 +31,28 @@ class E2EHand(Hand):
 
     @staticmethod
     def _safe_repo_dir(repo: str) -> str:
+        """Sanitize a repo string into a filesystem-safe directory name."""
         return re.sub(r"[^A-Za-z0-9_.-]+", "_", repo.strip("/"))
 
     @staticmethod
     def _work_base() -> Path:
+        """Return the workspace root directory (env override or cwd)."""
         root = os.environ.get("HELPING_HANDS_WORK_ROOT", ".")
         return Path(root).expanduser()
 
     @staticmethod
     def _configured_base_branch() -> str:
+        """Return the env-configured base branch, or empty string if unset."""
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", "").strip()
+
+    @staticmethod
+    def _draft_pr_enabled() -> bool:
+        """Check if draft PR mode is enabled via env var."""
+        return os.environ.get("HELPING_HANDS_DRAFT_PR", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
 
     @staticmethod
     def _build_e2e_pr_comment(
@@ -45,8 +62,7 @@ class E2EHand(Hand):
         stamp_utc: str,
         commit_sha: str,
     ) -> str:
-        # E2E is deterministic; production hands should provide AI-authored
-        # PR summaries/comments when they own the PR workflow.
+        """Build the deterministic status comment body for an E2E PR."""
         return (
             "## helping_hands E2E update\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -63,6 +79,7 @@ class E2EHand(Hand):
         stamp_utc: str,
         commit_sha: str,
     ) -> str:
+        """Build the PR body text for an E2E validation pull request."""
         return (
             "Automated E2E validation PR.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -78,6 +95,24 @@ class E2EHand(Hand):
         pr_number: int | None = None,
         dry_run: bool = False,
     ) -> HandResponse:
+        """Execute the full clone-branch-edit-commit-push-PR workflow.
+
+        Clones the target GitHub repository, creates (or resumes) a feature
+        branch, writes an ``HELPING_HANDS_E2E.md`` marker file, commits, pushes,
+        and opens or updates a pull request.
+
+        Args:
+            prompt: The task description used in commit messages and PR body.
+            hand_uuid: Optional UUID for the hand run; auto-generated if omitted.
+            pr_number: If set, resume an existing PR instead of creating a new one.
+            dry_run: When ``True``, skip push and PR creation.
+
+        Returns:
+            A ``HandResponse`` with the commit SHA, PR URL, and run metadata.
+
+        Raises:
+            ValueError: If ``config.repo`` is empty.
+        """
         from helping_hands.lib.github import GitHubClient
 
         repo = self.config.repo.strip()
@@ -112,7 +147,13 @@ class E2EHand(Hand):
                 try:
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
-                except Exception:
+                except RuntimeError:
+                    logger.debug(
+                        "Could not fetch default branch for %s, "
+                        "falling back to clone default",
+                        repo,
+                        exc_info=True,
+                    )
                     clone_branch = None
 
             gh.clone(repo, repo_dir, branch=clone_branch, depth=1)
@@ -123,6 +164,9 @@ class E2EHand(Hand):
             repo_dir.mkdir(parents=True, exist_ok=True)
             if resumed_pr:
                 gh.fetch_branch(repo_dir, branch)
+                gh.switch_branch(repo_dir, branch)
+            elif gh.local_branch_exists(repo_dir, branch):
+                logger.info("Branch '%s' already exists; switching to it", branch)
                 gh.switch_branch(repo_dir, branch)
             else:
                 gh.create_branch(repo_dir, branch)
@@ -163,15 +207,26 @@ class E2EHand(Hand):
                 if resumed_pr:
                     final_pr_number = pr_number
                 else:
-                    pr = gh.create_pr(
-                        repo,
-                        title="test(e2e): minimal edit by helping_hands",
-                        body=pr_body,
-                        head=branch,
-                        base=base_branch,
-                    )
-                    pr_url = pr.url
-                    final_pr_number = pr.number
+                    existing = gh.find_open_pr_for_branch(repo, branch)
+                    if existing:
+                        logger.info(
+                            "Reusing existing PR #%d for branch '%s'",
+                            existing.number,
+                            branch,
+                        )
+                        pr_url = existing.url
+                        final_pr_number = existing.number
+                    else:
+                        pr = gh.create_pr(
+                            repo,
+                            title="test(e2e): minimal edit by helping_hands",
+                            body=pr_body,
+                            head=branch,
+                            base=base_branch,
+                            draft=self._draft_pr_enabled(),
+                        )
+                        pr_url = pr.url
+                        final_pr_number = pr.number
                 if final_pr_number is not None:
                     gh.update_pr_body(repo, final_pr_number, body=pr_body)
                     gh.upsert_pr_comment(
@@ -210,4 +265,16 @@ class E2EHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the E2E workflow result as a single-chunk async iterator.
+
+        Delegates to ``run()`` and yields the complete response message.
+        E2E operations are inherently non-incremental (clone/push/PR are
+        atomic), so streaming emits a single chunk.
+
+        Args:
+            prompt: The task description passed through to ``run()``.
+
+        Yields:
+            The full response message from the synchronous ``run()`` call.
+        """
         yield self.run(prompt).message

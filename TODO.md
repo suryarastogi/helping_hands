@@ -17,8 +17,8 @@
     - [x] Install with uv, run tests (Python 3.12, 3.13, 3.14)
     - [x] ruff check + ruff format
     - [x] Coverage reporting (`pytest-cov`) + XML upload to Codecov (Python 3.12 job)
-    - [ ] Type check step (add when ty has a stable CI runner)
-    - [ ] Optional: build/publish or deploy steps
+    - [ ] Type check step — deferred: `ty` is in pre-commit but lacks a stable non-hook CI runner; revisit when ty publishes a GA release
+    - [ ] Optional: build/publish or deploy steps — deferred: project is pre-1.0 beta; no PyPI publish pipeline yet
 - [x] **Tests**
   - [x] `tests/` layout with test files for lib and cli (suite maintained and passing in CI)
   - [x] pytest as runner, configured in `pyproject.toml`
@@ -56,12 +56,34 @@
   - [x] **Owner/repo input in CLI** — non-E2E runs accept `owner/repo` and clone to a temporary workspace automatically.
   - [x] **Default final PR step with opt-out** — hands attempt final commit/push/PR by default; disable explicitly via `--no-pr` (and `--e2e --no-pr` maps to dry-run).
   - [x] **Non-interactive token push path** — final push config uses authenticated GitHub remote with disabled interactive credential prompts.
-  - [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [x] **Codex CLI execution** — Implemented subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
-  - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-  - [ ] **Backend selection/routing (full matrix)** — Extend explicit CLI/config routing to remaining non-basic hands (`langgraph`, `atomic`, `claudecode`, `geminicli`) beyond current basic aliases + `codexcli`.
-  - [ ] **Streaming for scaffold CLI hands** — Replace placeholder single-chunk outputs with real incremental subprocess streaming.
-  - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
+  - [x] **Claude CLI execution** — Subprocess-backed two-phase flow (initialize/learn repo, then task execution), streaming output, `npx` fallback, non-interactive permission skip, edit-enforcement retry, and final PR integration.
+  - [x] **Codex CLI execution** — Subprocess-backed codex flow with two phases (initialize/learn repo, then task execution), streaming output, interruption support, and final PR integration.
+  - [x] **Gemini CLI execution** — Subprocess-backed two-phase flow (initialize/learn repo, then task execution), streaming output, model-unavailable retry, auto `--approval-mode auto_edit`, and final PR integration.
+  - [x] **Goose CLI execution** — Subprocess-backed two-phase flow, auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL` from `HELPING_HANDS_MODEL`, `--with-builtin developer` auto-injection, streaming output, and final PR integration.
+  - [x] **Backend selection/routing (full matrix)** — CLI and server route all backends: `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`, plus `e2e`.
+  - [x] **Streaming for CLI hands** — All CLI hands stream real incremental subprocess output with heartbeat and idle timeout controls.
+  - [x] **Cron-scheduled submissions** — `ScheduleManager` + RedBeat + server endpoints for CRUD on cron-scheduled `build_feature` tasks.
+  - [x] **E2E hardening** — Branch collision handling (switch to existing branch), optional draft PR mode (`HELPING_HANDS_DRAFT_PR`), and idempotency guard (detect/reuse existing open PR for head branch)
+
+## 5. MCP server
+
+- [x] **MCP server** — `server/mcp_server.py` exposes filesystem, execution, web tools, build enqueue/status, and config inspection over Model Context Protocol (stdio or HTTP)
+
+## 6. Skills system
+
+- [x] **Skills layer** — `lib/meta/skills/` provides dynamic capability injection for iterative hands; opt-in per run via `--skills` (CLI) or `skills` field (API)
+
+## 7. React frontend
+
+- [x] **Frontend** — React + TypeScript + Vite UI in `frontend/` for task submission, monitoring, and world view
+
+## 8. Additional features
+
+- [x] **PR description generation** — `pr_description.py` generates rich PR title/body from diffs during finalization
+- [x] **Verbose CLI logging** — `--verbose` / `-v` flag configures logging level
+- [x] **Config validation** — `Config.__post_init__` validates repo, model, and backend inputs
+- [x] **API validation** — `BuildRequest`/`ScheduleRequest` with bounds checks
+- [x] **Exception hardening** — `GithubException` wrapping, MCP handler ordering fix, finalization logging
 
 ---
 

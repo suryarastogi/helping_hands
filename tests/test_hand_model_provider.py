@@ -1,4 +1,59 @@
-from helping_hands.lib.hands.v1.hand.model_provider import resolve_hand_model
+import pytest
+
+from helping_hands.lib.hands.v1.hand.model_provider import (
+    HandModel,
+    resolve_hand_model,
+)
+
+# --- HandModel dataclass ---
+
+
+def test_hand_model_attributes() -> None:
+    hand_model = resolve_hand_model("openai/gpt-5.2")
+    assert isinstance(hand_model, HandModel)
+    assert hand_model.provider.name == "openai"
+    assert hand_model.model == "gpt-5.2"
+    assert hand_model.raw == "openai/gpt-5.2"
+
+
+def test_hand_model_is_frozen() -> None:
+    hand_model = resolve_hand_model("gpt-5.2")
+    with pytest.raises(AttributeError):
+        hand_model.model = "other"  # type: ignore[misc]
+
+
+# --- resolve_hand_model ---
+
+
+def test_resolve_hand_model_empty_string_uses_default() -> None:
+    hand_model = resolve_hand_model("")
+    assert hand_model.provider.name == "ollama"
+    assert hand_model.model == "llama3.2:latest"
+    assert hand_model.raw == "default"
+
+
+def test_resolve_hand_model_none_uses_default() -> None:
+    hand_model = resolve_hand_model(None)
+    assert hand_model.provider.name == "ollama"
+    assert hand_model.model == "llama3.2:latest"
+
+
+def test_resolve_hand_model_litellm_provider_prefix() -> None:
+    hand_model = resolve_hand_model("litellm/gpt-4o")
+    assert hand_model.provider.name == "litellm"
+    assert hand_model.model == "gpt-4o"
+
+
+def test_resolve_hand_model_explicit_openai_prefix() -> None:
+    hand_model = resolve_hand_model("openai/gpt-5.2")
+    assert hand_model.provider.name == "openai"
+    assert hand_model.model == "gpt-5.2"
+
+
+def test_resolve_hand_model_whitespace_stripped() -> None:
+    hand_model = resolve_hand_model("  gpt-5.2  ")
+    assert hand_model.provider.name == "openai"
+    assert hand_model.model == "gpt-5.2"
 
 
 def test_resolve_hand_model_default_uses_ollama_default() -> None:

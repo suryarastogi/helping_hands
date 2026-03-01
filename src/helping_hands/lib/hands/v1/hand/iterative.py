@@ -19,9 +19,13 @@ import re
 import shlex
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+if TYPE_CHECKING:
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     build_langchain_chat_model,
@@ -32,22 +36,33 @@ from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import web as system_web_tools
 
+__all__ = ["BasicAtomicHand", "BasicLangGraphHand"]
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
 
+    # Matches inline file edits: @@FILE: path/to/file\n```lang\ncontent\n```
+    # Captures: path (file path), content (file body between fences).
     _EDIT_PATTERN = re.compile(
         r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",
         flags=re.DOTALL,
     )
+    # Matches file read requests: @@READ: path/to/file (one per line).
+    # Captures: path (file path to read).
     _READ_PATTERN = re.compile(
         r"^@@READ:\s*(?P<path>[^\n]+)\s*$",
         flags=re.MULTILINE,
     )
+    # Fallback for natural-language read requests like 'contents of file `path`'
+    # or 'read the file "path"'. Case-insensitive.
+    # Captures: path (file path between backticks or quotes).
     _READ_FALLBACK_PATTERN = re.compile(
         r"(?i)(?:content(?:s)? of(?: the)? file|read(?: the)? file)\s*[`\"]"
         r"(?P<path>[^`\"\n]+)[`\"]"
     )
+    # Matches tool invocations: @@TOOL: tool.name\n```json\n{payload}\n```
+    # Captures: name (dotted tool identifier), payload (JSON body).
     _TOOL_PATTERN = re.compile(
         r"@@TOOL:\s*(?P<name>[A-Za-z0-9_.-]+)\n"
         r"```(?:json)?\n(?P<payload>.*?)\n```",
@@ -61,8 +76,8 @@ class _BasicIterativeHand(Hand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -80,12 +95,15 @@ class _BasicIterativeHand(Hand):
         self._tool_runners = system_skills.build_tool_runner_map(self._selected_skills)
 
     def _execution_tools_enabled(self) -> bool:
+        """Return whether execution skills (Python/Bash) are active."""
         return bool(getattr(self.config, "enable_execution", False))
 
     def _web_tools_enabled(self) -> bool:
+        """Return whether web skills (search/browse) are active."""
         return bool(getattr(self.config, "enable_web", False))
 
     def _tool_instructions(self) -> str:
+        """Build prompt-ready instructions for all enabled skills."""
         lines = [system_skills.format_skill_instructions(self._selected_skills)]
         lines.append(
             "Tool results are returned as @@TOOL_RESULT blocks "
@@ -102,6 +120,7 @@ class _BasicIterativeHand(Hand):
         previous_summary: str,
         bootstrap_context: str,
     ) -> str:
+        """Assemble the full prompt for a single iteration of the loop."""
         previous = previous_summary.strip() or "none"
         bootstrap = (
             f"Bootstrap repository context:\n{bootstrap_context}\n\n"
@@ -133,6 +152,7 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _is_satisfied(content: str) -> bool:
+        """Check if the model response contains ``SATISFIED: yes``."""
         match = re.search(r"SATISFIED:\s*(yes|no)", content, flags=re.IGNORECASE)
         if match:
             return match.group(1).lower() == "yes"
@@ -140,6 +160,7 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_inline_edits(cls, content: str) -> list[tuple[str, str]]:
+        """Extract ``@@FILE`` blocks from model output as (path, content) pairs."""
         return [
             (m.group("path").strip(), m.group("content"))
             for m in cls._EDIT_PATTERN.finditer(content)
@@ -147,6 +168,7 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_read_requests(cls, content: str) -> list[str]:
+        """Extract ``@@READ`` file path requests from model output."""
         explicit = [
             m.group("path").strip() for m in cls._READ_PATTERN.finditer(content)
         ]
@@ -162,6 +184,12 @@ class _BasicIterativeHand(Hand):
         cls,
         content: str,
     ) -> list[tuple[str, dict[str, Any], str | None]]:
+        """Extract ``@@TOOL`` invocations from model output.
+
+        Returns:
+            List of (tool_name, payload_dict, error_or_none) tuples.
+            When the JSON payload is invalid the error string is populated.
+        """
         requests: list[tuple[str, dict[str, Any], str | None]] = []
         for match in cls._TOOL_PATTERN.finditer(content):
             tool_name = match.group("name").strip()
@@ -185,11 +213,13 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _merge_iteration_summary(content: str, tool_feedback: str) -> str:
+        """Combine model output with tool feedback for the next iteration prompt."""
         if not tool_feedback:
             return content
         return f"{content}\n\nTool results:\n{tool_feedback}"
 
     def _execute_read_requests(self, content: str) -> str:
+        """Resolve ``@@READ`` requests and return ``@@READ_RESULT`` blocks."""
         root = self.repo_index.root.resolve()
         requests = list(dict.fromkeys(self._extract_read_requests(content)))
         if not requests:
@@ -225,57 +255,13 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     @staticmethod
-    def _parse_str_list(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> list[str]:
-        raw = payload.get(key, [])
-        if raw is None:
-            return []
-        if not isinstance(raw, list):
-            raise ValueError(f"{key} must be a list of strings")
-        values: list[str] = []
-        for value in raw:
-            if not isinstance(value, str):
-                raise ValueError(f"{key} must contain only strings")
-            values.append(value)
-        return values
-
-    @staticmethod
-    def _parse_positive_int(
-        payload: dict[str, Any],
-        *,
-        key: str,
-        default: int,
-    ) -> int:
-        raw = payload.get(key, default)
-        if isinstance(raw, bool) or not isinstance(raw, int):
-            raise ValueError(f"{key} must be an integer")
-        if raw <= 0:
-            raise ValueError(f"{key} must be > 0")
-        return raw
-
-    @staticmethod
-    def _parse_optional_str(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> str | None:
-        raw = payload.get(key)
-        if raw is None:
-            return None
-        if not isinstance(raw, str):
-            raise ValueError(f"{key} must be a string")
-        text = raw.strip()
-        return text or None
-
-    @staticmethod
     def _format_command(command: list[str]) -> str:
+        """Shell-quote a command list into a single display string."""
         return " ".join(shlex.quote(token) for token in command)
 
     @classmethod
     def _truncate_tool_output(cls, text: str) -> tuple[str, bool]:
+        """Truncate *text* to ``_MAX_TOOL_OUTPUT_CHARS``, returning (text, was_truncated)."""
         if len(text) <= cls._MAX_TOOL_OUTPUT_CHARS:
             return text, False
         return text[: cls._MAX_TOOL_OUTPUT_CHARS], True
@@ -287,6 +273,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_exec_tools.CommandResult,
     ) -> str:
+        """Format a ``CommandResult`` into a ``@@TOOL_RESULT`` text block."""
         stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
         stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
         stdout_note = "\n[truncated]" if stdout_truncated else ""
@@ -310,6 +297,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebSearchResult,
     ) -> str:
+        """Format a ``WebSearchResult`` into a ``@@TOOL_RESULT`` text block."""
         items = [
             {
                 "title": item.title,
@@ -336,6 +324,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebBrowseResult,
     ) -> str:
+        """Format a ``WebBrowseResult`` into a ``@@TOOL_RESULT`` text block."""
         text, output_truncated = cls._truncate_tool_output(result.content)
         truncated_note = "\n[truncated]" if output_truncated else ""
         return (
@@ -350,6 +339,7 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _tool_disabled_error(tool_name: str) -> ValueError:
+        """Build a ``ValueError`` with an actionable message for a disabled tool."""
         required_skill = system_skills.skill_name_for_tool(tool_name)
         if required_skill == "execution":
             return ValueError(
@@ -370,6 +360,7 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         payload: dict[str, Any],
     ) -> str:
+        """Dispatch a single tool request and return its formatted result block."""
         runner = self._tool_runners.get(tool_name)
         if runner is None:
             raise self._tool_disabled_error(tool_name)
@@ -384,6 +375,7 @@ class _BasicIterativeHand(Hand):
         raise TypeError(f"unsupported tool result type: {type(result)!r}")
 
     def _execute_tool_requests(self, content: str) -> str:
+        """Run all ``@@TOOL`` requests in *content* and return combined results."""
         root = self.repo_index.root.resolve()
         requests = self._extract_tool_requests(content)
         if not requests:
@@ -415,6 +407,7 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     def _apply_inline_edits(self, content: str) -> list[str]:
+        """Write ``@@FILE`` edits to disk and return the list of changed paths."""
         root = self.repo_index.root.resolve()
         changed: list[str] = []
         for rel_path, body in self._extract_inline_edits(content):
@@ -432,6 +425,7 @@ class _BasicIterativeHand(Hand):
         root: Path,
         candidates: tuple[str, ...],
     ) -> str:
+        """Read the first existing doc from *candidates* for bootstrap context."""
         for rel_path in candidates:
             if not system_tools.path_exists(root, rel_path):
                 continue
@@ -449,6 +443,7 @@ class _BasicIterativeHand(Hand):
         return ""
 
     def _build_tree_snapshot(self) -> str:
+        """Build a depth-limited tree listing of the repo for bootstrap context."""
         entries: set[str] = set()
         for rel_path in sorted(self.repo_index.files):
             normalized = system_tools.normalize_relative_path(rel_path)
@@ -478,6 +473,7 @@ class _BasicIterativeHand(Hand):
         return "\n".join(lines)
 
     def _build_bootstrap_context(self) -> str:
+        """Assemble iteration-1 bootstrap context from README, AGENT.md, and tree."""
         root = self.repo_index.root.resolve()
         sections: list[str] = []
 
@@ -502,8 +498,8 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -512,6 +508,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Create a LangGraph react agent with the resolved model and system prompt."""
         from langgraph.prebuilt import create_react_agent
 
         llm = build_langchain_chat_model(
@@ -531,6 +528,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
     @staticmethod
     def _result_content(result: dict[str, Any]) -> str:
+        """Extract text content from the last message in a LangGraph result."""
         messages = result.get("messages") or []
         if not messages:
             return ""
@@ -538,6 +536,19 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the iterative LangGraph agent loop synchronously.
+
+        Runs up to ``max_iterations`` LangGraph invoke calls, applying inline
+        file edits and tool requests between iterations. The loop terminates
+        early when the model signals satisfaction or an interrupt is received.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Returns:
+            A ``HandResponse`` with the final message transcript and metadata
+            including iteration count, completion status, and any PR info.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -604,6 +615,19 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the iterative LangGraph agent loop as an async iterator.
+
+        Yields progress markers, model output tokens, file-update
+        notifications, and tool-result feedback as they arrive. The loop
+        runs up to ``max_iterations`` and terminates early on satisfaction
+        or interruption.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Yields:
+            Incremental text chunks representing the agent's progress.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -690,8 +714,8 @@ class BasicAtomicHand(_BasicIterativeHand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -701,6 +725,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Create an Atomic Agents agent with the resolved model and system prompt."""
         from atomic_agents import AgentConfig, AtomicAgent, BasicChatInputSchema
         from atomic_agents.context import (
             ChatHistory,
@@ -728,15 +753,30 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     def _make_input(self, prompt: str) -> Any:
+        """Wrap a prompt string into the Atomic Agents input schema."""
         return self._input_schema(chat_message=prompt)
 
     @staticmethod
     def _extract_message(response: Any) -> str:
+        """Extract text content from an Atomic Agents response object."""
         if hasattr(response, "chat_message") and response.chat_message:
             return str(response.chat_message)
         return str(response)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the iterative Atomic Agents loop synchronously.
+
+        Runs up to ``max_iterations`` Atomic Agents calls, applying inline
+        file edits and tool requests between iterations. The loop terminates
+        early when the model signals satisfaction or an interrupt is received.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Returns:
+            A ``HandResponse`` with the final message transcript and metadata
+            including iteration count, completion status, and any PR info.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -801,6 +841,19 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the iterative Atomic Agents loop as an async iterator.
+
+        Yields progress markers, model output tokens, file-update
+        notifications, and tool-result feedback as they arrive. Falls back
+        to synchronous ``run`` via ``asyncio.to_thread`` when the Atomic
+        SDK does not support native async streaming.
+
+        Args:
+            prompt: The user-facing task description to accomplish.
+
+        Yields:
+            Incremental text chunks representing the agent's progress.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -840,8 +893,6 @@ class BasicAtomicHand(_BasicIterativeHand):
                 if delta:
                     yield delta
                 async_result = None
-            except Exception:
-                raise
             if async_result is not None and hasattr(async_result, "__aiter__"):
                 async for partial in async_result:
                     if self._is_interrupted():

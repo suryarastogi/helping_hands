@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "WebBrowseResult",
+    "WebSearchItem",
+    "WebSearchResult",
+    "browse_url",
+    "search_web",
+]
+
 import json
 import re
 from collections.abc import Sequence
@@ -46,6 +54,7 @@ _DEFAULT_USER_AGENT = (
 
 
 def _require_http_url(url: str) -> str:
+    """Validate that *url* uses ``http``/``https`` and has a host."""
     candidate = url.strip()
     if not candidate:
         raise ValueError("url must be non-empty")
@@ -58,6 +67,7 @@ def _require_http_url(url: str) -> str:
 
 
 def _decode_bytes(payload: bytes) -> str:
+    """Decode *payload* trying UTF-8, UTF-16, then Latin-1 in order."""
     for encoding in ("utf-8", "utf-16", "latin-1"):
         try:
             return payload.decode(encoding)
@@ -67,6 +77,7 @@ def _decode_bytes(payload: bytes) -> str:
 
 
 def _strip_html(raw_html: str) -> str:
+    """Remove HTML tags, scripts, and styles; return cleaned plain text."""
     text = re.sub(
         r"(?is)<(script|style|noscript)\b[^>]*>.*?</\1>",
         " ",
@@ -80,6 +91,7 @@ def _strip_html(raw_html: str) -> str:
 
 
 def _as_string_keyed_dict(value: object) -> dict[str, object] | None:
+    """Return *value* as a ``dict[str, object]`` if it is one, else ``None``."""
     if not isinstance(value, dict):
         return None
     if any(not isinstance(key, str) for key in value):
@@ -90,6 +102,7 @@ def _as_string_keyed_dict(value: object) -> dict[str, object] | None:
 def _extract_related_topics(
     items: Sequence[object], output: list[WebSearchItem]
 ) -> None:
+    """Recursively extract DuckDuckGo related-topic entries into *output*."""
     for item in items:
         record = _as_string_keyed_dict(item)
         if record is None:

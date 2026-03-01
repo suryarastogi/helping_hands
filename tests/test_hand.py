@@ -2573,6 +2573,8 @@ class TestE2EHand:
 
         mock_gh = MagicMock()
         mock_gh.create_pr.return_value = MagicMock(number=7, url="https://example/pr/7")
+        mock_gh.find_open_pr_for_branch.return_value = None
+        mock_gh.local_branch_exists.return_value = False
         mock_gh_cls.return_value.__enter__.return_value = mock_gh
 
         hand = E2EHand(config, repo_index)

@@ -14,6 +14,13 @@ from typing import Any
 
 from celery import Celery
 
+__all__ = [
+    "CRON_PRESETS",
+    "ScheduleManager",
+    "ScheduledTask",
+    "validate_cron_expression",
+]
+
 # Lazy imports for optional dependencies
 _redbeat_available = True
 try:
@@ -157,6 +164,8 @@ def validate_cron_expression(cron_expr: str) -> str:
         ValueError: If the cron expression is invalid.
     """
     _check_croniter()
+    if croniter is None:  # pragma: no cover — guaranteed by _check_croniter
+        raise RuntimeError("croniter unavailable after _check_croniter")
 
     # Check if it's a preset
     if cron_expr in CRON_PRESETS:
@@ -183,6 +192,8 @@ def next_run_time(cron_expr: str, base_time: datetime | None = None) -> datetime
         The next scheduled run time.
     """
     _check_croniter()
+    if croniter is None:  # pragma: no cover — guaranteed by _check_croniter
+        raise RuntimeError("croniter unavailable after _check_croniter")
 
     if base_time is None:
         base_time = datetime.now(UTC)
@@ -299,6 +310,8 @@ class ScheduleManager:
             day_of_week=day_of_week,
         )
 
+        if RedBeatSchedulerEntry is None:  # pragma: no cover
+            raise RuntimeError("redbeat unavailable after __init__")
         entry = RedBeatSchedulerEntry(
             name=f"helping_hands:scheduled:{task.schedule_id}",
             task="helping_hands.scheduled_build",
@@ -311,6 +324,8 @@ class ScheduleManager:
     def _delete_redbeat_entry(self, schedule_id: str) -> None:
         """Delete the RedBeat scheduler entry."""
         entry_name = f"helping_hands:scheduled:{schedule_id}"
+        if RedBeatSchedulerEntry is None:  # pragma: no cover
+            raise RuntimeError("redbeat unavailable after __init__")
         try:
             entry = RedBeatSchedulerEntry.from_key(
                 f"redbeat:{entry_name}", app=self._app

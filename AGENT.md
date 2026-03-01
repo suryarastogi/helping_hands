@@ -87,6 +87,33 @@ what the code does.
 - **Provider abstraction**: Resolve models through `src/helping_hands/lib/ai_providers/` plus `src/helping_hands/lib/hands/v1/hand/model_provider.py` adapters, instead of hard-coding provider clients in hands. (2026-02-22)
 - **Iterative bootstrap context**: `BasicLangGraphHand` and `BasicAtomicHand` should preload iteration-1 prompt context from `README.md`, `AGENT.md`, and a bounded repo tree snapshot when available. (2026-02-22)
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
+- **CLI backend completeness**: All four CLI-backed hands (`codexcli`, `claudecodecli`, `goose`, `geminicli`) are fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls, and final PR integration. (2026-02-28)
+- **Cron scheduling**: Server supports cron-scheduled submissions via `ScheduleManager` (RedBeat + Redis metadata) with CRUD API endpoints. (2026-02-28)
+- **GitHub API error handling**: All PyGithub API calls in `github.py` should be wrapped with `GithubException` handling that produces clear error messages with HTTP status and actionable hints. (2026-03-01)
+- **E2E idempotency**: E2EHand handles branch collisions (switch to existing), supports draft PRs (`HELPING_HANDS_DRAFT_PR`), and detects/reuses existing open PRs for the same head branch. (2026-03-01)
+- **Config input validation**: `Config.__post_init__` validates `repo` format (filesystem path or `owner/repo`) and warns on unexpected `model` name patterns. (2026-03-01)
+- **API request validation**: `BuildRequest` and `ScheduleRequest` validate input at the API boundary (`min_length`, `ge`/`le` bounds) and `ScheduleRequest` validates cron expression syntax via `croniter`. (2026-03-01)
+- **Health check observability**: Health check exceptions should be logged at warning level with `exc_info=True` for production debugging — never silently swallowed. (2026-03-01)
+- **Skills payload validation**: Skill runner functions (`_run_bash_script`, etc.) must validate required fields before passing to underlying tools — reject empty/missing payloads at the validation layer, not downstream. (2026-03-01)
+- **CLI hand test coverage**: All four CLI hand implementations (`claude.py`, `codex.py`, `goose.py`, `gemini.py`) now have dedicated unit tests covering model filtering/resolution, auth detection, fallback/retry strategies, failure message parsing, and backend defaults injection. `placeholders.py` and `default_prompts.py` also have tests. (2026-03-01)
+- **Exception handler ordering**: In `except` chains, catch subclass exceptions before parent classes — e.g. `UnicodeError` before `ValueError` (since `UnicodeError` is a `ValueError` subclass in Python). Misordering causes the wrong handler to catch the exception. (2026-03-01)
+- **Server/MCP helper test coverage**: `test_server_app_helpers.py` and extended `test_mcp_server.py` now provide dedicated unit tests for all non-trivial internal helpers (task extraction, Flower/Celery integration, health checks, config endpoints, exception paths). (2026-03-01)
+- **CLI verbose logging**: `--verbose` / `-v` configures `logging.basicConfig()` in `main()` — DEBUG when verbose, WARNING otherwise. Silent `except Exception: pass` blocks should use `logger.debug(..., exc_info=True)` instead of bare `pass`. (2026-03-01)
+- **PyPI classifiers**: `pyproject.toml` includes standard classifiers for Python versions (3.12–3.14), license (Apache-2.0), topics, and typing. (2026-03-01)
+- **MkDocs hand documentation**: All 13 Hand implementation modules now have individual MkDocs API doc pages (base, iterative, langgraph, atomic, e2e, model_provider, pr_description, cli/base, cli/claude, cli/codex, cli/goose, cli/gemini) — not just the package-level `__init__.py`. (2026-03-01)
+- **CLI hand base docstrings**: `_TwoPhaseCLIHand` public/semi-public methods now have Google-style docstrings for mkdocstrings completeness (`run()`, `stream()`, `interrupt()`, command resolution, container wrapping, subprocess env, auth, retry/fallback hooks). (2026-03-01)
+- **No-op exception patterns**: Do not write `except Exception: raise` — it's a no-op that adds noise. Only catch exceptions when you handle or log them. (2026-03-01)
+- **Hand constructor type annotations**: Hand subclass constructors should use `Config` and `RepoIndex` types (via `TYPE_CHECKING` import) instead of `Any` — maintains type safety across the inheritance hierarchy. (2026-03-01)
+- **Config skills validation**: `Config.__post_init__` warns on unrecognized `enabled_skills` entries at config creation time, catching typos early. (2026-03-01)
+- **Exception specificity in CLI hands**: Catch specific exception types (`ValueError`, `TypeError`, `OSError`) instead of bare `except Exception` — preserves debuggability while still handling expected failure modes. (2026-03-01)
+- **Recursive retry depth limit**: `_invoke_cli_with_cmd` recursive retries (fallback + failure retry) are bounded by `_MAX_CLI_RETRY_DEPTH` (default 2) to prevent unbounded recursion if future backends chain multiple fallbacks. (2026-03-01)
+- **CLI hand stream/interrupt test coverage**: `stream()`, `interrupt()`, `reset_interrupt()`, and `_terminate_active_process()` now have dedicated unit tests covering happy path streaming, PR status inclusion, cooperative interruption, and subprocess termination. (2026-03-01)
+- **Server health check exception patterns**: Health check and Celery inspect boundary guards use `except Exception as e:` (not bare `except Exception:`) with enriched log messages that include the exception value. GitHub fallback paths in `e2e.py` and `base.py` catch `RuntimeError` specifically (matching what `GitHubClient.get_repo`/`default_branch` raise). (2026-03-01)
+- **Module `__all__` exports**: All source modules with public API surfaces now declare `__all__` — including all 5 AI provider wrappers, all 5 CLI hand modules, all 3 meta tools modules, `langgraph.py`, `atomic.py`, `iterative.py`, `default_prompts.py`, `cli/main.py`, all 3 server modules, and all 5 package `__init__.py` files. Total: 45 modules with `__all__` across the project. (2026-03-01)
+- **Validation test coverage**: `lib/validation.py` now has a dedicated `test_validation.py` with edge-case coverage for all three public functions (`parse_str_list`, `parse_positive_int`, `parse_optional_str`), complementing indirect coverage from skills/config tests. (2026-03-01)
+- **E2EHand helper test coverage**: Static helpers (`_safe_repo_dir`, `_work_base`, `_configured_base_branch`, `_draft_pr_enabled`, `_build_e2e_pr_body`, `_build_e2e_pr_comment`) now have unit tests in `test_e2e_helpers.py` that run without GitHub credentials. (2026-03-01)
+- **DRY git utilities**: Shared git helpers (`github_clone_url`, `git_noninteractive_env`, `redact_sensitive`, `repo_tmp_dir`) live in `lib/git_utils.py`. Previously duplicated across `cli/main.py`, `server/celery_app.py`, and `lib/github.py`. Consumers import from the shared module. (2026-03-01)
+- **Health check exception specificity**: `_check_redis_health` catches `(ImportError, OSError, ValueError)`, `_check_db_health` catches `(ImportError, OSError)`, `_check_workers_health` catches `(OSError, AttributeError)` — not bare `except Exception`. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -115,6 +142,9 @@ what the code does.
 | mcp[cli] | mcp / dev | MCP Python SDK for the MCP server |
 | mkdocs-material | docs | Documentation site theme |
 | mkdocstrings[python] | docs | Auto-generate API docs from docstrings |
+| celery-redbeat | server | Redis-backed cron scheduler for Celery Beat |
+| croniter | server | Cron expression parsing and next-run calculation (in `pyproject.toml` server extra) |
+| redis | server (transitive) | Redis client — provided transitively via `celery[redis]`, not a direct dependency in `pyproject.toml` |
 | python-dotenv | runtime | Loads `.env` values into process env for config/hand setup |
 
 ---
@@ -139,4 +169,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — provider-wrapper model resolution, iterative bootstrap context, and coverage/docs reconciliation.*
+*Last updated: 2026-03-01 — 46 modules with `__all__` (added `lib/git_utils.py`). Duplicate git helpers extracted to shared `lib/git_utils.py`. Health check `except Exception` patterns replaced with specific types. 38 MkDocs API pages. 624 total tests passing.*

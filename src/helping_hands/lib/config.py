@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from helping_hands.lib.meta import skills as meta_skills
+
+__all__ = ["Config", "ConfigValue"]
+
+logger = logging.getLogger(__name__)
+
+_OWNER_REPO_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+_MODEL_PATTERN = re.compile(r"^[a-zA-Z0-9._:/-]+$")
 
 try:
     from dotenv import load_dotenv
@@ -14,6 +23,49 @@ except ImportError:  # pragma: no cover - optional dependency safety
     load_dotenv = None  # type: ignore[assignment]
 
 ConfigValue = str | bool | tuple[str, ...] | None
+
+
+def _validate_repo(repo: str) -> None:
+    """Validate repo format: must be empty, a filesystem path, or owner/repo."""
+    if not repo:
+        return
+    if _OWNER_REPO_PATTERN.match(repo):
+        return
+    path = Path(repo).expanduser()
+    if path.exists() or path.parent.exists():
+        return
+    msg = (
+        f"Invalid repo '{repo}': must be a local path or 'owner/repo' format. "
+        "Example: /path/to/repo or suryarastogi/helping_hands"
+    )
+    raise ValueError(msg)
+
+
+def _validate_model(model: str) -> None:
+    """Warn if model string doesn't match expected patterns."""
+    if not model or model == "default":
+        return
+    if not _MODEL_PATTERN.match(model):
+        logger.warning(
+            "Model '%s' contains unexpected characters; "
+            "expected bare name (e.g. 'gpt-5.2') or "
+            "'provider/model' (e.g. 'anthropic/claude-sonnet-4-5')",
+            model,
+        )
+
+
+def _validate_skills(skills: tuple[str, ...]) -> None:
+    """Warn on unrecognized skill names at config time."""
+    if not skills:
+        return
+    known = meta_skills.available_skill_names()
+    unknown = [s for s in skills if s not in known]
+    if unknown:
+        logger.warning(
+            "Unrecognized skill(s): %s; available: %s",
+            ", ".join(sorted(unknown)),
+            ", ".join(known),
+        )
 
 
 def _load_env_files(repo: str | None = None) -> None:
@@ -40,6 +92,19 @@ class Config:
     use_native_cli_auth: bool = False
     enabled_skills: tuple[str, ...] = ()
     config_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        """Validate config fields on creation.
+
+        Checks that ``repo`` is either empty, a filesystem path, or an
+        ``owner/repo`` GitHub reference.  Logs a warning when ``model``
+        contains unexpected characters (expected: bare name like
+        ``gpt-5.2`` or ``provider/model`` like
+        ``anthropic/claude-sonnet-4-5``).
+        """
+        _validate_repo(self.repo)
+        _validate_model(self.model)
+        _validate_skills(self.enabled_skills)
 
     @classmethod
     def from_env(cls, overrides: dict[str, ConfigValue] | None = None) -> Config:

@@ -172,3 +172,168 @@ class TestGeminiAuth:
     def test_has_gemini_auth_false_without_key(self, monkeypatch) -> None:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         assert celery_app._has_gemini_auth() is False
+
+
+# ---------------------------------------------------------------------------
+# Additional helper function tests
+# ---------------------------------------------------------------------------
+
+
+class TestRedactSensitive:
+    """Tests for _redact_sensitive()."""
+
+    def test_redacts_token_in_clone_url(self) -> None:
+        text = "https://x-access-token:ghp_secret123@github.com/owner/repo.git"
+        result = celery_app._redact_sensitive(text)
+        assert "ghp_secret123" not in result
+        assert "***" in result
+        assert "github.com/" in result
+
+    def test_no_match_passes_through(self) -> None:
+        text = "plain text with no tokens"
+        assert celery_app._redact_sensitive(text) == text
+
+    def test_multiple_tokens_redacted(self) -> None:
+        text = (
+            "https://x-access-token:tok1@github.com/a/b "
+            "https://x-access-token:tok2@github.com/c/d"
+        )
+        result = celery_app._redact_sensitive(text)
+        assert "tok1" not in result
+        assert "tok2" not in result
+
+
+class TestGithubCloneUrl:
+    """Tests for _github_clone_url()."""
+
+    def test_with_github_token(self, monkeypatch) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_abc")
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        url = celery_app._github_clone_url("owner/repo")
+        assert url == "https://x-access-token:ghp_abc@github.com/owner/repo.git"
+
+    def test_with_gh_token_fallback(self, monkeypatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.setenv("GH_TOKEN", "ghp_def")
+        url = celery_app._github_clone_url("owner/repo")
+        assert url == "https://x-access-token:ghp_def@github.com/owner/repo.git"
+
+    def test_without_token(self, monkeypatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        url = celery_app._github_clone_url("owner/repo")
+        assert url == "https://github.com/owner/repo.git"
+
+
+class TestRepoTmpDir:
+    """Tests for _repo_tmp_dir()."""
+
+    def test_returns_path_when_env_set(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", str(tmp_path / "repos"))
+        result = celery_app._repo_tmp_dir()
+        assert result == tmp_path / "repos"
+        assert result.is_dir()
+
+    def test_returns_none_when_env_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", "")
+        assert celery_app._repo_tmp_dir() is None
+
+    def test_returns_none_when_env_missing(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_REPO_TMP", raising=False)
+        assert celery_app._repo_tmp_dir() is None
+
+
+class TestTrimUpdates:
+    """Tests for _trim_updates()."""
+
+    def test_under_limit_is_noop(self) -> None:
+        updates = ["a", "b", "c"]
+        celery_app._trim_updates(updates)
+        assert updates == ["a", "b", "c"]
+
+    def test_at_limit_is_noop(self) -> None:
+        updates = [f"line_{i}" for i in range(celery_app._MAX_STORED_UPDATES)]
+        celery_app._trim_updates(updates)
+        assert len(updates) == celery_app._MAX_STORED_UPDATES
+
+    def test_over_limit_trims_oldest(self) -> None:
+        n = celery_app._MAX_STORED_UPDATES + 50
+        updates = [f"line_{i}" for i in range(n)]
+        celery_app._trim_updates(updates)
+        assert len(updates) == celery_app._MAX_STORED_UPDATES
+        assert updates[0] == "line_50"
+        assert updates[-1] == f"line_{n - 1}"
+
+
+class TestAppendUpdate:
+    """Tests for _append_update()."""
+
+    def test_appends_normal_text(self) -> None:
+        updates: list[str] = []
+        celery_app._append_update(updates, "hello world")
+        assert updates == ["hello world"]
+
+    def test_strips_whitespace(self) -> None:
+        updates: list[str] = []
+        celery_app._append_update(updates, "  spaced  ")
+        assert updates == ["spaced"]
+
+    def test_empty_text_ignored(self) -> None:
+        updates: list[str] = []
+        celery_app._append_update(updates, "")
+        celery_app._append_update(updates, "   ")
+        assert updates == []
+
+    def test_truncates_long_text(self) -> None:
+        updates: list[str] = []
+        long_text = "x" * (celery_app._MAX_UPDATE_LINE_CHARS + 100)
+        celery_app._append_update(updates, long_text)
+        assert len(updates) == 1
+        assert updates[0].endswith("...[truncated]")
+        assert len(updates[0]) < len(long_text)
+
+
+class TestUpdateCollector:
+    """Tests for _UpdateCollector."""
+
+    def test_splits_on_newlines(self) -> None:
+        updates: list[str] = []
+        collector = celery_app._UpdateCollector(updates)
+        collector.feed("line1\nline2\nline3\n")
+        assert updates == ["line1", "line2", "line3"]
+
+    def test_buffers_partial_lines(self) -> None:
+        updates: list[str] = []
+        collector = celery_app._UpdateCollector(updates)
+        collector.feed("partial")
+        assert updates == []
+        collector.feed(" text\n")
+        assert updates == ["partial text"]
+
+    def test_flush_emits_buffered_content(self) -> None:
+        updates: list[str] = []
+        collector = celery_app._UpdateCollector(updates)
+        collector.feed("buffered")
+        assert updates == []
+        collector.flush()
+        assert updates == ["buffered"]
+
+    def test_flush_noop_when_empty(self) -> None:
+        updates: list[str] = []
+        collector = celery_app._UpdateCollector(updates)
+        collector.flush()
+        assert updates == []
+
+    def test_large_buffer_auto_flushes(self) -> None:
+        updates: list[str] = []
+        collector = celery_app._UpdateCollector(updates)
+        chunk = "a" * (celery_app._BUFFER_FLUSH_CHARS + 10)
+        collector.feed(chunk)
+        assert len(updates) == 1
+        assert updates[0] == chunk
+
+    def test_empty_chunk_ignored(self) -> None:
+        updates: list[str] = []
+        collector = celery_app._UpdateCollector(updates)
+        collector.feed("")
+        assert updates == []

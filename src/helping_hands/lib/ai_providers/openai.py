@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["OPENAI_PROVIDER", "OpenAIProvider"]
+
 import os
 from typing import Any
 
@@ -17,6 +19,11 @@ class OpenAIProvider(AIProvider):
     install_hint = "uv add openai"
 
     def _build_inner(self) -> Any:
+        """Lazily construct an ``openai.OpenAI`` client.
+
+        Uses ``OPENAI_API_KEY`` from the environment when available;
+        otherwise falls back to the SDK's default auth resolution.
+        """
         try:
             from openai import OpenAI
         except ImportError as exc:
@@ -37,6 +44,7 @@ class OpenAIProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Call the OpenAI Responses API via ``inner.responses.create``."""
         return inner.responses.create(
             model=model,
             input=messages,

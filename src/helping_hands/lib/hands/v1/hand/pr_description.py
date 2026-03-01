@@ -15,6 +15,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+__all__ = ["PRDescription", "generate_pr_description"]
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_DIFF_CHAR_LIMIT = 12_000

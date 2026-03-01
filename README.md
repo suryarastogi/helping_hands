@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 1, 2026
 
 ## What is this?
 
@@ -322,6 +322,8 @@ helping_hands/
 │   │   ├── config.py
 │   │   ├── repo.py
 │   │   ├── github.py
+│   │   ├── default_prompts.py
+│   │   ├── validation.py      # Shared payload validation helpers
 │   │   ├── ai_providers/     # Provider wrappers + API key env/model defaults
 │   │   │   ├── __init__.py
 │   │   │   ├── openai.py
@@ -331,9 +333,12 @@ helping_hands/
 │   │   │   ├── ollama.py
 │   │   │   └── types.py
 │   │   ├── meta/
+│   │   │   ├── skills/            # Skills system (normalization, merging, building)
 │   │   │   └── tools/
 │   │   │       ├── __init__.py
-│   │   │       └── filesystem.py  # Shared filesystem/system tools for hands + MCP
+│   │   │       ├── filesystem.py  # Shared path-safe file operations for hands + MCP
+│   │   │       ├── command.py     # Execution tools (python/bash)
+│   │   │       └── web.py         # Web tools (search/browse)
 │   │   └── hands/v1/
 │   │       ├── __init__.py
 │   │       └── hand/         # Hand package (base, langgraph, atomic, iterative, e2e, cli/*)
@@ -343,7 +348,11 @@ helping_hands/
 │       ├── app.py            # FastAPI application
 │       ├── celery_app.py     # Celery app + tasks
 │       ├── mcp_server.py     # MCP server entry point/tools
+│       ├── schedules.py      # Cron-scheduled task management (RedBeat + Redis)
 │       └── task_result.py    # Task result normalization helpers
+├── active/                   # In-progress PRDs
+├── completed/                # Completed PRDs with activity logs
+├── frontend/                 # React + TypeScript UI (Vite)
 ├── tests/                    # Test suite (pytest)
 ├── docs/                     # MkDocs source for API docs
 ├── .github/workflows/
@@ -386,7 +395,7 @@ Key settings:
 
 | Setting | Env var | Description |
 |---|---|---|
-| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
+| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-sonnet-4-5`) |
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 | `use_native_cli_auth` | `HELPING_HANDS_USE_NATIVE_CLI_AUTH` | For `codexcli`/`claudecodecli`, strip provider API key env vars so native CLI auth/session is used |
@@ -403,6 +412,10 @@ Key CLI flags:
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
 - `--use-native-cli-auth` — for `codexcli`/`claudecodecli`, ignore provider API key env vars and rely on local CLI auth/session
+- `--skills SKILLS` — comma-separated list of skills to inject for iterative hands (e.g. `--skills python,bash`)
+- `--verbose` / `-v` — enable detailed debug logging (`DEBUG` level; default is `WARNING`)
+- `--enable-execution` — enable execution tools (python/bash) for iterative backends
+- `--enable-web` — enable web tools (search/browse) for iterative backends
 
 ### Backend environment variables
 
@@ -428,7 +441,7 @@ required API key depends on which provider the model maps to:
 | Provider | Env var | Example `--model` values |
 |---|---|---|
 | OpenAI | `OPENAI_API_KEY` | `gpt-5.2`, `openai/gpt-5.2` |
-| Anthropic | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet-latest`, `anthropic/claude-sonnet-4-5` |
+| Anthropic | `ANTHROPIC_API_KEY` | `claude-sonnet-4-5`, `anthropic/claude-sonnet-4-5` |
 | Google | `GOOGLE_API_KEY` | `gemini-2.0-flash`, `google/gemini-2.0-flash` |
 | Ollama (default) | `OLLAMA_API_KEY` (optional), `OLLAMA_BASE_URL` | `llama3.2:latest`, `ollama/llama3.2:latest`, or `default` |
 | LiteLLM | (via litellm config) | `basic-atomic`/`basic-agent` only |
@@ -608,9 +621,16 @@ uv sync --extra langchain
 # or
 uv sync --extra atomic
 
+# Install optional integration deps
+uv sync --extra github    # PyGithub for PR operations
+uv sync --extra mcp       # MCP server dependencies
+
 # Lint + format
 uv run ruff check .
 uv run ruff format --check .
+
+# Type check
+uv run ty check src --ignore unresolved-import --ignore invalid-method-override
 
 # Run tests
 uv run pytest -v
@@ -631,7 +651,10 @@ HELPING_HANDS_RUN_E2E_INTEGRATION=1 HELPING_HANDS_E2E_PR_NUMBER=1 uv run pytest 
 # Set up pre-commit hooks (one-time)
 uv run pre-commit install
 
-# Frontend quality checks
+# Frontend development
+npm --prefix frontend install
+npm --prefix frontend run dev         # dev server at localhost:5173
+npm --prefix frontend run build       # production build
 npm --prefix frontend run lint
 npm --prefix frontend run typecheck
 npm --prefix frontend run test
@@ -641,6 +664,73 @@ npm --prefix frontend run coverage
 uv sync --extra docs --extra server
 uv run mkdocs serve
 ```
+
+### MCP server
+
+`helping_hands` exposes its capabilities over the
+[Model Context Protocol](https://modelcontextprotocol.io/) so AI clients
+(Claude Desktop, Cursor, etc.) can use it as a tool provider.
+
+```bash
+# Install MCP dependencies
+uv sync --extra mcp
+
+# Run MCP server (stdio mode — for Claude Desktop / AI clients)
+uv run helping-hands-mcp
+
+# Run MCP server (streamable HTTP mode)
+uv run helping-hands-mcp --http
+```
+
+The MCP server exposes tools for repo indexing, build enqueue/status,
+filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`),
+execution tools (`run_python_code`, `run_python_script`, `run_bash_script`),
+web tools (`web_search`, `web_browse`), and config inspection.
+
+### Cron-scheduled builds
+
+App mode supports cron-scheduled build submissions via `ScheduleManager`
+(`server/schedules.py`) backed by Redis + RedBeat. Schedules are CRUD-managed
+through server API endpoints:
+
+```bash
+# Create a schedule (runs daily at 09:00 UTC)
+curl -sS -X POST "http://localhost:8000/schedules" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "daily-improvement",
+    "repo_path": "owner/repo",
+    "prompt": "Implement one small safe improvement",
+    "backend": "basic-langgraph",
+    "cron_expression": "0 9 * * *"
+  }'
+
+# List all schedules
+curl -sS "http://localhost:8000/schedules"
+
+# Available cron presets
+curl -sS "http://localhost:8000/schedules/presets"
+```
+
+Cron presets (e.g. `hourly`, `daily`, `weekdays`) are available alongside
+arbitrary cron expressions validated via `croniter`.
+
+### Skills system
+
+The skills layer (`lib/meta/skills/`) lets iterative hands inject dynamic
+capabilities at runtime. Skills are opt-in per run:
+
+```bash
+# CLI: enable python and bash skills
+uv run helping-hands owner/repo --backend basic-langgraph --skills python,bash --prompt "Run the tests"
+
+# API: include skills field in build request
+curl -sS -X POST "http://localhost:8000/build" \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path": "owner/repo", "prompt": "Run tests", "backend": "basic-langgraph", "skills": "python,bash"}'
+```
+
+Unrecognized skill names are rejected at config validation time.
 
 ### Compose env defaults
 
@@ -652,6 +742,14 @@ services if they are not set in `.env`:
 - `CELERY_RESULT_BACKEND=redis://redis:6379/1`
 - `HELPING_HANDS_FLOWER_API_URL=http://flower:5555` (server-side `/tasks/current`
   discovery path)
+
+## Design documentation
+
+- **[obsidian/docs/](obsidian/docs/)** — Obsidian vault with vision, architecture, concepts, and weekly project log
+- **[docs/](docs/)** — MkDocs API reference (auto-generated from docstrings; [browse online](https://suryarastogi.github.io/helping_hands/))
+- **[completed/](completed/)** — Completed PRDs with TODO checklists and activity logs
+- **[AGENT.md](AGENT.md)** — AI agent guidelines (self-updating; code style, design preferences, recurring decisions)
+- **[CLAUDE.md](CLAUDE.md)** — Claude Code CLI-specific build/dev commands and conventions
 
 ## License
 

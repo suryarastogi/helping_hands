@@ -12,6 +12,7 @@ consistent regardless of which concrete hand class is selected.
 from __future__ import annotations
 
 import abc
+import logging
 import os
 import re
 import subprocess
@@ -23,6 +24,10 @@ from threading import Event
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
+
+__all__ = ["Hand", "HandResponse"]
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
@@ -74,14 +79,17 @@ class Hand(abc.ABC):
         self._interrupt_event.clear()
 
     def _is_interrupted(self) -> bool:
+        """Return whether cooperative interruption has been requested."""
         return self._interrupt_event.is_set()
 
     @staticmethod
     def _default_base_branch() -> str:
+        """Return the target base branch for PRs (env override or ``main``)."""
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
 
     @staticmethod
     def _run_git_read(repo_dir: Path, *args: str) -> str:
+        """Run a git command and return stdout, or empty string on failure."""
         result = subprocess.run(
             ["git", *args],
             cwd=repo_dir,
@@ -95,6 +103,7 @@ class Hand(abc.ABC):
 
     @classmethod
     def _github_repo_from_origin(cls, repo_dir: Path) -> str:
+        """Extract ``owner/repo`` from the git origin URL, or empty string."""
         remote = cls._run_git_read(repo_dir, "remote", "get-url", "origin")
         if not remote:
             return ""
@@ -125,6 +134,7 @@ class Hand(abc.ABC):
         commit_sha: str,
         stamp_utc: str,
     ) -> str:
+        """Build a fallback PR body when rich description generation is unavailable."""
         return (
             f"Automated update from `{backend}`.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -138,6 +148,7 @@ class Hand(abc.ABC):
     def _configure_authenticated_push_remote(
         repo_dir: Path, repo: str, token: str
     ) -> None:
+        """Set the push URL to a token-authenticated HTTPS remote."""
         push_url = f"https://x-access-token:{token}@github.com/{repo}.git"
         result = subprocess.run(
             ["git", "remote", "set-url", "--push", "origin", push_url],
@@ -167,10 +178,17 @@ class Hand(abc.ABC):
         return None
 
     def _should_run_precommit_before_pr(self) -> bool:
+        """Return whether pre-commit hooks should run before PR finalization."""
         return bool(getattr(self.config, "enable_execution", False))
 
     @staticmethod
     def _run_precommit_checks_and_fixes(repo_dir: Path) -> None:
+        """Run pre-commit hooks with one auto-fix retry before PR push.
+
+        Executes ``uv run pre-commit run --all-files`` twice: the first pass
+        lets auto-fixers apply corrections, and the second validates. Raises
+        ``RuntimeError`` if hooks still fail after the retry.
+        """
         command = ["uv", "run", "pre-commit", "run", "--all-files"]
 
         def _run_once() -> subprocess.CompletedProcess[str]:
@@ -223,6 +241,101 @@ class Hand(abc.ABC):
         )
         raise RuntimeError(msg)
 
+    @staticmethod
+    def _push_with_non_interactive_env(gh: Any, repo_dir: Path, branch: str) -> None:
+        """Push *branch* with git interactive prompts disabled.
+
+        Temporarily sets ``GIT_TERMINAL_PROMPT=0`` and ``GCM_INTERACTIVE=never``
+        so that credential helpers never block on stdin, restoring prior values
+        in the finally block.
+        """
+        prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
+        prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
+        os.environ["GIT_TERMINAL_PROMPT"] = "0"
+        os.environ["GCM_INTERACTIVE"] = "never"
+        try:
+            gh.push(repo_dir, branch=branch, set_upstream=True)
+        finally:
+            if prior_prompt is None:
+                os.environ.pop("GIT_TERMINAL_PROMPT", None)
+            else:
+                os.environ["GIT_TERMINAL_PROMPT"] = prior_prompt
+            if prior_gcm_interactive is None:
+                os.environ.pop("GCM_INTERACTIVE", None)
+            else:
+                os.environ["GCM_INTERACTIVE"] = prior_gcm_interactive
+
+    def _create_pr_from_branch(
+        self,
+        gh: Any,
+        *,
+        repo: str,
+        repo_dir: Path,
+        branch: str,
+        commit_sha: str,
+        backend: str,
+        prompt: str,
+        summary: str,
+    ) -> dict[str, str]:
+        """Generate PR title/body and open the pull request.
+
+        Returns a metadata dict with ``pr_status``, ``pr_url``, ``pr_number``,
+        ``pr_branch``, and ``pr_commit`` on success.
+        """
+        base_branch = self._default_base_branch()
+        try:
+            repo_obj = gh.get_repo(repo)
+            if getattr(repo_obj, "default_branch", ""):
+                base_branch = str(repo_obj.default_branch)
+        except RuntimeError:
+            logger.debug(
+                "Could not fetch default branch from GitHub for %s",
+                repo,
+                exc_info=True,
+            )
+
+        stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            generate_pr_description,
+        )
+
+        rich_desc = generate_pr_description(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            base_branch=base_branch,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        )
+        if rich_desc is not None:
+            pr_title = rich_desc.title
+            pr_body = rich_desc.body
+        else:
+            pr_title = f"feat({backend}): automated hand update"
+            pr_body = self._build_generic_pr_body(
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+                commit_sha=commit_sha,
+                stamp_utc=stamp,
+            )
+
+        pr = gh.create_pr(
+            repo,
+            title=pr_title,
+            body=pr_body,
+            head=branch,
+            base=base_branch,
+        )
+        return {
+            "pr_status": "created",
+            "pr_url": pr.url,
+            "pr_number": str(pr.number),
+            "pr_branch": branch,
+            "pr_commit": commit_sha,
+        }
+
     def _finalize_repo_pr(
         self,
         *,
@@ -230,7 +343,13 @@ class Hand(abc.ABC):
         prompt: str,
         summary: str,
     ) -> dict[str, str]:
-        metadata = {
+        """Commit, push, and open a PR for any pending repository changes.
+
+        Performs pre-flight checks (auto_pr enabled, repo exists, has changes,
+        GitHub origin found), optional pre-commit, then delegates to
+        ``_push_with_non_interactive_env`` and ``_create_pr_from_branch``.
+        """
+        metadata: dict[str, str] = {
             "auto_pr": str(self.auto_pr).lower(),
             "pr_status": "not_attempted",
             "pr_url": "",
@@ -297,83 +416,31 @@ class Hand(abc.ABC):
                 )
                 if not self._use_native_git_auth_for_push(github_token=gh.token):
                     self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
-                prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
-                prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
-                os.environ["GIT_TERMINAL_PROMPT"] = "0"
-                os.environ["GCM_INTERACTIVE"] = "never"
-                try:
-                    gh.push(repo_dir, branch=branch, set_upstream=True)
-                finally:
-                    if prior_prompt is None:
-                        os.environ.pop("GIT_TERMINAL_PROMPT", None)
-                    else:
-                        os.environ["GIT_TERMINAL_PROMPT"] = prior_prompt
-                    if prior_gcm_interactive is None:
-                        os.environ.pop("GCM_INTERACTIVE", None)
-                    else:
-                        os.environ["GCM_INTERACTIVE"] = prior_gcm_interactive
-
-                base_branch = self._default_base_branch()
-                try:
-                    repo_obj = gh.get_repo(repo)
-                    if getattr(repo_obj, "default_branch", ""):
-                        base_branch = str(repo_obj.default_branch)
-                except Exception:
-                    pass
-
-                stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
-
-                from helping_hands.lib.hands.v1.hand.pr_description import (
-                    generate_pr_description,
-                )
-
-                rich_desc = generate_pr_description(
-                    cmd=self._pr_description_cmd(),
+                self._push_with_non_interactive_env(gh, repo_dir, branch)
+                pr_meta = self._create_pr_from_branch(
+                    gh,
+                    repo=repo,
                     repo_dir=repo_dir,
-                    base_branch=base_branch,
+                    branch=branch,
+                    commit_sha=commit_sha,
                     backend=backend,
                     prompt=prompt,
                     summary=summary,
                 )
-                if rich_desc is not None:
-                    pr_title = rich_desc.title
-                    pr_body = rich_desc.body
-                else:
-                    pr_title = f"feat({backend}): automated hand update"
-                    pr_body = self._build_generic_pr_body(
-                        backend=backend,
-                        prompt=prompt,
-                        summary=summary,
-                        commit_sha=commit_sha,
-                        stamp_utc=stamp,
-                    )
-
-                pr = gh.create_pr(
-                    repo,
-                    title=pr_title,
-                    body=pr_body,
-                    head=branch,
-                    base=base_branch,
-                )
-                metadata.update(
-                    {
-                        "pr_status": "created",
-                        "pr_url": pr.url,
-                        "pr_number": str(pr.number),
-                        "pr_branch": branch,
-                        "pr_commit": commit_sha,
-                    }
-                )
+                metadata.update(pr_meta)
                 return metadata
         except ValueError as exc:
+            logger.warning("PR finalization: missing token — %s", exc)
             metadata["pr_status"] = "missing_token"
             metadata["pr_error"] = str(exc)
             return metadata
         except RuntimeError as exc:
+            logger.warning("PR finalization: git error — %s", exc)
             metadata["pr_status"] = "git_error"
             metadata["pr_error"] = str(exc)
             return metadata
-        except Exception as exc:
+        except (OSError, KeyError, AttributeError) as exc:
+            logger.exception("PR finalization failed")
             metadata["pr_status"] = "error"
             metadata["pr_error"] = str(exc)
             return metadata

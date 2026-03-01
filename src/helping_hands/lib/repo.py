@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+__all__ = ["RepoIndex"]
+
 
 @dataclass
 class RepoIndex:

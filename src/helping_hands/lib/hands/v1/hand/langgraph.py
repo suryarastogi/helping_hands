@@ -8,8 +8,14 @@ that want LangChain/LangGraph execution semantics with shared final PR logic.
 
 from __future__ import annotations
 
+__all__ = ["LangGraphHand"]
+
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from helping_hands.lib.config import Config
+    from helping_hands.lib.repo import RepoIndex
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 from helping_hands.lib.hands.v1.hand.model_provider import (
@@ -24,12 +30,13 @@ class LangGraphHand(Hand):
     Requires the ``langchain`` extra to be installed.
     """
 
-    def __init__(self, config: Any, repo_index: Any) -> None:
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         super().__init__(config, repo_index)
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Build a LangGraph react agent with the resolved chat model."""
         from langgraph.prebuilt import create_react_agent
 
         llm = build_langchain_chat_model(
@@ -44,6 +51,7 @@ class LangGraphHand(Hand):
         )
 
     def run(self, prompt: str) -> HandResponse:
+        """Send a prompt and return a complete response via LangGraph agent."""
         result = self._agent.invoke({"messages": [{"role": "user", "content": prompt}]})
         last_msg = result["messages"][-1]
         content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
@@ -63,6 +71,7 @@ class LangGraphHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Send a prompt and yield response chunks as they arrive."""
         parts: list[str] = []
         async for event in self._agent.astream_events(
             {"messages": [{"role": "user", "content": prompt}]},

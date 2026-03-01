@@ -4,29 +4,69 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 ## Summary (from TODO.md)
 
-1. **Set up Python project** under `src/helping_hands`:
-   - **Layout:** `lib/` (core), `cli/` (CLI, uses lib), `server/` (app mode, uses lib)
-   - **Tooling:** uv, ruff, `ty` type checking, pre-commit
-   - **CI/CD:** Push/PR pipeline runs uv sync, tests, Ruff; E2E integration is opt-in and push-safe in matrix
-   - **Tests:** pytest under `tests/`, run in CI
+All major milestones are complete. Two CI items remain intentionally deferred:
 
-2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
+1. **Set up Python project** — complete (layout, tooling, CI/CD, tests)
+2. **Dockerise app mode** — complete (Dockerfile, Compose, all services)
+3. **Autodocs** — complete (MkDocs Material + mkdocstrings, 37 API pages, GitHub Pages)
+4. **Hand backends** — complete (E2E, iterative, all 4 CLI hands, cron scheduling, hardening)
+5. **MCP server** — complete (filesystem, execution, web, build, config tools)
+6. **Skills system** — complete (normalization, validation, prompt injection)
+7. **React frontend** — complete (task submission, monitoring, world view)
+8. **Additional features** — complete (PR description, verbose logging, config/API validation, exception hardening)
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+**Deferred:**
+- CI type check step: `ty` is in pre-commit but lacks a stable non-hook CI runner
+- Build/publish pipeline: project is pre-1.0 beta
+
+**PRD workflow:**
+- In-progress PRDs live in `active/` (repo root).
+- Completed PRDs are moved to `completed/` with a datetime-stamped, semantic filename.
+- See [[Completed PRDs]] for the full index.
 
 ## Design notes
 
-- E2E PR updates are now treated as **state refresh**: live runs update both PR body and marker comment with latest timestamp/commit/prompt.
-- CI integration policy: only `master` + Python `3.13` performs live push/update; other matrix jobs force dry-run to avoid PR branch race conditions.
-- Pre-commit now includes `ty` for type checks; current rule ignores are intentional until optional backend imports/protocol signatures are tightened.
-- Basic iterative backends now default to a final commit/push/PR step; explicit `--no-pr` disables side effects (and maps to dry-run for E2E).
-- Non-E2E CLI supports `owner/repo` input by cloning to temporary workspace before indexing/iteration.
-- Hand internals were split from a single `hand.py` into a package module (`lib/hands/v1/hand/`); shared filesystem system tools now live in `lib/meta/tools/filesystem.py` and are also exposed via MCP filesystem tools.
-- Provider routing is now centralized in `lib/ai_providers/` plus `lib/hands/v1/hand/model_provider.py`, replacing direct provider client construction in hands.
-- Basic iterative hands now preload iteration-1 context from `README.md`, `AGENT.md`, and a bounded file-tree snapshot.
-- CI and local test runs now include coverage reporting (`pytest-cov`), and README shows a Codecov badge.
-- App-mode monitoring now supports both JS polling (`/tasks/{task_id}`) and a no-JS fallback monitor (`/monitor/{task_id}` with auto-refresh), reducing browser-dependent failures.
-- Monitor UI now uses fixed-size task/status/update/payload cells with in-cell scrolling to keep layout stable during polling.
-- `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
-- `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
-- Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+Key architectural decisions and implementation notes. For the full list of recurring decisions, see the root [`AGENT.md`](../../AGENT.md).
+
+### Core execution model
+
+- Hand internals split into a package module (`lib/hands/v1/hand/`); avoid regressing to monolithic `hand.py`.
+- Basic iterative backends default to a final commit/push/PR step; `--no-pr` disables side effects (maps to dry-run for E2E).
+- Iterative hands preload iteration-1 context from `README.md`, `AGENT.md`, and a bounded file-tree snapshot.
+- Provider routing centralized in `lib/ai_providers/` + `model_provider.py`; five providers: openai, anthropic, google, litellm, ollama.
+- System file operations route through `lib/meta/tools/filesystem.py` for path safety; MCP filesystem tools share the same layer.
+
+### E2E and PR semantics
+
+- E2E PR updates are **state refresh**: live runs update both PR body and marker comment with latest timestamp/commit/prompt.
+- Branch collision handling: switch to existing branch instead of failing.
+- Draft PR mode (`HELPING_HANDS_DRAFT_PR`), idempotency guard (`find_open_pr_for_branch`).
+- GitHub API calls wrapped with `GithubException` handling — clear error messages with actionable hints.
+
+### CLI backends
+
+- All four CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls.
+- `claudecodecli`: edit-enforcement retry, `npx` fallback, non-interactive permissions skip.
+- `goose`: auto-derived `GOOSE_PROVIDER`/`GOOSE_MODEL`, auto-injected `--with-builtin developer`.
+- `geminicli`: `--approval-mode auto_edit`, model-unavailable retry.
+
+### App mode and scheduling
+
+- Compose file is `compose.yaml` with default in-network Redis/Celery URLs when `.env` is sparse.
+- Monitoring: JS polling + no-JS fallback with fixed-size monitor cells.
+- Cron scheduling via `ScheduleManager` (RedBeat + Redis metadata) with CRUD endpoints.
+- React frontend wraps task submission/monitoring with backend selection, world view, and keyboard navigation.
+
+### Validation and observability
+
+- `Config.__post_init__` validates repo format and model name patterns.
+- `BuildRequest`/`ScheduleRequest` validate input at the API boundary (bounds, cron syntax).
+- Health check exceptions logged at warning level with `exc_info=True`.
+- CLI `--verbose` wires to `logging.basicConfig()`; silent exception blocks use `logger.debug()`.
+
+### Documentation and testing
+
+- MkDocs: 38 API doc pages covering all 14 Hand modules (12 implementation + 1 package surface + 1 backward-compat shim) plus all subsystems (including `validation`, `git_utils`).
+- Docstrings: Google-style on all public methods and key private helpers; `_TwoPhaseCLIHand` (incl. 20+ private helpers across all 4 CLI hands), `AIProvider` (including all `_build_inner`/`_complete_impl`), skills runners, meta/tools helpers, `_build_agent` methods, and `GitHubClient` context manager fully documented.
+- Tests: 624 tests covering filesystem (40), CLI hands (111 incl. stream/interrupt), schedule manager (22), Celery helpers (15), skills (30+4 config validation), MCP (17), server app (47), AI providers (28), command/web tools (30+), validation (12), E2E helpers (15), model_provider expansion (10+).
+- PEP 561: `py.typed` marker + `Typing :: Typed` classifier in `pyproject.toml`.

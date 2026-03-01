@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+__all__ = ["GeminiCLIHand"]
+
+import os
 import re
 import shutil
 
@@ -26,13 +29,13 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         return None
 
     def _describe_auth(self) -> str:
-        import os
-
+        """Return a human-readable string showing whether ``GEMINI_API_KEY`` is set."""
         present = "set" if os.environ.get("GEMINI_API_KEY", "").strip() else "not set"
         return f"auth=GEMINI_API_KEY ({present})"
 
     @staticmethod
     def _looks_like_model_not_found(output: str) -> bool:
+        """Return True when *output* contains Gemini model-unavailable error patterns."""
         lowered = output.lower()
         return (
             "modelnotfounderror" in lowered
@@ -42,6 +45,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _extract_unavailable_model(output: str) -> str:
+        """Extract the model name from a ``models/<name>`` pattern in error output."""
         match = re.search(r"models/([A-Za-z0-9._-]+)", output)
         if not match:
             return ""
@@ -49,6 +53,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _strip_model_args(cmd: list[str]) -> list[str] | None:
+        """Remove ``--model`` flag and its value from *cmd*, returning None if unchanged."""
         cleaned: list[str] = []
         removed = False
         skip_next = False
@@ -71,12 +76,14 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _has_approval_mode_flag(cmd: list[str]) -> bool:
+        """Return True if *cmd* already contains an ``--approval-mode`` flag."""
         return any(
             token == "--approval-mode" or token.startswith("--approval-mode=")
             for token in cmd
         )
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--approval-mode auto_edit`` for non-interactive ``gemini`` runs."""
         if not cmd or cmd[0] != "gemini":
             return cmd
         if self._has_approval_mode_flag(cmd):
@@ -85,6 +92,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_gemini_failure_message(*, return_code: int, output: str) -> str:
+        """Build a user-facing error message, detecting auth and model errors."""
         tail = output.strip()[-2000:]
         lower_tail = tail.lower()
         if any(
@@ -147,6 +155,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         output: str,
         return_code: int,
     ) -> list[str] | None:
+        """Retry without ``--model`` when Gemini rejects an unavailable model."""
         if return_code == 0:
             return None
         if not self._looks_like_model_not_found(output):
@@ -159,6 +168,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the Gemini CLI with *prompt* and return its output."""
         return await self._invoke_cli(prompt, emit=emit)
 
     async def _invoke_backend(

@@ -13,6 +13,30 @@ from typing import Any
 
 from helping_hands.lib.meta.tools import command as command_tools
 from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.validation import (
+    parse_optional_str,
+    parse_positive_int,
+    parse_str_list,
+)
+
+__all__ = [
+    "SkillSpec",
+    "SkillTool",
+    "available_skill_names",
+    "build_tool_runner_map",
+    "format_skill_instructions",
+    "merge_with_legacy_tool_flags",
+    "normalize_skill_selection",
+    "resolve_skills",
+    "skill_name_for_tool",
+    "validate_skill_names",
+]
+
+# Module-private aliases so existing callers (including tests that reference
+# ``meta_skills._parse_str_list``) continue to work unchanged.
+_parse_str_list = parse_str_list
+_parse_positive_int = parse_positive_int
+_parse_optional_str = parse_optional_str
 
 
 @dataclass(frozen=True)
@@ -34,47 +58,10 @@ class SkillSpec:
     instructions: str = ""
 
 
-def _parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
-    raw = payload.get(key, [])
-    if raw is None:
-        return []
-    if not isinstance(raw, list):
-        raise ValueError(f"{key} must be a list of strings")
-    values: list[str] = []
-    for value in raw:
-        if not isinstance(value, str):
-            raise ValueError(f"{key} must contain only strings")
-        values.append(value)
-    return values
-
-
-def _parse_positive_int(
-    payload: dict[str, Any],
-    *,
-    key: str,
-    default: int,
-) -> int:
-    raw = payload.get(key, default)
-    if isinstance(raw, bool) or not isinstance(raw, int):
-        raise ValueError(f"{key} must be an integer")
-    if raw <= 0:
-        raise ValueError(f"{key} must be > 0")
-    return raw
-
-
-def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
-    raw = payload.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, str):
-        raise ValueError(f"{key} must be a string")
-    value = raw.strip()
-    return value or None
-
-
 def _run_python_code(
     root: Path, payload: dict[str, Any]
 ) -> command_tools.CommandResult:
+    """Validate payload and run inline Python code via ``command_tools``."""
     code = payload.get("code")
     if not isinstance(code, str) or not code.strip():
         raise ValueError("code must be a non-empty string")
@@ -93,6 +80,7 @@ def _run_python_script(
     root: Path,
     payload: dict[str, Any],
 ) -> command_tools.CommandResult:
+    """Validate payload and run a repo-relative Python script via ``command_tools``."""
     script_path = payload.get("script_path")
     if not isinstance(script_path, str) or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
@@ -110,12 +98,19 @@ def _run_python_script(
 def _run_bash_script(
     root: Path, payload: dict[str, Any]
 ) -> command_tools.CommandResult:
+    """Validate payload and run a bash script (file or inline) via ``command_tools``."""
     script_path = payload.get("script_path")
     inline_script = payload.get("inline_script")
     if script_path is not None and not isinstance(script_path, str):
         raise ValueError("script_path must be a string")
     if inline_script is not None and not isinstance(inline_script, str):
         raise ValueError("inline_script must be a string")
+    has_path = isinstance(script_path, str) and script_path.strip()
+    has_inline = isinstance(inline_script, str) and inline_script.strip()
+    if not has_path and not has_inline:
+        raise ValueError(
+            "at least one of script_path or inline_script must be a non-empty string"
+        )
     return command_tools.run_bash_script(
         root,
         script_path=script_path,
@@ -127,6 +122,7 @@ def _run_bash_script(
 
 
 def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchResult:
+    """Validate payload and run a web search via ``web_tools``."""
     del root
     query = payload.get("query")
     if not isinstance(query, str) or not query.strip():
@@ -139,6 +135,7 @@ def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchR
 
 
 def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseResult:
+    """Validate payload and browse a URL via ``web_tools``."""
     del root
     url = payload.get("url")
     if not isinstance(url, str) or not url.strip():
@@ -333,17 +330,3 @@ def format_skill_instructions(skills: tuple[SkillSpec, ...]) -> str:
                 ]
             )
     return "\n".join(lines)
-
-
-__all__ = [
-    "SkillSpec",
-    "SkillTool",
-    "available_skill_names",
-    "build_tool_runner_map",
-    "format_skill_instructions",
-    "merge_with_legacy_tool_flags",
-    "normalize_skill_selection",
-    "resolve_skills",
-    "skill_name_for_tool",
-    "validate_skill_names",
-]

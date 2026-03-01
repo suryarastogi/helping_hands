@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+__all__ = ["build_parser", "main"]
+
 import argparse
 import asyncio
 import atexit
-import os
+import logging
 import re
 import shutil
 import subprocess
@@ -17,6 +19,18 @@ from typing import cast
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.git_utils import (
+    git_noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.git_utils import (
+    github_clone_url as _github_clone_url,
+)
+from helping_hands.lib.git_utils import (
+    redact_sensitive as _redact_sensitive,
+)
+from helping_hands.lib.git_utils import (
+    repo_tmp_dir as _repo_tmp_dir,
+)
 from helping_hands.lib.hands.v1.hand import (
     BasicAtomicHand,
     BasicLangGraphHand,
@@ -130,6 +144,12 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.WARNING,
+        format="%(levelname)s: %(name)s: %(message)s",
+    )
+
     try:
         selected_skills = meta_skills.normalize_skill_selection(args.skills)
         meta_skills.validate_skill_names(selected_skills)
@@ -261,50 +281,19 @@ def main(argv: list[str] | None = None) -> None:
 
 
 async def _stream_hand(hand: Hand, prompt: str) -> None:
+    """Stream hand output to stdout, printing chunks as they arrive."""
     stream = cast(AsyncIterator[str], hand.stream(prompt))
     async for chunk in stream:
         print(chunk, end="", flush=True)
     print()
 
 
-def _github_clone_url(repo: str) -> str:
-    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
-    if token:
-        return f"https://x-access-token:{token}@github.com/{repo}.git"
-    return f"https://github.com/{repo}.git"
-
-
-def _git_noninteractive_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    return env
-
-
-def _redact_sensitive(text: str) -> str:
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
-
-
-def _repo_tmp_dir() -> Path | None:
-    """Return the directory to use for temporary repo clones.
-
-    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
-    Setting this to a known path (e.g. /tmp/helping_hands or a project tmp/)
-    keeps clones out of /var/folders and makes manual cleanup easy.
-    """
-    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
-    if d:
-        p = Path(d).expanduser()
-        p.mkdir(parents=True, exist_ok=True)
-        return p
-    return None
-
-
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
+    """Resolve a local path or clone an ``owner/repo`` GitHub reference.
+
+    Returns (resolved_path, cloned_from) where cloned_from is the original
+    ``owner/repo`` string if a clone was performed, or None for local paths.
+    """
     path = Path(repo).expanduser().resolve()
     if path.is_dir():
         return path, None

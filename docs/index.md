@@ -8,9 +8,39 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 
 Browse the auto-generated docs from source:
 
-- **lib** — Core library: [config](api/lib/config.md), [repo](api/lib/repo.md), [github](api/lib/github.md), [ai providers package](api/lib/ai_providers.md), [hands v1 package](api/lib/hands/v1/hand.md), [meta tools package](api/lib/meta/tools.md), [meta tools.filesystem](api/lib/meta/tools/filesystem.md)
+- **lib** — Core library:
+  - Config & data: [config](api/lib/config.md), [repo](api/lib/repo.md),
+    [github](api/lib/github.md), [git_utils](api/lib/git_utils.md),
+    [default_prompts](api/lib/default_prompts.md),
+    [validation](api/lib/validation.md)
+  - AI providers: [package](api/lib/ai_providers.md),
+    [types](api/lib/ai_providers/types.md),
+    [openai](api/lib/ai_providers/openai.md),
+    [anthropic](api/lib/ai_providers/anthropic.md),
+    [google](api/lib/ai_providers/google.md),
+    [litellm](api/lib/ai_providers/litellm.md),
+    [ollama](api/lib/ai_providers/ollama.md)
+  - Hands: [v1 package](api/lib/hands/v1/hand.md),
+    [base](api/lib/hands/v1/hand/base.md),
+    [iterative](api/lib/hands/v1/hand/iterative.md),
+    [langgraph](api/lib/hands/v1/hand/langgraph.md),
+    [atomic](api/lib/hands/v1/hand/atomic.md),
+    [e2e](api/lib/hands/v1/hand/e2e.md),
+    [model_provider](api/lib/hands/v1/hand/model_provider.md),
+    [pr_description](api/lib/hands/v1/hand/pr_description.md),
+    [placeholders](api/lib/hands/v1/hand/placeholders.md)
+  - CLI hands: [base](api/lib/hands/v1/hand/cli/base.md),
+    [claude](api/lib/hands/v1/hand/cli/claude.md),
+    [codex](api/lib/hands/v1/hand/cli/codex.md),
+    [goose](api/lib/hands/v1/hand/cli/goose.md),
+    [gemini](api/lib/hands/v1/hand/cli/gemini.md)
+  - Meta: [skills](api/lib/meta/skills.md),
+    [tools package](api/lib/meta/tools.md),
+    [tools.filesystem](api/lib/meta/tools/filesystem.md),
+    [tools.command](api/lib/meta/tools/command.md),
+    [tools.web](api/lib/meta/tools/web.md)
 - **cli** — CLI entry point: [main](api/cli/main.md)
-- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md)
+- **server** — App mode: [app](api/server/app.md), [celery_app](api/server/celery_app.md), [mcp_server](api/server/mcp_server.md), [schedules](api/server/schedules.md), [task_result](api/server/task_result.md)
 
 ## Runtime flow
 

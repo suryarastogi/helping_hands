@@ -31,24 +31,47 @@ nav:
           - config: api/lib/config.md
           - repo: api/lib/repo.md
           - github: api/lib/github.md
+          - git_utils: api/lib/git_utils.md
+          - default_prompts: api/lib/default_prompts.md
+          - validation: api/lib/validation.md
           - ai_providers:
               - package: api/lib/ai_providers.md
               - openai: api/lib/ai_providers/openai.md
               - anthropic: api/lib/ai_providers/anthropic.md
               - google: api/lib/ai_providers/google.md
               - litellm: api/lib/ai_providers/litellm.md
+              - ollama: api/lib/ai_providers/ollama.md
               - types: api/lib/ai_providers/types.md
           - meta:
+              - skills: api/lib/meta/skills.md
               - tools: api/lib/meta/tools.md
               - tools/filesystem: api/lib/meta/tools/filesystem.md
+              - tools/command: api/lib/meta/tools/command.md
+              - tools/web: api/lib/meta/tools/web.md
           - hands:
-              - "v1/hand": api/lib/hands/v1/hand.md
+              - "v1/hand (package)": api/lib/hands/v1/hand.md
+              - "v1/hand/base": api/lib/hands/v1/hand/base.md
+              - "v1/hand/iterative": api/lib/hands/v1/hand/iterative.md
+              - "v1/hand/langgraph": api/lib/hands/v1/hand/langgraph.md
+              - "v1/hand/atomic": api/lib/hands/v1/hand/atomic.md
+              - "v1/hand/e2e": api/lib/hands/v1/hand/e2e.md
+              - "v1/hand/model_provider": api/lib/hands/v1/hand/model_provider.md
+              - "v1/hand/pr_description": api/lib/hands/v1/hand/pr_description.md
+              - "v1/hand/placeholders": api/lib/hands/v1/hand/placeholders.md
+              - cli:
+                  - "base": api/lib/hands/v1/hand/cli/base.md
+                  - "claude": api/lib/hands/v1/hand/cli/claude.md
+                  - "codex": api/lib/hands/v1/hand/cli/codex.md
+                  - "goose": api/lib/hands/v1/hand/cli/goose.md
+                  - "gemini": api/lib/hands/v1/hand/cli/gemini.md
       - cli:
           - main: api/cli/main.md
       - server:
           - app: api/server/app.md
           - celery_app: api/server/celery_app.md
           - mcp_server: api/server/mcp_server.md
+          - schedules: api/server/schedules.md
+          - task_result: api/server/task_result.md
 
 plugins:
   - search

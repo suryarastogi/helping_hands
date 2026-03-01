@@ -12,6 +12,13 @@ from typing import Any
 
 from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
 
+__all__ = [
+    "HandModel",
+    "build_atomic_client",
+    "build_langchain_chat_model",
+    "resolve_hand_model",
+]
+
 
 @dataclass(frozen=True)
 class HandModel:
@@ -58,6 +65,7 @@ def resolve_hand_model(model: str | None) -> HandModel:
 
 
 def _infer_provider_name(model: str) -> str:
+    """Infer provider name from a bare model string using prefix heuristics."""
     lowered = model.lower()
     if lowered.startswith("claude"):
         return "anthropic"

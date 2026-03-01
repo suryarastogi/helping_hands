@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["OLLAMA_PROVIDER", "OllamaProvider"]
+
 import os
 from typing import Any
 
@@ -9,7 +11,14 @@ from helping_hands.lib.ai_providers.types import AIProvider
 
 
 class OllamaProvider(AIProvider):
-    """Wrapper around a local Ollama server via OpenAI-compatible client."""
+    """Wrapper around a local Ollama server via OpenAI-compatible client.
+
+    Attributes:
+        base_url_env_var: Environment variable that overrides the Ollama
+            server URL (default ``OLLAMA_BASE_URL``).
+        default_base_url: Fallback URL when ``base_url_env_var`` is unset
+            (default ``http://localhost:11434/v1``).
+    """
 
     name = "ollama"
     api_key_env_var = "OLLAMA_API_KEY"
@@ -19,6 +28,11 @@ class OllamaProvider(AIProvider):
     default_base_url = "http://localhost:11434/v1"
 
     def _build_inner(self) -> Any:
+        """Lazily construct an ``openai.OpenAI`` client pointing at Ollama.
+
+        Uses ``OLLAMA_BASE_URL`` (default ``http://localhost:11434/v1``)
+        and ``OLLAMA_API_KEY`` (default ``"ollama"``) for local server auth.
+        """
         try:
             from openai import OpenAI
         except ImportError as exc:
@@ -38,6 +52,7 @@ class OllamaProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Call Ollama via the OpenAI-compatible Chat Completions API."""
         return inner.chat.completions.create(
             model=model,
             messages=messages,

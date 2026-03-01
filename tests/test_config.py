@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+
+import pytest
 
 import helping_hands.lib.config as config_module
 from helping_hands.lib.config import Config
@@ -76,3 +79,29 @@ class TestConfigDefaults:
         finally:
             if "HELPING_HANDS_MODEL" in os.environ:
                 del os.environ["HELPING_HANDS_MODEL"]
+
+
+class TestConfigSkillsValidation:
+    def test_valid_skills_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING):
+            Config(enabled_skills=("execution", "web"))
+        assert "Unrecognized skill" not in caplog.text
+
+    def test_empty_skills_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING):
+            Config(enabled_skills=())
+        assert "Unrecognized skill" not in caplog.text
+
+    def test_unknown_skill_warns(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING):
+            Config(enabled_skills=("execution", "nonexistent"))
+        assert "Unrecognized skill(s): nonexistent" in caplog.text
+        assert "available:" in caplog.text
+
+    def test_multiple_unknown_skills_warns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.WARNING):
+            Config(enabled_skills=("bad1", "bad2"))
+        assert "bad1" in caplog.text
+        assert "bad2" in caplog.text

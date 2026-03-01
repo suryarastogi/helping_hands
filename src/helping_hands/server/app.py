@@ -5,9 +5,28 @@ Exposes an HTTP API that enqueues repo-building jobs via Celery.
 
 from __future__ import annotations
 
+__all__ = [
+    "BackendName",
+    "BuildRequest",
+    "BuildResponse",
+    "CronPresetsResponse",
+    "CurrentTask",
+    "CurrentTasksResponse",
+    "ScheduleListResponse",
+    "ScheduleRequest",
+    "ScheduleResponse",
+    "ScheduleTriggerResponse",
+    "ServerConfig",
+    "ServiceHealthResponse",
+    "TaskStatus",
+    "WorkerCapacityResponse",
+    "app",
+]
+
 import ast
 import html
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -24,6 +43,8 @@ from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.task_result import normalize_task_result
 
+logger = logging.getLogger(__name__)
+
 # Lazy import for optional schedule dependencies
 _schedule_manager = None
 
@@ -37,8 +58,8 @@ app = FastAPI(
 class BuildRequest(BaseModel):
     """Request body for the /build endpoint."""
 
-    repo_path: str
-    prompt: str
+    repo_path: str = Field(min_length=1)
+    prompt: str = Field(min_length=1)
     backend: Literal[
         "e2e",
         "basic-langgraph",
@@ -50,12 +71,12 @@ class BuildRequest(BaseModel):
         "geminicli",
     ] = "claudecodecli"
     model: str | None = None
-    max_iterations: int = 6
+    max_iterations: int = Field(default=6, ge=1, le=100)
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
-    pr_number: int | None = None
+    pr_number: int | None = Field(default=None, ge=1)
     skills: list[str] = Field(default_factory=list)
 
     @field_validator("skills", mode="before")
@@ -145,17 +166,28 @@ class ScheduleRequest(BaseModel):
         min_length=1,
         description="Cron expression (e.g., '0 0 * * *') or preset name",
     )
-    repo_path: str
-    prompt: str
+    repo_path: str = Field(min_length=1)
+    prompt: str = Field(min_length=1)
     backend: BackendName = "claudecodecli"
     model: str | None = None
-    max_iterations: int = Field(default=6, ge=1)
+    max_iterations: int = Field(default=6, ge=1, le=100)
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
+
+    @field_validator("cron_expression")
+    @classmethod
+    def _validate_cron(cls, value: str) -> str:
+        """Validate cron expression syntax using croniter."""
+        try:
+            from helping_hands.server.schedules import validate_cron_expression
+
+            return validate_cron_expression(value)
+        except ImportError:
+            return value
 
     @field_validator("skills", mode="before")
     @classmethod
@@ -1804,6 +1836,7 @@ class ServiceHealthResponse(BaseModel):
 
 
 def _check_redis_health() -> Literal["ok", "error"]:
+    """Check Redis broker connectivity via PING."""
     try:
         import redis as redis_lib  # bundled with celery[redis]
 
@@ -1815,11 +1848,13 @@ def _check_redis_health() -> Literal["ok", "error"]:
         )
         r.ping()
         return "ok"
-    except Exception:
+    except (ImportError, OSError, ValueError) as e:
+        logger.warning("Redis health check failed: %s", e, exc_info=True)
         return "error"
 
 
 def _check_db_health() -> Literal["ok", "error", "na"]:
+    """Check Postgres connectivity; returns 'na' when DATABASE_URL is unset."""
     db_url = os.environ.get("DATABASE_URL", "").strip()
     if not db_url:
         return "na"
@@ -1829,16 +1864,19 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
         conn = psycopg2.connect(db_url, connect_timeout=3)
         conn.close()
         return "ok"
-    except Exception:
+    except (ImportError, OSError) as e:
+        logger.warning("Database health check failed: %s", e, exc_info=True)
         return "error"
 
 
 def _check_workers_health() -> Literal["ok", "error"]:
+    """Check Celery worker availability via inspector ping."""
     try:
         inspector = celery_app.control.inspect(timeout=2.0)
         ping = inspector.ping()
         return "ok" if ping else "error"
-    except Exception:
+    except (OSError, AttributeError) as e:
+        logger.warning("Worker health check failed: %s", e, exc_info=True)
         return "error"
 
 
@@ -2146,7 +2184,8 @@ def _safe_inspect_call(inspector: Any, method_name: str) -> Any:
         return None
     try:
         return method()
-    except Exception:  # pragma: no cover - defensive runtime guard
+    except Exception as e:  # pragma: no cover - defensive runtime guard
+        logger.debug("Celery inspect call %s failed: %s", method_name, e, exc_info=True)
         return None
 
 
@@ -2154,7 +2193,8 @@ def _collect_celery_current_tasks() -> list[dict[str, Any]]:
     """Collect currently active/queued task summaries from Celery inspect."""
     try:
         inspector = celery_app.control.inspect(timeout=1.0)
-    except Exception:  # pragma: no cover - defensive runtime guard
+    except Exception as e:  # pragma: no cover - defensive runtime guard
+        logger.debug("Celery inspect connection failed: %s", e, exc_info=True)
         return []
     if inspector is None:
         return []
@@ -2551,8 +2591,8 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
                         concurrency = pool.get("max-concurrency")
                         if isinstance(concurrency, int) and concurrency > 0:
                             per_worker[worker_name] = concurrency
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Worker capacity inspection failed: %s", e, exc_info=True)
 
     if per_worker:
         return WorkerCapacityResponse(

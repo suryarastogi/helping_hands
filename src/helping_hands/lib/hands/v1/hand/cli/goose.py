@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+__all__ = ["GooseCLIHand"]
+
+import os
 import shutil
 from urllib.parse import urlparse
 
@@ -27,8 +30,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return None
 
     def _describe_auth(self) -> str:
-        import os
-
+        """Return a human-readable string showing the resolved Goose provider and its auth status."""
         provider, _model = self._resolve_goose_provider_model_from_config()
         env_map = {
             "openai": "OPENAI_API_KEY",
@@ -51,18 +53,19 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return super()._normalize_base_command(tokens)
 
     def _resolve_cli_model(self) -> str:
-        # Goose expects provider/model via env vars (GOOSE_PROVIDER/GOOSE_MODEL),
-        # not a generic CLI --model flag injected by the shared base.
+        """Return empty string; Goose uses env vars for provider/model, not a CLI flag."""
         return ""
 
     @staticmethod
     def _has_goose_builtin_flag(cmd: list[str]) -> bool:
+        """Return True if *cmd* already contains a ``--with-builtin`` flag."""
         return any(
             token == "--with-builtin" or token.startswith("--with-builtin=")
             for token in cmd
         )
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--with-builtin developer`` for ``goose run`` when missing."""
         if len(cmd) < 2 or cmd[0] != "goose" or cmd[1] != "run":
             return cmd
         if self._has_goose_builtin_flag(cmd):
@@ -79,6 +82,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _normalize_goose_provider(provider: str) -> str:
+        """Normalize a provider string, mapping ``gemini`` to ``google``."""
         value = provider.strip().lower()
         if not value:
             return ""
@@ -88,6 +92,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _infer_goose_provider_from_model(model: str) -> str:
+        """Infer the Goose provider from a model name prefix (e.g. ``claude`` -> ``anthropic``)."""
         lowered = model.strip().lower()
         if lowered.startswith(("claude", "anthropic/")):
             return "anthropic"
@@ -99,6 +104,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _normalize_ollama_host(value: str) -> str:
+        """Normalize an Ollama host URL, prepending ``http://`` if no scheme is present."""
         candidate = value.strip()
         if not candidate:
             return ""
@@ -111,6 +117,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
 
     @classmethod
     def _resolve_ollama_host(cls, env: dict[str, str]) -> str:
+        """Resolve the Ollama host from ``OLLAMA_HOST``, ``OLLAMA_BASE_URL``, or default."""
         explicit_host = cls._normalize_ollama_host(env.get("OLLAMA_HOST", ""))
         if explicit_host:
             return explicit_host
@@ -120,6 +127,11 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return "http://localhost:11434"
 
     def _resolve_goose_provider_model_from_config(self) -> tuple[str, str]:
+        """Derive ``(provider, model)`` for Goose from the ``config.model`` string.
+
+        Supports bare model names (inferred provider), explicit ``provider/model``
+        format, and defaults to ``ollama/llama3.2:latest`` when unset.
+        """
         raw_model = str(self.config.model).strip()
         if not raw_model or raw_model == "default":
             return self._GOOSE_DEFAULT_PROVIDER, self._GOOSE_DEFAULT_MODEL
@@ -138,6 +150,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return provider, model
 
     def _build_subprocess_env(self) -> dict[str, str]:
+        """Build env for Goose subprocess with provider/model and GitHub token injection."""
         env = super()._build_subprocess_env()
         gh_token = env.get("GH_TOKEN", "").strip()
         github_token = env.get("GITHUB_TOKEN", "").strip()

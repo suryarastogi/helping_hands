@@ -1,1 +1,3 @@
-"""App-mode server: HTTP/WS entry point (planned, not yet implemented)."""
+"""App-mode server: FastAPI + Celery task queue + MCP server."""
+
+__all__: list[str] = []

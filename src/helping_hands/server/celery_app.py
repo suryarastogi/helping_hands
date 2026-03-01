@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["build_feature", "celery_app", "scheduled_build"]
+
 import asyncio
 import os
 import re
@@ -12,6 +14,19 @@ from tempfile import mkdtemp
 from typing import Any
 
 from celery import Celery
+
+from helping_hands.lib.git_utils import (
+    git_noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.git_utils import (
+    github_clone_url as _github_clone_url,
+)
+from helping_hands.lib.git_utils import (
+    redact_sensitive as _redact_sensitive,
+)
+from helping_hands.lib.git_utils import (
+    repo_tmp_dir as _repo_tmp_dir,
+)
 
 
 def _resolve_celery_urls() -> tuple[str, str]:
@@ -65,41 +80,6 @@ _SUPPORTED_BACKENDS = {
 _MAX_STORED_UPDATES = 200
 _MAX_UPDATE_LINE_CHARS = 800
 _BUFFER_FLUSH_CHARS = 180
-
-
-def _github_clone_url(repo: str) -> str:
-    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
-    if token:
-        return f"https://x-access-token:{token}@github.com/{repo}.git"
-    return f"https://github.com/{repo}.git"
-
-
-def _git_noninteractive_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    return env
-
-
-def _redact_sensitive(text: str) -> str:
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
-
-
-def _repo_tmp_dir() -> Path | None:
-    """Return the directory to use for temporary repo clones.
-
-    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
-    """
-    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
-    if d:
-        p = Path(d).expanduser()
-        p.mkdir(parents=True, exist_ok=True)
-        return p
-    return None
 
 
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None, Path | None]:
@@ -160,11 +140,13 @@ def _has_gemini_auth() -> bool:
 
 
 def _trim_updates(updates: list[str]) -> None:
+    """Discard oldest entries when the update list exceeds the storage cap."""
     if len(updates) > _MAX_STORED_UPDATES:
         del updates[: len(updates) - _MAX_STORED_UPDATES]
 
 
 def _append_update(updates: list[str], text: str) -> None:
+    """Append a cleaned, length-capped line to the update list."""
     clean = text.strip()
     if not clean:
         return
@@ -178,10 +160,12 @@ class _UpdateCollector:
     """Collect and compact stream chunks into line-like update entries."""
 
     def __init__(self, updates: list[str]) -> None:
+        """Initialize collector with a shared update list."""
         self._updates = updates
         self._buffer = ""
 
     def feed(self, chunk: str) -> None:
+        """Buffer incoming text; flush complete lines as update entries."""
         if not chunk:
             return
         self._buffer += chunk
@@ -193,6 +177,7 @@ class _UpdateCollector:
             self._buffer = ""
 
     def flush(self) -> None:
+        """Emit any remaining buffered text as a final update entry."""
         if self._buffer:
             _append_update(self._updates, self._buffer)
             self._buffer = ""
@@ -218,6 +203,7 @@ def _update_progress(
     skills: tuple[str, ...],
     workspace: str | None = None,
 ) -> None:
+    """Push a PROGRESS state update to the Celery result backend."""
     update_state = getattr(task, "update_state", None)
     if not callable(update_state):
         return
@@ -263,6 +249,7 @@ async def _collect_stream(
     skills: tuple[str, ...],
     workspace: str | None,
 ) -> str:
+    """Stream hand output, collect into updates, and return full text."""
     parts: list[str] = []
     collector = _UpdateCollector(updates)
     chunk_count = 0

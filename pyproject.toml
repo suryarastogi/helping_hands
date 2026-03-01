@@ -6,9 +6,27 @@ readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
 authors = [{ name = "Surya Rastogi" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "python-dotenv>=1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/suryarastogi/helping_hands"
+Repository = "https://github.com/suryarastogi/helping_hands"
+Documentation = "https://suryarastogi.github.io/helping_hands"
+Issues = "https://github.com/suryarastogi/helping_hands/issues"
 
 [project.optional-dependencies]
 langchain = [

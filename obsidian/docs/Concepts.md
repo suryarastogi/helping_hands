@@ -32,6 +32,9 @@ So the next session—and the next hand—starts with that context. The helping_
 
 - Supports **new PR** and **resume existing PR** (`pr_number`) paths.
 - Uses deterministic workspace layout: `{hand_uuid}/git/{repo}`.
+- **Branch collision handling**: if the target branch already exists locally (from a prior run), switches to it instead of failing.
+- **Draft PR mode**: set `HELPING_HANDS_DRAFT_PR=1` to create PRs as drafts.
+- **Idempotency guard**: before creating a new PR, checks if an open PR already exists for the head branch and reuses it.
 - In live mode, updates both:
   - PR description/body (latest timestamp, prompt, commit)
   - Marker-tagged status comment (`<!-- helping_hands:e2e-status -->`)
@@ -53,6 +56,10 @@ This means a rerun updates the same PR state instead of creating drift between o
 Final PR behavior is enabled by default and can be disabled explicitly (`--no-pr`).
 When enabled, push is token-authenticated and non-interactive to avoid OS credential popups.
 
+Execution and web tools are opt-in per run:
+- `enable_execution` — gates `python.run_code`, `python.run_script`, `bash.run_script`
+- `enable_web` — gates `web.search`, `web.browse`
+
 Implementation note: hand code is now organized as a package module under
 `src/helping_hands/lib/hands/v1/hand/`, and iterative file operations route
 through shared system helpers in
@@ -60,7 +67,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -75,17 +82,30 @@ When `claude` is not installed but `npx` is available, backend command
 resolution automatically retries with `npx -y @anthropic-ai/claude-code`.
 If Claude still requests interactive write approval and no edits are applied,
 the backend now fails the run instead of silently returning success/no-op.
-CLI subprocess execution now also emits heartbeat lines when output is quiet and
-terminates after configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+All CLI subprocess backends emit heartbeat lines when output is quiet and
+terminate after a configurable idle timeout (`HELPING_HANDS_CLI_*` controls).
+
+For `goose`, the backend auto-derives `GOOSE_PROVIDER`/`GOOSE_MODEL` from
+`HELPING_HANDS_MODEL` (default: `ollama` + `llama3.2:latest`) and auto-injects
+`--with-builtin developer` for `goose run` commands. Runtime mirrors the
+available GitHub token into both `GH_TOKEN` and `GITHUB_TOKEN`. Local GitHub
+auth fallback is disabled for Goose backend runs, so explicit token
+configuration is required. Supported `GOOSE_PROVIDER` values are `openai`,
+`anthropic`, `google`, and `ollama` (default), each resolved from the
+corresponding API key env var.
+
+For `geminicli`, the backend injects `--approval-mode auto_edit` by default for
+non-interactive scripted runs and retries once without `--model` when Gemini
+rejects a deprecated/unavailable model.
 
 ## Provider wrappers and model resolution
 
 Model/provider behavior now routes through shared provider abstractions:
 
-- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, and `litellm`.
+- `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
-  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
+  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-sonnet-4-5`).
 - The resolver adapts provider wrappers to backend-specific model/client interfaces (LangGraph and Atomic).
 
 ## CI race-condition guard
@@ -104,7 +124,7 @@ The repo now uses `ty` as part of pre-commit alongside Ruff. Current baseline in
 - `unresolved-import`
 - `invalid-method-override`
 
-This keeps type checks actionable while optional-backend implementation is still in scaffold state.
+This keeps type checks actionable while optional-backend imports are still conditionally loaded.
 
 ## App-mode monitoring semantics
 
@@ -127,6 +147,32 @@ In CLI mode, non-E2E runs accept:
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
 
+## MCP mode
+
+helping_hands exposes its capabilities over the **Model Context Protocol** so AI clients (Claude Desktop, Cursor, etc.) can use it as a tool provider. The MCP server (`server/mcp_server.py`) offers tools in three categories:
+
+- **Filesystem tools**: `read_file`, `write_file`, `mkdir`, `path_exists` — all path-safe via `lib/meta/tools/filesystem.py`.
+- **Execution tools**: `run_python_code`, `run_python_script`, `run_bash_script` — via `lib/meta/tools/command.py`.
+- **Web tools**: `web_search`, `web_browse` — via `lib/meta/tools/web.py`.
+
+Plus repo indexing (`index_repo`), build enqueue/status (`build_feature`, `get_task_status`), and config inspection (`get_config`). Run with `uv run helping-hands-mcp` (stdio) or `uv run helping-hands-mcp --http` (streamable HTTP).
+
+## Scheduled tasks (cron)
+
+App mode supports **cron-scheduled build submissions** via `ScheduleManager` (`server/schedules.py`), backed by Redis + RedBeat. Schedules are CRUD-managed through server API endpoints and persisted as RedBeat scheduler entries plus Redis-stored task metadata. The `scheduled_build` Celery task resolves schedule metadata, enqueues a standard `build_feature` run, and records run history. Cron presets (e.g. `hourly`, `daily`, `weekdays`) are available alongside arbitrary cron expressions validated via `croniter`.
+
+## Skills system
+
+The **skills layer** (`lib/meta/skills/`) lets hands inject dynamic capabilities at runtime. Skills are normalized from comma-separated input, validated against the known skill set, and merged into hand prompts. This is opt-in per run via `--skills` (CLI) or the `skills` field in API requests.
+
+## React frontend
+
+An optional **React + TypeScript + Vite** frontend (`frontend/`) wraps the FastAPI server for task submission and monitoring. It includes backend selection, model override, max iterations, PR options, execution/web tool toggles, native CLI auth toggle, and an editable default prompt. Monitoring uses JS polling via `/tasks/{task_id}` with a sidebar that discovers live UUIDs via `/tasks/current`. A "world view" mode shows an isometric agent office visualization with keyboard navigation.
+
 ## Project Log
 
 Progress notes live under **Project Log** and can be edited by **users** or **hands**. Each week has a note (e.g. [[Project Log/2026-W08]]). Entries are tagged by author: human or hand, with optional short context. That gives a shared, auditable log of what was done and who contributed. See [[Project Log/Weekly progress]] for the format.
+
+---
+
+*Last updated: 2026-03-01 — All features described above are implemented and tested (624 tests). 46 modules declare `__all__` exports. Duplicate git helpers consolidated in `lib/git_utils.py`. See the repo [[AGENT.md]] for the full recurring decisions log.*

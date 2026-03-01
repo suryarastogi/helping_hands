@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["CodexCLIHand"]
+
 import os
 from pathlib import Path
 
@@ -24,10 +26,12 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER_IMAGE"
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return OpenAI API key env var for native CLI auth stripping."""
         return ("OPENAI_API_KEY",)
 
     @staticmethod
     def _build_codex_failure_message(*, return_code: int, output: str) -> str:
+        """Build a user-facing error message, detecting 401 auth failures in the output."""
         tail = output.strip()[-2000:]
         lower_tail = tail.lower()
         if (
@@ -49,6 +53,12 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return super()._normalize_base_command(tokens)
 
     def _apply_codex_exec_sandbox_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--sandbox`` with runtime-aware mode for ``codex exec`` commands.
+
+        Uses ``workspace-write`` on host and ``danger-full-access`` in containers
+        (to avoid landlock failures). Respects ``HELPING_HANDS_CODEX_SANDBOX_MODE``
+        override.
+        """
         if len(cmd) < 2 or cmd[0] != "codex" or cmd[1] != "exec":
             return cmd
         if any(token == "--sandbox" or token.startswith("--sandbox=") for token in cmd):
@@ -63,6 +73,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return [*cmd[:2], "--sandbox", sandbox_mode, *cmd[2:]]
 
     def _auto_sandbox_mode(self) -> str:
+        """Return ``danger-full-access`` in Docker, ``workspace-write`` on host."""
         if Path("/.dockerenv").exists():
             return self._DEFAULT_SANDBOX_MODE_IN_CONTAINER
         return self._DEFAULT_SANDBOX_MODE
@@ -75,6 +86,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return self._is_truthy(raw)
 
     def _apply_codex_exec_git_repo_check_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--skip-git-repo-check`` for non-interactive ``codex exec`` runs."""
         if len(cmd) < 2 or cmd[0] != "codex" or cmd[1] != "exec":
             return cmd
         if any(
@@ -88,6 +100,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return [*cmd[:2], "--skip-git-repo-check", *cmd[2:]]
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Apply Codex-specific defaults: sandbox mode and git-repo-check skip."""
         cmd = self._apply_codex_exec_sandbox_defaults(cmd)
         return self._apply_codex_exec_git_repo_check_defaults(cmd)
 
@@ -111,6 +124,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the Codex CLI with *prompt* and return its output."""
         return await self._invoke_cli(prompt, emit=emit)
 
     async def _invoke_backend(
