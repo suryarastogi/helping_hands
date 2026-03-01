@@ -14,6 +14,13 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 3. **Autodocs generation and serving on GitHub:** MkDocs Material + mkdocstrings; build in CI, publish to GitHub Pages.
 
+4. **Hand backend scaffolding vs implementation** (mostly complete):
+   - E2E hand flow, PR resume/update, live integration coverage
+   - Basic iterative hands (`basic-langgraph`, `basic-atomic`, `basic-agent`) with streaming, interruption, bootstrap context, `@@READ`/`@@FILE`/`@@TOOL` dispatch, and default final PR
+   - CLI backends (`codexcli`, `claudecodecli`, `goose`, `geminicli`) sharing `_TwoPhaseCLIHand` base with two-phase execution, async subprocess streaming, heartbeat/idle timeout
+   - Dynamic skills (`execution`, `web`, `prd`, `ralph`) via `--skills` flag
+   - Full backend selection/routing in CLI and app mode
+
 ## Design notes
 
 - E2E PR updates are now treated as **state refresh**: live runs update both PR body and marker comment with latest timestamp/commit/prompt.

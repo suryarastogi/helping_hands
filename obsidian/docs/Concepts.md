@@ -48,6 +48,7 @@ This means a rerun updates the same PR state instead of creating drift between o
 - iteration-1 bootstrap context from `README.md`/`AGENT.md` (when present) and a bounded repo tree snapshot
 - file reads via `@@READ: ...` and read-result feedback blocks
 - inline file edits via `@@FILE: ...` fenced full-content blocks
+- system tool invocation via `@@TOOL: <name>` JSON blocks (execution, web, and filesystem tools when enabled via skills)
 - default final commit/push/PR step
 
 Final PR behavior is enabled by default and can be disabled explicitly (`--no-pr`).
