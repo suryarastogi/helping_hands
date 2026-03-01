@@ -49,6 +49,12 @@ celery_app.conf.update(
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=_BROKER_URL,
     redbeat_key_prefix="redbeat:",
+    beat_schedule={
+        "log-claude-usage-hourly": {
+            "task": "helping_hands.log_claude_usage",
+            "schedule": 3600.0,  # every hour
+        },
+    },
 )
 
 
@@ -659,6 +665,7 @@ def scheduled_build(
     result = build_feature.delay(
         repo_path=schedule.repo_path,
         prompt=schedule.prompt,
+        pr_number=schedule.pr_number,
         backend=schedule.backend,
         model=schedule.model,
         max_iterations=schedule.max_iterations,
@@ -680,4 +687,125 @@ def scheduled_build(
         "build_task_id": result.id,
         "prompt": schedule.prompt,
         "repo_path": schedule.repo_path,
+    }
+
+
+def _get_db_url_writer() -> str:
+    """Return the DATABASE_URL for writing (must point to a writer role)."""
+    return os.environ.get(
+        "DATABASE_URL",
+        "postgresql://cavern_writer:bQAGOqYIS1TwGipVyUIeDiyz@192.168.1.143:5432/cavern",
+    )
+
+
+_USAGE_TABLE_DDL = """
+CREATE TABLE IF NOT EXISTS claude_usage_log (
+    id SERIAL PRIMARY KEY,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    session_pct DOUBLE PRECISION,
+    session_resets_at TEXT,
+    weekly_pct DOUBLE PRECISION,
+    weekly_resets_at TEXT,
+    raw_response JSONB
+);
+"""
+
+_USAGE_INSERT = """
+INSERT INTO claude_usage_log
+    (recorded_at, session_pct, session_resets_at, weekly_pct, weekly_resets_at, raw_response)
+VALUES
+    (NOW(), %s, %s, %s, %s, %s);
+"""
+
+
+@celery_app.task(name="helping_hands.log_claude_usage")
+def log_claude_usage() -> dict[str, Any]:
+    """Fetch Claude Code usage from the OAuth API and log it to Postgres."""
+    import json as _json
+    from urllib import error as _url_error
+    from urllib import request as _url_request
+
+    # --- Fetch OAuth token from macOS Keychain ---
+    try:
+        result = subprocess.run(
+            [
+                "security",
+                "find-generic-password",
+                "-s",
+                "Claude Code-credentials",
+                "-w",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        raw = result.stdout.strip() if result.returncode == 0 else ""
+        try:
+            creds = _json.loads(raw)
+            token = creds.get("claudeAiOauth", {}).get("accessToken")
+        except (_json.JSONDecodeError, AttributeError):
+            token = raw if raw.startswith("ey") else None
+    except Exception as exc:
+        return {"status": "error", "message": f"Keychain read failed: {exc}"}
+
+    if not token:
+        return {"status": "error", "message": "No OAuth token found in Keychain"}
+
+    # --- Call the Anthropic usage API ---
+    try:
+        req = _url_request.Request(
+            "https://api.anthropic.com/api/oauth/usage",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "anthropic-beta": "oauth-2025-04-20",
+                "User-Agent": "claude-code/2.0.32",
+            },
+        )
+        with _url_request.urlopen(req, timeout=10) as resp:
+            data = _json.loads(resp.read().decode())
+    except _url_error.HTTPError as exc:
+        return {"status": "error", "message": f"Usage API HTTP {exc.code}"}
+    except Exception as exc:
+        return {"status": "error", "message": f"Usage API failed: {exc}"}
+
+    five_hour = data.get("five_hour", {})
+    seven_day = data.get("seven_day", {})
+    session_pct = five_hour.get("utilization")
+    session_resets = five_hour.get("resets_at")
+    weekly_pct = seven_day.get("utilization")
+    weekly_resets = seven_day.get("resets_at")
+
+    # --- Write to Postgres ---
+    try:
+        import psycopg2
+
+        conn = psycopg2.connect(_get_db_url_writer(), connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(_USAGE_TABLE_DDL)
+                cur.execute(
+                    _USAGE_INSERT,
+                    (
+                        session_pct,
+                        session_resets,
+                        weekly_pct,
+                        weekly_resets,
+                        _json.dumps(data),
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {
+            "status": "error",
+            "message": f"DB write failed: {exc}",
+            "session_pct": session_pct,
+            "weekly_pct": weekly_pct,
+        }
+
+    return {
+        "status": "ok",
+        "session_pct": session_pct,
+        "weekly_pct": weekly_pct,
     }

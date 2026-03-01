@@ -6,9 +6,12 @@ Exposes an HTTP API that enqueues repo-building jobs via Celery.
 from __future__ import annotations
 
 import ast
+import contextlib
 import html
 import json
 import os
+import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 from urllib import error as urllib_error
@@ -249,6 +252,124 @@ class CronPresetsResponse(BaseModel):
     """Response for listing available cron presets."""
 
     presets: dict[str, str]
+
+
+class ClaudeUsageLevel(BaseModel):
+    """A single usage tier (e.g. session or weekly)."""
+
+    name: str
+    percent_used: float
+    detail: str
+
+
+class ClaudeUsageResponse(BaseModel):
+    """Claude Code CLI usage information."""
+
+    levels: list[ClaudeUsageLevel] = Field(default_factory=list)
+    error: str | None = None
+    fetched_at: str
+
+
+def _get_claude_oauth_token() -> str | None:
+    """Read the Claude Code OAuth token from the macOS Keychain."""
+    try:
+        result = subprocess.run(
+            [
+                "security",
+                "find-generic-password",
+                "-s",
+                "Claude Code-credentials",
+                "-w",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        raw = result.stdout.strip()
+        # The keychain value is JSON — extract the OAuth access token
+        try:
+            creds = json.loads(raw)
+            return creds.get("claudeAiOauth", {}).get("accessToken")
+        except (json.JSONDecodeError, AttributeError):
+            # Maybe stored as plain token
+            return raw if raw.startswith("ey") else None
+    except Exception:
+        return None
+
+
+def _fetch_claude_usage() -> ClaudeUsageResponse:
+    """Fetch Claude Code usage via the Anthropic OAuth usage API."""
+    now = datetime.now(UTC).isoformat()
+
+    token = _get_claude_oauth_token()
+    if not token:
+        return ClaudeUsageResponse(
+            error="Could not read Claude Code credentials from Keychain",
+            fetched_at=now,
+        )
+
+    try:
+        req = urllib_request.Request(
+            "https://api.anthropic.com/api/oauth/usage",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "anthropic-beta": "oauth-2025-04-20",
+                "User-Agent": "claude-code/2.0.32",
+            },
+        )
+        with urllib_request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+    except urllib_error.HTTPError as exc:
+        body = ""
+        with contextlib.suppress(Exception):
+            body = exc.read().decode()[:200]
+        return ClaudeUsageResponse(
+            error=f"Usage API returned {exc.code}: {body}",
+            fetched_at=now,
+        )
+    except Exception as exc:
+        return ClaudeUsageResponse(
+            error=f"Usage API request failed: {exc}",
+            fetched_at=now,
+        )
+
+    levels: list[ClaudeUsageLevel] = []
+
+    # Session (5-hour window)
+    five_hour = data.get("five_hour", {})
+    if five_hour.get("utilization") is not None:
+        pct = round(five_hour["utilization"], 1)
+        resets = five_hour.get("resets_at", "")
+        levels.append(
+            ClaudeUsageLevel(
+                name="Session",
+                percent_used=pct,
+                detail=f"Resets {resets}" if resets else "",
+            )
+        )
+
+    # Weekly (7-day window)
+    seven_day = data.get("seven_day", {})
+    if seven_day.get("utilization") is not None:
+        pct = round(seven_day["utilization"], 1)
+        resets = seven_day.get("resets_at", "")
+        levels.append(
+            ClaudeUsageLevel(
+                name="Weekly",
+                percent_used=pct,
+                detail=f"Resets {resets}" if resets else "",
+            )
+        )
+
+    if not levels:
+        return ClaudeUsageResponse(
+            error=f"No usage data in response: {json.dumps(data)[:300]}",
+            fetched_at=now,
+        )
+
+    return ClaudeUsageResponse(levels=levels, fetched_at=now)
 
 
 _TERMINAL_TASK_STATES = {"SUCCESS", "FAILURE", "REVOKED"}
@@ -623,6 +744,40 @@ _UI_HTML = """<!doctype html>
         line-height: 1.35;
         overflow-wrap: anywhere;
       }
+      .usage-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .usage-label {
+        min-width: 56px;
+        font-size: 0.78rem;
+        color: var(--muted);
+        font-family: var(--mono);
+      }
+      .usage-track {
+        flex: 1;
+        height: 10px;
+        background: #1e293b;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+      .usage-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: #22d3ee;
+        transition: width 0.4s ease;
+      }
+      .usage-fill.warn { background: #facc15; }
+      .usage-fill.crit { background: #f87171; }
+      .usage-pct {
+        min-width: 32px;
+        text-align: right;
+        font-size: 0.78rem;
+        font-family: var(--mono);
+        color: var(--muted);
+      }
       .output-pane {
         margin-top: 12px;
       }
@@ -993,6 +1148,21 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
             </div>
             <pre id="output_text">No updates yet.</pre>
           </article>
+        </section>
+
+        <section id="claude-usage-view" class="card" style="margin-bottom: 16px;">
+          <header class="header" style="margin-bottom: 8px;">
+            <h1 style="display:flex;align-items:center;gap:8px;">
+              Claude Usage
+              <button type="button" id="usage-refresh-btn" class="secondary"
+                style="font-size:0.7rem;padding:3px 8px;">Refresh</button>
+            </h1>
+          </header>
+          <div id="usage-meters" style="display:grid;gap:8px;">
+            <span style="color:#94a3b8;font-size:0.8rem;">Loading...</span>
+          </div>
+          <div id="usage-error" style="color:#fca5a5;font-size:0.78rem;display:none;margin-top:4px;"></div>
+          <div id="usage-timestamp" style="color:#64748b;font-size:0.7rem;margin-top:6px;"></div>
         </section>
 
         <section id="schedules-view" class="card is-hidden">
@@ -1633,6 +1803,54 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         refreshCurrentTasks();
       }, 5000);
 
+      /* ── Claude Usage Meter ── */
+      const usageMeters = document.getElementById("usage-meters");
+      const usageError = document.getElementById("usage-error");
+      const usageTimestamp = document.getElementById("usage-timestamp");
+      const usageRefreshBtn = document.getElementById("usage-refresh-btn");
+
+      async function refreshClaudeUsage() {
+        try {
+          usageRefreshBtn.disabled = true;
+          const res = await fetch("/health/claude-usage?_=" + Date.now(), { cache: "no-store" });
+          if (!res.ok) {
+            usageMeters.innerHTML = '<span style="color:#94a3b8;font-size:0.8rem;">Unavailable</span>';
+            return;
+          }
+          const data = await res.json();
+          if (data.error) {
+            usageMeters.innerHTML = "";
+            usageError.textContent = data.error;
+            usageError.style.display = "block";
+          } else {
+            usageError.style.display = "none";
+            let html = "";
+            for (const level of data.levels || []) {
+              const pct = Math.min(level.percent_used, 100);
+              const cls = pct >= 90 ? " crit" : pct >= 70 ? " warn" : "";
+              html += '<div class="usage-row">'
+                + '<span class="usage-label">' + level.name + '</span>'
+                + '<div class="usage-track"><div class="usage-fill' + cls + '" style="width:' + pct + '%"></div></div>'
+                + '<span class="usage-pct">' + Math.round(pct) + '%</span>'
+                + '</div>';
+            }
+            usageMeters.innerHTML = html || '<span style="color:#94a3b8;font-size:0.8rem;">No data</span>';
+          }
+          if (data.fetched_at) {
+            const d = new Date(data.fetched_at);
+            usageTimestamp.textContent = "Updated " + d.toLocaleTimeString();
+          }
+        } catch (_) {
+          usageMeters.innerHTML = '<span style="color:#94a3b8;font-size:0.8rem;">Failed to load</span>';
+        } finally {
+          usageRefreshBtn.disabled = false;
+        }
+      }
+
+      refreshClaudeUsage();
+      setInterval(refreshClaudeUsage, 3600000);
+      usageRefreshBtn.addEventListener("click", refreshClaudeUsage);
+
       newSubmissionBtn.addEventListener("click", () => {
         clearForNewSubmission();
       });
@@ -1958,6 +2176,12 @@ self.addEventListener("notificationclick", function(event) {
 def notif_sw() -> Response:
     """Minimal service worker for OS notifications."""
     return Response(content=_NOTIF_SW_JS, media_type="application/javascript")
+
+
+@app.get("/health/claude-usage", response_model=ClaudeUsageResponse)
+def get_claude_usage() -> ClaudeUsageResponse:
+    """Return current Claude Code CLI usage metrics."""
+    return _fetch_claude_usage()
 
 
 @app.get("/health")

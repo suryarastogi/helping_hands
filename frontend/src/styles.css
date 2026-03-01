@@ -888,6 +888,106 @@ h2 {
   text-align: center;
 }
 
+/* ── Claude Usage Overlay ── */
+.office-usage-summary {
+  position: absolute;
+  right: 8px;
+  top: 138px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  color: #e2e8f0;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.42rem;
+  line-height: 1.6;
+  z-index: 10;
+  display: grid;
+  gap: 4px;
+  min-width: 130px;
+}
+
+.office-usage-summary .status-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.usage-refresh-btn {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.55rem;
+  color: #94a3b8;
+  line-height: 1;
+  padding: 1px 2px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.usage-refresh-btn:hover {
+  color: #93c5fd;
+  background: rgba(148, 163, 184, 0.15);
+}
+.usage-refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.usage-meter-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.usage-meter-label {
+  min-width: 42px;
+  color: #cbd5e1;
+  font-size: 0.38rem;
+}
+
+.usage-meter-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(30, 41, 59, 0.9);
+  border-radius: 3px;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  overflow: hidden;
+  min-width: 50px;
+}
+
+.usage-meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #22d3ee;
+  transition: width 0.4s ease;
+}
+.usage-meter-fill.warn {
+  background: #facc15;
+}
+.usage-meter-fill.crit {
+  background: #f87171;
+}
+
+.usage-meter-pct {
+  min-width: 22px;
+  text-align: right;
+  color: #94a3b8;
+  font-size: 0.36rem;
+}
+
+.usage-error {
+  color: #fca5a5;
+  font-size: 0.36rem;
+  word-break: break-word;
+  max-height: 40px;
+  overflow: hidden;
+}
+
+.usage-placeholder {
+  color: #94a3b8;
+  font-size: 0.36rem;
+}
+
 .human-player {
   position: absolute;
   width: 36px;
@@ -1295,6 +1395,22 @@ button.worker-sprite:disabled .worker-caption {
 .worker-caption strong {
   font-size: 0.5rem;
   color: #dbeafe;
+}
+
+.worker-repo {
+  font-size: 0.42rem;
+  color: #a5b4fc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.worker-cron {
+  font-size: 0.42rem;
+  font-family: system-ui, sans-serif;
+  color: #fbbf24;
+  letter-spacing: 0.04em;
 }
 
 .floating-number {

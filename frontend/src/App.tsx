@@ -137,6 +137,18 @@ type ScheduleFormState = {
   enabled: boolean;
 };
 
+type ClaudeUsageLevel = {
+  name: string;
+  percent_used: number;
+  detail: string;
+};
+
+type ClaudeUsageResponse = {
+  levels: ClaudeUsageLevel[];
+  error: string | null;
+  fetched_at: string;
+};
+
 type OutputTab = "updates" | "raw" | "payload";
 type MainView = "submission" | "monitor" | "schedules";
 type DashboardView = "classic" | "world";
@@ -371,6 +383,30 @@ export function shortTaskId(value: string): string {
   return `${value.slice(0, 10)}…${value.slice(-8)}`;
 }
 
+function repoName(repoPath: string): string {
+  const trimmed = repoPath.replace(/\/+$/, "");
+  const last = trimmed.split("/").pop();
+  return last || trimmed;
+}
+
+function cronFrequency(cron: string): { symbol: string; label: string } | null {
+  const c = cron.trim();
+  if (c === "* * * * *") return { symbol: "\u26A1", label: "1m" }; // ⚡
+  if (c === "*/5 * * * *") return { symbol: "\uD83D\uDD04", label: "5m" }; // 🔄
+  if (c === "*/15 * * * *") return { symbol: "\uD83D\uDD04", label: "15m" };
+  if (c === "*/30 * * * *") return { symbol: "\uD83D\uDD04", label: "30m" };
+  if (c === "0 * * * *") return { symbol: "\u23F0", label: "1h" }; // ⏰
+  if (c === "0 0 * * *") return { symbol: "\u2600", label: "daily" }; // ☀
+  if (c === "0 0 * * 0") return { symbol: "\uD83D\uDCC5", label: "weekly" }; // 📅
+  if (c === "0 0 1 * *") return { symbol: "\uD83D\uDDD3", label: "monthly" }; // 🗓
+  if (c === "0 9 * * 1-5") return { symbol: "\uD83D\uDCBC", label: "wkday" }; // 💼
+  // Fallback: check common patterns
+  if (/^\*\/\d+\s/.test(c)) return { symbol: "\uD83D\uDD04", label: c.split(" ")[0] };
+  if (/^0\s\*/.test(c)) return { symbol: "\u23F0", label: "hourly" };
+  if (/^0\s\d+\s\*\s\*\s\*$/.test(c)) return { symbol: "\u2600", label: "daily" };
+  return { symbol: "\uD83D\uDD01", label: "cron" }; // 🔁 generic fallback
+}
+
 export function statusTone(status: string): "ok" | "fail" | "run" | "idle" {
   const normalized = status.trim().toUpperCase();
   if (normalized === "SUCCESS") {
@@ -448,6 +484,9 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function readStringValue(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
   if (typeof value !== "string") {
     return null;
   }
@@ -507,6 +546,20 @@ async function fetchServiceHealth(): Promise<ServiceHealthState> {
     return { reachable: true, health };
   } catch {
     return { reachable: false, health: null };
+  }
+}
+
+async function fetchClaudeUsage(): Promise<ClaudeUsageResponse> {
+  try {
+    const response = await fetch(apiUrl(`/health/claude-usage?_=${Date.now()}`), {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return { levels: [], error: `Server returned ${response.status}`, fetched_at: new Date().toISOString() };
+    }
+    return (await response.json()) as ClaudeUsageResponse;
+  } catch (err) {
+    return { levels: [], error: `Fetch failed: ${err instanceof Error ? err.message : String(err)}`, fetched_at: new Date().toISOString() };
   }
 }
 
@@ -851,6 +904,9 @@ export default function App() {
     typeof Notification !== "undefined" ? Notification.permission : "denied"
   );
 
+  const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
+  const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
+
   const monitorOutputRef = useRef<HTMLPreElement>(null);
   const autoScrollRef = useRef(true);
   const [monitorHeight, setMonitorHeight] = useState<number | null>(null);
@@ -1029,6 +1085,16 @@ export default function App() {
     [maxOfficeWorkers]
   );
 
+  const scheduleByTaskId = useMemo(() => {
+    const map = new Map<string, ScheduleItem>();
+    for (const s of schedules) {
+      if (s.last_run_task_id) {
+        map.set(s.last_run_task_id, s);
+      }
+    }
+    return map;
+  }, [schedules]);
+
   const sceneWorkerEntries = useMemo(() => {
     return sceneWorkers.flatMap((worker) => {
       const task = taskById.get(worker.taskId);
@@ -1050,10 +1116,11 @@ export default function App() {
           provider,
           style,
           spriteVariant: provider === "goose" ? ("goose" as WorkerVariant) : style.variant,
+          schedule: scheduleByTaskId.get(worker.taskId) ?? null,
         },
       ];
     });
-  }, [activeTaskIds, deskSlots, sceneWorkers, taskById]);
+  }, [activeTaskIds, deskSlots, scheduleByTaskId, sceneWorkers, taskById]);
 
   const officeDeskRows = useMemo(() => Math.max(1, Math.ceil(maxOfficeWorkers / 2)), [
     maxOfficeWorkers,
@@ -1588,6 +1655,30 @@ export default function App() {
       cancelled = true;
       window.clearInterval(handle);
     };
+  }, []);
+
+  // Claude Code usage polling — refresh every hour
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      const data = await fetchClaudeUsage();
+      if (!cancelled) {
+        setClaudeUsage(data);
+      }
+    };
+    void refresh();
+    const handle = window.setInterval(() => void refresh(), 3_600_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, []);
+
+  const refreshClaudeUsage = useCallback(async () => {
+    setClaudeUsageLoading(true);
+    const data = await fetchClaudeUsage();
+    setClaudeUsage(data);
+    setClaudeUsageLoading(false);
   }, []);
 
   useEffect(() => {
@@ -2269,7 +2360,7 @@ export default function App() {
     <section className="card status-card compact-monitor">
       <div className="monitor-bar">
         <div className="monitor-bar-left">
-          <h2 className="monitor-title">Output</h2>
+          <h2 className="monitor-title">Output{taskId ? `: ${shortTaskId(taskId)}` : ""}</h2>
           <div className="pane-tabs" role="tablist" aria-label="Output mode">
             <button
               type="button"
@@ -2781,6 +2872,46 @@ export default function App() {
                   <div className="status-summary-hint">Use arrow keys to walk</div>
                 </div>
 
+                <div className="office-usage-summary">
+                  <div className="status-summary-header">
+                    Claude Usage
+                    <button
+                      type="button"
+                      className="usage-refresh-btn"
+                      onClick={() => void refreshClaudeUsage()}
+                      disabled={claudeUsageLoading}
+                      title="Refresh usage"
+                    >
+                      &#8635;
+                    </button>
+                  </div>
+                  {claudeUsageLoading && !claudeUsage && (
+                    <div className="usage-meter-row">
+                      <span className="usage-placeholder">Loading...</span>
+                    </div>
+                  )}
+                  {claudeUsage?.error && (
+                    <div className="usage-error">{claudeUsage.error}</div>
+                  )}
+                  {claudeUsage && !claudeUsage.error && claudeUsage.levels.map((level) => (
+                    <div key={level.name} className="usage-meter-row">
+                      <span className="usage-meter-label">{level.name}</span>
+                      <div className="usage-meter-track">
+                        <div
+                          className={`usage-meter-fill${level.percent_used >= 90 ? " crit" : level.percent_used >= 70 ? " warn" : ""}`}
+                          style={{ width: `${Math.min(level.percent_used, 100)}%` }}
+                        />
+                      </div>
+                      <span className="usage-meter-pct">{Math.round(level.percent_used)}%</span>
+                    </div>
+                  ))}
+                  {!claudeUsage && !claudeUsageLoading && (
+                    <div className="usage-meter-row">
+                      <span className="usage-placeholder">Click &#8635; to load</span>
+                    </div>
+                  )}
+                </div>
+
                 <div
                   className={`human-player ${playerDirection}${isPlayerWalking ? " walking" : ""}`}
                   style={{
@@ -2814,7 +2945,7 @@ export default function App() {
                         top: `${worker.desk.top}%`,
                       }}
                       onClick={() => selectTask(worker.taskId)}
-                      title={`${worker.task?.backend ?? "unknown"} • ${worker.taskId}`}
+                      title={`${worker.task?.backend ?? "unknown"} • ${worker.taskId}${worker.task?.repoPath ? ` • ${worker.task.repoPath}` : ""}${worker.schedule ? ` • ${worker.schedule.name} (${worker.schedule.cron_expression})` : ""}`}
                       disabled={!worker.isActive}
                     >
                       <span className={`worker-art ${worker.spriteVariant}`} aria-hidden="true">
@@ -2929,16 +3060,27 @@ export default function App() {
                           </span>
                         ))}
                       <span className="worker-caption">
-                        <strong>{shortTaskId(worker.taskId)}</strong>
+                        {worker.task?.repoPath && (
+                          <span className="worker-repo">{repoName(worker.task.repoPath)}</span>
+                        )}
                         <span>
                           {formatProviderName(worker.provider)} • {worker.task?.status ?? "unknown"}
                         </span>
+                        {worker.schedule && (() => {
+                          const freq = cronFrequency(worker.schedule.cron_expression);
+                          return freq ? (
+                            <span className="worker-cron" title={`Schedule: ${worker.schedule.name} (${worker.schedule.cron_expression})`}>
+                              {freq.symbol} {freq.label}
+                            </span>
+                          ) : null;
+                        })()}
                       </span>
                     </button>
                   ))}
               </div>
 
             </section>
+
             {submissionCard}
             {mainView === "monitor" && taskId && monitorCard}
             {mainView === "schedules" && schedulesCard}
