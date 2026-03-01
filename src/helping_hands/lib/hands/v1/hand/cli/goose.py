@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["GooseCLIHand"]
+
 import shutil
 from urllib.parse import urlparse
 

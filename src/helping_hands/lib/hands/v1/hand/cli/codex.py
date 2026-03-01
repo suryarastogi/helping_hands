@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["CodexCLIHand"]
+
 import os
 from pathlib import Path
 

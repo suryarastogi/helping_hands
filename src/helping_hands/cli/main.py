@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["build_parser", "main"]
+
 import argparse
 import asyncio
 import atexit

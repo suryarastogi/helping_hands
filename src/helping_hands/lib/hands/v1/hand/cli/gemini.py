@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["GeminiCLIHand"]
+
 import re
 import shutil
 

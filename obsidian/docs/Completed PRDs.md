@@ -31,6 +31,8 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 | [test-coverage-expansion-robustness-hardening](../../completed/PRD-2026-03-01-test-coverage-expansion-robustness-hardening.md) | Test coverage expansion and robustness |
 | [docstring-completion-doc-reconciliation](../../completed/2026-03-01-docstring-completion-doc-reconciliation.md) | Docstring completion across 12 files |
 | [docstring-exports-test-gaps-doc-reconciliation](../../completed/PRD-2026-03-01-docstring-exports-test-gaps-doc-reconciliation.md) | Docstrings, `__all__` exports, test_validation.py, E2EHand tests, Obsidian reconciliation |
+| [obsidian-completeness-prd-workflow-doc-reconciliation](../../completed/PRD-2026-03-01-obsidian-completeness-prd-workflow-doc-reconciliation.md) | Obsidian completeness, PRD workflow, active/ directory, validation in README |
+| [module-exports-doc-reconciliation-obsidian-sync](../../completed/PRD-2026-03-01-module-exports-doc-reconciliation-obsidian-sync.md) | `__all__` exports for 19 modules, Obsidian test count fix, Completed PRDs index fix |
 
 ## Earlier PRDs (undated)
 
@@ -42,4 +44,4 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 ---
 
-*Last updated: 2026-03-01 — 24 completed PRDs indexed.*
+*Last updated: 2026-03-01 — 26 completed PRDs indexed.*

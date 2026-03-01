@@ -8,6 +8,13 @@ These helpers provide a shared, path-confined execution surface for:
 
 from __future__ import annotations
 
+__all__ = [
+    "CommandResult",
+    "run_bash_script",
+    "run_python_code",
+    "run_python_script",
+]
+
 import os
 import shutil
 import subprocess

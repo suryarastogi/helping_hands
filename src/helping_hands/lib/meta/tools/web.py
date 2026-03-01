@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "WebBrowseResult",
+    "WebSearchItem",
+    "WebSearchResult",
+    "browse_url",
+    "search_web",
+]
+
 import json
 import re
 from collections.abc import Sequence

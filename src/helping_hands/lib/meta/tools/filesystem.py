@@ -7,6 +7,15 @@ and MCP tools so read/write behavior is centralized and path-confined.
 
 from __future__ import annotations
 
+__all__ = [
+    "mkdir_path",
+    "normalize_relative_path",
+    "path_exists",
+    "read_text_file",
+    "resolve_repo_target",
+    "write_text_file",
+]
+
 from pathlib import Path
 
 

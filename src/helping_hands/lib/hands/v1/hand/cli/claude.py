@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["ClaudeCodeHand"]
+
 import logging
 import os
 import shutil

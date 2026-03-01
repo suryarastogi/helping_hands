@@ -8,6 +8,8 @@ that want LangChain/LangGraph execution semantics with shared final PR logic.
 
 from __future__ import annotations
 
+__all__ = ["LangGraphHand"]
+
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
