@@ -65,6 +65,26 @@
   - [x] **Cron-scheduled submissions** — `ScheduleManager` + RedBeat + server endpoints for CRUD on cron-scheduled `build_feature` tasks.
   - [x] **E2E hardening** — Branch collision handling (switch to existing branch), optional draft PR mode (`HELPING_HANDS_DRAFT_PR`), and idempotency guard (detect/reuse existing open PR for head branch)
 
+## 5. MCP server
+
+- [x] **MCP server** — `server/mcp_server.py` exposes filesystem, execution, web tools, build enqueue/status, and config inspection over Model Context Protocol (stdio or HTTP)
+
+## 6. Skills system
+
+- [x] **Skills layer** — `lib/meta/skills/` provides dynamic capability injection for iterative hands; opt-in per run via `--skills` (CLI) or `skills` field (API)
+
+## 7. React frontend
+
+- [x] **Frontend** — React + TypeScript + Vite UI in `frontend/` for task submission, monitoring, and world view
+
+## 8. Additional features
+
+- [x] **PR description generation** — `pr_description.py` generates rich PR title/body from diffs during finalization
+- [x] **Verbose CLI logging** — `--verbose` / `-v` flag configures logging level
+- [x] **Config validation** — `Config.__post_init__` validates repo, model, and backend inputs
+- [x] **API validation** — `BuildRequest`/`ScheduleRequest` with bounds checks
+- [x] **Exception hardening** — `GithubException` wrapping, MCP handler ordering fix, finalization logging
+
 ---
 
 *Update this file as items are completed. Design notes live in `obsidian/docs/`.*

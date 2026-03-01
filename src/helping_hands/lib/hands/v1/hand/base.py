@@ -379,14 +379,17 @@ class Hand(abc.ABC):
                 )
                 return metadata
         except ValueError as exc:
+            logger.warning("PR finalization: missing token — %s", exc)
             metadata["pr_status"] = "missing_token"
             metadata["pr_error"] = str(exc)
             return metadata
         except RuntimeError as exc:
+            logger.warning("PR finalization: git error — %s", exc)
             metadata["pr_status"] = "git_error"
             metadata["pr_error"] = str(exc)
             return metadata
         except Exception as exc:
+            logger.exception("PR finalization failed")
             metadata["pr_status"] = "error"
             metadata["pr_error"] = str(exc)
             return metadata

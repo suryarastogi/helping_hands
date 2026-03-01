@@ -392,7 +392,7 @@ Key settings:
 
 | Setting | Env var | Description |
 |---|---|---|
-| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-3-5-sonnet-latest`) |
+| `model` | `HELPING_HANDS_MODEL` | AI model to use; supports bare models (e.g. `gpt-5.2`) or `provider/model` (e.g. `anthropic/claude-sonnet-4-5`) |
 | `repo` | — | Local path or GitHub `owner/repo` target |
 | `verbose` | `HELPING_HANDS_VERBOSE` | Enable detailed logging |
 | `use_native_cli_auth` | `HELPING_HANDS_USE_NATIVE_CLI_AUTH` | For `codexcli`/`claudecodecli`, strip provider API key env vars so native CLI auth/session is used |
@@ -434,7 +434,7 @@ required API key depends on which provider the model maps to:
 | Provider | Env var | Example `--model` values |
 |---|---|---|
 | OpenAI | `OPENAI_API_KEY` | `gpt-5.2`, `openai/gpt-5.2` |
-| Anthropic | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet-latest`, `anthropic/claude-sonnet-4-5` |
+| Anthropic | `ANTHROPIC_API_KEY` | `claude-sonnet-4-5`, `anthropic/claude-sonnet-4-5` |
 | Google | `GOOGLE_API_KEY` | `gemini-2.0-flash`, `google/gemini-2.0-flash` |
 | Ollama (default) | `OLLAMA_API_KEY` (optional), `OLLAMA_BASE_URL` | `llama3.2:latest`, `ollama/llama3.2:latest`, or `default` |
 | LiteLLM | (via litellm config) | `basic-atomic`/`basic-agent` only |
@@ -613,6 +613,10 @@ uv sync --dev
 uv sync --extra langchain
 # or
 uv sync --extra atomic
+
+# Install optional integration deps
+uv sync --extra github    # PyGithub for PR operations
+uv sync --extra mcp       # MCP server dependencies
 
 # Lint + format
 uv run ruff check .

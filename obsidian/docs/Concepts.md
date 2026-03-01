@@ -56,6 +56,10 @@ This means a rerun updates the same PR state instead of creating drift between o
 Final PR behavior is enabled by default and can be disabled explicitly (`--no-pr`).
 When enabled, push is token-authenticated and non-interactive to avoid OS credential popups.
 
+Execution and web tools are opt-in per run:
+- `enable_execution` — gates `python.run_code`, `python.run_script`, `bash.run_script`
+- `enable_web` — gates `web.search`, `web.browse`
+
 Implementation note: hand code is now organized as a package module under
 `src/helping_hands/lib/hands/v1/hand/`, and iterative file operations route
 through shared system helpers in
@@ -97,7 +101,7 @@ Model/provider behavior now routes through shared provider abstractions:
 - `src/helping_hands/lib/ai_providers/` exposes wrapper modules for `openai`, `anthropic`, `google`, `litellm`, and `ollama`.
 - Hands resolve model input via `src/helping_hands/lib/hands/v1/hand/model_provider.py`.
   - Supports bare model names (e.g. `gpt-5.2`).
-  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-3-5-sonnet-latest`).
+  - Supports explicit `provider/model` forms (e.g. `anthropic/claude-sonnet-4-5`).
 - The resolver adapts provider wrappers to backend-specific model/client interfaces (LangGraph and Atomic).
 
 ## CI race-condition guard

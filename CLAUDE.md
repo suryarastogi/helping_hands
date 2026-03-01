@@ -59,10 +59,17 @@ Everything flows through the **Hand** base class (`src/helping_hands/lib/hands/v
 - **E2EHand** (`e2e.py`) — clone/edit/commit/push/PR flow for integration testing
 - **IterativeHand** (`iterative.py`) — base for loop-based hands with `@@READ`/`@@FILE` in-model file operations
 - **BasicLangGraphHand** (`langgraph.py`) — LangGraph agent loop (requires `--extra langchain`)
-- **BasicAtomicHand** (`atomic.py`) — Atomic Agents loop (requires `--extra atomic`)
+- **BasicAtomicHand** (`atomic.py`) — Atomic Agents loop (requires `--extra atomic`); `basic-agent` is a backend alias for this
 - **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`
 
-Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands attempt it by default; disable with `--no-pr`.
+Finalization (commit/push/PR) is centralized in the base `Hand` class, including rich PR description generation via `pr_description.py`. All hands attempt it by default; disable with `--no-pr`.
+
+### Additional subsystems
+
+- **MCP server** (`server/mcp_server.py`) — exposes filesystem, execution, web tools, and build orchestration over Model Context Protocol (stdio or HTTP)
+- **Skills** (`lib/meta/skills/`) — dynamic capability injection for iterative hands; opt-in per run via `--skills`
+- **Cron scheduling** (`server/schedules.py`) — Redis+RedBeat-backed scheduled build submissions with CRUD API endpoints
+- **Model adapter** (`hands/v1/hand/model_provider.py`) — resolves model strings into backend-specific runtime clients
 
 ### Provider abstraction
 
