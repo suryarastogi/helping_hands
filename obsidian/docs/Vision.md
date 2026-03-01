@@ -18,3 +18,7 @@
 - Replacing the human in the loop; the human reviews and approves.
 - Supporting non-git workflows.
 - Being a generic chatbot; the focus is repo building, not Q&A about unrelated topics.
+
+---
+
+*Last updated: 2026-03-01*

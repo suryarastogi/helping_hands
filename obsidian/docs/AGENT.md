@@ -36,12 +36,20 @@
 - Exception handler ordering: catch subclass exceptions before parent classes (e.g. `UnicodeError` before `ValueError`)
 - Skills payload validation: reject empty/missing payloads at the validation layer, not downstream
 
+## Documentation
+
+- MkDocs: **36 API doc pages** covering all 14 hand modules (12 impl + 1 package + 1 backward-compat shim) plus all subsystems
+- CLI hand base docstrings: `_TwoPhaseCLIHand` public/semi-public methods documented for mkdocstrings completeness
+- PEP 561: `py.typed` marker + `Typing :: Typed` classifier in `pyproject.toml`
+
 ## Testing
 
 - pytest in `tests/`, coverage enabled by default — **510 tests passing** (as of 2026-03-01)
 - `uv run pytest -v` runs the full suite
 - E2E integration is opt-in (`HELPING_HANDS_RUN_E2E_INTEGRATION=1`)
 - Key coverage areas: filesystem (40), CLI hands (75+), schedule manager (22), Celery helpers (15), skills (34), MCP (17), server app (47), AI providers (28)
+- All four CLI hand implementations have dedicated unit tests (model filtering, auth detection, fallback/retry, defaults injection)
+- Server/MCP internal helpers have dedicated tests (task extraction, Flower/Celery integration, health checks, config endpoints)
 
 ## For More Detail
 
