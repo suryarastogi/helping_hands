@@ -22,6 +22,12 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/suryarastogi/helping_hands"
+Repository = "https://github.com/suryarastogi/helping_hands"
+Documentation = "https://suryarastogi.github.io/helping_hands"
+Issues = "https://github.com/suryarastogi/helping_hands/issues"
+
 [project.optional-dependencies]
 langchain = [
     "langchain-openai>=0.3",

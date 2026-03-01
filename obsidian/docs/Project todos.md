@@ -8,7 +8,7 @@ All major milestones are complete. Two CI items remain intentionally deferred:
 
 1. **Set up Python project** — complete (layout, tooling, CI/CD, tests)
 2. **Dockerise app mode** — complete (Dockerfile, Compose, all services)
-3. **Autodocs** — complete (MkDocs Material + mkdocstrings, 36 API pages, GitHub Pages)
+3. **Autodocs** — complete (MkDocs Material + mkdocstrings, 37 API pages, GitHub Pages)
 4. **Hand backends** — complete (E2E, iterative, all 4 CLI hands, cron scheduling, hardening)
 5. **MCP server** — complete (filesystem, execution, web, build, config tools)
 6. **Skills system** — complete (normalization, validation, prompt injection)

@@ -22,3 +22,7 @@ Design notes and progress for the **helping_hands** project. The repo README is 
 - **[AGENT.md](../../AGENT.md)** — AI agent guidelines (code style, design preferences, recurring decisions)
 - **[API docs](../../docs/index.md)** — Auto-generated API reference from docstrings (MkDocs Material + mkdocstrings)
 - **[completed/](../../completed/)** — Completed PRDs with activity logs
+
+---
+
+*Last updated: 2026-03-01*
