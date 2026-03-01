@@ -143,6 +143,12 @@ class E2EHand(Hand):
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
                 except Exception:
+                    logger.debug(
+                        "Could not fetch default branch for %s, "
+                        "falling back to clone default",
+                        repo,
+                        exc_info=True,
+                    )
                     clone_branch = None
 
             gh.clone(repo, repo_dir, branch=clone_branch, depth=1)

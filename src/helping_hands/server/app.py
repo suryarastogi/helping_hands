@@ -2167,6 +2167,7 @@ def _safe_inspect_call(inspector: Any, method_name: str) -> Any:
     try:
         return method()
     except Exception:  # pragma: no cover - defensive runtime guard
+        logger.debug("Celery inspect call %s failed", method_name, exc_info=True)
         return None
 
 
@@ -2175,6 +2176,7 @@ def _collect_celery_current_tasks() -> list[dict[str, Any]]:
     try:
         inspector = celery_app.control.inspect(timeout=1.0)
     except Exception:  # pragma: no cover - defensive runtime guard
+        logger.debug("Celery inspect connection failed", exc_info=True)
         return []
     if inspector is None:
         return []

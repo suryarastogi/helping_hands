@@ -98,6 +98,8 @@ what the code does.
 - **CLI hand test coverage**: All four CLI hand implementations (`claude.py`, `codex.py`, `goose.py`, `gemini.py`) now have dedicated unit tests covering model filtering/resolution, auth detection, fallback/retry strategies, failure message parsing, and backend defaults injection. `placeholders.py` and `default_prompts.py` also have tests. (2026-03-01)
 - **Exception handler ordering**: In `except` chains, catch subclass exceptions before parent classes — e.g. `UnicodeError` before `ValueError` (since `UnicodeError` is a `ValueError` subclass in Python). Misordering causes the wrong handler to catch the exception. (2026-03-01)
 - **Server/MCP helper test coverage**: `test_server_app_helpers.py` and extended `test_mcp_server.py` now provide dedicated unit tests for all non-trivial internal helpers (task extraction, Flower/Celery integration, health checks, config endpoints, exception paths). (2026-03-01)
+- **CLI verbose logging**: `--verbose` / `-v` configures `logging.basicConfig()` in `main()` — DEBUG when verbose, WARNING otherwise. Silent `except Exception: pass` blocks should use `logger.debug(..., exc_info=True)` instead of bare `pass`. (2026-03-01)
+- **PyPI classifiers**: `pyproject.toml` includes standard classifiers for Python versions (3.12–3.14), license (Apache-2.0), topics, and typing. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -153,4 +155,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — MCP/app test hardening (17 MCP + 47 helper tests), MCP read_file exception ordering fix, documentation reconciliation.*
+*Last updated: 2026-03-01 — CLI verbose logging wired, silent exception handlers replaced with debug logging, pyproject.toml classifiers added, documentation reconciliation.*

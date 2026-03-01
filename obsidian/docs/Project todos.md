@@ -52,3 +52,7 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - MCP server and server app internal helpers now have dedicated edge-case/unit tests (`test_mcp_server.py` +17, `test_server_app_helpers.py` +47), bringing total test count to 488.
 - All public `run()`/`stream()` methods across Hand implementations now have Google-style docstrings: `_BasicIterativeHand` (LangGraph), `BasicAtomicHand`, and `E2EHand`.
 - `AIProvider` base class docstring now documents all class attributes (`name`, `api_key_env_var`, `default_model`); `OllamaProvider` documents its extra attributes (`base_url_env_var`, `default_base_url`).
+- CLI `--verbose` flag now wires to `logging.basicConfig()` in `main()` — DEBUG when verbose, WARNING otherwise. Previously the flag was accepted but had no effect.
+- Silent `except Exception: pass` blocks in `base.py`, `claude.py`, `e2e.py` replaced with `logger.debug(..., exc_info=True)` for debuggability without changing control flow.
+- Server Celery inspect helpers (`_safe_inspect_call`, `_collect_celery_current_tasks`) now log at DEBUG before returning sentinels.
+- `pyproject.toml` now includes standard PyPI classifiers (Python 3.12–3.14, Apache-2.0, topics, typing).

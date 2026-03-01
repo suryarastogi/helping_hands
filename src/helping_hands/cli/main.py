@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
+import logging
 import os
 import re
 import shutil
@@ -130,6 +131,12 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.WARNING,
+        format="%(levelname)s: %(name)s: %(message)s",
+    )
+
     try:
         selected_skills = meta_skills.normalize_skill_selection(args.skills)
         meta_skills.validate_skill_names(selected_skills)
