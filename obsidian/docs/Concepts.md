@@ -175,4 +175,4 @@ Progress notes live under **Project Log** and can be edited by **users** or **ha
 
 ---
 
-*Last updated: 2026-03-01 — All features described above are implemented and tested (624 tests). 40 modules declare `__all__` exports. Goose backend detail expanded. See the repo [[AGENT.md]] for the full recurring decisions log.*
+*Last updated: 2026-03-01 — All features described above are implemented and tested (624 tests). 45 modules declare `__all__` exports. Goose backend detail expanded. See the repo [[AGENT.md]] for the full recurring decisions log.*

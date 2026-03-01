@@ -32,13 +32,15 @@ def resolve_repo_target(repo_root: Path, rel_path: str) -> Path:
     root = repo_root.resolve()
     normalized = normalize_relative_path(rel_path)
     if not normalized or normalized.startswith("/"):
-        raise ValueError("invalid path")
+        raise ValueError(f"invalid path '{rel_path}': must be relative and non-empty")
 
     target = (root / normalized).resolve()
     try:
         target.relative_to(root)
     except ValueError as exc:
-        raise ValueError("invalid path") from exc
+        raise ValueError(
+            f"invalid path '{rel_path}': resolves outside repo root"
+        ) from exc
     return target
 
 
@@ -52,10 +54,11 @@ def read_text_file(
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
 
+    display = target.relative_to(root).as_posix()
     if not target.exists():
-        raise FileNotFoundError("file not found")
+        raise FileNotFoundError(f"file not found: {display}")
     if target.is_dir():
-        raise IsADirectoryError("path is a directory")
+        raise IsADirectoryError(f"path is a directory: {display}")
 
     try:
         text = target.read_text(encoding="utf-8")

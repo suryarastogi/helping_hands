@@ -195,4 +195,4 @@ alongside arbitrary cron expressions.
 
 ---
 
-*Last updated: 2026-03-01 — 37 MkDocs API pages, 14 hand modules documented, 624 tests passing. 40 modules now declare `__all__` exports (added `atomic.py`, `iterative.py`). All cross-surface metrics reconciled.*
+*Last updated: 2026-03-01 — 37 MkDocs API pages, 14 hand modules documented, 624 tests passing. 45 modules now declare `__all__` exports (added 5 package `__init__.py` files). All cross-surface metrics reconciled.*

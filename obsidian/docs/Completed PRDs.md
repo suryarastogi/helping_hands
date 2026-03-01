@@ -35,6 +35,7 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 | [module-exports-doc-reconciliation-obsidian-sync](../../completed/PRD-2026-03-01-module-exports-doc-reconciliation-obsidian-sync.md) | `__all__` exports for 19 modules, Obsidian test count fix, Completed PRDs index fix |
 | [export-hardening-cross-surface-doc-reconciliation](../../completed/PRD-2026-03-01-export-hardening-cross-surface-doc-reconciliation.md) | `__all__` for `atomic.py`/`iterative.py` (40 total), stale test/API counts fixed across obsidian |
 | [iterative-hand-docstrings-cross-surface-reconciliation](../../completed/PRD-2026-03-01-iterative-hand-docstrings-cross-surface-reconciliation.md) | 12 iterative.py private method docstrings, Obsidian AGENT.md module count fix (38→40) |
+| [package-exports-error-enrichment-doc-reconciliation](../../completed/PRD-2026-03-01-package-exports-error-enrichment-doc-reconciliation.md) | `__all__` for 5 package `__init__.py` (45 total), `filesystem.py` error enrichment, `schedules.py` assert→RuntimeError |
 
 ## Earlier PRDs (undated)
 
@@ -46,4 +47,4 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 ---
 
-*Last updated: 2026-03-01 — 28 completed PRDs indexed.*
+*Last updated: 2026-03-01 — 29 completed PRDs indexed.*
