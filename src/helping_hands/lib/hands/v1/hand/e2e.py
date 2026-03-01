@@ -7,6 +7,7 @@ push, PR create/update, and status-comment refresh.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import AsyncIterator
@@ -16,6 +17,8 @@ from typing import Any
 from uuid import uuid4
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+logger = logging.getLogger(__name__)
 
 
 class E2EHand(Hand):
@@ -36,6 +39,15 @@ class E2EHand(Hand):
     @staticmethod
     def _configured_base_branch() -> str:
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", "").strip()
+
+    @staticmethod
+    def _draft_pr_enabled() -> bool:
+        """Check if draft PR mode is enabled via env var."""
+        return os.environ.get("HELPING_HANDS_DRAFT_PR", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
 
     @staticmethod
     def _build_e2e_pr_comment(
@@ -124,6 +136,9 @@ class E2EHand(Hand):
             if resumed_pr:
                 gh.fetch_branch(repo_dir, branch)
                 gh.switch_branch(repo_dir, branch)
+            elif gh.local_branch_exists(repo_dir, branch):
+                logger.info("Branch '%s' already exists; switching to it", branch)
+                gh.switch_branch(repo_dir, branch)
             else:
                 gh.create_branch(repo_dir, branch)
 
@@ -163,15 +178,26 @@ class E2EHand(Hand):
                 if resumed_pr:
                     final_pr_number = pr_number
                 else:
-                    pr = gh.create_pr(
-                        repo,
-                        title="test(e2e): minimal edit by helping_hands",
-                        body=pr_body,
-                        head=branch,
-                        base=base_branch,
-                    )
-                    pr_url = pr.url
-                    final_pr_number = pr.number
+                    existing = gh.find_open_pr_for_branch(repo, branch)
+                    if existing:
+                        logger.info(
+                            "Reusing existing PR #%d for branch '%s'",
+                            existing.number,
+                            branch,
+                        )
+                        pr_url = existing.url
+                        final_pr_number = existing.number
+                    else:
+                        pr = gh.create_pr(
+                            repo,
+                            title="test(e2e): minimal edit by helping_hands",
+                            body=pr_body,
+                            head=branch,
+                            base=base_branch,
+                            draft=self._draft_pr_enabled(),
+                        )
+                        pr_url = pr.url
+                        final_pr_number = pr.number
                 if final_pr_number is not None:
                     gh.update_pr_body(repo, final_pr_number, body=pr_body)
                     gh.upsert_pr_comment(

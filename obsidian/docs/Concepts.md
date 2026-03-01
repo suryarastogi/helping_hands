@@ -32,6 +32,9 @@ So the next session—and the next hand—starts with that context. The helping_
 
 - Supports **new PR** and **resume existing PR** (`pr_number`) paths.
 - Uses deterministic workspace layout: `{hand_uuid}/git/{repo}`.
+- **Branch collision handling**: if the target branch already exists locally (from a prior run), switches to it instead of failing.
+- **Draft PR mode**: set `HELPING_HANDS_DRAFT_PR=1` to create PRs as drafts.
+- **Idempotency guard**: before creating a new PR, checks if an open PR already exists for the head branch and reuses it.
 - In live mode, updates both:
   - PR description/body (latest timestamp, prompt, commit)
   - Marker-tagged status comment (`<!-- helping_hands:e2e-status -->`)

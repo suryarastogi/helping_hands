@@ -35,3 +35,6 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `ollama` provider wrapper added to `lib/ai_providers/`, completing the five-provider set (openai, anthropic, google, litellm, ollama).
 - `lib/meta/tools/filesystem.py` now has comprehensive test coverage (40 tests in `test_meta_tools_filesystem.py`): path traversal prevention, symlink escape rejection, read/write/mkdir/exists operations, and truncation behavior.
 - All CLI hand methods with non-trivial business logic now have Google-style docstrings for mkdocstrings API reference completeness.
+- GitHub API calls in `github.py` are now wrapped with `GithubException` handling — clear error messages with HTTP status, detail, and actionable hints (auth, rate limits, 404s, validation failures).
+- E2E hardening complete: branch collision handling (switch to existing branch instead of failing), optional draft PR mode (`HELPING_HANDS_DRAFT_PR` env var), and idempotency guard (detect/reuse existing open PR for head branch via `find_open_pr_for_branch`).
+- `Config` now validates `repo` format (filesystem path or `owner/repo` pattern) and warns on unexpected `model` name patterns via `__post_init__`.

@@ -89,6 +89,9 @@ what the code does.
 - **Default OpenAI-family model**: Prefer `gpt-5.2` as the default fallback model in provider wrappers/examples unless explicitly overridden by config. (2026-02-22)
 - **CLI backend completeness**: All four CLI-backed hands (`codexcli`, `claudecodecli`, `goose`, `geminicli`) are fully implemented with two-phase subprocess flow, streaming, heartbeat/idle-timeout controls, and final PR integration. (2026-02-28)
 - **Cron scheduling**: Server supports cron-scheduled submissions via `ScheduleManager` (RedBeat + Redis metadata) with CRUD API endpoints. (2026-02-28)
+- **GitHub API error handling**: All PyGithub API calls in `github.py` should be wrapped with `GithubException` handling that produces clear error messages with HTTP status and actionable hints. (2026-03-01)
+- **E2E idempotency**: E2EHand handles branch collisions (switch to existing), supports draft PRs (`HELPING_HANDS_DRAFT_PR`), and detects/reuses existing open PRs for the same head branch. (2026-03-01)
+- **Config input validation**: `Config.__post_init__` validates `repo` format (filesystem path or `owner/repo`) and warns on unexpected `model` name patterns. (2026-03-01)
 
 ## Dependencies `[auto-update]`
 
@@ -144,4 +147,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-03-01 — reconcile docs/docstrings/obsidian; add missing API doc pages (skills, command, web, task_result); fill docstring gaps.*
+*Last updated: 2026-03-01 — production robustness: GitHub API error handling, E2E hardening (branch collision, draft PR, idempotency), config validation.*

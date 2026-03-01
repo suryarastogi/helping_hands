@@ -102,11 +102,13 @@ environment.
 2. Resolve base/head:
    - New PR path: new branch `helping-hands/e2e-{uuid8}` from base.
    - Resume path (`pr_number`): fetch PR metadata, checkout existing head.
+   - Branch collision: if the branch already exists locally, switch to it instead of failing.
 3. Write `HELPING_HANDS_E2E.md` marker with UTC timestamp and prompt.
 4. Live mode only:
    - set local git identity
    - commit + push
-   - create PR if needed
+   - **idempotency guard**: before creating a new PR, check if an open PR already exists for the head branch and reuse it
+   - create PR if needed (optional `HELPING_HANDS_DRAFT_PR=1` for draft mode)
    - **always update PR body** with latest timestamp/commit/prompt
    - **always upsert a marker-tagged PR comment** (`<!-- helping_hands:e2e-status -->`)
 

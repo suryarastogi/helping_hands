@@ -63,7 +63,7 @@
   - [x] **Backend selection/routing (full matrix)** — CLI and server route all backends: `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`, plus `e2e`.
   - [x] **Streaming for CLI hands** — All CLI hands stream real incremental subprocess output with heartbeat and idle timeout controls.
   - [x] **Cron-scheduled submissions** — `ScheduleManager` + RedBeat + server endpoints for CRUD on cron-scheduled `build_feature` tasks.
-  - [ ] **E2E hardening** — Add branch collision handling, optional draft PR mode, and idempotency guards for reruns
+  - [x] **E2E hardening** — Branch collision handling (switch to existing branch), optional draft PR mode (`HELPING_HANDS_DRAFT_PR`), and idempotency guard (detect/reuse existing open PR for head branch)
 
 ---
 
