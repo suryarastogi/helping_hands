@@ -2621,6 +2621,12 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
     status = task_status.status
     escaped_payload = html.escape(json.dumps(payload, indent=2))
 
+    prompt = ""
+    if isinstance(task_status.result, dict):
+        raw_prompt = task_status.result.get("prompt")
+        if isinstance(raw_prompt, str) and raw_prompt.strip():
+            prompt = raw_prompt.strip()
+
     updates: list[str] = []
     if isinstance(task_status.result, dict):
         maybe_updates = task_status.result.get("updates")
@@ -2773,6 +2779,14 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
             <span class="meta-label">Status</span>
             <strong>{html.escape(status)}</strong>
           </div>
+          {
+        ""
+        if not prompt
+        else f'''<div class="meta-item">
+            <span class="meta-label">Prompt</span>
+            <strong>{html.escape(prompt)}</strong>
+          </div>'''
+    }
           <div class="meta-item">
             <span class="meta-label">Polling</span>
             <strong>

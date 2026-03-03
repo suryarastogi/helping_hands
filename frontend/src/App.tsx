@@ -1197,6 +1197,9 @@ export default function App() {
     if (repoPath) {
       items.push({ label: "Repo", value: repoPath });
     }
+    if (prompt) {
+      items.push({ label: "Prompt", value: prompt });
+    }
     if (backend) {
       items.push({ label: "Backend", value: backend });
     }
@@ -1226,9 +1229,6 @@ export default function App() {
     }
     if (skills) {
       items.push({ label: "Skills", value: skills });
-    }
-    if (prompt) {
-      items.push({ label: "Prompt", value: prompt });
     }
 
     return items;
