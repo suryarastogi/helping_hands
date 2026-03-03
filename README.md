@@ -10,7 +10,23 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 03, 2026
+
+## Smoke Test Results (March 03, 2026)
+
+Smoke test run via `claudecodecli` backend (claude-sonnet-4-6). Results:
+
+| Capability | Status | Notes |
+|---|---|---|
+| `@@READ` (inspect README.md) | **PASS** | File read successfully; content verified |
+| `@@FILE` (apply README.md updates) | **PASS** | This section written via direct file edit |
+| `@@TOOL python.run_code` | **N/A** | Execution tools not enabled in this run |
+| `@@TOOL python.run_script` | **N/A** | Execution tools not enabled in this run |
+| `@@TOOL bash.run_script` | **N/A** | Execution tools not enabled in this run |
+| `@@TOOL web.search` | **N/A** | Web tools not enabled in this run |
+| `@@TOOL web.browse` | **N/A** | Web tools not enabled in this run |
+
+**Summary:** Core read/write capabilities (`@@READ`, `@@FILE`) are operational. Execution and web tools were not enabled for this run (`--enable-execution` / `--enable-web` flags not set).
 
 ## What is this?
 
