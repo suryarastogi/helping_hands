@@ -10,7 +10,16 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 3, 2026
+
+### Smoke test results (March 3, 2026)
+
+| Check | Result |
+|---|---|
+| `ruff check .` | All checks passed |
+| `ruff format --check .` | 65 files already formatted |
+| `pytest` (dev extras) | 302 passed, 2 skipped — 57% coverage |
+| `ty check src` | 9 diagnostics (`unresolved-attribute` in `schedules.py`) |
 
 ## What is this?
 
