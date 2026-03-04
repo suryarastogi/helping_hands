@@ -494,6 +494,8 @@ class ScheduleManager:
             use_native_cli_auth=task.use_native_cli_auth,
             tools=task.tools,
             skills=task.skills,
+            fix_ci=task.fix_ci,
+            ci_check_wait_minutes=task.ci_check_wait_minutes,
         )
 
         self.record_run(schedule_id, result.id)
