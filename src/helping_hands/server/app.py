@@ -1239,6 +1239,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                         <option value="basic-atomic">basic-atomic</option>
                         <option value="goose">goose</option>
                         <option value="geminicli">geminicli</option>
+                        <option value="opencodecli">opencodecli</option>
                       </select>
                     </label>
                     <label for="schedule_model">
@@ -2823,7 +2824,7 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
 
     Supports E2E and iterative backends (`basic-langgraph`, `basic-atomic`,
     `basic-agent`) plus CLI-driven backends (`codexcli`, `claudecodecli`,
-    `goose`, `geminicli`) using CLI-equivalent backend options.
+    `goose`, `geminicli`, `opencodecli`) using CLI-equivalent backend options.
     """
     return _enqueue_build_task(req)
 

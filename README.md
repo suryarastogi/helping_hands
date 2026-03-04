@@ -20,7 +20,7 @@
 
 - **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace, cleaned up on exit). You can index only, or run iterative backends plus external-CLI backends with streamed output:
   - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
-  - external CLI: `codexcli`, `claudecodecli`, `goose`, `geminicli`
+  - external CLI: `codexcli`, `claudecodecli`, `goose`, `geminicli`, `opencodecli`
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -103,6 +103,9 @@ uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --use-native-
 # Run Goose CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend goose --prompt "Implement X"
 
+# Run OpenCode CLI backend (two-phase: initialize repo context, then execute task)
+uv run helping-hands owner/repo --backend opencodecli --model litellm/claude-sonnet-4-6 --prompt "Implement X"
+
 # Disable final commit/push/PR step explicitly
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
 
@@ -130,7 +133,7 @@ npm run dev
 
 App mode enqueues Celery tasks through the FastAPI server and supports `e2e`,
 iterative/basic backends, and CLI backends (`codexcli`, `claudecodecli`,
-`goose`, `geminicli`).
+`goose`, `geminicli`, `opencodecli`).
 
 For `codexcli`/`goose` in app mode, rebuild images after pulling latest
 changes so the worker image includes required CLIs:
@@ -210,7 +213,7 @@ Notes:
 - To keep docker hostnames unchanged, set `HH_LOCAL_STACK_KEEP_DOCKER_HOSTS=1`.
 
 The built-in UI at `http://localhost:8000/` supports:
-- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`)
+- backend selection (`e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, `claudecodecli`, `goose`, `geminicli`, `opencodecli`)
 - model override
 - max iterations
 - optional PR number
@@ -303,6 +306,16 @@ curl -sS -X POST "http://localhost:8000/build" \
     "repo_path": "suryarastogi/helping_hands",
     "prompt": "Implement one small safe improvement",
     "backend": "geminicli"
+  }'
+
+# Example opencodecli run in app mode
+curl -sS -X POST "http://localhost:8000/build" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_path": "suryarastogi/helping_hands",
+    "prompt": "Implement one small safe improvement",
+    "backend": "opencodecli",
+    "model": "litellm/claude-sonnet-4-6"
   }'
 ```
 
@@ -403,6 +416,7 @@ Key CLI flags:
 - `--backend claudecodecli` — run Claude Code CLI backend (initialize/learn repo, then execute task)
 - `--backend goose` — run Goose CLI backend (initialize/learn repo, then execute task)
 - `--backend geminicli` — run Gemini CLI backend (initialize/learn repo, then execute task)
+- `--backend opencodecli` — run OpenCode CLI backend (initialize/learn repo, then execute task)
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
@@ -423,6 +437,7 @@ calls an external CLI subprocess or uses a Python AI provider SDK directly.
 | `claudecodecli` | **Native CLI** (`claude -p`) | `ANTHROPIC_API_KEY` | Runs `claude` as subprocess; **native CLI auth** supported via `--use-native-cli-auth` (strips `ANTHROPIC_API_KEY` from subprocess env, uses `claude auth` session instead) |
 | `goose` | **Native CLI** (`goose run`) | Depends on `GOOSE_PROVIDER`: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or Ollama vars | Runs `goose` as subprocess; provider/model injected via `GOOSE_PROVIDER`/`GOOSE_MODEL` env vars. Also requires `GH_TOKEN` or `GITHUB_TOKEN` |
 | `geminicli` | **Native CLI** (`gemini -p`) | `GEMINI_API_KEY` | Runs `gemini` as subprocess; API key is **always required** (no native-CLI-auth toggle) |
+| `opencodecli` | **Native CLI** (`opencode run`) | Provider-dependent (via `opencode.json`) | Runs `opencode` as subprocess; model passed as `provider/model` (e.g. `litellm/claude-sonnet-4-6`). Configure providers in `~/.config/opencode/opencode.json`. |
 
 **Iterative backend provider env vars** (`basic-langgraph`, `basic-atomic`, `basic-agent`):
 
@@ -473,7 +488,7 @@ Codex backend requirements:
 - By default, codex commands run with host/container-aware sandbox mode (`workspace-write` on host, `danger-full-access` in containers).
 - By default, codex automation uses `--skip-git-repo-check` for non-interactive worker/CLI runs.
 - If you enable container mode, Docker must be installed and the image must include the `codex` executable.
-- App mode supports `codexcli`, `claudecodecli`, `goose`, and `geminicli`; ensure the worker runtime has each CLI installed/authenticated as needed.
+- App mode supports `codexcli`, `claudecodecli`, `goose`, `geminicli`, and `opencodecli`; ensure the worker runtime has each CLI installed/authenticated as needed.
 - The included Dockerfile installs `@openai/codex` and Goose CLI in app/worker images.
 - The included Dockerfile does **not** install Claude Code CLI by default.
 - No extra Python optional dependency is required for `codexcli` itself (unlike `--extra langchain` and `--extra atomic` used by other iterative backends).
@@ -596,6 +611,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend goose --prompt "Impl
 
 # geminicli
 uv run helping-hands "suryarastogi/helping_hands" --backend geminicli --prompt "Implement one small safe improvement"
+
+# opencodecli
+uv run helping-hands "suryarastogi/helping_hands" --backend opencodecli --model litellm/claude-sonnet-4-6 --prompt "Implement one small safe improvement"
 
 # e2e
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"
