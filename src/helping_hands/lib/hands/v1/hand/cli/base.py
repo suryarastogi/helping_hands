@@ -742,6 +742,232 @@ class _TwoPhaseCLIHand(Hand):
             return f"[{self._CLI_LABEL}] PR status: {status} ({error})"
         return f"[{self._CLI_LABEL}] PR status: {status}"
 
+    # ------------------------------------------------------------------
+    # CI fix loop
+    # ------------------------------------------------------------------
+
+    async def _poll_ci_checks(
+        self,
+        *,
+        gh: Any,
+        repo: str,
+        ref: str,
+        emit: Any,
+        initial_wait: float,
+        max_poll_seconds: float,
+    ) -> dict[str, Any]:
+        """Wait for CI checks to complete and return the result."""
+        await emit(
+            f"\n[{self._CLI_LABEL}] Waiting {initial_wait:.0f}s "
+            f"for CI checks on {ref[:8]}...\n"
+        )
+        await asyncio.sleep(initial_wait)
+
+        poll_interval = 30.0
+        deadline = time.monotonic() + max_poll_seconds
+        while time.monotonic() < deadline:
+            result = gh.get_check_runs(repo, ref)
+            conclusion = result["conclusion"]
+            if conclusion not in ("pending", "no_checks"):
+                return result
+            await emit(
+                f"[{self._CLI_LABEL}] CI still {conclusion}, "
+                f"polling again in {poll_interval:.0f}s...\n"
+            )
+            await asyncio.sleep(poll_interval)
+
+        return gh.get_check_runs(repo, ref)
+
+    @staticmethod
+    def _build_ci_fix_prompt(
+        *,
+        check_result: dict[str, Any],
+        original_prompt: str,
+        attempt: int,
+    ) -> str:
+        """Build a prompt telling the AI to fix CI failures."""
+        failed = [
+            r
+            for r in check_result.get("check_runs", [])
+            if r.get("conclusion") in ("failure", "cancelled", "timed_out")
+        ]
+        failure_lines = []
+        for r in failed:
+            name = r.get("name", "unknown")
+            conclusion = r.get("conclusion", "unknown")
+            url = r.get("html_url", "")
+            failure_lines.append(f"  - {name}: {conclusion} ({url})")
+
+        failure_summary = "\n".join(failure_lines) or "  (no details available)"
+
+        return (
+            f"CI fix attempt {attempt}.\n\n"
+            "The following CI checks failed after pushing changes:\n"
+            f"{failure_summary}\n\n"
+            "Original task was:\n"
+            f"{original_prompt}\n\n"
+            "Please investigate the CI failures by:\n"
+            "1. Reading the relevant source files and test files\n"
+            "2. Running the failing checks locally if possible "
+            "(e.g. lint, test, typecheck commands)\n"
+            "3. Fixing the issues in the repository\n\n"
+            "Focus only on fixing the CI failures. "
+            "Do not make unrelated changes."
+        )
+
+    async def _ci_fix_loop(
+        self,
+        *,
+        prompt: str,
+        metadata: dict[str, str],
+        emit: Any,
+    ) -> dict[str, str]:
+        """Poll CI after PR push, attempt fixes if failures detected."""
+        if not self.fix_ci:
+            return metadata
+
+        pr_status = metadata.get("pr_status", "")
+        if pr_status not in ("created", "updated"):
+            return metadata
+
+        pr_commit = metadata.get("pr_commit", "")
+        pr_branch = metadata.get("pr_branch", "")
+        if not pr_commit or not pr_branch:
+            return metadata
+
+        repo_dir = self.repo_index.root.resolve()
+        repo = self._github_repo_from_origin(repo_dir)
+        if not repo:
+            return metadata
+
+        from helping_hands.lib.github import GitHubClient
+
+        initial_wait = self.ci_check_wait_minutes * 60
+        max_poll = initial_wait * 2
+
+        metadata["ci_fix_attempts"] = "0"
+        metadata["ci_fix_status"] = "checking"
+
+        try:
+            with GitHubClient() as gh:
+                current_ref = pr_commit
+                for attempt in range(1, self.ci_max_retries + 1):
+                    if self._is_interrupted():
+                        metadata["ci_fix_status"] = "interrupted"
+                        return metadata
+
+                    check_result = await self._poll_ci_checks(
+                        gh=gh,
+                        repo=repo,
+                        ref=current_ref,
+                        emit=emit,
+                        initial_wait=initial_wait,
+                        max_poll_seconds=max_poll,
+                    )
+
+                    conclusion = check_result["conclusion"]
+                    total = check_result["total_count"]
+
+                    if conclusion == "success":
+                        await emit(
+                            f"[{self._CLI_LABEL}] CI passed "
+                            f"({total} check{'s' if total != 1 else ''}). "
+                            f"No fixes needed.\n"
+                        )
+                        metadata["ci_fix_status"] = "success"
+                        return metadata
+
+                    if conclusion == "no_checks":
+                        await emit(
+                            f"[{self._CLI_LABEL}] No CI checks found. "
+                            "Skipping CI fix loop.\n"
+                        )
+                        metadata["ci_fix_status"] = "no_checks"
+                        return metadata
+
+                    if conclusion == "pending":
+                        await emit(
+                            f"[{self._CLI_LABEL}] CI checks still pending "
+                            f"after waiting. Skipping fix attempt.\n"
+                        )
+                        metadata["ci_fix_status"] = "pending_timeout"
+                        return metadata
+
+                    # CI failed — attempt fix
+                    await emit(
+                        f"\n[{self._CLI_LABEL}] CI failed (attempt "
+                        f"{attempt}/{self.ci_max_retries}). "
+                        f"Invoking backend to fix...\n"
+                    )
+
+                    fix_prompt = self._build_ci_fix_prompt(
+                        check_result=check_result,
+                        original_prompt=prompt,
+                        attempt=attempt,
+                    )
+
+                    await self._invoke_backend(fix_prompt, emit=emit)
+
+                    if self._is_interrupted():
+                        metadata["ci_fix_status"] = "interrupted"
+                        return metadata
+
+                    metadata["ci_fix_attempts"] = str(attempt)
+
+                    if not self._repo_has_changes():
+                        await emit(
+                            f"[{self._CLI_LABEL}] No changes produced "
+                            f"by fix attempt {attempt}.\n"
+                        )
+                        continue
+
+                    # Commit and push the fix
+                    new_sha = GitHubClient.add_and_commit(
+                        repo_dir,
+                        f"fix(ci): attempt {attempt} — "
+                        f"fix CI failures ({self._BACKEND_NAME})",
+                    )
+                    self._push_noninteractive(gh, repo_dir, pr_branch)
+
+                    await emit(
+                        f"[{self._CLI_LABEL}] Fix pushed "
+                        f"(commit {new_sha}). "
+                        f"Waiting for CI...\n"
+                    )
+
+                    metadata["pr_commit"] = new_sha
+                    current_ref = new_sha
+
+                # Exhausted all retries
+                metadata["ci_fix_status"] = "exhausted"
+                await emit(
+                    f"[{self._CLI_LABEL}] CI fix retries exhausted "
+                    f"after {self.ci_max_retries} attempts.\n"
+                )
+
+        except Exception as exc:
+            metadata["ci_fix_status"] = "error"
+            metadata["ci_fix_error"] = str(exc)
+            await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")
+
+        return metadata
+
+    def _format_ci_fix_message(self, metadata: dict[str, str]) -> str | None:
+        ci_status = metadata.get("ci_fix_status", "")
+        if not ci_status:
+            return None
+        attempts = metadata.get("ci_fix_attempts", "0")
+        if ci_status == "success":
+            return f"[{self._CLI_LABEL}] CI checks passed."
+        if ci_status == "exhausted":
+            return f"[{self._CLI_LABEL}] CI fix failed after {attempts} attempt(s)."
+        if ci_status == "pending_timeout":
+            return f"[{self._CLI_LABEL}] CI checks still pending after max wait time."
+        if ci_status == "error":
+            error = metadata.get("ci_fix_error", "")
+            return f"[{self._CLI_LABEL}] CI fix error: {error}"
+        return None
+
     def interrupt(self) -> None:
         super().interrupt()
         process = self._active_process
@@ -751,6 +977,21 @@ class _TwoPhaseCLIHand(Hand):
     def run(self, prompt: str) -> HandResponse:
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
+
+        if self.fix_ci and pr_metadata.get("pr_status") in ("created", "updated"):
+
+            async def _run_ci_fix() -> dict[str, str]:
+                async def _noop_emit(chunk: str) -> None:
+                    pass
+
+                return await self._ci_fix_loop(
+                    prompt=prompt,
+                    metadata=pr_metadata,
+                    emit=_noop_emit,
+                )
+
+            pr_metadata = asyncio.run(_run_ci_fix())
+
         return HandResponse(
             message=message,
             metadata={
@@ -781,6 +1022,15 @@ class _TwoPhaseCLIHand(Hand):
                     pr_status_message = self._format_pr_status_message(metadata)
                     if pr_status_message:
                         await output_queue.put(f"\n{pr_status_message}\n")
+                    # CI fix loop (only runs if fix_ci=True and PR was created/updated)
+                    metadata = await self._ci_fix_loop(
+                        prompt=prompt,
+                        metadata=metadata,
+                        emit=_emit,
+                    )
+                    ci_msg = self._format_ci_fix_message(metadata)
+                    if ci_msg:
+                        await output_queue.put(f"\n{ci_msg}\n")
                 await output_queue.put(None)
             if error is not None:
                 raise error

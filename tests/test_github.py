@@ -355,6 +355,85 @@ class TestUpsertPRComment:
         mock_issue.create_comment.assert_not_called()
 
 
+class TestGetCheckRuns:
+    def test_all_passing(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_commit = MagicMock()
+        run1 = MagicMock()
+        run1.name = "build"
+        run1.status = "completed"
+        run1.conclusion = "success"
+        run1.html_url = "https://github.com/owner/repo/actions/runs/1"
+        run1.started_at = None
+        run1.completed_at = None
+        mock_commit.get_check_runs.return_value = [run1]
+        mock_repo.get_commit.return_value = mock_commit
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_check_runs("owner/repo", "abc123")
+
+        assert result["ref"] == "abc123"
+        assert result["total_count"] == 1
+        assert result["conclusion"] == "success"
+        assert result["check_runs"][0]["name"] == "build"
+
+    def test_failure(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_commit = MagicMock()
+        run1 = MagicMock()
+        run1.name = "build"
+        run1.status = "completed"
+        run1.conclusion = "success"
+        run1.html_url = "url1"
+        run1.started_at = None
+        run1.completed_at = None
+        run2 = MagicMock()
+        run2.name = "test"
+        run2.status = "completed"
+        run2.conclusion = "failure"
+        run2.html_url = "url2"
+        run2.started_at = None
+        run2.completed_at = None
+        mock_commit.get_check_runs.return_value = [run1, run2]
+        mock_repo.get_commit.return_value = mock_commit
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_check_runs("owner/repo", "abc123")
+
+        assert result["conclusion"] == "failure"
+        assert result["total_count"] == 2
+
+    def test_no_checks(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_commit = MagicMock()
+        mock_commit.get_check_runs.return_value = []
+        mock_repo.get_commit.return_value = mock_commit
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_check_runs("owner/repo", "abc123")
+
+        assert result["conclusion"] == "no_checks"
+        assert result["total_count"] == 0
+
+    def test_pending(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_commit = MagicMock()
+        run = MagicMock()
+        run.name = "build"
+        run.status = "in_progress"
+        run.conclusion = None
+        run.html_url = "url"
+        run.started_at = None
+        run.completed_at = None
+        mock_commit.get_check_runs.return_value = [run]
+        mock_repo.get_commit.return_value = mock_commit
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_check_runs("owner/repo", "abc123")
+
+        assert result["conclusion"] == "pending"
+
+
 class TestUpdatePRBody:
     def test_updates_existing_pr_body(self, client: GitHubClient) -> None:
         mock_repo = MagicMock()

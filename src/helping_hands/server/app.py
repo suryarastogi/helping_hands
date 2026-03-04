@@ -61,6 +61,8 @@ class BuildRequest(BaseModel):
     enable_web: bool = False
     use_native_cli_auth: bool = False
     pr_number: int | None = None
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
     tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
 
@@ -176,6 +178,8 @@ class ScheduleRequest(BaseModel):
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
     tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
@@ -225,6 +229,8 @@ class ScheduleResponse(BaseModel):
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = 3.0
     tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
@@ -1096,6 +1102,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     />
                     Use native CLI auth (Codex/Claude)
                   </label>
+
+                  <label class="check-row" for="fix_ci">
+                    <input id="fix_ci" name="fix_ci" type="checkbox" />
+                    Fix CI failures (auto-retry)
+                  </label>
                 </div>
               </div>
             </details>
@@ -1259,6 +1270,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     <label class="check-row" for="schedule_enabled">
                       <input id="schedule_enabled" name="enabled" type="checkbox" checked />
                       Enabled
+                    </label>
+                    <label class="check-row" for="schedule_fix_ci">
+                      <input id="schedule_fix_ci" name="fix_ci" type="checkbox" />
+                      Fix CI
                     </label>
                   </div>
                 </div>
@@ -1710,6 +1725,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const enableExecution = params.get("enable_execution");
         const enableWeb = params.get("enable_web");
         const useNativeCliAuth = params.get("use_native_cli_auth");
+        const fixCi = params.get("fix_ci");
         const tools = params.get("tools");
         const skills = params.get("skills");
         const taskId = params.get("task_id");
@@ -1751,6 +1767,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (useNativeCliAuth === "1" || useNativeCliAuth === "true") {
           document.getElementById("use_native_cli_auth").checked = true;
+        }
+        if (fixCi === "1" || fixCi === "true") {
+          document.getElementById("fix_ci").checked = true;
         }
         if (error) {
           setStatus("error");
@@ -1896,6 +1915,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const enableExecution = document.getElementById("enable_execution").checked;
         const enableWeb = document.getElementById("enable_web").checked;
         const useNativeCliAuth = document.getElementById("use_native_cli_auth").checked;
+        const fixCi = document.getElementById("fix_ci").checked;
         const payload = {
           repo_path: repoPath,
           prompt,
@@ -1905,6 +1925,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           enable_execution: enableExecution,
           enable_web: enableWeb,
           use_native_cli_auth: useNativeCliAuth,
+          fix_ci: fixCi,
         };
         if (model) {
           payload.model = model;
@@ -2064,7 +2085,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           model: document.getElementById("schedule_model").value || null,
           pr_number: document.getElementById("schedule_pr_number").value ? Number(document.getElementById("schedule_pr_number").value) : null,
           no_pr: document.getElementById("schedule_no_pr").checked,
-          enabled: document.getElementById("schedule_enabled").checked
+          enabled: document.getElementById("schedule_enabled").checked,
+          fix_ci: document.getElementById("schedule_fix_ci").checked
         };
 
         try {
@@ -2102,6 +2124,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           document.getElementById("schedule_pr_number").value = s.pr_number != null ? s.pr_number : "";
           document.getElementById("schedule_no_pr").checked = s.no_pr;
           document.getElementById("schedule_enabled").checked = s.enabled;
+          document.getElementById("schedule_fix_ci").checked = s.fix_ci || false;
 
           scheduleFormTitle.textContent = "Edit schedule";
           scheduleSubmitBtn.textContent = "Update schedule";
@@ -2282,6 +2305,8 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         use_native_cli_auth=req.use_native_cli_auth,
         tools=req.tools,
         skills=req.skills,
+        fix_ci=req.fix_ci,
+        ci_check_wait_minutes=req.ci_check_wait_minutes,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -2843,6 +2868,8 @@ def enqueue_build_form(
     pr_number: int | None = Form(None),
     tools: str | None = Form(None),
     skills: str | None = Form(None),
+    fix_ci: bool = Form(False),
+    ci_check_wait_minutes: float = Form(3.0),
 ) -> RedirectResponse:
     """Fallback form endpoint so UI submits still enqueue without JS."""
     try:
@@ -2865,6 +2892,10 @@ def enqueue_build_form(
             query["enable_web"] = "1"
         if use_native_cli_auth:
             query["use_native_cli_auth"] = "1"
+        if fix_ci:
+            query["fix_ci"] = "1"
+        if ci_check_wait_minutes != 3.0:
+            query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
         if tools and tools.strip():
@@ -2885,6 +2916,8 @@ def enqueue_build_form(
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
             pr_number=pr_number,
+            fix_ci=fix_ci,
+            ci_check_wait_minutes=ci_check_wait_minutes,
             tools=list(meta_tools.normalize_tool_selection(tools)),
             skills=list(meta_skills.normalize_skill_selection(skills)),
         )
@@ -2915,6 +2948,10 @@ def enqueue_build_form(
             query["enable_web"] = "1"
         if use_native_cli_auth:
             query["use_native_cli_auth"] = "1"
+        if fix_ci:
+            query["fix_ci"] = "1"
+        if ci_check_wait_minutes != 3.0:
+            query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
         if pr_number is not None:
             query["pr_number"] = str(pr_number)
         if tools and tools.strip():
@@ -2942,6 +2979,8 @@ def enqueue_build_form(
         query["enable_web"] = "1"
     if req.use_native_cli_auth:
         query["use_native_cli_auth"] = "1"
+    if req.fix_ci:
+        query["fix_ci"] = "1"
     if req.pr_number is not None:
         query["pr_number"] = str(req.pr_number)
     if req.tools:
@@ -3071,6 +3110,8 @@ def _schedule_to_response(task) -> ScheduleResponse:
         enable_execution=task.enable_execution,
         enable_web=task.enable_web,
         use_native_cli_auth=task.use_native_cli_auth,
+        fix_ci=getattr(task, "fix_ci", False),
+        ci_check_wait_minutes=getattr(task, "ci_check_wait_minutes", 3.0),
         tools=getattr(task, "tools", []),
         skills=task.skills,
         enabled=task.enabled,
@@ -3124,6 +3165,8 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,
         use_native_cli_auth=request.use_native_cli_auth,
+        fix_ci=request.fix_ci,
+        ci_check_wait_minutes=request.ci_check_wait_minutes,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,
@@ -3172,6 +3215,8 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,
         use_native_cli_auth=request.use_native_cli_auth,
+        fix_ci=request.fix_ci,
+        ci_check_wait_minutes=request.ci_check_wait_minutes,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,

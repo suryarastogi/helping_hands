@@ -68,6 +68,8 @@ class ScheduledTask:
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = 3.0
     tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     enabled: bool = True

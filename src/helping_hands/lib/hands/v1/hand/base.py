@@ -50,6 +50,9 @@ class Hand(abc.ABC):
         self._interrupt_event = Event()
         self.auto_pr = True
         self.pr_number: int | None = None
+        self.fix_ci: bool = False
+        self.ci_check_wait_minutes: float = 3.0
+        self.ci_max_retries: int = 3
 
         # Resolve TOOLS (callable capabilities) — independent axis.
         tool_selection = tool_registry.normalize_tool_selection(

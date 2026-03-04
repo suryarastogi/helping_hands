@@ -337,6 +337,60 @@ class GitHubClient:
         pr = repo.get_pull(number)
         pr.edit(body=body)
 
+    def get_check_runs(
+        self,
+        full_name: str,
+        ref: str,
+    ) -> dict[str, Any]:
+        """Get CI check runs for a commit SHA or branch reference.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            ref: Commit SHA, branch name, or tag.
+
+        Returns:
+            A dict with ``ref``, ``total_count``, ``conclusion`` (overall),
+            and ``check_runs`` (list of individual run summaries).
+        """
+        repo = self.get_repo(full_name)
+        commit = repo.get_commit(ref)
+        runs = commit.get_check_runs()
+
+        check_list: list[dict[str, Any]] = []
+        for run in runs:
+            check_list.append(
+                {
+                    "name": run.name,
+                    "status": run.status,
+                    "conclusion": run.conclusion,
+                    "html_url": run.html_url,
+                    "started_at": (
+                        run.started_at.isoformat() if run.started_at else None
+                    ),
+                    "completed_at": (
+                        run.completed_at.isoformat() if run.completed_at else None
+                    ),
+                }
+            )
+
+        if not check_list:
+            overall = "no_checks"
+        elif any(r["status"] != "completed" for r in check_list):
+            overall = "pending"
+        elif all(r["conclusion"] == "success" for r in check_list):
+            overall = "success"
+        elif any(r["conclusion"] == "failure" for r in check_list):
+            overall = "failure"
+        else:
+            overall = "mixed"
+
+        return {
+            "ref": ref,
+            "total_count": len(check_list),
+            "conclusion": overall,
+            "check_runs": check_list,
+        }
+
     def upsert_pr_comment(
         self,
         full_name: str,

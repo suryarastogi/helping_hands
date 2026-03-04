@@ -98,6 +98,8 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "fix_ci": False,
+            "ci_check_wait_minutes": 3.0,
             "tools": [],
             "skills": [],
         }
@@ -140,6 +142,8 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "fix_ci": False,
+            "ci_check_wait_minutes": 3.0,
             "tools": [],
             "skills": [],
         }
@@ -184,6 +188,8 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "fix_ci": False,
+            "ci_check_wait_minutes": 3.0,
             "tools": [],
             "skills": [],
         }
@@ -225,6 +231,8 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "fix_ci": False,
+            "ci_check_wait_minutes": 3.0,
             "tools": [],
             "skills": [],
         }
@@ -267,6 +275,8 @@ class TestBuildForm:
             "enable_execution": False,
             "enable_web": False,
             "use_native_cli_auth": False,
+            "fix_ci": False,
+            "ci_check_wait_minutes": 3.0,
             "tools": [],
             "skills": [],
         }

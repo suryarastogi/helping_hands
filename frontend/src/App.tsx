@@ -62,6 +62,8 @@ type FormState = {
   enable_execution: boolean;
   enable_web: boolean;
   use_native_cli_auth: boolean;
+  fix_ci: boolean;
+  ci_check_wait_minutes: number;
 };
 
 type TaskHistoryItem = {
@@ -110,6 +112,8 @@ type ScheduleItem = {
   enable_execution: boolean;
   enable_web: boolean;
   use_native_cli_auth: boolean;
+  fix_ci: boolean;
+  ci_check_wait_minutes: number;
   tools: string[];
   skills: string[];
   enabled: boolean;
@@ -133,6 +137,8 @@ type ScheduleFormState = {
   enable_execution: boolean;
   enable_web: boolean;
   use_native_cli_auth: boolean;
+  fix_ci: boolean;
+  ci_check_wait_minutes: number;
   tools: string;
   skills: string;
   enabled: boolean;
@@ -217,6 +223,8 @@ const INITIAL_FORM: FormState = {
   enable_execution: false,
   enable_web: false,
   use_native_cli_auth: false,
+  fix_ci: false,
+  ci_check_wait_minutes: 3,
 };
 
 const CRON_PRESETS: Record<string, string> = {
@@ -244,6 +252,8 @@ const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   enable_execution: false,
   enable_web: false,
   use_native_cli_auth: false,
+  fix_ci: false,
+  ci_check_wait_minutes: 3,
   tools: "",
   skills: "",
   enabled: true,
@@ -1205,6 +1215,7 @@ export default function App() {
     const enableExecution = readBoolish(["enable_execution"]);
     const enableWeb = readBoolish(["enable_web"]);
     const useNativeAuth = readBoolish(["use_native_cli_auth"]);
+    const fixCi = readBoolish(["fix_ci"]);
     const tools = readSkills(["tools"]);
     const skills = readSkills(["skills"]);
 
@@ -1237,6 +1248,9 @@ export default function App() {
     }
     if (useNativeAuth) {
       items.push({ label: "Native CLI auth", value: useNativeAuth });
+    }
+    if (fixCi) {
+      items.push({ label: "Fix CI", value: fixCi });
     }
     if (tools) {
       items.push({ label: "Tools", value: tools });
@@ -1629,6 +1643,10 @@ export default function App() {
       if (nativeAuthParam !== null) {
         next.use_native_cli_auth = parseBool(nativeAuthParam);
       }
+      const fixCiParam = params.get("fix_ci");
+      if (fixCiParam !== null) {
+        next.fix_ci = parseBool(fixCiParam);
+      }
 
       return next;
     });
@@ -1934,6 +1952,8 @@ export default function App() {
       enable_execution: form.enable_execution,
       enable_web: form.enable_web,
       use_native_cli_auth: form.use_native_cli_auth,
+      fix_ci: form.fix_ci,
+      ci_check_wait_minutes: form.ci_check_wait_minutes,
     };
 
     if (form.model.trim()) {
@@ -2044,6 +2064,8 @@ export default function App() {
         enable_execution: item.enable_execution,
         enable_web: item.enable_web,
         use_native_cli_auth: item.use_native_cli_auth,
+        fix_ci: item.fix_ci ?? false,
+        ci_check_wait_minutes: item.ci_check_wait_minutes ?? 3,
         tools: (item.tools ?? []).join(", "),
         skills: item.skills.join(", "),
         enabled: item.enabled,
@@ -2070,6 +2092,8 @@ export default function App() {
       enable_execution: scheduleForm.enable_execution,
       enable_web: scheduleForm.enable_web,
       use_native_cli_auth: scheduleForm.use_native_cli_auth,
+      fix_ci: scheduleForm.fix_ci,
+      ci_check_wait_minutes: scheduleForm.ci_check_wait_minutes,
       enabled: scheduleForm.enabled,
     };
     if (scheduleForm.model.trim()) body.model = scheduleForm.model.trim();
@@ -2363,6 +2387,14 @@ export default function App() {
                 />
                 Native auth
               </label>
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.fix_ci}
+                  onChange={(event) => updateField("fix_ci", event.target.checked)}
+                />
+                Fix CI
+              </label>
             </div>
           </div>
         </details>
@@ -2640,6 +2672,14 @@ export default function App() {
                       onChange={(e) => updateScheduleField("use_native_cli_auth", e.target.checked)}
                     />
                     Native auth
+                  </label>
+                  <label className="check-row">
+                    <input
+                      type="checkbox"
+                      checked={scheduleForm.fix_ci}
+                      onChange={(e) => updateScheduleField("fix_ci", e.target.checked)}
+                    />
+                    Fix CI
                   </label>
                   <label className="check-row">
                     <input
@@ -3095,7 +3135,7 @@ export default function App() {
 
             </section>
 
-            {submissionCard}
+            {mainView !== "schedules" && submissionCard}
             {mainView === "monitor" && taskId && monitorCard}
             {mainView === "schedules" && schedulesCard}
           </>

@@ -219,6 +219,8 @@ def _update_progress(
     use_native_cli_auth: bool,
     tools: tuple[str, ...],
     skills: tuple[str, ...],
+    fix_ci: bool = False,
+    ci_check_wait_minutes: float = 3.0,
     workspace: str | None = None,
 ) -> None:
     update_state = getattr(task, "update_state", None)
@@ -238,6 +240,8 @@ def _update_progress(
         "enable_execution": enable_execution,
         "enable_web": enable_web,
         "use_native_cli_auth": use_native_cli_auth,
+        "fix_ci": fix_ci,
+        "ci_check_wait_minutes": ci_check_wait_minutes,
         "tools": list(tools),
         "skills": list(skills),
         "updates": list(updates),
@@ -266,7 +270,9 @@ async def _collect_stream(
     use_native_cli_auth: bool,
     tools: tuple[str, ...],
     skills: tuple[str, ...],
-    workspace: str | None,
+    fix_ci: bool = False,
+    ci_check_wait_minutes: float = 3.0,
+    workspace: str | None = None,
 ) -> str:
     parts: list[str] = []
     collector = _UpdateCollector(updates)
@@ -296,6 +302,8 @@ async def _collect_stream(
                 use_native_cli_auth=use_native_cli_auth,
                 tools=tools,
                 skills=skills,
+                fix_ci=fix_ci,
+                ci_check_wait_minutes=ci_check_wait_minutes,
                 workspace=workspace,
             )
 
@@ -318,6 +326,8 @@ async def _collect_stream(
         use_native_cli_auth=use_native_cli_auth,
         tools=tools,
         skills=skills,
+        fix_ci=fix_ci,
+        ci_check_wait_minutes=ci_check_wait_minutes,
         workspace=workspace,
     )
     return "".join(parts)
@@ -338,6 +348,8 @@ def build_feature(
     use_native_cli_auth: bool = False,
     tools: list[str] | None = None,
     skills: list[str] | None = None,
+    fix_ci: bool = False,
+    ci_check_wait_minutes: float = 3.0,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -397,6 +409,8 @@ def build_feature(
         use_native_cli_auth=use_native_cli_auth,
         tools=selected_tools,
         skills=selected_skills,
+        fix_ci=fix_ci,
+        ci_check_wait_minutes=ci_check_wait_minutes,
     )
 
     if runtime_backend == "e2e":
@@ -432,6 +446,8 @@ def build_feature(
             use_native_cli_auth=use_native_cli_auth,
             tools=selected_tools,
             skills=selected_skills,
+            fix_ci=fix_ci,
+            ci_check_wait_minutes=ci_check_wait_minutes,
         )
         response = hand.run(
             prompt,
@@ -525,6 +541,8 @@ def build_feature(
             use_native_cli_auth=use_native_cli_auth,
             tools=selected_tools,
             skills=selected_skills,
+            fix_ci=fix_ci,
+            ci_check_wait_minutes=ci_check_wait_minutes,
             workspace=str(resolved_repo_path),
         )
 
@@ -586,6 +604,8 @@ def build_feature(
 
         hand.auto_pr = not no_pr
         hand.pr_number = pr_number
+        hand.fix_ci = fix_ci
+        hand.ci_check_wait_minutes = ci_check_wait_minutes
         message = asyncio.run(
             _collect_stream(
                 hand,
@@ -605,6 +625,8 @@ def build_feature(
                 use_native_cli_auth=use_native_cli_auth,
                 tools=selected_tools,
                 skills=selected_skills,
+                fix_ci=fix_ci,
+                ci_check_wait_minutes=ci_check_wait_minutes,
                 workspace=str(resolved_repo_path),
             )
         )
@@ -623,6 +645,8 @@ def build_feature(
             "enable_execution": str(enable_execution).lower(),
             "enable_web": str(enable_web).lower(),
             "use_native_cli_auth": str(use_native_cli_auth).lower(),
+            "fix_ci": str(fix_ci).lower(),
+            "ci_check_wait_minutes": str(ci_check_wait_minutes),
             "tools": list(selected_tools),
             "skills": list(selected_skills),
             "message": message,
@@ -676,6 +700,8 @@ def scheduled_build(
         use_native_cli_auth=schedule.use_native_cli_auth,
         tools=getattr(schedule, "tools", []),
         skills=schedule.skills,
+        fix_ci=getattr(schedule, "fix_ci", False),
+        ci_check_wait_minutes=getattr(schedule, "ci_check_wait_minutes", 3.0),
     )
 
     # Record the run
