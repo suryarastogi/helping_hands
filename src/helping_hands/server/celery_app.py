@@ -104,11 +104,18 @@ def _repo_tmp_dir() -> Path | None:
     return None
 
 
-def _resolve_repo_path(repo: str) -> tuple[Path, str | None, Path | None]:
+def _resolve_repo_path(
+    repo: str,
+    *,
+    pr_number: int | None = None,
+) -> tuple[Path, str | None, Path | None]:
     """Resolve local repo path or clone an owner/repo reference.
 
     Returns (repo_path, cloned_from, temp_root) where temp_root is the
     directory to clean up after use (None for local paths).
+
+    When *pr_number* is given the clone uses ``--no-single-branch`` so that
+    the PR branch can be fetched and pushed back without history issues.
     """
     path = Path(repo).expanduser().resolve()
     if path.is_dir():
@@ -118,8 +125,12 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None, Path | None]:
         dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
         dest = dest_root / "repo"
         url = _github_clone_url(repo)
+        clone_cmd = ["git", "clone", "--depth", "1"]
+        if pr_number is not None:
+            clone_cmd.append("--no-single-branch")
+        clone_cmd += [url, str(dest)]
         result = subprocess.run(
-            ["git", "clone", "--depth", "1", url, str(dest)],
+            clone_cmd,
             capture_output=True,
             text=True,
             check=False,
@@ -469,7 +480,9 @@ def build_feature(
         }
 
     try:
-        resolved_repo_path, cloned_from, _tmp_root = _resolve_repo_path(repo_path)
+        resolved_repo_path, cloned_from, _tmp_root = _resolve_repo_path(
+            repo_path, pr_number=pr_number
+        )
     except ValueError as exc:
         _append_update(updates, f"Repo resolution failed: {exc}")
         raise

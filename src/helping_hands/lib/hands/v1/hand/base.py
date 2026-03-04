@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import abc
 import contextlib
+import logging
 import os
 import re
 import subprocess
@@ -27,6 +28,8 @@ from uuid import uuid4
 
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
@@ -303,8 +306,16 @@ class Hand(abc.ABC):
 
         try:
             self._push_noninteractive(gh, repo_dir, branch)
-        except RuntimeError:
-            # Branch diverged — create a PR targeting the original PR branch.
+        except RuntimeError as push_exc:
+            # Branch diverged or push rejected — create a PR targeting the
+            # original PR branch instead.
+            logger.warning(
+                "Push to PR #%s branch %r failed: %s. "
+                "Falling back to diverged-branch PR.",
+                self.pr_number,
+                branch,
+                push_exc,
+            )
             return self._create_pr_for_diverged_branch(
                 gh=gh,
                 repo=repo,
