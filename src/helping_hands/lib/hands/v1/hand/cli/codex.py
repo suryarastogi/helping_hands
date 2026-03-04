@@ -48,6 +48,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return f"Codex CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
+        """Expand bare ``codex`` to ``codex exec`` for single-token commands."""
         if tokens[0] == "codex" and len(tokens) == 1:
             return ["codex", "exec"]
         return super()._normalize_base_command(tokens)
@@ -79,6 +80,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return self._DEFAULT_SANDBOX_MODE
 
     def _skip_git_repo_check_enabled(self) -> bool:
+        """Return True when ``--skip-git-repo-check`` should be injected."""
         raw = os.environ.get(
             "HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK",
             self._DEFAULT_SKIP_GIT_REPO_CHECK,
@@ -105,12 +107,14 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return self._apply_codex_exec_git_repo_check_defaults(cmd)
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Format an error message from a failed Codex CLI subprocess."""
         return self._build_codex_failure_message(
             return_code=return_code,
             output=output,
         )
 
     def _command_not_found_message(self, command: str) -> str:
+        """Format an error message when the Codex CLI executable is missing."""
         return (
             f"Codex CLI command not found: {command!r}. "
             "Set HELPING_HANDS_CODEX_CLI_CMD to a valid command. "
@@ -133,4 +137,5 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the Codex CLI backend, delegating to ``_invoke_codex``."""
         return await self._invoke_codex(prompt, emit=emit)

@@ -196,4 +196,4 @@ alongside arbitrary cron expressions.
 
 ---
 
-*Last updated: 2026-03-01 — 38 MkDocs API pages (added `git_utils`), 14 hand modules documented, 624 tests passing. 46 modules now declare `__all__` exports. Duplicate git helpers extracted to shared `lib/git_utils.py`.*
+*Last updated: 2026-03-04 — 38 MkDocs API pages, 14 hand modules documented, 624 tests passing. 46 modules declare `__all__` exports. All CLI hand private methods now have Google-style docstrings.*

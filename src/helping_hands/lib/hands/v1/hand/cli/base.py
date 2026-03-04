@@ -306,18 +306,21 @@ class _TwoPhaseCLIHand(Hand):
         return value
 
     def _io_poll_seconds(self) -> float:
+        """Return the subprocess stdout polling interval in seconds."""
         return self._float_env(
             "HELPING_HANDS_CLI_IO_POLL_SECONDS",
             default=self._DEFAULT_IO_POLL_SECONDS,
         )
 
     def _heartbeat_seconds(self) -> float:
+        """Return the interval between heartbeat status lines during quiet periods."""
         return self._float_env(
             "HELPING_HANDS_CLI_HEARTBEAT_SECONDS",
             default=self._DEFAULT_HEARTBEAT_SECONDS,
         )
 
     def _idle_timeout_seconds(self) -> float:
+        """Return the maximum idle time before the subprocess is terminated."""
         return self._float_env(
             "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS",
             default=self._DEFAULT_IDLE_TIMEOUT_SECONDS,
@@ -645,6 +648,7 @@ class _TwoPhaseCLIHand(Hand):
             self._active_process = None
 
     async def _invoke_backend(self, prompt: str, *, emit: _Emitter) -> str:
+        """Invoke the CLI backend with *prompt*, delegating to ``_invoke_cli``."""
         return await self._invoke_cli(prompt, emit=emit)
 
     async def _run_two_phase(

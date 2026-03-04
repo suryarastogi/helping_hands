@@ -42,6 +42,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return ("ANTHROPIC_API_KEY",)
 
     def _pr_description_cmd(self) -> list[str] | None:
+        """Return the Claude CLI command for generating PR descriptions, or None."""
         if shutil.which("claude") is not None:
             return ["claude", "-p", "--output-format", "text"]
         return None
@@ -134,12 +135,14 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return [token for token in cmd if token != "--dangerously-skip-permissions"]
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Format an error message from a failed Claude CLI subprocess."""
         return self._build_claude_failure_message(
             return_code=return_code,
             output=output,
         )
 
     def _command_not_found_message(self, command: str) -> str:
+        """Format an error message when the Claude CLI executable is missing."""
         return (
             f"Claude Code CLI command not found: {command!r}. "
             "Set HELPING_HANDS_CLAUDE_CLI_CMD to a valid command."
@@ -191,4 +194,5 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the Claude Code CLI backend, delegating to ``_invoke_claude``."""
         return await self._invoke_claude(prompt, emit=emit)

@@ -24,6 +24,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_APPROVAL_MODE = "auto_edit"
 
     def _pr_description_cmd(self) -> list[str] | None:
+        """Return the Gemini CLI command for generating PR descriptions, or None."""
         if shutil.which("gemini") is not None:
             return ["gemini", "-p"]
         return None
@@ -126,6 +127,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         return f"Gemini CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _build_subprocess_env(self) -> dict[str, str]:
+        """Build env for Gemini subprocess, raising if ``GEMINI_API_KEY`` is missing."""
         env = super()._build_subprocess_env()
         if env.get("GEMINI_API_KEY", "").strip():
             return env
@@ -135,12 +137,14 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         raise RuntimeError(msg)
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Format an error message from a failed Gemini CLI subprocess."""
         return self._build_gemini_failure_message(
             return_code=return_code,
             output=output,
         )
 
     def _command_not_found_message(self, command: str) -> str:
+        """Format an error message when the Gemini CLI executable is missing."""
         return (
             f"Gemini CLI command not found: {command!r}. "
             "Set HELPING_HANDS_GEMINI_CLI_CMD to a valid command. "
@@ -177,4 +181,5 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the Gemini CLI backend, delegating to ``_invoke_gemini``."""
         return await self._invoke_gemini(prompt, emit=emit)

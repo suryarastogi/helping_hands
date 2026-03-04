@@ -24,6 +24,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
 
     def _pr_description_cmd(self) -> list[str] | None:
+        """Return a PR description command using Claude CLI when Goose is Anthropic-backed."""
         provider, _model = self._resolve_goose_provider_model_from_config()
         if provider == "anthropic" and shutil.which("claude") is not None:
             return ["claude", "-p", "--output-format", "text"]
@@ -43,6 +44,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return f"auth=GOOSE_PROVIDER={provider} ({env_var} {present})"
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
+        """Expand bare ``goose`` or ``goose run`` to include developer builtin and text flags."""
         if tokens == ["goose"]:
             return ["goose", "run", "--with-builtin", "developer", "--text"]
         if tokens == ["goose", "run"]:
@@ -73,6 +75,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return [*cmd[:2], "--with-builtin", "developer", *cmd[2:]]
 
     def _command_not_found_message(self, command: str) -> str:
+        """Format an error message when the Goose CLI executable is missing."""
         return (
             f"Goose CLI command not found: {command!r}. "
             "Set HELPING_HANDS_GOOSE_CLI_CMD to a valid command. "
