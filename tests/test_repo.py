@@ -30,3 +30,41 @@ class TestRepoIndex:
     def test_from_path_raises_on_missing(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
             RepoIndex.from_path(tmp_path / "nonexistent")
+
+    def test_empty_directory(self, tmp_path: Path) -> None:
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.files == []
+        assert idx.root == tmp_path
+
+    def test_files_are_sorted(self, tmp_path: Path) -> None:
+        (tmp_path / "z.py").write_text("")
+        (tmp_path / "a.py").write_text("")
+        (tmp_path / "m.py").write_text("")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.files == ["a.py", "m.py", "z.py"]
+
+    def test_deeply_nested_files(self, tmp_path: Path) -> None:
+        deep = tmp_path / "a" / "b" / "c" / "d"
+        deep.mkdir(parents=True)
+        (deep / "deep.py").write_text("")
+        idx = RepoIndex.from_path(tmp_path)
+        assert "a/b/c/d/deep.py" in idx.files
+
+    def test_excludes_dotgit_in_nested_path(self, tmp_path: Path) -> None:
+        git_dir = tmp_path / ".git" / "refs"
+        git_dir.mkdir(parents=True)
+        (git_dir / "heads").write_text("")
+        (tmp_path / "real.py").write_text("")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.files == ["real.py"]
+
+    def test_directories_not_included(self, tmp_path: Path) -> None:
+        (tmp_path / "subdir").mkdir()
+        (tmp_path / "subdir" / "file.py").write_text("")
+        idx = RepoIndex.from_path(tmp_path)
+        assert "subdir" not in idx.files
+        assert "subdir/file.py" in idx.files
+
+    def test_default_files_empty(self) -> None:
+        idx = RepoIndex(root=Path("/tmp/fake"))
+        assert idx.files == []
