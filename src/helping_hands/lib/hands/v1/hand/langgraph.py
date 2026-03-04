@@ -25,11 +25,13 @@ class LangGraphHand(Hand):
     """
 
     def __init__(self, config: Any, repo_index: Any) -> None:
+        """Initialize with resolved model and LangGraph ReAct agent."""
         super().__init__(config, repo_index)
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Create a LangGraph ReAct agent with the resolved model."""
         from langgraph.prebuilt import create_react_agent
 
         llm = build_langchain_chat_model(
@@ -44,6 +46,7 @@ class LangGraphHand(Hand):
         )
 
     def run(self, prompt: str) -> HandResponse:
+        """Invoke the LangGraph agent synchronously and return the result."""
         result = self._agent.invoke({"messages": [{"role": "user", "content": prompt}]})
         last_msg = result["messages"][-1]
         content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
@@ -63,6 +66,7 @@ class LangGraphHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream LangGraph agent output, yielding text chunks as they arrive."""
         parts: list[str] = []
         async for event in self._agent.astream_events(
             {"messages": [{"role": "user", "content": prompt}]},

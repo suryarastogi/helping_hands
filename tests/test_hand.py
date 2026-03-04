@@ -23,6 +23,7 @@ from helping_hands.lib.hands.v1.hand import (
     Hand,
     HandResponse,
     LangGraphHand,
+    OpenCodeCLIHand,
 )
 from helping_hands.lib.meta.tools.command import CommandResult
 from helping_hands.lib.meta.tools.web import (
@@ -2643,6 +2644,177 @@ class TestGeminiCLIHand:
     ) -> None:
         hand = GeminiCLIHand(config, repo_index)
         assert hand._pr_description_cmd() is None
+
+
+# ---------------------------------------------------------------------------
+# OpenCodeCLIHand
+# ---------------------------------------------------------------------------
+
+
+class TestOpenCodeCLIHand:
+    def test_build_opencode_failure_message_for_auth_error(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = OpenCodeCLIHand(config, repo_index)
+        msg = hand._build_opencode_failure_message(
+            return_code=1,
+            output="ERROR: 401 unauthorized: invalid api key",
+        )
+        assert "authentication failed" in msg.lower()
+        assert "opencode auth login" in msg
+
+    def test_build_opencode_failure_message_generic(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = OpenCodeCLIHand(config, repo_index)
+        msg = hand._build_opencode_failure_message(
+            return_code=2,
+            output="some random failure output",
+        )
+        assert "exit=2" in msg
+        assert "some random failure output" in msg
+
+    def test_resolve_cli_model_preserves_provider_slash_format(
+        self,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(repo="/tmp/fake", model="litellm/claude-sonnet-4-6")
+        hand = OpenCodeCLIHand(config, repo_index)
+        assert hand._resolve_cli_model() == "litellm/claude-sonnet-4-6"
+
+    def test_resolve_cli_model_returns_empty_for_default(
+        self,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(repo="/tmp/fake", model="default")
+        hand = OpenCodeCLIHand(config, repo_index)
+        assert hand._resolve_cli_model() == ""
+
+    def test_resolve_cli_model_returns_bare_model(
+        self,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(repo="/tmp/fake", model="gpt-5.2")
+        hand = OpenCodeCLIHand(config, repo_index)
+        assert hand._resolve_cli_model() == "gpt-5.2"
+
+    def test_render_command_uses_opencode_run(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = OpenCodeCLIHand(config, repo_index)
+        cmd = hand._render_command("hello world")
+        assert cmd[0] == "opencode"
+        assert "run" in cmd
+
+    def test_command_not_found_message(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = OpenCodeCLIHand(config, repo_index)
+        msg = hand._command_not_found_message("opencode")
+        assert "HELPING_HANDS_OPENCODE_CLI_CMD" in msg
+        assert "opencode" in msg
+
+    @patch.object(OpenCodeCLIHand, "_finalize_repo_pr")
+    @patch.object(OpenCodeCLIHand, "_invoke_opencode", autospec=True)
+    def test_run_executes_init_then_task(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: OpenCodeCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "Init summary.\n" if len(prompts) == 1 else "Task output.\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/99",
+            "pr_number": "99",
+            "pr_branch": "helping-hands/opencodecli-test",
+            "pr_commit": "abc123",
+        }
+
+        hand = OpenCodeCLIHand(config, repo_index)
+        resp = hand.run("do something")
+
+        assert len(prompts) == 2
+        assert "Initialization phase" in prompts[0]
+        assert "User task request" in prompts[1]
+        assert "Task output." in resp.message
+        assert resp.metadata["backend"] == "opencodecli"
+        mock_finalize.assert_called_once()
+
+    @patch.object(OpenCodeCLIHand, "_finalize_repo_pr")
+    @patch.object(OpenCodeCLIHand, "_invoke_opencode", autospec=True)
+    def test_stream_runs_two_phases_and_emits_pr_result(
+        self,
+        mock_invoke: MagicMock,
+        mock_finalize: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        prompts: list[str] = []
+
+        async def fake_invoke(
+            _self: OpenCodeCLIHand,
+            prompt: str,
+            *,
+            emit: Any,
+        ) -> str:
+            prompts.append(prompt)
+            text = "init output\n" if len(prompts) == 1 else "task output\n"
+            await emit(text)
+            return text
+
+        mock_invoke.side_effect = fake_invoke
+        mock_finalize.return_value = {
+            "auto_pr": "true",
+            "pr_status": "created",
+            "pr_url": "https://example/pr/9",
+            "pr_number": "9",
+            "pr_branch": "helping-hands/opencodecli-test",
+            "pr_commit": "abc123",
+        }
+
+        hand = OpenCodeCLIHand(config, repo_index)
+        chunks = asyncio.run(_collect_stream(hand, "hello"))
+        text = "".join(chunks)
+
+        assert "[phase 1/2]" in text
+        assert "[phase 2/2]" in text
+        assert "init output" in text
+        assert "task output" in text
+        assert "PR created" in text
+        assert len(prompts) == 2
+
+    def test_backend_name_is_opencodecli(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = OpenCodeCLIHand(config, repo_index)
+        assert hand._BACKEND_NAME == "opencodecli"
+        assert hand._CLI_DISPLAY_NAME == "OpenCode CLI"
 
 
 # ---------------------------------------------------------------------------

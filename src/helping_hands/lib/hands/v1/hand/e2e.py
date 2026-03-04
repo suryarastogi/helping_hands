@@ -78,6 +78,14 @@ class E2EHand(Hand):
         pr_number: int | None = None,
         dry_run: bool = False,
     ) -> HandResponse:
+        """Execute the full clone/edit/commit/push/PR workflow.
+
+        Args:
+            prompt: Description of the E2E change to apply.
+            hand_uuid: Optional hand UUID; generated if omitted.
+            pr_number: Optional existing PR to resume/update.
+            dry_run: When True, skip push and PR creation.
+        """
         from helping_hands.lib.github import GitHubClient
 
         repo = self.config.repo.strip()
@@ -210,4 +218,5 @@ class E2EHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream E2E output (single chunk — delegates to ``run()``)."""
         yield self.run(prompt).message

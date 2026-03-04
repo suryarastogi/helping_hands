@@ -140,4 +140,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-28 — frontend dual-file update convention (App.tsx + styles.css).*
+*Last updated: 2026-03-04 — PRD workflow convention and doc/test hardening sprint.*

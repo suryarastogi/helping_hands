@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -90,3 +91,97 @@ class TestBrowseUrl:
 
         assert result.truncated is True
         assert len(result.content) == 10
+
+
+class TestSearchWebErrors:
+    def test_search_web_rejects_negative_max_results(self) -> None:
+        with pytest.raises(ValueError, match="max_results"):
+            web_tools.search_web("test", max_results=0)
+
+    def test_search_web_rejects_negative_timeout(self) -> None:
+        with pytest.raises(ValueError, match="timeout_s"):
+            web_tools.search_web("test", timeout_s=0)
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_search_web_handles_unexpected_format(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _FakeResponse(b'"just a string"')
+        with pytest.raises(RuntimeError, match="unexpected"):
+            web_tools.search_web("test")
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_search_web_deduplicates_urls(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _FakeResponse(
+            b'{"Heading":"","AbstractText":"","AbstractURL":"",'
+            b'"RelatedTopics":[{"Text":"A","FirstURL":"https://example.com/a"},'
+            b'{"Text":"B","FirstURL":"https://example.com/a"},'
+            b'{"Text":"C","FirstURL":"https://example.com/c"}]}'
+        )
+        result = web_tools.search_web("test", max_results=10)
+        urls = [r.url for r in result.results]
+        assert urls == ["https://example.com/a", "https://example.com/c"]
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_search_web_http_error_propagates(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = HTTPError(
+            "https://api.duckduckgo.com/", 403, "Forbidden", {}, None
+        )
+        with pytest.raises(HTTPError):
+            web_tools.search_web("test")
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_search_web_network_error_propagates(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = URLError("Connection refused")
+        with pytest.raises(URLError):
+            web_tools.search_web("test")
+
+
+class TestBrowseUrlErrors:
+    def test_browse_url_rejects_empty_url(self) -> None:
+        with pytest.raises(ValueError, match="non-empty"):
+            web_tools.browse_url("")
+
+    def test_browse_url_rejects_non_http(self) -> None:
+        with pytest.raises(ValueError, match="http"):
+            web_tools.browse_url("ftp://example.com")
+
+    def test_browse_url_rejects_no_host(self) -> None:
+        with pytest.raises(ValueError, match="host"):
+            web_tools.browse_url("http://")
+
+    def test_browse_url_rejects_negative_max_chars(self) -> None:
+        with pytest.raises(ValueError, match="max_chars"):
+            web_tools.browse_url("https://example.com", max_chars=0)
+
+    def test_browse_url_rejects_negative_timeout(self) -> None:
+        with pytest.raises(ValueError, match="timeout_s"):
+            web_tools.browse_url("https://example.com", timeout_s=0)
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_browse_url_handles_plain_text(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _FakeResponse(
+            b"Just plain text content",
+            content_type="text/plain",
+        )
+        result = web_tools.browse_url("https://example.com", max_chars=100)
+        assert result.content == "Just plain text content"
+        assert result.truncated is False
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_browse_url_http_error_propagates(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = HTTPError(
+            "https://example.com", 404, "Not Found", {}, None
+        )
+        with pytest.raises(HTTPError):
+            web_tools.browse_url("https://example.com")
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_browse_url_strips_script_and_style_tags(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _FakeResponse(
+            b"<html><body><script>alert(1)</script>"
+            b"<style>.x{color:red}</style><p>Safe</p></body></html>",
+            content_type="text/html",
+        )
+        result = web_tools.browse_url("https://example.com", max_chars=1000)
+        assert "alert" not in result.content
+        assert "color:red" not in result.content
+        assert "Safe" in result.content

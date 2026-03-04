@@ -100,6 +100,12 @@ class _BasicIterativeHand(Hand):
         previous_summary: str,
         bootstrap_context: str,
     ) -> str:
+        """Build the full prompt for a single iteration of the hand loop.
+
+        Combines the user task, iteration counter, previous summary, bootstrap
+        context (iteration 1 only), and tool/read instructions into a single
+        prompt string sent to the underlying model.
+        """
         previous = previous_summary.strip() or "none"
         bootstrap = (
             f"Bootstrap repository context:\n{bootstrap_context}\n\n"
@@ -131,6 +137,7 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _is_satisfied(content: str) -> bool:
+        """Return True if the model output contains ``SATISFIED: yes``."""
         match = re.search(r"SATISFIED:\s*(yes|no)", content, flags=re.IGNORECASE)
         if match:
             return match.group(1).lower() == "yes"
@@ -138,6 +145,7 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_inline_edits(cls, content: str) -> list[tuple[str, str]]:
+        """Extract ``@@FILE:`` blocks from model output as ``(path, content)`` pairs."""
         return [
             (m.group("path").strip(), m.group("content"))
             for m in cls._EDIT_PATTERN.finditer(content)
@@ -145,6 +153,11 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_read_requests(cls, content: str) -> list[str]:
+        """Extract ``@@READ:`` file paths from model output.
+
+        Falls back to natural-language read requests when no explicit
+        ``@@READ`` markers are found.
+        """
         explicit = [
             m.group("path").strip() for m in cls._READ_PATTERN.finditer(content)
         ]
@@ -160,6 +173,11 @@ class _BasicIterativeHand(Hand):
         cls,
         content: str,
     ) -> list[tuple[str, dict[str, Any], str | None]]:
+        """Extract ``@@TOOL:`` blocks from model output.
+
+        Returns a list of ``(tool_name, payload_dict, error_or_none)`` tuples.
+        Invalid JSON payloads produce an error string in the third element.
+        """
         requests: list[tuple[str, dict[str, Any], str | None]] = []
         for match in cls._TOOL_PATTERN.finditer(content):
             tool_name = match.group("name").strip()
@@ -376,6 +394,7 @@ class _BasicIterativeHand(Hand):
         raise TypeError(f"unsupported tool result type: {type(result)!r}")
 
     def _execute_tool_requests(self, content: str) -> str:
+        """Run all ``@@TOOL:`` requests and return formatted result blocks."""
         root = self.repo_index.root.resolve()
         requests = self._extract_tool_requests(content)
         if not requests:
@@ -407,6 +426,10 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     def _apply_inline_edits(self, content: str) -> list[str]:
+        """Write all ``@@FILE:`` edits to disk and refresh the repo index.
+
+        Returns display paths of files that were successfully written.
+        """
         root = self.repo_index.root.resolve()
         changed: list[str] = []
         for rel_path, body in self._extract_inline_edits(content):
@@ -441,6 +464,7 @@ class _BasicIterativeHand(Hand):
         return ""
 
     def _build_tree_snapshot(self) -> str:
+        """Return a depth-limited, entry-limited tree listing of indexed files."""
         entries: set[str] = set()
         for rel_path in sorted(self.repo_index.files):
             normalized = system_tools.normalize_relative_path(rel_path)
@@ -470,6 +494,7 @@ class _BasicIterativeHand(Hand):
         return "\n".join(lines)
 
     def _build_bootstrap_context(self) -> str:
+        """Build iteration-1 bootstrap context from README, AGENT.md, and tree snapshot."""
         root = self.repo_index.root.resolve()
         sections: list[str] = []
 
@@ -490,7 +515,12 @@ class _BasicIterativeHand(Hand):
 
 
 class BasicLangGraphHand(_BasicIterativeHand):
-    """Iterative LangGraph-backed hand with streaming and interruption."""
+    """Iterative LangGraph-backed hand with streaming and interruption.
+
+    Uses LangGraph's ``create_react_agent`` with a model resolved through the
+    provider abstraction layer. Runs up to ``max_iterations`` prompt rounds,
+    applying ``@@FILE``/``@@READ``/``@@TOOL`` directives each iteration.
+    """
 
     def __init__(
         self,
@@ -504,6 +534,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Create a LangGraph ReAct agent with the resolved model and system prompt."""
         from langgraph.prebuilt import create_react_agent
 
         llm = build_langchain_chat_model(
@@ -530,6 +561,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the iterative LangGraph loop synchronously and return the result."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -596,6 +628,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream iterative LangGraph output, yielding text chunks as they arrive."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -678,7 +711,11 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
 
 class BasicAtomicHand(_BasicIterativeHand):
-    """Iterative Atomic-backed hand with streaming and interruption."""
+    """Iterative Atomic Agents-backed hand with streaming and interruption.
+
+    Uses ``atomic_agents.AtomicAgent`` with an instructor-wrapped client
+    resolved through the provider abstraction layer.
+    """
 
     def __init__(
         self,
@@ -729,6 +766,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         return str(response)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the iterative Atomic Agents loop synchronously and return the result."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -793,6 +831,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream iterative Atomic Agents output, yielding text chunks as they arrive."""
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
