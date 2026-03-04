@@ -6,10 +6,11 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 - **[PRD.md](../../completed/PRD.md)** — Reusable PRD template with standard sections (problem statement, success criteria, non-goals, TODO, activity log)
 
-## 2026-03-04 — CLI Hand Docstring Completion & Doc Reconciliation
+## 2026-03-04 — Doc Reconciliation & Metric Accuracy
 
 | PRD | Theme |
 |-----|-------|
+| [cross-surface-doc-reconciliation-metric-accuracy](../../completed/PRD-2026-03-04-cross-surface-doc-reconciliation-metric-accuracy.md) | Fix stale timestamps, module/API page count inconsistencies across all doc surfaces |
 | [cli-hand-docstring-completion-doc-reconciliation](../../completed/PRD-2026-03-04-cli-hand-docstring-completion-doc-reconciliation.md) | Complete docstring coverage for all CLI hand private methods, Obsidian reconciliation |
 
 ## 2026-03-01 — Documentation, Testing & Hardening Sprint
@@ -56,4 +57,4 @@ Index of completed product requirement documents. Each PRD includes a TODO check
 
 ---
 
-*Last updated: 2026-03-04 — 33 completed PRDs indexed.*
+*Last updated: 2026-03-04 — 34 completed PRDs indexed.*

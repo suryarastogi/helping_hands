@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** March 1, 2026
+**Last updated:** March 4, 2026
 
 ## What is this?
 
