@@ -6,10 +6,10 @@ Tracking quality dimensions across the codebase.
 
 | Dimension | Score | Notes |
 |-----------|-------|-------|
-| Test coverage | Medium | 18 test files, ~6,350 lines. Core paths covered; edge cases and error paths need expansion. |
+| Test coverage | Medium-High | 20 test files, ~7,500+ lines. Core paths, edge cases, and error paths well covered. |
 | Type safety | High | Type hints everywhere, `ty` checker in pre-commit. |
 | Lint compliance | High | Ruff with strict rule set, enforced in CI. |
-| Documentation | Medium | API docs auto-generated. Architecture docs being added. |
+| Documentation | Medium-High | API docs auto-generated. Architecture, agent, design, and quality docs in place. |
 | Security | High | Path confinement, token auth, input validation. |
 | CI/CD | High | Multi-Python CI, coverage upload, pre-commit hooks. |
 
@@ -17,13 +17,10 @@ Tracking quality dimensions across the codebase.
 
 | Module | Current State | Priority |
 |--------|---------------|----------|
-| `filesystem.py` | No dedicated tests | High — security-critical |
-| `repo.py` | 3 basic tests | Medium |
-| `task_result.py` | 4 basic tests | Medium |
 | `default_prompts.py` | No tests | Low |
-| `schedules.py` (ScheduleManager) | Untested | Medium |
-| `registry.py` parsers | Minimal coverage | Medium |
+| `celery_app.py` | Task bodies and retry logic have low coverage | Medium |
 
 ## Quality Improvement History
 
+- **2026-03-04**: Added ScheduleManager unit tests (18 tests), registry parser edge-case tests (26 tests), AI provider error-path tests (8 tests).
 - **2026-03-04**: Added filesystem.py tests, expanded repo.py and task_result.py tests, created documentation structure.
