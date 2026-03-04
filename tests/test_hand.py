@@ -2849,13 +2849,17 @@ class TestTwoPhaseCLIHandUtilities:
         from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
         for value in ("1", "true", "yes", "on", "TRUE", " Yes ", " ON "):
-            assert _TwoPhaseCLIHand._is_truthy(value) is True, f"expected {value!r} truthy"
+            assert _TwoPhaseCLIHand._is_truthy(value) is True, (
+                f"expected {value!r} truthy"
+            )
 
     def test_is_truthy_false_values(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
         for value in ("0", "false", "no", "off", "", "random"):
-            assert _TwoPhaseCLIHand._is_truthy(value) is False, f"expected {value!r} falsy"
+            assert _TwoPhaseCLIHand._is_truthy(value) is False, (
+                f"expected {value!r} falsy"
+            )
 
     def test_is_truthy_none(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
@@ -2989,9 +2993,7 @@ class TestOpenCodeCLIHand:
         hand = OpenCodeCLIHand(cfg, repo_index)
         assert hand._resolve_cli_model() == ""
 
-    def test_resolve_cli_model_empty_returns_empty(
-        self, repo_index: RepoIndex
-    ) -> None:
+    def test_resolve_cli_model_empty_returns_empty(self, repo_index: RepoIndex) -> None:
         cfg = Config(repo="/tmp/fake", model="")
         hand = OpenCodeCLIHand(cfg, repo_index)
         assert hand._resolve_cli_model() == ""
@@ -3027,3 +3029,331 @@ class TestOpenCodeCLIHand:
 
 async def _collect_stream(hand: Hand, prompt: str) -> list[str]:
     return [chunk async for chunk in hand.stream(prompt)]
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter (Claude Code CLI)
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitter:
+    """Tests for _StreamJsonEmitter parsing of Claude Code stream-json output."""
+
+    def _make_emitter(self) -> tuple[Any, list[str]]:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        emitted: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            emitted.append(chunk)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        return parser, emitted
+
+    def test_assistant_text_event_emits_preview(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "Hello world"}],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert any("Hello world" in c for c in emitted)
+
+    def test_assistant_tool_use_emits_summary(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Read",
+                            "input": {"file_path": "/tmp/test.py"},
+                        }
+                    ],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert any("Read /tmp/test.py" in c for c in emitted)
+
+    def test_user_tool_result_emits_preview(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "content": "file content here",
+                        }
+                    ],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert any("file content here" in c for c in emitted)
+
+    def test_result_event_captures_result_text(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "Task completed successfully",
+                "total_cost_usd": 0.05,
+                "duration_ms": 12000,
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert parser.result_text() == "Task completed successfully"
+        assert any("$0.0500" in c for c in emitted)
+        assert any("12.0s" in c for c in emitted)
+
+    def test_non_json_lines_pass_through(self) -> None:
+        parser, emitted = self._make_emitter()
+        asyncio.run(parser("plain text log line\n"))
+        assert any("plain text log line" in c for c in emitted)
+
+    def test_result_text_falls_back_to_text_parts(self) -> None:
+        import json
+
+        parser, _emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "first part"}],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert parser.result_text() == "first part"
+
+    def test_flush_processes_remaining_buffer(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        # Send data without trailing newline
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "buffered"}],
+                },
+            }
+        )
+        asyncio.run(parser(event))
+        assert len(emitted) == 0  # Not yet processed
+        asyncio.run(parser.flush())
+        assert any("buffered" in c for c in emitted)
+
+    def test_summarize_tool_bash(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert (
+            _StreamJsonEmitter._summarize_tool("Bash", {"command": "ls -la"})
+            == "$ ls -la"
+        )
+
+    def test_summarize_tool_glob(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert (
+            _StreamJsonEmitter._summarize_tool("Glob", {"pattern": "**/*.py"})
+            == "Glob **/*.py"
+        )
+
+    def test_summarize_tool_grep(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert (
+            _StreamJsonEmitter._summarize_tool("Grep", {"pattern": "TODO"})
+            == "Grep /TODO/"
+        )
+
+    def test_summarize_tool_unknown(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert _StreamJsonEmitter._summarize_tool("Custom", {}) == "tool: Custom"
+
+    def test_summarize_tool_bash_truncates_long_command(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        long_cmd = "x" * 200
+        result = _StreamJsonEmitter._summarize_tool("Bash", {"command": long_cmd})
+        assert len(result) < 200
+        assert result.endswith("...")
+
+
+# ---------------------------------------------------------------------------
+# ClaudeCodeHand._inject_output_format
+# ---------------------------------------------------------------------------
+
+
+class TestClaudeInjectOutputFormat:
+    def test_injects_before_dash_p(self) -> None:
+        cmd = ["claude", "--dangerously-skip-permissions", "-p", "hello"]
+        result = ClaudeCodeHand._inject_output_format(cmd, "stream-json")
+        p_idx = result.index("-p")
+        assert result[p_idx - 2] == "--output-format"
+        assert result[p_idx - 1] == "stream-json"
+
+    def test_no_op_when_already_present(self) -> None:
+        cmd = ["claude", "--output-format", "text", "-p", "hello"]
+        result = ClaudeCodeHand._inject_output_format(cmd, "stream-json")
+        assert result == cmd
+
+    def test_appends_when_no_dash_p(self) -> None:
+        cmd = ["claude", "--verbose"]
+        result = ClaudeCodeHand._inject_output_format(cmd, "stream-json")
+        assert "--output-format" in result
+        assert "stream-json" in result
+
+
+# ---------------------------------------------------------------------------
+# GooseCLIHand static helpers
+# ---------------------------------------------------------------------------
+
+
+class TestGooseStaticHelpers:
+    def test_normalize_goose_provider_gemini_becomes_google(self) -> None:
+        assert GooseCLIHand._normalize_goose_provider("gemini") == "google"
+        assert GooseCLIHand._normalize_goose_provider("Gemini") == "google"
+
+    def test_normalize_goose_provider_passthrough(self) -> None:
+        assert GooseCLIHand._normalize_goose_provider("openai") == "openai"
+        assert GooseCLIHand._normalize_goose_provider("anthropic") == "anthropic"
+
+    def test_normalize_goose_provider_empty(self) -> None:
+        assert GooseCLIHand._normalize_goose_provider("") == ""
+        assert GooseCLIHand._normalize_goose_provider("  ") == ""
+
+    def test_infer_provider_from_claude_model(self) -> None:
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("claude-sonnet-4-5")
+            == "anthropic"
+        )
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("anthropic/claude-3")
+            == "anthropic"
+        )
+
+    def test_infer_provider_from_gemini_model(self) -> None:
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("gemini-2.0-flash")
+            == "google"
+        )
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("google/gemini-pro")
+            == "google"
+        )
+
+    def test_infer_provider_from_llama_model(self) -> None:
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("llama3.2:latest") == "ollama"
+        )
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("ollama/llama3") == "ollama"
+        )
+
+    def test_infer_provider_defaults_to_openai(self) -> None:
+        assert GooseCLIHand._infer_goose_provider_from_model("gpt-5.2") == "openai"
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("some-custom-model")
+            == "openai"
+        )
+
+    def test_normalize_ollama_host_adds_scheme(self) -> None:
+        assert (
+            GooseCLIHand._normalize_ollama_host("192.168.1.1:11434")
+            == "http://192.168.1.1:11434"
+        )
+
+    def test_normalize_ollama_host_preserves_https(self) -> None:
+        assert (
+            GooseCLIHand._normalize_ollama_host("https://ollama.example.com")
+            == "https://ollama.example.com"
+        )
+
+    def test_normalize_ollama_host_strips_path(self) -> None:
+        result = GooseCLIHand._normalize_ollama_host("http://192.168.1.1:11434/v1")
+        assert result == "http://192.168.1.1:11434"
+
+    def test_normalize_ollama_host_empty_returns_empty(self) -> None:
+        assert GooseCLIHand._normalize_ollama_host("") == ""
+        assert GooseCLIHand._normalize_ollama_host("   ") == ""
+
+    def test_normalize_ollama_host_invalid_scheme_returns_empty(self) -> None:
+        assert GooseCLIHand._normalize_ollama_host("ftp://example.com") == ""
+
+    def test_has_goose_builtin_flag_detects_flag(self) -> None:
+        assert GooseCLIHand._has_goose_builtin_flag(
+            ["goose", "run", "--with-builtin", "dev"]
+        )
+        assert GooseCLIHand._has_goose_builtin_flag(
+            ["goose", "run", "--with-builtin=dev"]
+        )
+
+    def test_has_goose_builtin_flag_missing(self) -> None:
+        assert not GooseCLIHand._has_goose_builtin_flag(["goose", "run", "--text"])
+
+
+# ---------------------------------------------------------------------------
+# GeminiCLIHand static helpers
+# ---------------------------------------------------------------------------
+
+
+class TestGeminiStaticHelpers:
+    def test_looks_like_model_not_found_true(self) -> None:
+        assert GeminiCLIHand._looks_like_model_not_found(
+            "ModelNotFoundError: models/gemini-2.0 is no longer available"
+        )
+        assert GeminiCLIHand._looks_like_model_not_found(
+            "models/gemini-1.5 not found in API"
+        )
+
+    def test_looks_like_model_not_found_false(self) -> None:
+        assert not GeminiCLIHand._looks_like_model_not_found("Task completed")
+
+    def test_extract_unavailable_model(self) -> None:
+        assert (
+            GeminiCLIHand._extract_unavailable_model(
+                "Error: models/gemini-2.0-flash is unavailable"
+            )
+            == "gemini-2.0-flash"
+        )
+
+    def test_extract_unavailable_model_no_match(self) -> None:
+        assert GeminiCLIHand._extract_unavailable_model("no model info") == ""
+
+    def test_strip_model_args_removes_flag_value_pair(self) -> None:
+        result = GeminiCLIHand._strip_model_args(
+            ["gemini", "-p", "hello", "--model", "gemini-2.0-flash"]
+        )
+        assert result is not None
+        assert "--model" not in result
+        assert "gemini-2.0-flash" not in result
+
+    def test_strip_model_args_removes_equals_form(self) -> None:
+        result = GeminiCLIHand._strip_model_args(
+            ["gemini", "-p", "hello", "--model=gemini-2.0-flash"]
+        )
+        assert result is not None
+        assert "--model=gemini-2.0-flash" not in result
+
+    def test_strip_model_args_returns_none_when_no_model(self) -> None:
+        assert GeminiCLIHand._strip_model_args(["gemini", "-p", "hello"]) is None

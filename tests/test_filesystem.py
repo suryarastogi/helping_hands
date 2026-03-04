@@ -69,18 +69,14 @@ class TestReadTextFile:
 
     def test_truncates_with_max_chars(self, tmp_path: Path) -> None:
         (tmp_path / "big.txt").write_text("a" * 100, encoding="utf-8")
-        content, truncated, display = read_text_file(
-            tmp_path, "big.txt", max_chars=10
-        )
+        content, truncated, display = read_text_file(tmp_path, "big.txt", max_chars=10)
         assert content == "a" * 10
         assert truncated is True
         assert display == "big.txt"
 
     def test_no_truncation_when_under_limit(self, tmp_path: Path) -> None:
         (tmp_path / "small.txt").write_text("abc", encoding="utf-8")
-        content, truncated, _ = read_text_file(
-            tmp_path, "small.txt", max_chars=100
-        )
+        content, truncated, _ = read_text_file(tmp_path, "small.txt", max_chars=100)
         assert content == "abc"
         assert truncated is False
 
