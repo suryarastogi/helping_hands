@@ -70,9 +70,7 @@ class TestReadTextFile:
 
     def test_truncation(self, tmp_path: Path) -> None:
         (tmp_path / "big.txt").write_text("abcdefghij")
-        content, truncated, _display = read_text_file(
-            tmp_path, "big.txt", max_chars=5
-        )
+        content, truncated, _display = read_text_file(tmp_path, "big.txt", max_chars=5)
         assert content == "abcde"
         assert truncated is True
 
