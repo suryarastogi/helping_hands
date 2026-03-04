@@ -5,6 +5,7 @@ Index of design documents for helping_hands.
 ## Core
 
 - [Design Principles](../DESIGN.md) — core beliefs and patterns
+- [Core Beliefs](core-beliefs.md) — expanded rationale for each design belief
 
 ## Architecture
 
