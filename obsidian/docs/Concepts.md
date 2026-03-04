@@ -60,7 +60,7 @@ through shared system helpers in
 
 ## CLI backend semantics (current implementation)
 
-CLI-driven backends (`codexcli`, `claudecodecli`) run in two phases:
+CLI-driven backends (`codexcli`, `claudecodecli`, `goosecli`, `geminicli`, `opencodecli`) run in two phases:
 
 1. Initialization/learning pass over repo context (`README.md`, `AGENT.md`,
    indexed tree/file snapshot).
@@ -126,6 +126,18 @@ In CLI mode, non-E2E runs accept:
 
 - local repo paths
 - GitHub `owner/repo` references (auto-cloned to a temporary workspace)
+
+## Skills system
+
+The skills system (`lib/meta/skills/`) injects domain knowledge into AI agents:
+
+- **PRD skill** — Generates Product Requirements Documents with user stories, acceptance criteria, and success metrics.
+- **Ralph skill** — Converts PRDs to `prd.json` format for the Ralph autonomous agent system, with dependency-ordered stories.
+- **Execution skill** — Provides Python code execution and bash scripting capabilities (opt-in via `--enable-execution`).
+- **Web skill** — Provides web search and browsing capabilities (opt-in via `--enable-web`).
+- **Internal comms skill** — Templates for 3P updates, newsletters, FAQs, and status reports.
+
+Skills are loaded from `SKILL.md` files in the catalog and injected into hand prompts.
 
 ## Project Log
 

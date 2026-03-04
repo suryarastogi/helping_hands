@@ -6,7 +6,7 @@ High-level view of how helping_hands is built. For file layout and config, see t
 
 The project currently exposes three runtime surfaces:
 
-- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`).
+- **CLI mode (implemented)** — supports local path or `owner/repo` input. Can run index-only, E2E, iterative basic backends (`basic-langgraph`, `basic-atomic`, `basic-agent`), and CLI backends (`codexcli`, `claudecodecli`, `goosecli`, `opencodecli`).
 - **App mode (implemented)** — FastAPI + Celery integration supports `e2e`, `basic-langgraph`, `basic-atomic`, `basic-agent`, `codexcli`, and `claudecodecli`. `/build` enqueues `build_feature`; `/tasks/{task_id}` returns JSON status/result; `/monitor/{task_id}` provides an auto-refresh no-JS monitor page. The UI defaults prompt text to a smoke-test `README.md` updater that exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`, `python.run_script`, `bash.run_script`, `web.search`, and `web.browse`. Execution and web tools are opt-in (`enable_execution`, `enable_web`). Monitor cells remain fixed dimensions with in-cell scrolling.
 - **MCP mode (implemented baseline)** — MCP server exposes tools for repo indexing, build enqueue/status, filesystem operations (`read_file`, `write_file`, `mkdir`, `path_exists`), and config inspection.
 
@@ -22,7 +22,9 @@ App-mode foundations are present (server, worker, broker/backend wiring), while 
 5. **Model adapter layer** (`lib/hands/v1/hand/model_provider.py`) — Resolves model strings (including `provider/model`) into backend-adapted runtime clients for LangGraph/Atomic hands.
 6. **System tools layer** (`lib.meta.tools.filesystem`) — Shared path-safe file operations (`read_text_file`, `write_text_file`, `mkdir_path`, path resolution/validation) consumed by iterative hands and MCP filesystem tools.
 7. **GitHub integration** (`GitHubClient`) — Clone/branch/commit/push plus PR create/read/update and marker-based status comment updates.
-8. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
+8. **Skills system** (`lib.meta.skills`) — Injects domain knowledge into AI agents via skill catalogs. Includes PRD generator, Ralph JSON converter, execution/web tool descriptions, and internal communications templates.
+9. **Entry points** — CLI, FastAPI app, and MCP server orchestrate calls to the same core.
+10. **React frontend** (`frontend/`) — React + TypeScript + Vite UI for app mode. Provides build form, task monitoring, schedule management, and output viewing. Must stay in sync with inline HTML UI in `server/app.py`.
 
 ## Finalization workflow (all hands)
 
@@ -94,6 +96,25 @@ environment.
 9. Default Docker app/worker runtime uses non-root `app` user, enabling
    non-interactive Claude permission mode by default.
 
+## Goose CLI backend requirements
+
+`goosecli` uses the external `goose` executable.
+
+1. `goose` CLI installed and available on `PATH`.
+2. Provider auth configured via environment (e.g. `GOOSE_PROVIDER`, `GOOSE_MODEL`, `OLLAMA_HOST`).
+3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
+4. Uses `goose run --text` mode for non-interactive execution.
+5. Automatically injects `developer` builtin extension when not present.
+
+## OpenCode CLI backend requirements
+
+`opencodecli` uses the external `opencode` executable.
+
+1. `opencode` CLI installed and available on `PATH`.
+2. Provider auth configured via environment.
+3. `GITHUB_TOKEN` or `GH_TOKEN` present if final commit/push/PR is expected.
+4. Uses `opencode run` or `opencode prompt` mode for non-interactive execution.
+
 ## E2E workflow (source of truth)
 
 `E2EHand` currently drives the production-tested path:
@@ -128,7 +149,7 @@ User/Client → FastAPI /build → Celery queue
                                ↓
                        worker task build_feature
                                ↓
-          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand / ClaudeCodeHand)
+          backend routing (E2EHand / BasicLangGraphHand / BasicAtomicHand / CodexCLIHand / ClaudeCodeHand / GooseCLIHand / GeminiCLIHand / OpenCodeCLIHand)
                                ↓
       task status/result available via /tasks/{task_id} (JSON)
       no-JS monitor available via /monitor/{task_id} (HTML auto-refresh)

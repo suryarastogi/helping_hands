@@ -4,15 +4,26 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 
 ## Summary (from TODO.md)
 
-1. **Set up Python project** under `src/helping_hands`:
-   - **Layout:** `lib/` (core), `cli/` (CLI, uses lib), `server/` (app mode, uses lib)
-   - **Tooling:** uv, ruff, `ty` type checking, pre-commit
-   - **CI/CD:** Push/PR pipeline runs uv sync, tests, Ruff; E2E integration is opt-in and push-safe in matrix
-   - **Tests:** pytest under `tests/`, run in CI
+1. **Set up Python project** under `src/helping_hands`: **COMPLETE**
+   - Layout, tooling (uv, ruff, ty, pre-commit), CI/CD, tests — all done.
+   - Remaining: ty CI step (pending stable runner), optional build/publish steps.
 
-2. **Dockerise app mode and add Compose:** Dockerfile for the app; `compose.yaml` with main server, Celery workers, Redis, Postgres, and Flower.
+2. **Dockerise app mode and add Compose**: **COMPLETE**
+   - Multi-stage Dockerfile, Compose with server/workers/beat/redis/postgres/flower.
 
-3. **Autodocs generation and serving on GitHub:** Generate API docs from docstrings (e.g. Sphinx/MkDocs), build in CI, publish to GitHub Pages.
+3. **Autodocs generation and serving on GitHub**: **COMPLETE**
+   - MkDocs Material + mkdocstrings, CI build, GitHub Pages deployment.
+
+4. **Hand backend scaffolding vs implementation**: **MOSTLY COMPLETE**
+   - E2E hand, basic iterative hands (LangGraph, Atomic), Codex CLI — all implemented.
+   - Claude Code CLI — implemented with fallback/retry/permission handling.
+   - Goose CLI — implemented with provider/model env mapping.
+   - OpenCode CLI — scaffold added.
+   - **Remaining**:
+     - Gemini CLI execution (real subprocess integration)
+     - Full backend selection/routing matrix
+     - Streaming for remaining scaffold CLI hands
+     - E2E hardening (branch collision, draft PRs, idempotency)
 
 ## Design notes
 
@@ -30,3 +41,9 @@ The canonical checklist lives in the repo root: **`TODO.md`**. This note is for 
 - `claudecodecli` now includes a one-time no-change enforcement pass for edit-intent prompts and defaults to non-interactive permissions skip (configurable), reducing "prose-only/no-edit" runs.
 - `claudecodecli` command resolution now includes fallback to `npx -y @anthropic-ai/claude-code` when `claude` binary is unavailable; docs now call out that fallback requires network access in worker runtimes.
 - Compose file is `compose.yaml` (not `docker-compose.yml`) and now sets default in-network Redis/Celery URLs for server/worker/beat/flower/mcp services when `.env` is sparse.
+- Skills system (`lib/meta/skills/`) provides injectable domain knowledge: PRD generator, Ralph converter, execution/web tool descriptions, and internal communications templates.
+- React frontend (`frontend/`) provides app-mode UI alongside inline HTML in `server/app.py`; both must stay in sync.
+- Goose CLI backend (`goosecli`) implemented with provider/model env variable mapping and automatic `developer` builtin injection.
+- OpenCode CLI backend (`opencodecli`) scaffold added for `opencode` executable integration.
+
+*Last synced: 2026-03-04*

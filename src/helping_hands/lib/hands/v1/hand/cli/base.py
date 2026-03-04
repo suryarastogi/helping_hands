@@ -743,12 +743,14 @@ class _TwoPhaseCLIHand(Hand):
         return f"[{self._CLI_LABEL}] PR status: {status}"
 
     def interrupt(self) -> None:
+        """Signal the hand to stop and terminate any active subprocess."""
         super().interrupt()
         process = self._active_process
         if process is not None and process.returncode is None:
             process.terminate()
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the two-phase CLI flow synchronously and return the result."""
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
         return HandResponse(
