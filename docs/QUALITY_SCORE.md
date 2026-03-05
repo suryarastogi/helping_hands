@@ -60,6 +60,7 @@ Target Python: 3.12+
 | `lib/hands/v1/hand/cli/` | Good (dedicated test files per backend) | 80%+ | Claude/Codex/Gemini/OpenCode/Goose helpers well-tested; subprocess paths harder |
 | `lib/github.py` | Excellent (13 test classes) | Maintained | No gaps identified |
 | `server/app.py` | Good (5 test classes) | 85%+ | Additional endpoint edge cases next |
+| `lib/hands/v1/hand/iterative.py` | Good (bootstrap, tree, inline edits, parsers) | 80%+ | `_build_tree_snapshot`, `_read_bootstrap_doc`, `_build_bootstrap_context`, `_apply_inline_edits` added in v9 |
 | `server/mcp_server.py` | Good (10 test classes) | 85%+ | Tool error paths next |
 
 ## Areas for improvement
@@ -68,5 +69,5 @@ Target Python: 3.12+
 - [ ] Add mutation testing for critical path safety (filesystem tools)
 - [ ] Increase coverage for CLI hand subprocess wrappers
 - [ ] Add load testing for app mode concurrent task handling
-- [ ] Add tests for `_build_tree_snapshot` / `_build_bootstrap_context` (iterative.py)
-- [ ] Add tests for `_read_bootstrap_doc` / `_apply_inline_edits` (iterative.py, needs tmp_path)
+- [x] Add tests for `_build_tree_snapshot` / `_build_bootstrap_context` (iterative.py) — added in v9
+- [x] Add tests for `_read_bootstrap_doc` / `_apply_inline_edits` (iterative.py, needs tmp_path) — added in v9

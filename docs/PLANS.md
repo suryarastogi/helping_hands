@@ -8,6 +8,10 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v9](exec-plans/completed/docs-and-testing-v9.md) —
+  Bootstrap and inline edit tests (_build_tree_snapshot, _read_bootstrap_doc, _build_bootstrap_context, _apply_inline_edits); QUALITY_SCORE.md updates (completed 2026-03-05)
+
+
 - [Docs and Testing v8](exec-plans/completed/docs-and-testing-v8.md) —
   Format helper tests (CommandResult, WebSearchResult, WebBrowseResult), tool config helpers, base.py static helpers (_default_base_branch, _build_generic_pr_body); QUALITY_SCORE.md updates (completed 2026-03-05)
 
