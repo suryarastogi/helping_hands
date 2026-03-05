@@ -1,0 +1,50 @@
+# Ruff — Python Linter & Formatter Reference
+
+Ruff is an extremely fast Python linter and formatter, written in Rust.
+
+## helping_hands Configuration
+
+From `pyproject.toml`:
+
+```toml
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+```
+
+### Rule Groups
+- **E/W** — pycodestyle errors and warnings
+- **F** — pyflakes (unused imports, undefined names)
+- **I** — isort (import sorting)
+- **N** — pep8-naming (naming conventions)
+- **UP** — pyupgrade (modernize Python syntax)
+- **B** — flake8-bugbear (common bugs)
+- **SIM** — flake8-simplify (simplifiable code)
+- **RUF** — ruff-specific rules
+
+## Commands
+
+```bash
+# Lint (check only)
+uv run ruff check .
+
+# Lint with autofix
+uv run ruff check --fix .
+
+# Format check
+uv run ruff format --check .
+
+# Format (apply)
+uv run ruff format .
+```
+
+## Key Conventions Enforced
+- `X | None` over `Optional[X]` (UP007)
+- Absolute imports (I001)
+- PascalCase classes, snake_case functions (N)
+- No unused imports (F401)
+- Simplified conditionals (SIM)

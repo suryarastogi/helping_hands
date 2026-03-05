@@ -1,0 +1,44 @@
+# uv — Python Package Manager Reference
+
+uv is an extremely fast Python package and project manager, written in Rust.
+
+## Key Commands for helping_hands
+
+```bash
+# Sync all dependencies
+uv sync --dev
+
+# Sync with optional extras
+uv sync --extra langchain --extra atomic --extra server --extra github --extra mcp
+
+# Run a command in the project environment
+uv run <command>
+
+# Add a dependency
+uv add <package>
+
+# Remove a dependency
+uv remove <package>
+
+# Lock dependencies
+uv lock
+```
+
+## Project Configuration
+
+uv reads from `pyproject.toml`:
+- `[project.dependencies]` — core dependencies
+- `[project.optional-dependencies]` — extras groups (langchain, atomic, server, github, mcp, docs)
+- `requires-python = ">=3.12"` — minimum Python version
+
+## Environment Management
+
+- uv creates `.venv` automatically on first `uv sync`
+- `uv run` executes commands inside the virtual environment
+- No need to manually activate the venv
+
+## Lockfile
+
+- `uv.lock` pins exact dependency versions
+- Committed to source control for reproducibility
+- Updated with `uv lock` or `uv sync`

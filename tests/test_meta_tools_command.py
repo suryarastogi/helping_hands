@@ -9,6 +9,100 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.meta.tools import command as command_tools
+from helping_hands.lib.meta.tools.command import (
+    CommandResult,
+    _normalize_args,
+    _resolve_cwd,
+)
+
+# ---------------------------------------------------------------------------
+# CommandResult.success
+# ---------------------------------------------------------------------------
+
+
+class TestCommandResultSuccess:
+    def test_success_when_exit_zero_and_not_timed_out(self) -> None:
+        r = CommandResult(
+            command=["echo"], cwd="/tmp", exit_code=0, stdout="", stderr=""
+        )
+        assert r.success is True
+
+    def test_failure_when_exit_nonzero(self) -> None:
+        r = CommandResult(
+            command=["false"], cwd="/tmp", exit_code=1, stdout="", stderr=""
+        )
+        assert r.success is False
+
+    def test_failure_when_timed_out(self) -> None:
+        r = CommandResult(
+            command=["sleep"],
+            cwd="/tmp",
+            exit_code=0,
+            stdout="",
+            stderr="",
+            timed_out=True,
+        )
+        assert r.success is False
+
+    def test_failure_when_nonzero_and_timed_out(self) -> None:
+        r = CommandResult(
+            command=["x"],
+            cwd="/tmp",
+            exit_code=124,
+            stdout="",
+            stderr="",
+            timed_out=True,
+        )
+        assert r.success is False
+
+
+# ---------------------------------------------------------------------------
+# _normalize_args
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizeArgs:
+    def test_none_returns_empty(self) -> None:
+        assert _normalize_args(None) == []
+
+    def test_empty_list_returns_empty(self) -> None:
+        assert _normalize_args([]) == []
+
+    def test_tuple_input(self) -> None:
+        assert _normalize_args(("a", "b")) == ["a", "b"]
+
+    def test_list_input(self) -> None:
+        assert _normalize_args(["x", "y"]) == ["x", "y"]
+
+    def test_non_string_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="args must contain only strings"):
+            _normalize_args([1, 2])  # type: ignore[list-item]
+
+
+# ---------------------------------------------------------------------------
+# _resolve_cwd
+# ---------------------------------------------------------------------------
+
+
+class TestResolveCwd:
+    def test_none_returns_root(self, tmp_path: Path) -> None:
+        assert _resolve_cwd(tmp_path, None) == tmp_path.resolve()
+
+    def test_empty_string_returns_root(self, tmp_path: Path) -> None:
+        assert _resolve_cwd(tmp_path, "") == tmp_path.resolve()
+
+    def test_whitespace_returns_root(self, tmp_path: Path) -> None:
+        assert _resolve_cwd(tmp_path, "   ") == tmp_path.resolve()
+
+    def test_valid_subdir(self, tmp_path: Path) -> None:
+        sub = tmp_path / "src"
+        sub.mkdir()
+        assert _resolve_cwd(tmp_path, "src") == sub.resolve()
+
+    def test_non_directory_raises(self, tmp_path: Path) -> None:
+        (tmp_path / "file.txt").write_text("hello")
+        with pytest.raises(NotADirectoryError, match="not a directory"):
+            _resolve_cwd(tmp_path, "file.txt")
 
 
 class TestRunPythonCode:

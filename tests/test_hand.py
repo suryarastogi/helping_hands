@@ -23,6 +23,7 @@ from helping_hands.lib.hands.v1.hand import (
     Hand,
     HandResponse,
     LangGraphHand,
+    OpenCodeCLIHand,
 )
 from helping_hands.lib.meta.tools.command import CommandResult
 from helping_hands.lib.meta.tools.web import (
@@ -408,6 +409,63 @@ class TestHandABC:
         assert metadata["pr_status"] == "precommit_failed"
         assert "pre-commit checks failed" in metadata["pr_error"]
         mock_gh_cls.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _default_base_branch
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultBaseBranch:
+    def test_returns_main_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
+        assert Hand._default_base_branch() == "main"
+
+    def test_respects_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_BASE_BRANCH", "develop")
+        assert Hand._default_base_branch() == "develop"
+
+
+# ---------------------------------------------------------------------------
+# _build_generic_pr_body
+# ---------------------------------------------------------------------------
+
+
+class TestBuildGenericPrBody:
+    def test_contains_all_fields(self) -> None:
+        body = Hand._build_generic_pr_body(
+            backend="basic-langgraph",
+            prompt="add feature X",
+            summary="Implemented feature X with tests",
+            commit_sha="abc123",
+            stamp_utc="2026-03-05T00:00:00+00:00",
+        )
+        assert "basic-langgraph" in body
+        assert "add feature X" in body
+        assert "abc123" in body
+        assert "2026-03-05T00:00:00+00:00" in body
+        assert "Implemented feature X with tests" in body
+        assert "## Summary" in body
+
+    def test_empty_summary_shows_fallback(self) -> None:
+        body = Hand._build_generic_pr_body(
+            backend="test",
+            prompt="do stuff",
+            summary="",
+            commit_sha="def456",
+            stamp_utc="2026-01-01T00:00:00+00:00",
+        )
+        assert "No summary provided." in body
+
+    def test_whitespace_only_summary_shows_fallback(self) -> None:
+        body = Hand._build_generic_pr_body(
+            backend="test",
+            prompt="do stuff",
+            summary="   \n  ",
+            commit_sha="def456",
+            stamp_utc="2026-01-01T00:00:00+00:00",
+        )
+        assert "No summary provided." in body
 
 
 # ---------------------------------------------------------------------------
@@ -2809,9 +2867,550 @@ class TestE2EHand:
 
 
 # ---------------------------------------------------------------------------
+# _TwoPhaseCLIHand utility methods
+# ---------------------------------------------------------------------------
+
+
+class TestTwoPhaseCLIHandUtilities:
+    """Direct tests for static/class utility methods on _TwoPhaseCLIHand."""
+
+    def test_truncate_summary_short_string(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        text = "short summary"
+        assert _TwoPhaseCLIHand._truncate_summary(text, limit=100) == "short summary"
+
+    def test_truncate_summary_exact_limit(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        text = "a" * 50
+        result = _TwoPhaseCLIHand._truncate_summary(text, limit=50)
+        assert result == text
+
+    def test_truncate_summary_long_string(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        text = "x" * 200
+        result = _TwoPhaseCLIHand._truncate_summary(text, limit=100)
+        assert result.startswith("x" * 100)
+        assert result.endswith("...[truncated]")
+        assert len(result) < 200
+
+    def test_truncate_summary_strips_whitespace(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        result = _TwoPhaseCLIHand._truncate_summary("  hello  ", limit=100)
+        assert result == "hello"
+
+    def test_is_truthy_true_values(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        for value in ("1", "true", "yes", "on", "TRUE", " Yes ", " ON "):
+            assert _TwoPhaseCLIHand._is_truthy(value) is True, (
+                f"expected {value!r} truthy"
+            )
+
+    def test_is_truthy_false_values(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        for value in ("0", "false", "no", "off", "", "random"):
+            assert _TwoPhaseCLIHand._is_truthy(value) is False, (
+                f"expected {value!r} falsy"
+            )
+
+    def test_is_truthy_none(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        assert _TwoPhaseCLIHand._is_truthy(None) is False
+
+    def test_inject_prompt_argument_with_dash_p(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        cmd = ["tool", "-p", "old_prompt", "--flag"]
+        result = _TwoPhaseCLIHand._inject_prompt_argument(cmd, "new_prompt")
+        assert result is True
+        assert cmd == ["tool", "-p", "new_prompt", "--flag"]
+
+    def test_inject_prompt_argument_inserts_after_flag(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        cmd = ["tool", "-p", "--next-flag"]
+        result = _TwoPhaseCLIHand._inject_prompt_argument(cmd, "my prompt")
+        assert result is True
+        assert cmd == ["tool", "-p", "my prompt", "--next-flag"]
+
+    def test_inject_prompt_argument_with_equals(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        cmd = ["tool", "--prompt=old"]
+        result = _TwoPhaseCLIHand._inject_prompt_argument(cmd, "new")
+        assert result is True
+        assert cmd == ["tool", "--prompt=new"]
+
+    def test_inject_prompt_argument_short_equals(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        cmd = ["tool", "-p=old"]
+        result = _TwoPhaseCLIHand._inject_prompt_argument(cmd, "new")
+        assert result is True
+        assert cmd == ["tool", "-p=new"]
+
+    def test_inject_prompt_argument_not_found(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        cmd = ["tool", "--flag", "value"]
+        result = _TwoPhaseCLIHand._inject_prompt_argument(cmd, "prompt")
+        assert result is False
+        assert cmd == ["tool", "--flag", "value"]
+
+    def test_float_env_returns_default_when_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        monkeypatch.delenv("TEST_FLOAT_ENV", raising=False)
+        assert _TwoPhaseCLIHand._float_env("TEST_FLOAT_ENV", default=5.0) == 5.0
+
+    def test_float_env_returns_parsed_value(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        monkeypatch.setenv("TEST_FLOAT_ENV", " 3.5 ")
+        assert _TwoPhaseCLIHand._float_env("TEST_FLOAT_ENV", default=1.0) == 3.5
+
+    def test_float_env_returns_default_on_invalid(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        monkeypatch.setenv("TEST_FLOAT_ENV", "not_a_number")
+        assert _TwoPhaseCLIHand._float_env("TEST_FLOAT_ENV", default=2.0) == 2.0
+
+    def test_float_env_returns_default_on_zero_or_negative(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        monkeypatch.setenv("TEST_FLOAT_ENV", "0")
+        assert _TwoPhaseCLIHand._float_env("TEST_FLOAT_ENV", default=7.0) == 7.0
+        monkeypatch.setenv("TEST_FLOAT_ENV", "-1")
+        assert _TwoPhaseCLIHand._float_env("TEST_FLOAT_ENV", default=7.0) == 7.0
+
+    def test_looks_like_edit_request_true(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        for prompt in ("Add a login page", "Fix the bug", "Refactor utils"):
+            assert _TwoPhaseCLIHand._looks_like_edit_request(prompt) is True
+
+    def test_looks_like_edit_request_false(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        assert _TwoPhaseCLIHand._looks_like_edit_request("explain the code") is False
+        assert _TwoPhaseCLIHand._looks_like_edit_request("list all files") is False
+
+
+# ---------------------------------------------------------------------------
+# OpenCodeCLIHand
+# ---------------------------------------------------------------------------
+
+
+class TestOpenCodeCLIHand:
+    def test_build_opencode_failure_message_generic(self) -> None:
+        msg = OpenCodeCLIHand._build_opencode_failure_message(
+            return_code=1, output="some error output"
+        )
+        assert "OpenCode CLI failed (exit=1)" in msg
+        assert "some error output" in msg
+
+    def test_build_opencode_failure_message_auth_error(self) -> None:
+        msg = OpenCodeCLIHand._build_opencode_failure_message(
+            return_code=1, output="Error: 401 Unauthorized response from API"
+        )
+        assert "authentication failed" in msg.lower()
+        assert "opencode auth login" in msg.lower()
+
+    def test_build_opencode_failure_message_invalid_api_key(self) -> None:
+        msg = OpenCodeCLIHand._build_opencode_failure_message(
+            return_code=1, output="Error: invalid api key provided"
+        )
+        assert "authentication failed" in msg.lower()
+
+    def test_resolve_cli_model_preserves_provider_slash(
+        self, repo_index: RepoIndex
+    ) -> None:
+        cfg = Config(repo="/tmp/fake", model="anthropic/claude-sonnet-4-6")
+        hand = OpenCodeCLIHand(cfg, repo_index)
+        assert hand._resolve_cli_model() == "anthropic/claude-sonnet-4-6"
+
+    def test_resolve_cli_model_default_returns_empty(
+        self, repo_index: RepoIndex
+    ) -> None:
+        cfg = Config(repo="/tmp/fake", model="default")
+        hand = OpenCodeCLIHand(cfg, repo_index)
+        assert hand._resolve_cli_model() == ""
+
+    def test_resolve_cli_model_empty_returns_empty(self, repo_index: RepoIndex) -> None:
+        cfg = Config(repo="/tmp/fake", model="")
+        hand = OpenCodeCLIHand(cfg, repo_index)
+        assert hand._resolve_cli_model() == ""
+
+    def test_render_command_defaults_to_opencode_run(
+        self,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_OPENCODE_CLI_CMD", raising=False)
+        cfg = Config(repo="/tmp/fake", model="default")
+        hand = OpenCodeCLIHand(cfg, repo_index)
+        cmd = hand._render_command("do stuff")
+        assert cmd[0] == "opencode"
+        assert "run" in cmd
+        assert "do stuff" in cmd
+
+    def test_command_not_found_message(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        hand = OpenCodeCLIHand(config, repo_index)
+        msg = hand._command_not_found_message("opencode")
+        assert "HELPING_HANDS_OPENCODE_CLI_CMD" in msg
+        assert "opencode" in msg
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
 async def _collect_stream(hand: Hand, prompt: str) -> list[str]:
     return [chunk async for chunk in hand.stream(prompt)]
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter (Claude Code CLI)
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitter:
+    """Tests for _StreamJsonEmitter parsing of Claude Code stream-json output."""
+
+    def _make_emitter(self) -> tuple[Any, list[str]]:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        emitted: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            emitted.append(chunk)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        return parser, emitted
+
+    def test_assistant_text_event_emits_preview(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "Hello world"}],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert any("Hello world" in c for c in emitted)
+
+    def test_assistant_tool_use_emits_summary(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Read",
+                            "input": {"file_path": "/tmp/test.py"},
+                        }
+                    ],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert any("Read /tmp/test.py" in c for c in emitted)
+
+    def test_user_tool_result_emits_preview(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "content": "file content here",
+                        }
+                    ],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert any("file content here" in c for c in emitted)
+
+    def test_result_event_captures_result_text(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "Task completed successfully",
+                "total_cost_usd": 0.05,
+                "duration_ms": 12000,
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert parser.result_text() == "Task completed successfully"
+        assert any("$0.0500" in c for c in emitted)
+        assert any("12.0s" in c for c in emitted)
+
+    def test_non_json_lines_pass_through(self) -> None:
+        parser, emitted = self._make_emitter()
+        asyncio.run(parser("plain text log line\n"))
+        assert any("plain text log line" in c for c in emitted)
+
+    def test_result_text_falls_back_to_text_parts(self) -> None:
+        import json
+
+        parser, _emitted = self._make_emitter()
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "first part"}],
+                },
+            }
+        )
+        asyncio.run(parser(event + "\n"))
+        assert parser.result_text() == "first part"
+
+    def test_flush_processes_remaining_buffer(self) -> None:
+        import json
+
+        parser, emitted = self._make_emitter()
+        # Send data without trailing newline
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "buffered"}],
+                },
+            }
+        )
+        asyncio.run(parser(event))
+        assert len(emitted) == 0  # Not yet processed
+        asyncio.run(parser.flush())
+        assert any("buffered" in c for c in emitted)
+
+    def test_summarize_tool_bash(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert (
+            _StreamJsonEmitter._summarize_tool("Bash", {"command": "ls -la"})
+            == "$ ls -la"
+        )
+
+    def test_summarize_tool_glob(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert (
+            _StreamJsonEmitter._summarize_tool("Glob", {"pattern": "**/*.py"})
+            == "Glob **/*.py"
+        )
+
+    def test_summarize_tool_grep(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert (
+            _StreamJsonEmitter._summarize_tool("Grep", {"pattern": "TODO"})
+            == "Grep /TODO/"
+        )
+
+    def test_summarize_tool_unknown(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        assert _StreamJsonEmitter._summarize_tool("Custom", {}) == "tool: Custom"
+
+    def test_summarize_tool_bash_truncates_long_command(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
+
+        long_cmd = "x" * 200
+        result = _StreamJsonEmitter._summarize_tool("Bash", {"command": long_cmd})
+        assert len(result) < 200
+        assert result.endswith("...")
+
+
+# ---------------------------------------------------------------------------
+# ClaudeCodeHand._inject_output_format
+# ---------------------------------------------------------------------------
+
+
+class TestClaudeInjectOutputFormat:
+    def test_injects_before_dash_p(self) -> None:
+        cmd = ["claude", "--dangerously-skip-permissions", "-p", "hello"]
+        result = ClaudeCodeHand._inject_output_format(cmd, "stream-json")
+        p_idx = result.index("-p")
+        assert result[p_idx - 2] == "--output-format"
+        assert result[p_idx - 1] == "stream-json"
+
+    def test_no_op_when_already_present(self) -> None:
+        cmd = ["claude", "--output-format", "text", "-p", "hello"]
+        result = ClaudeCodeHand._inject_output_format(cmd, "stream-json")
+        assert result == cmd
+
+    def test_appends_when_no_dash_p(self) -> None:
+        cmd = ["claude", "--verbose"]
+        result = ClaudeCodeHand._inject_output_format(cmd, "stream-json")
+        assert "--output-format" in result
+        assert "stream-json" in result
+
+
+# ---------------------------------------------------------------------------
+# GooseCLIHand static helpers
+# ---------------------------------------------------------------------------
+
+
+class TestGooseStaticHelpers:
+    def test_normalize_goose_provider_gemini_becomes_google(self) -> None:
+        assert GooseCLIHand._normalize_goose_provider("gemini") == "google"
+        assert GooseCLIHand._normalize_goose_provider("Gemini") == "google"
+
+    def test_normalize_goose_provider_passthrough(self) -> None:
+        assert GooseCLIHand._normalize_goose_provider("openai") == "openai"
+        assert GooseCLIHand._normalize_goose_provider("anthropic") == "anthropic"
+
+    def test_normalize_goose_provider_empty(self) -> None:
+        assert GooseCLIHand._normalize_goose_provider("") == ""
+        assert GooseCLIHand._normalize_goose_provider("  ") == ""
+
+    def test_infer_provider_from_claude_model(self) -> None:
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("claude-sonnet-4-5")
+            == "anthropic"
+        )
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("anthropic/claude-3")
+            == "anthropic"
+        )
+
+    def test_infer_provider_from_gemini_model(self) -> None:
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("gemini-2.0-flash")
+            == "google"
+        )
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("google/gemini-pro")
+            == "google"
+        )
+
+    def test_infer_provider_from_llama_model(self) -> None:
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("llama3.2:latest") == "ollama"
+        )
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("ollama/llama3") == "ollama"
+        )
+
+    def test_infer_provider_defaults_to_openai(self) -> None:
+        assert GooseCLIHand._infer_goose_provider_from_model("gpt-5.2") == "openai"
+        assert (
+            GooseCLIHand._infer_goose_provider_from_model("some-custom-model")
+            == "openai"
+        )
+
+    def test_normalize_ollama_host_adds_scheme(self) -> None:
+        assert (
+            GooseCLIHand._normalize_ollama_host("192.168.1.1:11434")
+            == "http://192.168.1.1:11434"
+        )
+
+    def test_normalize_ollama_host_preserves_https(self) -> None:
+        assert (
+            GooseCLIHand._normalize_ollama_host("https://ollama.example.com")
+            == "https://ollama.example.com"
+        )
+
+    def test_normalize_ollama_host_strips_path(self) -> None:
+        result = GooseCLIHand._normalize_ollama_host("http://192.168.1.1:11434/v1")
+        assert result == "http://192.168.1.1:11434"
+
+    def test_normalize_ollama_host_empty_returns_empty(self) -> None:
+        assert GooseCLIHand._normalize_ollama_host("") == ""
+        assert GooseCLIHand._normalize_ollama_host("   ") == ""
+
+    def test_normalize_ollama_host_invalid_scheme_returns_empty(self) -> None:
+        assert GooseCLIHand._normalize_ollama_host("ftp://example.com") == ""
+
+    def test_has_goose_builtin_flag_detects_flag(self) -> None:
+        assert GooseCLIHand._has_goose_builtin_flag(
+            ["goose", "run", "--with-builtin", "dev"]
+        )
+        assert GooseCLIHand._has_goose_builtin_flag(
+            ["goose", "run", "--with-builtin=dev"]
+        )
+
+    def test_has_goose_builtin_flag_missing(self) -> None:
+        assert not GooseCLIHand._has_goose_builtin_flag(["goose", "run", "--text"])
+
+
+# ---------------------------------------------------------------------------
+# GeminiCLIHand static helpers
+# ---------------------------------------------------------------------------
+
+
+class TestGeminiStaticHelpers:
+    def test_looks_like_model_not_found_true(self) -> None:
+        assert GeminiCLIHand._looks_like_model_not_found(
+            "ModelNotFoundError: models/gemini-2.0 is no longer available"
+        )
+        assert GeminiCLIHand._looks_like_model_not_found(
+            "models/gemini-1.5 not found in API"
+        )
+
+    def test_looks_like_model_not_found_false(self) -> None:
+        assert not GeminiCLIHand._looks_like_model_not_found("Task completed")
+
+    def test_extract_unavailable_model(self) -> None:
+        assert (
+            GeminiCLIHand._extract_unavailable_model(
+                "Error: models/gemini-2.0-flash is unavailable"
+            )
+            == "gemini-2.0-flash"
+        )
+
+    def test_extract_unavailable_model_no_match(self) -> None:
+        assert GeminiCLIHand._extract_unavailable_model("no model info") == ""
+
+    def test_strip_model_args_removes_flag_value_pair(self) -> None:
+        result = GeminiCLIHand._strip_model_args(
+            ["gemini", "-p", "hello", "--model", "gemini-2.0-flash"]
+        )
+        assert result is not None
+        assert "--model" not in result
+        assert "gemini-2.0-flash" not in result
+
+    def test_strip_model_args_removes_equals_form(self) -> None:
+        result = GeminiCLIHand._strip_model_args(
+            ["gemini", "-p", "hello", "--model=gemini-2.0-flash"]
+        )
+        assert result is not None
+        assert "--model=gemini-2.0-flash" not in result
+
+    def test_strip_model_args_returns_none_when_no_model(self) -> None:
+        assert GeminiCLIHand._strip_model_args(["gemini", "-p", "hello"]) is None

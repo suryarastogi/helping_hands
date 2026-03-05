@@ -201,6 +201,11 @@ class _BasicIterativeHand(Hand):
                     rel_path,
                     max_chars=self._MAX_READ_CHARS,
                 )
+            except UnicodeError:
+                chunks.append(
+                    f"@@READ_RESULT: {rel_path}\nERROR: file is not UTF-8 text"
+                )
+                continue
             except ValueError:
                 chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: invalid path")
                 continue
@@ -209,11 +214,6 @@ class _BasicIterativeHand(Hand):
                 continue
             except IsADirectoryError:
                 chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: path is a directory")
-                continue
-            except UnicodeError:
-                chunks.append(
-                    f"@@READ_RESULT: {rel_path}\nERROR: file is not UTF-8 text"
-                )
                 continue
 
             truncated_note = "\n[truncated]" if truncated else ""

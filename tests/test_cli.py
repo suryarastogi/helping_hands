@@ -8,7 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from helping_hands.cli.main import build_parser, main
+from helping_hands.cli.main import (
+    _git_noninteractive_env,
+    _github_clone_url,
+    _redact_sensitive,
+    _repo_tmp_dir,
+    build_parser,
+    main,
+)
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand import HandResponse
 
@@ -557,3 +564,212 @@ class TestCli:
         captured = capsys.readouterr()
         assert "missing dependency for --backend basic-langgraph" in captured.err
         assert "uv sync --extra langchain" in captured.err
+
+
+# ---------------------------------------------------------------------------
+# _github_clone_url
+# ---------------------------------------------------------------------------
+
+
+class TestGithubCloneUrl:
+    def test_with_github_token(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "my-token")
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        url = _github_clone_url("owner/repo")
+        assert url == "https://x-access-token:my-token@github.com/owner/repo.git"
+
+    def test_with_gh_token_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.setenv("GH_TOKEN", "gh-tok")
+        url = _github_clone_url("owner/repo")
+        assert url == "https://x-access-token:gh-tok@github.com/owner/repo.git"
+
+    def test_without_token(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        url = _github_clone_url("owner/repo")
+        assert url == "https://github.com/owner/repo.git"
+
+    def test_github_token_takes_precedence(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "primary")
+        monkeypatch.setenv("GH_TOKEN", "secondary")
+        url = _github_clone_url("owner/repo")
+        assert "primary" in url
+        assert "secondary" not in url
+
+    def test_empty_token_treated_as_absent(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "  ")
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        url = _github_clone_url("owner/repo")
+        assert url == "https://github.com/owner/repo.git"
+
+
+# ---------------------------------------------------------------------------
+# _git_noninteractive_env
+# ---------------------------------------------------------------------------
+
+
+class TestGitNoninteractiveEnv:
+    def test_sets_terminal_prompt(self) -> None:
+        env = _git_noninteractive_env()
+        assert env["GIT_TERMINAL_PROMPT"] == "0"
+
+    def test_sets_gcm_interactive(self) -> None:
+        env = _git_noninteractive_env()
+        assert env["GCM_INTERACTIVE"] == "never"
+
+    def test_preserves_existing_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MY_CUSTOM_VAR", "hello")
+        env = _git_noninteractive_env()
+        assert env["MY_CUSTOM_VAR"] == "hello"
+
+
+# ---------------------------------------------------------------------------
+# _redact_sensitive
+# ---------------------------------------------------------------------------
+
+
+class TestRedactSensitive:
+    def test_redacts_token_url(self) -> None:
+        text = "https://x-access-token:secret123@github.com/owner/repo.git"
+        result = _redact_sensitive(text)
+        assert "secret123" not in result
+        assert "***" in result
+        assert "github.com/" in result
+
+    def test_passes_non_matching_text(self) -> None:
+        text = "fatal: repository not found"
+        assert _redact_sensitive(text) == text
+
+    def test_redacts_in_longer_message(self) -> None:
+        text = (
+            "Cloning https://x-access-token:mysecret99@github.com/o/r.git "
+            "failed with error 128"
+        )
+        result = _redact_sensitive(text)
+        assert "mysecret99" not in result
+        assert "***" in result
+
+    def test_empty_string(self) -> None:
+        assert _redact_sensitive("") == ""
+
+
+# ---------------------------------------------------------------------------
+# _repo_tmp_dir
+# ---------------------------------------------------------------------------
+
+
+class TestRepoTmpDir:
+    def test_returns_none_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_REPO_TMP", raising=False)
+        assert _repo_tmp_dir() is None
+
+    def test_returns_path_when_set(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        target = tmp_path / "custom_tmp"
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", str(target))
+        result = _repo_tmp_dir()
+        assert result is not None
+        assert result == target
+        assert target.is_dir()
+
+    def test_returns_none_for_empty_string(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", "  ")
+        assert _repo_tmp_dir() is None
+
+    def test_creates_nested_dirs(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        target = tmp_path / "a" / "b" / "c"
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", str(target))
+        result = _repo_tmp_dir()
+        assert result is not None
+        assert target.is_dir()
+
+
+# ---------------------------------------------------------------------------
+# Additional CLI backend and error path tests
+# ---------------------------------------------------------------------------
+
+
+class TestCliAdditionalPaths:
+    @patch("helping_hands.cli.main.asyncio.run")
+    @patch("helping_hands.cli.main.OpenCodeCLIHand")
+    def test_cli_runs_opencodecli_backend(
+        self,
+        mock_hand_cls: MagicMock,
+        mock_asyncio_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        def _close_coroutine(coro: object) -> None:
+            if hasattr(coro, "close"):
+                coro.close()
+            return None
+
+        mock_asyncio_run.side_effect = _close_coroutine
+        (tmp_path / "hello.py").write_text("")
+        mock_hand = MagicMock()
+        mock_hand_cls.return_value = mock_hand
+
+        main(
+            [
+                str(tmp_path),
+                "--backend",
+                "opencodecli",
+                "--prompt",
+                "implement feature",
+            ]
+        )
+
+        mock_hand_cls.assert_called_once()
+        mock_asyncio_run.assert_called_once()
+        assert mock_hand.auto_pr is True
+
+    @patch("helping_hands.cli.main.asyncio.run")
+    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    def test_cli_model_not_found_exits_with_message(
+        self,
+        mock_hand_cls: MagicMock,
+        mock_asyncio_run: MagicMock,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def _raise_model_error(coro: object) -> None:
+            if hasattr(coro, "close"):
+                coro.close()
+            raise Exception("The model `bad-model` does not exist")
+
+        mock_asyncio_run.side_effect = _raise_model_error
+        (tmp_path / "hello.py").write_text("")
+        mock_hand = MagicMock()
+        mock_hand_cls.return_value = mock_hand
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    str(tmp_path),
+                    "--backend",
+                    "basic-langgraph",
+                    "--model",
+                    "bad-model",
+                    "--prompt",
+                    "test",
+                ]
+            )
+        captured = capsys.readouterr()
+        assert "not available" in captured.err
+
+    def test_cli_exits_on_invalid_tools(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        with pytest.raises(SystemExit):
+            main(["/tmp/repo", "--tools", "nonexistent_tool"])
+        captured = capsys.readouterr()
+        assert "Error" in captured.err

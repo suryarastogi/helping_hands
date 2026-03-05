@@ -1,0 +1,37 @@
+# Celery RedBeat — Redis-backed Scheduler Reference
+
+RedBeat is a Celery Beat scheduler that stores periodic task schedules in Redis.
+
+## Why RedBeat in helping_hands
+
+- Persistent schedules survive process restarts
+- Multiple workers can share the same schedule store
+- No need for a separate database for cron-like scheduling
+- Used by `ScheduleManager` in `src/helping_hands/server/schedules.py`
+
+## Key Concepts
+
+### RedBeatSchedulerEntry
+- Represents a single periodic task in Redis
+- Created with: name, task, schedule, args, app
+- Stored under key `redbeat:<name>`
+
+### Cron Expressions
+- Standard 5-field format: minute hour day_of_month month day_of_week
+- Parsed via `croniter` library
+- helping_hands provides presets: daily, hourly, weekly, monthly, weekdays, etc.
+
+## Configuration
+
+```python
+# In Celery app config
+app.conf.redbeat_redis_url = "redis://localhost:6379/1"
+app.conf.beat_scheduler = "redbeat.RedBeatScheduler"
+```
+
+## Schedule Lifecycle
+
+1. `ScheduleManager.create_schedule()` — validates cron, creates RedBeat entry + metadata
+2. `ScheduleManager.enable_schedule()` / `disable_schedule()` — toggles RedBeat entry
+3. `ScheduleManager.record_run()` — tracks execution history in Redis metadata
+4. `ScheduleManager.delete_schedule()` — removes RedBeat entry + metadata
