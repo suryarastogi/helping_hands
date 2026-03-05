@@ -8,6 +8,10 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v15](exec-plans/completed/docs-and-testing-v15.md) —
+  `build_langchain_chat_model()` tests (all 5 providers, ImportError paths, Ollama env vars); `build_atomic_client()` tests (OpenAI, LiteLLM, missing attr, unsupported); provider abstraction design doc; QUALITY_SCORE.md updates (completed 2026-03-05)
+
+
 - [Docs and Testing v14](exec-plans/completed/docs-and-testing-v14.md) —
   CLI main.py static helper tests (_github_clone_url, _git_noninteractive_env, _redact_sensitive, _repo_tmp_dir); additional backend path tests (opencodecli, model_not_found, invalid tools); ARCHITECTURE.md key file paths refresh; QUALITY_SCORE.md updates (completed 2026-03-05)
 

@@ -70,6 +70,7 @@ Target Python: 3.12+
 | `server/app.py` (helpers) | Good (12 test classes) | 85%+ | `_parse_backend`, `_task_state_priority`, `_normalize_task_status`, `_extract_task_id/name/kwargs`, `_coerce_optional_str`, `_parse_task_kwargs_str`, `_is_helping_hands_task`, `_upsert_current_task`, `_flower_timeout_seconds`, `_flower_api_base_url` added in v13 |
 | `lib/hands/v1/hand/cli/base.py` (CI/PR) | Good (6 test classes) | 80%+ | `_build_ci_fix_prompt`, `_format_ci_fix_message`, `_format_pr_status_message`, `_looks_like_edit_request` added in v13 |
 | `cli/main.py` (helpers) | Good (6 test classes) | 93%+ | `_github_clone_url`, `_git_noninteractive_env`, `_redact_sensitive`, `_repo_tmp_dir`, `opencodecli` backend, `model_not_found` error, invalid `--tools` added in v14 |
+| `lib/hands/v1/hand/model_provider.py` (builders) | Excellent (99% coverage) | Maintained | `build_langchain_chat_model` (all 5 providers + ImportError paths + env vars), `build_atomic_client` (OpenAI, LiteLLM + missing attr, unsupported) added in v15 |
 
 ## Areas for improvement
 
