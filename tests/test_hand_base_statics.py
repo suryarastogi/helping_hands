@@ -579,3 +579,103 @@ class TestCreatePrForDivergedBranch:
         # _commit_message_from_prompt which derives a conventional commit title.
         assert call_kwargs[1]["title"]  # non-empty title generated from summary
         assert "Follow-up to #10" in call_kwargs[1]["body"]
+
+
+# ---------------------------------------------------------------------------
+# _run_git_read — success path
+# ---------------------------------------------------------------------------
+
+
+class TestRunGitRead:
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_returns_stripped_stdout_on_success(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="  main  \n"
+        )
+        result = Hand._run_git_read(tmp_path, "branch", "--show-current")
+        assert result == "main"
+
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_returns_empty_on_failure(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=128, stdout="", stderr="fatal: not a repo"
+        )
+        assert Hand._run_git_read(tmp_path, "rev-parse", "--is-inside-work-tree") == ""
+
+
+# ---------------------------------------------------------------------------
+# _finalize_repo_pr — early return paths
+# ---------------------------------------------------------------------------
+
+
+class TestFinalizeRepoEarlyReturns:
+    def test_repo_dir_not_a_directory(self, repo_index: RepoIndex) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        # Point root at a non-existent path
+        hand.repo_index = MagicMock()
+        hand.repo_index.root.resolve.return_value = Path("/nonexistent/path")
+        result = hand._finalize_repo_pr(backend="test", prompt="task", summary="done")
+        assert result["pr_status"] == "no_repo"
+
+    def test_not_a_git_repo(self, tmp_path: Path) -> None:
+        # tmp_path exists but is not a git repo
+        (tmp_path / "file.py").write_text("")
+        ri = MagicMock()
+        ri.root.resolve.return_value = tmp_path
+        config = Config(repo=str(tmp_path), model="test-model")
+        hand = _StubHand(config, ri)
+        hand.repo_index = ri
+        with patch.object(Hand, "_run_git_read", return_value=""):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+        assert result["pr_status"] == "not_git_repo"
+
+    def test_no_changes(self, repo_index: RepoIndex) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return ""
+            return ""
+
+        with patch.object(Hand, "_run_git_read", side_effect=fake_git_read):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+        assert result["pr_status"] == "no_changes"
+
+    def test_disabled_auto_pr(self, repo_index: RepoIndex) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        hand.auto_pr = False
+        result = hand._finalize_repo_pr(backend="test", prompt="task", summary="done")
+        assert result["pr_status"] == "disabled"
+
+    def test_no_github_origin(self, repo_index: RepoIndex) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M file.py"
+            return ""
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value=""),
+        ):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+        assert result["pr_status"] == "no_github_origin"
