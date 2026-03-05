@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v28](exec-plans/completed/docs-and-testing-v28.md) —
+  celery_app.py helper tests (14 tests: `_resolve_celery_urls` all-defaults, `_resolve_repo_path` local dir/invalid format/clone failure/PR number, `_normalize_backend` whitespace+case/opencodecli/e2e, `_has_gemini_auth` empty/whitespace, `_update_progress` callable/non-callable/workspace, `_collect_stream` chunks+progress); celery_app.py coverage 70% -> 73%; QUALITY_SCORE.md updates (completed 2026-03-05)
+
 - [Docs and Testing v27](exec-plans/completed/docs-and-testing-v27.md) —
   DockerSandboxClaudeCodeHand unit tests (36 tests: class attrs, `_resolve_sandbox_name` env/auto/cache/sanitize, `_should_cleanup` truthy/falsy, `_wrap_sandbox_exec` wrapping/env forwarding, `_execution_mode`, `_build_failure_message` auth/generic/sandbox note, `_command_not_found_message`, `_fallback_command_when_not_found`, `_docker_sandbox_available` success/fail/FileNotFoundError, `_ensure_sandbox` skip/docker-not-found/plugin-unavailable/success/failure/template, `_remove_sandbox` skip/stop+rm); docker_sandbox_claude.py coverage 19% -> 91%; QUALITY_SCORE.md updates (completed 2026-03-05)
 
