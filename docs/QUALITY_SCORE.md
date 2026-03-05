@@ -77,6 +77,8 @@ Target Python: 3.12+
 | `lib/hands/v1/hand/cli/base.py` (helpers) | Good (74% coverage) | 80%+ | `_resolve_cli_model`, `_inject_prompt_argument`, `_normalize_base_command`, `_build_failure_message`, `_describe_auth`, `_effective_container_env_names`, `_build_subprocess_env`, `_interrupted_pr_metadata` added in v17 |
 | `lib/ai_providers/anthropic.py` | Good (complete_impl kwargs) | 85%+ | Extra kwargs forwarding test added in v17 |
 | `lib/ai_providers/litellm.py` | Good (complete_impl kwargs) | 85%+ | Extra kwargs forwarding test added in v17 |
+| `lib/hands/v1/hand/base.py` (statics) | Good (66% -> 70%+) | 75%+ | `_github_repo_from_origin` edge cases (empty/non-GitHub/SSH/single-segment), `_run_precommit_checks_and_fixes` (FileNotFoundError, output truncation, first-pass success), `_push_noninteractive` (env save/restore, failure recovery), `_push_to_existing_pr` (success/diverged/different-user), `_should_run_precommit_before_pr`, `_finalize_repo_pr` error paths (missing_token, git_error, generic) added in v18 |
+| `lib/meta/tools/command.py` | Good (73% -> 85%+) | 85%+ | `_resolve_python_command` (uv/direct/neither/empty), `_run_command` timeout (with/without output, zero/negative), `run_python_code` empty validation, `run_python_script` (missing/directory), `run_bash_script` (missing/directory/empty-both/inline-args) added in v18 |
 
 ## Areas for improvement
 

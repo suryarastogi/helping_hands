@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v18](exec-plans/completed/docs-and-testing-v18.md) —
+  Hand base.py static/classmethod tests (`_github_repo_from_origin` edge cases, `_run_precommit_checks_and_fixes` FileNotFoundError/truncation, `_push_noninteractive`, `_push_to_existing_pr`, `_should_run_precommit_before_pr`, `_finalize_repo_pr` error paths); command.py gap tests (`_resolve_python_command`, `_run_command` timeout, `run_python_code`/`run_python_script`/`run_bash_script` validation); QUALITY_SCORE.md updates (completed 2026-03-05)
+
 - [Docs and Testing v17](exec-plans/completed/docs-and-testing-v17.md) —
   CLI base.py helper tests (`_resolve_cli_model`, `_inject_prompt_argument`, `_normalize_base_command`, `_build_failure_message`, `_describe_auth`, `_effective_container_env_names`, `_build_subprocess_env`, `_interrupted_pr_metadata`); Anthropic and LiteLLM `_complete_impl` extra kwargs tests; QUALITY_SCORE.md updates (completed 2026-03-05)
 
