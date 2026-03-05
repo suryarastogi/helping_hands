@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v19](exec-plans/completed/docs-and-testing-v19.md) —
+  CLI base.py prompt builder and container/verbose helper tests (`_execution_mode`, `_container_enabled`, `_container_image`, `_apply_verbose_flags`, `_build_init_prompt`, `_build_task_prompt`, `_build_apply_changes_prompt`); QUALITY_SCORE.md updates (completed 2026-03-05)
+
 - [Docs and Testing v18](exec-plans/completed/docs-and-testing-v18.md) —
   Hand base.py static/classmethod tests (`_github_repo_from_origin` edge cases, `_run_precommit_checks_and_fixes` FileNotFoundError/truncation, `_push_noninteractive`, `_push_to_existing_pr`, `_should_run_precommit_before_pr`, `_finalize_repo_pr` error paths); command.py gap tests (`_resolve_python_command`, `_run_command` timeout, `run_python_code`/`run_python_script`/`run_bash_script` validation); QUALITY_SCORE.md updates (completed 2026-03-05)
 

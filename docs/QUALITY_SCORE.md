@@ -79,6 +79,7 @@ Target Python: 3.12+
 | `lib/ai_providers/litellm.py` | Good (complete_impl kwargs) | 85%+ | Extra kwargs forwarding test added in v17 |
 | `lib/hands/v1/hand/base.py` (statics) | Good (66% -> 70%+) | 75%+ | `_github_repo_from_origin` edge cases (empty/non-GitHub/SSH/single-segment), `_run_precommit_checks_and_fixes` (FileNotFoundError, output truncation, first-pass success), `_push_noninteractive` (env save/restore, failure recovery), `_push_to_existing_pr` (success/diverged/different-user), `_should_run_precommit_before_pr`, `_finalize_repo_pr` error paths (missing_token, git_error, generic) added in v18 |
 | `lib/meta/tools/command.py` | Good (73% -> 85%+) | 85%+ | `_resolve_python_command` (uv/direct/neither/empty), `_run_command` timeout (with/without output, zero/negative), `run_python_code` empty validation, `run_python_script` (missing/directory), `run_bash_script` (missing/directory/empty-both/inline-args) added in v18 |
+| `lib/hands/v1/hand/cli/base.py` (prompts/container) | Good (74% -> 78%+) | 80%+ | `_execution_mode`, `_container_enabled` (env var truthy/falsy/missing/empty/no-config), `_container_image` (set/missing/empty/no-config/whitespace), `_apply_verbose_flags` (on/off/duplicates/no-flags), `_build_init_prompt` (repo root, file list, cap at 200, empty list), `_build_task_prompt` (prompt, summary, truncation, placeholder), `_build_apply_changes_prompt` (prompt, output, truncation, placeholder) added in v19 |
 
 ## Areas for improvement
 
