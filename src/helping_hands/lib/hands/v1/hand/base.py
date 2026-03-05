@@ -452,7 +452,14 @@ class Hand(abc.ABC):
             pr_title = rich_desc.title
             pr_body = rich_desc.body
         else:
-            pr_title = f"feat({backend}): automated hand update"
+            from helping_hands.lib.hands.v1.hand.pr_description import (
+                _commit_message_from_prompt,
+            )
+
+            pr_title = (
+                _commit_message_from_prompt(prompt, summary)
+                or f"feat({backend}): automated hand update"
+            )
             pr_body = self._build_generic_pr_body(
                 backend=backend,
                 prompt=prompt,
@@ -610,7 +617,14 @@ class Hand(abc.ABC):
                     pr_title = rich_desc.title
                     pr_body = rich_desc.body
                 else:
-                    pr_title = f"feat({backend}): automated hand update"
+                    from helping_hands.lib.hands.v1.hand.pr_description import (
+                        _commit_message_from_prompt,
+                    )
+
+                    pr_title = (
+                        _commit_message_from_prompt(prompt, summary)
+                        or f"feat({backend}): automated hand update"
+                    )
                     pr_body = self._build_generic_pr_body(
                         backend=backend,
                         prompt=prompt,
