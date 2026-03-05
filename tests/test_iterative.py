@@ -2,17 +2,60 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from helping_hands.lib.hands.v1.hand.iterative import _BasicIterativeHand
+from helping_hands.lib.config import Config
+from helping_hands.lib.hands.v1.hand.base import HandResponse
+from helping_hands.lib.hands.v1.hand.iterative import (
+    BasicAtomicHand,
+    BasicLangGraphHand,
+    _BasicIterativeHand,
+)
 from helping_hands.lib.meta.tools.command import CommandResult
 from helping_hands.lib.meta.tools.web import (
     WebBrowseResult,
     WebSearchItem,
     WebSearchResult,
 )
+from helping_hands.lib.repo import RepoIndex
+
+
+class _StubIterativeHand(_BasicIterativeHand):
+    """Concrete stub so we can instantiate _BasicIterativeHand for testing."""
+
+    def run(self, prompt: str) -> HandResponse:
+        return HandResponse(message=prompt)
+
+    async def stream(self, prompt: str) -> AsyncIterator[str]:
+        yield prompt
+
+
+def _make_hand(
+    tmp_path: Path,
+    files: dict[str, str] | None = None,
+    **config_kwargs: object,
+) -> _StubIterativeHand:
+    """Create a _StubIterativeHand backed by a real tmp_path repo."""
+    if files:
+        for rel_path, content in files.items():
+            full = tmp_path / rel_path
+            full.parent.mkdir(parents=True, exist_ok=True)
+            full.write_text(content)
+    repo_index = RepoIndex.from_path(tmp_path)
+    defaults = {"repo": str(tmp_path), "model": "test-model"}
+    defaults.update(config_kwargs)
+    config = Config(**defaults)
+    with patch(
+        "helping_hands.lib.meta.tools.registry.build_tool_runner_map",
+        return_value={},
+    ):
+        hand = _StubIterativeHand(config, repo_index)
+    return hand
+
 
 # ---------------------------------------------------------------------------
 # _is_satisfied
@@ -512,3 +555,194 @@ class TestToolDisabledError:
             err = _BasicIterativeHand._tool_disabled_error("nonexistent_tool")
             assert isinstance(err, ValueError)
             assert "unsupported tool" in str(err)
+
+
+# ---------------------------------------------------------------------------
+# _build_iteration_prompt
+# ---------------------------------------------------------------------------
+
+
+class TestBuildIterationPrompt:
+    def test_basic_prompt_structure(self, tmp_path):
+        hand = _make_hand(tmp_path, {"README.md": "hello"})
+        result = hand._build_iteration_prompt(
+            prompt="Fix the bug",
+            iteration=1,
+            max_iterations=3,
+            previous_summary="",
+            bootstrap_context="",
+        )
+        assert "Task request: Fix the bug" in result
+        assert "Iteration: 1/3" in result
+        assert "Previous iteration summary: none" in result
+        assert "@@READ:" in result
+        assert "@@FILE:" in result
+        assert "SATISFIED: yes|no" in result
+
+    def test_includes_bootstrap_context(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        result = hand._build_iteration_prompt(
+            prompt="task",
+            iteration=1,
+            max_iterations=5,
+            previous_summary="",
+            bootstrap_context="Repository tree snapshot:\n- src/\n- README.md",
+        )
+        assert "Bootstrap repository context:" in result
+        assert "Repository tree snapshot:" in result
+
+    def test_excludes_bootstrap_when_empty(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        result = hand._build_iteration_prompt(
+            prompt="task",
+            iteration=2,
+            max_iterations=5,
+            previous_summary="did stuff",
+            bootstrap_context="",
+        )
+        assert "Bootstrap repository context:" not in result
+
+    def test_previous_summary_included(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        result = hand._build_iteration_prompt(
+            prompt="task",
+            iteration=3,
+            max_iterations=5,
+            previous_summary="Made progress on X",
+            bootstrap_context="",
+        )
+        assert "Previous iteration summary: Made progress on X" in result
+
+
+# ---------------------------------------------------------------------------
+# _execution_tools_enabled / _web_tools_enabled
+# ---------------------------------------------------------------------------
+
+
+class TestToolConfigFlags:
+    def test_execution_tools_enabled_true(self, tmp_path):
+        hand = _make_hand(tmp_path, enable_execution=True)
+        assert hand._execution_tools_enabled() is True
+
+    def test_execution_tools_enabled_false(self, tmp_path):
+        hand = _make_hand(tmp_path, enable_execution=False)
+        assert hand._execution_tools_enabled() is False
+
+    def test_execution_tools_default_is_false(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        assert hand._execution_tools_enabled() is False
+
+    def test_web_tools_enabled_true(self, tmp_path):
+        hand = _make_hand(tmp_path, enable_web=True)
+        assert hand._web_tools_enabled() is True
+
+    def test_web_tools_enabled_false(self, tmp_path):
+        hand = _make_hand(tmp_path, enable_web=False)
+        assert hand._web_tools_enabled() is False
+
+    def test_web_tools_default_is_false(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        assert hand._web_tools_enabled() is False
+
+
+# ---------------------------------------------------------------------------
+# _tool_instructions
+# ---------------------------------------------------------------------------
+
+
+class TestToolInstructions:
+    def test_includes_tool_result_note(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        result = hand._tool_instructions()
+        assert "@@TOOL_RESULT" in result
+
+    def test_includes_skill_knowledge_when_available(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        with patch(
+            "helping_hands.lib.meta.skills.format_skill_knowledge",
+            return_value="SKILL: test_skill\nDoes cool things.",
+        ):
+            result = hand._tool_instructions()
+            assert "SKILL: test_skill" in result
+
+    def test_no_skill_section_when_empty(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        with patch(
+            "helping_hands.lib.meta.skills.format_skill_knowledge",
+            return_value="",
+        ):
+            result = hand._tool_instructions()
+            assert "SKILL:" not in result
+
+
+# ---------------------------------------------------------------------------
+# BasicLangGraphHand._result_content
+# ---------------------------------------------------------------------------
+
+
+class TestResultContent:
+    def test_empty_messages(self):
+        assert BasicLangGraphHand._result_content({"messages": []}) == ""
+
+    def test_missing_messages_key(self):
+        assert BasicLangGraphHand._result_content({}) == ""
+
+    def test_none_messages(self):
+        assert BasicLangGraphHand._result_content({"messages": None}) == ""
+
+    def test_last_message_with_content_attr(self):
+        class FakeMsg:
+            content = "final answer"
+
+        result = BasicLangGraphHand._result_content({"messages": [FakeMsg()]})
+        assert result == "final answer"
+
+    def test_fallback_to_str(self):
+        result = BasicLangGraphHand._result_content({"messages": ["first", "second"]})
+        assert result == "second"
+
+    def test_multiple_messages_uses_last(self):
+        class MsgA:
+            content = "first"
+
+        class MsgB:
+            content = "last"
+
+        result = BasicLangGraphHand._result_content({"messages": [MsgA(), MsgB()]})
+        assert result == "last"
+
+
+# ---------------------------------------------------------------------------
+# BasicAtomicHand._extract_message
+# ---------------------------------------------------------------------------
+
+
+class TestExtractMessage:
+    def test_chat_message_attribute(self):
+        class FakeResponse:
+            chat_message = "hello from atomic"
+
+        assert BasicAtomicHand._extract_message(FakeResponse()) == "hello from atomic"
+
+    def test_empty_chat_message_falls_back(self):
+        class FakeResponse:
+            chat_message = ""
+
+        result = BasicAtomicHand._extract_message(FakeResponse())
+        # Empty chat_message is falsy, so falls back to str()
+        assert isinstance(result, str)
+
+    def test_none_chat_message_falls_back(self):
+        class FakeResponse:
+            chat_message = None
+
+        result = BasicAtomicHand._extract_message(FakeResponse())
+        assert isinstance(result, str)
+
+    def test_no_chat_message_attr(self):
+        result = BasicAtomicHand._extract_message({"key": "value"})
+        assert result == str({"key": "value"})
+
+    def test_plain_string(self):
+        result = BasicAtomicHand._extract_message("plain text")
+        assert result == "plain text"

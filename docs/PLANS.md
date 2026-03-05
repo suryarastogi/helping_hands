@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v20](exec-plans/completed/docs-and-testing-v20.md) —
+  Iterative hand helper tests (`_build_iteration_prompt`, `_execution_tools_enabled`/`_web_tools_enabled`, `_tool_instructions`, `BasicLangGraphHand._result_content`, `BasicAtomicHand._extract_message`); CLI base.py tests (`_base_command`, `_io_poll_seconds`/`_heartbeat_seconds`/`_idle_timeout_seconds`, `_repo_has_changes`); QUALITY_SCORE.md updates (completed 2026-03-05)
+
 - [Docs and Testing v19](exec-plans/completed/docs-and-testing-v19.md) —
   CLI base.py prompt builder and container/verbose helper tests (`_execution_mode`, `_container_enabled`, `_container_image`, `_apply_verbose_flags`, `_build_init_prompt`, `_build_task_prompt`, `_build_apply_changes_prompt`); QUALITY_SCORE.md updates (completed 2026-03-05)
 

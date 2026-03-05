@@ -7,6 +7,7 @@ _build_subprocess_env, _interrupted_pr_metadata.
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -279,3 +280,133 @@ class TestInterruptedPrMetadata:
         stub.auto_pr = False
         meta = stub._interrupted_pr_metadata()
         assert meta["auto_pr"] == "false"
+
+
+# ---------------------------------------------------------------------------
+# _base_command
+# ---------------------------------------------------------------------------
+
+
+class TestBaseCommand:
+    def test_default_command(self) -> None:
+        stub = _Stub()
+        cmd = stub._base_command()
+        # Default is "stub-cli" + _DEFAULT_APPEND_ARGS ("--json")
+        assert cmd == ["stub-cli", "--json"]
+
+    def test_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("STUB_CMD", "custom-bin --flag")
+        stub = _Stub()
+        cmd = stub._base_command()
+        assert cmd == ["custom-bin", "--flag"]
+
+    def test_empty_env_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("STUB_CMD", "")
+        stub = _Stub()
+        with pytest.raises(RuntimeError, match="empty command"):
+            stub._base_command()
+
+
+# ---------------------------------------------------------------------------
+# _io_poll_seconds / _heartbeat_seconds / _idle_timeout_seconds
+# ---------------------------------------------------------------------------
+
+
+class TestTimingDefaults:
+    def test_io_poll_default(self) -> None:
+        stub = _Stub()
+        result = stub._io_poll_seconds()
+        assert result == _TwoPhaseCLIHand._DEFAULT_IO_POLL_SECONDS
+
+    def test_io_poll_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLI_IO_POLL_SECONDS", "0.5")
+        stub = _Stub()
+        assert stub._io_poll_seconds() == 0.5
+
+    def test_heartbeat_default_not_verbose(self) -> None:
+        stub = _Stub(verbose=False)
+        result = stub._heartbeat_seconds()
+        assert result == _TwoPhaseCLIHand._DEFAULT_HEARTBEAT_SECONDS
+
+    def test_heartbeat_default_verbose(self) -> None:
+        stub = _Stub(verbose=True)
+        result = stub._heartbeat_seconds()
+        assert result == _TwoPhaseCLIHand._DEFAULT_HEARTBEAT_SECONDS_VERBOSE
+
+    def test_heartbeat_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLI_HEARTBEAT_SECONDS", "10.0")
+        stub = _Stub()
+        assert stub._heartbeat_seconds() == 10.0
+
+    def test_idle_timeout_default(self) -> None:
+        stub = _Stub()
+        result = stub._idle_timeout_seconds()
+        assert result == _TwoPhaseCLIHand._DEFAULT_IDLE_TIMEOUT_SECONDS
+
+    def test_idle_timeout_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS", "120.0")
+        stub = _Stub()
+        assert stub._idle_timeout_seconds() == 120.0
+
+
+# ---------------------------------------------------------------------------
+# _repo_has_changes
+# ---------------------------------------------------------------------------
+
+
+class TestRepoHasChanges:
+    def test_with_changes(self, tmp_path: Path) -> None:
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "a.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True
+        )
+
+        # Make an uncommitted change
+        (tmp_path / "b.txt").write_text("new file")
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        assert stub._repo_has_changes() is True
+
+    def test_without_changes(self, tmp_path: Path) -> None:
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "a.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True
+        )
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        assert stub._repo_has_changes() is False
+
+    def test_not_a_git_repo(self, tmp_path: Path) -> None:
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        assert stub._repo_has_changes() is False
