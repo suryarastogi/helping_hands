@@ -8,6 +8,8 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v5](exec-plans/completed/docs-and-testing-v5.md) —
+  Pure helper test coverage (model_provider, command, config, filesystem), QUALITY_SCORE.md & RELIABILITY.md enhancements (completed 2026-03-05)
 - [Docs and Testing v4](exec-plans/completed/docs-and-testing-v4.md) —
   AI provider & CLI hand test expansion, two-phase CLI hands design doc, SECURITY.md sandboxing (completed 2026-03-04)
 - [Docs and Testing v3](exec-plans/completed/docs-and-testing-v3.md) —

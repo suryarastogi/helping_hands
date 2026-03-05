@@ -32,6 +32,22 @@ class TestNormalizeRelativePath:
     def test_only_dot_slash(self) -> None:
         assert normalize_relative_path("./") == ""
 
+    def test_double_dot_slash_prefix(self) -> None:
+        assert normalize_relative_path("././src/main.py") == "./src/main.py"
+
+    def test_trailing_slash_preserved(self) -> None:
+        result = normalize_relative_path("src/main/")
+        assert result == "src/main/"
+
+    def test_bare_dot(self) -> None:
+        assert normalize_relative_path(".") == "."
+
+    def test_only_whitespace(self) -> None:
+        assert normalize_relative_path("   ") == ""
+
+    def test_backslash_and_dot_combined(self) -> None:
+        assert normalize_relative_path(".\\src\\main.py") == "src/main.py"
+
 
 class TestResolveRepoTarget:
     def test_resolves_valid_path(self, tmp_path: Path) -> None:

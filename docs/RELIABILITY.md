@@ -44,6 +44,32 @@ runs as stalled.
 - Active task discovery via `/tasks/current` (Flower API + Celery inspect fallback)
 - HTML monitor at `/monitor/{task_id}` auto-refreshes without client JS
 
+## Test-level error handling patterns
+
+### Testing pure helpers in isolation
+
+Pure functions (`_infer_provider_name`, `_normalize_args`, `normalize_relative_path`)
+are tested directly without mocking. This catches regressions in input validation
+and edge cases (empty strings, case sensitivity, type mismatches).
+
+### Dataclass invariants
+
+Frozen dataclasses (`CommandResult`, `HandModel`, `Config`) are tested for
+immutability (`pytest.raises(AttributeError)`) and property correctness
+(`CommandResult.success` combining exit code and timeout).
+
+### Subprocess mocking
+
+Tests for `run_python_code` and `run_python_script` mock `_resolve_python_command`
+to use `sys.executable`, avoiding version-specific Python availability issues in CI.
+Inline bash scripts use real subprocess execution since `bash` is always available.
+
+### Security boundary tests
+
+Path traversal tests in `test_filesystem.py` and `test_meta_tools_command.py`
+verify that `resolve_repo_target` rejects `../` escapes, absolute paths, and
+empty inputs. These are critical for the tool isolation guarantee.
+
 ## Idempotency
 
 - E2E PR updates are idempotent: re-running updates the same branch, PR body,

@@ -46,6 +46,21 @@ Rules enabled: `E, W, F, I, N, UP, B, SIM, RUF`
 Line length: 88
 Target Python: 3.12+
 
+## Per-module coverage targets
+
+| Module | Current state | Target | Notes |
+|---|---|---|---|
+| `lib/config.py` | Good (env loading, overrides, dotenv) | 90%+ | Normalization edge cases added in v5 |
+| `lib/repo.py` | Excellent (12 tests, all paths) | Maintained | No gaps identified |
+| `lib/meta/tools/filesystem.py` | Excellent (25+ tests, security) | Maintained | Edge cases added in v5 |
+| `lib/meta/tools/command.py` | Good (execution paths) | 90%+ | `CommandResult`, `_normalize_args`, `_resolve_cwd` added in v5 |
+| `lib/hands/v1/hand/model_provider.py` | Good (resolution) | 90%+ | `_infer_provider_name`, `HandModel` added in v5 |
+| `lib/ai_providers/` | Good (init, normalize, complete) | 85%+ | Provider-specific edge cases next |
+| `lib/hands/v1/hand/cli/` | Moderate (via test_hand.py) | 80%+ | Static helpers well-tested; subprocess paths harder |
+| `lib/github.py` | Excellent (13 test classes) | Maintained | No gaps identified |
+| `server/app.py` | Good (5 test classes) | 85%+ | Additional endpoint edge cases next |
+| `server/mcp_server.py` | Good (10 test classes) | 85%+ | Tool error paths next |
+
 ## Areas for improvement
 
 - [ ] Add type checking to CI (ty, when stable for CI runners)
