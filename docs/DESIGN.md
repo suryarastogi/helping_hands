@@ -41,6 +41,39 @@ CLI-backed hands (`codex`, `claude`, `goose`, `gemini`, `opencode`) run two
 subprocess phases: (1) initialize/learn the repo, (2) execute the task.
 This separation gives the external CLI tool repo context before acting.
 
+Each backend customizes the shared `_TwoPhaseCLIHand` base through hook methods:
+
+| Hook method | Purpose | Example backends |
+|---|---|---|
+| `_apply_backend_defaults()` | Inject CLI-specific flags before execution | All CLI hands |
+| `_retry_command_after_failure()` | Return a modified command to retry on known errors | Claude (root permission), Gemini (model not found) |
+| `_build_failure_message()` | Parse CLI output into actionable error messages | All CLI hands |
+| `_fallback_command_when_not_found()` | Try alternate command when primary is missing | Claude (`npx` fallback) |
+| `_resolve_cli_model()` | Filter or transform model names for the target CLI | Claude (rejects GPT models), OpenCode (preserves provider/model) |
+
+#### Backend-specific behaviors
+
+- **Claude Code** (`claude.py`): Injects `--dangerously-skip-permissions` (disabled
+  for root), uses `--output-format stream-json` with `_StreamJsonEmitter` for
+  structured progress parsing, falls back to `npx @anthropic-ai/claude-code` when
+  `claude` binary is not found. Retries without skip-permissions on root-privilege
+  errors. Detects write-permission prompt markers to surface non-interactive failures.
+
+- **Codex** (`codex.py`): Injects `--sandbox` mode (defaults to `workspace-write`,
+  switches to `danger-full-access` inside Docker containers) and
+  `--skip-git-repo-check`. Normalizes bare `codex` command to `codex exec`.
+
+- **Gemini** (`gemini.py`): Injects `--approval-mode auto_edit`. Requires
+  `GEMINI_API_KEY` at subprocess env build time. Retries with `--model` stripped
+  when the CLI reports model-not-found errors. Extracts model names from
+  `models/<name>` patterns in error output.
+
+- **Goose** (`goose.py`): Normalizes provider names (e.g. `gemini` to `google`),
+  infers provider from model name prefixes, normalizes `OLLAMA_HOST` URLs.
+
+- **OpenCode** (`opencode.py`): Preserves `provider/model` format for model
+  resolution (no provider inference needed). Minimal hook surface.
+
 ### Finalization
 
 Commit/push/PR logic is centralized in the `Hand` base class so all backends

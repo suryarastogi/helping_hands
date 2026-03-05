@@ -8,6 +8,8 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v7](exec-plans/completed/docs-and-testing-v7.md) —
+  Dedicated test suites for Claude, Codex, Gemini, OpenCode CLI hands (106 tests); DESIGN.md CLI backend patterns (completed 2026-03-05)
 - [Docs and Testing v6](exec-plans/completed/docs-and-testing-v6.md) —
   CLI hand helpers, web tool internals, registry validators test coverage; SECURITY.md & RELIABILITY.md iterative hand docs (completed 2026-03-05)
 - [Docs and Testing v5](exec-plans/completed/docs-and-testing-v5.md) —
