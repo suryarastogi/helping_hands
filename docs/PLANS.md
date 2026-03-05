@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v22](exec-plans/completed/docs-and-testing-v22.md) —
+  CLI hand retry/interrupt tests: `_should_retry_without_changes` (all 4 branches), `_no_change_error_after_retries` (base returns None), `_build_apply_changes_prompt` (formatting, empty output, truncation), `_terminate_active_process` (None/exited/terminate/kill-on-timeout), `interrupt()` (active/None/exited); QUALITY_SCORE.md updates (completed 2026-03-05)
+
 - [Docs and Testing v21](exec-plans/completed/docs-and-testing-v21.md) —
   Iterative hand `_execute_read_requests` error path tests (ValueError, FileNotFoundError, IsADirectoryError, UnicodeError); `_run_tool_request` dispatch tests (WebSearchResult, WebBrowseResult, unsupported type, disabled tool); `_execute_tool_requests` error handling tests; fixed UnicodeError handler ordering bug in iterative.py; QUALITY_SCORE.md updates (completed 2026-03-05)
 
