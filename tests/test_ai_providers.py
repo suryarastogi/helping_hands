@@ -276,3 +276,38 @@ def test_provider_class_attributes() -> None:
         assert provider.api_key_env_var
         assert provider.default_model
         assert provider.install_hint
+
+
+def test_anthropic_complete_impl_forwards_extra_kwargs() -> None:
+    """Extra kwargs (e.g. temperature) are forwarded to inner.messages.create."""
+    calls: dict[str, Any] = {}
+
+    class _Messages:
+        def create(self, **kwargs: Any) -> dict[str, Any]:
+            calls.update(kwargs)
+            return {"ok": True}
+
+    class _Inner:
+        messages = _Messages()
+
+    provider = AnthropicProvider(inner=_Inner())
+    provider.complete("hi", temperature=0.7, top_p=0.9)
+    assert calls["temperature"] == 0.7
+    assert calls["top_p"] == 0.9
+    assert calls["max_tokens"] == 1024  # default preserved
+
+
+def test_litellm_complete_impl_forwards_extra_kwargs() -> None:
+    """Extra kwargs (e.g. temperature) are forwarded to inner.completion."""
+    calls: dict[str, Any] = {}
+
+    class _Inner:
+        @staticmethod
+        def completion(**kwargs: Any) -> dict[str, Any]:
+            calls.update(kwargs)
+            return {"ok": True}
+
+    provider = LiteLLMProvider(inner=_Inner())
+    provider.complete("hi", temperature=0.5, top_k=40)
+    assert calls["temperature"] == 0.5
+    assert calls["top_k"] == 40

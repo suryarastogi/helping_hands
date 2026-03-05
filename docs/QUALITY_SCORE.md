@@ -74,6 +74,9 @@ Target Python: 3.12+
 | `lib/ai_providers/openai.py` | Good (dedicated tests) | 85%+ | `_build_inner` (ImportError, with/without API key), `_complete_impl` (delegation, kwargs) added in v16 |
 | `lib/ai_providers/google.py` | Good (build_inner + complete_impl) | 85%+ | `_complete_impl` (delegation, empty content filtering, kwargs) added in v16; `_build_inner` covered in v11 |
 | `lib/hands/v1/hand/cli/claude.py` | Excellent (92% coverage) | Maintained | `_command_not_found_message`, `_native_cli_auth_env_names`, `_pr_description_cmd` added in v16 |
+| `lib/hands/v1/hand/cli/base.py` (helpers) | Good (74% coverage) | 80%+ | `_resolve_cli_model`, `_inject_prompt_argument`, `_normalize_base_command`, `_build_failure_message`, `_describe_auth`, `_effective_container_env_names`, `_build_subprocess_env`, `_interrupted_pr_metadata` added in v17 |
+| `lib/ai_providers/anthropic.py` | Good (complete_impl kwargs) | 85%+ | Extra kwargs forwarding test added in v17 |
+| `lib/ai_providers/litellm.py` | Good (complete_impl kwargs) | 85%+ | Extra kwargs forwarding test added in v17 |
 
 ## Areas for improvement
 

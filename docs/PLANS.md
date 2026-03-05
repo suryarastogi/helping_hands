@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v17](exec-plans/completed/docs-and-testing-v17.md) —
+  CLI base.py helper tests (`_resolve_cli_model`, `_inject_prompt_argument`, `_normalize_base_command`, `_build_failure_message`, `_describe_auth`, `_effective_container_env_names`, `_build_subprocess_env`, `_interrupted_pr_metadata`); Anthropic and LiteLLM `_complete_impl` extra kwargs tests; QUALITY_SCORE.md updates (completed 2026-03-05)
+
 - [Docs and Testing v16](exec-plans/completed/docs-and-testing-v16.md) —
   OpenAI provider `_build_inner()`/`_complete_impl()` tests; Google provider `_complete_impl()` tests; ClaudeCodeHand additional helper tests (`_command_not_found_message`, `_native_cli_auth_env_names`, `_pr_description_cmd`); QUALITY_SCORE.md updates (completed 2026-03-05)
 
