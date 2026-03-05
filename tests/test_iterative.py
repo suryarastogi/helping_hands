@@ -746,3 +746,118 @@ class TestExtractMessage:
     def test_plain_string(self):
         result = BasicAtomicHand._extract_message("plain text")
         assert result == "plain text"
+
+
+# ---------------------------------------------------------------------------
+# _execute_read_requests — error paths (lines 204-217)
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteReadRequestsErrors:
+    _PATCH_TARGET = (
+        "helping_hands.lib.hands.v1.hand.iterative.system_tools.read_text_file"
+    )
+
+    def test_value_error_on_invalid_path(self, tmp_path):
+        hand = _make_hand(tmp_path, {"good.txt": "hello"})
+        with patch(self._PATCH_TARGET, side_effect=ValueError("invalid path")):
+            result = hand._execute_read_requests("@@READ: ../evil.py\n")
+        assert "@@READ_RESULT: ../evil.py" in result
+        assert "ERROR: invalid path" in result
+
+    def test_file_not_found(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        with patch(self._PATCH_TARGET, side_effect=FileNotFoundError):
+            result = hand._execute_read_requests("@@READ: nonexistent.py\n")
+        assert "ERROR: file not found" in result
+
+    def test_is_a_directory(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        with patch(self._PATCH_TARGET, side_effect=IsADirectoryError):
+            result = hand._execute_read_requests("@@READ: subdir\n")
+        assert "ERROR: path is a directory" in result
+
+    def test_unicode_error(self, tmp_path):
+        hand = _make_hand(tmp_path, {"binary.bin": "x"})
+        with patch(self._PATCH_TARGET, side_effect=UnicodeError("not utf-8")):
+            result = hand._execute_read_requests("@@READ: binary.bin\n")
+        assert "ERROR: file is not UTF-8 text" in result
+
+
+# ---------------------------------------------------------------------------
+# _run_tool_request — dispatch branches (lines 365-376)
+# ---------------------------------------------------------------------------
+
+
+class TestRunToolRequest:
+    def test_dispatches_web_search_result(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        sr = WebSearchResult(query="q", results=[])
+        hand._tool_runners["web_search"] = lambda _root, _payload: sr
+        result = hand._run_tool_request(
+            root=tmp_path, tool_name="web_search", payload={}
+        )
+        assert "@@TOOL_RESULT: web_search" in result
+        assert "result_count: 0" in result
+
+    def test_dispatches_web_browse_result(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        br = WebBrowseResult(
+            url="https://example.com",
+            final_url="https://example.com",
+            status_code=200,
+            content="ok",
+            truncated=False,
+        )
+        hand._tool_runners["web_browse"] = lambda _root, _payload: br
+        result = hand._run_tool_request(
+            root=tmp_path, tool_name="web_browse", payload={}
+        )
+        assert "@@TOOL_RESULT: web_browse" in result
+        assert "url: https://example.com" in result
+
+    def test_unsupported_type_raises(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        hand._tool_runners["custom"] = lambda _root, _payload: "just a string"
+        with pytest.raises(TypeError, match="unsupported tool result type"):
+            hand._run_tool_request(root=tmp_path, tool_name="custom", payload={})
+
+    def test_disabled_tool_raises(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        with (
+            patch(
+                "helping_hands.lib.meta.tools.registry.category_name_for_tool",
+                return_value=None,
+            ),
+            pytest.raises(ValueError, match="unsupported tool"),
+        ):
+            hand._run_tool_request(root=tmp_path, tool_name="nope", payload={})
+
+
+# ---------------------------------------------------------------------------
+# _execute_tool_requests — error/disabled paths (lines 386-405)
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteToolRequests:
+    def test_parse_error_in_payload(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        content = "@@TOOL: shell_exec\n```json\n{invalid json}\n```"
+        result = hand._execute_tool_requests(content)
+        assert "@@TOOL_RESULT: shell_exec" in result
+        assert "ERROR:" in result
+
+    def test_runtime_error_caught(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        hand._tool_runners["shell_exec"] = lambda _r, _p: (_ for _ in ()).throw(
+            RuntimeError("boom")
+        )
+        content = '@@TOOL: shell_exec\n```json\n{"command": "ls"}\n```'
+        result = hand._execute_tool_requests(content)
+        assert "@@TOOL_RESULT: shell_exec" in result
+        assert "ERROR: boom" in result
+
+    def test_no_tool_requests_returns_empty(self, tmp_path):
+        hand = _make_hand(tmp_path)
+        result = hand._execute_tool_requests("no tools here")
+        assert result == ""

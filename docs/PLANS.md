@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v21](exec-plans/completed/docs-and-testing-v21.md) —
+  Iterative hand `_execute_read_requests` error path tests (ValueError, FileNotFoundError, IsADirectoryError, UnicodeError); `_run_tool_request` dispatch tests (WebSearchResult, WebBrowseResult, unsupported type, disabled tool); `_execute_tool_requests` error handling tests; fixed UnicodeError handler ordering bug in iterative.py; QUALITY_SCORE.md updates (completed 2026-03-05)
+
 - [Docs and Testing v20](exec-plans/completed/docs-and-testing-v20.md) —
   Iterative hand helper tests (`_build_iteration_prompt`, `_execution_tools_enabled`/`_web_tools_enabled`, `_tool_instructions`, `BasicLangGraphHand._result_content`, `BasicAtomicHand._extract_message`); CLI base.py tests (`_base_command`, `_io_poll_seconds`/`_heartbeat_seconds`/`_idle_timeout_seconds`, `_repo_has_changes`); QUALITY_SCORE.md updates (completed 2026-03-05)
 
