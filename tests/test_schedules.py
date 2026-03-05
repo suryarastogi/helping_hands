@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
+pytest.importorskip("celery", reason="celery extra not installed")
+
 from helping_hands.server.schedules import (
     CRON_PRESETS,
     ScheduledTask,

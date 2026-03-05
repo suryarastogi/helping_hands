@@ -84,6 +84,10 @@ Target Python: 3.12+
 | `lib/hands/v1/hand/cli/base.py` (retry/interrupt) | Good (76% -> 77%+) | 80%+ | `_should_retry_without_changes` (all 4 branches: feature off, interrupted, not edit, has changes), `_no_change_error_after_retries` (base returns None), `_build_apply_changes_prompt` (prompt+output, empty output, truncation), `_terminate_active_process` (None/exited/terminate/kill-on-timeout), `interrupt()` (active/None/exited) added in v22 |
 | `lib/hands/v1/hand/iterative.py` (iteration helpers) | Good (76% -> 78%+) | 80%+ | `_build_iteration_prompt`, `_execution_tools_enabled`/`_web_tools_enabled`, `_tool_instructions`, `BasicLangGraphHand._result_content`, `BasicAtomicHand._extract_message` added in v20; `_execute_read_requests` error paths (ValueError/FileNotFoundError/IsADirectoryError/UnicodeError), `_run_tool_request` dispatch (WebSearchResult/WebBrowseResult/unsupported/disabled), `_execute_tool_requests` error pass-through added in v21; fixed UnicodeError handler ordering bug (same as mcp_server.py v12) |
 
+| `lib/hands/v1/hand/atomic.py` | Good (78% -> 93%+) | 90%+ | `_build_agent` (mocked atomic_agents imports), `run()` (HandResponse structure, PR metadata), `stream()` (AssertionError sync fallback, async iterator path, awaitable path, awaitable AssertionError fallback, PR URL yield), `_make_input` added in v23 |
+| `lib/hands/v1/hand/langgraph.py` | Good (83% -> 95%+) | 90%+ | `_build_agent` (mocked create_react_agent), `run()` (HandResponse, str fallback, PR metadata), `stream()` (chunk extraction, non-chat event filtering, empty content skip, PR URL yield) added in v23 |
+| `lib/hands/v1/hand/cli/goose.py` | Good (91% -> 95%+) | 90%+ | `_describe_auth` (all providers, key set/not set), `_normalize_base_command` (bare goose/goose run/goose run --instructions/passthrough), `_pr_description_cmd` (anthropic with/without claude, non-anthropic), `_has_goose_builtin_flag`, `_apply_backend_defaults`, `_resolve_ollama_host` added in v23 |
+
 ## Areas for improvement
 
 - [ ] Add type checking to CI (ty, when stable for CI runners)

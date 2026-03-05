@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("celery", reason="celery extra not installed")
+
 from helping_hands.server.schedules import (
     _SCHEDULE_META_PREFIX,
     ScheduledTask,
