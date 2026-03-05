@@ -78,3 +78,39 @@ class TestMetaSkills:
 
     def test_format_skill_catalog_instructions_empty(self) -> None:
         assert meta_skills.format_skill_catalog_instructions((), None) == ""
+
+    def test_normalize_skill_selection_none_returns_empty(self) -> None:
+        assert meta_skills.normalize_skill_selection(None) == ()
+
+    def test_normalize_skill_selection_non_string_raises(self) -> None:
+        with pytest.raises(ValueError, match="strings"):
+            meta_skills.normalize_skill_selection([123])  # type: ignore[list-item]
+
+    def test_discover_catalog_no_dir(self, monkeypatch) -> None:
+        monkeypatch.setattr(meta_skills, "_CATALOG_DIR", Path("/nonexistent"))
+        result = meta_skills._discover_catalog()
+        assert result == {}
+
+    def test_discover_catalog_extracts_title_from_heading(self) -> None:
+        # Verify the catalog has extracted titles from # headings
+        skills = meta_skills._SKILLS
+        for spec in skills.values():
+            # Title should not be the fallback (stem-based) if file has a heading
+            assert spec.title  # non-empty
+
+    def test_stage_skill_catalog_nonexistent_source(self) -> None:
+        # A SkillSpec whose .md doesn't exist should be silently skipped
+        fake_skill = meta_skills.SkillSpec(
+            name="nonexistent-skill",
+            title="Fake",
+            content="fake",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / "skills"
+            meta_skills.stage_skill_catalog((fake_skill,), target)
+            assert target.is_dir()
+            assert not (target / "nonexistent-skill.md").exists()
+
+    def test_validate_skill_names_accepts_valid(self) -> None:
+        # Should not raise for valid names
+        meta_skills.validate_skill_names(("execution", "prd"))

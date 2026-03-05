@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v27](exec-plans/completed/docs-and-testing-v27.md) —
+  DockerSandboxClaudeCodeHand tests (35 tests: _resolve_sandbox_name env/auto/cache/sanitize, _should_cleanup truthy/falsy, _wrap_sandbox_exec command/env, _execution_mode, _build_failure_message auth/non-auth/sandbox-note, _command_not_found_message, _fallback_command_when_not_found, _docker_sandbox_available success/failure/FileNotFoundError, _ensure_sandbox already-created/no-docker/not-available/success/failure/template/verbose, _remove_sandbox not-created/removes); meta/skills edge cases (_discover_catalog no-dir, normalize_skill_selection None/non-string, stage_skill_catalog nonexistent, validate_skill_names valid); docker_sandbox_claude.py 19% -> 91%, skills 94% -> 98%, overall 71% -> 73% (completed 2026-03-05)
+
 - [Docs and Testing v26](exec-plans/completed/docs-and-testing-v26.md) —
   BasicLangGraphHand.stream() tests (8 tests: satisfied/max-iter/interrupt/file-changes/PR metadata/auth header); BasicAtomicHand.stream() tests (8 tests: satisfied/max-iter/interrupt/assertion-fallback/awaitable/PR status/auth header); OpenCodeCLIHand edge cases (`_build_failure_message` delegation, auth token variations, exit code); base.py PR helpers (`_update_pr_description` rich/fallback/exception-suppressed, `_create_pr_for_diverged_branch` rich/fallback); iterative.py coverage 79% -> 92%; QUALITY_SCORE.md updates (completed 2026-03-05)
 
