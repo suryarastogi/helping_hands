@@ -663,13 +663,13 @@ class TestParseCommitMessage:
 
 
 class TestCommitMessageFromPrompt:
-    def test_uses_summary_over_prompt(self) -> None:
+    def test_uses_prompt_over_summary(self) -> None:
         result = _commit_message_from_prompt("add login", "Added OAuth2 login flow")
-        assert "added OAuth2 login flow" in result
+        assert "add login" in result
 
-    def test_falls_back_to_prompt_when_summary_empty(self) -> None:
-        result = _commit_message_from_prompt("add user authentication", "")
-        assert "add user authentication" in result
+    def test_falls_back_to_summary_when_prompt_empty(self) -> None:
+        result = _commit_message_from_prompt("", "Added OAuth2 login flow")
+        assert "added OAuth2 login flow" in result
 
     def test_returns_empty_when_both_empty(self) -> None:
         assert _commit_message_from_prompt("", "") == ""
@@ -683,22 +683,30 @@ class TestCommitMessageFromPrompt:
 
     def test_takes_first_sentence(self) -> None:
         result = _commit_message_from_prompt(
-            "", "Fixed the login crash. Also cleaned up utils."
+            "Fix the login crash. Also clean up utils.", ""
         )
-        assert "fixed the login crash" in result
-        assert "cleaned up" not in result
+        assert "fix the login crash" in result
+        assert "clean up" not in result
 
     def test_takes_first_line(self) -> None:
         result = _commit_message_from_prompt(
-            "", "Added new endpoint\nAlso refactored the router"
+            "Add new endpoint\nAlso refactor the router", ""
         )
-        assert "added new endpoint" in result
-        assert "refactored" not in result
+        assert "add new endpoint" in result
+        assert "refactor" not in result
 
     def test_strips_existing_prefix(self) -> None:
-        result = _commit_message_from_prompt("", "feat: add new button")
+        result = _commit_message_from_prompt("feat: add new button", "")
         assert result == "feat: add new button"
         assert not result.startswith("feat: feat:")
+
+    def test_ignores_metadata_summary(self) -> None:
+        result = _commit_message_from_prompt(
+            "add dark mode toggle",
+            "[claudecodecli] isolation=workspace-write | auth=native-cli",
+        )
+        assert "add dark mode toggle" in result
+        assert "claudecodecli" not in result
 
     def test_enforces_72_char_limit(self) -> None:
         long_prompt = "x" * 200
@@ -731,7 +739,7 @@ class TestGenerateCommitMessage:
         kwargs["cmd"] = None
         result = generate_commit_message(**kwargs)
         assert result is not None
-        assert "done" in result  # uses summary
+        assert "add feature" in result  # uses prompt
 
     @patch(
         "helping_hands.lib.hands.v1.hand.pr_description._is_disabled",

@@ -334,14 +334,17 @@ def _parse_commit_message(output: str) -> str | None:
 def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     """Derive a commit message heuristically from the task prompt or summary.
 
-    Used as a fallback when no CLI tool is available.  Picks the most
-    informative source (summary first, then prompt), extracts the first
-    sentence, and formats it as a conventional commit message.
+    Used as a fallback when no CLI tool is available.  Prefers the user's
+    *prompt* (always a clean task description) over the *summary* (which
+    for CLI hands can be raw streaming output full of metadata).
     """
     import re
 
-    # Prefer summary (the AI's description of what it did) over the raw prompt.
-    source = summary.strip() if summary.strip() else prompt.strip()
+    # Prefer prompt — it's always a clean human-written task description.
+    # The summary for CLI hands often starts with metadata like
+    # "[claudecodecli] isolation=workspace-write | auth=..." which is useless
+    # for a commit message.
+    source = prompt.strip() if prompt.strip() else summary.strip()
     if not source:
         return ""
 
@@ -351,9 +354,9 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     sentence_match = re.match(r"^(.+?[.!?])(?:\s|$)", first_line)
     text = sentence_match.group(1) if sentence_match else first_line
 
-    # Strip leading conventional-commit prefix if already present.
+    # Strip leading conventional-commit prefix if already present (requires colon).
     stripped = re.sub(
-        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)\b[:(]?\s*[)]?\s*",
+        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)\s*:\s*",
         "",
         text,
         flags=re.IGNORECASE,
