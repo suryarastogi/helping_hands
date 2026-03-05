@@ -21,9 +21,24 @@ CLI-backed hands handle several failure modes:
 
 ### Iterative hand failures
 
-- Iteration loops are bounded by `--max-iterations`
-- `SATISFIED: yes` signals early completion
-- Streaming errors are surfaced incrementally, not swallowed
+Iterative hands (`BasicLangGraphHand`, `BasicAtomicHand`, `IterativeHand`)
+handle several failure modes:
+
+1. **Provider API failures** — transient API errors (rate limits, server errors)
+   surface as exceptions from the AI provider layer. The iteration loop does
+   not retry automatically; the hand raises the error to the caller.
+2. **Context exhaustion** — long conversations can exceed the model's context
+   window. The iteration loop is bounded by `--max-iterations` to prevent
+   unbounded growth.
+3. **@@READ / @@FILE parse errors** — malformed file operation blocks are
+   silently skipped rather than crashing the iteration. Invalid paths are
+   rejected by `resolve_repo_target()`.
+4. **@@TOOL dispatch failures** — tool invocation errors (bad payload, missing
+   dependencies) are captured as `CommandResult` with non-zero exit codes
+   and fed back to the model as tool output.
+5. **Early completion** — `SATISFIED: yes` signals the model is done, allowing
+   the loop to exit before `max_iterations`.
+6. **Streaming errors** — surfaced incrementally as they occur, not swallowed
 
 ### Finalization failures
 

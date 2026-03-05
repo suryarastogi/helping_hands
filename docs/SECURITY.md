@@ -99,6 +99,30 @@ Gemini CLI supports `--approval-mode` to control edit behavior:
 - Other modes require interactive approval, which is incompatible with
   non-interactive execution
 
+## Iterative hand security boundaries
+
+### BasicLangGraphHand / BasicAtomicHand
+
+Iterative hands (`basic-langgraph`, `basic-atomic`) execute AI-provider API
+calls directly rather than spawning external CLI subprocesses. Security
+considerations differ from CLI-backed hands:
+
+- **No subprocess sandboxing** — these hands run in-process. File operations
+  route through `resolve_repo_target()` (same path-traversal protection as CLI
+  hands), but there is no OS-level sandbox separating the AI loop from the
+  host process.
+- **Tool dispatch** — when `--tools execution` is enabled, `@@TOOL:` blocks
+  invoke `run_python_code` / `run_bash_script` as real subprocesses. These are
+  **not** sandboxed by default; treat `--tools execution` as elevated privilege.
+- **Network access** — iterative hands make outbound HTTPS calls to AI provider
+  APIs. When `--tools web` is enabled, `search_web` and `browse_url` make
+  additional outbound requests. No egress filtering is applied.
+- **Context window** — AI-generated `@@FILE` / `@@READ` operations are bounded
+  by `resolve_repo_target()`, preventing reads outside the repo root.
+
+**Mitigation**: Run iterative hands inside Docker (app mode) to add container
+isolation. In local CLI mode, avoid `--tools execution` on untrusted repos.
+
 ## Recommendations for deployment
 
 1. Use read-only `GITHUB_TOKEN` scopes when possible
