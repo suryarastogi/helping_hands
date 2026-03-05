@@ -10,7 +10,23 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 5, 2026
+
+## Smoke Test Results (2026-03-05)
+
+Capabilities exercised during the smoke test run:
+
+| # | Capability | Tool used | Outcome |
+|---|---|---|---|
+| 1 | Read file | `@@READ` / Read tool | **PASS** — README.md read successfully (681 lines) |
+| 2 | Write file | `@@FILE` / Edit tool | **PASS** — README.md updated with this section |
+| 3 | Inline Python | `python.run_code` / Bash `python3 -c` | **PASS** — Python 3.13.7; `sum(range(10)) == 45` ✓ |
+| 4 | Python script | `python.run_script` / `scripts/smoke_test.py` | **PASS** — arithmetic + JSON round-trip checks passed |
+| 5 | Bash script | `bash.run_script` / `scripts/smoke_test.sh` | **PASS** — `6 * 7 == 42`, bash 5.2.37 |
+| 6 | Web search | `web.search` / WebSearch tool | **PASS** — query returned results from public search index |
+| 7 | Web browse | `web.browse` / WebFetch tool | **PASS** — fetched GitHub page for OpenHands project |
+
+Scripts created: `scripts/smoke_test.py`, `scripts/smoke_test.sh`.
 
 ## What is this?
 
