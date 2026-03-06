@@ -882,3 +882,160 @@ class TestCompletedPlansMinimumContent:
                 f"Completed plan '{plan_path.name}' has only {len(content)} chars, "
                 f"expected >= 200"
             )
+
+
+class TestDesignDocsSourceReferences:
+    """Design docs that reference source files should point to real paths."""
+
+    @pytest.fixture()
+    def design_doc_paths(self) -> list[Path]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(f for f in dd.glob("*.md") if f.name != "index.md")
+
+    def test_source_file_references_exist(self, design_doc_paths: list[Path]) -> None:
+        """Every `src/helping_hands/...` path in design docs must exist."""
+        for doc_path in design_doc_paths:
+            content = doc_path.read_text()
+            paths = re.findall(r"`(src/helping_hands/[^`]+\.py)`", content)
+            for rel_path in paths:
+                full = REPO_ROOT / rel_path
+                assert full.is_file(), (
+                    f"Design doc '{doc_path.name}' references '{rel_path}' "
+                    f"but the file does not exist"
+                )
+
+    def test_design_docs_reference_other_docs_correctly(
+        self, design_doc_paths: list[Path]
+    ) -> None:
+        """Design docs mentioning other design doc filenames should reference real files."""
+        dd = DOCS_DIR / "design-docs"
+        existing = {f.name for f in dd.glob("*.md")}
+        for doc_path in design_doc_paths:
+            content = doc_path.read_text()
+            # Match references like "see [Foo](bar.md)" or "in `bar.md`"
+            refs = re.findall(r"\(([a-z_-]+\.md)\)", content)
+            for ref in refs:
+                # Only check if it looks like a design doc reference (no path separators)
+                if "/" not in ref:
+                    assert ref in existing, (
+                        f"Design doc '{doc_path.name}' links to '{ref}' "
+                        f"but no such file in design-docs/"
+                    )
+
+
+class TestApiDocsCountMatchesIndex:
+    """docs/index.md API reference links should cover all docs/api/ files."""
+
+    def test_api_links_are_subset_of_files(self) -> None:
+        """Every API link in docs/index.md should point to an existing file."""
+        index_text = (DOCS_DIR / "index.md").read_text()
+        api_links = re.findall(r"\(api/([^)]+\.md)\)", index_text)
+        api_dir = DOCS_DIR / "api"
+        file_set = {str(f.relative_to(api_dir)) for f in api_dir.rglob("*.md")}
+        assert len(api_links) > 0, "docs/index.md should have API reference links"
+        for link in api_links:
+            assert link in file_set, (
+                f"docs/index.md references api/{link} but no such file in docs/api/"
+            )
+
+    def test_api_doc_files_minimum_count(self) -> None:
+        """docs/api/ should have at least 10 API doc files."""
+        api_dir = DOCS_DIR / "api"
+        api_files = sorted(api_dir.rglob("*.md"))
+        assert len(api_files) >= 10, (
+            f"docs/api/ has {len(api_files)} files, expected >= 10"
+        )
+
+
+class TestPlansMdStructure:
+    """PLANS.md must have required structural elements."""
+
+    @pytest.fixture()
+    def plans_text(self) -> str:
+        return (DOCS_DIR / "PLANS.md").read_text()
+
+    def test_has_how_plans_work_section(self, plans_text: str) -> None:
+        assert "## How plans work" in plans_text, (
+            "PLANS.md is missing '## How plans work' section"
+        )
+
+    def test_has_active_plans_section(self, plans_text: str) -> None:
+        assert "## Active plans" in plans_text, (
+            "PLANS.md is missing '## Active plans' section"
+        )
+
+    def test_has_completed_plans_section(self, plans_text: str) -> None:
+        assert "## Completed plans" in plans_text, (
+            "PLANS.md is missing '## Completed plans' section"
+        )
+
+    def test_completed_plans_have_test_counts(self, plans_text: str) -> None:
+        """Each completed plan entry (possibly multi-line) should mention a test count."""
+        in_completed = False
+        section_lines: list[str] = []
+        for line in plans_text.splitlines():
+            if "## Completed plans" in line:
+                in_completed = True
+                continue
+            if in_completed and line.startswith("##"):
+                break
+            if in_completed:
+                section_lines.append(line)
+        # Split into entries starting with "- ["
+        section = "\n".join(section_lines)
+        entries = re.split(r"\n(?=- \[)", section)
+        entries_without_count = []
+        for entry in entries:
+            entry = entry.strip()
+            if not entry.startswith("- ["):
+                continue
+            if not re.search(r"\d+ tests", entry):
+                entries_without_count.append(entry.splitlines()[0][:80])
+        assert len(entries_without_count) == 0, (
+            f"PLANS.md completed entries missing test counts: {entries_without_count}"
+        )
+
+
+class TestActivePlansNotCompleted:
+    """Active plans directory should not contain completed plans."""
+
+    def test_no_completed_plans_in_active(self) -> None:
+        active_dir = DOCS_DIR / "exec-plans" / "active"
+        if not active_dir.exists():
+            return
+        for plan_path in active_dir.glob("*.md"):
+            content = plan_path.read_text()
+            assert "**Status:** Completed" not in content, (
+                f"Active plan '{plan_path.name}' has Status: Completed "
+                f"— it should be moved to exec-plans/completed/"
+            )
+
+
+class TestDesignDocsHaveKeySourceFiles:
+    """Design docs with a 'Key source files' section should list real files."""
+
+    @pytest.fixture()
+    def design_doc_paths(self) -> list[Path]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(f for f in dd.glob("*.md") if f.name != "index.md")
+
+    def test_key_source_files_section_paths_exist(
+        self, design_doc_paths: list[Path]
+    ) -> None:
+        """Files listed in 'Key source files' sections must exist."""
+        for doc_path in design_doc_paths:
+            content = doc_path.read_text()
+            if "## Key source files" not in content:
+                continue
+            # Extract everything after "## Key source files"
+            section = content.split("## Key source files", 1)[1]
+            # Stop at next heading
+            if "\n## " in section:
+                section = section.split("\n## ", 1)[0]
+            paths = re.findall(r"`(src/helping_hands/[^`]+\.py)`", section)
+            for rel_path in paths:
+                full = REPO_ROOT / rel_path
+                assert full.is_file(), (
+                    f"Design doc '{doc_path.name}' Key source files lists "
+                    f"'{rel_path}' but the file does not exist"
+                )

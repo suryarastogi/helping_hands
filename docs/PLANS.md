@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v77](exec-plans/completed/docs-and-testing-v77.md) --
+  E2E hand workflow design doc; extended docs structure validation tests (design doc source references, API docs completeness, PLANS.md structure, active plan consistency, key source files; 10 new); 1676 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v76](exec-plans/completed/docs-and-testing-v76.md) --
   Model-resolution design doc; extended docs structure validation tests (PLANS.md link resolution, design-docs count sync, tech-debt-tracker structure, TODO.md structure, completed plan content; 10 new); 1666 tests pass (completed 2026-03-06)
 
