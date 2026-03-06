@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v57](exec-plans/completed/docs-and-testing-v57.md) --
+  Close atomic.py `stream()` non-AssertionError exception propagation gap (lines 91-92); add skill catalog pattern to DESIGN.md; add Docker sandbox reliability and async compatibility fallback patterns to RELIABILITY.md; atomic.py 97% -> 98%+; 1473 backend tests pass (completed 2026-03-06)
+
 - [Docs and Testing v56](exec-plans/completed/docs-and-testing-v56.md) --
   Close iterative.py `_build_agent` coverage gaps for BasicLangGraphHand (lines 507-518) and BasicAtomicHand (lines 696-713) via mocked-import tests; add documentation map table to docs/index.md; mark frontend 80%+ target as achieved in TODO.md; iterative.py 97% -> 98%+, overall 76% -> 77%; 1472 backend tests pass (completed 2026-03-06)
 

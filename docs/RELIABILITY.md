@@ -46,6 +46,42 @@ handle several failure modes:
 - Push failures surface the git error message
 - PR creation failures do not affect the local branch state
 
+### Docker sandbox failures
+
+`DockerSandboxClaudeCodeHand` adds a microVM isolation layer with its own
+failure modes:
+
+1. **Plugin unavailable** — if `docker sandbox` CLI plugin is not installed,
+   `_ensure_sandbox` fails with a clear error instead of falling back to
+   unsandboxed execution. This is intentional: silent fallback would defeat
+   the isolation guarantee.
+2. **Docker not found** — if `docker` itself is missing (`FileNotFoundError`),
+   `_docker_sandbox_available()` returns `False` and sandbox creation is
+   skipped with an error.
+3. **Sandbox creation failure** — non-zero exit from `docker sandbox create`
+   surfaces the Docker error message. Template-based creation is attempted
+   when `HELPING_HANDS_DOCKER_SANDBOX_TEMPLATE` is set.
+4. **Cleanup guarantee** — `_remove_sandbox()` runs in a `finally` block
+   after execution, controlled by `HELPING_HANDS_DOCKER_SANDBOX_CLEANUP`
+   (default: auto-remove). Setting it to `0` preserves the sandbox for
+   post-mortem inspection.
+5. **Name collision prevention** — sandbox names are auto-generated from the
+   hand UUID and sanitized to DNS-compatible labels, preventing collisions
+   across concurrent runs. Names are cached per instance to ensure cleanup
+   targets the correct sandbox.
+
+### Async compatibility fallbacks
+
+`AtomicHand.stream()` handles three async compatibility scenarios when
+calling `run_async()`:
+
+1. **AssertionError** — the underlying library doesn't support async; falls
+   back to `asyncio.to_thread(agent.run, ...)` for sync execution.
+2. **Non-AssertionError exceptions** — propagated immediately (e.g., provider
+   unavailable, auth failure). No fallback attempted.
+3. **Awaitable result** — if the awaitable itself raises `AssertionError`,
+   the same sync fallback is used. Other exceptions propagate.
+
 ## Heartbeat monitoring
 
 CLI subprocess runs emit heartbeat lines every

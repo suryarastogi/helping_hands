@@ -249,6 +249,16 @@ class TestStream:
         assert "real content" in chunks
         assert "" not in chunks  # empty string not yielded
 
+    def test_stream_non_assertion_error_propagates(self, tmp_path) -> None:
+        """When run_async raises a non-AssertionError, it propagates."""
+        hand, mock_agent, _ = _make_hand(tmp_path)
+        mock_agent.run_async.side_effect = RuntimeError("provider unavailable")
+
+        import pytest
+
+        with pytest.raises(RuntimeError, match="provider unavailable"):
+            asyncio.run(_collect_stream(hand, "prompt"))
+
     def test_stream_awaitable_empty_chat_message(self, tmp_path) -> None:
         """When awaitable yields partial with falsy chat_message, nothing is yielded."""
         hand, mock_agent, _ = _make_hand(tmp_path)

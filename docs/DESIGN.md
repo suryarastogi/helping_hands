@@ -243,6 +243,26 @@ Design choices:
   `format_tool_instructions_for_cli()` produces a condensed variant for CLI
   hands that pass tool docs via `--init-prompt`.
 
+### Skill catalog
+
+Skills (`meta/skills/`) are composable knowledge bundles — Markdown files
+injected into hand prompts via `--skills`.  Unlike tools (callable capabilities),
+skills carry no executable code.  Key design choices:
+
+- **Pure knowledge artifacts** — skills are `.md` files discovered from
+  `catalog/*.md` at import time via `_discover_catalog()`.  No code execution,
+  no side effects.
+- **Opt-in selection** — `normalize_skill_selection()` resolves user-provided
+  skill names (strings or tuples) against the discovered catalog.  Unknown
+  skills are silently ignored rather than raising errors.
+- **Temporary staging** — CLI hands call `stage_skill_catalog()` to copy
+  selected skill files into a temp directory before subprocess execution, then
+  `_cleanup_skill_catalog()` removes them in a `finally` block.  This avoids
+  leaking skill content into the repo working tree.
+- **Graceful degradation** — if the catalog directory is missing or empty,
+  `_discover_catalog()` returns an empty dict.  Skill-related prompts are
+  simply omitted when no skills are selected.
+
 ## Anti-patterns to avoid
 
 - **Global state** — No module-level caches or singletons
