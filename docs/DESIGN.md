@@ -81,6 +81,41 @@ Each backend customizes the shared `_TwoPhaseCLIHand` base through hook methods:
   controlled by `HELPING_HANDS_DOCKER_SANDBOX_CLEANUP` (default: auto-remove).
   Requires Docker Desktop with the `docker sandbox` CLI plugin.
 
+### Two-phase lifecycle and IO loop
+
+The `_run_two_phase` method orchestrates the full CLI hand execution lifecycle:
+
+1. **Skill catalog staging** — `_stage_skill_catalog()` copies selected skill
+   Markdown files to a temp directory; `_cleanup_skill_catalog()` removes them
+   in a `finally` block (guaranteed even on exception).
+2. **`_run_two_phase_inner`** — runs the init and task subprocess phases.
+3. **`_invoke_backend`** — the default delegates to `_invoke_cli`, which calls
+   `_invoke_cli_with_cmd`.  Backends override this to inject custom behavior
+   (e.g. Claude wraps with `_StreamJsonEmitter`, Docker Sandbox wraps with
+   `_wrap_sandbox_exec`).
+
+The subprocess IO loop (`_invoke_cli_with_cmd`) manages:
+
+- **Idle timeout** — if no output arrives for `_idle_timeout_seconds()`, the
+  process is terminated and a `RuntimeError` is raised.
+- **Heartbeat messages** — emitted every `_heartbeat_seconds()` during idle
+  periods so callers know the process is still alive.
+- **Interrupt handling** — if `_is_interrupted()` returns `True` during the
+  read loop, the active process is terminated and the loop exits.
+- **Fallback/retry** — on `FileNotFoundError`, `_fallback_command_when_not_found()`
+  provides an alternate command; on non-zero exit, `_retry_command_after_failure()`
+  can return a modified command for one retry.
+
+Docker Sandbox (`DockerSandboxClaudeCodeHand`) extends this lifecycle by
+wrapping `_run_two_phase` with sandbox creation/cleanup:
+
+```
+_ensure_sandbox(emit)  →  super()._run_two_phase(...)  →  _remove_sandbox(emit)
+```
+
+The sandbox is only removed when `_should_cleanup()` returns `True` (controlled
+by `HELPING_HANDS_DOCKER_SANDBOX_CLEANUP`).
+
 ### PR description and commit message generation
 
 The `pr_description` module (`hands/v1/hand/pr_description.py`) generates rich

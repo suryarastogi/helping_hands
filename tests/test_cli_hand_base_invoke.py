@@ -414,3 +414,72 @@ class TestInvokeCmdVerbose:
         assert any("cmd:" in c for c in chunks)
         assert any("cwd:" in c for c in chunks)
         assert any("finished in" in c for c in chunks)
+
+
+# ===================================================================
+# _invoke_backend — delegates to _invoke_cli
+# ===================================================================
+
+
+class TestInvokeBackend:
+    def test_delegates_to_invoke_cli(self) -> None:
+        stub = _Stub()
+        calls: list[str] = []
+
+        async def fake_invoke_cli(prompt, *, emit):
+            calls.append(prompt)
+            return "delegated"
+
+        stub._invoke_cli = fake_invoke_cli
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = _run(stub._invoke_backend("hello", emit=emit))
+        assert result == "delegated"
+        assert calls == ["hello"]
+
+
+# ===================================================================
+# _run_two_phase — skill catalog lifecycle
+# ===================================================================
+
+
+class TestRunTwoPhase:
+    def test_stages_and_cleans_up_skill_catalog(self) -> None:
+        stub = _Stub()
+        stage_calls: list[bool] = []
+        cleanup_calls: list[bool] = []
+        reset_calls: list[bool] = []
+
+        stub._stage_skill_catalog = lambda: stage_calls.append(True)
+        stub._cleanup_skill_catalog = lambda: cleanup_calls.append(True)
+        stub.reset_interrupt = lambda: reset_calls.append(True)
+
+        async def fake_inner(prompt, *, emit):
+            return "inner result"
+
+        stub._run_two_phase_inner = fake_inner
+
+        result = _run(stub._run_two_phase("task", emit=_noop_emit()))
+        assert result == "inner result"
+        assert reset_calls == [True]
+        assert stage_calls == [True]
+        assert cleanup_calls == [True]
+
+    def test_cleans_up_on_exception(self) -> None:
+        stub = _Stub()
+        cleanup_calls: list[bool] = []
+
+        stub._stage_skill_catalog = lambda: None
+        stub._cleanup_skill_catalog = lambda: cleanup_calls.append(True)
+        stub.reset_interrupt = lambda: None
+
+        async def fake_inner(prompt, *, emit):
+            raise RuntimeError("boom")
+
+        stub._run_two_phase_inner = fake_inner
+
+        with pytest.raises(RuntimeError, match="boom"):
+            _run(stub._run_two_phase("task", emit=_noop_emit()))
+        assert cleanup_calls == [True]

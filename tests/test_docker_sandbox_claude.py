@@ -442,3 +442,162 @@ class TestRemoveSandbox:
             asyncio.new_event_loop().run_until_complete(hand._remove_sandbox(emit))
 
         assert hand._sandbox_created is False
+
+
+# ---------------------------------------------------------------------------
+# _invoke_claude (async, wraps command with sandbox exec + stream-json)
+# ---------------------------------------------------------------------------
+
+
+class TestInvokeClaude:
+    def test_wraps_with_sandbox_and_returns_result(self, hand, monkeypatch) -> None:
+        """_invoke_claude wraps cmd with _wrap_sandbox_exec and uses emitter."""
+        captured_cmd: list[str] = []
+
+        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+            captured_cmd.extend(cmd)
+            # Simulate stream-json result event
+            import json
+
+            event = json.dumps(
+                {"type": "result", "result": "sandbox done", "total_cost_usd": 0.01}
+            )
+            await emit(event + "\n")
+            return "raw fallback"
+
+        monkeypatch.setattr(hand, "_invoke_cli_with_cmd", fake_invoke_cli_with_cmd)
+        monkeypatch.setattr(
+            hand, "_render_command", lambda prompt: ["claude", "-p", prompt]
+        )
+        monkeypatch.setenv("HELPING_HANDS_DOCKER_SANDBOX_NAME", "test-sb")
+
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        result = asyncio.run(hand._invoke_claude("fix bug", emit=emit))
+        assert result == "sandbox done"
+        # The command should be wrapped with docker sandbox exec
+        assert "docker" in captured_cmd
+        assert "sandbox" in captured_cmd
+        assert "exec" in captured_cmd
+
+    def test_falls_back_to_raw_output(self, hand, monkeypatch) -> None:
+        """When emitter has no result_text, falls back to raw CLI output."""
+
+        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+            await emit("plain output\n")
+            return "raw result"
+
+        monkeypatch.setattr(hand, "_invoke_cli_with_cmd", fake_invoke_cli_with_cmd)
+        monkeypatch.setattr(
+            hand, "_render_command", lambda prompt: ["claude", "-p", prompt]
+        )
+        monkeypatch.setenv("HELPING_HANDS_DOCKER_SANDBOX_NAME", "test-sb")
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(hand._invoke_claude("fix bug", emit=emit))
+        assert result == "raw result"
+
+
+# ---------------------------------------------------------------------------
+# _run_two_phase (async, sandbox lifecycle)
+# ---------------------------------------------------------------------------
+
+
+class TestRunTwoPhase:
+    def test_ensures_sandbox_and_cleans_up(self, hand, monkeypatch) -> None:
+        """_run_two_phase calls _ensure_sandbox before, _remove_sandbox after."""
+        ensure_called = []
+        remove_called = []
+
+        async def fake_ensure(emit):
+            ensure_called.append(True)
+
+        async def fake_remove(emit):
+            remove_called.append(True)
+
+        monkeypatch.setattr(hand, "_ensure_sandbox", fake_ensure)
+        monkeypatch.setattr(hand, "_remove_sandbox", fake_remove)
+        monkeypatch.setattr(hand, "_should_cleanup", lambda: True)
+
+        # Patch at the _TwoPhaseCLIHand level (where super() resolves to)
+        async def fake_parent_run_two_phase(self, prompt, *, emit):
+            return "result"
+
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        monkeypatch.setattr(
+            _TwoPhaseCLIHand, "_run_two_phase", fake_parent_run_two_phase
+        )
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(hand._run_two_phase("task", emit=emit))
+        assert result == "result"
+        assert ensure_called == [True]
+        assert remove_called == [True]
+
+    def test_skips_cleanup_when_disabled(self, hand, monkeypatch) -> None:
+        """_run_two_phase skips _remove_sandbox when _should_cleanup is False."""
+        remove_called = []
+
+        async def fake_ensure(emit):
+            pass
+
+        async def fake_remove(emit):
+            remove_called.append(True)
+
+        monkeypatch.setattr(hand, "_ensure_sandbox", fake_ensure)
+        monkeypatch.setattr(hand, "_remove_sandbox", fake_remove)
+        monkeypatch.setattr(hand, "_should_cleanup", lambda: False)
+
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        async def fake_parent_run_two_phase(self, prompt, *, emit):
+            return "result"
+
+        monkeypatch.setattr(
+            _TwoPhaseCLIHand, "_run_two_phase", fake_parent_run_two_phase
+        )
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(hand._run_two_phase("task", emit=emit))
+        assert result == "result"
+        assert remove_called == []
+
+    def test_cleans_up_even_on_exception(self, hand, monkeypatch) -> None:
+        """_run_two_phase calls _remove_sandbox even when parent raises."""
+        remove_called = []
+
+        async def fake_ensure(emit):
+            pass
+
+        async def fake_remove(emit):
+            remove_called.append(True)
+
+        monkeypatch.setattr(hand, "_ensure_sandbox", fake_ensure)
+        monkeypatch.setattr(hand, "_remove_sandbox", fake_remove)
+        monkeypatch.setattr(hand, "_should_cleanup", lambda: True)
+
+        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+        async def fake_parent_run_two_phase(self, prompt, *, emit):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            _TwoPhaseCLIHand, "_run_two_phase", fake_parent_run_two_phase
+        )
+
+        async def emit(text: str) -> None:
+            pass
+
+        with pytest.raises(RuntimeError, match="boom"):
+            asyncio.run(hand._run_two_phase("task", emit=emit))
+        assert remove_called == [True]

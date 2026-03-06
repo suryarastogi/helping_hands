@@ -1221,3 +1221,130 @@ class TestBasicAtomicHandStream:
         first = chunks[0]
         assert "[basic-atomic]" in first
         assert "provider=" in first
+
+    def test_stream_delta_without_prefix_assertion_fallback(self, tmp_path) -> None:
+        """When sync fallback response doesn't start with prior text, full text is used as delta."""
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)
+
+        sync_partial = MagicMock()
+        sync_partial.chat_message = "Completely new text.\nSATISFIED: yes"
+
+        def _sync_run(_input):
+            return sync_partial
+
+        def _async_raise(_input):
+            raise AssertionError("async not supported")
+
+        mock_agent.run_async = _async_raise
+        mock_agent.run = _sync_run
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            chunks = asyncio.run(_collect_stream(hand, "task"))
+
+        text = "".join(chunks)
+        assert "Completely new text" in text
+
+    def test_stream_delta_without_prefix_async_iter(self, tmp_path) -> None:
+        """When async iter response doesn't start with prior text, full response is delta."""
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)
+
+        # First partial has "Hello", second partial has unrelated text
+        partial1 = MagicMock()
+        partial1.chat_message = "Hello"
+        partial2 = MagicMock()
+        partial2.chat_message = "World\nSATISFIED: yes"
+
+        async def _fake_run_async(_input):
+            yield partial1
+            yield partial2
+
+        mock_agent.run_async = _fake_run_async
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            chunks = asyncio.run(_collect_stream(hand, "task"))
+
+        text = "".join(chunks)
+        assert "Hello" in text
+        assert "World" in text
+
+    def test_stream_delta_without_prefix_awaitable(self, tmp_path) -> None:
+        """When awaitable response doesn't start with prior text, full text is used."""
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)
+
+        partial = MagicMock()
+        partial.chat_message = "Brand new.\nSATISFIED: yes"
+
+        async def _fake_run_async(_input):
+            return partial
+
+        mock_agent.run_async = _fake_run_async
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            chunks = asyncio.run(_collect_stream(hand, "task"))
+
+        text = "".join(chunks)
+        assert "Brand new" in text
+
+    def test_stream_file_changes_yielded(self, tmp_path) -> None:
+        """When _apply_inline_edits returns changed files, they're yielded."""
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=2)
+
+        call_count = 0
+        partial_iter1 = MagicMock()
+        partial_iter1.chat_message = "@@FILE main.py\nprint('hi')\n@@END\nSATISFIED: no"
+        partial_iter2 = MagicMock()
+        partial_iter2.chat_message = "Done.\nSATISFIED: yes"
+
+        async def _fake_run_async(_input):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                yield partial_iter1
+            else:
+                yield partial_iter2
+
+        mock_agent.run_async = _fake_run_async
+
+        with (
+            patch.object(hand, "_apply_inline_edits", return_value=["main.py"]),
+            patch.object(hand, "_finalize_repo_pr", return_value={}),
+        ):
+            chunks = asyncio.run(_collect_stream(hand, "task"))
+
+        text = "".join(chunks)
+        assert "[files updated]" in text
+        assert "main.py" in text
+
+    def test_stream_tool_results_yielded(self, tmp_path) -> None:
+        """When tool requests return feedback, it's yielded."""
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=2)
+
+        call_count = 0
+        partial_iter1 = MagicMock()
+        partial_iter1.chat_message = "@@READ main.py\nSATISFIED: no"
+        partial_iter2 = MagicMock()
+        partial_iter2.chat_message = "Done.\nSATISFIED: yes"
+
+        async def _fake_run_async(_input):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                yield partial_iter1
+            else:
+                yield partial_iter2
+
+        mock_agent.run_async = _fake_run_async
+
+        with (
+            patch.object(hand, "_apply_inline_edits", return_value=[]),
+            patch.object(
+                hand, "_execute_read_requests", return_value="main.py contents here"
+            ),
+            patch.object(hand, "_execute_tool_requests", return_value=""),
+            patch.object(hand, "_finalize_repo_pr", return_value={}),
+        ):
+            chunks = asyncio.run(_collect_stream(hand, "task"))
+
+        text = "".join(chunks)
+        assert "[tool results]" in text
+        assert "main.py contents" in text

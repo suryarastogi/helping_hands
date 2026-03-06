@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v40](exec-plans/completed/docs-and-testing-v40.md) --
+  DockerSandboxClaudeCodeHand `_invoke_claude` (sandbox-wrapped cmd/result/raw fallback) and `_run_two_phase` (ensure+cleanup/skip-cleanup/cleanup-on-exception) tests; CLI base `_invoke_backend` delegation and `_run_two_phase` skill catalog lifecycle tests (staging/cleanup/cleanup-on-exception); BasicAtomicHand.stream() delta-without-prefix (assertion-fallback/async-iter/awaitable), file-change yield, tool-result yield tests; DESIGN.md updated with two-phase lifecycle and IO loop patterns; QUALITY_SCORE.md updated; 1391 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v39](exec-plans/completed/docs-and-testing-v39.md) --
   CLI hand `_invoke_cli_with_cmd` subprocess error path tests (FileNotFoundError with/without fallback, npx retry, stdout None, non-zero exit with/without retry, idle timeout, verbose mode); `BasicAtomicHand.run()` interrupted/max_iterations status paths; ARCHITECTURE.md updated with task result normalization and skill catalog sections; QUALITY_SCORE.md updated; 1378 tests pass (completed 2026-03-06)
 
