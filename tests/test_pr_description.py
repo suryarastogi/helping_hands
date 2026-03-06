@@ -104,6 +104,10 @@ class TestDiffCharLimit:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "0")
         assert _diff_char_limit() == 12_000
 
+    def test_ignores_negative(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "-100")
+        assert _diff_char_limit() == 12_000
+
 
 # ---------------------------------------------------------------------------
 # _truncate_diff
@@ -168,6 +172,20 @@ class TestGetDiff:
         )
         assert _get_diff(tmp_path, base_branch="main") == ""
 
+    @patch("helping_hands.lib.hands.v1.hand.pr_description.subprocess.run")
+    def test_returns_empty_when_base_branch_success_but_empty_stdout(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        """Base branch diff succeeds (rc=0) but has empty/whitespace stdout."""
+        mock_run.side_effect = [
+            # base branch diff returns 0 but empty
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="   \n"),
+            # fallback also returns 0 but empty
+            subprocess.CompletedProcess(args=[], returncode=0, stdout=""),
+        ]
+        assert _get_diff(tmp_path, base_branch="main") == ""
+        assert mock_run.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # _build_prompt
@@ -218,6 +236,18 @@ class TestBuildPrompt:
         assert "x" * 500 in result
         assert "x" * 501 not in result
 
+    def test_truncates_long_summary_to_2000_chars(self) -> None:
+        long_summary = "s" * 3000
+        result = _build_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary=long_summary,
+        )
+        assert "AI Summary of Changes" in result
+        assert "s" * 2000 in result
+        assert "s" * 2001 not in result
+
 
 # ---------------------------------------------------------------------------
 # _parse_output
@@ -260,6 +290,10 @@ class TestParseOutput:
         assert result is not None
         assert result.title == "fix: resolve login crash"
         assert "null pointer" in result.body
+
+    def test_whitespace_only_body_returns_none(self) -> None:
+        output = "PR_TITLE: some title\nPR_BODY:\n   \n  \n"
+        assert _parse_output(output) is None
 
     def test_multiline_body_preserved(self) -> None:
         output = (
@@ -579,6 +613,18 @@ class TestBuildCommitMessagePrompt:
         )
         assert "AI Summary of Changes" not in result
 
+    def test_truncates_long_summary_to_1000_chars(self) -> None:
+        long_summary = "c" * 2000
+        result = _build_commit_message_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary=long_summary,
+        )
+        assert "AI Summary of Changes" in result
+        assert "c" * 1000 in result
+        assert "c" * 1001 not in result
+
 
 # ---------------------------------------------------------------------------
 # _parse_commit_message
@@ -627,6 +673,13 @@ class TestCommitMessageFromPrompt:
 
     def test_returns_empty_when_both_empty(self) -> None:
         assert _commit_message_from_prompt("", "") == ""
+
+    def test_whitespace_only_summary_falls_back_to_prompt(self) -> None:
+        result = _commit_message_from_prompt("add user auth", "   \n  ")
+        assert "add user auth" in result
+
+    def test_whitespace_only_both_returns_empty(self) -> None:
+        assert _commit_message_from_prompt("  ", "  ") == ""
 
     def test_takes_first_sentence(self) -> None:
         result = _commit_message_from_prompt(

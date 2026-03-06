@@ -81,6 +81,22 @@ Each backend customizes the shared `_TwoPhaseCLIHand` base through hook methods:
   controlled by `HELPING_HANDS_DOCKER_SANDBOX_CLEANUP` (default: auto-remove).
   Requires Docker Desktop with the `docker sandbox` CLI plugin.
 
+### PR description and commit message generation
+
+The `pr_description` module (`hands/v1/hand/pr_description.py`) generates rich
+PR titles/bodies and commit messages by invoking a CLI tool (e.g. `claude -p`)
+against the git diff.  Key design choices:
+
+- **Opt-in with graceful fallback** — when no CLI is available or generation
+  fails, the system falls back to heuristic message derivation from the task
+  prompt/summary.
+- **Diff truncation** — diffs are capped at configurable limits (12k chars for
+  PR descriptions, 8k for commit messages) to stay within model context.
+- **Structured output parsing** — CLI output must contain `PR_TITLE:` /
+  `PR_BODY:` or `COMMIT_MSG:` markers; unparseable output is silently skipped.
+- **Environment-controlled** — timeout, diff limit, and disable toggle are all
+  configurable via `HELPING_HANDS_*` env vars.
+
 ### Finalization
 
 Commit/push/PR logic is centralized in the `Hand` base class so all backends

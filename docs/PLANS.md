@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v32](exec-plans/completed/docs-and-testing-v32.md) —
+  pr_description.py edge case tests (`_diff_char_limit` negative, `_get_diff` empty stdout on success, `_build_prompt`/`_build_commit_message_prompt` summary truncation, `_parse_output` whitespace-only body, `_commit_message_from_prompt` whitespace edge cases); DESIGN.md updated with PR description generation pattern; 1263 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v31](exec-plans/completed/docs-and-testing-v31.md) —
   Fixed ARCHITECTURE.md key file paths table formatting (merged dangling Docker sandbox entry); _StreamJsonEmitter edge case tests (empty text block, result without cost/duration, partial api summary, empty/whitespace tool_result content, non-tool_result blocks, non-dict list items, empty flush, multiple newlines, unknown event type); _invoke_claude/_invoke_backend async tests (emitter wiring, raw fallback, delegation); claude.py coverage maintained at 97%; 1256 tests pass (completed 2026-03-05)
 

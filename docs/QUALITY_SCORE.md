@@ -94,6 +94,7 @@ Target Python: 3.12+
 | `lib/hands/v1/hand/cli/opencode.py` | Excellent (91% -> 94%) | Maintained | `_build_failure_message` delegation, `_build_opencode_failure_message` additional auth token variations (case-insensitive, non-auth distinction, exit code) added in v26 |
 | `lib/hands/v1/hand/cli/docker_sandbox_claude.py` | Good (19% -> 91%) | 85%+ | Class attrs, `_resolve_sandbox_name` (env override/auto-gen/cache/sanitize), `_should_cleanup` (truthy/falsy), `_wrap_sandbox_exec` (wrapping/env forwarding), `_execution_mode`, `_build_failure_message` (auth/generic/sandbox note), `_command_not_found_message`, `_fallback_command_when_not_found`, `_docker_sandbox_available` (success/fail/FileNotFoundError), `_ensure_sandbox` (skip/docker-not-found/plugin-unavailable/success/failure/template), `_remove_sandbox` (skip/stop+rm) added in v27 |
 | `lib/meta/skills/__init__.py` | Good (94% -> 96%) | 95%+ | `normalize_skill_selection` non-string ValueError, `stage_skill_catalog` missing .md skip added in v30 |
+| `lib/hands/v1/hand/pr_description.py` | Good (80 tests, all paths) | 90%+ | `_diff_char_limit` negative, `_get_diff` empty stdout on success, `_build_prompt`/`_build_commit_message_prompt` summary truncation, `_parse_output` whitespace-only body, `_commit_message_from_prompt` whitespace edge cases added in v32 |
 
 ## Areas for improvement
 
