@@ -643,7 +643,9 @@ class TestEnsureSandboxVerboseBranch:
         # Should contain the "Creating sandbox" line
         assert any("Creating sandbox" in e for e in emitted)
 
-    def test_verbose_includes_cmd_output(self, make_cli_hand, tmp_path, monkeypatch) -> None:
+    def test_verbose_includes_cmd_output(
+        self, make_cli_hand, tmp_path, monkeypatch
+    ) -> None:
         """When config.verbose is True, _ensure_sandbox emits cmd line."""
         hand = make_cli_hand(DockerSandboxClaudeCodeHand, model="claude-sonnet-4-5")
         hand.config = Config(
