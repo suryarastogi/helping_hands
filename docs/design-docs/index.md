@@ -23,6 +23,7 @@ Index of design documents for helping_hands.
 - [Filesystem Security](filesystem-security.md) — Path confinement via resolve_repo_target, MCP sharing, and sandboxing boundaries
 - [Model Resolution](model-resolution.md) — HandModel dataclass, provider inference heuristics, LangChain/Atomic adapters
 - [E2E Hand Workflow](e2e-hand-workflow.md) — Clone/branch/edit/commit/push/PR lifecycle, resume flow, dry-run
+- [Task Lifecycle](task-lifecycle.md) — Celery task enqueue, progress streaming, update buffering, result normalization
 
 ## Adding a design doc
 

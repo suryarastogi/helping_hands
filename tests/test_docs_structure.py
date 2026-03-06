@@ -1011,6 +1011,157 @@ class TestActivePlansNotCompleted:
             )
 
 
+class TestDesignDocsIndexDescriptions:
+    """Each entry in design-docs/index.md should have a non-empty description."""
+
+    def test_index_entries_have_descriptions(self) -> None:
+        index_text = (DOCS_DIR / "design-docs" / "index.md").read_text()
+        # Match lines like "- [Title](file.md) — Description"
+        entries = re.findall(
+            r"^- \[.+?\]\(.+?\.md\)\s*(?:—|--)\s*(.*)$", index_text, re.MULTILINE
+        )
+        assert len(entries) > 0, "design-docs/index.md should have list entries"
+        for desc in entries:
+            assert len(desc.strip()) > 0, (
+                "design-docs/index.md has an entry with an empty description"
+            )
+
+    def test_index_has_adding_section(self) -> None:
+        """Index should have the 'Adding a design doc' section."""
+        index_text = (DOCS_DIR / "design-docs" / "index.md").read_text()
+        assert "## Adding a design doc" in index_text, (
+            "design-docs/index.md is missing '## Adding a design doc' section"
+        )
+
+
+class TestGeneratedDocsContent:
+    """Generated docs should have minimum content."""
+
+    @pytest.fixture()
+    def generated_paths(self) -> list[Path]:
+        gen = DOCS_DIR / "generated"
+        if not gen.exists():
+            return []
+        return sorted(gen.glob("*.md"))
+
+    def test_generated_docs_exist(self, generated_paths: list[Path]) -> None:
+        assert len(generated_paths) >= 1, "docs/generated/ should have at least 1 file"
+
+    def test_generated_docs_have_minimum_length(
+        self, generated_paths: list[Path]
+    ) -> None:
+        """Each generated doc should have at least 200 characters."""
+        for doc_path in generated_paths:
+            content = doc_path.read_text()
+            assert len(content) >= 200, (
+                f"Generated doc '{doc_path.name}' has only {len(content)} chars, "
+                f"expected >= 200"
+            )
+
+    def test_generated_docs_have_heading(self, generated_paths: list[Path]) -> None:
+        """Each generated doc should start with a heading."""
+        for doc_path in generated_paths:
+            content = doc_path.read_text().strip()
+            assert content.startswith("# "), (
+                f"Generated doc '{doc_path.name}' should start with a # heading"
+            )
+
+
+class TestProductSpecsContent:
+    """Product spec files should have substantive content."""
+
+    @pytest.fixture()
+    def spec_paths(self) -> list[Path]:
+        ps = DOCS_DIR / "product-specs"
+        return sorted(f for f in ps.glob("*.md") if f.name != "index.md")
+
+    def test_spec_files_have_minimum_length(self, spec_paths: list[Path]) -> None:
+        """Each product spec should have at least 300 characters."""
+        for spec_path in spec_paths:
+            content = spec_path.read_text()
+            assert len(content) >= 300, (
+                f"Product spec '{spec_path.name}' has only {len(content)} chars, "
+                f"expected >= 300"
+            )
+
+    def test_spec_files_have_heading(self, spec_paths: list[Path]) -> None:
+        """Each product spec should start with a heading."""
+        for spec_path in spec_paths:
+            content = spec_path.read_text().strip()
+            assert content.startswith("# "), (
+                f"Product spec '{spec_path.name}' should start with a # heading"
+            )
+
+
+class TestArchitectureMdModuleBoundaries:
+    """ARCHITECTURE.md module boundary paths should reference real directories."""
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    def test_core_library_modules_exist(self, arch_text: str) -> None:
+        """Module names mentioned in the Core library section should map to real paths."""
+        src_lib = REPO_ROOT / "src" / "helping_hands" / "lib"
+        expected_modules = ["config", "repo", "github", "ai_providers", "meta"]
+        for mod in expected_modules:
+            candidates = list(src_lib.glob(f"{mod}*"))
+            assert len(candidates) > 0, (
+                f"ARCHITECTURE.md references lib module '{mod}' "
+                f"but nothing matching exists under src/helping_hands/lib/"
+            )
+
+    def test_entry_point_files_exist(self, arch_text: str) -> None:
+        """Entry point files mentioned in ARCHITECTURE.md should exist."""
+        src = REPO_ROOT / "src" / "helping_hands"
+        entry_points = {
+            "cli/main.py": src / "cli" / "main.py",
+            "server/app.py": src / "server" / "app.py",
+            "server/mcp_server.py": src / "server" / "mcp_server.py",
+        }
+        for name, path in entry_points.items():
+            assert path.is_file(), (
+                f"ARCHITECTURE.md references entry point '{name}' "
+                f"but {path.relative_to(REPO_ROOT)} does not exist"
+            )
+
+
+class TestDocsIndexRuntimeFlowSection:
+    """docs/index.md should have a Runtime flow section."""
+
+    def test_runtime_flow_section_exists(self) -> None:
+        index_text = (DOCS_DIR / "index.md").read_text()
+        assert "## Runtime flow" in index_text, (
+            "docs/index.md is missing '## Runtime flow' section"
+        )
+
+
+class TestQualityScoreAreasForImprovement:
+    """QUALITY_SCORE.md should have an areas for improvement section."""
+
+    def test_areas_for_improvement_exists(self) -> None:
+        quality_text = (DOCS_DIR / "QUALITY_SCORE.md").read_text()
+        assert "## Areas for improvement" in quality_text, (
+            "QUALITY_SCORE.md is missing '## Areas for improvement' section"
+        )
+
+    def test_areas_for_improvement_has_items(self) -> None:
+        quality_text = (DOCS_DIR / "QUALITY_SCORE.md").read_text()
+        in_section = False
+        items = 0
+        for line in quality_text.splitlines():
+            if "## Areas for improvement" in line:
+                in_section = True
+                continue
+            if in_section and line.startswith("##"):
+                break
+            if in_section and line.strip().startswith("- ["):
+                items += 1
+        assert items >= 1, (
+            f"QUALITY_SCORE.md Areas for improvement has {items} items, expected >= 1"
+        )
+
+
 class TestDesignDocsHaveKeySourceFiles:
     """Design docs with a 'Key source files' section should list real files."""
 
