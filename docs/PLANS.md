@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v61](exec-plans/completed/docs-and-testing-v61.md) --
+  Document remaining dead code gaps (web.py latin-1 fallback, mcp_server.py entry guard) in tech-debt-tracker; add testing methodology design doc; add remaining coverage gaps table to QUALITY_SCORE.md; 1485 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v60](exec-plans/completed/docs-and-testing-v60.md) --
   Close remaining branch gaps: model_provider.py unrecognized provider/model slash fallthrough (100%); docker_sandbox_claude.py verbose=False and sandbox-in-base branches (100%); skills/__init__.py no-heading catalog discovery (100%); registry.py empty inner token skip (100%); document cli/main.py and cli/base.py untestable gaps in tech-debt-tracker; 1485 tests pass (completed 2026-03-06)
 

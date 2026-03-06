@@ -19,6 +19,8 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | E2E `final_pr_number is None` dead code | Low | `e2e.py` | Line 175: `final_pr_number` is always non-None in the non-dry-run path — set to `pr_number` (resumed) or `pr.number` (fresh); the `is None` guard can never be False |
 | `if __name__ == "__main__"` guard | None | `cli/main.py` | Line 367: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
 | CLI IO loop heartbeat-without-timeout branch | Low | `cli/base.py` | Branch 552->559: heartbeat fires but idle timeout hasn't been reached; requires real async subprocess timing to trigger both branches in a single invocation |
+| `_decode_bytes` latin-1 fallback dead code | None | `web.py` | Line 66: latin-1 encoding accepts all byte values (0-255), so the `continue` on line 65 is never reached and the fallback `decode("utf-8", errors="replace")` on line 66 is unreachable |
+| `if __name__ == "__main__"` guard (MCP) | None | `mcp_server.py` | Line 393: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
 
 ## Resolved items
 

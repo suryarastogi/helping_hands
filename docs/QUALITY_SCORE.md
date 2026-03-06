@@ -109,6 +109,22 @@ Target Python: 3.12+
 | `frontend/src/App.tsx` (utils) | Excellent (93 tests) | 80%+ | `shortTaskId`, `statusTone`, `parseBool`, `extractUpdates`, `parseOptimisticUpdates`, `parseError` (detail/no-detail/non-JSON/empty body), `isTerminalTaskStatus` (terminal/non-terminal/whitespace), `apiUrl`, `loadTaskHistory`, `upsertTaskHistory` added in v47; `backendDisplayName`, `providerFromBackend` (all 10 backends), `formatProviderName` (openai/opencode/e2e/generic), `repoName` (slash/trailing-slash/no-slash), `cronFrequency` (9 presets + fallbacks), `buildDeskSlots` (count/ids/layout), `checkDeskCollision` (overlap/far/empty), `asRecord` (object/null/primitives), `readStringValue` (string/number/null/non-finite), `readBoolishValue` (bool/string/non-bool), `readSkillsValue` (array/empty/non-array), `parseOptimisticUpdates` edge cases (bold/exec/mcp/failed exec/long lines/dedup/flush at EOF) added in v50; `statusTone` additional statuses (RECEIVED/RETRY/SCHEDULED/RESERVED/SENT/ERROR), `cronFrequency` fallback patterns (hourly/minute-interval/empty), `loadTaskHistory` edge cases (invalid JSON/non-array/empty taskId/limit enforcement), `upsertTaskHistory` (empty/whitespace taskId, default values) added in v52 |
 | `frontend/src/App.tsx` (component) | Excellent (60 tests, 82.3% stmts) | Maintained | Smoke render test, default form values (repo path, prompt), empty task list, service health bar, dashboard view toggles, navigation buttons, submitted tasks header added in v50; interaction tests (Hand world/Classic view toggle, schedule navigation, New submission return, Advanced settings expand, repo path/prompt/backend input changes, Clear button disabled state) added in v52; form submission tests (POST payload validation, error handling via network/server errors, model/tools/skills inclusion, checkbox toggles, max iterations), monitor view tests (output tab switching Updates/Raw/Payload, task ID badge, status blinker, task inputs section), schedule view tests (form rendering, field changes, cron preset dropdown, schedule creation API, Cancel button, Refresh, error handling) added in v54; schedule CRUD tests (edit/delete/trigger/toggle), task discovery polling, notification banner/toast UI, monitor resize/scroll, poll error handling added in v55 |
 
+## Remaining coverage gaps
+
+All remaining uncovered lines are documented dead code or inherently untestable
+entry point guards.  See `docs/exec-plans/tech-debt-tracker.md` for details.
+
+| Module | Line(s) | Reason |
+|---|---|---|
+| `cli/main.py` | 367 | `if __name__` guard |
+| `cli/base.py` | 552->559 | Heartbeat-without-timeout timing |
+| `codex.py` | 62 | Dead code (always-truthy sandbox mode) |
+| `goose.py` | 135 | Dead code (always-non-empty after strip) |
+| `e2e.py` | 175->189 | Dead code (always-non-None PR number) |
+| `iterative.py` | 830, 858 | Dead code (delta=current unreachable) |
+| `web.py` | 66 | Dead code (latin-1 accepts all bytes) |
+| `mcp_server.py` | 393 | `if __name__` guard |
+
 ## Areas for improvement
 
 - [ ] Add type checking to CI (ty, when stable for CI runners)
