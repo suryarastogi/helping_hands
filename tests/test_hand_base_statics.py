@@ -17,15 +17,7 @@ from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 from helping_hands.lib.repo import RepoIndex
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def repo_index(tmp_path: Path) -> RepoIndex:
-    (tmp_path / "main.py").write_text("")
-    return RepoIndex.from_path(tmp_path)
+# repo_index fixture provided by conftest.py
 
 
 class _StubHand(Hand):

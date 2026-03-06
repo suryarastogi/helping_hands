@@ -32,21 +32,12 @@ from helping_hands.lib.meta.tools.web import (
 )
 from helping_hands.lib.repo import RepoIndex
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+# repo_index fixture provided by conftest.py
 
 
 @pytest.fixture()
 def config() -> Config:
     return Config(repo="/tmp/fake", model="test-model")
-
-
-@pytest.fixture()
-def repo_index(tmp_path: Path) -> RepoIndex:
-    (tmp_path / "main.py").write_text("")
-    (tmp_path / "utils.py").write_text("")
-    return RepoIndex.from_path(tmp_path)
 
 
 class _StubFinalizeHand(Hand):
