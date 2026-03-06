@@ -8,6 +8,10 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v51](exec-plans/completed/docs-and-testing-v51.md) --
+  Backend test coverage gaps: iterative.py `_build_tree_snapshot` slash-only/multi-slash empty-parts edge cases (line 451); cli/base.py `stream()` producer_task cancellation path (lines 1047-1049); confirmed dead code items (iterative.py 830/858, codex.py 62) in tech-debt-tracker; QUALITY_SCORE.md updated; 1464 tests pass (completed 2026-03-06)
+
+
 - [Docs and Testing v50](exec-plans/completed/docs-and-testing-v50.md) --
   Frontend test coverage expansion: export and test 11 pure utility functions (providerFromBackend, formatProviderName, repoName, cronFrequency, buildDeskSlots, checkDeskCollision, asRecord, readStringValue, readBoolishValue, readSkillsValue, backendDisplayName) with 55 new unit tests; add component-level render tests with @testing-library/react (8 tests); install @testing-library/dom peer dependency; 83 frontend tests pass, 1461 backend tests pass (completed 2026-03-06)
 

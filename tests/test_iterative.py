@@ -1799,3 +1799,20 @@ class TestBuildTreeSnapshotEmptyParts:
         hand.repo_index.files.append(".")
         result = hand._build_tree_snapshot()
         assert "real.py" in result
+
+    def test_tree_snapshot_skips_slash_only_paths(self, tmp_path) -> None:
+        """A path that normalizes to '/' produces empty parts list and is skipped."""
+        hand = _make_hand(tmp_path, files={"real.py": "pass"})
+        # "/" normalizes to "/" (non-empty) but split("/") with part filter gives []
+        hand.repo_index.files.append("/")
+        result = hand._build_tree_snapshot()
+        assert "real.py" in result
+        # The slash-only path should not appear in the tree
+        assert "/" not in result.replace("real.py", "")
+
+    def test_tree_snapshot_skips_multi_slash_paths(self, tmp_path) -> None:
+        """Paths like '///' also produce empty parts and are skipped."""
+        hand = _make_hand(tmp_path, files={"real.py": "pass"})
+        hand.repo_index.files.append("///")
+        result = hand._build_tree_snapshot()
+        assert "real.py" in result

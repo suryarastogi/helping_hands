@@ -652,3 +652,36 @@ class TestStreamWrapper:
 
             with pytest.raises(RuntimeError, match="producer boom"):
                 _run(_collect())
+
+    def test_stream_consumer_break_cancels_producer(self) -> None:
+        """When consumer breaks early, the producer task is cancelled cleanly."""
+        stub = _Stub(fix_ci=False)
+        producer_started = asyncio.Event()
+        producer_cancelled = False
+
+        async def _slow_two_phase(prompt, *, emit):
+            nonlocal producer_cancelled
+            await emit("chunk1")
+            producer_started.set()
+            try:
+                # Simulate a long-running producer
+                await asyncio.sleep(10)
+                await emit("chunk2")
+            except asyncio.CancelledError:
+                producer_cancelled = True
+                raise
+
+        with patch.object(stub, "_run_two_phase", side_effect=_slow_two_phase):
+
+            async def _partial_consume():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                    if chunk == "chunk1":
+                        break  # Consumer exits early
+                return chunks
+
+            chunks = _run(_partial_consume())
+
+        assert chunks == ["chunk1"]
+        assert producer_cancelled
