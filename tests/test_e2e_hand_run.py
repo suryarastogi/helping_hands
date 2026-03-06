@@ -268,6 +268,33 @@ class TestE2EHandRunDefaultBranchFallback:
         )
 
 
+class TestE2EHandRunDefaultBranchFallbackNoDetected:
+    """When default_branch() fails AND current_branch returns falsy, base_branch stays 'main'."""
+
+    def test_fallback_with_no_detected_branch(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+        monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
+        hand = _make_hand()
+        gh = _mock_gh()
+        gh.default_branch.side_effect = Exception("API error")
+        gh.current_branch.return_value = ""
+
+        def _fake_clone(repo: str, dest: Path, **kwargs: Any) -> Path:
+            dest.mkdir(parents=True, exist_ok=True)
+            return dest
+
+        gh.clone.side_effect = _fake_clone
+
+        with patch("helping_hands.lib.github.GitHubClient", return_value=gh):
+            result = hand.run("task", hand_uuid="uuid-nodetect", dry_run=True)
+
+        # base_branch stays at the initial "main" fallback since detected was falsy
+        assert result.metadata["base_branch"] == "main"
+        gh.current_branch.assert_called_once()
+
+
 class TestE2EHandRunAutoUuid:
     """run() auto-generates hand_uuid when not provided."""
 

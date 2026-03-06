@@ -285,6 +285,44 @@ generation should not prevent the commit.  A missing health check dependency
 should not crash the server.  Each recovery boundary is placed at the narrowest
 scope where the failure can be contained.
 
+### Testing patterns
+
+Tests live in `tests/` with a flat structure (`test_*.py` naming).  The project
+uses `pytest` with `pytest-cov` for coverage tracking.  Several recurring
+patterns keep the test suite maintainable as module count grows:
+
+**Isolation via monkeypatch and mocking.** External dependencies (GitHub API,
+AI providers, subprocess calls, environment variables) are always mocked in unit
+tests.  `monkeypatch.setenv` / `monkeypatch.delenv` control environment state
+per-test.  `unittest.mock.patch` replaces heavy objects (e.g. `GitHubClient`)
+with `MagicMock` instances that verify call patterns.
+
+**One test class per behavior cluster.**  Tests are grouped into classes by the
+scenario they exercise (e.g. `TestE2EHandRunDryRun`, `TestE2EHandRunResumedPR`).
+Each class tests a single logical path through the code, making failures easy
+to locate.
+
+**`importorskip` for optional extras.**  Modules that require optional
+dependencies (`langchain`, `atomic_agents`, `redbeat`) use
+`pytest.importorskip()` at module level so the test file is silently skipped
+when the extra is not installed, rather than failing with an ImportError.
+
+**Dead code documentation over forced coverage.**  When analysis proves a branch
+is unreachable (e.g. `final_pr_number is None` in `e2e.py`), the branch is
+documented in `docs/exec-plans/tech-debt-tracker.md` rather than writing a
+contorted test.  This keeps the test suite honest: every test exercises a real
+execution path.
+
+**Coverage-guided iteration.**  Each execution plan targets specific coverage
+gaps identified from `pytest-cov` output.  Branch partials (`BrPart` column)
+guide which conditions need additional test cases.  The goal is not 100% line
+coverage but rather closing branch gaps that represent untested error paths.
+
+**Fake dataclasses for API responses.**  Rather than using real SDK response
+objects, tests define minimal `@dataclass` fakes (e.g. `_FakePRResult`) that
+satisfy the shape needed by the code under test.  This avoids importing heavy
+SDK packages and makes the test contract explicit.
+
 ## Anti-patterns to avoid
 
 - **Global state** — No module-level caches or singletons

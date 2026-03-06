@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v59](exec-plans/completed/docs-and-testing-v59.md) --
+  Close e2e.py `current_branch` detection branch gap (falsy detected path); document e2e.py `final_pr_number is None` dead code in tech-debt-tracker; add testing patterns section to DESIGN.md; 1478 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v58](exec-plans/completed/docs-and-testing-v58.md) --
   Close claude.py `_StreamJsonEmitter` branch gaps (unknown content block type, whitespace-only text preview) and `_skip_permissions_enabled` geteuid-not-callable path; add skills `normalize_skill_selection` whitespace-only token test; fix stale `server/__init__.py` docstring; add error recovery patterns to DESIGN.md; claude.py 99%+; all tests pass (completed 2026-03-06)
 
