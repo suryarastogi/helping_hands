@@ -605,3 +605,145 @@ class TestQualityScoreMdStructure:
         assert data_rows >= 1, (
             f"QUALITY_SCORE.md remaining gaps table has {data_rows} rows, expected >= 1"
         )
+
+
+class TestFrontendMdSections:
+    """FRONTEND.md must have required structural sections."""
+
+    @pytest.fixture()
+    def frontend_text(self) -> str:
+        return (DOCS_DIR / "FRONTEND.md").read_text()
+
+    @pytest.mark.parametrize(
+        "section",
+        [
+            "## 1. Inline HTML UI",
+            "## 2. React frontend",
+            "### Component structure",
+        ],
+    )
+    def test_required_section_exists(self, frontend_text: str, section: str) -> None:
+        assert section in frontend_text, (
+            f"FRONTEND.md is missing required section '{section}'"
+        )
+
+    def test_mentions_vite(self, frontend_text: str) -> None:
+        """FRONTEND.md should mention Vite as the build tool."""
+        assert "Vite" in frontend_text, (
+            "FRONTEND.md should mention Vite as the build tool"
+        )
+
+
+class TestProductSenseMdSections:
+    """PRODUCT_SENSE.md must have required structural sections."""
+
+    @pytest.fixture()
+    def product_text(self) -> str:
+        return (DOCS_DIR / "PRODUCT_SENSE.md").read_text()
+
+    @pytest.mark.parametrize(
+        "section",
+        [
+            "## What helping_hands is",
+            "## Target users",
+            "## Key value propositions",
+            "## Product priorities",
+        ],
+    )
+    def test_required_section_exists(self, product_text: str, section: str) -> None:
+        assert section in product_text, (
+            f"PRODUCT_SENSE.md is missing required section '{section}'"
+        )
+
+    def test_has_target_user_entries(self, product_text: str) -> None:
+        """Target users section should list at least 2 user types."""
+        in_section = False
+        entries = 0
+        for line in product_text.splitlines():
+            if "## Target users" in line:
+                in_section = True
+                continue
+            if in_section and line.startswith("##"):
+                break
+            if in_section and line.strip().startswith(("1.", "2.", "3.", "-")):
+                entries += 1
+        assert entries >= 2, (
+            f"PRODUCT_SENSE.md Target users has {entries} entries, expected >= 2"
+        )
+
+
+class TestSecurityMdSandboxingSections:
+    """SECURITY.md must have sandboxing subsections."""
+
+    @pytest.fixture()
+    def security_text(self) -> str:
+        return (DOCS_DIR / "SECURITY.md").read_text()
+
+    @pytest.mark.parametrize(
+        "section",
+        [
+            "### Codex CLI sandbox modes",
+            "### Claude Code permissions",
+            "### Container isolation for CLI hands",
+            "### Docker Desktop sandbox isolation",
+            "### Gemini CLI approval mode",
+        ],
+    )
+    def test_sandboxing_subsection_exists(
+        self, security_text: str, section: str
+    ) -> None:
+        assert section in security_text, (
+            f"SECURITY.md is missing sandboxing subsection '{section}'"
+        )
+
+
+class TestDesignDocsMinimumContent:
+    """Each design doc should have substantive content."""
+
+    @pytest.fixture()
+    def design_doc_paths(self) -> list[Path]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(f for f in dd.glob("*.md") if f.name != "index.md")
+
+    def test_design_docs_have_minimum_length(
+        self, design_doc_paths: list[Path]
+    ) -> None:
+        """Each design doc should have at least 500 characters of content."""
+        for doc_path in design_doc_paths:
+            content = doc_path.read_text()
+            assert len(content) >= 500, (
+                f"Design doc '{doc_path.name}' has only {len(content)} chars, "
+                f"expected >= 500"
+            )
+
+    def test_design_docs_have_context_section(
+        self, design_doc_paths: list[Path]
+    ) -> None:
+        """Design docs (except core-beliefs and testing-methodology) should have a Context section."""
+        exempt = {"core-beliefs.md", "testing-methodology.md", "two-phase-cli-hands.md"}
+        for doc_path in design_doc_paths:
+            if doc_path.name in exempt:
+                continue
+            content = doc_path.read_text()
+            assert "## Context" in content, (
+                f"Design doc '{doc_path.name}' is missing ## Context section"
+            )
+
+    def test_design_docs_have_heading(self, design_doc_paths: list[Path]) -> None:
+        """Each design doc should start with a level-1 heading."""
+        for doc_path in design_doc_paths:
+            content = doc_path.read_text().strip()
+            assert content.startswith("# "), (
+                f"Design doc '{doc_path.name}' should start with a # heading"
+            )
+
+
+class TestArchitectureMdSectionCount:
+    """ARCHITECTURE.md should have a minimum number of sections."""
+
+    def test_minimum_section_count(self) -> None:
+        arch_text = (REPO_ROOT / "ARCHITECTURE.md").read_text()
+        sections = re.findall(r"^##\s", arch_text, re.MULTILINE)
+        assert len(sections) >= 5, (
+            f"ARCHITECTURE.md has {len(sections)} level-2 sections, expected >= 5"
+        )
