@@ -215,6 +215,56 @@ class TestStream:
 
         assert not any("PR created" in c for c in chunks)
 
+    def test_stream_assertion_fallback_empty_chat_message(self, tmp_path) -> None:
+        """When AssertionError fallback yields partial with falsy chat_message, nothing is yielded."""
+        hand, mock_agent, _ = _make_hand(tmp_path)
+        mock_agent.run_async.side_effect = AssertionError("no async")
+        sync_response = MagicMock()
+        sync_response.chat_message = ""
+        mock_agent.run.return_value = sync_response
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            chunks = asyncio.run(_collect_stream(hand, "prompt"))
+
+        # Only the PR-related yields (or none) — no text content
+        assert not any(c.strip() and "PR" not in c for c in chunks)
+
+    def test_stream_async_iter_empty_chat_message(self, tmp_path) -> None:
+        """When async iter yields partial with falsy chat_message, it is skipped."""
+        hand, mock_agent, _ = _make_hand(tmp_path)
+
+        async def _fake_aiter():
+            empty = MagicMock()
+            empty.chat_message = ""
+            yield empty
+            real = MagicMock()
+            real.chat_message = "real content"
+            yield real
+
+        mock_agent.run_async.return_value = _fake_aiter()
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            chunks = asyncio.run(_collect_stream(hand, "prompt"))
+
+        assert "real content" in chunks
+        assert "" not in chunks  # empty string not yielded
+
+    def test_stream_awaitable_empty_chat_message(self, tmp_path) -> None:
+        """When awaitable yields partial with falsy chat_message, nothing is yielded."""
+        hand, mock_agent, _ = _make_hand(tmp_path)
+
+        async def _fake_coro():
+            result = MagicMock()
+            result.chat_message = ""
+            return result
+
+        mock_agent.run_async.return_value = _fake_coro()
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            chunks = asyncio.run(_collect_stream(hand, "prompt"))
+
+        assert not any(c.strip() and "PR" not in c for c in chunks)
+
 
 # ---------------------------------------------------------------------------
 # _make_input

@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v45](exec-plans/completed/docs-and-testing-v45.md) --
+  LangGraph/Atomic `stream()` pr_status elif branch coverage (entered/skipped for both satisfied and max-iterations paths); LangGraph `stream()` interrupted inner loop, non-chat-model event skip, empty text skip; Atomic `stream()` duplicate delta skip, awaitable empty delta skip; atomic.py `stream()` chat_message falsy branches (assertion fallback/async iter/awaitable); iterative.py 96% -> 97%; atomic.py 93% -> 97%; QUALITY_SCORE.md updated; 1430 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v44](exec-plans/completed/docs-and-testing-v44.md) --
   cli/base.py `stream()` CI fix message/pr_status paths; base.py `_finalize_repo_pr` native git auth and rich PR description; cli/base.py `_run_two_phase_inner` verbose mode; base.py 98% -> 99%; cli/base.py 97% -> 98%; QUALITY_SCORE.md updated; 1413 tests pass (completed 2026-03-06)
 
