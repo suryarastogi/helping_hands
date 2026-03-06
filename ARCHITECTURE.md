@@ -218,6 +218,26 @@ skills carry no executable code — they are pure knowledge artifacts discovered
 from `catalog/*.md` at import time. CLI hands stage selected skill files into
 a temporary directory during execution and clean up afterward.
 
+### 8. Usage monitoring
+
+The Celery worker includes an automated usage monitoring pipeline
+(`log_claude_usage` task) that tracks Claude Code API consumption:
+
+1. **Token retrieval** — reads OAuth credentials from macOS Keychain
+   (`security find-generic-password`), supporting both JSON credential
+   blobs and raw JWT tokens.
+2. **Usage API** — fetches five-hour session and seven-day rolling
+   utilization from the Anthropic OAuth usage endpoint.
+3. **Persistence** — writes usage snapshots to a Postgres
+   `claude_usage_log` table (auto-created via DDL on first write).
+4. **Scheduling** — `ensure_usage_schedule()` registers an hourly
+   RedBeat entry (idempotent; safe to call on every worker startup
+   via `on_after_finalize`).
+
+All three stages fail independently with descriptive error dicts,
+so a Keychain issue never prevents the task from reporting, and a DB
+outage still surfaces the utilization percentages in the task result.
+
 ## Design principles
 
 - **Plain data between layers** — Dicts/dataclasses, not tight coupling

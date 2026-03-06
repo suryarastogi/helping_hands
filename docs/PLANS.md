@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v43](exec-plans/completed/docs-and-testing-v43.md) --
+  celery_app.py coverage gaps (`_get_db_url_writer`, `ensure_usage_schedule`, `log_claude_usage` key paths including raw JWT and garbage output); ARCHITECTURE.md usage monitoring section; celery_app.py 73% -> 98%; QUALITY_SCORE.md updated; 1653 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v42](exec-plans/completed/docs-and-testing-v42.md) --
   `_build_tree_snapshot` empty-normalized/slash-only edge cases; `BasicLangGraphHand.run()` max_iterations status and pr_url; LangGraph/Atomic `stream()` pr_url yield at max iterations; `_effective_container_env_names` empty-blocked early return; iterative.py 94% -> 96%; QUALITY_SCORE.md updated; 1404 tests pass (completed 2026-03-06)
 

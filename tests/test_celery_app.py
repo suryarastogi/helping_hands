@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -380,3 +381,222 @@ class TestCollectStream:
         assert result == "chunk1\nchunk2\nchunk3\n"
         # update_progress is called at least once (final call)
         assert mock_task.update_state.call_count >= 1
+
+
+class TestGetDbUrlWriter:
+    def test_returns_env_override(self, monkeypatch) -> None:
+        monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@host:5432/mydb")
+        assert (
+            celery_app._get_db_url_writer() == "postgresql://user:pass@host:5432/mydb"
+        )
+
+    def test_returns_default_when_not_set(self, monkeypatch) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        result = celery_app._get_db_url_writer()
+        assert result.startswith("postgresql://")
+        assert "cavern" in result
+
+
+class TestEnsureUsageSchedule:
+    def test_skips_when_entry_already_exists(self) -> None:
+        mock_redbeat = MagicMock()
+        mock_entry_cls = mock_redbeat.RedBeatSchedulerEntry
+        mock_existing = MagicMock()
+        mock_entry_cls.from_key.return_value = mock_existing
+
+        with patch.dict("sys.modules", {"redbeat": mock_redbeat}):
+            celery_app.ensure_usage_schedule()
+
+        mock_entry_cls.from_key.assert_called_once()
+        # Should NOT create a new entry (constructor not called)
+        mock_entry_cls.assert_not_called()
+
+    def test_creates_entry_when_not_exists(self) -> None:
+        mock_redbeat = MagicMock()
+        mock_entry_cls = mock_redbeat.RedBeatSchedulerEntry
+        mock_entry_cls.from_key.side_effect = KeyError("not found")
+        mock_new_entry = MagicMock()
+        mock_entry_cls.return_value = mock_new_entry
+
+        with patch.dict("sys.modules", {"redbeat": mock_redbeat}):
+            celery_app.ensure_usage_schedule()
+
+        mock_new_entry.save.assert_called_once()
+
+    def test_swallows_import_error(self) -> None:
+        with patch.dict("sys.modules", {"redbeat": None}):
+            # Should not raise even when redbeat is not importable
+            celery_app.ensure_usage_schedule()
+
+
+class TestLogClaudeUsage:
+    def _make_keychain_result(self, *, token: str | None = None) -> MagicMock:
+        """Build a mock subprocess result for Keychain reads."""
+        if token is None:
+            return subprocess.CompletedProcess(
+                args=[], returncode=44, stdout="", stderr=""
+            )
+        creds = json.dumps({"claudeAiOauth": {"accessToken": token}})
+        return subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=creds, stderr=""
+        )
+
+    def test_returns_error_when_keychain_read_fails(self) -> None:
+        with patch(
+            "helping_hands.server.celery_app.subprocess.run",
+            side_effect=OSError("no keychain"),
+        ):
+            result = celery_app.log_claude_usage()
+        assert result["status"] == "error"
+        assert "Keychain read failed" in result["message"]
+
+    def test_returns_error_when_no_token_found(self) -> None:
+        with patch(
+            "helping_hands.server.celery_app.subprocess.run",
+            return_value=self._make_keychain_result(token=None),
+        ):
+            result = celery_app.log_claude_usage()
+        assert result["status"] == "error"
+        assert "No OAuth token" in result["message"]
+
+    def test_returns_error_on_api_http_error(self) -> None:
+        from urllib.error import HTTPError
+
+        with (
+            patch(
+                "helping_hands.server.celery_app.subprocess.run",
+                return_value=self._make_keychain_result(token="ey-test-token"),
+            ),
+            patch(
+                "urllib.request.urlopen",
+                side_effect=HTTPError(
+                    url="https://api.anthropic.com/api/oauth/usage",
+                    code=401,
+                    msg="Unauthorized",
+                    hdrs=None,  # type: ignore[arg-type]
+                    fp=None,
+                ),
+            ),
+        ):
+            result = celery_app.log_claude_usage()
+        assert result["status"] == "error"
+        assert "HTTP 401" in result["message"]
+
+    def test_returns_error_on_api_generic_error(self) -> None:
+        with (
+            patch(
+                "helping_hands.server.celery_app.subprocess.run",
+                return_value=self._make_keychain_result(token="ey-test-token"),
+            ),
+            patch(
+                "urllib.request.urlopen",
+                side_effect=TimeoutError("timed out"),
+            ),
+        ):
+            result = celery_app.log_claude_usage()
+        assert result["status"] == "error"
+        assert "Usage API failed" in result["message"]
+
+    def test_returns_error_on_db_write_failure(self) -> None:
+        usage_data = json.dumps(
+            {
+                "five_hour": {"utilization": 0.5, "resets_at": "2026-03-06T12:00:00Z"},
+                "seven_day": {"utilization": 0.3, "resets_at": "2026-03-10T00:00:00Z"},
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = usage_data
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.connect.side_effect = Exception("connection refused")
+
+        with (
+            patch(
+                "helping_hands.server.celery_app.subprocess.run",
+                return_value=self._make_keychain_result(token="ey-test-token"),
+            ),
+            patch("urllib.request.urlopen", return_value=mock_resp),
+            patch.dict("sys.modules", {"psycopg2": mock_psycopg2}),
+        ):
+            result = celery_app.log_claude_usage()
+
+        assert result["status"] == "error"
+        assert "DB write failed" in result["message"]
+        assert result["session_pct"] == 0.5
+        assert result["weekly_pct"] == 0.3
+
+    def test_success_path(self) -> None:
+        usage_data = json.dumps(
+            {
+                "five_hour": {"utilization": 0.25, "resets_at": "2026-03-06T12:00:00Z"},
+                "seven_day": {"utilization": 0.1, "resets_at": "2026-03-10T00:00:00Z"},
+            }
+        ).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = usage_data
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__ = lambda s: mock_cursor
+        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.connect.return_value = mock_conn
+
+        with (
+            patch(
+                "helping_hands.server.celery_app.subprocess.run",
+                return_value=self._make_keychain_result(token="ey-test-token"),
+            ),
+            patch("urllib.request.urlopen", return_value=mock_resp),
+            patch.dict("sys.modules", {"psycopg2": mock_psycopg2}),
+        ):
+            result = celery_app.log_claude_usage()
+
+        assert result["status"] == "ok"
+        assert result["session_pct"] == 0.25
+        assert result["weekly_pct"] == 0.1
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+
+    def test_keychain_non_json_jwt_token(self) -> None:
+        """When keychain returns a raw JWT (starts with 'ey'), use it directly."""
+        raw_jwt = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.test"
+        keychain_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=raw_jwt, stderr=""
+        )
+
+        with (
+            patch(
+                "helping_hands.server.celery_app.subprocess.run",
+                return_value=keychain_result,
+            ),
+            patch(
+                "urllib.request.urlopen",
+                side_effect=TimeoutError("api down"),
+            ),
+        ):
+            result = celery_app.log_claude_usage()
+
+        # Should have gotten past the token extraction (error is from API call)
+        assert result["status"] == "error"
+        assert "Usage API failed" in result["message"]
+
+    def test_keychain_non_json_non_jwt_returns_no_token(self) -> None:
+        """Non-JSON, non-JWT keychain output means no token."""
+        keychain_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="some-garbage-output", stderr=""
+        )
+
+        with patch(
+            "helping_hands.server.celery_app.subprocess.run",
+            return_value=keychain_result,
+        ):
+            result = celery_app.log_claude_usage()
+
+        assert result["status"] == "error"
+        assert "No OAuth token" in result["message"]
