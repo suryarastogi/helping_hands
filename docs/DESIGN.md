@@ -179,6 +179,35 @@ Key resilience patterns:
   remote's default branch, the system falls back to `_default_base_branch()`
   (usually `"main"`) rather than crashing.
 
+### Meta tools layer
+
+The `meta/tools/` package provides a unified, path-safe tool layer shared by
+iterative hands and the MCP server.  It is organized into four submodules with
+a single `__init__.py` re-exporting the full public surface (21 symbols):
+
+| Submodule | Responsibility | Key types |
+|---|---|---|
+| `filesystem.py` | Path-confined file I/O | `resolve_repo_target`, `read_text_file`, `write_text_file`, `mkdir_path`, `path_exists` |
+| `command.py` | Subprocess execution (Python/Bash) | `CommandResult`, `run_python_code`, `run_python_script`, `run_bash_script` |
+| `registry.py` | Tool category definitions and routing | `ToolCategory`, `ToolSpec`, `build_tool_runner_map`, `format_tool_instructions` |
+| `web.py` | Web search and browsing | `WebSearchResult`, `WebBrowseResult`, `search_web`, `browse_url` |
+
+Design choices:
+
+- **Path confinement** — `resolve_repo_target()` resolves user-supplied paths
+  against a repo root and rejects traversal attempts (`../`).  All file
+  operations in hands and MCP call this before touching the filesystem.
+- **Opt-in activation** — execution tools and web tools are disabled by default.
+  Hands check `_execution_tools_enabled()` / `_web_tools_enabled()` before
+  dispatching `@@TOOL` requests.
+- **Runner dispatch** — `build_tool_runner_map()` returns a dict mapping
+  `"category.action"` strings to runner callables.  The iterative hand loop
+  routes `@@TOOL` requests through this map.
+- **Format helpers** — `format_tool_instructions()` generates the `@@TOOL`
+  reference text injected into the system prompt.
+  `format_tool_instructions_for_cli()` produces a condensed variant for CLI
+  hands that pass tool docs via `--init-prompt`.
+
 ## Anti-patterns to avoid
 
 - **Global state** — No module-level caches or singletons

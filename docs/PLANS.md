@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v38](exec-plans/completed/docs-and-testing-v38.md) --
+  Package-level re-export tests for `cli/__init__.py` (7 symbols, identity checks), `meta/tools/__init__.py` (21 symbols, identity across 4 submodules), `meta/__init__.py` (`skills`/`tools` identity), `hands/v1/__init__.py` (10 symbols, identity with hand package); meta tools layer pattern added to DESIGN.md; `default_prompts.py`, `cli/__init__.py`, `meta/tools/__init__.py`, `meta/__init__.py`, `hands/v1/__init__.py` added to QUALITY_SCORE.md; 1365 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v37](exec-plans/completed/docs-and-testing-v37.md) --
   Package-level re-export tests for `hands/v1/hand/__init__.py` (`__all__` completeness, symbol identity, subprocess alias) and `ai_providers/__init__.py` (PROVIDERS dict, singleton identity, `__all__`); fix stale `obsidian/docs` reference in ARCHITECTURE.md; add `task_result.py`, `ai_providers/types.py`, `ai_providers/__init__.py`, `hands/v1/hand/__init__.py` to QUALITY_SCORE.md; 1319 tests pass (completed 2026-03-06)
 

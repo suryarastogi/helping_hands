@@ -98,6 +98,11 @@ Target Python: 3.12+
 | `lib/hands/v1/hand/placeholders.py` | Excellent (100%) | Maintained | Backward-compat shim re-export verification (class symbols, module aliases, `__all__`, identity checks) added in v34 |
 | `lib/hands/v1/hand/__init__.py` | Excellent (100%) | Maintained | Package re-export tests (`__all__` completeness, symbol identity, subprocess alias) added in v37 |
 | `lib/ai_providers/__init__.py` | Excellent (100%) | Maintained | PROVIDERS dict completeness, singleton identity, `__all__` verification added in v37 |
+| `lib/default_prompts.py` | Excellent (100%) | Maintained | Constant content assertions (directives, guards, references) covered in test_default_prompts.py |
+| `lib/hands/v1/__init__.py` | Excellent (100%) | Maintained | `__all__` completeness, symbol identity with hand package, all 10 re-exports verified added in v38 |
+| `lib/hands/v1/hand/cli/__init__.py` | Excellent (100%) | Maintained | `__all__` completeness (7 symbols), identity checks against source modules added in v38 |
+| `lib/meta/__init__.py` | Excellent (100%) | Maintained | `__all__` completeness (`skills`, `tools`), submodule identity added in v38 |
+| `lib/meta/tools/__init__.py` | Excellent (100%) | Maintained | `__all__` completeness (21 symbols), identity checks for all 4 submodules (filesystem, command, registry, web) added in v38 |
 | `lib/ai_providers/types.py` | Excellent (100%) | Maintained | `normalize_messages` (string/sequence/empty/missing keys), `AIProvider` base (lazy init, complete, acomplete, model override) covered in test_ai_providers.py |
 | `server/task_result.py` | Excellent (100%) | Maintained | All branches of `normalize_task_result` (None/dict/exception/other/bool/list/custom) covered in test_task_result.py |
 
