@@ -15,6 +15,7 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | Dead code in Atomic `stream()` | Low | `iterative.py` | Lines 830, 858: `delta = current` else branches unreachable because `stream_text` is always `""` at those points |
 | Codex `_auto_sandbox_mode` dead code | Low | `codex.py` | Line 62: always returns truthy, making the else branch dead |
 | Frontend localStorage polyfill | Low | Frontend | jsdom doesn't fully implement `Storage.clear()`; polyfill in `test/setup.ts` |
+| Goose `_GOOSE_DEFAULT_MODEL` fallback dead code | Low | `goose.py` | Line 135: outer `.strip()` on `raw_model` ensures `provider_model.strip()` can never be empty when `provider_model` is truthy |
 
 ## Resolved items
 

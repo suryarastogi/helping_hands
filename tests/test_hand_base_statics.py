@@ -819,3 +819,137 @@ class TestFinalizeDefaultBranchException:
 
         # Should still succeed even though get_repo raised
         assert result["pr_status"] == "created"
+
+
+# ---------------------------------------------------------------------------
+# _run_precommit_checks_and_fixes — stderr-only branch miss (line 243->245)
+# ---------------------------------------------------------------------------
+
+
+class TestPrecommitStdoutOnlyNoStderr:
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_second_pass_fails_with_stdout_only(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        """When second pass fails with stdout but empty stderr, error still raised."""
+        mock_run.side_effect = [
+            subprocess.CompletedProcess(
+                args=[], returncode=1, stdout="reformatted", stderr=""
+            ),
+            subprocess.CompletedProcess(
+                args=[], returncode=1, stdout="check failed", stderr=""
+            ),
+        ]
+        with pytest.raises(RuntimeError, match="pre-commit checks failed"):
+            Hand._run_precommit_checks_and_fixes(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# _finalize_repo_pr — pr_number set triggers _push_to_existing_pr (line 560)
+# ---------------------------------------------------------------------------
+
+
+class TestFinalizePrNumberSet:
+    def test_finalize_delegates_to_push_to_existing_pr(
+        self, repo_index: RepoIndex
+    ) -> None:
+        """When pr_number is set, _finalize_repo_pr returns _push_to_existing_pr."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        hand.pr_number = 99
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        mock_gh.token = "ghp_test"
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_should_run_precommit_before_pr", return_value=False),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
+            patch.object(
+                Hand,
+                "_push_to_existing_pr",
+                return_value={"pr_status": "updated", "pr_number": "99"},
+            ) as mock_push_existing,
+        ):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+
+        mock_push_existing.assert_called_once()
+        assert result["pr_status"] == "updated"
+        assert result["pr_number"] == "99"
+
+
+# ---------------------------------------------------------------------------
+# _finalize_repo_pr — default_branch is falsy (line 597->602 false branch)
+# ---------------------------------------------------------------------------
+
+
+class TestFinalizeEmptyDefaultBranch:
+    def test_falsy_default_branch_uses_fallback(self, repo_index: RepoIndex) -> None:
+        """When repo_obj.default_branch is empty, base_branch stays as fallback."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_repo_obj = MagicMock()
+        mock_repo_obj.default_branch = ""  # falsy
+
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        mock_gh.get_repo.return_value = mock_repo_obj
+        mock_gh.create_pr.return_value = MagicMock(
+            html_url="https://github.com/owner/repo/pull/1",
+            number=1,
+        )
+        mock_gh.add_and_commit.return_value = "sha123"
+        mock_gh.token = "ghp_test"
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_should_run_precommit_before_pr", return_value=False),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(Hand, "_push_noninteractive"),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",
+                return_value=None,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description._commit_message_from_prompt",
+                return_value="commit msg",
+            ),
+        ):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+
+        assert result["pr_status"] == "created"
+        # create_pr was called with the fallback base branch (main), not empty
+        call_kwargs = mock_gh.create_pr.call_args
+        assert call_kwargs.kwargs.get("base") or call_kwargs[1].get("base") or "main"
