@@ -116,6 +116,32 @@ task execution using RedBeat for Redis-backed persistence.  Key design choices:
 - **Trigger-now** — `trigger_now()` dispatches an immediate Celery task using the
   schedule's saved parameters, recording the run in metadata.
 
+### Health checks and server config
+
+The FastAPI server exposes `/health` (basic liveness) and `/health/services`
+(per-service connectivity) endpoints.  Each backing service has a dedicated
+probe function:
+
+| Probe | Mechanism | Returns |
+|---|---|---|
+| `_check_redis_health` | `redis.Redis.from_url(...).ping()` with 2 s timeout | `"ok"` / `"error"` |
+| `_check_db_health` | `psycopg2.connect(DATABASE_URL)` with 3 s timeout | `"ok"` / `"error"` / `"na"` (no `DATABASE_URL`) |
+| `_check_workers_health` | `celery_app.control.inspect(timeout=2).ping()` | `"ok"` / `"error"` |
+
+All probes catch broad `Exception` so a single failing service never crashes the
+health endpoint.  Dependencies (`redis`, `psycopg2`) are imported locally inside
+the probe functions to keep them soft-optional.
+
+`_is_running_in_docker()` detects container environments via `/.dockerenv` file
+presence or the `HELPING_HANDS_IN_DOCKER` env var.  The `/config` endpoint
+exposes this to the frontend so it can default `use_native_cli_auth` accordingly.
+
+Flower integration (`_fetch_flower_current_tasks`) is also soft-optional:
+when `HELPING_HANDS_FLOWER_API_URL` is unset the helper returns an empty list.
+When configured, it merges Flower task data with Celery inspect results via
+`_upsert_current_task`, preferring the highest-priority status and merging
+source labels.
+
 ### Finalization
 
 Commit/push/PR logic is centralized in the `Hand` base class so all backends

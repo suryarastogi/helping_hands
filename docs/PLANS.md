@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v35](exec-plans/completed/docs-and-testing-v35.md) --
+  Server health check and config helper tests (`_check_redis_health` ok/error, `_check_db_health` na/ok/error, `_check_workers_health` ok/none/empty/exception, `_is_running_in_docker` dockerenv/env var/neither, `_iter_worker_task_entries` valid/non-dict/non-list/non-dict entries, `_safe_inspect_call` success/missing/exception); celery_app `_has_codex_auth` tests (env var/auth file/neither/empty); DESIGN.md updated with health check and server config patterns; 1514 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v34](exec-plans/completed/docs-and-testing-v34.md) --
   E2EHand.run() unit tests with mocked GitHubClient (dry-run/fresh-PR/resumed-PR/empty-repo/configured-base-branch/default-branch-fallback/auto-uuid), E2EHand.stream() yield test, placeholders.py backward-compat shim tests (re-exports, module aliases, identity checks); e2e.py coverage 25% -> 98%; 1278 tests pass (completed 2026-03-06)
 
