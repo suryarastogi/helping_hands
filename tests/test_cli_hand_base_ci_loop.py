@@ -434,6 +434,36 @@ class TestRunWrapper:
 
         assert response.metadata.get("ci_fix_status") == "success"
 
+    def test_run_ci_fix_noop_emit_is_callable(self) -> None:
+        """The _noop_emit closure inside run() is a valid async callable
+        that silently discards chunks (covering line 985)."""
+        stub = _Stub(fix_ci=True)
+
+        async def _fake_collect(prompt):
+            return "output"
+
+        async def _ci_fix_that_calls_emit(*, prompt, metadata, emit):
+            # Call the noop emit to cover the inner closure
+            await emit("ci output that is discarded")
+            return {
+                "pr_status": "created",
+                "pr_url": "https://pr/1",
+                "ci_fix_status": "success",
+            }
+
+        with (
+            patch.object(stub, "_collect_run_output", side_effect=_fake_collect),
+            patch.object(
+                stub,
+                "_finalize_after_run",
+                return_value={"pr_status": "created", "pr_url": "https://pr/1"},
+            ),
+            patch.object(stub, "_ci_fix_loop", side_effect=_ci_fix_that_calls_emit),
+        ):
+            response = stub.run("fix bug")
+
+        assert response.metadata.get("ci_fix_status") == "success"
+
     def test_run_no_ci_fix_when_pr_not_created(self) -> None:
         stub = _Stub(fix_ci=True)
 

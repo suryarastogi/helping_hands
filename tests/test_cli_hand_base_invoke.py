@@ -606,3 +606,95 @@ class TestRunTwoPhaseInnerVerbose:
         isolation_msgs = [c for c in chunks if "isolation=" in c]
         assert len(isolation_msgs) == 1
         assert "API key set" in isolation_msgs[0]
+
+
+# ===================================================================
+# _invoke_cli_with_cmd — interrupt during IO loop (lines 538-540)
+# ===================================================================
+
+
+class TestInvokeCmdInterruptDuringIOLoop:
+    def test_interrupt_breaks_io_loop(self) -> None:
+        """When _is_interrupted() returns True during the IO loop,
+        the loop breaks after calling _terminate_active_process."""
+        stub = _Stub()
+        emit, chunks = _collecting_emit()
+
+        mock_stdout = MagicMock()
+        read_count = 0
+
+        async def _read(n):
+            nonlocal read_count
+            read_count += 1
+            if read_count == 1:
+                return b"first chunk"
+            # After first read, the interrupt should fire
+            return b"second chunk"
+
+        mock_stdout.read = _read
+        proc = MagicMock()
+        proc.stdout = mock_stdout
+        proc.returncode = None
+
+        async def _wait():
+            proc.returncode = 0
+            return 0
+
+        proc.wait = _wait
+
+        # _is_interrupted returns False first (for first read), then True
+        call_count = 0
+
+        def _is_interrupted_toggle():
+            nonlocal call_count
+            call_count += 1
+            return call_count > 1  # True on second call
+
+        stub._is_interrupted = _is_interrupted_toggle
+        terminate_mock = AsyncMock()
+
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch.object(stub, "_terminate_active_process", terminate_mock),
+        ):
+            _run(stub._invoke_cli_with_cmd(["some-cli"], emit=emit))
+
+        # Only the first chunk should be in the output (loop broke on interrupt)
+        combined = "".join(chunks)
+        assert "first chunk" in combined
+        terminate_mock.assert_awaited_once()
+
+
+# ===================================================================
+# _invoke_cli_with_cmd — process.returncode set during TimeoutError
+# ===================================================================
+
+
+class TestInvokeCmdProcessExitedDuringTimeout:
+    def test_breaks_when_process_already_exited(self) -> None:
+        """When asyncio.wait_for raises TimeoutError but process.returncode
+        is already set, the loop breaks immediately (line 549)."""
+        stub = _Stub()
+        emit, _chunks = _collecting_emit()
+
+        mock_stdout = MagicMock()
+
+        async def _read(n):
+            raise TimeoutError()
+
+        mock_stdout.read = _read
+        proc = MagicMock()
+        proc.stdout = mock_stdout
+        # process has already exited (returncode set)
+        proc.returncode = 0
+
+        async def _wait():
+            return 0
+
+        proc.wait = _wait
+
+        with patch("asyncio.create_subprocess_exec", return_value=proc):
+            result = _run(stub._invoke_cli_with_cmd(["some-cli"], emit=emit))
+
+        # Should return empty string (no output collected) without error
+        assert result == ""

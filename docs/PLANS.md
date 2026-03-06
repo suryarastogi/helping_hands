@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v49](exec-plans/completed/docs-and-testing-v49.md) --
+  MCP server `main()` stdio/http transport tests (97% -> 98%); CLI base IO loop interrupt break and process-exited-during-timeout break tests; `run()` CI-fix noop-emit callable test; PRODUCT_SENSE.md updated with implemented capabilities (scheduling, MCP, skills); QUALITY_SCORE.md updated; 1461 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v48](exec-plans/completed/docs-and-testing-v48.md) --
   Claude CLI `_skip_permissions_enabled` geteuid exception path, `_build_failure_message` instance delegation, `_StreamJsonEmitter` empty-line-between-events; Gemini CLI `_build_failure_message` instance delegation, `_invoke_gemini`/`_invoke_backend` async delegation; Goose CLI `_resolve_goose_provider_model_from_config` (7 tests), `_invoke_backend` delegation; QUALITY_SCORE.md updated; 1456 tests pass (completed 2026-03-06)
 
