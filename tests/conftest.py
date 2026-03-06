@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -83,3 +84,28 @@ def mock_github_client() -> MagicMock:
     }
     gh.get_check_runs.return_value = {"conclusion": "success"}
     return gh
+
+
+@pytest.fixture()
+def make_fake_module() -> Callable[..., ModuleType]:
+    """Factory fixture for creating fake SDK modules with MagicMock attributes.
+
+    Reduces boilerplate in AI provider tests that mock ``openai``, ``anthropic``,
+    ``google.genai``, ``litellm``, etc.  Returns a ``ModuleType`` with arbitrary
+    attributes set from keyword arguments.
+
+    Usage::
+
+        def test_openai_build_inner(make_fake_module):
+            mod = make_fake_module("openai", OpenAI=MagicMock())
+            with patch.dict(sys.modules, {"openai": mod}):
+                ...
+    """
+
+    def _factory(name: str, **attrs: Any) -> ModuleType:
+        mod = ModuleType(name)
+        for attr_name, attr_value in attrs.items():
+            setattr(mod, attr_name, attr_value)
+        return mod
+
+    return _factory

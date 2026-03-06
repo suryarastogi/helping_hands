@@ -13,6 +13,7 @@ Index of design documents for helping_hands.
 - [MCP Architecture](mcp-architecture.md) — Tool registration, transport selection, and repo isolation
 - [Config Loading](config-loading.md) — Env loading precedence, dotenv, normalization, and frozen config
 - [Repo Indexing](repo-indexing.md) — Repository ingestion, tree walking, and RepoIndex design
+- [Scheduling System](scheduling-system.md) — RedBeat, ScheduleManager CRUD, cron presets, trigger-now
 
 ## Adding a design doc
 

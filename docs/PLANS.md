@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v68](exec-plans/completed/docs-and-testing-v68.md) --
+  Add scheduling-system design doc; make_fake_module conftest fixture; conftest self-tests (5 new); 1545 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v67](exec-plans/completed/docs-and-testing-v67.md) --
   Add repo-indexing design doc; shared mock_github_client conftest fixture; top-level package import/docstring tests (21 new); 1540 tests pass (completed 2026-03-06)
 

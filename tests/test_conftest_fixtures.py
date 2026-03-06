@@ -1,8 +1,10 @@
-"""Tests for shared conftest fixtures (repo_index, fake_config, make_cli_hand)."""
+"""Tests for shared conftest fixtures (repo_index, fake_config, make_cli_hand, make_fake_module)."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from types import ModuleType
+from unittest.mock import MagicMock
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.cli.goose import GooseCLIHand
@@ -49,3 +51,29 @@ class TestMakeCliHandFixture:
         hand = make_cli_hand(GooseCLIHand)
         assert hasattr(hand, "config")
         assert isinstance(hand.config, Config)
+
+
+class TestMakeFakeModuleFixture:
+    def test_returns_module_type(self, make_fake_module) -> None:
+        mod = make_fake_module("mypackage")
+        assert isinstance(mod, ModuleType)
+
+    def test_module_has_correct_name(self, make_fake_module) -> None:
+        mod = make_fake_module("openai")
+        assert mod.__name__ == "openai"
+
+    def test_sets_keyword_attributes(self, make_fake_module) -> None:
+        sentinel = MagicMock()
+        mod = make_fake_module("openai", OpenAI=sentinel)
+        assert mod.OpenAI is sentinel
+
+    def test_multiple_attributes(self, make_fake_module) -> None:
+        cls_a = MagicMock()
+        cls_b = MagicMock()
+        mod = make_fake_module("anthropic", Anthropic=cls_a, AsyncAnthropic=cls_b)
+        assert mod.Anthropic is cls_a
+        assert mod.AsyncAnthropic is cls_b
+
+    def test_no_attributes(self, make_fake_module) -> None:
+        mod = make_fake_module("empty")
+        assert not hasattr(mod, "Client")
