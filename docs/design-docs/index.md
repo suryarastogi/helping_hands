@@ -16,6 +16,7 @@ Index of design documents for helping_hands.
 - [Scheduling System](scheduling-system.md) — RedBeat, ScheduleManager CRUD, cron presets, trigger-now
 - [Deployment Modes](deployment-modes.md) — CLI vs Server vs MCP runtime modes
 - [CI Pipeline](ci-pipeline.md) — GitHub Actions workflows, matrix strategy, coverage, and docs deployment
+- [Skills System](skills-system.md) — Catalog discovery, normalization, staging, and prompt injection
 
 ## Adding a design doc
 

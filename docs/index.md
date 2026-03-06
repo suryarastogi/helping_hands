@@ -17,7 +17,7 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 | [PRODUCT_SENSE.md](PRODUCT_SENSE.md) | Product capabilities and roadmap |
 | [QUALITY_SCORE.md](QUALITY_SCORE.md) | Test coverage targets and quality gates |
 | [PLANS.md](PLANS.md) | Execution plan index (active and completed) |
-| [design-docs/](design-docs/index.md) | Design documents (core beliefs, hand abstraction, providers, two-phase CLI, testing methodology, error handling, MCP architecture, config loading, repo indexing, scheduling system, deployment modes, CI pipeline) |
+| [design-docs/](design-docs/index.md) | Design documents (core beliefs, hand abstraction, providers, two-phase CLI, testing methodology, error handling, MCP architecture, config loading, repo indexing, scheduling system, deployment modes, CI pipeline, skills system) |
 | [product-specs/](product-specs/index.md) | Product specifications (onboarding, etc.) |
 | [exec-plans/](exec-plans/) | Active and completed execution plans |
 | [generated/](generated/db-schema.md) | Auto-generated reference (DB schema) |

@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v71](exec-plans/completed/docs-and-testing-v71.md) --
+  Skills system design doc; extended docs structure validation tests (product-specs index, root-level docs, reference files, tech-debt-tracker module refs; 6 new); 1595 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v70](exec-plans/completed/docs-and-testing-v70.md) --
   CI pipeline design doc; docs structure validation tests (4 new); 1587 tests pass (completed 2026-03-06)
 
