@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -43,3 +44,42 @@ def make_cli_hand(tmp_path: Path) -> Callable[..., Any]:
         return hand_cls(config=config, repo_index=ri)
 
     return _factory
+
+
+@pytest.fixture()
+def mock_github_client() -> MagicMock:
+    """A MagicMock satisfying the GitHubClient context-manager interface.
+
+    Pre-configured with sensible defaults for common operations
+    (default_branch, add_and_commit, create_pr, get_pr, whoami).
+    Tests can override individual return values as needed.
+
+    Usage::
+
+        def test_push(mock_github_client):
+            mock_github_client.push.side_effect = RuntimeError("rejected")
+    """
+    gh = MagicMock()
+    gh.__enter__ = MagicMock(return_value=gh)
+    gh.__exit__ = MagicMock(return_value=False)
+    gh.token = "ghp_test"
+    gh.default_branch.return_value = "main"
+    gh.current_branch.return_value = "main"
+    gh.clone.return_value = Path("/tmp/cloned")
+    gh.add_and_commit.return_value = "abc123deadbeef"
+    gh.whoami.return_value = {"login": "bot-user"}
+    pr_mock = MagicMock()
+    pr_mock.number = 42
+    pr_mock.url = "https://github.com/owner/repo/pull/42"
+    pr_mock.html_url = "https://github.com/owner/repo/pull/42"
+    pr_mock.title = "test PR"
+    pr_mock.head = "helping-hands/test-branch"
+    pr_mock.base = "main"
+    gh.create_pr.return_value = pr_mock
+    gh.get_pr.return_value = {
+        "base": "main",
+        "head": "existing-branch",
+        "url": "https://github.com/owner/repo/pull/99",
+    }
+    gh.get_check_runs.return_value = {"conclusion": "success"}
+    return gh

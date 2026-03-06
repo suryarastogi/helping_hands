@@ -12,6 +12,7 @@ Index of design documents for helping_hands.
 - [Error Handling](error-handling.md) — Recovery patterns, fallback chains, and narrow failure boundaries
 - [MCP Architecture](mcp-architecture.md) — Tool registration, transport selection, and repo isolation
 - [Config Loading](config-loading.md) — Env loading precedence, dotenv, normalization, and frozen config
+- [Repo Indexing](repo-indexing.md) — Repository ingestion, tree walking, and RepoIndex design
 
 ## Adding a design doc
 
