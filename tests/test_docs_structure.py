@@ -747,3 +747,138 @@ class TestArchitectureMdSectionCount:
         assert len(sections) >= 5, (
             f"ARCHITECTURE.md has {len(sections)} level-2 sections, expected >= 5"
         )
+
+
+class TestPlansLinkResolution:
+    """PLANS.md completed plan links must resolve to actual files."""
+
+    @pytest.fixture()
+    def plans_text(self) -> str:
+        return (DOCS_DIR / "PLANS.md").read_text()
+
+    def test_completed_plan_links_resolve(self, plans_text: str) -> None:
+        """Every (exec-plans/...) link in PLANS.md must point to an existing file."""
+        links = re.findall(r"\((exec-plans/[^)]+\.md)\)", plans_text)
+        assert len(links) > 0, "PLANS.md should have exec-plan links"
+        for link in links:
+            path = DOCS_DIR / link
+            assert path.is_file(), (
+                f"PLANS.md references '{link}' but the file does not exist"
+            )
+
+    def test_no_active_plans_stale(self, plans_text: str) -> None:
+        """If 'No active plans' is declared, the active directory should be empty."""
+        if "_No active plans._" not in plans_text:
+            return  # active plans exist, skip this check
+        active_dir = DOCS_DIR / "exec-plans" / "active"
+        if not active_dir.exists():
+            return
+        active_plans = list(active_dir.glob("*.md"))
+        assert len(active_plans) == 0, (
+            f"PLANS.md says no active plans but {len(active_plans)} files "
+            f"exist in exec-plans/active/"
+        )
+
+
+class TestDocsIndexDesignDocsList:
+    """docs/index.md design-docs parenthetical list should match actual files."""
+
+    def test_design_doc_count_in_parenthetical(self) -> None:
+        """The comma-separated list in docs/index.md should cover all design docs."""
+        index_text = (DOCS_DIR / "index.md").read_text()
+        dd = DOCS_DIR / "design-docs"
+        actual_files = [f for f in dd.glob("*.md") if f.name != "index.md"]
+
+        # Extract parenthetical after "Design documents"
+        match = re.search(r"Design documents \(([^)]+)\)", index_text)
+        assert match is not None, (
+            "docs/index.md should have a 'Design documents (...)' parenthetical"
+        )
+        items = [item.strip() for item in match.group(1).split(",")]
+        assert len(items) == len(actual_files), (
+            f"docs/index.md lists {len(items)} design docs in parenthetical "
+            f"but {len(actual_files)} .md files exist in design-docs/"
+        )
+
+
+class TestTechDebtTrackerStructure:
+    """Tech debt tracker should have valid table structure."""
+
+    @pytest.fixture()
+    def tracker_text(self) -> str:
+        return (DOCS_DIR / "exec-plans" / "tech-debt-tracker.md").read_text()
+
+    def test_has_required_sections(self, tracker_text: str) -> None:
+        assert "## Active items" in tracker_text
+        assert "## Resolved items" in tracker_text
+
+    def test_has_table_header(self, tracker_text: str) -> None:
+        """Active items table should have Item, Priority, Module, Notes columns."""
+        assert "| Item | Priority | Module | Notes |" in tracker_text
+
+    def test_active_items_have_valid_priorities(self, tracker_text: str) -> None:
+        """Each active item should have a recognized priority value."""
+        valid_priorities = {"High", "Medium", "Low", "None"}
+        in_active = False
+        rows: list[str] = []
+        for line in tracker_text.splitlines():
+            if line.startswith("## Active items"):
+                in_active = True
+                continue
+            if line.startswith("## Resolved items"):
+                break
+            if in_active and line.startswith("|") and "---" not in line:
+                rows.append(line)
+        # Skip header row
+        for row in rows[1:]:
+            cols = [c.strip() for c in row.split("|")]
+            # cols[0] is empty (before first |), cols[1]=Item, cols[2]=Priority
+            if len(cols) >= 3:
+                priority = cols[2]
+                assert priority in valid_priorities, (
+                    f"Tech debt tracker has unknown priority '{priority}' "
+                    f"(expected one of {valid_priorities})"
+                )
+
+
+class TestTodoMdStructure:
+    """TODO.md should exist and have list items."""
+
+    @pytest.fixture()
+    def todo_text(self) -> str:
+        return (REPO_ROOT / "TODO.md").read_text()
+
+    def test_todo_exists(self) -> None:
+        assert (REPO_ROOT / "TODO.md").is_file(), "TODO.md should exist"
+
+    def test_has_list_items(self, todo_text: str) -> None:
+        """TODO.md should have at least one checkbox item."""
+        items = re.findall(r"^- \[[ x]\]", todo_text, re.MULTILINE)
+        assert len(items) > 0, "TODO.md should have at least one checkbox item"
+
+    def test_has_heading(self, todo_text: str) -> None:
+        assert todo_text.strip().startswith("# "), (
+            "TODO.md should start with a level-1 heading"
+        )
+
+
+class TestCompletedPlansMinimumContent:
+    """Completed plans should have substantive content."""
+
+    @pytest.fixture()
+    def completed_plan_paths(self) -> list[Path]:
+        completed = DOCS_DIR / "exec-plans" / "completed"
+        if not completed.exists():
+            return []
+        return sorted(completed.glob("*.md"))
+
+    def test_completed_plans_non_trivial(
+        self, completed_plan_paths: list[Path]
+    ) -> None:
+        """Each completed plan should have at least 200 characters."""
+        for plan_path in completed_plan_paths:
+            content = plan_path.read_text()
+            assert len(content) >= 200, (
+                f"Completed plan '{plan_path.name}' has only {len(content)} chars, "
+                f"expected >= 200"
+            )

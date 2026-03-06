@@ -21,6 +21,7 @@ Index of design documents for helping_hands.
 - [PR Description](pr-description.md) — Generation flow, prompt engineering, parsing, fallback chain, and env config
 - [Default Prompts](default-prompts.md) — Smoke test prompt structure, directive flow, and CLI/server sharing
 - [Filesystem Security](filesystem-security.md) — Path confinement via resolve_repo_target, MCP sharing, and sandboxing boundaries
+- [Model Resolution](model-resolution.md) — HandModel dataclass, provider inference heuristics, LangChain/Atomic adapters
 
 ## Adding a design doc
 

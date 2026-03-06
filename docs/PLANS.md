@@ -8,6 +8,10 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v76](exec-plans/completed/docs-and-testing-v76.md) --
+  Model-resolution design doc; extended docs structure validation tests (PLANS.md link resolution, design-docs count sync, tech-debt-tracker structure, TODO.md structure, completed plan content; 10 new); 1666 tests pass (completed 2026-03-06)
+
+
 - [Docs and Testing v75](exec-plans/completed/docs-and-testing-v75.md) --
   Filesystem-security design doc; extended docs structure validation tests (FRONTEND.md sections, PRODUCT_SENSE.md sections, SECURITY.md sandboxing subsections, design doc content checks, ARCHITECTURE.md section count; 18 new); 1656 tests pass (completed 2026-03-06)
 
