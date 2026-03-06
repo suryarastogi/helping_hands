@@ -24,6 +24,7 @@ Index of design documents for helping_hands.
 - [Model Resolution](model-resolution.md) — HandModel dataclass, provider inference heuristics, LangChain/Atomic adapters
 - [E2E Hand Workflow](e2e-hand-workflow.md) — Clone/branch/edit/commit/push/PR lifecycle, resume flow, dry-run
 - [Task Lifecycle](task-lifecycle.md) — Celery task enqueue, progress streaming, update buffering, result normalization
+- [Web Tools](web-tools.md) — DuckDuckGo search, URL browsing, HTML extraction, content truncation
 
 ## Adding a design doc
 

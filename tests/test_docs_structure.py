@@ -1190,3 +1190,195 @@ class TestDesignDocsHaveKeySourceFiles:
                     f"Design doc '{doc_path.name}' Key source files lists "
                     f"'{rel_path}' but the file does not exist"
                 )
+
+
+class TestReliabilitySubsections:
+    """RELIABILITY.md must have key subsections for error handling patterns."""
+
+    @pytest.fixture()
+    def reliability_text(self) -> str:
+        return (DOCS_DIR / "RELIABILITY.md").read_text()
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "## Error handling patterns",
+            "### CLI hand subprocess failures",
+            "### Iterative hand failures",
+            "### Finalization failures",
+            "### Docker sandbox failures",
+            "### Async compatibility fallbacks",
+            "## Heartbeat monitoring",
+            "## Idempotency",
+        ],
+    )
+    def test_subsection_exists(self, reliability_text: str, heading: str) -> None:
+        assert heading in reliability_text, (
+            f"RELIABILITY.md is missing expected heading '{heading}'"
+        )
+
+    def test_error_handling_has_numbered_items(self, reliability_text: str) -> None:
+        """CLI hand subprocess failures should list specific failure modes."""
+        section = reliability_text.split("### CLI hand subprocess failures", 1)[1]
+        section = section.split("\n### ", 1)[0]
+        numbered = [ln for ln in section.splitlines() if re.match(r"\d+\.", ln.strip())]
+        assert len(numbered) >= 3, (
+            f"CLI hand subprocess failures has {len(numbered)} numbered items, "
+            f"expected >= 3"
+        )
+
+
+class TestDesignDocSubsections:
+    """DESIGN.md must have key subsections covering core patterns."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "## Guiding principles",
+            "## Patterns",
+            "### Hand abstraction",
+            "### Provider resolution",
+            "### Two-phase CLI hands",
+            "### Meta tools layer",
+            "### Finalization",
+            "### Error recovery patterns",
+            "### Testing patterns",
+        ],
+    )
+    def test_subsection_exists(self, design_text: str, heading: str) -> None:
+        assert heading in design_text, (
+            f"DESIGN.md is missing expected heading '{heading}'"
+        )
+
+    def test_guiding_principles_count(self, design_text: str) -> None:
+        """Guiding principles section should list multiple principles."""
+        section = design_text.split("## Guiding principles", 1)[1]
+        section = section.split("\n## ", 1)[0]
+        numbered = [ln for ln in section.splitlines() if re.match(r"\d+\.", ln.strip())]
+        assert len(numbered) >= 4, (
+            f"DESIGN.md Guiding principles has {len(numbered)} items, expected >= 4"
+        )
+
+    def test_error_recovery_table_has_rows(self, design_text: str) -> None:
+        """Error recovery patterns section should have a table with rows."""
+        section = design_text.split("### Error recovery patterns", 1)[1]
+        section = section.split("\n### ", 1)[0]
+        table_rows = [
+            ln
+            for ln in section.splitlines()
+            if ln.strip().startswith("|") and "---" not in ln and "Pattern" not in ln
+        ]
+        assert len(table_rows) >= 5, (
+            f"DESIGN.md error recovery table has {len(table_rows)} data rows, "
+            f"expected >= 5"
+        )
+
+
+class TestDesignDocsMinimumContentLength:
+    """Design docs should not be stubs -- each should have substantial content."""
+
+    @pytest.fixture()
+    def design_doc_paths(self) -> list[Path]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(f for f in dd.glob("*.md") if f.name != "index.md")
+
+    def test_minimum_content_length(self, design_doc_paths: list[Path]) -> None:
+        min_chars = 500
+        for doc_path in design_doc_paths:
+            content = doc_path.read_text()
+            assert len(content) >= min_chars, (
+                f"Design doc '{doc_path.name}' has {len(content)} chars, "
+                f"expected >= {min_chars}"
+            )
+
+
+class TestDesignDocsHaveStructuredHeadings:
+    """Design docs should have either ## Context or ## Design headings."""
+
+    @pytest.fixture()
+    def design_doc_paths(self) -> list[Path]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(f for f in dd.glob("*.md") if f.name != "index.md")
+
+    def test_has_structured_headings(self, design_doc_paths: list[Path]) -> None:
+        """Each design doc should have at least two ## headings."""
+        for doc_path in design_doc_paths:
+            content = doc_path.read_text()
+            headings = re.findall(r"^## .+", content, re.MULTILINE)
+            assert len(headings) >= 2, (
+                f"Design doc '{doc_path.name}' has {len(headings)} '##' headings, "
+                f"expected >= 2"
+            )
+
+
+class TestArchitectureHandTypes:
+    """ARCHITECTURE.md should reference the main hand implementation types."""
+
+    def test_hand_types_mentioned(self) -> None:
+        arch_text = (REPO_ROOT / "ARCHITECTURE.md").read_text()
+        expected_types = [
+            "E2EHand",
+            "BasicLangGraphHand",
+            "BasicAtomicHand",
+        ]
+        for hand_type in expected_types:
+            assert hand_type in arch_text, (
+                f"ARCHITECTURE.md does not mention hand type '{hand_type}'"
+            )
+
+
+class TestConftestFixturesUsed:
+    """Shared conftest fixtures should be referenced in at least one test file."""
+
+    @pytest.fixture()
+    def conftest_fixture_names(self) -> list[str]:
+        conftest = REPO_ROOT / "tests" / "conftest.py"
+        content = conftest.read_text()
+        return re.findall(r"^def (\w+)\(", content, re.MULTILINE)
+
+    @pytest.fixture()
+    def test_file_contents(self) -> dict[str, str]:
+        tests_dir = REPO_ROOT / "tests"
+        return {f.name: f.read_text() for f in tests_dir.glob("test_*.py")}
+
+    def test_each_fixture_is_used(
+        self,
+        conftest_fixture_names: list[str],
+        test_file_contents: dict[str, str],
+    ) -> None:
+        all_test_content = "\n".join(test_file_contents.values())
+        for fixture_name in conftest_fixture_names:
+            # Skip private factory helpers (the outer function is the fixture)
+            if fixture_name.startswith("_"):
+                continue
+            assert fixture_name in all_test_content, (
+                f"conftest fixture '{fixture_name}' is not referenced in any test file"
+            )
+
+
+class TestTestingMethodologyDocReferences:
+    """Testing methodology design doc should reference key patterns."""
+
+    def test_coverage_targets_section(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
+        assert "## Coverage targets" in content
+
+    def test_key_patterns_section(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
+        assert "## Key patterns" in content
+
+    def test_anti_patterns_section(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
+        assert "## Anti-patterns" in content
+
+    def test_references_monkeypatch(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
+        assert "monkeypatch" in content
+
+    def test_references_importorskip(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
+        assert "importorskip" in content

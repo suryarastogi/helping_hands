@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v79](exec-plans/completed/docs-and-testing-v79.md) --
+  Web tools design doc; extended docs structure validation tests (RELIABILITY.md subsections, DESIGN.md content, design doc quality, architecture hand types, conftest fixture usage, testing methodology references; 29 new); 1717 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v78](exec-plans/completed/docs-and-testing-v78.md) --
   Task lifecycle design doc; extended docs structure validation tests (design-docs index descriptions, generated docs content, product-specs content, ARCHITECTURE.md module boundaries, QUALITY_SCORE.md areas for improvement; 12 new); 1688 tests pass (completed 2026-03-06)
 
