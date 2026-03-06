@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from helping_hands.lib.config import Config
@@ -157,3 +159,46 @@ class TestBuildOpenCodeFailureMessageExtraTokens:
             return_code=42, output="kaboom"
         )
         assert "exit=42" in msg
+
+
+# ---------------------------------------------------------------------------
+# _invoke_opencode / _invoke_backend — async delegation
+# ---------------------------------------------------------------------------
+
+
+class TestInvokeOpenCodeDelegation:
+    def test_invoke_opencode_delegates_to_invoke_cli(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        calls: list[str] = []
+
+        async def fake_invoke_cli(prompt, *, emit):
+            calls.append(prompt)
+            return "cli result"
+
+        monkeypatch.setattr(opencode_hand, "_invoke_cli", fake_invoke_cli)
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(opencode_hand._invoke_opencode("fix it", emit=emit))
+        assert result == "cli result"
+        assert calls == ["fix it"]
+
+    def test_invoke_backend_delegates_to_invoke_opencode(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        calls: list[str] = []
+
+        async def fake_invoke_opencode(prompt, *, emit):
+            calls.append(prompt)
+            return "delegated"
+
+        monkeypatch.setattr(opencode_hand, "_invoke_opencode", fake_invoke_opencode)
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(opencode_hand._invoke_backend("hello", emit=emit))
+        assert result == "delegated"
+        assert calls == ["hello"]

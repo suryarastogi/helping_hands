@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v46](exec-plans/completed/docs-and-testing-v46.md) --
+  Codex `_build_failure_message` delegation and `_invoke_codex`/`_invoke_backend` async delegation (95% -> 98%); OpenCode `_invoke_opencode`/`_invoke_backend` async delegation (94% -> 100%); CLI base `_invoke_cli` delegation and `stream()` producer error re-raise; Atomic `stream()` `run_async` non-AssertionError exception re-raise; skills `_discover_catalog` missing dir early return (96% -> 98%); QUALITY_SCORE.md updated; 1440 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v45](exec-plans/completed/docs-and-testing-v45.md) --
   LangGraph/Atomic `stream()` pr_status elif branch coverage (entered/skipped for both satisfied and max-iterations paths); LangGraph `stream()` interrupted inner loop, non-chat-model event skip, empty text skip; Atomic `stream()` duplicate delta skip, awaitable empty delta skip; atomic.py `stream()` chat_message falsy branches (assertion fallback/async iter/awaitable); iterative.py 96% -> 97%; atomic.py 93% -> 97%; QUALITY_SCORE.md updated; 1430 tests pass (completed 2026-03-06)
 

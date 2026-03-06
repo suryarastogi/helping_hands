@@ -417,6 +417,28 @@ class TestInvokeCmdVerbose:
 
 
 # ===================================================================
+# _invoke_cli — delegates to _invoke_cli_with_cmd via _render_command
+# ===================================================================
+
+
+class TestInvokeCli:
+    def test_delegates_to_invoke_cli_with_cmd(self) -> None:
+        stub = _Stub()
+        captured_cmds: list[list[str]] = []
+
+        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+            captured_cmds.append(cmd)
+            return "result from cli"
+
+        stub._invoke_cli_with_cmd = fake_invoke_cli_with_cmd
+        stub._render_command = lambda prompt: ["stub-cli", "-p", prompt]
+
+        result = _run(stub._invoke_cli("do something", emit=_noop_emit()))
+        assert result == "result from cli"
+        assert captured_cmds == [["stub-cli", "-p", "do something"]]
+
+
+# ===================================================================
 # _invoke_backend — delegates to _invoke_cli
 # ===================================================================
 

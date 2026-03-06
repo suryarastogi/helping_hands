@@ -1714,6 +1714,18 @@ class TestBasicAtomicHandStreamPrStatusElif:
         assert "PR created:" not in text
         assert "Max iterations reached" in text
 
+    def test_stream_run_async_non_assertion_error_re_raised(self, tmp_path) -> None:
+        """stream() re-raises non-AssertionError exceptions from run_async (line 835-836)."""
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)
+
+        def _raise_runtime(_input):
+            raise RuntimeError("provider unreachable")
+
+        mock_agent.run_async = _raise_runtime
+
+        with pytest.raises(RuntimeError, match="provider unreachable"):
+            asyncio.run(_collect_stream(hand, "task"))
+
     def test_stream_async_iter_duplicate_message_empty_delta(self, tmp_path) -> None:
         """stream() skips yielding when async iter returns same message (empty delta, branch 847->838)."""
         hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)

@@ -84,6 +84,16 @@ class TestMetaSkills:
         with pytest.raises(ValueError, match="skills must contain only strings"):
             meta_skills.normalize_skill_selection([123])  # type: ignore[list-item]
 
+    def test_discover_catalog_returns_empty_when_dir_missing(self) -> None:
+        """_discover_catalog returns empty dict when _CATALOG_DIR is not a directory."""
+        original = meta_skills._CATALOG_DIR
+        try:
+            meta_skills._CATALOG_DIR = Path("/nonexistent/path/catalog")
+            result = meta_skills._discover_catalog()
+        finally:
+            meta_skills._CATALOG_DIR = original
+        assert result == {}
+
     def test_stage_skill_catalog_skips_missing_md_file(self) -> None:
         """If a SkillSpec references a name with no .md file, it is silently skipped."""
         fake_skill = meta_skills.SkillSpec(

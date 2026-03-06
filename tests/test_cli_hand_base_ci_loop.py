@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 # ---------------------------------------------------------------------------
@@ -600,3 +602,23 @@ class TestStreamWrapper:
 
         joined = "".join(chunks)
         assert "CI fix failed after 2 attempt(s)" in joined
+
+    def test_stream_producer_error_re_raised(self) -> None:
+        stub = _Stub(fix_ci=False)
+
+        async def _fake_two_phase(prompt, *, emit):
+            await emit("partial")
+            raise RuntimeError("producer boom")
+
+        with (
+            patch.object(stub, "_run_two_phase", side_effect=_fake_two_phase),
+        ):
+
+            async def _collect():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                return chunks
+
+            with pytest.raises(RuntimeError, match="producer boom"):
+                _run(_collect())
