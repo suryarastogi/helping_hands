@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v47](exec-plans/completed/docs-and-testing-v47.md) --
+  Fix frontend localStorage.clear jsdom test failures (3 tests failing -> 0); add frontend tests for `apiUrl`, `isTerminalTaskStatus`, `parseError` edge cases (detail-missing/empty-body), additional `statusTone` coverage (14 -> 20 tests); document dead code in tech-debt-tracker (iterative.py lines 830/858, codex.py line 62); QUALITY_SCORE.md updated with frontend coverage; all tests pass (completed 2026-03-06)
+
 - [Docs and Testing v46](exec-plans/completed/docs-and-testing-v46.md) --
   Codex `_build_failure_message` delegation and `_invoke_codex`/`_invoke_backend` async delegation (95% -> 98%); OpenCode `_invoke_opencode`/`_invoke_backend` async delegation (94% -> 100%); CLI base `_invoke_cli` delegation and `stream()` producer error re-raise; Atomic `stream()` `run_async` non-AssertionError exception re-raise; skills `_discover_catalog` missing dir early return (96% -> 98%); QUALITY_SCORE.md updated; 1440 tests pass (completed 2026-03-06)
 

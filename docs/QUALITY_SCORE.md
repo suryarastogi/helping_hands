@@ -106,6 +106,7 @@ Target Python: 3.12+
 | `lib/meta/tools/__init__.py` | Excellent (100%) | Maintained | `__all__` completeness (21 symbols), identity checks for all 4 submodules (filesystem, command, registry, web) added in v38 |
 | `lib/ai_providers/types.py` | Excellent (100%) | Maintained | `normalize_messages` (string/sequence/empty/missing keys), `AIProvider` base (lazy init, complete, acomplete, model override) covered in test_ai_providers.py |
 | `server/task_result.py` | Excellent (100%) | Maintained | All branches of `normalize_task_result` (None/dict/exception/other/bool/list/custom) covered in test_task_result.py |
+| `frontend/src/App.tsx` (utils) | Good (20 tests) | 80%+ | `shortTaskId`, `statusTone`, `parseBool`, `extractUpdates`, `parseOptimisticUpdates`, `parseError` (detail/no-detail/non-JSON/empty body), `isTerminalTaskStatus` (terminal/non-terminal/whitespace), `apiUrl`, `loadTaskHistory`, `upsertTaskHistory` added in v47 |
 
 ## Areas for improvement
 

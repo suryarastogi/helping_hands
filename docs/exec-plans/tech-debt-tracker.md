@@ -12,6 +12,9 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | Backend routing incomplete | Medium | CLI | Extend to remaining non-basic hands |
 | Streaming for scaffold CLI hands | Low | CLI hands | Replace single-chunk with real streaming |
 | E2E hardening | Medium | `e2e.py` | Branch collision, draft PR, idempotency |
+| Dead code in Atomic `stream()` | Low | `iterative.py` | Lines 830, 858: `delta = current` else branches unreachable because `stream_text` is always `""` at those points |
+| Codex `_auto_sandbox_mode` dead code | Low | `codex.py` | Line 62: always returns truthy, making the else branch dead |
+| Frontend localStorage polyfill | Low | Frontend | jsdom doesn't fully implement `Storage.clear()`; polyfill in `test/setup.ts` |
 
 ## Resolved items
 

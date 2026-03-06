@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   TASK_HISTORY_STORAGE_KEY,
+  apiUrl,
   extractUpdates,
+  isTerminalTaskStatus,
   loadTaskHistory,
   parseBool,
   parseError,
@@ -11,6 +13,37 @@ import {
   statusTone,
   upsertTaskHistory,
 } from "./App";
+
+describe("apiUrl", () => {
+  it("returns the path unchanged when API_BASE is empty", () => {
+    // API_BASE is "" by default in test env (no VITE_API_BASE_URL)
+    expect(apiUrl("/health")).toBe("/health");
+    expect(apiUrl("/api/tasks")).toBe("/api/tasks");
+  });
+});
+
+describe("isTerminalTaskStatus", () => {
+  it("identifies terminal statuses", () => {
+    expect(isTerminalTaskStatus("SUCCESS")).toBe(true);
+    expect(isTerminalTaskStatus("failure")).toBe(true);
+    expect(isTerminalTaskStatus("REVOKED")).toBe(true);
+    expect(isTerminalTaskStatus("ERROR")).toBe(true);
+    expect(isTerminalTaskStatus("poll_error")).toBe(true);
+  });
+
+  it("identifies non-terminal statuses", () => {
+    expect(isTerminalTaskStatus("QUEUED")).toBe(false);
+    expect(isTerminalTaskStatus("STARTED")).toBe(false);
+    expect(isTerminalTaskStatus("PENDING")).toBe(false);
+    expect(isTerminalTaskStatus("RUNNING")).toBe(false);
+    expect(isTerminalTaskStatus("idle")).toBe(false);
+  });
+
+  it("handles whitespace-padded input", () => {
+    expect(isTerminalTaskStatus("  SUCCESS  ")).toBe(true);
+    expect(isTerminalTaskStatus("  QUEUED  ")).toBe(false);
+  });
+});
 
 describe("shortTaskId", () => {
   it("returns a short ID unchanged", () => {
@@ -31,11 +64,15 @@ describe("statusTone", () => {
   it("maps failure statuses to fail", () => {
     expect(statusTone("failure")).toBe("fail");
     expect(statusTone("poll_error")).toBe("fail");
+    expect(statusTone("REVOKED")).toBe("fail");
   });
 
   it("maps running statuses to run", () => {
     expect(statusTone("queued")).toBe("run");
     expect(statusTone("monitoring")).toBe("run");
+    expect(statusTone("STARTED")).toBe("run");
+    expect(statusTone("PROGRESS")).toBe("run");
+    expect(statusTone("SUBMITTING")).toBe("run");
   });
 
   it("maps unknown statuses to idle", () => {
@@ -100,6 +137,19 @@ describe("parseError", () => {
   it("returns raw text for non-JSON payloads", async () => {
     const response = new Response("backend exploded", { status: 500 });
     await expect(parseError(response)).resolves.toBe("backend exploded");
+  });
+
+  it("returns stringified JSON when detail is missing", async () => {
+    const response = new Response(JSON.stringify({ error: "oops" }), {
+      status: 422,
+      headers: { "Content-Type": "application/json" },
+    });
+    await expect(parseError(response)).resolves.toBe('{"error":"oops"}');
+  });
+
+  it("returns HTTP status when body is empty", async () => {
+    const response = new Response("", { status: 503 });
+    await expect(parseError(response)).resolves.toBe("HTTP 503");
   });
 });
 
