@@ -56,9 +56,9 @@ Target Python: 3.12+
 | `lib/meta/tools/command.py` | Good (execution paths) | 90%+ | `CommandResult`, `_normalize_args`, `_resolve_cwd` added in v5 |
 | `lib/hands/v1/hand/model_provider.py` | Good (resolution) | 90%+ | `_infer_provider_name`, `HandModel` added in v5 |
 | `lib/ai_providers/` | Good (init, normalize, complete, _build_inner) | 85%+ | `_build_inner` ImportError + env var paths added in v11 |
-| `lib/hands/v1/hand/base.py` | Excellent (95% coverage) | Maintained | `_default_base_branch`, `_build_generic_pr_body` added in v8; `_run_git_read` success/failure, `_finalize_repo_pr` early returns (no_repo/not_git_repo/no_changes/disabled/no_github_origin) added in v29 |
+| `lib/hands/v1/hand/base.py` | Excellent (95% coverage) | Maintained | `_default_base_branch`, `_build_generic_pr_body` added in v8; `_run_git_read` success/failure, `_finalize_repo_pr` early returns (no_repo/not_git_repo/no_changes/disabled/no_github_origin) added in v29; `_push_to_existing_pr` whoami exception, `_finalize_repo_pr` precommit-no-changes and get_repo default_branch exception added in v36 |
 | `lib/hands/v1/hand/cli/` | Good (dedicated test files per backend) | 80%+ | Claude/Codex/Gemini/OpenCode/Goose helpers well-tested; subprocess paths harder |
-| `lib/github.py` | Excellent (13 test classes) | Maintained | No gaps identified |
+| `lib/github.py` | Excellent (18 test classes) | Maintained | `fetch_branch`, `pull` with branch, `set_local_identity`, mixed conclusion, `upsert_pr_comment` body-already-has-marker and None-body-comment added in v36 |
 | `server/app.py` | Good (5 test classes) | 85%+ | Health check and config helper edge cases added in v35 |
 | `lib/hands/v1/hand/iterative.py` | Good (bootstrap, tree, inline edits, parsers) | 80%+ | `_build_tree_snapshot`, `_read_bootstrap_doc`, `_build_bootstrap_context`, `_apply_inline_edits` added in v9 |
 | `lib/ai_providers/ollama.py` | Good (env vars, ImportError, kwargs) | 85%+ | `_build_inner`, `_complete_impl` added in v10 |

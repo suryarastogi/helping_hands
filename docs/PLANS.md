@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [Docs and Testing v36](exec-plans/completed/docs-and-testing-v36.md) --
+  GitHub client edge case tests (`fetch_branch` default/custom remote, `pull` with branch, `set_local_identity`, `get_check_runs` mixed conclusion, `upsert_pr_comment` body-already-has-marker/None-body); Hand base.py edge case tests (`_push_to_existing_pr` whoami exception, `_finalize_repo_pr` precommit-no-changes-after-fix, `_finalize_repo_pr` get_repo default_branch exception fallback); DESIGN.md updated with GitHub client patterns and finalization resilience; 1290 tests pass (completed 2026-03-06)
+
 - [Docs and Testing v35](exec-plans/completed/docs-and-testing-v35.md) --
   Server health check and config helper tests (`_check_redis_health` ok/error, `_check_db_health` na/ok/error, `_check_workers_health` ok/none/empty/exception, `_is_running_in_docker` dockerenv/env var/neither, `_iter_worker_task_entries` valid/non-dict/non-list/non-dict entries, `_safe_inspect_call` success/missing/exception); celery_app `_has_codex_auth` tests (env var/auth file/neither/empty); DESIGN.md updated with health check and server config patterns; 1514 tests pass (completed 2026-03-06)
 

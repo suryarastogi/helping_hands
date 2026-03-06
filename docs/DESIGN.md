@@ -142,10 +142,42 @@ When configured, it merges Flower task data with Celery inspect results via
 `_upsert_current_task`, preferring the highest-priority status and merging
 source labels.
 
+### GitHub client abstraction
+
+`GitHubClient` (`lib/github.py`) wraps PyGithub behind a convenience layer
+that encapsulates authentication, git operations, and PR management.  Key
+design choices:
+
+- **Context manager** — `GitHubClient` implements `__enter__/__exit__` so
+  callers can release resources deterministically.
+- **Static git helpers** — operations that only shell out to `git` (clone,
+  branch, pull, fetch, add/commit, set identity) are `@staticmethod` so they
+  don't require a token.
+- **Token resolution** — constructor looks up `GITHUB_TOKEN`, then `GH_TOKEN`,
+  then an explicit kwarg.  Missing token raises immediately.
+- **Check run aggregation** — `get_check_runs()` distills individual run
+  results into an overall conclusion: `no_checks`, `pending`, `success`,
+  `failure`, or `mixed` (all completed but not all success/failure).
+- **Marker-based PR comments** — `upsert_pr_comment()` creates or edits a
+  single comment identified by an HTML-comment marker.  The marker is appended
+  only when not already present in the body, preventing duplication.
+
 ### Finalization
 
 Commit/push/PR logic is centralized in the `Hand` base class so all backends
 share the same branch naming, token auth, and PR body generation.
+
+Key resilience patterns:
+
+- **whoami fallback** — when `gh.whoami()` fails (network error, bad token),
+  `token_user` defaults to `""` and the PR description update is skipped
+  rather than failing the entire push.
+- **precommit cleanup** — if pre-commit reformats code and the result matches
+  HEAD (no net changes), the finalization returns `no_changes` instead of
+  attempting an empty commit.
+- **default_branch fallback** — if `get_repo()` raises when fetching the
+  remote's default branch, the system falls back to `_default_base_branch()`
+  (usually `"main"`) rather than crashing.
 
 ## Anti-patterns to avoid
 

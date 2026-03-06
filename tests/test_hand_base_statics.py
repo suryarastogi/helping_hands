@@ -679,3 +679,143 @@ class TestFinalizeRepoEarlyReturns:
                 backend="test", prompt="task", summary="done"
             )
         assert result["pr_status"] == "no_github_origin"
+
+
+# ---------------------------------------------------------------------------
+# _push_to_existing_pr — whoami exception
+# ---------------------------------------------------------------------------
+
+
+class TestPushToExistingPrWhoamiException:
+    def test_whoami_exception_skips_pr_description_update(
+        self, repo_index: RepoIndex
+    ) -> None:
+        """If whoami raises, token_user falls back to '' and update is skipped."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        hand.pr_number = 10
+
+        mock_gh = MagicMock()
+        mock_gh.get_pr.return_value = {
+            "head": "branch",
+            "base": "main",
+            "url": "https://example.com/pr/10",
+            "user": "some-user",
+        }
+        mock_gh.add_and_commit.return_value = "sha789"
+        mock_gh.whoami.side_effect = RuntimeError("network error")
+
+        with (
+            patch.object(Hand, "_push_noninteractive"),
+            patch.object(Hand, "_update_pr_description") as mock_update,
+        ):
+            result = hand._push_to_existing_pr(
+                gh=mock_gh,
+                repo="owner/repo",
+                repo_dir=repo_index.root,
+                backend="test",
+                prompt="fix",
+                summary="done",
+                metadata={},
+            )
+
+        assert result["pr_status"] == "updated"
+        # whoami raised, so token_user == "" and update is skipped
+        mock_update.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _finalize_repo_pr — precommit succeeds but leaves no changes
+# ---------------------------------------------------------------------------
+
+
+class TestFinalizePrecommitNoChangesAfterFix:
+    def test_precommit_cleans_all_changes(self, repo_index: RepoIndex) -> None:
+        """Precommit reformats and the result is identical to HEAD => no_changes."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+
+        call_count = {"porcelain": 0}
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                call_count["porcelain"] += 1
+                # First call: has changes; second call (after precommit): clean
+                if call_count["porcelain"] == 1:
+                    return " M main.py"
+                return ""
+            return ""
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_should_run_precommit_before_pr", return_value=True),
+            patch.object(Hand, "_run_precommit_checks_and_fixes"),
+        ):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+
+        assert result["pr_status"] == "no_changes"
+        # porcelain was called twice (before and after precommit)
+        assert call_count["porcelain"] == 2
+
+
+# ---------------------------------------------------------------------------
+# _finalize_repo_pr — get_repo default_branch exception fallback
+# ---------------------------------------------------------------------------
+
+
+class TestFinalizeDefaultBranchException:
+    def test_get_repo_exception_uses_fallback_base_branch(
+        self, repo_index: RepoIndex
+    ) -> None:
+        """If get_repo raises when fetching default_branch, fall back gracefully."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        mock_gh.get_repo.side_effect = RuntimeError("API error")
+        mock_gh.create_pr.return_value = MagicMock(
+            html_url="https://github.com/owner/repo/pull/1",
+            number=1,
+        )
+        mock_gh.add_and_commit.return_value = "sha999"
+        mock_gh.token = "ghp_test"
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_should_run_precommit_before_pr", return_value=False),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(Hand, "_push_noninteractive"),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",
+                return_value=None,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description._commit_message_from_prompt",
+                return_value="commit msg",
+            ),
+        ):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+
+        # Should still succeed even though get_repo raised
+        assert result["pr_status"] == "created"
