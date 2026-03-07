@@ -2298,3 +2298,230 @@ class TestCompletedPlanTestCountFormat:
             assert re.search(r"\d{4}-\d{2}-\d{2}", line), (
                 f"Completed plan entry should have a YYYY-MM-DD date: {line[:80]}..."
             )
+
+
+class TestCompletedPlanChronologicalOrder:
+    """Completed plan files should have dates in chronological order."""
+
+    @pytest.fixture()
+    def completed_dates(self) -> list[str]:
+        completed = DOCS_DIR / "exec-plans" / "completed"
+        if not completed.exists():
+            return []
+        files = sorted(f.stem for f in completed.glob("*.md"))
+        return [f for f in files if re.match(r"\d{4}-\d{2}-\d{2}", f)]
+
+    def test_dates_are_chronological(self, completed_dates: list[str]) -> None:
+        """Completed plan dates should be in ascending order."""
+        assert completed_dates == sorted(completed_dates), (
+            "Completed plan dates are not in chronological order"
+        )
+
+    def test_no_duplicate_dates(self, completed_dates: list[str]) -> None:
+        """Each date should appear at most once in completed plans."""
+        assert len(completed_dates) == len(set(completed_dates)), (
+            "Completed plans contain duplicate dates"
+        )
+
+    def test_dates_are_valid_format(self, completed_dates: list[str]) -> None:
+        """All completed plan filenames should be valid YYYY-MM-DD dates."""
+        for date_str in completed_dates:
+            parts = date_str.split("-")
+            assert len(parts) == 3, f"Invalid date format: {date_str}"
+            year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+            assert 2024 <= year <= 2030, f"Year out of range: {date_str}"
+            assert 1 <= month <= 12, f"Month out of range: {date_str}"
+            assert 1 <= day <= 31, f"Day out of range: {date_str}"
+
+
+class TestProductSenseMdContent:
+    """PRODUCT_SENSE.md should have all expected sections and content."""
+
+    @pytest.fixture()
+    def product_text(self) -> str:
+        return (DOCS_DIR / "PRODUCT_SENSE.md").read_text()
+
+    _EXPECTED_SECTIONS: ClassVar[list[str]] = [
+        "What helping_hands is",
+        "Target users",
+        "Key value propositions",
+        "Product priorities",
+        "Implemented capabilities",
+        "Future directions",
+    ]
+
+    def test_has_all_sections(self, product_text: str) -> None:
+        for section in self._EXPECTED_SECTIONS:
+            assert section.lower() in product_text.lower(), (
+                f"PRODUCT_SENSE.md missing expected section: {section}"
+            )
+
+    def test_target_users_lists_three_personas(self, product_text: str) -> None:
+        """Should list at least 3 target user types."""
+        users_section = product_text.split("## Target users")[1].split("##")[0]
+        numbered = re.findall(r"^\d+\.", users_section, re.MULTILINE)
+        assert len(numbered) >= 3, (
+            f"Expected at least 3 target user personas, found {len(numbered)}"
+        )
+
+    def test_mentions_all_backends(self, product_text: str) -> None:
+        """Product doc should mention key backend names."""
+        backends = ["LangGraph", "Atomic", "Codex", "Claude", "Goose", "Gemini"]
+        for backend in backends:
+            assert backend.lower() in product_text.lower(), (
+                f"PRODUCT_SENSE.md should mention backend: {backend}"
+            )
+
+    def test_implemented_capabilities_has_items(self, product_text: str) -> None:
+        """Implemented capabilities section should have bullet items."""
+        caps_section = product_text.split("## Implemented capabilities")[1].split("##")[
+            0
+        ]
+        bullets = [
+            line for line in caps_section.splitlines() if line.strip().startswith("- ")
+        ]
+        assert len(bullets) >= 2, "Expected at least 2 implemented capabilities"
+
+
+class TestQualityScoreRemainingGapsMatchTechDebt:
+    """QUALITY_SCORE remaining gaps table should reference modules from tech-debt."""
+
+    @pytest.fixture()
+    def quality_text(self) -> str:
+        return (REPO_ROOT / "docs" / "QUALITY_SCORE.md").read_text()
+
+    @pytest.fixture()
+    def tracker_text(self) -> str:
+        return (DOCS_DIR / "exec-plans" / "tech-debt-tracker.md").read_text()
+
+    def test_remaining_gaps_reference_documented_dead_code(
+        self, quality_text: str
+    ) -> None:
+        """Remaining gaps table should state they are documented dead code."""
+        gaps_section = quality_text.split("## Remaining coverage gaps")[1]
+        assert (
+            "dead code" in gaps_section.lower() or "untestable" in gaps_section.lower()
+        ), "Remaining gaps section should explain gaps as dead code or untestable"
+
+    def test_remaining_gaps_modules_exist_in_tech_debt(
+        self, quality_text: str, tracker_text: str
+    ) -> None:
+        """Modules listed in remaining gaps should also appear in tech-debt-tracker."""
+        gaps_section = quality_text.split("## Remaining coverage gaps")[1]
+        # Extract module names from backticked references in the gaps table
+        gap_modules = re.findall(r"`([^`]+\.py)`", gaps_section)
+        for mod in gap_modules:
+            base = mod.split("/")[-1]
+            assert base in tracker_text, (
+                f"Module '{mod}' in QUALITY_SCORE remaining gaps "
+                f"not found in tech-debt-tracker.md"
+            )
+
+
+class TestReferencesDirectoryContent:
+    """docs/references/ should contain non-empty reference files."""
+
+    @pytest.fixture()
+    def reference_files(self) -> list[Path]:
+        refs_dir = DOCS_DIR / "references"
+        if not refs_dir.exists():
+            return []
+        return sorted(refs_dir.iterdir())
+
+    def test_references_directory_not_empty(self, reference_files: list[Path]) -> None:
+        assert len(reference_files) >= 1, "docs/references/ should have files"
+
+    def test_reference_files_are_non_empty(self, reference_files: list[Path]) -> None:
+        for f in reference_files:
+            assert f.stat().st_size > 0, f"Reference file '{f.name}' is empty"
+
+    def test_reference_files_have_expected_extensions(
+        self, reference_files: list[Path]
+    ) -> None:
+        """Reference files should be text-based (.txt, .md)."""
+        allowed = {".txt", ".md", ".json", ".yaml", ".yml"}
+        for f in reference_files:
+            assert f.suffix in allowed, f"Unexpected file type in references/: {f.name}"
+
+
+class TestAgentsMdCoordinationCompleteness:
+    """AGENTS.md coordination rules should cover all key concerns."""
+
+    @pytest.fixture()
+    def agents_text(self) -> str:
+        return (REPO_ROOT / "AGENTS.md").read_text()
+
+    _COORDINATION_TOPICS: ClassVar[list[str]] = [
+        "branch",
+        "PR ownership",
+        "workspace",
+        "config",
+        "AGENT.md",
+    ]
+
+    def test_coordination_rules_cover_key_topics(self, agents_text: str) -> None:
+        rules_section = agents_text.split("## Coordination rules")[1].split("##")[0]
+        for topic in self._COORDINATION_TOPICS:
+            assert topic.lower() in rules_section.lower(), (
+                f"AGENTS.md coordination rules missing topic: {topic}"
+            )
+
+    def test_communication_section_exists(self, agents_text: str) -> None:
+        """Should document how agents communicate (or don't)."""
+        assert "communication" in agents_text.lower(), (
+            "AGENTS.md should have a communication section"
+        )
+
+    def test_sandbox_isolation_section_exists(self, agents_text: str) -> None:
+        """Should document sandbox isolation for Docker agents."""
+        assert "sandbox isolation" in agents_text.lower(), (
+            "AGENTS.md should have a sandbox isolation section"
+        )
+
+    def test_file_ownership_table_has_entries(self, agents_text: str) -> None:
+        """File ownership table should list path patterns."""
+        ownership_section = agents_text.split("## File ownership")[1].split("##")[0]
+        rows = [
+            line
+            for line in ownership_section.splitlines()
+            if line.strip().startswith("|")
+            and "---" not in line
+            and "Path pattern" not in line
+        ]
+        assert len(rows) >= 3, (
+            f"File ownership table should have at least 3 entries, found {len(rows)}"
+        )
+
+
+class TestActivePlanStructure:
+    """Active plans should have required sections."""
+
+    @pytest.fixture()
+    def active_plans(self) -> list[Path]:
+        active_dir = DOCS_DIR / "exec-plans" / "active"
+        if not active_dir.exists():
+            return []
+        return sorted(active_dir.glob("*.md"))
+
+    def test_active_plans_have_status(self, active_plans: list[Path]) -> None:
+        for plan in active_plans:
+            text = plan.read_text()
+            assert "status" in text.lower(), (
+                f"Active plan '{plan.name}' missing Status field"
+            )
+
+    def test_active_plans_have_tasks(self, active_plans: list[Path]) -> None:
+        for plan in active_plans:
+            text = plan.read_text()
+            assert "## Tasks" in text or "## Objective" in text, (
+                f"Active plan '{plan.name}' missing Tasks or Objective section"
+            )
+
+    def test_active_plans_have_completion_criteria(
+        self, active_plans: list[Path]
+    ) -> None:
+        for plan in active_plans:
+            text = plan.read_text()
+            assert "completion" in text.lower() or "criteria" in text.lower(), (
+                f"Active plan '{plan.name}' missing completion criteria"
+            )

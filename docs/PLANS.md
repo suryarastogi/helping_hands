@@ -9,7 +9,7 @@ _No active plans._
 ## Completed plans
 
 - [2026-03-07 consolidated](exec-plans/completed/2026-03-07.md) --
-  v80-v84: Docker sandbox design doc, command execution design doc, docs organization and testing improvements, plan consolidation, design-docs index categorization, cross-reference validation tests, AGENTS.md consistency tests, design doc quality tests, source-to-test mapping validation, QUALITY_SCORE accuracy tests, doc timestamp freshness tests, tech-debt priority validation, RELIABILITY/FRONTEND/docs-index structure tests; 1740 -> 1877 tests (completed 2026-03-07)
+  v80-v85: Docker sandbox design doc, command execution design doc, docs organization and testing improvements, plan consolidation, design-docs index categorization, cross-reference validation tests, AGENTS.md consistency tests, design doc quality tests, source-to-test mapping validation, QUALITY_SCORE accuracy tests, doc timestamp freshness tests, tech-debt priority validation, RELIABILITY/FRONTEND/docs-index structure tests, PRODUCT_SENSE/QUALITY_SCORE/AGENTS cross-validation, completed plan chronology, references directory, active plan structure tests; 1740 -> 1896 tests (completed 2026-03-07)
 
 - [2026-03-06 consolidated](exec-plans/completed/2026-03-06.md) --
   v32-v79: PR description, schedule, E2E, server health, GitHub client, package re-exports, Docker sandbox, CLI subprocess, celery usage, iterative agents, atomic/LangGraph stream, frontend coverage to 82.3%, dead code docs, testing methodology, shared conftest fixtures, config refactor, Hand smoke tests, docs structure validation, 21 design docs (repo-indexing through web-tools); 1263 -> 1717 tests (completed 2026-03-06)
