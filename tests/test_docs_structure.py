@@ -6126,3 +6126,286 @@ class TestE2EHandWorkflowDesignDocSourceConsistency:
             / "e2e.py"
         ).read_text()
         assert "HELPING_HANDS_E2E" in source
+
+
+# ---------------------------------------------------------------------------
+# Web tools design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestWebToolsDesignDocSections:
+    """web-tools.md should have required structural sections."""
+
+    REQUIRED_SECTIONS: ClassVar[list[str]] = [
+        "## Context",
+        "## Design",
+        "## Alternatives considered",
+        "## Key source files",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "web-tools.md").read_text()
+
+    @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
+    def test_required_section_present(self, content: str, section: str) -> None:
+        assert section in content, f"web-tools.md missing section: {section}"
+
+
+class TestWebToolsDesignDocContent:
+    """web-tools.md should accurately describe the web tools design."""
+
+    KEY_REFERENCES: ClassVar[list[str]] = [
+        "search_web",
+        "browse_url",
+        "WebSearchItem",
+        "WebSearchResult",
+        "WebBrowseResult",
+        "_extract_related_topics",
+        "_require_http_url",
+        "_strip_html",
+        "_decode_bytes",
+        "DuckDuckGo",
+        "urlopen",
+        "web.py",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "web-tools.md").read_text()
+
+    @pytest.mark.parametrize("ref", KEY_REFERENCES)
+    def test_key_reference_documented(self, content: str, ref: str) -> None:
+        assert ref in content, f"web-tools.md should reference '{ref}'"
+
+    def test_frozen_dataclasses_documented(self, content: str) -> None:
+        assert "frozen" in content.lower(), (
+            "web-tools.md should document frozen dataclasses"
+        )
+
+    def test_encoding_fallback_chain(self, content: str) -> None:
+        for enc in ["UTF-8", "UTF-16", "Latin-1"]:
+            assert enc in content, (
+                f"web-tools.md should document {enc} in encoding chain"
+            )
+
+    def test_truncation_documented(self, content: str) -> None:
+        assert "truncat" in content.lower(), (
+            "web-tools.md should document content truncation"
+        )
+
+    def test_url_validation_documented(self, content: str) -> None:
+        assert "http://" in content and "https://" in content, (
+            "web-tools.md should document URL scheme validation"
+        )
+
+    def test_html_stripping_tags(self, content: str) -> None:
+        for tag in ["script", "style", "noscript"]:
+            assert tag in content, f"web-tools.md should mention stripping <{tag}> tags"
+
+    def test_tool_syntax_documented(self, content: str) -> None:
+        assert "@@TOOL web.search" in content, (
+            "web-tools.md should show @@TOOL web.search syntax"
+        )
+        assert "@@TOOL web.browse" in content, (
+            "web-tools.md should show @@TOOL web.browse syntax"
+        )
+
+    def test_no_api_key_requirement(self, content: str) -> None:
+        assert "No API key" in content or "keyless" in content, (
+            "web-tools.md should note DuckDuckGo requires no API key"
+        )
+
+    def test_max_results_documented(self, content: str) -> None:
+        assert "max_results" in content, (
+            "web-tools.md should document max_results parameter"
+        )
+
+    def test_max_chars_documented(self, content: str) -> None:
+        assert "max_chars" in content, (
+            "web-tools.md should document max_chars parameter"
+        )
+
+
+class TestWebToolsDesignDocSourceConsistency:
+    """web-tools.md source references should match actual files."""
+
+    SOURCE_FILES: ClassVar[list[str]] = [
+        "src/helping_hands/lib/meta/tools/web.py",
+        "src/helping_hands/lib/meta/tools/registry.py",
+        "src/helping_hands/lib/hands/v1/hand/iterative.py",
+    ]
+
+    @pytest.mark.parametrize("path", SOURCE_FILES)
+    def test_source_file_exists(self, path: str) -> None:
+        assert (REPO_ROOT / path).exists(), f"Source file not found: {path}"
+
+    def test_search_web_in_source(self) -> None:
+        source = (REPO_ROOT / "src/helping_hands/lib/meta/tools/web.py").read_text()
+        assert "def search_web" in source
+
+    def test_browse_url_in_source(self) -> None:
+        source = (REPO_ROOT / "src/helping_hands/lib/meta/tools/web.py").read_text()
+        assert "def browse_url" in source
+
+    def test_web_tools_enabled_in_iterative(self) -> None:
+        source = (
+            REPO_ROOT / "src/helping_hands/lib/hands/v1/hand/iterative.py"
+        ).read_text()
+        assert "_web_tools_enabled" in source
+
+
+# ---------------------------------------------------------------------------
+# Core beliefs design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestCoreBeliefsDesignDocContent:
+    """core-beliefs.md should document all foundational design beliefs."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "core-beliefs.md").read_text()
+
+    def test_has_five_beliefs(self, content: str) -> None:
+        """All five numbered beliefs should be present."""
+        for i in range(1, 6):
+            assert f"## {i}." in content, f"core-beliefs.md should have belief #{i}"
+
+    @pytest.mark.parametrize(
+        "concept",
+        [
+            "AGENT.md",
+            "Hand abstraction",
+            "--no-pr",
+            "--enable-execution",
+            "Streaming",
+            "Heartbeat",
+            "Environment variable",
+        ],
+    )
+    def test_key_concept_mentioned(self, content: str, concept: str) -> None:
+        assert concept.lower() in content.lower(), (
+            f"core-beliefs.md should reference '{concept}'"
+        )
+
+    def test_repo_convention_belief(self, content: str) -> None:
+        """Belief 1 should mention repos and conventions."""
+        assert "repo" in content.lower()
+        assert "convention" in content.lower()
+
+    def test_multiple_backends_belief(self, content: str) -> None:
+        """Belief 2 should mention multiple backends."""
+        assert "backend" in content.lower()
+
+    def test_explicit_side_effects_belief(self, content: str) -> None:
+        """Belief 3 should mention side effects being explicit."""
+        assert "side effect" in content.lower() or "Side effects" in content
+
+    def test_observable_agents_belief(self, content: str) -> None:
+        """Belief 4 should mention observability."""
+        assert "observab" in content.lower() or "monitoring" in content.lower()
+
+    def test_configuration_over_convention_belief(self, content: str) -> None:
+        """Belief 5 should mention configuration precedence."""
+        assert "override" in content.lower() or "precedence" in content.lower()
+
+    def test_idempotency_documented(self, content: str) -> None:
+        """Idempotent E2E updates should be mentioned."""
+        assert "idempotent" in content.lower()
+
+    def test_branch_reversibility(self, content: str) -> None:
+        """Branch-based reversibility should be mentioned."""
+        assert "branch" in content.lower()
+        assert "reversib" in content.lower() or "delete" in content.lower()
+
+
+# ---------------------------------------------------------------------------
+# Testing methodology design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestTestingMethodologyDesignDocSections:
+    """testing-methodology.md should have required structural sections."""
+
+    REQUIRED_SECTIONS: ClassVar[list[str]] = [
+        "## Context",
+        "## Coverage-guided iteration",
+        "## Test organization",
+        "## Key patterns",
+        "## Frontend testing",
+        "## Coverage targets",
+        "## Anti-patterns",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
+
+    @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
+    def test_required_section_present(self, content: str, section: str) -> None:
+        assert section in content, f"testing-methodology.md missing section: {section}"
+
+
+class TestTestingMethodologyDesignDocContent:
+    """testing-methodology.md should accurately describe testing practices."""
+
+    KEY_REFERENCES: ClassVar[list[str]] = [
+        "monkeypatch",
+        "importorskip",
+        "dataclass",
+        "dead code",
+        "tech-debt-tracker",
+        "pytest-cov",
+        "branch",
+        "tmp_path",
+        "Vitest",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
+
+    @pytest.mark.parametrize("ref", KEY_REFERENCES)
+    def test_key_reference_documented(self, content: str, ref: str) -> None:
+        assert ref in content, f"testing-methodology.md should reference '{ref}'"
+
+    def test_four_step_cycle(self, content: str) -> None:
+        """Coverage-guided iteration should document the 4-step cycle."""
+        for step in ["Measure", "Target", "Validate", "Document"]:
+            assert step in content, f"testing-methodology.md should list '{step}' step"
+
+    def test_naming_conventions_table(self, content: str) -> None:
+        """Source-to-test naming conventions table should be present."""
+        assert "test_config.py" in content
+        assert "test_hand.py" in content
+
+    def test_anti_patterns_count(self, content: str) -> None:
+        """At least 3 anti-patterns should be documented."""
+        anti_patterns = re.findall(r"\*\*[^*]+\*\* --", content)
+        assert len(anti_patterns) >= 3, (
+            f"Expected at least 3 anti-patterns, found {len(anti_patterns)}"
+        )
+
+    def test_fake_dataclass_pattern(self, content: str) -> None:
+        """Fake dataclass pattern should include a code example."""
+        assert "@dataclass" in content
+        assert "_Fake" in content
+
+    def test_dead_code_patterns(self, content: str) -> None:
+        """Common dead code patterns should be enumerated."""
+        for pattern in ["Always-truthy", "latin-1", "__name__"]:
+            assert pattern in content, (
+                f"testing-methodology.md should list dead code pattern: {pattern}"
+            )
+
+    def test_frontend_testing_section(self, content: str) -> None:
+        """Frontend testing should mention key tools."""
+        assert "@testing-library/react" in content
+        assert "mockResponse" in content
+
+    def test_coverage_targets_table(self, content: str) -> None:
+        """Coverage targets should include backend and frontend."""
+        assert "Backend" in content
+        assert "Frontend" in content
+        assert "80%+" in content or "80%" in content
