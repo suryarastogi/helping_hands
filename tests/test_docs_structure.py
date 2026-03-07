@@ -5643,3 +5643,490 @@ class TestConftestFixtureUsage:
         """fake_config fixture should be used in at least one test file."""
         users = [name for name, content in test_files if "fake_config" in content]
         assert len(users) >= 1, "fake_config should be used in at least one test file"
+
+
+# ---------------------------------------------------------------------------
+# v95 — Repo-indexing design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestRepoIndexingDesignDocSections:
+    """repo-indexing.md must have key sections."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "repo-indexing.md").read_text()
+
+    REQUIRED_SECTIONS: ClassVar[list[str]] = [
+        "Context",
+        "Design",
+        "Consumers",
+        "Alternatives considered",
+        "Consequences",
+    ]
+
+    @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
+    def test_required_section_present(self, content: str, section: str) -> None:
+        assert f"## {section}" in content or f"### {section}" in content
+
+
+class TestRepoIndexingDesignDocContent:
+    """repo-indexing.md must reference key classes, functions, and concepts."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "repo-indexing.md").read_text()
+
+    KEY_REFERENCES: ClassVar[list[str]] = [
+        "RepoIndex",
+        "from_path",
+        "rglob",
+        ".git",
+        "lib/repo.py",
+        "relative path",
+        "sorted",
+        "FileNotFoundError",
+    ]
+
+    @pytest.mark.parametrize("ref", KEY_REFERENCES)
+    def test_key_reference_present(self, content: str, ref: str) -> None:
+        assert ref in content, f"repo-indexing.md should reference: {ref}"
+
+    def test_consumer_table_present(self, content: str) -> None:
+        """Consumer table should list how different modules use RepoIndex."""
+        assert "Iterative hands" in content or "_build_tree_snapshot" in content
+        assert "CLI hands" in content or "_build_init_prompt" in content
+        assert "MCP server" in content
+
+    def test_source_file_exists(self) -> None:
+        """The referenced source file should exist."""
+        assert (REPO_ROOT / "src" / "helping_hands" / "lib" / "repo.py").exists()
+
+    def test_dataclass_fields_documented(self, content: str) -> None:
+        """RepoIndex dataclass fields should be documented."""
+        assert "root" in content
+        assert "files" in content
+
+    def test_git_exclusion_explained(self, content: str) -> None:
+        """The .git exclusion mechanism should be explained."""
+        assert "parts" in content or ".git" in content
+        assert "exclusion" in content.lower() or "filter" in content.lower()
+
+
+class TestRepoIndexingDesignDocSourceConsistency:
+    """repo-indexing.md references should match actual source."""
+
+    def test_repo_index_class_in_source(self) -> None:
+        """RepoIndex should be defined in lib/repo.py."""
+        source = (
+            REPO_ROOT / "src" / "helping_hands" / "lib" / "repo.py"
+        ).read_text()
+        assert "class RepoIndex" in source
+
+    def test_from_path_in_source(self) -> None:
+        """from_path classmethod should be defined in lib/repo.py."""
+        source = (
+            REPO_ROOT / "src" / "helping_hands" / "lib" / "repo.py"
+        ).read_text()
+        assert "def from_path" in source
+
+    def test_design_doc_in_index(self) -> None:
+        """repo-indexing.md should be listed in design-docs/index.md."""
+        index = (DOCS_DIR / "design-docs" / "index.md").read_text()
+        assert "repo-indexing.md" in index
+
+
+# ---------------------------------------------------------------------------
+# v95 — Two-phase CLI hands design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestTwoPhaseCliHandsDesignDocSections:
+    """two-phase-cli-hands.md must have key sections."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "two-phase-cli-hands.md").read_text()
+
+    REQUIRED_SECTIONS: ClassVar[list[str]] = [
+        "Overview",
+        "Architecture",
+        "Backend lifecycle",
+        "Command rendering",
+        "Retry and fallback logic",
+        "Subprocess execution details",
+        "Authentication patterns",
+        "Container isolation",
+    ]
+
+    @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
+    def test_required_section_present(self, content: str, section: str) -> None:
+        assert f"## {section}" in content or f"### {section}" in content
+
+
+class TestTwoPhaseCliHandsDesignDocContent:
+    """two-phase-cli-hands.md must reference key classes, functions, and concepts."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "two-phase-cli-hands.md").read_text()
+
+    KEY_REFERENCES: ClassVar[list[str]] = [
+        "_TwoPhaseCLIHand",
+        "_run_two_phase",
+        "_invoke_backend",
+        "_invoke_cli_with_cmd",
+        "asyncio.create_subprocess_exec",
+        "_apply_backend_defaults",
+        "_build_subprocess_env",
+        "_build_failure_message",
+        "_command_not_found_message",
+        "_BACKEND_NAME",
+        "_DEFAULT_CLI_CMD",
+        "_COMMAND_ENV_VAR",
+    ]
+
+    @pytest.mark.parametrize("ref", KEY_REFERENCES)
+    def test_key_reference_present(self, content: str, ref: str) -> None:
+        assert ref in content, f"two-phase-cli-hands.md should reference: {ref}"
+
+    def test_two_phases_documented(self, content: str) -> None:
+        """Both phases should be clearly documented."""
+        assert "Phase 1" in content
+        assert "Phase 2" in content
+
+    def test_auth_table_present(self, content: str) -> None:
+        """Authentication patterns table should list all backends."""
+        assert "Claude Code" in content
+        assert "Codex" in content
+        assert "Goose" in content
+        assert "Gemini" in content
+        assert "OpenCode" in content
+
+    def test_subprocess_timing_env_vars(self, content: str) -> None:
+        """Subprocess timing environment variables should be documented."""
+        assert "_IO_POLL_SECONDS" in content
+        assert "_HEARTBEAT_SECONDS" in content
+        assert "_IDLE_TIMEOUT_SECONDS" in content
+
+    def test_fallback_patterns_documented(self, content: str) -> None:
+        """Command not found and failure retry patterns should be documented."""
+        assert "_fallback_command_when_not_found" in content
+        assert "_retry_command_after_failure" in content or "Failure retry" in content
+
+    def test_container_isolation_details(self, content: str) -> None:
+        """Container isolation should mention Docker wrapping."""
+        assert "docker run" in content
+        assert "CONTAINER" in content
+
+    def test_no_change_enforcement_documented(self, content: str) -> None:
+        """No-change enforcement for Claude Code should be documented."""
+        assert "_RETRY_ON_NO_CHANGES" in content
+        assert "enforcement" in content.lower()
+
+
+class TestTwoPhaseCliHandsDesignDocSourceConsistency:
+    """two-phase-cli-hands.md references should match actual source."""
+
+    CLI_HAND_MODULES: ClassVar[list[str]] = [
+        "claude.py",
+        "codex.py",
+        "goose.py",
+        "gemini.py",
+        "opencode.py",
+    ]
+
+    @pytest.mark.parametrize("module", CLI_HAND_MODULES)
+    def test_cli_hand_module_exists(self, module: str) -> None:
+        """Each CLI hand module referenced should exist."""
+        path = (
+            REPO_ROOT
+            / "src"
+            / "helping_hands"
+            / "lib"
+            / "hands"
+            / "v1"
+            / "hand"
+            / "cli"
+            / module
+        )
+        assert path.exists(), f"CLI hand module not found: {module}"
+
+    def test_base_cli_hand_exists(self) -> None:
+        """cli/base.py should exist."""
+        path = (
+            REPO_ROOT
+            / "src"
+            / "helping_hands"
+            / "lib"
+            / "hands"
+            / "v1"
+            / "hand"
+            / "cli"
+            / "base.py"
+        )
+        assert path.exists()
+
+    def test_two_phase_class_in_source(self) -> None:
+        """_TwoPhaseCLIHand should be defined in cli/base.py."""
+        source = (
+            REPO_ROOT
+            / "src"
+            / "helping_hands"
+            / "lib"
+            / "hands"
+            / "v1"
+            / "hand"
+            / "cli"
+            / "base.py"
+        ).read_text()
+        assert "_TwoPhaseCLIHand" in source
+
+
+# ---------------------------------------------------------------------------
+# v95 — Task-lifecycle design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestTaskLifecycleDesignDocSections:
+    """task-lifecycle.md must have key sections."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "task-lifecycle.md").read_text()
+
+    REQUIRED_SECTIONS: ClassVar[list[str]] = [
+        "Context",
+        "Lifecycle phases",
+        "Scheduled tasks",
+        "E2E task variant",
+        "Key source files",
+        "Alternatives considered",
+        "Consequences",
+    ]
+
+    @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
+    def test_required_section_present(self, content: str, section: str) -> None:
+        assert f"## {section}" in content or f"### {section}" in content
+
+
+class TestTaskLifecycleDesignDocContent:
+    """task-lifecycle.md must reference key functions, classes, and concepts."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "task-lifecycle.md").read_text()
+
+    KEY_REFERENCES: ClassVar[list[str]] = [
+        "/build",
+        "build_feature",
+        "_normalize_backend",
+        "_resolve_repo_path",
+        "_collect_stream",
+        "_UpdateCollector",
+        "_update_progress",
+        "normalize_task_result",
+        "_redact_sensitive",
+        "Config",
+        "RepoIndex",
+        "shutil.rmtree",
+    ]
+
+    @pytest.mark.parametrize("ref", KEY_REFERENCES)
+    def test_key_reference_present(self, content: str, ref: str) -> None:
+        assert ref in content, f"task-lifecycle.md should reference: {ref}"
+
+    def test_lifecycle_phases_numbered(self, content: str) -> None:
+        """All 7 lifecycle phases should be present."""
+        assert "### 1. Submission" in content
+        assert "### 2. Repo resolution" in content
+        assert "### 3. Hand instantiation" in content
+        assert "### 4. Streaming execution" in content
+        assert "### 5. Progress reporting" in content
+        assert "### 6. Result normalization" in content
+        assert "### 7. Cleanup" in content
+
+    def test_buffer_constants_documented(self, content: str) -> None:
+        """Buffer size constants should be documented."""
+        assert "_BUFFER_FLUSH_CHARS" in content
+        assert "_MAX_UPDATE_LINE_CHARS" in content
+        assert "_MAX_STORED_UPDATES" in content
+
+    def test_source_files_listed(self, content: str) -> None:
+        """Key source files should be listed."""
+        assert "celery_app.py" in content
+        assert "app.py" in content
+        assert "task_result.py" in content
+        assert "schedules.py" in content
+
+    def test_scheduled_tasks_mention_redbeat(self, content: str) -> None:
+        """Scheduled tasks should mention RedBeat."""
+        assert "RedBeat" in content
+        assert "ScheduleManager" in content
+
+
+class TestTaskLifecycleDesignDocSourceConsistency:
+    """task-lifecycle.md source references should match actual files."""
+
+    SOURCE_FILES: ClassVar[list[str]] = [
+        "src/helping_hands/server/celery_app.py",
+        "src/helping_hands/server/app.py",
+        "src/helping_hands/server/task_result.py",
+        "src/helping_hands/server/schedules.py",
+    ]
+
+    @pytest.mark.parametrize("path", SOURCE_FILES)
+    def test_source_file_exists(self, path: str) -> None:
+        assert (REPO_ROOT / path).exists(), f"Source file not found: {path}"
+
+    def test_build_feature_in_source(self) -> None:
+        """build_feature task should be defined in celery_app.py."""
+        source = (
+            REPO_ROOT / "src" / "helping_hands" / "server" / "celery_app.py"
+        ).read_text()
+        assert "build_feature" in source
+
+    def test_normalize_task_result_in_source(self) -> None:
+        """normalize_task_result should be defined in task_result.py."""
+        source = (
+            REPO_ROOT / "src" / "helping_hands" / "server" / "task_result.py"
+        ).read_text()
+        assert "normalize_task_result" in source
+
+
+# ---------------------------------------------------------------------------
+# v95 — E2E hand workflow design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestE2EHandWorkflowDesignDocSections:
+    """e2e-hand-workflow.md must have key sections."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "e2e-hand-workflow.md").read_text()
+
+    REQUIRED_SECTIONS: ClassVar[list[str]] = [
+        "Context",
+        "Lifecycle",
+        "Environment variables",
+        "HandResponse metadata",
+        "Relationship to other hands",
+        "Key source files",
+    ]
+
+    @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
+    def test_required_section_present(self, content: str, section: str) -> None:
+        assert f"## {section}" in content or f"### {section}" in content
+
+
+class TestE2EHandWorkflowDesignDocContent:
+    """e2e-hand-workflow.md must reference key classes, functions, and concepts."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "e2e-hand-workflow.md").read_text()
+
+    KEY_REFERENCES: ClassVar[list[str]] = [
+        "E2EHand",
+        "Hand",
+        "hand_uuid",
+        "_safe_repo_dir",
+        "HELPING_HANDS_WORK_ROOT",
+        "HELPING_HANDS_BASE_BRANCH",
+        "GitHubClient",
+        "HELPING_HANDS_E2E.md",
+        "helping-hands[bot]",
+        "dry_run",
+        "HandResponse",
+        "_finalize_repo_pr",
+    ]
+
+    @pytest.mark.parametrize("ref", KEY_REFERENCES)
+    def test_key_reference_present(self, content: str, ref: str) -> None:
+        assert ref in content, f"e2e-hand-workflow.md should reference: {ref}"
+
+    def test_lifecycle_steps_present(self, content: str) -> None:
+        """All lifecycle steps should be documented."""
+        for step_num in range(1, 8):
+            assert f"Step {step_num}" in content, (
+                f"Lifecycle step {step_num} should be present"
+            )
+
+    def test_env_var_table_present(self, content: str) -> None:
+        """Environment variables table should list key env vars."""
+        assert "HELPING_HANDS_WORK_ROOT" in content
+        assert "HELPING_HANDS_BASE_BRANCH" in content
+        assert "HELPING_HANDS_GIT_USER_NAME" in content
+        assert "HELPING_HANDS_GIT_USER_EMAIL" in content
+
+    def test_metadata_keys_documented(self, content: str) -> None:
+        """HandResponse metadata keys should be documented."""
+        metadata_keys = [
+            "backend",
+            "model",
+            "hand_uuid",
+            "workspace",
+            "branch",
+            "base_branch",
+            "pr_number",
+            "pr_url",
+            "dry_run",
+        ]
+        for key in metadata_keys:
+            assert key in content, f"Metadata key '{key}' should be documented"
+
+    def test_branch_naming_pattern(self, content: str) -> None:
+        """Branch naming pattern should be documented."""
+        assert "helping-hands/e2e-" in content
+
+    def test_dry_run_documented(self, content: str) -> None:
+        """Dry-run mode should be documented."""
+        assert "Dry-run" in content or "dry_run" in content
+        assert "skip" in content.lower()
+
+    def test_relationship_to_base_class(self, content: str) -> None:
+        """Should document that E2EHand does NOT use base finalization."""
+        assert "does not" in content.lower() or "does **not**" in content
+
+
+class TestE2EHandWorkflowDesignDocSourceConsistency:
+    """e2e-hand-workflow.md source references should match actual files."""
+
+    SOURCE_FILES: ClassVar[list[str]] = [
+        "src/helping_hands/lib/hands/v1/hand/e2e.py",
+        "src/helping_hands/lib/hands/v1/hand/base.py",
+        "src/helping_hands/lib/github.py",
+    ]
+
+    @pytest.mark.parametrize("path", SOURCE_FILES)
+    def test_source_file_exists(self, path: str) -> None:
+        assert (REPO_ROOT / path).exists(), f"Source file not found: {path}"
+
+    def test_e2e_hand_class_in_source(self) -> None:
+        """E2EHand should be defined in e2e.py."""
+        source = (
+            REPO_ROOT
+            / "src"
+            / "helping_hands"
+            / "lib"
+            / "hands"
+            / "v1"
+            / "hand"
+            / "e2e.py"
+        ).read_text()
+        assert "class E2EHand" in source
+
+    def test_e2e_marker_file_in_source(self) -> None:
+        """HELPING_HANDS_E2E.md marker should be referenced in e2e.py."""
+        source = (
+            REPO_ROOT
+            / "src"
+            / "helping_hands"
+            / "lib"
+            / "hands"
+            / "v1"
+            / "hand"
+            / "e2e.py"
+        ).read_text()
+        assert "HELPING_HANDS_E2E" in source
