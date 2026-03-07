@@ -25,6 +25,7 @@ Index of design documents for helping_hands.
 - [E2E Hand Workflow](e2e-hand-workflow.md) — Clone/branch/edit/commit/push/PR lifecycle, resume flow, dry-run
 - [Task Lifecycle](task-lifecycle.md) — Celery task enqueue, progress streaming, update buffering, result normalization
 - [Web Tools](web-tools.md) — DuckDuckGo search, URL browsing, HTML extraction, content truncation
+- [Docker Sandbox](docker-sandbox.md) — MicroVM isolation via Docker Desktop sandboxes, lifecycle, env forwarding
 
 ## Adding a design doc
 

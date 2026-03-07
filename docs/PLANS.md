@@ -8,42 +8,12 @@ _No active plans._
 
 ## Completed plans
 
-- [Docs and Testing v79](exec-plans/completed/docs-and-testing-v79.md) --
-  Web tools design doc; extended docs structure validation tests (RELIABILITY.md subsections, DESIGN.md content, design doc quality, architecture hand types, conftest fixture usage, testing methodology references; 29 new); 1717 tests pass (completed 2026-03-06)
+- [Docs and Testing v80](exec-plans/completed/docs-and-testing-v80.md) --
+  Docker sandbox design doc; consolidate v69-v79 into 2026-03-06.md; extended docs validation tests (docker-sandbox doc content, consolidated plan coverage, security/architecture cross-references; 23 new); 1740 tests pass (completed 2026-03-07)
 
-- [Docs and Testing v78](exec-plans/completed/docs-and-testing-v78.md) --
-  Task lifecycle design doc; extended docs structure validation tests (design-docs index descriptions, generated docs content, product-specs content, ARCHITECTURE.md module boundaries, QUALITY_SCORE.md areas for improvement; 12 new); 1688 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v77](exec-plans/completed/docs-and-testing-v77.md) --
-  E2E hand workflow design doc; extended docs structure validation tests (design doc source references, API docs completeness, PLANS.md structure, active plan consistency, key source files; 10 new); 1676 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v76](exec-plans/completed/docs-and-testing-v76.md) --
-  Model-resolution design doc; extended docs structure validation tests (PLANS.md link resolution, design-docs count sync, tech-debt-tracker structure, TODO.md structure, completed plan content; 10 new); 1666 tests pass (completed 2026-03-06)
-
-
-- [Docs and Testing v75](exec-plans/completed/docs-and-testing-v75.md) --
-  Filesystem-security design doc; extended docs structure validation tests (FRONTEND.md sections, PRODUCT_SENSE.md sections, SECURITY.md sandboxing subsections, design doc content checks, ARCHITECTURE.md section count; 18 new); 1656 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v74](exec-plans/completed/docs-and-testing-v74.md) --
-  Default-prompts design doc; extended docs structure validation tests (DESIGN.md sections, SECURITY.md sections, RELIABILITY.md sections, README.md sections, QUALITY_SCORE.md structure; 19 new); 1638 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v73](exec-plans/completed/docs-and-testing-v73.md) --
-  PR description design doc; extended docs structure validation tests (ARCHITECTURE.md key paths, AGENTS.md sections, docs/index.md link resolution, CLAUDE.md sections; 17 new); 1619 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v72](exec-plans/completed/docs-and-testing-v72.md) --
-  GitHub client design doc; extended docs structure validation tests (API docs link validity, completed plan structure, design-docs index count; 7 new); 1602 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v71](exec-plans/completed/docs-and-testing-v71.md) --
-  Skills system design doc; extended docs structure validation tests (product-specs index, root-level docs, reference files, tech-debt-tracker module refs; 6 new); 1595 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v70](exec-plans/completed/docs-and-testing-v70.md) --
-  CI pipeline design doc; docs structure validation tests (4 new); 1587 tests pass (completed 2026-03-06)
-
-- [Docs and Testing v69](exec-plans/completed/docs-and-testing-v69.md) --
-  Consolidate v63-v68 into 2026-03-06.md; deployment-modes design doc; mock_github_client fixture self-tests (11 new); Hand instantiation smoke tests (27 new); 1583 tests pass (completed 2026-03-06)
 
 - [2026-03-06 consolidated](exec-plans/completed/2026-03-06.md) --
-  v32-v68: PR description, schedule, E2E, server health, GitHub client, package re-exports, Docker sandbox, CLI subprocess, celery usage, iterative agents, atomic/LangGraph stream, frontend coverage to 82.3%, dead code docs, testing methodology, shared conftest fixtures, config refactor, repo-indexing/scheduling-system/error-handling/MCP-architecture/config-loading design docs; 1263 -> 1545 tests (completed 2026-03-06)
+  v32-v79: PR description, schedule, E2E, server health, GitHub client, package re-exports, Docker sandbox, CLI subprocess, celery usage, iterative agents, atomic/LangGraph stream, frontend coverage to 82.3%, dead code docs, testing methodology, shared conftest fixtures, config refactor, Hand smoke tests, docs structure validation, 21 design docs (repo-indexing through web-tools); 1263 -> 1717 tests (completed 2026-03-06)
 - [2026-03-05 consolidated](exec-plans/completed/2026-03-05.md) --
   v5-v31: Pure helper, CLI hand, AI provider, iterative hand, Docker sandbox, celery, schedule, MCP server, web tool, PR description, and package-level test suites; provider abstraction design doc; ARCHITECTURE.md, DESIGN.md, SECURITY.md, RELIABILITY.md updates; 470 -> 1256 tests (completed 2026-03-05)
 - [2026-03-04 consolidated](exec-plans/completed/2026-03-04.md) --

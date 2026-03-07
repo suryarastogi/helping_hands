@@ -1382,3 +1382,104 @@ class TestTestingMethodologyDocReferences:
     def test_references_importorskip(self) -> None:
         content = (DOCS_DIR / "design-docs" / "testing-methodology.md").read_text()
         assert "importorskip" in content
+
+
+class TestDockerSandboxDesignDoc:
+    """Docker sandbox design doc should cover key concepts."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "docker-sandbox.md").read_text()
+
+    def test_has_context_section(self, content: str) -> None:
+        assert "## Context" in content
+
+    def test_has_inheritance_chain_section(self, content: str) -> None:
+        assert "## Inheritance chain" in content
+
+    def test_has_sandbox_lifecycle_section(self, content: str) -> None:
+        assert "## Sandbox lifecycle" in content
+
+    def test_has_command_wrapping_subsection(self, content: str) -> None:
+        assert "### Command wrapping" in content
+
+    def test_has_cleanup_subsection(self, content: str) -> None:
+        assert "### Cleanup" in content
+
+    def test_has_environment_variables_section(self, content: str) -> None:
+        assert "## Environment variables" in content
+
+    def test_has_failure_handling_section(self, content: str) -> None:
+        assert "## Failure handling" in content
+
+    def test_references_docker_sandbox_hand(self, content: str) -> None:
+        assert "DockerSandboxClaudeCodeHand" in content
+
+    def test_references_claude_code_hand(self, content: str) -> None:
+        assert "ClaudeCodeHand" in content
+
+    def test_references_two_phase(self, content: str) -> None:
+        assert "_TwoPhaseCLIHand" in content
+
+    def test_references_source_file(self, content: str) -> None:
+        assert "docker_sandbox_claude.py" in content
+
+    def test_has_disabled_features_section(self, content: str) -> None:
+        assert "## Disabled features" in content
+
+    def test_env_var_sandbox_name(self, content: str) -> None:
+        assert "HELPING_HANDS_DOCKER_SANDBOX_NAME" in content
+
+    def test_env_var_sandbox_cleanup(self, content: str) -> None:
+        assert "HELPING_HANDS_DOCKER_SANDBOX_CLEANUP" in content
+
+    def test_env_var_sandbox_template(self, content: str) -> None:
+        assert "HELPING_HANDS_DOCKER_SANDBOX_TEMPLATE" in content
+
+
+class TestConsolidatedPlanCoverage:
+    """Consolidated 2026-03-06.md should cover all versions from that date."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "exec-plans" / "completed" / "2026-03-06.md").read_text()
+
+    def test_covers_v32_through_v79(self, content: str) -> None:
+        """Consolidated plan should reference v32-v79 in header."""
+        assert "v32-v79" in content
+
+    def test_has_v69_entry(self, content: str) -> None:
+        assert "## v69" in content
+
+    def test_has_v79_entry(self, content: str) -> None:
+        assert "## v79" in content
+
+    def test_v69_through_v79_all_present(self, content: str) -> None:
+        for v in range(69, 80):
+            assert f"## v{v}" in content, (
+                f"Consolidated 2026-03-06.md is missing ## v{v} entry"
+            )
+
+
+class TestArchitectureDockerSandboxRef:
+    """ARCHITECTURE.md should reference DockerSandboxClaudeCodeHand."""
+
+    def test_references_docker_sandbox_hand(self) -> None:
+        content = (REPO_ROOT / "ARCHITECTURE.md").read_text()
+        assert "DockerSandboxClaudeCodeHand" in content or "docker-sandbox" in content
+
+
+class TestSecurityDockerSandboxRef:
+    """SECURITY.md should document Docker sandbox isolation."""
+
+    def test_has_docker_sandbox_section(self) -> None:
+        content = (DOCS_DIR / "SECURITY.md").read_text()
+        assert "DockerSandboxClaudeCodeHand" in content
+
+    def test_references_microvm(self) -> None:
+        content = (DOCS_DIR / "SECURITY.md").read_text()
+        assert "microVM" in content or "microvm" in content.lower()
+
+    def test_references_sandbox_cleanup_env(self) -> None:
+        content = (DOCS_DIR / "SECURITY.md").read_text()
+        assert "HELPING_HANDS_DOCKER_SANDBOX_CLEANUP" in content
