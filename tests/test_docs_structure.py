@@ -2534,9 +2534,7 @@ class TestSecurityMdIterativeHandSecurity:
     def security_text(self) -> str:
         return (DOCS_DIR / "SECURITY.md").read_text()
 
-    def test_iterative_hand_security_section_exists(
-        self, security_text: str
-    ) -> None:
+    def test_iterative_hand_security_section_exists(self, security_text: str) -> None:
         assert "## Iterative hand security boundaries" in security_text, (
             "SECURITY.md is missing '## Iterative hand security boundaries' section"
         )
@@ -2693,9 +2691,9 @@ class TestClaudeMdArchitectureSubsections:
 
     def test_architecture_mentions_module_boundaries(self, claude_text: str) -> None:
         arch_section = claude_text.split("## Architecture")[1].split("## Code")[0]
-        assert "module boundaries" in arch_section.lower() or "### Module" in arch_section, (
-            "CLAUDE.md Architecture should discuss module boundaries"
-        )
+        assert (
+            "module boundaries" in arch_section.lower() or "### Module" in arch_section
+        ), "CLAUDE.md Architecture should discuss module boundaries"
 
     def test_architecture_mentions_filesystem_tools(self, claude_text: str) -> None:
         arch_section = claude_text.split("## Architecture")[1].split("## Code")[0]
