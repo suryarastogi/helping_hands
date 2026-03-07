@@ -4932,3 +4932,308 @@ class TestPrDescriptionDesignDoc:
         """Should document both diff sources."""
         assert "git diff" in content
         assert "base_branch" in content or "base branch" in content
+
+
+# ---------------------------------------------------------------------------
+# v93 — Backend routing design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestBackendRoutingDesignDocSections:
+    """backend-routing.md should contain required design doc sections."""
+
+    REQUIRED_SECTIONS: ClassVar[list[str]] = [
+        "Context",
+        "Decision",
+        "Alternatives",
+        "Consequences",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "backend-routing.md").read_text()
+
+    @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
+    def test_required_section(self, content: str, section: str) -> None:
+        assert section in content, (
+            f"backend-routing.md should have a '{section}' section"
+        )
+
+
+class TestBackendRoutingDesignDocContent:
+    """backend-routing.md should reference key routing artefacts."""
+
+    REQUIRED_REFS: ClassVar[list[str]] = [
+        "_parse_backend",
+        "_normalize_backend",
+        "_BACKEND_LOOKUP",
+        "_SUPPORTED_BACKENDS",
+        "BackendName",
+        "basic-agent",
+        "basic-atomic",
+        "basic-langgraph",
+        "codexcli",
+        "claudecodecli",
+        "docker-sandbox-claude",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "backend-routing.md").read_text()
+
+    @pytest.mark.parametrize("ref", REQUIRED_REFS)
+    def test_key_reference(self, content: str, ref: str) -> None:
+        assert ref in content, (
+            f"backend-routing.md should reference: {ref}"
+        )
+
+    def test_hand_table_present(self, content: str) -> None:
+        """Should include a backend-to-Hand mapping table."""
+        assert "| Backend name" in content or "| Backend" in content
+        assert "Hand class" in content
+
+    def test_hand_table_row_count(self, content: str) -> None:
+        """Mapping table should list at least 9 backends."""
+        table_lines = [
+            ln for ln in content.splitlines()
+            if ln.strip().startswith("|") and "Hand" not in ln.split("|")[1]
+        ]
+        # Exclude header and separator rows
+        data_rows = [
+            ln for ln in table_lines
+            if not set(ln.replace("|", "").strip()).issubset({"-", " "})
+            and "Backend name" not in ln
+            and "Module" not in ln
+        ]
+        assert len(data_rows) >= 9, (
+            f"Backend-to-Hand table should have >= 9 data rows, found {len(data_rows)}"
+        )
+
+    def test_cli_routing_documented(self, content: str) -> None:
+        """Should document CLI routing path."""
+        assert "cli/main.py" in content
+        assert "argparse" in content or "choices" in content
+
+    def test_server_routing_documented(self, content: str) -> None:
+        """Should document server routing path."""
+        assert "server/app.py" in content or "FastAPI" in content
+
+    def test_celery_routing_documented(self, content: str) -> None:
+        """Should document Celery routing path."""
+        assert "celery_app.py" in content or "Celery" in content
+
+    def test_basic_agent_alias(self, content: str) -> None:
+        """Should explain basic-agent as alias for basic-atomic."""
+        assert "alias" in content.lower()
+
+
+class TestBackendRoutingSourceConsistency:
+    """backend-routing.md source file references should resolve."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "backend-routing.md").read_text()
+
+    def test_source_modules_exist(self, content: str) -> None:
+        """Hand module paths mentioned in the doc should exist."""
+        hand_base = (
+            REPO_ROOT / "src" / "helping_hands" / "lib" / "hands" / "v1" / "hand"
+        )
+        expected_modules = [
+            "e2e.py",
+            "langgraph.py",
+            "atomic.py",
+            "cli/codex.py",
+            "cli/claude.py",
+            "cli/docker_sandbox_claude.py",
+            "cli/goose.py",
+            "cli/gemini.py",
+            "cli/opencode.py",
+        ]
+        for mod in expected_modules:
+            path = hand_base / mod
+            assert path.exists(), (
+                f"backend-routing.md references hand/{mod} but file does not exist"
+            )
+
+    def test_index_listings(self, content: str) -> None:
+        """backend-routing.md should be listed in design-docs/index.md."""
+        index = (DOCS_DIR / "design-docs" / "index.md").read_text()
+        assert "backend-routing.md" in index
+
+    def test_docs_index_listing(self, content: str) -> None:
+        """backend-routing should appear in docs/index.md design-docs list."""
+        docs_index = (DOCS_DIR / "index.md").read_text()
+        assert "backend routing" in docs_index.lower()
+
+
+class TestDesignDocBackendRoutingOptionalExtras:
+    """backend-routing.md should document optional dependency handling."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "design-docs" / "backend-routing.md").read_text()
+
+    def test_langchain_extra(self, content: str) -> None:
+        assert "langchain" in content
+
+    def test_atomic_extra(self, content: str) -> None:
+        assert "atomic" in content
+
+    def test_module_not_found(self, content: str) -> None:
+        """Should mention ModuleNotFoundError handling."""
+        assert "ModuleNotFoundError" in content or "optional" in content.lower()
+
+
+# ---------------------------------------------------------------------------
+# v93 — RELIABILITY.md finalization failures depth check
+# ---------------------------------------------------------------------------
+
+
+class TestReliabilityFinalizationCompleteness:
+    """RELIABILITY.md finalization section should cover key failure modes."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "RELIABILITY.md").read_text()
+
+    def test_finalization_section_exists(self, content: str) -> None:
+        assert "Finalization failures" in content or "finalization" in content.lower()
+
+    def test_precommit_failure(self, content: str) -> None:
+        assert "pre-commit" in content.lower() or "precommit" in content.lower()
+
+    def test_push_failure(self, content: str) -> None:
+        assert "push" in content.lower()
+
+    def test_pr_creation_failure(self, content: str) -> None:
+        assert "PR creation" in content or "pr creation" in content.lower()
+
+
+# ---------------------------------------------------------------------------
+# v93 — DESIGN.md backend routing cross-reference
+# ---------------------------------------------------------------------------
+
+
+class TestDesignMdBackendRoutingRef:
+    """DESIGN.md should reference the backend routing concept."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    def test_hand_abstraction_section(self, content: str) -> None:
+        """DESIGN.md should describe the Hand abstraction."""
+        assert "Hand" in content
+        assert "run()" in content
+        assert "stream()" in content
+
+    def test_provider_resolution_section(self, content: str) -> None:
+        assert "Provider resolution" in content or "provider" in content.lower()
+
+    def test_hand_implementations_split(self, content: str) -> None:
+        """Should mention hands are split into separate modules."""
+        assert "separate modules" in content or "split" in content.lower()
+
+
+# ---------------------------------------------------------------------------
+# v93 — docs/index.md design-docs parenthetical completeness
+# ---------------------------------------------------------------------------
+
+
+class TestDocsIndexDesignDocsCompleteness:
+    """docs/index.md design-docs parenthetical should match all design docs."""
+
+    @pytest.fixture()
+    def index_text(self) -> str:
+        return (DOCS_DIR / "index.md").read_text()
+
+    @pytest.fixture()
+    def design_doc_names(self) -> list[str]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(
+            f.stem.replace("-", " ")
+            for f in dd.glob("*.md")
+            if f.name != "index.md"
+        )
+
+    def test_all_design_docs_in_parenthetical(
+        self, index_text: str, design_doc_names: list[str]
+    ) -> None:
+        """Every design doc stem should appear in the docs/index.md listing."""
+        lower_text = index_text.lower()
+        for name in design_doc_names:
+            # Match with spaces or hyphens (e.g. "two phase cli hands" or
+            # "two-phase cli")
+            hyphenated = name.replace(" ", "-")
+            found = name in lower_text or hyphenated in lower_text
+            # Also check if all significant words appear nearby
+            if not found:
+                words = [w for w in name.split() if len(w) > 2]
+                found = all(w in lower_text for w in words)
+            assert found, (
+                f"Design doc '{name}' not found in docs/index.md "
+                f"design-docs parenthetical"
+            )
+
+
+# ---------------------------------------------------------------------------
+# v93 — ARCHITECTURE.md backend listing validation
+# ---------------------------------------------------------------------------
+
+
+class TestArchitectureMdBackendListing:
+    """ARCHITECTURE.md hand table should list all non-alias backends."""
+
+    EXPECTED_BACKENDS: ClassVar[list[str]] = [
+        "E2E",
+        "LangGraph",
+        "Atomic",
+        "Codex",
+        "Claude",
+        "Goose",
+        "Gemini",
+        "OpenCode",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    @pytest.mark.parametrize("backend", EXPECTED_BACKENDS)
+    def test_backend_mentioned(self, content: str, backend: str) -> None:
+        assert backend in content, (
+            f"ARCHITECTURE.md should mention backend: {backend}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# v93 — SECURITY.md deployment recommendation coverage
+# ---------------------------------------------------------------------------
+
+
+class TestSecurityRecommendationCoverage:
+    """SECURITY.md recommendations should cover key security topics."""
+
+    TOPICS: ClassVar[list[str]] = [
+        "GITHUB_TOKEN",
+        "API key",
+        "Docker",
+        "execution",
+        "sandbox",
+    ]
+
+    @pytest.fixture()
+    def content(self) -> str:
+        return (DOCS_DIR / "SECURITY.md").read_text()
+
+    @pytest.mark.parametrize("topic", TOPICS)
+    def test_recommendation_topic(self, content: str, topic: str) -> None:
+        rec_section = (
+            content.split("Recommendations")[1]
+            if "Recommendations" in content
+            else content
+        )
+        assert topic.lower() in rec_section.lower(), (
+            f"SECURITY.md recommendations should cover: {topic}"
+        )

@@ -16,6 +16,7 @@ Index of design documents for helping_hands.
 - [E2E Hand Workflow](e2e-hand-workflow.md) — Clone/branch/edit/commit/push/PR lifecycle, resume flow, dry-run
 - [Docker Sandbox](docker-sandbox.md) — MicroVM isolation via Docker Desktop sandboxes, lifecycle, env forwarding
 - [PR Description](pr-description.md) — Generation flow, prompt engineering, parsing, fallback chain, and env config
+- [Backend Routing](backend-routing.md) — Backend name resolution to Hand subclasses across CLI, server, and Celery
 
 ## Providers and Models
 
