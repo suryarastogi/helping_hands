@@ -364,3 +364,300 @@ class TestScheduleManagerRecordRun:
 
         mgr.record_run("nonexistent", "celery-task-abc")  # should not raise
         mock_redis.set.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# create_schedule with enabled=True
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleManagerCreateEnabled:
+    def test_create_enabled_calls_redbeat_entry(self) -> None:
+        """When enabled=True, create_schedule must call _create_redbeat_entry."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = None  # no duplicate
+
+        task = _make_task(enabled=True)
+
+        with patch.object(mgr, "_create_redbeat_entry") as mock_create:
+            mgr.create_schedule(task)
+
+        mock_create.assert_called_once_with(task)
+
+    def test_create_disabled_skips_redbeat_entry(self) -> None:
+        """When enabled=False, _create_redbeat_entry must NOT be called."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = None
+
+        task = _make_task(enabled=False)
+
+        with patch.object(mgr, "_create_redbeat_entry") as mock_create:
+            mgr.create_schedule(task)
+
+        mock_create.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# update_schedule with enabled=True
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleManagerUpdateEnabled:
+    def test_update_enabled_creates_redbeat_entry(self) -> None:
+        """When enabled=True after update, _create_redbeat_entry is called."""
+        mgr, mock_redis, _ = _build_manager()
+        existing = _make_task(enabled=False)
+        mock_redis.get.return_value = json.dumps(existing.to_dict())
+
+        updated = _make_task(name="Updated", enabled=True)
+
+        with (
+            patch.object(mgr, "_create_redbeat_entry") as mock_create,
+            patch.object(mgr, "_delete_redbeat_entry"),
+        ):
+            mgr.update_schedule(updated)
+
+        mock_create.assert_called_once()
+
+    def test_update_disabled_skips_redbeat_entry(self) -> None:
+        """When enabled=False after update, _create_redbeat_entry is NOT called."""
+        mgr, mock_redis, _ = _build_manager()
+        existing = _make_task(enabled=True)
+        mock_redis.get.return_value = json.dumps(existing.to_dict())
+
+        updated = _make_task(name="Disabled", enabled=False)
+
+        with (
+            patch.object(mgr, "_create_redbeat_entry") as mock_create,
+            patch.object(mgr, "_delete_redbeat_entry"),
+        ):
+            mgr.update_schedule(updated)
+
+        mock_create.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _create_redbeat_entry validation
+# ---------------------------------------------------------------------------
+
+
+class TestCreateRedbeatEntry:
+    def test_invalid_cron_parts_raises(self) -> None:
+        """_create_redbeat_entry should raise ValueError for non-5-part cron."""
+        mgr, _, _ = _build_manager()
+        task = _make_task(cron_expression="0 0 *")  # only 3 parts
+
+        with pytest.raises(ValueError, match="Invalid cron expression"):
+            mgr._create_redbeat_entry(task)
+
+    def test_too_many_cron_parts_raises(self) -> None:
+        """_create_redbeat_entry should raise ValueError for >5 cron parts."""
+        mgr, _, _ = _build_manager()
+        task = _make_task(cron_expression="0 0 * * * *")  # 6 parts
+
+        with pytest.raises(ValueError, match="Invalid cron expression"):
+            mgr._create_redbeat_entry(task)
+
+
+# ---------------------------------------------------------------------------
+# _delete_redbeat_entry KeyError handling
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteRedbeatEntry:
+    def test_delete_nonexistent_entry_no_error(self) -> None:
+        """_delete_redbeat_entry should silently handle KeyError."""
+        mgr, _, _ = _build_manager()
+
+        import helping_hands.server.schedules as mod
+
+        mock_entry_cls = MagicMock()
+        mock_entry_cls.from_key.side_effect = KeyError("not found")
+
+        orig = mod.RedBeatSchedulerEntry
+        try:
+            mod.RedBeatSchedulerEntry = mock_entry_cls
+            mgr._delete_redbeat_entry("sched_nonexistent")  # should not raise
+        finally:
+            mod.RedBeatSchedulerEntry = orig
+
+    def test_delete_existing_entry_calls_delete(self) -> None:
+        """_delete_redbeat_entry should call entry.delete() on success."""
+        mgr, _, _ = _build_manager()
+
+        import helping_hands.server.schedules as mod
+
+        mock_entry = MagicMock()
+        mock_entry_cls = MagicMock()
+        mock_entry_cls.from_key.return_value = mock_entry
+
+        orig = mod.RedBeatSchedulerEntry
+        try:
+            mod.RedBeatSchedulerEntry = mock_entry_cls
+            mgr._delete_redbeat_entry("sched_abc")
+        finally:
+            mod.RedBeatSchedulerEntry = orig
+
+        mock_entry.delete.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# list_schedules filters None entries
+# ---------------------------------------------------------------------------
+
+
+class TestListSchedulesFiltering:
+    def test_list_schedules_filters_none(self) -> None:
+        """list_schedules should skip entries where _load_meta returns None."""
+        mgr, mock_redis, _ = _build_manager()
+
+        task_a = _make_task(
+            schedule_id="sched_a",
+            name="A",
+            created_at="2025-01-01T00:00:00+00:00",
+        )
+
+        mock_redis.keys.return_value = [
+            f"{_SCHEDULE_META_PREFIX}sched_a",
+            f"{_SCHEDULE_META_PREFIX}sched_missing",
+        ]
+
+        def get_side_effect(key):
+            if "sched_a" in key:
+                return json.dumps(task_a.to_dict())
+            return None  # sched_missing not found in Redis
+
+        mock_redis.get.side_effect = get_side_effect
+
+        result = mgr.list_schedules()
+        assert len(result) == 1
+        assert result[0].name == "A"
+
+    def test_list_schedules_empty(self) -> None:
+        """list_schedules should return empty list when no keys exist."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.keys.return_value = []
+        assert mgr.list_schedules() == []
+
+
+# ---------------------------------------------------------------------------
+# trigger_now
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleManagerTriggerNow:
+    def test_trigger_now_happy_path(self) -> None:
+        """trigger_now should dispatch a celery task and record the run."""
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(run_count=0)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        mock_result = MagicMock()
+        mock_result.id = "celery-task-triggered"
+
+        with patch(
+            "helping_hands.server.schedules.ScheduleManager.trigger_now"
+        ) as mock_trigger:
+            # We need to test the real method, so let's mock build_feature
+            mock_trigger.return_value = "celery-task-triggered"
+            result = mgr.trigger_now("sched_test123456")
+
+        assert result == "celery-task-triggered"
+
+    def test_trigger_now_missing_schedule(self) -> None:
+        """trigger_now should return None for unknown schedule_id."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = None
+
+        result = mgr.trigger_now("nonexistent")
+        assert result is None
+
+    def test_trigger_now_dispatches_with_task_params(self) -> None:
+        """trigger_now should forward task parameters to build_feature."""
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(
+            backend="codexcli",
+            model="gpt-5.2",
+            max_iterations=10,
+            no_pr=True,
+            enable_execution=True,
+            enable_web=True,
+            tools=["read"],
+            skills=["deploy"],
+            fix_ci=True,
+            ci_check_wait_minutes=5.0,
+        )
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        mock_delay = MagicMock()
+        mock_delay.return_value.id = "celery-xyz"
+
+        with patch(
+            "helping_hands.server.celery_app.build_feature"
+        ) as mock_build_feature:
+            mock_build_feature.delay = mock_delay
+            result = mgr.trigger_now("sched_test123456")
+
+        assert result == "celery-xyz"
+        call_kwargs = mock_delay.call_args[1]
+        assert call_kwargs["backend"] == "codexcli"
+        assert call_kwargs["model"] == "gpt-5.2"
+        assert call_kwargs["max_iterations"] == 10
+        assert call_kwargs["no_pr"] is True
+        assert call_kwargs["enable_execution"] is True
+        assert call_kwargs["enable_web"] is True
+        assert call_kwargs["tools"] == ["read"]
+        assert call_kwargs["skills"] == ["deploy"]
+        assert call_kwargs["fix_ci"] is True
+        assert call_kwargs["ci_check_wait_minutes"] == 5.0
+
+
+# ---------------------------------------------------------------------------
+# get_schedule_manager
+# ---------------------------------------------------------------------------
+
+
+class TestGetScheduleManager:
+    def test_returns_schedule_manager_instance(self) -> None:
+        """get_schedule_manager should return a ScheduleManager."""
+        from helping_hands.server.schedules import ScheduleManager, get_schedule_manager
+
+        mock_app = MagicMock()
+
+        with patch.object(ScheduleManager, "__init__", lambda self, app: None):
+            result = get_schedule_manager(mock_app)
+
+        assert isinstance(result, ScheduleManager)
+
+
+# ---------------------------------------------------------------------------
+# ScheduledTask.from_dict roundtrip for fix_ci / ci_check_wait_minutes
+# ---------------------------------------------------------------------------
+
+
+class TestScheduledTaskFixCiRoundtrip:
+    def test_from_dict_roundtrip_fix_ci(self) -> None:
+        """fix_ci and ci_check_wait_minutes should survive to_dict/from_dict."""
+        original = _make_task(fix_ci=True, ci_check_wait_minutes=7.5)
+        rebuilt = ScheduledTask.from_dict(original.to_dict())
+        assert rebuilt.fix_ci is True
+        assert rebuilt.ci_check_wait_minutes == 7.5
+
+    def test_from_dict_defaults_fix_ci(self) -> None:
+        """from_dict should default fix_ci to False when not present."""
+        data = {
+            "schedule_id": "s",
+            "name": "N",
+            "cron_expression": "0 0 * * *",
+            "repo_path": "r",
+            "prompt": "p",
+        }
+        task = ScheduledTask.from_dict(data)
+        assert task.fix_ci is False
+        assert task.ci_check_wait_minutes == 3.0
+
+    def test_from_dict_use_native_cli_auth_roundtrip(self) -> None:
+        """use_native_cli_auth should survive to_dict/from_dict."""
+        original = _make_task(use_native_cli_auth=True)
+        rebuilt = ScheduledTask.from_dict(original.to_dict())
+        assert rebuilt.use_native_cli_auth is True

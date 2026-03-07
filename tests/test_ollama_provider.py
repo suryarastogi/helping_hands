@@ -59,7 +59,25 @@ class TestOllamaProviderBuildInner:
 
 
 class TestOllamaProviderCompleteImpl:
-    def test_passes_kwargs_to_inner(self) -> None:
+    def test_delegates_to_chat_completions_create(self) -> None:
+        mock_inner = MagicMock()
+        mock_inner.chat.completions.create.return_value = "response"
+
+        provider = OllamaProvider()
+        messages: list[dict[str, str]] = [{"role": "user", "content": "hello"}]
+        result = provider._complete_impl(
+            inner=mock_inner,
+            messages=messages,
+            model="llama3.2:latest",
+        )
+
+        mock_inner.chat.completions.create.assert_called_once_with(
+            model="llama3.2:latest",
+            messages=messages,
+        )
+        assert result == "response"
+
+    def test_passes_extra_kwargs_to_inner(self) -> None:
         mock_inner = MagicMock()
         mock_inner.chat.completions.create.return_value = {"choices": []}
 
@@ -86,8 +104,35 @@ class TestOllamaProviderClassAttrs:
     def test_name(self) -> None:
         assert OllamaProvider.name == "ollama"
 
+    def test_api_key_env_var(self) -> None:
+        assert OllamaProvider.api_key_env_var == "OLLAMA_API_KEY"
+
     def test_default_model(self) -> None:
         assert OllamaProvider.default_model == "llama3.2:latest"
 
     def test_install_hint(self) -> None:
         assert OllamaProvider.install_hint == "uv add openai"
+
+    def test_base_url_env_var(self) -> None:
+        assert OllamaProvider.base_url_env_var == "OLLAMA_BASE_URL"
+
+    def test_default_base_url(self) -> None:
+        assert OllamaProvider.default_base_url == "http://localhost:11434/v1"
+
+
+# ---------------------------------------------------------------------------
+# OLLAMA_PROVIDER singleton
+# ---------------------------------------------------------------------------
+
+
+class TestOllamaProviderSingleton:
+    def test_singleton_is_ollama_provider_instance(self) -> None:
+        from helping_hands.lib.ai_providers.ollama import OLLAMA_PROVIDER
+
+        assert isinstance(OLLAMA_PROVIDER, OllamaProvider)
+
+    def test_singleton_identity_across_imports(self) -> None:
+        from helping_hands.lib.ai_providers.ollama import OLLAMA_PROVIDER as FIRST
+        from helping_hands.lib.ai_providers.ollama import OLLAMA_PROVIDER as SECOND
+
+        assert FIRST is SECOND

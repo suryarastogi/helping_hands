@@ -2,27 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
-from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.cli.codex import CodexCLIHand
-from helping_hands.lib.repo import RepoIndex
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 
-def _make_codex_hand(tmp_path, model="gpt-5.2"):
-    (tmp_path / "main.py").write_text("")
-    config = Config(repo=str(tmp_path), model=model)
-    repo_index = RepoIndex.from_path(tmp_path)
-    return CodexCLIHand(config=config, repo_index=repo_index)
-
-
 @pytest.fixture()
-def codex_hand(tmp_path):
-    return _make_codex_hand(tmp_path)
+def codex_hand(make_cli_hand):
+    return make_cli_hand(CodexCLIHand, model="gpt-5.2")
 
 
 # ---------------------------------------------------------------------------
@@ -241,3 +234,64 @@ class TestApplyCodexExecSandboxDefaultsEdge:
         result = codex_hand._apply_codex_exec_sandbox_defaults(cmd)
         assert "--sandbox" in result
         assert "workspace-write" in result
+
+
+# ---------------------------------------------------------------------------
+# _build_failure_message — instance delegation
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFailureMessageDelegation:
+    def test_delegates_to_static_method(self, codex_hand) -> None:
+        msg = codex_hand._build_failure_message(return_code=3, output="oops")
+        assert "Codex CLI failed (exit=3)" in msg
+        assert "oops" in msg
+
+    def test_auth_detection_via_instance(self, codex_hand) -> None:
+        msg = codex_hand._build_failure_message(
+            return_code=1, output="401 Unauthorized"
+        )
+        assert "authentication failed" in msg
+
+
+# ---------------------------------------------------------------------------
+# _invoke_codex / _invoke_backend — async delegation
+# ---------------------------------------------------------------------------
+
+
+class TestInvokeCodexDelegation:
+    def test_invoke_codex_delegates_to_invoke_cli(
+        self, codex_hand, monkeypatch
+    ) -> None:
+        calls: list[str] = []
+
+        async def fake_invoke_cli(prompt, *, emit):
+            calls.append(prompt)
+            return "cli result"
+
+        monkeypatch.setattr(codex_hand, "_invoke_cli", fake_invoke_cli)
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(codex_hand._invoke_codex("fix it", emit=emit))
+        assert result == "cli result"
+        assert calls == ["fix it"]
+
+    def test_invoke_backend_delegates_to_invoke_codex(
+        self, codex_hand, monkeypatch
+    ) -> None:
+        calls: list[str] = []
+
+        async def fake_invoke_codex(prompt, *, emit):
+            calls.append(prompt)
+            return "delegated"
+
+        monkeypatch.setattr(codex_hand, "_invoke_codex", fake_invoke_codex)
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(codex_hand._invoke_backend("hello", emit=emit))
+        assert result == "delegated"
+        assert calls == ["hello"]

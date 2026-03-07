@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 # ---------------------------------------------------------------------------
@@ -432,6 +434,36 @@ class TestRunWrapper:
 
         assert response.metadata.get("ci_fix_status") == "success"
 
+    def test_run_ci_fix_noop_emit_is_callable(self) -> None:
+        """The _noop_emit closure inside run() is a valid async callable
+        that silently discards chunks (covering line 985)."""
+        stub = _Stub(fix_ci=True)
+
+        async def _fake_collect(prompt):
+            return "output"
+
+        async def _ci_fix_that_calls_emit(*, prompt, metadata, emit):
+            # Call the noop emit to cover the inner closure
+            await emit("ci output that is discarded")
+            return {
+                "pr_status": "created",
+                "pr_url": "https://pr/1",
+                "ci_fix_status": "success",
+            }
+
+        with (
+            patch.object(stub, "_collect_run_output", side_effect=_fake_collect),
+            patch.object(
+                stub,
+                "_finalize_after_run",
+                return_value={"pr_status": "created", "pr_url": "https://pr/1"},
+            ),
+            patch.object(stub, "_ci_fix_loop", side_effect=_ci_fix_that_calls_emit),
+        ):
+            response = stub.run("fix bug")
+
+        assert response.metadata.get("ci_fix_status") == "success"
+
     def test_run_no_ci_fix_when_pr_not_created(self) -> None:
         stub = _Stub(fix_ci=True)
 
@@ -490,3 +522,166 @@ class TestStreamWrapper:
         # PR status message should be yielded
         pr_msgs = [c for c in chunks if "PR created" in c]
         assert len(pr_msgs) == 1
+
+    def test_stream_yields_ci_fix_message(self) -> None:
+        stub = _Stub(fix_ci=True)
+
+        async def _fake_two_phase(prompt, *, emit):
+            await emit("work")
+            return "work"
+
+        with (
+            patch.object(stub, "_run_two_phase", side_effect=_fake_two_phase),
+            patch.object(
+                stub,
+                "_finalize_after_run",
+                return_value={"pr_status": "created", "pr_url": "https://pr/1"},
+            ),
+            patch.object(
+                stub,
+                "_ci_fix_loop",
+                new=AsyncMock(
+                    return_value={
+                        "pr_status": "created",
+                        "pr_url": "https://pr/1",
+                        "ci_fix_status": "success",
+                    }
+                ),
+            ),
+        ):
+
+            async def _collect():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                return chunks
+
+            chunks = _run(_collect())
+
+        joined = "".join(chunks)
+        assert "CI checks passed" in joined
+
+    def test_stream_no_pr_status_message_when_none(self) -> None:
+        stub = _Stub(fix_ci=False)
+
+        async def _fake_two_phase(prompt, *, emit):
+            await emit("output")
+            return "output"
+
+        with (
+            patch.object(stub, "_run_two_phase", side_effect=_fake_two_phase),
+            patch.object(
+                stub,
+                "_finalize_after_run",
+                return_value={"pr_status": ""},
+            ),
+            patch.object(
+                stub,
+                "_ci_fix_loop",
+                new=AsyncMock(return_value={"pr_status": ""}),
+            ),
+            patch.object(stub, "_format_ci_fix_message", return_value=None),
+        ):
+
+            async def _collect():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                return chunks
+
+            chunks = _run(_collect())
+
+        # Only the original emitted chunk — no PR status or CI fix messages
+        assert chunks == ["output"]
+
+    def test_stream_ci_fix_exhausted_message(self) -> None:
+        stub = _Stub(fix_ci=True)
+
+        async def _fake_two_phase(prompt, *, emit):
+            await emit("done")
+            return "done"
+
+        with (
+            patch.object(stub, "_run_two_phase", side_effect=_fake_two_phase),
+            patch.object(
+                stub,
+                "_finalize_after_run",
+                return_value={"pr_status": "created", "pr_url": "https://pr/1"},
+            ),
+            patch.object(
+                stub,
+                "_ci_fix_loop",
+                new=AsyncMock(
+                    return_value={
+                        "pr_status": "created",
+                        "pr_url": "https://pr/1",
+                        "ci_fix_status": "exhausted",
+                        "ci_fix_attempts": "2",
+                    }
+                ),
+            ),
+        ):
+
+            async def _collect():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                return chunks
+
+            chunks = _run(_collect())
+
+        joined = "".join(chunks)
+        assert "CI fix failed after 2 attempt(s)" in joined
+
+    def test_stream_producer_error_re_raised(self) -> None:
+        stub = _Stub(fix_ci=False)
+
+        async def _fake_two_phase(prompt, *, emit):
+            await emit("partial")
+            raise RuntimeError("producer boom")
+
+        with (
+            patch.object(stub, "_run_two_phase", side_effect=_fake_two_phase),
+        ):
+
+            async def _collect():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                return chunks
+
+            with pytest.raises(RuntimeError, match="producer boom"):
+                _run(_collect())
+
+    def test_stream_consumer_break_cancels_producer(self) -> None:
+        """When consumer breaks early, the producer task is cancelled cleanly."""
+        stub = _Stub(fix_ci=False)
+        producer_started = asyncio.Event()
+        producer_cancelled = False
+
+        async def _slow_two_phase(prompt, *, emit):
+            nonlocal producer_cancelled
+            await emit("chunk1")
+            producer_started.set()
+            try:
+                # Simulate a long-running producer
+                await asyncio.sleep(10)
+                await emit("chunk2")
+            except asyncio.CancelledError:
+                producer_cancelled = True
+                raise
+
+        with patch.object(stub, "_run_two_phase", side_effect=_slow_two_phase):
+
+            async def _partial_consume():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                    if chunk == "chunk1":
+                        break  # Consumer exits early
+                return chunks
+
+            chunks = _run(_partial_consume())
+
+        assert chunks == ["chunk1"]
+        assert producer_cancelled

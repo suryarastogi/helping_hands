@@ -343,12 +343,12 @@ const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
   other: DEFAULT_CHARACTER_STYLE,
 };
 
-function backendDisplayName(backend: string): string {
+export function backendDisplayName(backend: string): string {
   if (backend === "e2e") return "Smoke Test (internal)";
   return backend;
 }
 
-function providerFromBackend(backend: string): string {
+export function providerFromBackend(backend: string): string {
   const normalized = backend.trim().toLowerCase();
   if (normalized.includes("claude")) {
     return "claude";
@@ -380,7 +380,7 @@ function providerFromBackend(backend: string): string {
   return "other";
 }
 
-function formatProviderName(provider: string): string {
+export function formatProviderName(provider: string): string {
   if (provider === "openai") {
     return "OpenAI / Codex";
   }
@@ -407,13 +407,13 @@ export function shortTaskId(value: string): string {
   return `${value.slice(0, 10)}…${value.slice(-8)}`;
 }
 
-function repoName(repoPath: string): string {
+export function repoName(repoPath: string): string {
   const trimmed = repoPath.replace(/\/+$/, "");
   const last = trimmed.split("/").pop();
   return last || trimmed;
 }
 
-function cronFrequency(cron: string): { symbol: string; label: string } | null {
+export function cronFrequency(cron: string): { symbol: string; label: string } | null {
   const c = cron.trim();
   if (c === "* * * * *") return { symbol: "\u26A1", label: "1m" }; // ⚡
   if (c === "*/5 * * * *") return { symbol: "\uD83D\uDD04", label: "5m" }; // 🔄
@@ -500,14 +500,14 @@ type InputItem = {
   value: string;
 };
 
-function asRecord(value: unknown): Record<string, unknown> | null {
+export function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object") {
     return null;
   }
   return value as Record<string, unknown>;
 }
 
-function readStringValue(value: unknown): string | null {
+export function readStringValue(value: unknown): string | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return String(value);
   }
@@ -518,7 +518,7 @@ function readStringValue(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
-function readBoolishValue(value: unknown): string | null {
+export function readBoolishValue(value: unknown): string | null {
   if (typeof value === "boolean") {
     return value ? "true" : "false";
   }
@@ -532,7 +532,7 @@ function readBoolishValue(value: unknown): string | null {
   return null;
 }
 
-function readSkillsValue(value: unknown): string | null {
+export function readSkillsValue(value: unknown): string | null {
   if (Array.isArray(value)) {
     const tokens = value
       .map((item) => String(item).trim())
@@ -599,13 +599,13 @@ async function fetchServerConfig(): Promise<ServerConfig | null> {
   }
 }
 
-type DeskSlot = {
+export type DeskSlot = {
   id: string;
   left: number;
   top: number;
 };
 
-function buildDeskSlots(capacity: number): DeskSlot[] {
+export function buildDeskSlots(capacity: number): DeskSlot[] {
   const columns = 4;
   const rows = Math.max(1, Math.ceil(capacity / columns));
   const slots: DeskSlot[] = [];
@@ -628,7 +628,7 @@ function buildDeskSlots(capacity: number): DeskSlot[] {
   return slots;
 }
 
-function checkDeskCollision(
+export function checkDeskCollision(
   playerX: number,
   playerY: number,
   deskSlots: DeskSlot[]

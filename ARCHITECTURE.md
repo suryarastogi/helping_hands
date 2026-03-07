@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 
 High-level architecture of helping_hands. For detailed design notes see
-`obsidian/docs/Architecture.md`. For coding conventions see `AGENT.md`.
+`docs/DESIGN.md`. For coding conventions see `AGENT.md`.
 
 ---
 
@@ -77,6 +77,7 @@ All hands extend `Hand` base class (`base.py`) and implement `run()`/`stream()`:
 | `GooseCLIHand` | `cli/goose.py` | CLI subprocess | Wraps `goose run` |
 | `GeminiCLIHand` | `cli/gemini.py` | CLI subprocess | Wraps `gemini -p` |
 | `OpenCodeCLIHand` | `cli/opencode.py` | CLI subprocess | Wraps `opencode run` |
+| `DockerSandboxClaudeCodeHand` | `cli/docker_sandbox_claude.py` | CLI subprocess | Wraps `claude` inside Docker sandbox microVM |
 
 ### 4. Model resolution
 
@@ -202,6 +203,41 @@ IDE sends MCP tool call (e.g., "build_repo")
                      └─────────────┘
 ```
 
+### 6. Task result normalization
+
+Celery can return non-dict objects (including exception instances) for failed
+tasks. `task_result.py` normalizes all results into JSON-serializable dicts
+before API surfaces return them. This prevents leaking Python objects through
+the REST/MCP boundary.
+
+### 7. Skill catalog
+
+Skills (`meta/skills/`) are composable knowledge bundles (Markdown files)
+injected into hand prompts via `--skills`. Unlike tools (callable capabilities),
+skills carry no executable code — they are pure knowledge artifacts discovered
+from `catalog/*.md` at import time. CLI hands stage selected skill files into
+a temporary directory during execution and clean up afterward.
+
+### 8. Usage monitoring
+
+The Celery worker includes an automated usage monitoring pipeline
+(`log_claude_usage` task) that tracks Claude Code API consumption:
+
+1. **Token retrieval** — reads OAuth credentials from macOS Keychain
+   (`security find-generic-password`), supporting both JSON credential
+   blobs and raw JWT tokens.
+2. **Usage API** — fetches five-hour session and seven-day rolling
+   utilization from the Anthropic OAuth usage endpoint.
+3. **Persistence** — writes usage snapshots to a Postgres
+   `claude_usage_log` table (auto-created via DDL on first write).
+4. **Scheduling** — `ensure_usage_schedule()` registers an hourly
+   RedBeat entry (idempotent; safe to call on every worker startup
+   via `on_after_finalize`).
+
+All three stages fail independently with descriptive error dicts,
+so a Keychain issue never prevents the task from reporting, and a DB
+outage still surfaces the utilization percentages in the task result.
+
 ## Design principles
 
 - **Plain data between layers** — Dicts/dataclasses, not tight coupling
@@ -234,7 +270,8 @@ IDE sends MCP tool call (e.g., "build_repo")
 | MCP server | `src/helping_hands/server/mcp_server.py` |
 | Schedules | `src/helping_hands/server/schedules.py` |
 | Task result helper | `src/helping_hands/server/task_result.py` |
+| Docker sandbox hand | `src/helping_hands/lib/hands/v1/hand/cli/docker_sandbox_claude.py` |
 
 ---
 
-*Last updated: 2026-03-05*
+*Last updated: 2026-03-07*

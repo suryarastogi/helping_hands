@@ -7,28 +7,19 @@ import json
 
 import pytest
 
-from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.cli.claude import (
     ClaudeCodeHand,
     _StreamJsonEmitter,
 )
-from helping_hands.lib.repo import RepoIndex
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 
-def _make_hand(tmp_path, model="claude-sonnet-4-5"):
-    (tmp_path / "main.py").write_text("")
-    config = Config(repo=str(tmp_path), model=model)
-    repo_index = RepoIndex.from_path(tmp_path)
-    return ClaudeCodeHand(config=config, repo_index=repo_index)
-
-
 @pytest.fixture()
-def claude_hand(tmp_path):
-    return _make_hand(tmp_path)
+def claude_hand(make_cli_hand):
+    return make_cli_hand(ClaudeCodeHand, model="claude-sonnet-4-5")
 
 
 # ---------------------------------------------------------------------------
@@ -78,20 +69,20 @@ class TestBuildClaudeFailureMessage:
 
 
 class TestResolveCliModel:
-    def test_filters_gpt_models(self, tmp_path) -> None:
-        hand = _make_hand(tmp_path, model="gpt-5.2")
+    def test_filters_gpt_models(self, make_cli_hand) -> None:
+        hand = make_cli_hand(ClaudeCodeHand, model="gpt-5.2")
         assert hand._resolve_cli_model() == ""
 
-    def test_filters_gpt_case_insensitive(self, tmp_path) -> None:
-        hand = _make_hand(tmp_path, model="GPT-4o")
+    def test_filters_gpt_case_insensitive(self, make_cli_hand) -> None:
+        hand = make_cli_hand(ClaudeCodeHand, model="GPT-4o")
         assert hand._resolve_cli_model() == ""
 
     def test_preserves_claude_model(self, claude_hand) -> None:
         result = claude_hand._resolve_cli_model()
         assert result == "claude-sonnet-4-5"
 
-    def test_empty_model_returns_empty(self, tmp_path) -> None:
-        hand = _make_hand(tmp_path, model="default")
+    def test_empty_model_returns_empty(self, make_cli_hand) -> None:
+        hand = make_cli_hand(ClaudeCodeHand, model="default")
         # _DEFAULT_MODEL is "" so super() should return "" for "default"
         result = hand._resolve_cli_model()
         assert result == "" or result == "default"
@@ -124,6 +115,44 @@ class TestSkipPermissionsEnabled:
         )
         monkeypatch.setattr("os.geteuid", lambda: 0)
         assert claude_hand._skip_permissions_enabled() is False
+
+    def test_enabled_when_geteuid_raises(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.delenv(
+            "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS", raising=False
+        )
+
+        def _broken_geteuid():
+            raise OSError("geteuid unavailable")
+
+        monkeypatch.setattr("os.geteuid", _broken_geteuid)
+        assert claude_hand._skip_permissions_enabled() is True
+
+    def test_enabled_when_geteuid_not_callable(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.delenv(
+            "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS", raising=False
+        )
+        monkeypatch.delattr("os.geteuid", raising=False)
+        assert claude_hand._skip_permissions_enabled() is True
+
+
+# ---------------------------------------------------------------------------
+# _build_failure_message (instance delegation)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFailureMessageInstance:
+    def test_delegates_to_static_method(self, claude_hand) -> None:
+        msg = claude_hand._build_failure_message(
+            return_code=1, output="401 Unauthorized"
+        )
+        assert "authentication failed" in msg
+        assert "ANTHROPIC_API_KEY" in msg
+
+    def test_generic_error_delegation(self, claude_hand) -> None:
+        msg = claude_hand._build_failure_message(
+            return_code=42, output="something broke"
+        )
+        assert "Claude Code CLI failed (exit=42)" in msg
 
 
 # ---------------------------------------------------------------------------
@@ -533,3 +562,316 @@ class TestPrDescriptionCmd:
         monkeypatch.setattr("shutil.which", lambda name: None)
         result = claude_hand._pr_description_cmd()
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterEdgeCases:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_empty_text_block_not_emitted(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": ""}]},
+            }
+        )
+        self._run(parser(event + "\n"))
+        # Empty text should not produce a [test] emission
+        text_emissions = [e for e in emitted if "[test]" in e]
+        assert text_emissions == []
+
+    def test_result_event_without_cost_or_duration(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "result", "result": "done"})
+        self._run(parser(event + "\n"))
+        assert parser.result_text() == "done"
+        # No api summary line when cost/duration are absent
+        api_emissions = [e for e in emitted if "api:" in e]
+        assert api_emissions == []
+
+    def test_result_event_with_only_cost(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "result", "result": "done", "total_cost_usd": 0.01})
+        self._run(parser(event + "\n"))
+        api_emissions = [e for e in emitted if "api:" in e]
+        assert len(api_emissions) == 1
+        assert "$0.0100" in api_emissions[0]
+        # Only cost shown, no duration
+        assert "," not in api_emissions[0]
+
+    def test_user_tool_result_empty_content_skipped(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "user",
+                "message": {"content": [{"type": "tool_result", "content": "   "}]},
+            }
+        )
+        self._run(parser(event + "\n"))
+        # Whitespace-only content should not produce a -> emission
+        result_emissions = [e for e in emitted if "->" in e]
+        assert result_emissions == []
+
+    def test_user_event_non_tool_result_block_skipped(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "user",
+                "message": {"content": [{"type": "text", "text": "ignored user text"}]},
+            }
+        )
+        self._run(parser(event + "\n"))
+        # Non-tool_result blocks in user events produce no output
+        assert emitted == []
+
+    def test_tool_result_list_with_non_dict_items(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "content": [
+                                {"text": "valid"},
+                                "not-a-dict",
+                                42,
+                            ],
+                        }
+                    ]
+                },
+            }
+        )
+        self._run(parser(event + "\n"))
+        result_emissions = [e for e in emitted if "->" in e]
+        assert len(result_emissions) == 1
+        assert "valid" in result_emissions[0]
+
+    def test_flush_on_empty_buffer_is_noop(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        self._run(parser.flush())
+        assert emitted == []
+
+    def test_multiple_newlines_in_single_chunk(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        line1 = json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "first"}]},
+            }
+        )
+        line2 = json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "second"}]},
+            }
+        )
+        self._run(parser(line1 + "\n" + line2 + "\n"))
+        text_emissions = [e for e in emitted if "[test]" in e]
+        assert len(text_emissions) == 2
+        assert "first" in text_emissions[0]
+        assert "second" in text_emissions[1]
+
+    def test_unknown_event_type_produces_no_output(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "system", "data": "ignored"})
+        self._run(parser(event + "\n"))
+        assert emitted == []
+
+    def test_unknown_content_block_type_skipped(self) -> None:
+        """Content blocks with unknown type (not tool_use/text) are skipped."""
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "image", "source": {"data": "base64..."}},
+                    ]
+                },
+            }
+        )
+        self._run(parser(event + "\n"))
+        # Unknown block types produce no labeled emission
+        text_emissions = [e for e in emitted if "[test]" in e]
+        assert text_emissions == []
+
+    def test_whitespace_only_text_preview_not_emitted(self) -> None:
+        """Text that is truthy but becomes empty after strip produces no emission."""
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "\n\n  \n"}]},
+            }
+        )
+        self._run(parser(event + "\n"))
+        # Text is truthy ("\n\n  \n") but after strip/replace it becomes ""
+        text_emissions = [e for e in emitted if "[test]" in e]
+        assert text_emissions == []
+        # The text should still be captured in _text_parts
+        assert len(parser._text_parts) == 1
+
+    def test_empty_lines_between_events_skipped(self) -> None:
+        """Lines that are blank after stripping should be silently skipped."""
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "hello"}]},
+            }
+        )
+        # Chunk with blank lines between valid JSON lines
+        self._run(parser(event + "\n\n   \n" + event + "\n"))
+        text_emissions = [e for e in emitted if "[test]" in e]
+        # Only the two valid events should produce output, blank lines skipped
+        assert len(text_emissions) == 2
+
+
+# ---------------------------------------------------------------------------
+# _invoke_claude / _invoke_backend async tests
+# ---------------------------------------------------------------------------
+
+
+class TestInvokeClaude:
+    def test_invoke_claude_wires_emitter_and_returns_result(
+        self, claude_hand, monkeypatch
+    ) -> None:
+        captured_cmd: list[str] = []
+
+        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+            captured_cmd.extend(cmd)
+            # Simulate stream-json output
+            result_event = json.dumps(
+                {"type": "result", "result": "task done", "total_cost_usd": 0.02}
+            )
+            await emit(result_event + "\n")
+            return "raw fallback"
+
+        monkeypatch.setattr(
+            claude_hand, "_invoke_cli_with_cmd", fake_invoke_cli_with_cmd
+        )
+        monkeypatch.setattr(
+            claude_hand,
+            "_render_command",
+            lambda prompt: ["claude", "-p", prompt],
+        )
+
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        result = asyncio.run(claude_hand._invoke_claude("fix bug", emit=emit))
+        assert result == "task done"
+        # Command should have --output-format stream-json injected
+        assert "--output-format" in captured_cmd
+        assert "stream-json" in captured_cmd
+
+    def test_invoke_claude_falls_back_to_raw(self, claude_hand, monkeypatch) -> None:
+        """When no result event is parsed, falls back to raw CLI output."""
+
+        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+            # No stream-json events, just raw output
+            await emit("plain text output\n")
+            return "raw result"
+
+        monkeypatch.setattr(
+            claude_hand, "_invoke_cli_with_cmd", fake_invoke_cli_with_cmd
+        )
+        monkeypatch.setattr(
+            claude_hand,
+            "_render_command",
+            lambda prompt: ["claude", "-p", prompt],
+        )
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(claude_hand._invoke_claude("fix bug", emit=emit))
+        assert result == "raw result"
+
+    def test_invoke_backend_delegates_to_invoke_claude(
+        self, claude_hand, monkeypatch
+    ) -> None:
+        calls: list[str] = []
+
+        async def fake_invoke_claude(prompt, *, emit):
+            calls.append(prompt)
+            return "delegated"
+
+        monkeypatch.setattr(claude_hand, "_invoke_claude", fake_invoke_claude)
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(claude_hand._invoke_backend("hello", emit=emit))
+        assert result == "delegated"
+        assert calls == ["hello"]

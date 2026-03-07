@@ -75,3 +75,35 @@ class TestToolRegistry:
 
     def test_format_tool_instructions_for_cli_empty(self) -> None:
         assert tool_registry.format_tool_instructions_for_cli(()) == ""
+
+    def test_normalize_tool_selection_non_string_element_raises(self) -> None:
+        with pytest.raises(ValueError, match="tools must contain only strings"):
+            tool_registry.normalize_tool_selection([123])  # type: ignore[list-item]
+
+    def test_format_tool_instructions_for_cli_tool_without_guidance(self) -> None:
+        """Tool with a name not in _CLI_TOOL_GUIDANCE is listed but has no guidance."""
+        custom_tool = tool_registry.ToolSpec(
+            name="custom.unknown_tool",
+            payload_example={"code": "print(1)"},
+            runner=lambda _: None,
+        )
+        custom_cat = tool_registry.ToolCategory(
+            name="custom",
+            title="Custom tools",
+            tools=(custom_tool,),
+        )
+        result = tool_registry.format_tool_instructions_for_cli((custom_cat,))
+        assert "Tool category enabled: custom" in result
+        # The tool name should NOT appear as a guidance line
+        assert "custom.unknown_tool" not in result
+
+    def test_normalize_tool_selection_empty_inner_token_skipped(self) -> None:
+        """Inner comma-split tokens that normalize to empty are skipped
+        (branch 247->245)."""
+        result = tool_registry.normalize_tool_selection("execution,,web")
+        assert result == ("execution", "web")
+
+    def test_normalize_tool_selection_whitespace_inner_token_skipped(self) -> None:
+        """Whitespace-only inner tokens normalize to empty and are skipped."""
+        result = tool_registry.normalize_tool_selection("execution, , ,web")
+        assert result == ("execution", "web")

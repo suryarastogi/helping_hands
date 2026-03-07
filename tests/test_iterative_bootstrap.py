@@ -103,6 +103,24 @@ class TestBuildTreeSnapshot:
         assert "- src/" in result
         assert "- src/lib/" in result
 
+    def test_empty_normalized_path_skipped(self, tmp_path: Path):
+        """Paths that normalize to empty string are skipped (line 448)."""
+        hand = _make_hand(tmp_path, {"real.py": ""})
+        # Inject a path that normalizes to empty into the repo_index
+        hand.repo_index.files.append("  ")
+        result = hand._build_tree_snapshot()
+        assert "- real.py" in result
+        # The whitespace-only entry should not appear
+        assert result.count("- ") == 1
+
+    def test_slash_only_normalized_path_skipped(self, tmp_path: Path):
+        """Paths that normalize to '/' produce empty parts and are skipped (line 451)."""
+        hand = _make_hand(tmp_path, {"real.py": ""})
+        hand.repo_index.files.append("./")
+        result = hand._build_tree_snapshot()
+        assert "- real.py" in result
+        assert result.count("- ") == 1
+
 
 # ---------------------------------------------------------------------------
 # _read_bootstrap_doc

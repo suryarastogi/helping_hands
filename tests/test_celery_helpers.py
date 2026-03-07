@@ -10,6 +10,7 @@ from helping_hands.server.celery_app import (
     _append_update,
     _git_noninteractive_env,
     _github_clone_url,
+    _has_codex_auth,
     _redact_sensitive,
     _repo_tmp_dir,
     _trim_updates,
@@ -185,3 +186,28 @@ class TestUpdateCollector:
         collector = _UpdateCollector(updates)
         collector.feed("abcdefghij")
         assert len(updates) >= 1
+
+
+class TestHasCodexAuth:
+    def test_true_when_openai_api_key_set(self, monkeypatch) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-abc123")
+        assert _has_codex_auth() is True
+
+    def test_true_when_auth_file_exists(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        codex_dir = tmp_path / ".codex"
+        codex_dir.mkdir()
+        auth_file = codex_dir / "auth.json"
+        auth_file.write_text("{}")
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+        assert _has_codex_auth() is True
+
+    def test_false_when_no_key_and_no_file(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+        assert _has_codex_auth() is False
+
+    def test_false_when_empty_api_key(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "")
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+        assert _has_codex_auth() is False

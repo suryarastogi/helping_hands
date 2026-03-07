@@ -1,1 +1,1 @@
-"""App-mode server: HTTP/WS entry point (planned, not yet implemented)."""
+"""App-mode server: FastAPI + Celery workers, MCP server, and schedules."""

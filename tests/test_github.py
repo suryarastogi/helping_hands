@@ -146,6 +146,67 @@ class TestClone:
 # ---------------------------------------------------------------------------
 
 
+class TestFetchBranch:
+    @patch("helping_hands.lib.github._run_git")
+    def test_fetch_branch_default_remote(
+        self, mock_git: MagicMock, tmp_path: Path
+    ) -> None:
+        GitHubClient.fetch_branch(tmp_path, "feat/new")
+        cmd = mock_git.call_args[0][0]
+        assert cmd == [
+            "git",
+            "fetch",
+            "origin",
+            "refs/heads/feat/new:refs/heads/feat/new",
+        ]
+        assert mock_git.call_args[1]["cwd"] == tmp_path
+
+    @patch("helping_hands.lib.github._run_git")
+    def test_fetch_branch_custom_remote(
+        self, mock_git: MagicMock, tmp_path: Path
+    ) -> None:
+        GitHubClient.fetch_branch(tmp_path, "main", remote="upstream")
+        cmd = mock_git.call_args[0][0]
+        assert cmd == [
+            "git",
+            "fetch",
+            "upstream",
+            "refs/heads/main:refs/heads/main",
+        ]
+
+
+class TestPull:
+    @patch("helping_hands.lib.github._run_git")
+    def test_pull_default(self, mock_git: MagicMock, tmp_path: Path) -> None:
+        GitHubClient.pull(tmp_path)
+        cmd = mock_git.call_args[0][0]
+        assert cmd == ["git", "pull", "origin"]
+
+    @patch("helping_hands.lib.github._run_git")
+    def test_pull_with_branch(self, mock_git: MagicMock, tmp_path: Path) -> None:
+        GitHubClient.pull(tmp_path, branch="main")
+        cmd = mock_git.call_args[0][0]
+        assert cmd == ["git", "pull", "origin", "main"]
+
+    @patch("helping_hands.lib.github._run_git")
+    def test_pull_custom_remote(self, mock_git: MagicMock, tmp_path: Path) -> None:
+        GitHubClient.pull(tmp_path, remote="upstream", branch="dev")
+        cmd = mock_git.call_args[0][0]
+        assert cmd == ["git", "pull", "upstream", "dev"]
+
+
+class TestSetLocalIdentity:
+    @patch("helping_hands.lib.github._run_git")
+    def test_sets_name_and_email(self, mock_git: MagicMock, tmp_path: Path) -> None:
+        GitHubClient.set_local_identity(tmp_path, name="Bot", email="bot@example.com")
+        calls = mock_git.call_args_list
+        assert len(calls) == 2
+        assert calls[0] == call(["git", "config", "user.name", "Bot"], cwd=tmp_path)
+        assert calls[1] == call(
+            ["git", "config", "user.email", "bot@example.com"], cwd=tmp_path
+        )
+
+
 class TestBranch:
     @patch("helping_hands.lib.github._run_git")
     def test_create_branch(self, mock_git: MagicMock, tmp_path: Path) -> None:
@@ -432,6 +493,87 @@ class TestGetCheckRuns:
         result = client.get_check_runs("owner/repo", "abc123")
 
         assert result["conclusion"] == "pending"
+
+
+class TestGetCheckRunsMixed:
+    def test_mixed_conclusion(self, client: GitHubClient) -> None:
+        """All completed, no failure, but not all success => 'mixed'."""
+        mock_repo = MagicMock()
+        mock_commit = MagicMock()
+        run1 = MagicMock()
+        run1.name = "build"
+        run1.status = "completed"
+        run1.conclusion = "success"
+        run1.html_url = "url1"
+        run1.started_at = None
+        run1.completed_at = None
+        run2 = MagicMock()
+        run2.name = "optional"
+        run2.status = "completed"
+        run2.conclusion = "neutral"
+        run2.html_url = "url2"
+        run2.started_at = None
+        run2.completed_at = None
+        mock_commit.get_check_runs.return_value = [run1, run2]
+        mock_repo.get_commit.return_value = mock_commit
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_check_runs("owner/repo", "abc123")
+
+        assert result["conclusion"] == "mixed"
+        assert result["total_count"] == 2
+
+
+class TestUpsertPRCommentBodyAlreadyHasMarker:
+    def test_body_already_contains_marker_no_duplicate(
+        self, client: GitHubClient
+    ) -> None:
+        """When body already contains the marker, don't append it again."""
+        mock_repo = MagicMock()
+        mock_issue = MagicMock()
+        mock_repo.get_issue.return_value = mock_issue
+        mock_issue.get_comments.return_value = []
+        created = MagicMock()
+        created.id = 456
+        mock_issue.create_comment.return_value = created
+        client._gh.get_repo.return_value = mock_repo
+
+        marker = "<!-- helping_hands:status -->"
+        body_with_marker = f"Status update\n\n{marker}"
+
+        comment_id = client.upsert_pr_comment(
+            "owner/repo",
+            5,
+            body=body_with_marker,
+            marker=marker,
+        )
+
+        assert comment_id == 456
+        actual_body = mock_issue.create_comment.call_args[0][0]
+        # Marker should appear exactly once
+        assert actual_body.count(marker) == 1
+
+    def test_existing_comment_with_none_body(self, client: GitHubClient) -> None:
+        """When existing comment has body=None, it should not match."""
+        mock_repo = MagicMock()
+        mock_issue = MagicMock()
+        mock_repo.get_issue.return_value = mock_issue
+        existing = MagicMock()
+        existing.id = 88
+        existing.body = None
+        mock_issue.get_comments.return_value = [existing]
+        created = MagicMock()
+        created.id = 789
+        mock_issue.create_comment.return_value = created
+        client._gh.get_repo.return_value = mock_repo
+
+        comment_id = client.upsert_pr_comment(
+            "owner/repo", 7, body="New comment", marker="<!-- test -->"
+        )
+
+        assert comment_id == 789
+        existing.edit.assert_not_called()
+        mock_issue.create_comment.assert_called_once()
 
 
 class TestUpdatePRBody:

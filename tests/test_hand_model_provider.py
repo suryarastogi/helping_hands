@@ -115,6 +115,17 @@ def test_resolve_hand_model_falls_back_to_openai_for_unknown_prefix() -> None:
     assert hand_model.model == "gpt-5.2"
 
 
+def test_resolve_hand_model_unrecognized_provider_slash_falls_through() -> None:
+    """When provider/model format has an unrecognized provider prefix,
+    the slash path falls through and _infer_provider_name handles it."""
+    hand_model = resolve_hand_model("customllm/my-model")
+    # "customllm" is not in PROVIDERS, so falls to _infer_provider_name
+    # which defaults to openai for unrecognized prefixes
+    assert hand_model.provider.name == "openai"
+    assert hand_model.model == "customllm/my-model"
+    assert hand_model.raw == "customllm/my-model"
+
+
 def test_resolve_hand_model_none_uses_default() -> None:
     hand_model = resolve_hand_model(None)
     assert hand_model.provider.name == "ollama"

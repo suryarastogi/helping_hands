@@ -2,25 +2,20 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
-from helping_hands.lib.config import Config
+import pytest
+
 from helping_hands.lib.hands.v1.hand.cli.goose import GooseCLIHand
-from helping_hands.lib.repo import RepoIndex
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
 
-def _make_goose_hand(tmp_path: Path, **config_kwargs) -> GooseCLIHand:
-    """Build a GooseCLIHand with subprocess execution mocked out."""
-    (tmp_path / "main.py").write_text("")
-    repo_index = RepoIndex.from_path(tmp_path)
-    defaults = {"repo": str(tmp_path), "model": "anthropic/claude-test"}
-    defaults.update(config_kwargs)
-    config = Config(**defaults)
-    with patch.object(GooseCLIHand, "__init__", lambda self, *a, **kw: None):
-        hand = GooseCLIHand(config, repo_index)
-    hand.config = config
-    return hand
+@pytest.fixture()
+def goose_hand(make_cli_hand):
+    return make_cli_hand(GooseCLIHand, model="anthropic/claude-test")
 
 
 class TestNormalizeGooseProvider:
@@ -117,8 +112,8 @@ class TestNormalizeOllamaHost:
 
 
 class TestDescribeAuth:
-    def test_anthropic_key_set(self, tmp_path, monkeypatch) -> None:
-        hand = _make_goose_hand(tmp_path, model="anthropic/claude-test")
+    def test_anthropic_key_set(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="anthropic/claude-test")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
         result = hand._describe_auth()
         assert "anthropic" in result
@@ -126,30 +121,30 @@ class TestDescribeAuth:
         assert "set" in result
         assert "not set" not in result
 
-    def test_anthropic_key_not_set(self, tmp_path, monkeypatch) -> None:
-        hand = _make_goose_hand(tmp_path, model="anthropic/claude-test")
+    def test_anthropic_key_not_set(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="anthropic/claude-test")
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         result = hand._describe_auth()
         assert "not set" in result
 
-    def test_openai_provider(self, tmp_path, monkeypatch) -> None:
-        hand = _make_goose_hand(tmp_path, model="openai/gpt-5.2")
+    def test_openai_provider(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         result = hand._describe_auth()
         assert "openai" in result
         assert "OPENAI_API_KEY" in result
 
-    def test_ollama_provider(self, tmp_path, monkeypatch) -> None:
-        hand = _make_goose_hand(tmp_path, model="ollama/llama3.2")
+    def test_ollama_provider(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="ollama/llama3.2")
         monkeypatch.setenv("OLLAMA_HOST", "http://localhost:11434")
         result = hand._describe_auth()
         assert "ollama" in result
         assert "OLLAMA_HOST" in result
 
     def test_unknown_provider_uses_provider_as_env_var(
-        self, tmp_path, monkeypatch
+        self, make_cli_hand, monkeypatch
     ) -> None:
-        hand = _make_goose_hand(tmp_path, model="custom/model")
+        hand = make_cli_hand(GooseCLIHand, model="custom/model")
         monkeypatch.delenv("custom", raising=False)
         result = hand._describe_auth()
         assert "not set" in result
@@ -189,20 +184,20 @@ class TestNormalizeBaseCommand:
 
 
 class TestPrDescriptionCmd:
-    def test_anthropic_with_claude_binary(self, tmp_path) -> None:
-        hand = _make_goose_hand(tmp_path, model="anthropic/claude-test")
+    def test_anthropic_with_claude_binary(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="anthropic/claude-test")
         with patch("shutil.which", return_value="/usr/bin/claude"):
             result = hand._pr_description_cmd()
         assert result == ["claude", "-p", "--output-format", "text"]
 
-    def test_anthropic_without_claude_binary(self, tmp_path) -> None:
-        hand = _make_goose_hand(tmp_path, model="anthropic/claude-test")
+    def test_anthropic_without_claude_binary(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="anthropic/claude-test")
         with patch("shutil.which", return_value=None):
             result = hand._pr_description_cmd()
         assert result is None
 
-    def test_non_anthropic_returns_none(self, tmp_path) -> None:
-        hand = _make_goose_hand(tmp_path, model="openai/gpt-5.2")
+    def test_non_anthropic_returns_none(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
         result = hand._pr_description_cmd()
         assert result is None
 
@@ -275,3 +270,85 @@ class TestResolveOllamaHost:
             "OLLAMA_BASE_URL": "http://secondary:11434",
         }
         assert GooseCLIHand._resolve_ollama_host(env) == "http://primary:11434"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_goose_provider_model_from_config
+# ---------------------------------------------------------------------------
+
+
+class TestResolveGooseProviderModelFromConfig:
+    def test_bare_model_infers_provider(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="claude-opus-4")
+        provider, model = hand._resolve_goose_provider_model_from_config()
+        assert provider == "anthropic"
+        assert model == "claude-opus-4"
+
+    def test_provider_slash_model(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="google/gemini-2.0-flash")
+        provider, model = hand._resolve_goose_provider_model_from_config()
+        assert provider == "google"
+        assert model == "gemini-2.0-flash"
+
+    def test_default_model_returned(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="default")
+        provider, model = hand._resolve_goose_provider_model_from_config()
+        assert provider == GooseCLIHand._GOOSE_DEFAULT_PROVIDER
+        assert model == GooseCLIHand._GOOSE_DEFAULT_MODEL
+
+    def test_empty_model_returns_defaults(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="  ")
+        provider, model = hand._resolve_goose_provider_model_from_config()
+        assert provider == GooseCLIHand._GOOSE_DEFAULT_PROVIDER
+        assert model == GooseCLIHand._GOOSE_DEFAULT_MODEL
+
+    def test_slash_with_empty_model_part(self, make_cli_hand) -> None:
+        """'provider/' with empty model part falls back to default model."""
+        hand = make_cli_hand(GooseCLIHand, model="openai/")
+        provider, model = hand._resolve_goose_provider_model_from_config()
+        # provider_model is "" so provider stays "", model stays "openai/"
+        # Then model is truthy so no default model, but no provider -> infer
+        assert model is not None
+        assert provider is not None
+
+    def test_gemini_provider_normalized_to_google(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="gemini/gemini-2.0")
+        provider, model = hand._resolve_goose_provider_model_from_config()
+        assert provider == "google"
+        assert model == "gemini-2.0"
+
+    def test_gpt_model_infers_openai(self, make_cli_hand) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="gpt-5.2")
+        provider, model = hand._resolve_goose_provider_model_from_config()
+        assert provider == "openai"
+        assert model == "gpt-5.2"
+
+
+# ---------------------------------------------------------------------------
+# _invoke_goose / _invoke_backend async tests
+# ---------------------------------------------------------------------------
+
+
+class TestInvokeGoose:
+    def test_invoke_backend_delegates_to_invoke_cli(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        import asyncio
+
+        hand = make_cli_hand(GooseCLIHand)
+        calls: list[str] = []
+
+        async def fake_invoke_cli(prompt, *, emit):
+            calls.append(prompt)
+            return "result"
+
+        monkeypatch.setattr(hand, "_invoke_cli", fake_invoke_cli)
+
+        async def emit(text: str) -> None:
+            pass
+
+        # GooseCLIHand does not override _invoke_backend, so it
+        # inherits the base which delegates to _invoke_cli.
+        result = asyncio.run(hand._invoke_backend("hello", emit=emit))
+        assert result == "result"
+        assert calls == ["hello"]

@@ -174,6 +174,19 @@ class TestSearchWebEdgeCases:
         assert len(result.results) == 0
 
     @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_related_topics_non_list_skipped(self, mock_urlopen) -> None:
+        """When RelatedTopics is a string instead of list, it is ignored."""
+        mock_urlopen.return_value = _FakeResponse(
+            b'{"Heading":"Test","AbstractText":"summary",'
+            b'"AbstractURL":"https://example.com",'
+            b'"RelatedTopics":"not a list"}'
+        )
+        result = web_tools.search_web("test")
+        # Only the abstract result should be present
+        assert len(result.results) == 1
+        assert result.results[0].url == "https://example.com"
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
     def test_max_results_limits_output(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _FakeResponse(
             b'{"Heading":"Test","AbstractText":"","AbstractURL":"",'

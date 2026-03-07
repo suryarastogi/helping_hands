@@ -2,13 +2,16 @@
 
 Covers: _execution_mode, _container_enabled, _container_image,
 _apply_verbose_flags, _build_init_prompt, _build_task_prompt,
-_build_apply_changes_prompt.
+_build_apply_changes_prompt, _stage_skill_catalog, _cleanup_skill_catalog,
+_wrap_container_if_enabled.
 """
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -296,3 +299,170 @@ class TestBuildApplyChangesPrompt:
         result = stub._build_apply_changes_prompt(prompt="task", task_output="output")
         assert "Follow-up enforcement" in result
         assert "apply the required edits" in result
+
+
+# ---------------------------------------------------------------------------
+# _stage_skill_catalog
+# ---------------------------------------------------------------------------
+
+
+class TestStageSkillCatalog:
+    @patch("helping_hands.lib.hands.v1.hand.cli.base.tempfile.mkdtemp")
+    @patch("helping_hands.lib.meta.skills.stage_skill_catalog")
+    def test_stages_skills_to_temp_directory(
+        self, mock_stage: MagicMock, mock_mkdtemp: MagicMock
+    ) -> None:
+        mock_mkdtemp.return_value = "/tmp/helping_hands_skills_abc"
+        stub = _Stub(skills=("react-guide", "testing-guide"))
+        stub._stage_skill_catalog()
+        mock_mkdtemp.assert_called_once()
+        mock_stage.assert_called_once_with(
+            ("react-guide", "testing-guide"), Path("/tmp/helping_hands_skills_abc")
+        )
+        assert stub._skill_catalog_dir == Path("/tmp/helping_hands_skills_abc")
+
+    def test_no_op_when_no_skills_selected(self) -> None:
+        stub = _Stub(skills=())
+        stub._stage_skill_catalog()
+        assert stub._skill_catalog_dir is None
+
+
+# ---------------------------------------------------------------------------
+# _cleanup_skill_catalog
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupSkillCatalog:
+    @patch("helping_hands.lib.hands.v1.hand.cli.base.shutil.rmtree")
+    def test_removes_temp_directory(self, mock_rmtree: MagicMock) -> None:
+        stub = _Stub()
+        stub._skill_catalog_dir = Path("/tmp/helping_hands_skills_abc")
+        stub._cleanup_skill_catalog()
+        mock_rmtree.assert_called_once_with(
+            Path("/tmp/helping_hands_skills_abc"), ignore_errors=True
+        )
+        assert stub._skill_catalog_dir is None
+
+    def test_no_op_when_no_catalog_dir(self) -> None:
+        stub = _Stub()
+        stub._skill_catalog_dir = None
+        stub._cleanup_skill_catalog()
+        assert stub._skill_catalog_dir is None
+
+
+# ---------------------------------------------------------------------------
+# _wrap_container_if_enabled
+# ---------------------------------------------------------------------------
+
+
+class TestWrapContainerIfEnabled:
+    def test_returns_cmd_unchanged_when_disabled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("STUB_CONTAINER", raising=False)
+        stub = _Stub()
+        cmd = ["stub-cli", "--json"]
+        assert stub._wrap_container_if_enabled(cmd) == cmd
+
+    def test_raises_when_docker_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("STUB_CONTAINER", "true")
+        monkeypatch.setenv("STUB_CONTAINER_IMAGE", "my-image:latest")
+        stub = _Stub()
+        with (
+            patch.object(shutil, "which", return_value=None),
+            pytest.raises(RuntimeError, match="docker is not available"),
+        ):
+            stub._wrap_container_if_enabled(["stub-cli", "--json"])
+
+    def test_builds_docker_cmd_with_env_vars(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("STUB_CONTAINER", "true")
+        monkeypatch.setenv("STUB_CONTAINER_IMAGE", "my-image:latest")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "ant-test")
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_MODEL", raising=False)
+        stub = _Stub()
+        with patch.object(shutil, "which", return_value="/usr/bin/docker"):
+            result = stub._wrap_container_if_enabled(["stub-cli", "--json"])
+        assert result[0] == "docker"
+        assert "run" in result
+        assert "--rm" in result
+        assert "-i" in result
+        assert "my-image:latest" in result
+        assert "stub-cli" in result
+        assert "-e" in result
+        assert "OPENAI_API_KEY=sk-test" in result
+        assert "ANTHROPIC_API_KEY=ant-test" in result
+        # Unset env vars should not be forwarded
+        assert "GEMINI_API_KEY" not in " ".join(result)
+
+    def test_container_mounts_repo_root(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("STUB_CONTAINER", "true")
+        monkeypatch.setenv("STUB_CONTAINER_IMAGE", "my-image:latest")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_MODEL", raising=False)
+        stub = _Stub(repo_root=tmp_path)
+        with patch.object(shutil, "which", return_value="/usr/bin/docker"):
+            result = stub._wrap_container_if_enabled(["stub-cli"])
+        repo_str = str(tmp_path.resolve())
+        assert f"{repo_str}:/workspace" in " ".join(result)
+        assert "-w" in result
+        idx = result.index("-w")
+        assert result[idx + 1] == "/workspace"
+
+
+# ---------------------------------------------------------------------------
+# _build_task_prompt — tool and skill sections
+# ---------------------------------------------------------------------------
+
+
+class TestBuildTaskPromptToolsAndSkills:
+    @patch(
+        "helping_hands.lib.meta.tools.registry.format_tool_instructions_for_cli",
+        return_value="Use @@TOOL bash.run_script to run scripts.",
+    )
+    def test_includes_tool_section(self, _mock: MagicMock) -> None:
+        stub = _Stub(tools=("bash",))
+        result = stub._build_task_prompt(prompt="task", learned_summary="summary")
+        assert "Enabled tools and capabilities:" in result
+        assert "@@TOOL bash.run_script" in result
+
+    @patch(
+        "helping_hands.lib.meta.skills.format_skill_catalog_instructions",
+        return_value="Skill catalog: react-guide available at /tmp/skills/react.md",
+    )
+    def test_includes_skill_section(self, _mock: MagicMock) -> None:
+        stub = _Stub(skills=("react-guide",))
+        result = stub._build_task_prompt(prompt="task", learned_summary="summary")
+        assert "Skill knowledge catalog:" in result
+        assert "react-guide" in result
+
+    @patch(
+        "helping_hands.lib.meta.tools.registry.format_tool_instructions_for_cli",
+        return_value="",
+    )
+    def test_omits_tool_section_when_formatter_returns_empty(
+        self, _mock: MagicMock
+    ) -> None:
+        stub = _Stub(tools=("bash",))
+        result = stub._build_task_prompt(prompt="task", learned_summary="summary")
+        assert "Enabled tools and capabilities:" not in result
+
+    @patch(
+        "helping_hands.lib.meta.skills.format_skill_catalog_instructions",
+        return_value="",
+    )
+    def test_omits_skill_section_when_formatter_returns_empty(
+        self, _mock: MagicMock
+    ) -> None:
+        stub = _Stub(skills=("react-guide",))
+        result = stub._build_task_prompt(prompt="task", learned_summary="summary")
+        assert "Skill knowledge catalog:" not in result

@@ -78,3 +78,64 @@ class TestMetaSkills:
 
     def test_format_skill_catalog_instructions_empty(self) -> None:
         assert meta_skills.format_skill_catalog_instructions((), None) == ""
+
+    def test_normalize_skill_selection_whitespace_only_token_skipped(self) -> None:
+        """Whitespace-only tokens (empty after strip) are dropped."""
+        result = meta_skills.normalize_skill_selection("execution, , ,web")
+        assert result == ("execution", "web")
+
+    def test_normalize_skill_selection_non_string_item_raises(self) -> None:
+        """A list containing a non-string item should raise ValueError."""
+        with pytest.raises(ValueError, match="skills must contain only strings"):
+            meta_skills.normalize_skill_selection([123])  # type: ignore[list-item]
+
+    def test_discover_catalog_returns_empty_when_dir_missing(self) -> None:
+        """_discover_catalog returns empty dict when _CATALOG_DIR is not a directory."""
+        original = meta_skills._CATALOG_DIR
+        try:
+            meta_skills._CATALOG_DIR = Path("/nonexistent/path/catalog")
+            result = meta_skills._discover_catalog()
+        finally:
+            meta_skills._CATALOG_DIR = original
+        assert result == {}
+
+    def test_stage_skill_catalog_skips_missing_md_file(self) -> None:
+        """If a SkillSpec references a name with no .md file, it is silently skipped."""
+        fake_skill = meta_skills.SkillSpec(
+            name="nonexistent-skill",
+            title="Does Not Exist",
+            content="placeholder",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / "skills"
+            meta_skills.stage_skill_catalog((fake_skill,), target)
+            assert target.is_dir()
+            # No file should have been copied for the nonexistent skill.
+            assert not (target / "nonexistent-skill.md").exists()
+
+    def test_discover_catalog_no_heading_uses_filename_title(self) -> None:
+        """When a skill .md file has no '# ' heading line, the title is derived
+        from the filename (branches 42->47, 44->42)."""
+        original = meta_skills._CATALOG_DIR
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                catalog = Path(tmpdir)
+                # File with no heading line at all
+                (catalog / "my-tool.md").write_text(
+                    "This file has no heading.\nJust plain text.\n",
+                    encoding="utf-8",
+                )
+                # File with a non-heading line before a heading
+                (catalog / "other-skill.md").write_text(
+                    "Some preamble text.\n## Subheading only\nMore text.\n",
+                    encoding="utf-8",
+                )
+                meta_skills._CATALOG_DIR = catalog
+                result = meta_skills._discover_catalog()
+        finally:
+            meta_skills._CATALOG_DIR = original
+
+        # "my-tool" has no heading, title should be derived from filename
+        assert result["my-tool"].title == "My Tool"
+        # "other-skill" also has no "# " heading (## is not matched)
+        assert result["other-skill"].title == "Other Skill"

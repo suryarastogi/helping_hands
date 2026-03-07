@@ -233,6 +233,19 @@ class TestEffectiveContainerEnvNames:
         assert "ANTHROPIC_API_KEY" not in names
         assert "GEMINI_API_KEY" in names
 
+    def test_native_auth_empty_blocked_returns_all(self) -> None:
+        """When _native_cli_auth_env_names returns empty, all env names pass through."""
+
+        class _EmptyBlockedStub(self._ContainerStub):
+            def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+                return ()
+
+        stub = _EmptyBlockedStub(use_native_cli_auth=True)
+        names = stub._effective_container_env_names()
+        assert "OPENAI_API_KEY" in names
+        assert "ANTHROPIC_API_KEY" in names
+        assert "GEMINI_API_KEY" in names
+
 
 # ---------------------------------------------------------------------------
 # _build_subprocess_env

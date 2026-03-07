@@ -125,3 +125,34 @@ class TestWriteFileErrors:
     def test_value_error_wraps_path_traversal(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="Invalid file path"):
             write_file(str(tmp_path), "../outside.txt", "content")
+
+
+# ---------------------------------------------------------------------------
+# main() entry point
+# ---------------------------------------------------------------------------
+
+
+class TestMain:
+    def test_main_stdio_transport(self) -> None:
+        """main() uses stdio transport when --http is not in sys.argv."""
+        from helping_hands.server.mcp_server import main, mcp
+
+        with (
+            patch.object(mcp, "run") as mock_run,
+            patch("helping_hands.server.mcp_server.sys") as mock_sys,
+        ):
+            mock_sys.argv = ["helping-hands-mcp"]
+            main()
+        mock_run.assert_called_once_with(transport="stdio")
+
+    def test_main_http_transport(self) -> None:
+        """main() uses streamable-http transport when --http is in sys.argv."""
+        from helping_hands.server.mcp_server import main, mcp
+
+        with (
+            patch.object(mcp, "run") as mock_run,
+            patch("helping_hands.server.mcp_server.sys") as mock_sys,
+        ):
+            mock_sys.argv = ["helping-hands-mcp", "--http"]
+            main()
+        mock_run.assert_called_once_with(transport="streamable-http")

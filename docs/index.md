@@ -4,6 +4,25 @@
 
 For full project details, see the [README](https://github.com/suryarastogi/helping_hands#readme).
 
+## Documentation map
+
+| Document | Purpose |
+|---|---|
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | System architecture and module boundaries |
+| [AGENTS.md](../AGENTS.md) | AI agent configuration and conventions |
+| [DESIGN.md](DESIGN.md) | Internal design patterns and decisions |
+| [FRONTEND.md](FRONTEND.md) | React frontend architecture and conventions |
+| [SECURITY.md](SECURITY.md) | Security model, sandboxing, path safety |
+| [RELIABILITY.md](RELIABILITY.md) | Reliability patterns and error handling |
+| [PRODUCT_SENSE.md](PRODUCT_SENSE.md) | Product capabilities and roadmap |
+| [QUALITY_SCORE.md](QUALITY_SCORE.md) | Test coverage targets and quality gates |
+| [PLANS.md](PLANS.md) | Execution plan index (active and completed) |
+| [design-docs/](design-docs/index.md) | Design documents (core beliefs, hand abstraction, provider abstraction, two-phase CLI, testing methodology, error handling, MCP architecture, config loading, repo indexing, scheduling system, deployment modes, CI pipeline, skills system, GitHub client, PR description, default prompts, filesystem security, model resolution, E2E hand workflow, task lifecycle, web tools, docker sandbox, command execution, local stack, usage monitoring, backend routing) |
+| [product-specs/](product-specs/index.md) | Product specifications (onboarding, etc.) |
+| [exec-plans/](exec-plans/) | Active and completed execution plans |
+| [generated/](generated/db-schema.md) | Auto-generated reference (DB schema) |
+| [references/](references/) | External reference material (uv, ruff, celery-redbeat) |
+
 ## API Reference
 
 Browse the auto-generated docs from source:
@@ -198,6 +217,9 @@ uv run helping-hands "suryarastogi/helping_hands" --backend goose --prompt "Impl
 
 # geminicli
 uv run helping-hands "suryarastogi/helping_hands" --backend geminicli --prompt "Implement one small safe improvement"
+
+# opencodecli
+uv run helping-hands "suryarastogi/helping_hands" --backend opencodecli --prompt "Implement one small safe improvement"
 
 # e2e (new PR)
 uv run helping-hands "suryarastogi/helping_hands" --e2e --prompt "CI integration run: update PR on master"

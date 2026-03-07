@@ -29,9 +29,18 @@ server.
 3. **Ease of setup** — Minimize configuration required to get started
 4. **Observability** — Clear status, logs, and monitoring for all run modes
 
+## Implemented capabilities
+
+- **Scheduled runs** -- Celery Beat + RedBeat for recurring tasks with cron
+  validation, enable/disable, and one-shot trigger support
+- **MCP tool server** -- `helping-hands-mcp` exposes filesystem tools
+  (`read_file`, `write_file`, `mkdir`, `path_exists`), execution tools, and
+  repo indexing over stdio or streamable-http transport
+- **Skill catalog** -- Built-in skills staged to a temp directory during CLI
+  hand runs; extensible via `--skills` selection
+
 ## Future directions
 
-- Scheduled recurring runs (Celery Beat) for continuous improvement
 - Multi-repo orchestration
 - Custom skill authoring for domain-specific tasks
 - Quality scoring of AI-generated changes before PR creation

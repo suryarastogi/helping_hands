@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock
+
 import pytest
 
 pytest.importorskip("fastapi")
@@ -365,3 +369,262 @@ class TestFlowerApiBaseUrl:
     def test_empty_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_FLOWER_API_URL", "  ")
         assert _flower_api_base_url() is None
+
+
+# --- _check_redis_health ---
+
+
+class TestCheckRedisHealth:
+    def test_ok_when_ping_succeeds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import types
+
+        from helping_hands.server.app import _check_redis_health
+
+        mock_redis_cls = MagicMock()
+        mock_instance = MagicMock()
+        mock_redis_cls.from_url.return_value = mock_instance
+        mock_instance.ping.return_value = True
+
+        fake_redis = types.ModuleType("redis")
+        fake_redis.Redis = mock_redis_cls  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "redis", fake_redis)
+
+        assert _check_redis_health() == "ok"
+
+    def test_error_when_ping_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import types
+
+        from helping_hands.server.app import _check_redis_health
+
+        mock_redis_cls = MagicMock()
+        mock_redis_cls.from_url.side_effect = ConnectionError("refused")
+
+        fake_redis = types.ModuleType("redis")
+        fake_redis.Redis = mock_redis_cls  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "redis", fake_redis)
+
+        assert _check_redis_health() == "error"
+
+
+# --- _check_db_health ---
+
+
+class TestCheckDbHealth:
+    def test_na_when_no_database_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _check_db_health
+
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        assert _check_db_health() == "na"
+
+    def test_na_when_empty_database_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _check_db_health
+
+        monkeypatch.setenv("DATABASE_URL", "  ")
+        assert _check_db_health() == "na"
+
+    def test_ok_when_connect_succeeds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _check_db_health
+
+        monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/test")
+
+        mock_conn = MagicMock()
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.connect.return_value = mock_conn
+        monkeypatch.setitem(sys.modules, "psycopg2", mock_psycopg2)
+
+        assert _check_db_health() == "ok"
+        mock_conn.close.assert_called_once()
+
+    def test_error_when_connect_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _check_db_health
+
+        monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/test")
+
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.connect.side_effect = Exception("connection refused")
+        monkeypatch.setitem(sys.modules, "psycopg2", mock_psycopg2)
+
+        assert _check_db_health() == "error"
+
+
+# --- _check_workers_health ---
+
+
+class TestCheckWorkersHealth:
+    def test_ok_when_ping_returns_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _check_workers_health, celery_app
+
+        mock_inspector = MagicMock()
+        mock_inspector.ping.return_value = {"worker1": {"ok": "pong"}}
+        monkeypatch.setattr(
+            celery_app.control, "inspect", lambda timeout=None: mock_inspector
+        )
+
+        assert _check_workers_health() == "ok"
+
+    def test_error_when_ping_returns_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from helping_hands.server.app import _check_workers_health, celery_app
+
+        mock_inspector = MagicMock()
+        mock_inspector.ping.return_value = None
+        monkeypatch.setattr(
+            celery_app.control, "inspect", lambda timeout=None: mock_inspector
+        )
+
+        assert _check_workers_health() == "error"
+
+    def test_error_when_ping_returns_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from helping_hands.server.app import _check_workers_health, celery_app
+
+        mock_inspector = MagicMock()
+        mock_inspector.ping.return_value = {}
+        monkeypatch.setattr(
+            celery_app.control, "inspect", lambda timeout=None: mock_inspector
+        )
+
+        assert _check_workers_health() == "error"
+
+    def test_error_when_inspect_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _check_workers_health, celery_app
+
+        monkeypatch.setattr(
+            celery_app.control,
+            "inspect",
+            MagicMock(side_effect=Exception("no broker")),
+        )
+
+        assert _check_workers_health() == "error"
+
+
+# --- _is_running_in_docker ---
+
+
+class TestIsRunningInDocker:
+    def test_true_when_dockerenv_exists(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from helping_hands.server.app import _is_running_in_docker
+
+        dockerenv = tmp_path / ".dockerenv"
+        dockerenv.touch()
+        monkeypatch.delenv("HELPING_HANDS_IN_DOCKER", raising=False)
+        monkeypatch.setattr(
+            "helping_hands.server.app.Path",
+            lambda p: dockerenv if p == "/.dockerenv" else Path(p),
+        )
+
+        assert _is_running_in_docker() is True
+
+    def test_true_when_env_var_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _is_running_in_docker
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.Path",
+            lambda p: MagicMock(exists=lambda: False),
+        )
+        monkeypatch.setenv("HELPING_HANDS_IN_DOCKER", "1")
+
+        assert _is_running_in_docker() is True
+
+    def test_true_when_env_var_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _is_running_in_docker
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.Path",
+            lambda p: MagicMock(exists=lambda: False),
+        )
+        monkeypatch.setenv("HELPING_HANDS_IN_DOCKER", "true")
+
+        assert _is_running_in_docker() is True
+
+    def test_false_when_neither(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _is_running_in_docker
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.Path",
+            lambda p: MagicMock(exists=lambda: False),
+        )
+        monkeypatch.delenv("HELPING_HANDS_IN_DOCKER", raising=False)
+
+        assert _is_running_in_docker() is False
+
+    def test_false_when_env_var_no(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _is_running_in_docker
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.Path",
+            lambda p: MagicMock(exists=lambda: False),
+        )
+        monkeypatch.setenv("HELPING_HANDS_IN_DOCKER", "no")
+
+        assert _is_running_in_docker() is False
+
+
+# --- _iter_worker_task_entries ---
+
+
+class TestIterWorkerTaskEntries:
+    def test_flattens_valid_payload(self) -> None:
+        from helping_hands.server.app import _iter_worker_task_entries
+
+        payload = {
+            "worker1": [{"id": "t1"}, {"id": "t2"}],
+            "worker2": [{"id": "t3"}],
+        }
+        entries = _iter_worker_task_entries(payload)
+        assert len(entries) == 3
+        workers = [w for w, _ in entries]
+        assert "worker1" in workers
+        assert "worker2" in workers
+
+    def test_returns_empty_for_non_dict(self) -> None:
+        from helping_hands.server.app import _iter_worker_task_entries
+
+        assert _iter_worker_task_entries(None) == []
+        assert _iter_worker_task_entries([1, 2]) == []
+        assert _iter_worker_task_entries("string") == []
+
+    def test_skips_non_list_worker_tasks(self) -> None:
+        from helping_hands.server.app import _iter_worker_task_entries
+
+        payload = {"worker1": "not-a-list", "worker2": [{"id": "t1"}]}
+        entries = _iter_worker_task_entries(payload)
+        assert len(entries) == 1
+
+    def test_skips_non_dict_task_entries(self) -> None:
+        from helping_hands.server.app import _iter_worker_task_entries
+
+        payload = {"worker1": [{"id": "t1"}, "not-a-dict", 42]}
+        entries = _iter_worker_task_entries(payload)
+        assert len(entries) == 1
+
+
+# --- _safe_inspect_call ---
+
+
+class TestSafeInspectCall:
+    def test_returns_method_result(self) -> None:
+        from helping_hands.server.app import _safe_inspect_call
+
+        inspector = MagicMock()
+        inspector.active.return_value = {"w1": []}
+        assert _safe_inspect_call(inspector, "active") == {"w1": []}
+
+    def test_returns_none_for_missing_method(self) -> None:
+        from helping_hands.server.app import _safe_inspect_call
+
+        class _Bare:
+            pass
+
+        assert _safe_inspect_call(_Bare(), "active") is None
+
+    def test_returns_none_on_exception(self) -> None:
+        from helping_hands.server.app import _safe_inspect_call
+
+        inspector = MagicMock()
+        inspector.active.side_effect = RuntimeError("timeout")
+        assert _safe_inspect_call(inspector, "active") is None

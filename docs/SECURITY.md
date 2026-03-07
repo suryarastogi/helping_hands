@@ -91,6 +91,29 @@ This provides an additional isolation layer: even if the AI tool generates
 malicious commands, they execute within a disposable container with limited
 filesystem access.
 
+### Docker Desktop sandbox isolation
+
+`DockerSandboxClaudeCodeHand` runs Claude Code inside a Docker Desktop
+microVM sandbox (`docker sandbox create` / `docker sandbox exec`), providing
+stronger isolation than standard containers:
+
+- **MicroVM boundary** — the sandbox runs in a lightweight VM, not just a
+  namespace-isolated container.  Filesystem, network, and process trees are
+  fully separated from the host.
+- **Workspace sync** — only the target repo directory is synced into the
+  sandbox at the same absolute path.  No other host directories are exposed.
+- **Auto-cleanup** — by default, the sandbox is destroyed (`docker sandbox stop`
+  + `docker sandbox rm`) after execution.  Disable with
+  `HELPING_HANDS_DOCKER_SANDBOX_CLEANUP=0` to inspect sandbox state post-run.
+- **Name isolation** — sandbox names are auto-generated from the hand UUID and
+  sanitized to DNS-compatible labels, preventing collisions across concurrent
+  runs.
+- **Plugin requirement** — requires Docker Desktop with the `docker sandbox`
+  CLI plugin.  If the plugin is unavailable, creation fails with a clear error
+  rather than falling back to unsandboxed execution.
+- **Environment forwarding** — API keys are passed as explicit `-e` flags to
+  `docker sandbox exec`, not inherited from the host environment.
+
 ### Gemini CLI approval mode
 
 Gemini CLI supports `--approval-mode` to control edit behavior:

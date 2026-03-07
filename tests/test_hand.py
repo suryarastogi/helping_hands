@@ -32,21 +32,12 @@ from helping_hands.lib.meta.tools.web import (
 )
 from helping_hands.lib.repo import RepoIndex
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+# repo_index fixture provided by conftest.py
 
 
 @pytest.fixture()
 def config() -> Config:
     return Config(repo="/tmp/fake", model="test-model")
-
-
-@pytest.fixture()
-def repo_index(tmp_path: Path) -> RepoIndex:
-    (tmp_path / "main.py").write_text("")
-    (tmp_path / "utils.py").write_text("")
-    return RepoIndex.from_path(tmp_path)
 
 
 class _StubFinalizeHand(Hand):
@@ -409,6 +400,105 @@ class TestHandABC:
         assert metadata["pr_status"] == "precommit_failed"
         assert "pre-commit checks failed" in metadata["pr_error"]
         mock_gh_cls.assert_not_called()
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_finalize_repo_pr_native_git_auth_skips_push_remote_config(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(
+            repo=str(repo_index.root),
+            model="test-model",
+            use_native_cli_auth=True,
+        )
+        hand = _StubFinalizeHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_gh = MagicMock()
+        mock_gh.token = ""  # empty token triggers native auth
+        mock_gh.add_and_commit.return_value = "abc123"
+        mock_gh.create_pr.return_value = MagicMock(
+            number=1,
+            url="https://example/pr/1",
+        )
+        mock_gh.get_repo.return_value = MagicMock(default_branch="main")
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(
+                Hand, "_configure_authenticated_push_remote"
+            ) as mock_push_remote,
+        ):
+            metadata = hand._finalize_repo_pr(
+                backend="stub",
+                prompt="implement",
+                summary="done",
+            )
+
+        assert metadata["pr_status"] == "created"
+        mock_push_remote.assert_not_called()
+
+    @patch("helping_hands.lib.github.GitHubClient")
+    def test_finalize_repo_pr_rich_description_provides_title_and_body(
+        self,
+        mock_gh_cls: MagicMock,
+        repo_index: RepoIndex,
+    ) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubFinalizeHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_gh = MagicMock()
+        mock_gh.token = "ghp_test"
+        mock_gh.add_and_commit.return_value = "abc123"
+        mock_pr = MagicMock(number=1, url="https://example/pr/1")
+        mock_gh.create_pr.return_value = mock_pr
+        mock_gh.get_repo.return_value = MagicMock(default_branch="main")
+        mock_gh_cls.return_value.__enter__.return_value = mock_gh
+
+        rich = MagicMock()
+        rich.title = "feat: rich generated title"
+        rich.body = "This PR does amazing things"
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",
+                return_value=rich,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description.generate_commit_message",
+                return_value="feat: rich commit",
+            ),
+        ):
+            metadata = hand._finalize_repo_pr(
+                backend="stub",
+                prompt="implement",
+                summary="done",
+            )
+
+        assert metadata["pr_status"] == "created"
+        # Verify the rich title and body were passed to create_pr
+        create_call = mock_gh.create_pr.call_args
+        assert create_call[1]["title"] == "feat: rich generated title"
+        assert create_call[1]["body"] == "This PR does amazing things"
 
 
 # ---------------------------------------------------------------------------
@@ -1316,6 +1406,58 @@ class TestBasicAtomicHand:
 
         assert resp.metadata["status"] == "satisfied"
         assert mock_agent.run.call_count == 1
+
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_run_interrupted_status(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        """When interrupted after first iteration, run() returns interrupted."""
+        hand_ref: list[BasicAtomicHand] = []
+
+        def _run_then_interrupt(step_input: Any) -> Any:
+            hand_ref[0].interrupt()
+            resp = MagicMock()
+            resp.chat_message = "Working.\nSATISFIED: no"
+            return resp
+
+        mock_agent = MagicMock()
+        mock_agent.run.side_effect = _run_then_interrupt
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index, max_iterations=3)
+        hand._input_schema = _FakeInputSchema
+        hand_ref.append(hand)
+        resp = hand.run("do something")
+
+        assert resp.metadata["status"] == "interrupted"
+        assert resp.metadata["interrupted"] == "true"
+        assert mock_agent.run.call_count == 1
+
+    @patch.object(BasicAtomicHand, "_build_agent")
+    def test_run_max_iterations_status(
+        self,
+        mock_build: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        """When all iterations run without SATISFIED, status is max_iterations."""
+        never_satisfied = MagicMock()
+        never_satisfied.chat_message = "Still working.\nSATISFIED: no"
+        mock_agent = MagicMock()
+        mock_agent.run.return_value = never_satisfied
+        mock_build.return_value = mock_agent
+
+        hand = BasicAtomicHand(config, repo_index, max_iterations=2)
+        hand._input_schema = _FakeInputSchema
+        resp = hand.run("implement feature")
+
+        assert resp.metadata["status"] == "max_iterations"
+        assert resp.metadata["iterations"] == 2
+        assert resp.metadata["interrupted"] == "false"
+        assert mock_agent.run.call_count == 2
 
     @patch.object(BasicAtomicHand, "_build_agent")
     def test_stream_interrupts(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -13,6 +14,7 @@ from helping_hands.cli.main import (
     _github_clone_url,
     _redact_sensitive,
     _repo_tmp_dir,
+    _stream_hand,
     build_parser,
     main,
 )
@@ -773,3 +775,144 @@ class TestCliAdditionalPaths:
             main(["/tmp/repo", "--tools", "nonexistent_tool"])
         captured = capsys.readouterr()
         assert "Error" in captured.err
+
+    @patch("helping_hands.cli.main.asyncio.run")
+    @patch("helping_hands.cli.main.DockerSandboxClaudeCodeHand")
+    def test_cli_runs_docker_sandbox_claude_backend(
+        self,
+        mock_hand_cls: MagicMock,
+        mock_asyncio_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        def _close_coroutine(coro: object) -> None:
+            if hasattr(coro, "close"):
+                coro.close()
+            return None
+
+        mock_asyncio_run.side_effect = _close_coroutine
+        (tmp_path / "hello.py").write_text("")
+        mock_hand = MagicMock()
+        mock_hand_cls.return_value = mock_hand
+
+        main(
+            [
+                str(tmp_path),
+                "--backend",
+                "docker-sandbox-claude",
+                "--prompt",
+                "implement feature",
+            ]
+        )
+
+        mock_hand_cls.assert_called_once()
+        mock_asyncio_run.assert_called_once()
+        assert mock_hand.auto_pr is True
+
+    @patch(
+        "helping_hands.cli.main.BasicAtomicHand",
+        side_effect=ModuleNotFoundError("No module named 'atomic_agents'"),
+    )
+    def test_cli_reports_python_version_error_for_atomic_backend(
+        self,
+        _mock_hand_cls: MagicMock,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        (tmp_path / "hello.py").write_text("")
+        # Create a mock that compares less than (3, 12) and has .major/.minor
+        fake_vi = MagicMock()
+        fake_vi.__lt__ = lambda self, other: other > (3, 11)
+        fake_vi.major = 3
+        fake_vi.minor = 11
+        monkeypatch.setattr("helping_hands.cli.main.sys.version_info", fake_vi)
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    str(tmp_path),
+                    "--backend",
+                    "basic-atomic",
+                    "--prompt",
+                    "test",
+                ]
+            )
+        captured = capsys.readouterr()
+        assert "requires Python >= 3.12" in captured.err
+
+    @patch("helping_hands.cli.main.asyncio.run")
+    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    def test_cli_reraises_generic_exception_for_non_cli_backend(
+        self,
+        mock_hand_cls: MagicMock,
+        mock_asyncio_run: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        def _raise_generic(coro: object) -> None:
+            if hasattr(coro, "close"):
+                coro.close()
+            raise ValueError("unexpected internal error")
+
+        mock_asyncio_run.side_effect = _raise_generic
+        (tmp_path / "hello.py").write_text("")
+        mock_hand = MagicMock()
+        mock_hand_cls.return_value = mock_hand
+
+        with pytest.raises(ValueError, match="unexpected internal error"):
+            main(
+                [
+                    str(tmp_path),
+                    "--backend",
+                    "basic-langgraph",
+                    "--prompt",
+                    "test",
+                ]
+            )
+
+
+# ---------------------------------------------------------------------------
+# _stream_hand
+# ---------------------------------------------------------------------------
+
+
+class TestStreamHand:
+    def test_stream_hand_prints_chunks(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        async def _fake_stream(prompt: str):
+            yield "hello "
+            yield "world"
+
+        hand = MagicMock()
+        hand.stream.return_value = _fake_stream("test")
+
+        asyncio.run(_stream_hand(hand, "test"))
+        captured = capsys.readouterr()
+        assert "hello world" in captured.out
+
+    def test_stream_hand_prints_newline_after_stream(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        async def _fake_stream(prompt: str):
+            yield "done"
+
+        hand = MagicMock()
+        hand.stream.return_value = _fake_stream("test")
+
+        asyncio.run(_stream_hand(hand, "test"))
+        captured = capsys.readouterr()
+        assert captured.out.endswith("\n")
+
+
+# ---------------------------------------------------------------------------
+# Top-level package
+# ---------------------------------------------------------------------------
+
+
+class TestPackageVersion:
+    def test_version_is_accessible(self) -> None:
+        import helping_hands
+
+        assert hasattr(helping_hands, "__version__")
+        assert isinstance(helping_hands.__version__, str)
+        assert len(helping_hands.__version__) > 0

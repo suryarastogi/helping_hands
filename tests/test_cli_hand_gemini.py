@@ -6,26 +6,17 @@ from unittest.mock import patch
 
 import pytest
 
-from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.cli.gemini import GeminiCLIHand
-from helping_hands.lib.repo import RepoIndex
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 
-def _make_gemini_hand(tmp_path, model="gemini-2.0-flash"):
-    (tmp_path / "main.py").write_text("")
-    config = Config(repo=str(tmp_path), model=model)
-    repo_index = RepoIndex.from_path(tmp_path)
-    return GeminiCLIHand(config=config, repo_index=repo_index)
-
-
 @pytest.fixture()
-def gemini_hand(tmp_path, monkeypatch):
+def gemini_hand(make_cli_hand, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    return _make_gemini_hand(tmp_path)
+    return make_cli_hand(GeminiCLIHand, model="gemini-2.0-flash")
 
 
 # ---------------------------------------------------------------------------
@@ -236,15 +227,15 @@ class TestRetryCommandAfterFailure:
 
 
 class TestBuildSubprocessEnv:
-    def test_raises_when_no_api_key(self, tmp_path, monkeypatch) -> None:
+    def test_raises_when_no_api_key(self, make_cli_hand, monkeypatch) -> None:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        hand = _make_gemini_hand(tmp_path, model="gemini-2.0")
+        hand = make_cli_hand(GeminiCLIHand, model="gemini-2.0")
         with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
             hand._build_subprocess_env()
 
-    def test_raises_when_empty_api_key(self, tmp_path, monkeypatch) -> None:
+    def test_raises_when_empty_api_key(self, make_cli_hand, monkeypatch) -> None:
         monkeypatch.setenv("GEMINI_API_KEY", "  ")
-        hand = _make_gemini_hand(tmp_path, model="gemini-2.0")
+        hand = make_cli_hand(GeminiCLIHand, model="gemini-2.0")
         with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
             hand._build_subprocess_env()
 
@@ -264,16 +255,16 @@ class TestDescribeAuth:
         assert "GEMINI_API_KEY" in result
         assert "(set)" in result
 
-    def test_key_not_set(self, tmp_path, monkeypatch) -> None:
+    def test_key_not_set(self, make_cli_hand, monkeypatch) -> None:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        hand = _make_gemini_hand(tmp_path)
+        hand = make_cli_hand(GeminiCLIHand)
         result = hand._describe_auth()
         assert "GEMINI_API_KEY" in result
         assert "(not set)" in result
 
-    def test_key_empty(self, tmp_path, monkeypatch) -> None:
+    def test_key_empty(self, make_cli_hand, monkeypatch) -> None:
         monkeypatch.setenv("GEMINI_API_KEY", "  ")
-        hand = _make_gemini_hand(tmp_path)
+        hand = make_cli_hand(GeminiCLIHand)
         result = hand._describe_auth()
         assert "(not set)" in result
 
@@ -292,6 +283,73 @@ class TestPrDescriptionCmd:
     @patch("shutil.which", return_value=None)
     def test_returns_none_when_not_found(self, _mock_which, gemini_hand) -> None:
         assert gemini_hand._pr_description_cmd() is None
+
+
+# ---------------------------------------------------------------------------
+# _build_failure_message (instance delegation)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFailureMessageInstance:
+    def test_delegates_to_static_method(self, gemini_hand) -> None:
+        msg = gemini_hand._build_failure_message(
+            return_code=1, output="401 Unauthorized"
+        )
+        assert "authentication failed" in msg
+        assert "GEMINI_API_KEY" in msg
+
+    def test_generic_error_delegation(self, gemini_hand) -> None:
+        msg = gemini_hand._build_failure_message(
+            return_code=42, output="something broke"
+        )
+        assert "Gemini CLI failed (exit=42)" in msg
+
+
+# ---------------------------------------------------------------------------
+# _invoke_gemini / _invoke_backend async tests
+# ---------------------------------------------------------------------------
+
+
+class TestInvokeGemini:
+    def test_invoke_gemini_delegates_to_invoke_cli(
+        self, gemini_hand, monkeypatch
+    ) -> None:
+        import asyncio
+
+        calls: list[str] = []
+
+        async def fake_invoke_cli(prompt, *, emit):
+            calls.append(prompt)
+            return "result"
+
+        monkeypatch.setattr(gemini_hand, "_invoke_cli", fake_invoke_cli)
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(gemini_hand._invoke_gemini("fix it", emit=emit))
+        assert result == "result"
+        assert calls == ["fix it"]
+
+    def test_invoke_backend_delegates_to_invoke_gemini(
+        self, gemini_hand, monkeypatch
+    ) -> None:
+        import asyncio
+
+        calls: list[str] = []
+
+        async def fake_invoke_gemini(prompt, *, emit):
+            calls.append(prompt)
+            return "delegated"
+
+        monkeypatch.setattr(gemini_hand, "_invoke_gemini", fake_invoke_gemini)
+
+        async def emit(text: str) -> None:
+            pass
+
+        result = asyncio.run(gemini_hand._invoke_backend("hello", emit=emit))
+        assert result == "delegated"
+        assert calls == ["hello"]
 
 
 # ---------------------------------------------------------------------------

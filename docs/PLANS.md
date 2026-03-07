@@ -4,83 +4,20 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-_No active plans._
+- [v102 - Docs and testing improvements](exec-plans/active/v102-docs-testing-improvements.md) --
+  Ollama provider test enhancements (singleton identity, class attrs, delegation), Hand instantiation/HandResponse test enhancements, plan consolidation
 
 ## Completed plans
 
-- [Docs and Testing v26](exec-plans/completed/docs-and-testing-v26.md) —
-  BasicLangGraphHand.stream() tests (8 tests: satisfied/max-iter/interrupt/file-changes/PR metadata/auth header); BasicAtomicHand.stream() tests (8 tests: satisfied/max-iter/interrupt/assertion-fallback/awaitable/PR status/auth header); OpenCodeCLIHand edge cases (`_build_failure_message` delegation, auth token variations, exit code); base.py PR helpers (`_update_pr_description` rich/fallback/exception-suppressed, `_create_pr_for_diverged_branch` rich/fallback); iterative.py coverage 79% -> 92%; QUALITY_SCORE.md updates (completed 2026-03-05)
+- [2026-03-07 consolidated](exec-plans/completed/2026-03-07.md) --
+  v80-v101: Docker sandbox design doc, command execution design doc, local stack design doc, usage-monitoring design doc, backend routing design doc, docs organization and testing improvements, plan consolidation, design-docs index categorization, cross-reference validation tests, AGENTS.md consistency tests, design doc quality tests, source-to-test mapping validation, QUALITY_SCORE accuracy tests, doc timestamp freshness tests, tech-debt priority validation, RELIABILITY/FRONTEND/docs-index structure tests, PRODUCT_SENSE/QUALITY_SCORE/AGENTS cross-validation, completed plan chronology, references directory, active plan structure tests, SECURITY.md iterative security validation, DESIGN.md anti-patterns/pattern subsection/error recovery tests, testing-methodology coverage table tests, CLAUDE.md architecture tests, docs/index.md CLI examples tests, ARCHITECTURE.md key paths/usage monitoring/task result/hand table/design principles/layers validation, DESIGN.md meta tools/finalization tests, SECURITY.md recommendations/API key handling tests, RELIABILITY.md Docker sandbox/async fallback/finalization tests, AGENTS.md communication/file ownership tests, DESIGN.md two-phase CLI hooks/health checks/GitHub client/lifecycle/testing patterns validation tests, FRONTEND.md API endpoints/component structure tests, SECURITY.md subprocess execution tests, AGENT.md structural/cross-reference validation, API docs directory validation, product-specs content validation, local-stack doc/script validation, scheduling-system/skills-system doc content validation, DESIGN.md skill catalog section tests, RELIABILITY.md heartbeat/task status tests, FRONTEND.md sync requirements tests, docs/index.md runtime flow/design-docs completeness tests, design doc source reference tests, tech-debt/QUALITY_SCORE consistency tests, PLANS.md structural validation tests, design doc content validation (config-loading/default-prompts/error-handling/model-resolution/deployment-modes/pr-description/backend-routing/hand-abstraction/filesystem-security/github-client/ci-pipeline/mcp-architecture/repo-indexing/two-phase-cli-hands/task-lifecycle/e2e-hand-workflow), conftest fixture validation tests, ARCHITECTURE.md backend listing tests, SECURITY.md recommendation coverage tests, web-tools/core-beliefs/testing-methodology design doc content validation tests, TODO.md/ARCHITECTURE.md external integrations/DESIGN.md PR description+scheduled tasks/SECURITY.md Gemini+container/RELIABILITY.md iterative+idempotency/docs-index API+CLI/product-specs+generated directory/design doc cross-refs/exec-plans chronology/tech-debt structure/conftest docs/QUALITY_SCORE module coverage/PRODUCT_SENSE completeness validation tests, dedicated litellm/anthropic provider tests, provider test file/design-doc category/test naming/cross-ref/opencode docs validation tests, enhanced Google provider tests, Config edge case and from_env precedence tests; 1740 -> 2987 tests (completed 2026-03-07)
 
-- [Docs and Testing v25](exec-plans/completed/docs-and-testing-v25.md) —
-  Gemini CLI hand helper tests (`_describe_auth` key set/not set/empty, `_pr_description_cmd` found/not found, `_command_not_found_message`); Codex CLI hand helper tests (`_command_not_found_message`, `_native_cli_auth_env_names`, `_apply_codex_exec_sandbox_defaults` empty/whitespace env override fallback); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v24](exec-plans/completed/docs-and-testing-v24.md) —
-  CLI base.py CI fix loop tests (`_ci_fix_loop` all early-return paths, success/no_checks/pending/failure conclusions, fix-with-changes, exhausted retries, interrupt, exception error status; `_poll_ci_checks` immediate/deadline paths; `run()` collect+finalize with/without CI fix; `stream()` chunk yielding and PR status); web.py helper edge case tests (`_extract_related_topics` recursive/skip paths, `_require_http_url` extra validation, `_strip_html` noscript/blank-lines, `search_web` dedup/validation/format, `browse_url` non-HTML/validation); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v23](exec-plans/completed/docs-and-testing-v23.md) —
-  Fix schedule test collection errors (importorskip guards); AtomicHand unit tests (_build_agent, run(), stream() with 5 async paths); LangGraphHand unit tests (_build_agent, run(), stream() with event filtering); GooseCLIHand helper tests (_describe_auth, _normalize_base_command, _pr_description_cmd, _has_goose_builtin_flag, _apply_backend_defaults, _resolve_ollama_host); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v22](exec-plans/completed/docs-and-testing-v22.md) —
-  CLI hand retry/interrupt tests: `_should_retry_without_changes` (all 4 branches), `_no_change_error_after_retries` (base returns None), `_build_apply_changes_prompt` (formatting, empty output, truncation), `_terminate_active_process` (None/exited/terminate/kill-on-timeout), `interrupt()` (active/None/exited); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v21](exec-plans/completed/docs-and-testing-v21.md) —
-  Iterative hand `_execute_read_requests` error path tests (ValueError, FileNotFoundError, IsADirectoryError, UnicodeError); `_run_tool_request` dispatch tests (WebSearchResult, WebBrowseResult, unsupported type, disabled tool); `_execute_tool_requests` error handling tests; fixed UnicodeError handler ordering bug in iterative.py; QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v20](exec-plans/completed/docs-and-testing-v20.md) —
-  Iterative hand helper tests (`_build_iteration_prompt`, `_execution_tools_enabled`/`_web_tools_enabled`, `_tool_instructions`, `BasicLangGraphHand._result_content`, `BasicAtomicHand._extract_message`); CLI base.py tests (`_base_command`, `_io_poll_seconds`/`_heartbeat_seconds`/`_idle_timeout_seconds`, `_repo_has_changes`); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v19](exec-plans/completed/docs-and-testing-v19.md) —
-  CLI base.py prompt builder and container/verbose helper tests (`_execution_mode`, `_container_enabled`, `_container_image`, `_apply_verbose_flags`, `_build_init_prompt`, `_build_task_prompt`, `_build_apply_changes_prompt`); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v18](exec-plans/completed/docs-and-testing-v18.md) —
-  Hand base.py static/classmethod tests (`_github_repo_from_origin` edge cases, `_run_precommit_checks_and_fixes` FileNotFoundError/truncation, `_push_noninteractive`, `_push_to_existing_pr`, `_should_run_precommit_before_pr`, `_finalize_repo_pr` error paths); command.py gap tests (`_resolve_python_command`, `_run_command` timeout, `run_python_code`/`run_python_script`/`run_bash_script` validation); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v17](exec-plans/completed/docs-and-testing-v17.md) —
-  CLI base.py helper tests (`_resolve_cli_model`, `_inject_prompt_argument`, `_normalize_base_command`, `_build_failure_message`, `_describe_auth`, `_effective_container_env_names`, `_build_subprocess_env`, `_interrupted_pr_metadata`); Anthropic and LiteLLM `_complete_impl` extra kwargs tests; QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v16](exec-plans/completed/docs-and-testing-v16.md) —
-  OpenAI provider `_build_inner()`/`_complete_impl()` tests; Google provider `_complete_impl()` tests; ClaudeCodeHand additional helper tests (`_command_not_found_message`, `_native_cli_auth_env_names`, `_pr_description_cmd`); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v15](exec-plans/completed/docs-and-testing-v15.md) —
-  `build_langchain_chat_model()` tests (all 5 providers, ImportError paths, Ollama env vars); `build_atomic_client()` tests (OpenAI, LiteLLM, missing attr, unsupported); provider abstraction design doc; QUALITY_SCORE.md updates (completed 2026-03-05)
-
-
-- [Docs and Testing v14](exec-plans/completed/docs-and-testing-v14.md) —
-  CLI main.py static helper tests (_github_clone_url, _git_noninteractive_env, _redact_sensitive, _repo_tmp_dir); additional backend path tests (opencodecli, model_not_found, invalid tools); ARCHITECTURE.md key file paths refresh; QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v13](exec-plans/completed/docs-and-testing-v13.md) —
-  App.py pure helper tests (_parse_backend, _task_state_priority, _normalize_task_status, _extract_task_id/name/kwargs, _coerce_optional_str, _parse_task_kwargs_str, _is_helping_hands_task, _upsert_current_task, _flower_timeout_seconds, _flower_api_base_url); CLI base.py CI/PR helper tests (_build_ci_fix_prompt, _format_ci_fix_message, _format_pr_status_message, _looks_like_edit_request); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v12](exec-plans/completed/docs-and-testing-v12.md) —
-  Registry runner wrapper tests (payload validation + mocked dispatch for all 5 runners), MCP server error path tests (_repo_root, _command_result_to_dict, read_file IsADirectory/Unicode/path-traversal, write_file path-traversal); fixed UnicodeError handler ordering bug in mcp_server.py; QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v11](exec-plans/completed/docs-and-testing-v11.md) —
-  Provider `_build_inner()` tests (LiteLLM, Google, Anthropic — ImportError + env var paths), `_check_redbeat`/`_check_croniter` tests, ScheduleManager unit tests with mocked Redis (CRUD, enable/disable, record_run); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v10](exec-plans/completed/docs-and-testing-v10.md) —
-  Ollama provider tests, E2E hand static method tests, celery_app helper tests (_github_clone_url, _redact_sensitive, _repo_tmp_dir, _trim_updates, _append_update, _UpdateCollector); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v9](exec-plans/completed/docs-and-testing-v9.md) —
-  Bootstrap and inline edit tests (_build_tree_snapshot, _read_bootstrap_doc, _build_bootstrap_context, _apply_inline_edits); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-
-- [Docs and Testing v8](exec-plans/completed/docs-and-testing-v8.md) —
-  Format helper tests (CommandResult, WebSearchResult, WebBrowseResult), tool config helpers, base.py static helpers (_default_base_branch, _build_generic_pr_body); QUALITY_SCORE.md updates (completed 2026-03-05)
-
-- [Docs and Testing v7](exec-plans/completed/docs-and-testing-v7.md) —
-  Dedicated test suites for Claude, Codex, Gemini, OpenCode CLI hands (106 tests); DESIGN.md CLI backend patterns (completed 2026-03-05)
-- [Docs and Testing v6](exec-plans/completed/docs-and-testing-v6.md) —
-  CLI hand helpers, web tool internals, registry validators test coverage; SECURITY.md & RELIABILITY.md iterative hand docs (completed 2026-03-05)
-- [Docs and Testing v5](exec-plans/completed/docs-and-testing-v5.md) —
-  Pure helper test coverage (model_provider, command, config, filesystem), QUALITY_SCORE.md & RELIABILITY.md enhancements (completed 2026-03-05)
-- [Docs and Testing v4](exec-plans/completed/docs-and-testing-v4.md) —
-  AI provider & CLI hand test expansion, two-phase CLI hands design doc, SECURITY.md sandboxing (completed 2026-03-04)
-- [Docs and Testing v3](exec-plans/completed/docs-and-testing-v3.md) —
-  Iterative hand tests, ARCHITECTURE.md data flows, FRONTEND.md expansion (completed 2026-03-04)
-- [Docs and Testing v2](exec-plans/completed/docs-and-testing-v2.md) —
-  Fill documentation gaps and add targeted tests for untested modules (completed 2026-03-04)
-- [Improve Docs and Testing](exec-plans/completed/improve-docs-and-testing.md) —
-  Established docs structure, filled initial testing gaps (completed 2026-03-04)
+- [2026-03-06 consolidated](exec-plans/completed/2026-03-06.md) --
+  v32-v79: PR description, schedule, E2E, server health, GitHub client, package re-exports, Docker sandbox, CLI subprocess, celery usage, iterative agents, atomic/LangGraph stream, frontend coverage to 82.3%, dead code docs, testing methodology, shared conftest fixtures, config refactor, Hand smoke tests, docs structure validation, 21 design docs (repo-indexing through web-tools); 1263 -> 1717 tests (completed 2026-03-06)
+- [2026-03-05 consolidated](exec-plans/completed/2026-03-05.md) --
+  v5-v31: Pure helper, CLI hand, AI provider, iterative hand, Docker sandbox, celery, schedule, MCP server, web tool, PR description, and package-level test suites; provider abstraction design doc; ARCHITECTURE.md, DESIGN.md, SECURITY.md, RELIABILITY.md updates; 470 -> 1256 tests (completed 2026-03-05)
+- [2026-03-04 consolidated](exec-plans/completed/2026-03-04.md) --
+  v1-v4: Established docs structure, product specs, hand abstraction design doc, iterative hand tests, AI provider tests, two-phase CLI hands design doc, SECURITY.md sandboxing; 50 -> 470 tests (completed 2026-03-04)
 
 ## How plans work
 

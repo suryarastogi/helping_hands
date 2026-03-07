@@ -33,6 +33,7 @@ The React frontend is organized as a single-page application:
 frontend/src/
 ├── main.tsx          # Entry point, renders <App />
 ├── App.tsx           # Main component (form, task list, monitors)
+├── App.test.tsx      # Component render tests (@testing-library/react)
 ├── App.utils.test.ts # Unit tests for utility functions
 ├── styles.css        # Global styles
 ├── vite-env.d.ts     # Vite type declarations

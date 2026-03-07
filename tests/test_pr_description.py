@@ -104,6 +104,10 @@ class TestDiffCharLimit:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "0")
         assert _diff_char_limit() == 12_000
 
+    def test_ignores_negative(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "-100")
+        assert _diff_char_limit() == 12_000
+
 
 # ---------------------------------------------------------------------------
 # _truncate_diff
@@ -168,6 +172,20 @@ class TestGetDiff:
         )
         assert _get_diff(tmp_path, base_branch="main") == ""
 
+    @patch("helping_hands.lib.hands.v1.hand.pr_description.subprocess.run")
+    def test_returns_empty_when_base_branch_success_but_empty_stdout(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        """Base branch diff succeeds (rc=0) but has empty/whitespace stdout."""
+        mock_run.side_effect = [
+            # base branch diff returns 0 but empty
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="   \n"),
+            # fallback also returns 0 but empty
+            subprocess.CompletedProcess(args=[], returncode=0, stdout=""),
+        ]
+        assert _get_diff(tmp_path, base_branch="main") == ""
+        assert mock_run.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # _build_prompt
@@ -218,6 +236,18 @@ class TestBuildPrompt:
         assert "x" * 500 in result
         assert "x" * 501 not in result
 
+    def test_truncates_long_summary_to_2000_chars(self) -> None:
+        long_summary = "s" * 3000
+        result = _build_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary=long_summary,
+        )
+        assert "AI Summary of Changes" in result
+        assert "s" * 2000 in result
+        assert "s" * 2001 not in result
+
 
 # ---------------------------------------------------------------------------
 # _parse_output
@@ -260,6 +290,10 @@ class TestParseOutput:
         assert result is not None
         assert result.title == "fix: resolve login crash"
         assert "null pointer" in result.body
+
+    def test_whitespace_only_body_returns_none(self) -> None:
+        output = "PR_TITLE: some title\nPR_BODY:\n   \n  \n"
+        assert _parse_output(output) is None
 
     def test_multiline_body_preserved(self) -> None:
         output = (
@@ -579,6 +613,18 @@ class TestBuildCommitMessagePrompt:
         )
         assert "AI Summary of Changes" not in result
 
+    def test_truncates_long_summary_to_1000_chars(self) -> None:
+        long_summary = "c" * 2000
+        result = _build_commit_message_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary=long_summary,
+        )
+        assert "AI Summary of Changes" in result
+        assert "c" * 1000 in result
+        assert "c" * 1001 not in result
+
 
 # ---------------------------------------------------------------------------
 # _parse_commit_message
@@ -627,6 +673,13 @@ class TestCommitMessageFromPrompt:
 
     def test_returns_empty_when_both_empty(self) -> None:
         assert _commit_message_from_prompt("", "") == ""
+
+    def test_whitespace_only_summary_falls_back_to_prompt(self) -> None:
+        result = _commit_message_from_prompt("add user auth", "   \n  ")
+        assert "add user auth" in result
+
+    def test_whitespace_only_both_returns_empty(self) -> None:
+        assert _commit_message_from_prompt("  ", "  ") == ""
 
     def test_takes_first_sentence(self) -> None:
         result = _commit_message_from_prompt(
@@ -816,3 +869,173 @@ class TestGenerateCommitMessage:
     ) -> None:
         mock_run.side_effect = FileNotFoundError("cli not found")
         assert generate_commit_message(**self._common_kwargs(tmp_path)) is None
+
+
+# ---------------------------------------------------------------------------
+# _commit_message_from_prompt — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestCommitMessageFromPromptEdgeCases:
+    """Additional edge cases for _commit_message_from_prompt."""
+
+    def test_exclamation_mark_sentence_boundary(self) -> None:
+        result = _commit_message_from_prompt("", "Fixed the crash! Also updated docs.")
+        assert "fixed the crash" in result
+        assert "updated docs" not in result
+
+    def test_question_mark_sentence_boundary(self) -> None:
+        result = _commit_message_from_prompt("", "Did we fix the auth? Seems like it.")
+        assert "did we fix the auth" in result
+        assert "Seems" not in result
+
+    def test_strips_existing_fix_prefix(self) -> None:
+        result = _commit_message_from_prompt("", "fix: resolve crash on login")
+        assert result == "feat: resolve crash on login"
+        assert "fix: fix:" not in result
+
+    def test_strips_existing_refactor_prefix(self) -> None:
+        result = _commit_message_from_prompt("", "refactor: simplify auth flow")
+        assert result == "feat: simplify auth flow"
+
+    def test_strips_existing_docs_prefix(self) -> None:
+        result = _commit_message_from_prompt("", "docs: update README")
+        assert result == "feat: update README"
+
+    def test_strips_existing_chore_prefix(self) -> None:
+        result = _commit_message_from_prompt("", "chore: bump dependencies")
+        assert result == "feat: bump dependencies"
+
+    def test_strips_existing_test_prefix(self) -> None:
+        result = _commit_message_from_prompt("", "test: add unit tests for auth")
+        assert result == "feat: add unit tests for auth"
+
+    def test_strips_prefix_case_insensitive(self) -> None:
+        result = _commit_message_from_prompt("", "FEAT: add dark mode")
+        assert result == "feat: add dark mode"
+
+    def test_trailing_period_removed(self) -> None:
+        result = _commit_message_from_prompt("", "Added new endpoint.")
+        assert not result.endswith(".")
+        assert "added new endpoint" in result
+
+    def test_single_word_summary(self) -> None:
+        result = _commit_message_from_prompt("", "Refactored")
+        assert result == "feat: refactored"
+
+    def test_multiline_takes_first_line_only(self) -> None:
+        result = _commit_message_from_prompt(
+            "", "Added caching layer\n\nThis improves performance by 50%."
+        )
+        assert "added caching layer" in result
+        assert "performance" not in result
+
+    def test_prefix_with_colon_space(self) -> None:
+        result = _commit_message_from_prompt("", "ci: run linter on PRs")
+        assert result == "feat: run linter on PRs"
+
+    def test_prefix_with_parenthetical_scope_stripped(self) -> None:
+        result = _commit_message_from_prompt("", "feat(auth): add JWT support")
+        assert "add JWT support" in result
+        assert "feat(auth)" not in result
+
+
+# ---------------------------------------------------------------------------
+# _parse_output — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestParseOutputEdgeCases:
+    """Additional edge cases for _parse_output."""
+
+    def test_pr_body_marker_inline_with_content_not_matched(self) -> None:
+        """PR_BODY: with inline text is not recognized as a body marker."""
+        output = "PR_TITLE: feat: test\nPR_BODY: inline content\nMore text.\n"
+        assert _parse_output(output) is None
+
+    def test_title_with_leading_whitespace_stripped(self) -> None:
+        output = "PR_TITLE:    feat: spaces before title   \nPR_BODY:\nBody text.\n"
+        result = _parse_output(output)
+        assert result is not None
+        assert result.title == "feat: spaces before title"
+
+    def test_body_with_trailing_whitespace_stripped(self) -> None:
+        output = "PR_TITLE: feat: test\nPR_BODY:\n  Body content  \n  \n"
+        result = _parse_output(output)
+        assert result is not None
+        assert result.body == "Body content"
+
+    def test_body_preserves_internal_blank_lines(self) -> None:
+        output = "PR_TITLE: feat: test\nPR_BODY:\n## Changes\n\n- Item 1\n\n- Item 2\n"
+        result = _parse_output(output)
+        assert result is not None
+        assert "\n\n" in result.body
+
+    def test_title_on_later_line_still_found(self) -> None:
+        output = (
+            "Some preamble text\n"
+            "Another line\n"
+            "PR_TITLE: fix: late title\n"
+            "PR_BODY:\n"
+            "Body here.\n"
+        )
+        result = _parse_output(output)
+        assert result is not None
+        assert result.title == "fix: late title"
+
+
+# ---------------------------------------------------------------------------
+# _build_prompt — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPromptEdgeCases:
+    """Additional edge cases for _build_prompt."""
+
+    def test_whitespace_only_summary_omits_section(self) -> None:
+        result = _build_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary="   \n  ",
+        )
+        assert "AI Summary of Changes" not in result
+
+    def test_prompt_contains_conventional_commit_guidance(self) -> None:
+        result = _build_prompt(diff="d", backend="b", user_prompt="p", summary="")
+        assert "conventional commit" in result.lower()
+        assert "feat:" in result
+
+    def test_prompt_contains_72_char_title_guidance(self) -> None:
+        result = _build_prompt(diff="d", backend="b", user_prompt="p", summary="")
+        assert "72" in result
+
+
+# ---------------------------------------------------------------------------
+# _build_commit_message_prompt — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCommitMessagePromptEdgeCases:
+    """Additional edge cases for _build_commit_message_prompt."""
+
+    def test_whitespace_only_summary_omits_section(self) -> None:
+        result = _build_commit_message_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary="   \t  ",
+        )
+        assert "AI Summary of Changes" not in result
+
+    def test_prompt_enforces_single_line_instruction(self) -> None:
+        result = _build_commit_message_prompt(
+            diff="d", backend="b", user_prompt="p", summary=""
+        )
+        assert "single-line" in result.lower() or "single line" in result.lower()
+
+    def test_prompt_enforces_72_char_limit(self) -> None:
+        result = _build_commit_message_prompt(
+            diff="d", backend="b", user_prompt="p", summary=""
+        )
+        assert "72" in result
