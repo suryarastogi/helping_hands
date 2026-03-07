@@ -1545,3 +1545,324 @@ class TestConsolidated20260307:
 
     def test_has_date_header(self, content: str) -> None:
         assert "2026-03-07" in content
+
+
+# ---------------------------------------------------------------------------
+# v82: Design-docs index categorization
+# ---------------------------------------------------------------------------
+
+SRC_ROOT = REPO_ROOT / "src" / "helping_hands"
+
+
+class TestDesignDocsIndexCategories:
+    """design-docs/index.md should be organized by topic categories."""
+
+    @pytest.fixture()
+    def index_text(self) -> str:
+        return (DOCS_DIR / "design-docs" / "index.md").read_text()
+
+    @pytest.mark.parametrize(
+        "category",
+        [
+            "## Core",
+            "## Hands",
+            "## Providers and Models",
+            "## Tools and Skills",
+            "## Infrastructure",
+            "## Quality",
+        ],
+    )
+    def test_has_category_heading(self, index_text: str, category: str) -> None:
+        assert category in index_text, (
+            f"design-docs/index.md should have a '{category}' category heading"
+        )
+
+    def test_core_beliefs_in_core_section(self, index_text: str) -> None:
+        core_start = index_text.index("## Core")
+        hands_start = index_text.index("## Hands")
+        core_section = index_text[core_start:hands_start]
+        assert "core-beliefs.md" in core_section
+
+    def test_hand_abstraction_in_hands_section(self, index_text: str) -> None:
+        hands_start = index_text.index("## Hands")
+        providers_start = index_text.index("## Providers and Models")
+        hands_section = index_text[hands_start:providers_start]
+        assert "hand-abstraction.md" in hands_section
+
+    def test_provider_abstraction_in_providers_section(self, index_text: str) -> None:
+        providers_start = index_text.index("## Providers and Models")
+        tools_start = index_text.index("## Tools and Skills")
+        providers_section = index_text[providers_start:tools_start]
+        assert "provider-abstraction.md" in providers_section
+
+    def test_filesystem_security_in_tools_section(self, index_text: str) -> None:
+        tools_start = index_text.index("## Tools and Skills")
+        infra_start = index_text.index("## Infrastructure")
+        tools_section = index_text[tools_start:infra_start]
+        assert "filesystem-security.md" in tools_section
+
+    def test_deployment_modes_in_infrastructure_section(self, index_text: str) -> None:
+        infra_start = index_text.index("## Infrastructure")
+        quality_start = index_text.index("## Quality")
+        infra_section = index_text[infra_start:quality_start]
+        assert "deployment-modes.md" in infra_section
+
+    def test_testing_methodology_in_quality_section(self, index_text: str) -> None:
+        quality_start = index_text.index("## Quality")
+        quality_section = index_text[quality_start:]
+        assert "testing-methodology.md" in quality_section
+
+
+class TestDesignDocsIndexAllDocsListed:
+    """Every design doc must appear in exactly one category in the index."""
+
+    @pytest.fixture()
+    def index_text(self) -> str:
+        return (DOCS_DIR / "design-docs" / "index.md").read_text()
+
+    @pytest.fixture()
+    def design_doc_files(self) -> list[str]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(f.name for f in dd.glob("*.md") if f.name != "index.md")
+
+    def test_each_doc_listed_exactly_once(
+        self, index_text: str, design_doc_files: list[str]
+    ) -> None:
+        linked = re.findall(r"\(([^)]+\.md)\)", index_text)
+        for doc in design_doc_files:
+            count = linked.count(doc)
+            assert count == 1, (
+                f"'{doc}' appears {count} time(s) in design-docs/index.md "
+                f"(expected exactly 1)"
+            )
+
+
+# ---------------------------------------------------------------------------
+# v82: ARCHITECTURE.md cross-references to design docs
+# ---------------------------------------------------------------------------
+
+
+class TestArchitectureDesignDocCrossRefs:
+    """ARCHITECTURE.md should reference key design docs via docs/ links."""
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    def test_references_design_md(self, arch_text: str) -> None:
+        assert "DESIGN.md" in arch_text
+
+    def test_references_agent_md(self, arch_text: str) -> None:
+        assert "AGENT.md" in arch_text
+
+    def test_has_hand_backends_table(self, arch_text: str) -> None:
+        assert "E2EHand" in arch_text
+        assert "BasicLangGraphHand" in arch_text
+        assert "ClaudeCodeHand" in arch_text
+
+    def test_lists_all_cli_hand_modules(self, arch_text: str) -> None:
+        cli_dir = SRC_ROOT / "lib" / "hands" / "v1" / "hand" / "cli"
+        cli_modules = sorted(
+            f.stem
+            for f in cli_dir.glob("*.py")
+            if f.name not in ("__init__.py", "base.py")
+        )
+        for mod in cli_modules:
+            assert mod in arch_text, (
+                f"CLI hand module '{mod}.py' exists in source but is not "
+                f"referenced in ARCHITECTURE.md"
+            )
+
+    def test_key_file_paths_match_source(self, arch_text: str) -> None:
+        """Key paths listed in ARCHITECTURE.md should exist on disk."""
+        paths = re.findall(r"`(src/helping_hands/[^`]+\.py)`", arch_text)
+        assert len(paths) >= 10, "ARCHITECTURE.md should list at least 10 key paths"
+        for rel in paths:
+            full = REPO_ROOT / rel
+            assert full.exists(), f"ARCHITECTURE.md lists '{rel}' but it does not exist"
+
+
+# ---------------------------------------------------------------------------
+# v82: AGENTS.md hand types consistency with source
+# ---------------------------------------------------------------------------
+
+
+class TestAgentsMdHandTypes:
+    """AGENTS.md agent types table should match actual Hand subclasses."""
+
+    @pytest.fixture()
+    def agents_text(self) -> str:
+        return (REPO_ROOT / "AGENTS.md").read_text()
+
+    def test_mentions_cli_hand(self, agents_text: str) -> None:
+        assert "CLI hand" in agents_text
+
+    def test_mentions_worker_hand(self, agents_text: str) -> None:
+        assert "Worker hand" in agents_text
+
+    def test_mentions_mcp_agent(self, agents_text: str) -> None:
+        assert "MCP agent" in agents_text
+
+    def test_mentions_docker_sandbox(self, agents_text: str) -> None:
+        assert "Docker Sandbox" in agents_text or "docker-sandbox" in agents_text
+
+    def test_mentions_scheduled_hand(self, agents_text: str) -> None:
+        assert "Scheduled hand" in agents_text or "RedBeat" in agents_text
+
+    def test_coordination_rules_count(self, agents_text: str) -> None:
+        """Should have at least 5 numbered coordination rules."""
+        rules = re.findall(r"^\d+\.\s+\*\*", agents_text, re.MULTILINE)
+        assert len(rules) >= 5, (
+            f"AGENTS.md has {len(rules)} coordination rules, expected >= 5"
+        )
+
+    def test_file_ownership_table_has_key_paths(self, agents_text: str) -> None:
+        for path_fragment in ["AGENT.md", "README.md", "src/helping_hands", "tests/"]:
+            assert path_fragment in agents_text, (
+                f"AGENTS.md file ownership table should mention '{path_fragment}'"
+            )
+
+    def test_sandbox_section_references_source_class(self, agents_text: str) -> None:
+        assert "DockerSandboxClaudeCodeHand" in agents_text
+
+
+class TestAgentsMdSchedulingSection:
+    """AGENTS.md scheduling section should reference key components."""
+
+    @pytest.fixture()
+    def agents_text(self) -> str:
+        return (REPO_ROOT / "AGENTS.md").read_text()
+
+    def test_mentions_schedule_manager(self, agents_text: str) -> None:
+        assert "ScheduleManager" in agents_text
+
+    def test_mentions_trigger_now(self, agents_text: str) -> None:
+        assert "trigger_now" in agents_text
+
+    def test_mentions_redis_key_pattern(self, agents_text: str) -> None:
+        assert "helping_hands:schedule:" in agents_text
+
+
+# ---------------------------------------------------------------------------
+# v82: Design doc structural quality
+# ---------------------------------------------------------------------------
+
+_FORMAL_DESIGN_DOCS = [
+    "hand-abstraction.md",
+    "two-phase-cli-hands.md",
+    "provider-abstraction.md",
+    "error-handling.md",
+    "mcp-architecture.md",
+    "config-loading.md",
+    "repo-indexing.md",
+    "scheduling-system.md",
+    "deployment-modes.md",
+    "ci-pipeline.md",
+    "skills-system.md",
+    "github-client.md",
+    "pr-description.md",
+    "default-prompts.md",
+    "filesystem-security.md",
+    "model-resolution.md",
+    "e2e-hand-workflow.md",
+    "task-lifecycle.md",
+    "web-tools.md",
+    "docker-sandbox.md",
+    "command-execution.md",
+]
+
+
+class TestDesignDocsHaveContextOrOverview:
+    """Formal design docs should have a Context or Overview section."""
+
+    @pytest.mark.parametrize("doc_name", _FORMAL_DESIGN_DOCS)
+    def test_has_context_or_overview(self, doc_name: str) -> None:
+        path = DOCS_DIR / "design-docs" / doc_name
+        if not path.exists():
+            pytest.skip(f"{doc_name} not found")
+        content = path.read_text()
+        assert "## Context" in content or "## Overview" in content, (
+            f"Design doc '{doc_name}' should have a '## Context' or "
+            f"'## Overview' section"
+        )
+
+
+class TestDesignDocsHaveSubstantiveSection:
+    """Formal design docs should have a Decision, Design, or domain section."""
+
+    @pytest.mark.parametrize("doc_name", _FORMAL_DESIGN_DOCS)
+    def test_has_substantive_section(self, doc_name: str) -> None:
+        path = DOCS_DIR / "design-docs" / doc_name
+        if not path.exists():
+            pytest.skip(f"{doc_name} not found")
+        content = path.read_text()
+        headings = re.findall(r"^## .+", content, re.MULTILINE)
+        # Must have at least 2 h2 headings (context/overview + substance)
+        assert len(headings) >= 2, (
+            f"Design doc '{doc_name}' should have at least 2 ## sections, "
+            f"found {len(headings)}: {headings}"
+        )
+
+
+class TestDesignDocsCrossRefEachOther:
+    """Key design docs should cross-reference related docs."""
+
+    def test_hand_abstraction_refs_two_phase(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "hand-abstraction.md").read_text()
+        assert "two-phase" in content.lower() or "cli" in content.lower()
+
+    def test_provider_refs_model_resolution(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "provider-abstraction.md").read_text()
+        assert "model" in content.lower()
+
+    def test_filesystem_security_refs_tools(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "filesystem-security.md").read_text()
+        assert "resolve_repo_target" in content
+
+    def test_docker_sandbox_refs_claude(self) -> None:
+        content = (DOCS_DIR / "design-docs" / "docker-sandbox.md").read_text()
+        assert "claude" in content.lower() or "Claude" in content
+
+
+class TestDocsIndexDesignDocsCategories:
+    """docs/index.md design-docs listing should mention categorized topics."""
+
+    @pytest.fixture()
+    def index_text(self) -> str:
+        return (DOCS_DIR / "index.md").read_text()
+
+    def test_mentions_design_docs_with_topics(self, index_text: str) -> None:
+        assert "design-docs" in index_text.lower()
+        for topic in ["core beliefs", "hand abstraction", "testing methodology"]:
+            assert topic in index_text.lower(), (
+                f"docs/index.md should mention design doc topic '{topic}'"
+            )
+
+
+class TestActivePlanConsistency:
+    """Active plans directory should be in sync with PLANS.md."""
+
+    @pytest.fixture()
+    def plans_text(self) -> str:
+        return (DOCS_DIR / "PLANS.md").read_text()
+
+    @pytest.fixture()
+    def active_plan_files(self) -> list[str]:
+        active_dir = DOCS_DIR / "exec-plans" / "active"
+        if not active_dir.exists():
+            return []
+        return sorted(f.name for f in active_dir.glob("*.md"))
+
+    def test_active_plans_referenced_or_empty(
+        self, plans_text: str, active_plan_files: list[str]
+    ) -> None:
+        if not active_plan_files:
+            assert "No active plans" in plans_text or "no active" in plans_text.lower()
+        else:
+            for filename in active_plan_files:
+                stem = filename.replace(".md", "")
+                found = filename in plans_text or stem in plans_text
+                assert found, (
+                    f"Active plan '{filename}' exists in exec-plans/active/ "
+                    f"but is not referenced in PLANS.md"
+                )
