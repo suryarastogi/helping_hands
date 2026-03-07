@@ -4430,7 +4430,8 @@ class TestDesignMdErrorRecoveryTable:
         if "\n### " in section:
             section = section.split("\n### ")[0]
         table_rows = [
-            line for line in section.splitlines()
+            line
+            for line in section.splitlines()
             if line.startswith("| **") or line.startswith("| `")
         ]
         assert len(table_rows) >= 8, (
@@ -4494,7 +4495,8 @@ class TestArchitectureMdHandTableSourceAccuracy:
             table_section = table_section.split("\n### ")[0]
         # Count rows starting with | that have hand class names (not header/separator)
         data_rows = [
-            line for line in table_section.splitlines()
+            line
+            for line in table_section.splitlines()
             if line.startswith("| `") or line.startswith("| E2E")
         ]
         assert len(data_rows) >= 9, (
