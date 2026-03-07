@@ -73,4 +73,4 @@ Agents do not communicate directly. Coordination happens through:
 
 ---
 
-*Last updated: 2026-03-06*
+*Last updated: 2026-03-07*

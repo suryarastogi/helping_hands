@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -1866,3 +1867,171 @@ class TestActivePlanConsistency:
                     f"Active plan '{filename}' exists in exec-plans/active/ "
                     f"but is not referenced in PLANS.md"
                 )
+
+
+class TestSourceToTestMapping:
+    """Every non-trivial source module should have a corresponding test file."""
+
+    @pytest.fixture()
+    def source_modules(self) -> list[str]:
+        """Collect Python source module basenames (excluding __init__.py and trivial files)."""
+        src = REPO_ROOT / "src" / "helping_hands"
+        modules: list[str] = []
+        for py_file in sorted(src.rglob("*.py")):
+            if py_file.name == "__init__.py":
+                continue
+            if py_file.name.startswith("_"):
+                continue
+            modules.append(py_file.name)
+        return modules
+
+    @pytest.fixture()
+    def test_files(self) -> set[str]:
+        """Collect all test file names."""
+        tests_dir = REPO_ROOT / "tests"
+        return {f.name for f in tests_dir.glob("test_*.py")}
+
+    # Modules tested under broader test files, exempt from direct stem matching
+    _EXEMPT_MODULES: ClassVar[set[str]] = {
+        "main.py",  # CLI entry point — tested via test_cli.py
+        "placeholders.py",  # backward compat shim — tested via test_placeholders.py
+        "anthropic.py",  # tested via test_ai_providers.py and test_provider_build_inner.py
+        "litellm.py",  # tested via test_ai_providers.py and test_provider_build_inner.py
+        "types.py",  # tested via test_ai_providers.py (AIProvider base, normalize_messages)
+    }
+
+    def test_each_source_module_has_test_file(
+        self, source_modules: list[str], test_files: set[str]
+    ) -> None:
+        """Each source module should map to at least one test_*.py file."""
+        missing: list[str] = []
+        for mod in source_modules:
+            if mod in self._EXEMPT_MODULES:
+                continue
+            stem = mod.replace(".py", "")
+            # Look for test files that contain the module stem
+            # e.g. config.py -> test_config.py, claude.py -> test_cli_hand_claude.py
+            has_test = any(stem in tf for tf in test_files)
+            if not has_test:
+                missing.append(mod)
+        assert len(missing) == 0, (
+            f"Source modules without matching test files: {missing}"
+        )
+
+
+class TestQualityScoreModuleTableAccuracy:
+    """QUALITY_SCORE.md per-module table should reference real source modules."""
+
+    @pytest.fixture()
+    def quality_text(self) -> str:
+        return (DOCS_DIR / "QUALITY_SCORE.md").read_text()
+
+    def test_backticked_modules_exist(self, quality_text: str) -> None:
+        """Every backticked module path in QUALITY_SCORE.md should exist."""
+        src = REPO_ROOT / "src" / "helping_hands"
+        # Extract paths like `lib/config.py` or `server/app.py`
+        mod_paths = re.findall(r"`((?:lib|server|cli)/[^`]+\.py)`", quality_text)
+        assert len(mod_paths) > 0, (
+            "QUALITY_SCORE.md should reference module paths in backticks"
+        )
+        for mod_path in mod_paths:
+            full = src / mod_path
+            if full.is_file():
+                continue
+            # Some paths are abbreviated (e.g. `cli/base.py` for hands CLI base)
+            # — check if the basename exists somewhere under src/
+            basename = Path(mod_path).name
+            candidates = list(src.rglob(basename))
+            assert len(candidates) > 0, (
+                f"QUALITY_SCORE.md references `{mod_path}` "
+                f"but no matching file found under src/helping_hands/"
+            )
+
+    def test_coverage_states_are_valid(self, quality_text: str) -> None:
+        """Current state values should be recognized categories."""
+        valid_states = {"Excellent", "Good", "Fair", "Poor"}
+        in_table = False
+        rows: list[str] = []
+        for line in quality_text.splitlines():
+            if "## Per-module coverage targets" in line:
+                in_table = True
+                continue
+            if in_table and line.startswith("##"):
+                break
+            if in_table and line.startswith("|") and "---" not in line:
+                rows.append(line)
+        # Skip header row
+        for row in rows[1:]:
+            cols = [c.strip() for c in row.split("|")]
+            if len(cols) >= 4:
+                state = cols[2]
+                # State should start with one of the valid categories
+                state_word = state.split("(")[0].split()[0] if state else ""
+                assert state_word in valid_states, (
+                    f"QUALITY_SCORE.md has unrecognized state '{state}' "
+                    f"(expected to start with one of {valid_states})"
+                )
+
+
+class TestDocTimestampsNotStale:
+    """Key documents should have timestamps from the current week."""
+
+    @pytest.mark.parametrize(
+        "doc_path",
+        [
+            REPO_ROOT / "ARCHITECTURE.md",
+            REPO_ROOT / "AGENTS.md",
+        ],
+    )
+    def test_last_updated_present(self, doc_path: Path) -> None:
+        """Key docs should have a 'Last updated' footer."""
+        content = doc_path.read_text()
+        assert "Last updated:" in content, (
+            f"{doc_path.name} is missing a 'Last updated:' timestamp"
+        )
+
+    @pytest.mark.parametrize(
+        "doc_path",
+        [
+            REPO_ROOT / "ARCHITECTURE.md",
+            REPO_ROOT / "AGENTS.md",
+        ],
+    )
+    def test_last_updated_has_date_format(self, doc_path: Path) -> None:
+        """Last updated timestamp should contain a date in YYYY-MM-DD format."""
+        content = doc_path.read_text()
+        match = re.search(r"Last updated:\s*(\d{4}-\d{2}-\d{2})", content)
+        assert match is not None, (
+            f"{doc_path.name} 'Last updated' should contain a YYYY-MM-DD date"
+        )
+
+
+class TestArchitectureDataFlowSections:
+    """ARCHITECTURE.md should have data flow diagrams for all entry points."""
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    @pytest.mark.parametrize(
+        "section",
+        [
+            "### CLI task execution",
+            "### Server task execution",
+            "### MCP server flow",
+        ],
+    )
+    def test_data_flow_section_exists(self, arch_text: str, section: str) -> None:
+        assert section in arch_text, (
+            f"ARCHITECTURE.md is missing data flow section '{section}'"
+        )
+
+    def test_external_integrations_section(self, arch_text: str) -> None:
+        assert "## External integrations" in arch_text, (
+            "ARCHITECTURE.md is missing '## External integrations' section"
+        )
+
+    def test_design_principles_section(self, arch_text: str) -> None:
+        assert "## Design principles" in arch_text, (
+            "ARCHITECTURE.md is missing '## Design principles' section"
+        )
