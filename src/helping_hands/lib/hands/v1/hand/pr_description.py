@@ -331,6 +331,43 @@ def _parse_commit_message(output: str) -> str | None:
     return None
 
 
+_BOILERPLATE_PREFIXES = (
+    "Initialization phase:",
+    "Execution context:",
+    "Repository root:",
+    "Repository context learned",
+    "Task execution phase",
+    "User task request:",
+    "Goals:",
+    "Indexed files:",
+    "Do not ask",
+    "Do not perform",
+    "Use only tools",
+    "If a tool/action",
+    "If required write",
+    "Implement the task",
+    "Follow-up enforcement",
+    "Now apply the required",
+    "Enabled tools and capabilities:",
+    "Skill knowledge catalog:",
+)
+
+
+def _is_boilerplate_line(line: str) -> bool:
+    """Return True if *line* is CLI banner or hand system boilerplate."""
+    import re
+
+    # [label] key=value ... banners
+    if re.match(r"^\[.+?\]\s", line):
+        return True
+    # Numbered list items (e.g. "1. Read README.md") and bullet items
+    if re.match(r"^\d+\.\s", line) or line.startswith("- "):
+        return True
+    # Known hand-system prompt prefixes echoed by the model
+    lower = line.lower()
+    return any(lower.startswith(prefix.lower()) for prefix in _BOILERPLATE_PREFIXES)
+
+
 def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     """Derive a commit message heuristically from the task prompt or summary.
 
@@ -348,8 +385,24 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     if not source:
         return ""
 
-    # Take the first sentence / line, whichever is shorter.
-    first_line = source.split("\n", 1)[0].strip()
+    # Skip CLI banner/metadata and hand system boilerplate that may appear
+    # in raw CLI output when the model echoes prompt context.
+    lines = source.split("\n")
+    first_line = ""
+    for line in lines:
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+        if _is_boilerplate_line(stripped_line):
+            continue
+        first_line = stripped_line
+        break
+    if not first_line:
+        # All lines were banners or empty — fall back to prompt.
+        source = prompt.strip()
+        if not source:
+            return ""
+        first_line = source.split("\n", 1)[0].strip()
     # Split on sentence-ending punctuation followed by a space or end.
     sentence_match = re.match(r"^(.+?[.!?])(?:\s|$)", first_line)
     text = sentence_match.group(1) if sentence_match else first_line

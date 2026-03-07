@@ -2184,6 +2184,34 @@ export default function App() {
   const blinkerColor = statusBlinkerColor(status);
   const isBlinkerAnimated = statusTone(status) === "run";
 
+  // Live elapsed-time timer for running tasks.
+  const startedAtRaw = (payload as Record<string, unknown> | null)?.started_at;
+  const startedAtMs = useMemo(() => {
+    if (typeof startedAtRaw === "string") {
+      const ms = Date.parse(startedAtRaw);
+      return Number.isFinite(ms) ? ms : null;
+    }
+    return null;
+  }, [startedAtRaw]);
+
+  const [elapsedStr, setElapsedStr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!startedAtMs || !isBlinkerAnimated) {
+      setElapsedStr(null);
+      return;
+    }
+    const tick = () => {
+      const totalSec = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      setElapsedStr(m > 0 ? `${m}m ${s.toString().padStart(2, "0")}s` : `${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startedAtMs, isBlinkerAnimated]);
+
   const serviceHealthIndicators: { key: string; label: string; state: "ok" | "error" | "na" | null }[] = [
     {
       key: "api",
@@ -2443,6 +2471,11 @@ export default function App() {
             style={{ backgroundColor: blinkerColor }}
             title={`${status}${isPolling ? " (polling)" : ""}`}
           />
+          {elapsedStr && (
+            <span className="elapsed-timer" title="Elapsed runtime">
+              {elapsedStr}
+            </span>
+          )}
           <span className="info-badge" title={taskId || "No task selected"}>
             i
           </span>

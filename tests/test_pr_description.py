@@ -717,6 +717,54 @@ class TestCommitMessageFromPrompt:
         result = _commit_message_from_prompt("add dark mode toggle", "")
         assert result.startswith("feat: ")
 
+    def test_skips_cli_banner_lines_in_summary(self) -> None:
+        summary = (
+            "[claudecodecli] isolation=workspace-write | auth=native-cli "
+            "(no ANTHROPIC_API_KEY set, using CLI session)\n"
+            "[claudecodecli] [phase 1/2] Initializing repository context...\n"
+            "[claudecodecli] [phase 2/2] Executing user task...\n"
+            "Added OAuth2 login flow with token refresh."
+        )
+        result = _commit_message_from_prompt("add login", summary)
+        assert "added OAuth2 login flow" in result
+        assert "claudecodecli" not in result
+        assert "isolation=" not in result
+
+    def test_falls_back_to_prompt_when_summary_is_all_banners(self) -> None:
+        summary = (
+            "[claudecodecli] isolation=workspace-write | auth=native-cli\n"
+            "[claudecodecli] [phase 1/2] Initializing...\n"
+        )
+        result = _commit_message_from_prompt("add dark mode toggle", summary)
+        assert "add dark mode toggle" in result
+        assert "claudecodecli" not in result
+
+    def test_skips_echoed_hand_prompt_boilerplate(self) -> None:
+        summary = (
+            "Execution context: this hand is running inside a non-interactive "
+            "helping_hands script started by the user.\n"
+            "Repository root: /tmp/repo\n"
+            "Goals:\n"
+            "1. Read README.md\n"
+            "Added a new authentication endpoint with JWT support."
+        )
+        result = _commit_message_from_prompt("add auth", summary)
+        assert "added a new authentication endpoint" in result
+        assert "execution context" not in result.lower()
+
+    def test_falls_back_to_prompt_when_summary_is_all_boilerplate(self) -> None:
+        summary = (
+            "Initialization phase: learn this repository.\n"
+            "Execution context: this hand is running inside a non-interactive "
+            "helping_hands script started by the user.\n"
+            "Repository root: /tmp/repo\n"
+            "Task execution phase.\n"
+        )
+        result = _commit_message_from_prompt("fix login crash", summary)
+        # "fix" prefix is stripped and re-added as "feat:"
+        assert "login crash" in result.lower()
+        assert "execution context" not in result.lower()
+
 
 class TestGenerateCommitMessage:
     def _common_kwargs(self, tmp_path: Path) -> dict:

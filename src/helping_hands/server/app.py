@@ -1140,6 +1140,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
               <span class="meta-label">Polling</span>
               <strong id="polling_label">off</strong>
             </div>
+            <div class="meta-item">
+              <span class="meta-label">Runtime</span>
+              <strong id="runtime_label">-</strong>
+            </div>
           </div>
 
           <article class="output-pane">
@@ -1303,6 +1307,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       const pollingLabelEl = document.getElementById("polling_label");
       const outputTextEl = document.getElementById("output_text");
       const statusBlinkerEl = document.getElementById("status-blinker");
+      const runtimeLabelEl = document.getElementById("runtime_label");
       const tabButtons = Array.from(document.querySelectorAll("[data-output-tab]"));
       const historyStorageKey = "helping_hands_task_history_v1";
       const terminalStatuses = new Set(["SUCCESS", "FAILURE", "REVOKED"]);
@@ -1315,6 +1320,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       let isPolling = false;
       let pollHandle = null;
       let discoveryHandle = null;
+      let runtimeHandle = null;
+      let startedAtMs = null;
       let taskHistory = loadTaskHistory();
 
       // Schedule elements
@@ -1364,6 +1371,28 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       function setTaskId(value) {
         taskId = value || null;
         taskLabelEl.textContent = taskId || "-";
+      }
+
+      function formatElapsed(ms) {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        return m > 0 ? `${m}m ${String(s).padStart(2, "0")}s` : `${s}s`;
+      }
+
+      function startRuntimeTimer(isoStr) {
+        stopRuntimeTimer();
+        const ms = Date.parse(isoStr);
+        if (!Number.isFinite(ms)) return;
+        startedAtMs = ms;
+        const tick = () => { runtimeLabelEl.textContent = formatElapsed(Date.now() - startedAtMs); };
+        tick();
+        runtimeHandle = setInterval(tick, 1000);
+      }
+
+      function stopRuntimeTimer() {
+        if (runtimeHandle) { clearInterval(runtimeHandle); runtimeHandle = null; }
+        startedAtMs = null;
       }
 
       function setPolling(value) {
@@ -1653,11 +1682,16 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           setUpdates([]);
         }
         setOutput(data);
+        const sa = data.result && data.result.started_at;
+        if (sa && !terminalStatuses.has(data.status) && !runtimeHandle) {
+          startRuntimeTimer(sa);
+        }
         upsertTaskHistory({
           taskId: data.task_id,
           status: data.status,
         });
         if (terminalStatuses.has(data.status)) {
+          stopRuntimeTimer();
           showToast(data.task_id, data.status);
           sendBrowserNotification(data.task_id, data.status);
           stopPolling();
@@ -1691,6 +1725,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       }
 
       function selectTask(selectedTaskId) {
+        stopRuntimeTimer();
+        runtimeLabelEl.textContent = "-";
         setStatus("monitoring");
         setOutput(null);
         setUpdates([]);
@@ -1704,6 +1740,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
 
       function clearForNewSubmission() {
         stopPolling();
+        stopRuntimeTimer();
+        runtimeLabelEl.textContent = "-";
         setStatus("idle");
         setTaskId(null);
         setOutput(null);

@@ -7,6 +7,8 @@ import os
 import re
 import shutil
 import subprocess
+import time
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Any
@@ -233,6 +235,7 @@ def _update_progress(
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
     workspace: str | None = None,
+    started_at: str | None = None,
 ) -> None:
     update_state = getattr(task, "update_state", None)
     if not callable(update_state):
@@ -259,6 +262,8 @@ def _update_progress(
     }
     if workspace:
         meta["workspace"] = workspace
+    if started_at:
+        meta["started_at"] = started_at
     update_state(state="PROGRESS", meta=meta)
 
 
@@ -284,6 +289,7 @@ async def _collect_stream(
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
     workspace: str | None = None,
+    started_at: str | None = None,
 ) -> str:
     parts: list[str] = []
     collector = _UpdateCollector(updates)
@@ -316,6 +322,7 @@ async def _collect_stream(
                 fix_ci=fix_ci,
                 ci_check_wait_minutes=ci_check_wait_minutes,
                 workspace=workspace,
+                started_at=started_at,
             )
 
     collector.flush()
@@ -340,6 +347,7 @@ async def _collect_stream(
         fix_ci=fix_ci,
         ci_check_wait_minutes=ci_check_wait_minutes,
         workspace=workspace,
+        started_at=started_at,
     )
     return "".join(parts)
 
@@ -390,6 +398,7 @@ def build_feature(
     meta_tools.validate_tool_category_names(selected_tools)
     selected_skills = meta_skills.normalize_skill_selection(skills)
     meta_skills.validate_skill_names(selected_skills)
+    task_started_at = datetime.now(UTC).isoformat()
     updates: list[str] = []
     _append_update(
         updates,
@@ -422,6 +431,7 @@ def build_feature(
         skills=selected_skills,
         fix_ci=fix_ci,
         ci_check_wait_minutes=ci_check_wait_minutes,
+        started_at=task_started_at,
     )
 
     if runtime_backend == "e2e":
@@ -459,6 +469,7 @@ def build_feature(
             skills=selected_skills,
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
+            started_at=task_started_at,
         )
         response = hand.run(
             prompt,
@@ -557,6 +568,7 @@ def build_feature(
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
             workspace=str(resolved_repo_path),
+            started_at=task_started_at,
         )
 
         try:
@@ -619,6 +631,7 @@ def build_feature(
         hand.pr_number = pr_number
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
+        hand_start = time.monotonic()
         message = asyncio.run(
             _collect_stream(
                 hand,
@@ -641,9 +654,16 @@ def build_feature(
                 fix_ci=fix_ci,
                 ci_check_wait_minutes=ci_check_wait_minutes,
                 workspace=str(resolved_repo_path),
+                started_at=task_started_at,
             )
         )
-        _append_update(updates, "Task complete.")
+        hand_elapsed = time.monotonic() - hand_start
+        minutes, seconds = divmod(hand_elapsed, 60)
+        if minutes >= 1:
+            runtime_str = f"{int(minutes)}m {seconds:.0f}s"
+        else:
+            runtime_str = f"{seconds:.1f}s"
+        _append_update(updates, f"Task complete. Runtime: {runtime_str}")
         return {
             "status": "ok",
             "prompt": prompt,
@@ -653,6 +673,7 @@ def build_feature(
             "repo": repo_path,
             "workspace": str(resolved_repo_path),
             "model": config.model,
+            "started_at": task_started_at,
             "max_iterations": str(resolved_iterations),
             "no_pr": str(no_pr).lower(),
             "enable_execution": str(enable_execution).lower(),
