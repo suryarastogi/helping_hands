@@ -683,6 +683,7 @@ def build_feature(
             "ci_check_wait_minutes": str(ci_check_wait_minutes),
             "tools": list(selected_tools),
             "skills": list(selected_skills),
+            "runtime": runtime_str,
             "message": message,
             "updates": updates,
         }

@@ -1218,6 +1218,7 @@ export default function App() {
     const fixCi = readBoolish(["fix_ci"]);
     const tools = readSkills(["tools"]);
     const skills = readSkills(["skills"]);
+    const runtime = readString(["runtime"]);
 
     if (repoPath) {
       items.push({ label: "Repo", value: repoPath });
@@ -1257,6 +1258,9 @@ export default function App() {
     }
     if (skills) {
       items.push({ label: "Skills", value: skills });
+    }
+    if (runtime) {
+      items.push({ label: "Runtime", value: runtime });
     }
 
     return items;
@@ -2184,8 +2188,10 @@ export default function App() {
   const blinkerColor = statusBlinkerColor(status);
   const isBlinkerAnimated = statusTone(status) === "run";
 
-  // Live elapsed-time timer for running tasks.
-  const startedAtRaw = (payload as Record<string, unknown> | null)?.started_at;
+  // Live elapsed-time timer for running tasks; stored runtime for completed tasks.
+  const payloadResult = (payload as Record<string, unknown> | null)?.result as Record<string, unknown> | undefined;
+  const startedAtRaw = payloadResult?.started_at;
+  const storedRuntime = typeof payloadResult?.runtime === "string" ? payloadResult.runtime : null;
   const startedAtMs = useMemo(() => {
     if (typeof startedAtRaw === "string") {
       const ms = Date.parse(startedAtRaw);
@@ -2211,6 +2217,8 @@ export default function App() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [startedAtMs, isBlinkerAnimated]);
+
+  const runtimeDisplay = elapsedStr ?? storedRuntime;
 
   const serviceHealthIndicators: { key: string; label: string; state: "ok" | "error" | "na" | null }[] = [
     {
@@ -2471,9 +2479,9 @@ export default function App() {
             style={{ backgroundColor: blinkerColor }}
             title={`${status}${isPolling ? " (polling)" : ""}`}
           />
-          {elapsedStr && (
+          {runtimeDisplay && (
             <span className="elapsed-timer" title="Elapsed runtime">
-              {elapsedStr}
+              {runtimeDisplay}
             </span>
           )}
           <span className="info-badge" title={taskId || "No task selected"}>

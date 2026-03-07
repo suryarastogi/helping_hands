@@ -1692,6 +1692,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         });
         if (terminalStatuses.has(data.status)) {
           stopRuntimeTimer();
+          const rt = data.result && data.result.runtime;
+          if (rt) { runtimeLabelEl.textContent = rt; }
           showToast(data.task_id, data.status);
           sendBrowserNotification(data.task_id, data.status);
           stopPolling();
