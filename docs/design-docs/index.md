@@ -39,6 +39,7 @@ Index of design documents for helping_hands.
 - [GitHub Client](github-client.md) — Authentication, clone/branch/PR lifecycle, and token safety
 - [CI Pipeline](ci-pipeline.md) — GitHub Actions workflows, matrix strategy, coverage, and docs deployment
 - [Local Stack](local-stack.md) — Native process management for local development with Docker data services
+- [Usage Monitoring](usage-monitoring.md) — Claude Code OAuth usage polling, Keychain token retrieval, Postgres persistence
 
 ## Quality
 

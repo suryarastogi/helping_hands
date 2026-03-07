@@ -4279,3 +4279,283 @@ class TestTechDebtQualityScoreConsistency:
         assert "tech-debt-tracker" in quality_score_text, (
             "QUALITY_SCORE.md should reference the tech-debt-tracker"
         )
+
+
+# ---------------------------------------------------------------------------
+# Usage-monitoring design doc content validation
+# ---------------------------------------------------------------------------
+
+
+class TestUsageMonitoringDesignDoc:
+    """Usage-monitoring design doc should cover key concepts and source refs."""
+
+    @pytest.fixture()
+    def doc_text(self) -> str:
+        return (DOCS_DIR / "design-docs" / "usage-monitoring.md").read_text()
+
+    def test_context_section_exists(self, doc_text: str) -> None:
+        assert "## Context" in doc_text, (
+            "usage-monitoring.md should have a Context section"
+        )
+
+    def test_decision_section_exists(self, doc_text: str) -> None:
+        assert "## Decision" in doc_text, (
+            "usage-monitoring.md should have a Decision section"
+        )
+
+    def test_alternatives_section_exists(self, doc_text: str) -> None:
+        assert "## Alternatives considered" in doc_text, (
+            "usage-monitoring.md should have an Alternatives considered section"
+        )
+
+    def test_consequences_section_exists(self, doc_text: str) -> None:
+        assert "## Consequences" in doc_text, (
+            "usage-monitoring.md should have a Consequences section"
+        )
+
+    def test_references_log_claude_usage(self, doc_text: str) -> None:
+        assert "log_claude_usage" in doc_text, (
+            "usage-monitoring.md should reference log_claude_usage task"
+        )
+
+    def test_references_ensure_usage_schedule(self, doc_text: str) -> None:
+        assert "ensure_usage_schedule" in doc_text, (
+            "usage-monitoring.md should reference ensure_usage_schedule"
+        )
+
+    def test_references_keychain(self, doc_text: str) -> None:
+        assert "Keychain" in doc_text, (
+            "usage-monitoring.md should reference macOS Keychain"
+        )
+
+    def test_references_oauth_api(self, doc_text: str) -> None:
+        assert "oauth" in doc_text.lower(), (
+            "usage-monitoring.md should reference OAuth API"
+        )
+
+    def test_references_postgres(self, doc_text: str) -> None:
+        assert "Postgres" in doc_text or "claude_usage_log" in doc_text, (
+            "usage-monitoring.md should reference Postgres or claude_usage_log"
+        )
+
+    def test_references_redbeat(self, doc_text: str) -> None:
+        assert "RedBeat" in doc_text, (
+            "usage-monitoring.md should reference RedBeat scheduling"
+        )
+
+    def test_three_stage_failure_model(self, doc_text: str) -> None:
+        assert "independent" in doc_text.lower(), (
+            "usage-monitoring.md should describe independent failure stages"
+        )
+
+    def test_source_references_section(self, doc_text: str) -> None:
+        assert "celery_app.py" in doc_text, (
+            "usage-monitoring.md should reference celery_app.py source"
+        )
+
+    def test_listed_in_design_docs_index(self) -> None:
+        index_text = (DOCS_DIR / "design-docs" / "index.md").read_text()
+        assert "usage-monitoring" in index_text, (
+            "usage-monitoring.md should be listed in design-docs/index.md"
+        )
+
+
+# ---------------------------------------------------------------------------
+# PLANS.md link and chronology validation
+# ---------------------------------------------------------------------------
+
+
+class TestPlansMdLinks:
+    """PLANS.md completed plan links and chronological ordering."""
+
+    @pytest.fixture()
+    def plans_text(self) -> str:
+        return (DOCS_DIR / "PLANS.md").read_text()
+
+    def test_completed_plan_links_resolve(self, plans_text: str) -> None:
+        """Every completed plan link should point to an existing file."""
+        links = re.findall(r"\[.*?\]\((exec-plans/completed/[^)]+)\)", plans_text)
+        assert len(links) > 0, "PLANS.md should have at least one completed plan link"
+        for link in links:
+            path = DOCS_DIR / link
+            assert path.exists(), f"PLANS.md links to {link} but file does not exist"
+
+    def test_completed_plans_in_chronological_order(self, plans_text: str) -> None:
+        """Completed plan dates should be in reverse chronological order."""
+        dates = re.findall(r"(\d{4}-\d{2}-\d{2}) consolidated", plans_text)
+        assert len(dates) > 1, "Should have multiple completed plan dates"
+        assert dates == sorted(dates, reverse=True), (
+            "Completed plans should be in reverse chronological order"
+        )
+
+
+# ---------------------------------------------------------------------------
+# DESIGN.md error recovery table completeness
+# ---------------------------------------------------------------------------
+
+
+class TestDesignMdErrorRecoveryTable:
+    """DESIGN.md error recovery patterns table should list all 8 patterns."""
+
+    EXPECTED_PATTERNS: ClassVar[list[str]] = [
+        "Exception suppression",
+        "Retry with modified command",
+        "Fallback command",
+        "Graceful degradation",
+        "Default branch fallback",
+        "Platform capability detection",
+        "Idle timeout with heartbeat",
+        "Async fallback chains",
+    ]
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    def test_error_recovery_section_exists(self, design_text: str) -> None:
+        assert "### Error recovery patterns" in design_text, (
+            "DESIGN.md should have an Error recovery patterns section"
+        )
+
+    @pytest.mark.parametrize("pattern", EXPECTED_PATTERNS)
+    def test_error_recovery_pattern_listed(
+        self, design_text: str, pattern: str
+    ) -> None:
+        assert pattern in design_text, (
+            f"DESIGN.md error recovery table missing pattern: {pattern}"
+        )
+
+    def test_error_recovery_table_has_minimum_rows(self, design_text: str) -> None:
+        section = design_text.split("### Error recovery patterns")[1]
+        if "\n### " in section:
+            section = section.split("\n### ")[0]
+        table_rows = [
+            line for line in section.splitlines()
+            if line.startswith("| **") or line.startswith("| `")
+        ]
+        assert len(table_rows) >= 8, (
+            f"Error recovery table should have >= 8 rows, got {len(table_rows)}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# ARCHITECTURE.md hand table source file accuracy
+# ---------------------------------------------------------------------------
+
+
+class TestArchitectureMdHandTableSourceAccuracy:
+    """ARCHITECTURE.md hand table modules should map to actual source files."""
+
+    HAND_MODULES: ClassVar[list[str]] = [
+        "e2e.py",
+        "langgraph.py",
+        "atomic.py",
+        "codex.py",
+        "claude.py",
+        "goose.py",
+        "gemini.py",
+        "opencode.py",
+        "docker_sandbox_claude.py",
+    ]
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    def test_hand_table_exists(self, arch_text: str) -> None:
+        assert "| Hand |" in arch_text or "| `E2EHand`" in arch_text, (
+            "ARCHITECTURE.md should have a hand backends table"
+        )
+
+    @pytest.mark.parametrize("module", HAND_MODULES)
+    def test_hand_module_in_table(self, arch_text: str, module: str) -> None:
+        assert module in arch_text, (
+            f"ARCHITECTURE.md hand table missing module: {module}"
+        )
+
+    @pytest.mark.parametrize("module", HAND_MODULES)
+    def test_hand_module_source_exists(self, module: str) -> None:
+        """Every hand module referenced in ARCHITECTURE.md should exist."""
+        hand_dir = REPO_ROOT / "src" / "helping_hands" / "lib" / "hands" / "v1" / "hand"
+        # CLI hands are in cli/ subdirectory
+        if (hand_dir / module).exists():
+            return
+        if (hand_dir / "cli" / module).exists():
+            return
+        pytest.fail(
+            f"ARCHITECTURE.md references {module} but source file not found "
+            f"in {hand_dir} or {hand_dir / 'cli'}"
+        )
+
+    def test_hand_count_matches_table(self, arch_text: str) -> None:
+        """The number of hand rows in the table should match known hand count."""
+        table_section = arch_text.split("### 3. Hand backends")[1]
+        if "\n### " in table_section:
+            table_section = table_section.split("\n### ")[0]
+        # Count rows starting with | that have hand class names (not header/separator)
+        data_rows = [
+            line for line in table_section.splitlines()
+            if line.startswith("| `") or line.startswith("| E2E")
+        ]
+        assert len(data_rows) >= 9, (
+            f"Hand table should have >= 9 rows (one per hand), got {len(data_rows)}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# ARCHITECTURE.md design principles validation
+# ---------------------------------------------------------------------------
+
+
+class TestArchitectureMdDesignPrinciples:
+    """ARCHITECTURE.md design principles should cover core tenets."""
+
+    EXPECTED_PRINCIPLES: ClassVar[list[str]] = [
+        "Plain data",
+        "Streaming",
+        "Explicit config",
+        "Path-safe",
+        "Idempotent",
+    ]
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    def test_design_principles_section_exists(self, arch_text: str) -> None:
+        assert "## Design principles" in arch_text, (
+            "ARCHITECTURE.md should have a Design principles section"
+        )
+
+    @pytest.mark.parametrize("principle", EXPECTED_PRINCIPLES)
+    def test_design_principle_present(self, arch_text: str, principle: str) -> None:
+        assert principle.lower() in arch_text.lower(), (
+            f"ARCHITECTURE.md design principles missing: {principle}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# ARCHITECTURE.md layers section completeness
+# ---------------------------------------------------------------------------
+
+
+class TestArchitectureMdLayers:
+    """ARCHITECTURE.md should document all key architectural layers."""
+
+    EXPECTED_LAYERS: ClassVar[list[str]] = [
+        "Entry points",
+        "Core library",
+        "Hand backends",
+        "Model resolution",
+        "Finalization",
+    ]
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    @pytest.mark.parametrize("layer", EXPECTED_LAYERS)
+    def test_layer_documented(self, arch_text: str, layer: str) -> None:
+        assert layer in arch_text, (
+            f"ARCHITECTURE.md missing layer documentation: {layer}"
+        )
