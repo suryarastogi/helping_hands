@@ -4,7 +4,8 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-_No active plans._
+- [v99 - Docs and testing improvements](exec-plans/active/v99-docs-testing-improvements.md) --
+  Dedicated Anthropic/Google provider test files, _build_inner coverage, docs updates
 
 ## Completed plans
 
