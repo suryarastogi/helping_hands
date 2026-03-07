@@ -2756,3 +2756,473 @@ class TestDesignMdPatternSubsections:
         assert heading in design_text, (
             f"DESIGN.md is missing pattern subsection '{heading}'"
         )
+
+
+class TestArchitectureKeyFilePathsAccuracy:
+    """ARCHITECTURE.md key file paths table entries must resolve to real files."""
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    @pytest.fixture()
+    def key_paths(self, arch_text: str) -> list[str]:
+        """Extract backticked paths from the Key file paths table."""
+        in_table = False
+        paths: list[str] = []
+        for line in arch_text.splitlines():
+            if "Key file paths" in line:
+                in_table = True
+                continue
+            if in_table and line.startswith("|") and "`" in line:
+                for match in re.findall(r"`(src/[^`]+)`", line):
+                    paths.append(match)
+            elif in_table and line.startswith("---"):
+                break
+        return paths
+
+    def test_key_paths_exist(self, key_paths: list[str]) -> None:
+        assert len(key_paths) > 0, "No key file paths found in ARCHITECTURE.md"
+        for path in key_paths:
+            assert (REPO_ROOT / path).exists(), (
+                f"ARCHITECTURE.md key file path '{path}' does not exist"
+            )
+
+    def test_minimum_key_paths(self, key_paths: list[str]) -> None:
+        assert len(key_paths) >= 10, (
+            f"Expected at least 10 key file paths, found {len(key_paths)}"
+        )
+
+
+class TestArchitectureUsageMonitoring:
+    """ARCHITECTURE.md usage monitoring section should reference key components."""
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    def test_usage_monitoring_section_exists(self, arch_text: str) -> None:
+        assert "Usage monitoring" in arch_text
+
+    @pytest.mark.parametrize(
+        "keyword",
+        [
+            "log_claude_usage",
+            "Keychain",
+            "usage_schedule",
+            "Postgres",
+        ],
+    )
+    def test_usage_monitoring_references(self, arch_text: str, keyword: str) -> None:
+        assert keyword.lower() in arch_text.lower(), (
+            f"ARCHITECTURE.md usage monitoring section should reference '{keyword}'"
+        )
+
+
+class TestArchitectureTaskResultNormalization:
+    """ARCHITECTURE.md task result normalization section references."""
+
+    @pytest.fixture()
+    def arch_text(self) -> str:
+        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
+
+    def test_task_result_section_exists(self, arch_text: str) -> None:
+        assert "Task result normalization" in arch_text
+
+    def test_references_task_result_module(self, arch_text: str) -> None:
+        assert "task_result.py" in arch_text
+
+    def test_references_json_serializable(self, arch_text: str) -> None:
+        assert "JSON-serializable" in arch_text
+
+
+class TestDesignMdErrorRecoveryPatterns:
+    """DESIGN.md error recovery patterns table should cover all strategies."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "Exception suppression with fallback",
+            "Retry with modified command",
+            "Fallback command",
+            "Graceful degradation",
+            "Default branch fallback",
+            "Platform capability detection",
+            "Idle timeout with heartbeat",
+            "Async fallback chains",
+        ],
+    )
+    def test_error_recovery_pattern_listed(
+        self, design_text: str, pattern: str
+    ) -> None:
+        assert pattern in design_text, (
+            f"DESIGN.md error recovery table missing pattern '{pattern}'"
+        )
+
+    def test_error_recovery_has_table(self, design_text: str) -> None:
+        assert "| Pattern |" in design_text, (
+            "DESIGN.md should have an error recovery patterns table"
+        )
+
+
+class TestDesignMdMetaToolsLayer:
+    """DESIGN.md meta tools layer section should cover all submodules."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    def test_meta_tools_section_exists(self, design_text: str) -> None:
+        assert "### Meta tools layer" in design_text
+
+    @pytest.mark.parametrize(
+        "submodule",
+        [
+            "filesystem.py",
+            "command.py",
+            "registry.py",
+            "web.py",
+        ],
+    )
+    def test_meta_tools_submodule_referenced(
+        self, design_text: str, submodule: str
+    ) -> None:
+        assert submodule in design_text, (
+            f"DESIGN.md meta tools section should reference '{submodule}'"
+        )
+
+
+class TestDesignMdFinalizationSection:
+    """DESIGN.md finalization section should cover key resilience patterns."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    def test_finalization_section_exists(self, design_text: str) -> None:
+        assert "### Finalization" in design_text
+
+    @pytest.mark.parametrize(
+        "keyword",
+        [
+            "whoami fallback",
+            "precommit cleanup",
+            "default_branch fallback",
+        ],
+    )
+    def test_finalization_resilience_patterns(
+        self, design_text: str, keyword: str
+    ) -> None:
+        assert keyword in design_text, (
+            f"DESIGN.md finalization section should reference '{keyword}'"
+        )
+
+
+class TestSecurityDeploymentRecommendations:
+    """SECURITY.md deployment recommendations should cover key areas."""
+
+    @pytest.fixture()
+    def security_text(self) -> str:
+        return (DOCS_DIR / "SECURITY.md").read_text()
+
+    def test_recommendations_section_exists(self, security_text: str) -> None:
+        assert "## Recommendations for deployment" in security_text
+
+    @pytest.mark.parametrize(
+        "keyword",
+        [
+            "GITHUB_TOKEN",
+            "API keys",
+            "Docker",
+            "enable_execution",
+            "sandbox",
+        ],
+    )
+    def test_recommendation_covers_topic(
+        self, security_text: str, keyword: str
+    ) -> None:
+        # Check in the recommendations section (after the heading)
+        idx = security_text.find("## Recommendations for deployment")
+        assert idx >= 0
+        recommendations = security_text[idx:]
+        assert keyword in recommendations, (
+            f"SECURITY.md recommendations should reference '{keyword}'"
+        )
+
+    def test_minimum_recommendations(self, security_text: str) -> None:
+        idx = security_text.find("## Recommendations for deployment")
+        recommendations = security_text[idx:]
+        numbered = [
+            line for line in recommendations.splitlines() if re.match(r"\d+\.", line)
+        ]
+        assert len(numbered) >= 5, (
+            f"Expected at least 5 deployment recommendations, found {len(numbered)}"
+        )
+
+
+class TestSecurityApiKeyHandling:
+    """SECURITY.md API key handling section should cover key practices."""
+
+    @pytest.fixture()
+    def security_text(self) -> str:
+        return (DOCS_DIR / "SECURITY.md").read_text()
+
+    def test_api_key_section_exists(self, security_text: str) -> None:
+        assert "## API key handling" in security_text
+
+    @pytest.mark.parametrize(
+        "keyword",
+        [
+            "environment variables",
+            ".env",
+            "native-cli-auth",
+            ".gitignore",
+        ],
+    )
+    def test_api_key_practice_mentioned(self, security_text: str, keyword: str) -> None:
+        # Check within the API key handling section
+        idx = security_text.find("## API key handling")
+        end_idx = security_text.find("\n## ", idx + 1)
+        section = security_text[idx:end_idx] if end_idx > 0 else security_text[idx:]
+        assert keyword in section, (
+            f"SECURITY.md API key handling should reference '{keyword}'"
+        )
+
+
+class TestDocsIndexBackendRequirements:
+    """docs/index.md should have backend requirements sections."""
+
+    @pytest.fixture()
+    def index_text(self) -> str:
+        return (DOCS_DIR / "index.md").read_text()
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "## Codex backend requirements",
+            "## Claude Code backend requirements",
+            "## Goose backend requirements",
+            "## Gemini backend requirements",
+        ],
+    )
+    def test_backend_requirements_section(self, index_text: str, heading: str) -> None:
+        assert heading in index_text, f"docs/index.md missing '{heading}'"
+
+    def test_each_backend_has_env_vars(self, index_text: str) -> None:
+        for backend in ["Codex", "Claude Code", "Goose", "Gemini"]:
+            heading = f"## {backend} backend requirements"
+            idx = index_text.find(heading)
+            assert idx >= 0, f"Missing {heading}"
+            end_idx = index_text.find("\n## ", idx + 1)
+            section = index_text[idx:end_idx] if end_idx > 0 else index_text[idx:]
+            assert "Env vars" in section or "env" in section.lower(), (
+                f"{backend} backend requirements should mention env vars"
+            )
+
+
+class TestDocsIndexApiRefCompleteness:
+    """docs/index.md API reference section should list core modules."""
+
+    @pytest.fixture()
+    def index_text(self) -> str:
+        return (DOCS_DIR / "index.md").read_text()
+
+    def test_api_reference_section_exists(self, index_text: str) -> None:
+        assert "## API Reference" in index_text
+
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "config",
+            "repo",
+            "github",
+            "ai providers",
+            "hands",
+            "meta tools",
+            "mcp_server",
+        ],
+    )
+    def test_api_ref_lists_module(self, index_text: str, module: str) -> None:
+        idx = index_text.find("## API Reference")
+        assert idx >= 0
+        end_idx = index_text.find("\n## ", idx + 1)
+        section = index_text[idx:end_idx] if end_idx > 0 else index_text[idx:]
+        assert module in section, f"docs/index.md API Reference should list '{module}'"
+
+
+class TestReliabilityMdDockerSandboxFailures:
+    """RELIABILITY.md should document Docker sandbox failure modes."""
+
+    @pytest.fixture()
+    def reliability_text(self) -> str:
+        return (DOCS_DIR / "RELIABILITY.md").read_text()
+
+    def test_docker_sandbox_failures_section(self, reliability_text: str) -> None:
+        assert "### Docker sandbox failures" in reliability_text
+
+    @pytest.mark.parametrize(
+        "failure_mode",
+        [
+            "Plugin unavailable",
+            "Docker not found",
+            "Sandbox creation failure",
+            "Cleanup guarantee",
+            "Name collision prevention",
+        ],
+    )
+    def test_docker_failure_mode_documented(
+        self, reliability_text: str, failure_mode: str
+    ) -> None:
+        assert failure_mode in reliability_text, (
+            f"RELIABILITY.md missing Docker sandbox failure mode '{failure_mode}'"
+        )
+
+
+class TestReliabilityMdAsyncFallbacks:
+    """RELIABILITY.md should document async compatibility fallbacks."""
+
+    @pytest.fixture()
+    def reliability_text(self) -> str:
+        return (DOCS_DIR / "RELIABILITY.md").read_text()
+
+    def test_async_fallbacks_section(self, reliability_text: str) -> None:
+        assert "### Async compatibility fallbacks" in reliability_text
+
+    @pytest.mark.parametrize(
+        "scenario",
+        [
+            "AssertionError",
+            "sync",
+            "awaitable",
+        ],
+    )
+    def test_async_scenario_documented(
+        self, reliability_text: str, scenario: str
+    ) -> None:
+        # Check in the async compatibility section
+        idx = reliability_text.find("### Async compatibility fallbacks")
+        end_idx = reliability_text.find("\n## ", idx + 1)
+        section = (
+            reliability_text[idx:end_idx] if end_idx > 0 else reliability_text[idx:]
+        )
+        assert scenario in section, (
+            f"RELIABILITY.md async fallbacks should mention '{scenario}'"
+        )
+
+
+class TestAgentsMdCommunicationChannels:
+    """AGENTS.md communication section should list all channels."""
+
+    @pytest.fixture()
+    def agents_text(self) -> str:
+        return (REPO_ROOT / "AGENTS.md").read_text()
+
+    def test_communication_section_exists(self, agents_text: str) -> None:
+        assert "## Communication between agents" in agents_text
+
+    @pytest.mark.parametrize(
+        "channel",
+        [
+            "Git branches",
+            "PR comments",
+            "Task status API",
+            "Celery inspect",
+            "Redis schedules",
+        ],
+    )
+    def test_communication_channel_listed(self, agents_text: str, channel: str) -> None:
+        idx = agents_text.find("## Communication between agents")
+        section = agents_text[idx:]
+        assert channel in section, (
+            f"AGENTS.md communication section should list '{channel}'"
+        )
+
+
+class TestAgentsMdFileOwnership:
+    """AGENTS.md file ownership table should cover key paths."""
+
+    @pytest.fixture()
+    def agents_text(self) -> str:
+        return (REPO_ROOT / "AGENTS.md").read_text()
+
+    @pytest.mark.parametrize(
+        "path_pattern",
+        [
+            "AGENT.md",
+            "README.md",
+            "src/helping_hands/**",
+            "tests/**",
+            "docs/**",
+        ],
+    )
+    def test_file_ownership_paths(self, agents_text: str, path_pattern: str) -> None:
+        assert path_pattern in agents_text, (
+            f"AGENTS.md file ownership should cover '{path_pattern}'"
+        )
+
+
+class TestDesignDocsHaveDecisionSection:
+    """Design docs should include a Decision section explaining the choice."""
+
+    @pytest.fixture()
+    def design_doc_files(self) -> list[Path]:
+        dd = DOCS_DIR / "design-docs"
+        return sorted(f for f in dd.glob("*.md") if f.name != "index.md")
+
+    def test_at_least_half_have_decision_section(
+        self, design_doc_files: list[Path]
+    ) -> None:
+        with_decision = sum(
+            1
+            for f in design_doc_files
+            if "## Decision" in f.read_text() or "## Context" in f.read_text()
+        )
+        assert with_decision >= len(design_doc_files) // 2, (
+            f"At least half of design docs should have Decision/Context sections, "
+            f"found {with_decision}/{len(design_doc_files)}"
+        )
+
+
+class TestQualityScoreRemainingGapsTable:
+    """QUALITY_SCORE.md remaining gaps table should list documented dead code."""
+
+    @pytest.fixture()
+    def qs_text(self) -> str:
+        return (DOCS_DIR / "QUALITY_SCORE.md").read_text()
+
+    def test_remaining_gaps_section_exists(self, qs_text: str) -> None:
+        assert "## Remaining coverage gaps" in qs_text
+
+    def test_remaining_gaps_has_table(self, qs_text: str) -> None:
+        idx = qs_text.find("## Remaining coverage gaps")
+        section = qs_text[idx:]
+        assert "| Module |" in section, "Remaining gaps section should have a table"
+
+    def test_remaining_gaps_reference_dead_code(self, qs_text: str) -> None:
+        idx = qs_text.find("## Remaining coverage gaps")
+        section = qs_text[idx:]
+        # Should mention dead code or untestable
+        assert "dead code" in section.lower() or "untestable" in section.lower(), (
+            "Remaining gaps should explain items as dead code or untestable"
+        )
+
+    @pytest.mark.parametrize(
+        "module_ref",
+        [
+            "cli/main.py",
+            "cli/base.py",
+            "iterative.py",
+            "web.py",
+            "mcp_server.py",
+        ],
+    )
+    def test_remaining_gaps_lists_known_modules(
+        self, qs_text: str, module_ref: str
+    ) -> None:
+        idx = qs_text.find("## Remaining coverage gaps")
+        section = qs_text[idx:]
+        assert module_ref in section, f"Remaining gaps should list '{module_ref}'"
