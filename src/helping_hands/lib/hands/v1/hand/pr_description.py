@@ -371,45 +371,49 @@ def _is_boilerplate_line(line: str) -> bool:
 def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     """Derive a commit message heuristically from the task prompt or summary.
 
-    Used as a fallback when no CLI tool is available.  Prefers the user's
-    *prompt* (always a clean task description) over the *summary* (which
-    for CLI hands can be raw streaming output full of metadata).
+    Used as a fallback when no CLI tool is available.  When the *summary*
+    contains boilerplate/banner lines mixed with real content, the first
+    non-boilerplate line is preferred (it describes what was actually done).
+    Otherwise the *prompt* (a clean human-written task description) is used.
     """
     import re
 
-    # Prefer prompt — it's always a clean human-written task description.
-    # The summary for CLI hands often starts with metadata like
-    # "[claudecodecli] isolation=workspace-write | auth=..." which is useless
-    # for a commit message.
-    source = prompt.strip() if prompt.strip() else summary.strip()
-    if not source:
-        return ""
-
-    # Skip CLI banner/metadata and hand system boilerplate that may appear
-    # in raw CLI output when the model echoes prompt context.
-    lines = source.split("\n")
+    # When the summary contains raw CLI output (boilerplate lines), try to
+    # extract the first meaningful non-boilerplate line — it describes what
+    # was actually done and is more informative than the short prompt.
     first_line = ""
-    for line in lines:
-        stripped_line = line.strip()
-        if not stripped_line:
-            continue
-        if _is_boilerplate_line(stripped_line):
-            continue
-        first_line = stripped_line
-        break
+    if summary.strip():
+        had_boilerplate = False
+        candidate = ""
+        for line in summary.strip().split("\n"):
+            stripped_line = line.strip()
+            if not stripped_line:
+                continue
+            if _is_boilerplate_line(stripped_line):
+                had_boilerplate = True
+                continue
+            if not candidate:
+                candidate = stripped_line
+            break
+        if had_boilerplate and candidate:
+            first_line = candidate
+
+    # Fall back to prompt (always a clean human-written task description),
+    # or to the raw summary if prompt is empty.
     if not first_line:
-        # All lines were banners or empty — fall back to prompt.
-        source = prompt.strip()
+        source = prompt.strip() if prompt.strip() else summary.strip()
         if not source:
             return ""
         first_line = source.split("\n", 1)[0].strip()
+
     # Split on sentence-ending punctuation followed by a space or end.
     sentence_match = re.match(r"^(.+?[.!?])(?:\s|$)", first_line)
     text = sentence_match.group(1) if sentence_match else first_line
 
-    # Strip leading conventional-commit prefix if already present (requires colon).
+    # Strip leading conventional-commit prefix if already present
+    # (with optional parenthetical scope, e.g. "feat(auth): ...").
     stripped = re.sub(
-        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)\s*:\s*",
+        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)(\([^)]*\))?\s*:\s*",
         "",
         text,
         flags=re.IGNORECASE,
