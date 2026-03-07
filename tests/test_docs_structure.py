@@ -3226,3 +3226,311 @@ class TestQualityScoreRemainingGapsTable:
         idx = qs_text.find("## Remaining coverage gaps")
         section = qs_text[idx:]
         assert module_ref in section, f"Remaining gaps should list '{module_ref}'"
+
+
+class TestDesignMdTwoPhaseCliHooksTable:
+    """DESIGN.md two-phase CLI hooks table should list real hook methods."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    @pytest.fixture()
+    def hooks_section(self, design_text: str) -> str:
+        idx = design_text.find("### Two-phase CLI hands")
+        assert idx != -1, "DESIGN.md must have a Two-phase CLI hands section"
+        end = design_text.find("\n### ", idx + 1)
+        return design_text[idx:end] if end != -1 else design_text[idx:]
+
+    @pytest.mark.parametrize(
+        "hook_method",
+        [
+            "_apply_backend_defaults",
+            "_retry_command_after_failure",
+            "_build_failure_message",
+            "_fallback_command_when_not_found",
+            "_resolve_cli_model",
+        ],
+    )
+    def test_hook_methods_listed(self, hooks_section: str, hook_method: str) -> None:
+        assert hook_method in hooks_section, (
+            f"DESIGN.md two-phase CLI hooks table should list '{hook_method}'"
+        )
+
+    def test_hooks_table_has_header(self, hooks_section: str) -> None:
+        assert "| Hook method |" in hooks_section, (
+            "Two-phase CLI hooks section should have a table with Hook method header"
+        )
+
+    @pytest.mark.parametrize(
+        "backend_name",
+        ["Claude", "Codex", "Gemini", "Goose", "OpenCode"],
+    )
+    def test_backend_specific_behaviors_listed(
+        self, design_text: str, backend_name: str
+    ) -> None:
+        idx = design_text.find("#### Backend-specific behaviors")
+        assert idx != -1, "DESIGN.md must have Backend-specific behaviors section"
+        section = design_text[idx:]
+        assert backend_name in section, (
+            f"Backend-specific behaviors should mention '{backend_name}'"
+        )
+
+
+class TestDesignMdHealthChecksTable:
+    """DESIGN.md health checks table should list probe functions."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    @pytest.fixture()
+    def health_section(self, design_text: str) -> str:
+        idx = design_text.find("### Health checks and server config")
+        assert idx != -1, "DESIGN.md must have Health checks section"
+        end = design_text.find("\n### ", idx + 1)
+        return design_text[idx:end] if end != -1 else design_text[idx:]
+
+    @pytest.mark.parametrize(
+        "probe_name",
+        [
+            "_check_redis_health",
+            "_check_db_health",
+            "_check_workers_health",
+        ],
+    )
+    def test_probe_functions_listed(self, health_section: str, probe_name: str) -> None:
+        assert probe_name in health_section, (
+            f"Health checks table should list '{probe_name}'"
+        )
+
+    def test_health_section_has_table(self, health_section: str) -> None:
+        assert "| Probe |" in health_section, (
+            "Health checks section should have a table with Probe header"
+        )
+
+    def test_is_running_in_docker_mentioned(self, health_section: str) -> None:
+        assert "_is_running_in_docker" in health_section, (
+            "Health checks section should reference _is_running_in_docker"
+        )
+
+
+class TestDesignMdGitHubClientSection:
+    """DESIGN.md GitHub client section should cover key design choices."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    @pytest.fixture()
+    def github_section(self, design_text: str) -> str:
+        idx = design_text.find("### GitHub client abstraction")
+        assert idx != -1, "DESIGN.md must have GitHub client abstraction section"
+        end = design_text.find("\n### ", idx + 1)
+        return design_text[idx:end] if end != -1 else design_text[idx:]
+
+    @pytest.mark.parametrize(
+        "concept",
+        [
+            "Context manager",
+            "Token resolution",
+            "Check run aggregation",
+            "upsert_pr_comment",
+        ],
+    )
+    def test_key_concepts_covered(self, github_section: str, concept: str) -> None:
+        assert concept in github_section, (
+            f"GitHub client section should mention '{concept}'"
+        )
+
+    def test_static_git_helpers_mentioned(self, github_section: str) -> None:
+        assert "staticmethod" in github_section.lower() or "Static" in github_section, (
+            "GitHub client section should mention static git helpers"
+        )
+
+
+class TestFrontendMdApiEndpointsTable:
+    """FRONTEND.md API endpoints table should list all shared endpoints."""
+
+    @pytest.fixture()
+    def frontend_text(self) -> str:
+        return (DOCS_DIR / "FRONTEND.md").read_text()
+
+    @pytest.fixture()
+    def api_section(self, frontend_text: str) -> str:
+        idx = frontend_text.find("## API endpoints used by both UIs")
+        assert idx != -1, "FRONTEND.md must have API endpoints section"
+        return frontend_text[idx:]
+
+    @pytest.mark.parametrize(
+        "endpoint",
+        [
+            "/build",
+            "/tasks/{task_id}",
+            "/tasks/current",
+            "/monitor/{task_id}",
+            "/workers/capacity",
+        ],
+    )
+    def test_endpoint_listed(self, api_section: str, endpoint: str) -> None:
+        assert endpoint in api_section, (
+            f"FRONTEND.md API endpoints table should list '{endpoint}'"
+        )
+
+    def test_api_section_has_table(self, api_section: str) -> None:
+        assert "| Endpoint |" in api_section, (
+            "API endpoints section should have a table with Endpoint header"
+        )
+
+    def test_api_section_includes_methods(self, api_section: str) -> None:
+        assert "POST" in api_section and "GET" in api_section, (
+            "API endpoints table should include HTTP methods"
+        )
+
+
+class TestFrontendMdComponentStructure:
+    """FRONTEND.md should document the component structure."""
+
+    @pytest.fixture()
+    def frontend_text(self) -> str:
+        return (DOCS_DIR / "FRONTEND.md").read_text()
+
+    def test_component_structure_section_exists(self, frontend_text: str) -> None:
+        assert "### Component structure" in frontend_text
+
+    @pytest.mark.parametrize(
+        "filename",
+        ["App.tsx", "main.tsx", "styles.css", "App.test.tsx"],
+    )
+    def test_key_files_listed(self, frontend_text: str, filename: str) -> None:
+        assert filename in frontend_text, (
+            f"FRONTEND.md component structure should list '{filename}'"
+        )
+
+    def test_state_management_section(self, frontend_text: str) -> None:
+        assert "### State management" in frontend_text
+
+    def test_key_typescript_types_section(self, frontend_text: str) -> None:
+        assert "### Key TypeScript types" in frontend_text
+
+    @pytest.mark.parametrize(
+        "ts_type",
+        ["Backend", "FormState", "TaskStatus"],
+    )
+    def test_key_types_listed(self, frontend_text: str, ts_type: str) -> None:
+        assert ts_type in frontend_text, (
+            f"FRONTEND.md should list TypeScript type '{ts_type}'"
+        )
+
+
+class TestSecurityMdSubprocessExecution:
+    """SECURITY.md subprocess execution section should cover key protections."""
+
+    @pytest.fixture()
+    def security_text(self) -> str:
+        return (DOCS_DIR / "SECURITY.md").read_text()
+
+    @pytest.fixture()
+    def subprocess_section(self, security_text: str) -> str:
+        idx = security_text.find("## Subprocess execution")
+        assert idx != -1, "SECURITY.md must have Subprocess execution section"
+        end = security_text.find("\n## ", idx + 1)
+        return security_text[idx:end] if end != -1 else security_text[idx:]
+
+    @pytest.mark.parametrize(
+        "protection",
+        [
+            "shell=True",
+            "Idle timeout",
+            "--enable-execution",
+        ],
+    )
+    def test_protection_mentioned(
+        self, subprocess_section: str, protection: str
+    ) -> None:
+        assert (
+            protection in subprocess_section
+            or protection.lower() in subprocess_section.lower()
+        ), f"Subprocess execution section should mention '{protection}'"
+
+    def test_env_var_mentioned(self, subprocess_section: str) -> None:
+        assert "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS" in subprocess_section, (
+            "Subprocess section should reference idle timeout env var"
+        )
+
+
+class TestDesignMdTwoPhaseLifecycle:
+    """DESIGN.md should document the two-phase lifecycle and IO loop."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    def test_two_phase_lifecycle_section(self, design_text: str) -> None:
+        assert "### Two-phase lifecycle and IO loop" in design_text
+
+    @pytest.mark.parametrize(
+        "concept",
+        [
+            "_run_two_phase",
+            "_invoke_cli_with_cmd",
+            "Idle timeout",
+            "Heartbeat messages",
+            "Interrupt handling",
+        ],
+    )
+    def test_lifecycle_concepts_covered(self, design_text: str, concept: str) -> None:
+        idx = design_text.find("### Two-phase lifecycle and IO loop")
+        assert idx != -1
+        section = design_text[idx:]
+        assert concept in section, (
+            f"Two-phase lifecycle section should cover '{concept}'"
+        )
+
+    def test_docker_sandbox_integration_noted(self, design_text: str) -> None:
+        idx = design_text.find("### Two-phase lifecycle and IO loop")
+        assert idx != -1
+        end = design_text.find("\n### ", idx + 1)
+        section = design_text[idx:end] if end != -1 else design_text[idx:]
+        assert "DockerSandbox" in section or "_ensure_sandbox" in section, (
+            "Two-phase lifecycle should note Docker sandbox integration"
+        )
+
+
+class TestDesignMdTestingPatternsSection:
+    """DESIGN.md testing patterns section should describe key test practices."""
+
+    @pytest.fixture()
+    def design_text(self) -> str:
+        return (DOCS_DIR / "DESIGN.md").read_text()
+
+    @pytest.fixture()
+    def testing_section(self, design_text: str) -> str:
+        idx = design_text.find("### Testing patterns")
+        assert idx != -1, "DESIGN.md must have Testing patterns section"
+        end = design_text.find("\n## ", idx + 1)
+        return design_text[idx:end] if end != -1 else design_text[idx:]
+
+    @pytest.mark.parametrize(
+        "pattern_keyword",
+        [
+            "monkeypatch",
+            "importorskip",
+            "Dead code documentation",
+            "Coverage-guided iteration",
+            "Fake dataclasses",
+        ],
+    )
+    def test_pattern_described(
+        self, testing_section: str, pattern_keyword: str
+    ) -> None:
+        assert pattern_keyword in testing_section, (
+            f"Testing patterns section should describe '{pattern_keyword}'"
+        )
+
+    def test_section_has_bold_headings(self, testing_section: str) -> None:
+        bold_count = testing_section.count("**")
+        assert bold_count >= 8, (
+            f"Testing patterns section should have multiple bold-formatted "
+            f"headings, found {bold_count // 2} pairs"
+        )
