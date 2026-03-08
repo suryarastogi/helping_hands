@@ -200,6 +200,63 @@ class Hand(abc.ABC):
         return bool(getattr(self.config, "enable_execution", False))
 
     @staticmethod
+    def _is_git_hook_failure(error_msg: str) -> bool:
+        """Return True if a git error looks like a pre-commit hook failure."""
+        lowered = error_msg.lower()
+        markers = (
+            "husky -",
+            "husky:",
+            "lint-staged",
+            "pre-commit hook",
+            "hook failed",
+            "eslint found",
+            "eslint:",
+            "prettier",
+        )
+        return any(marker in lowered for marker in markers)
+
+    def _try_fix_git_hook_errors(
+        self,
+        repo_dir: Path,
+        error_output: str,
+    ) -> bool:
+        """Attempt to fix pre-commit hook errors using the AI backend.
+
+        Override in subclasses that have access to an AI backend CLI.
+        Returns True if fixes were applied (files changed), False otherwise.
+        """
+        return False
+
+    def _add_and_commit_with_hook_retry(
+        self,
+        gh: Any,
+        repo_dir: Path,
+        message: str,
+    ) -> str:
+        """Stage, commit, and retry once if a git hook fails.
+
+        Calls ``gh.add_and_commit`` and, on hook failure, invokes
+        ``_try_fix_git_hook_errors`` to let the AI backend fix the issues.
+        Returns the commit SHA.
+        """
+        try:
+            return gh.add_and_commit(repo_dir, message)
+        except RuntimeError as exc:
+            error_msg = str(exc)
+            if not self._is_git_hook_failure(error_msg):
+                raise
+
+            logger.info(
+                "Git hook failure detected, attempting AI-assisted fix: %s",
+                error_msg[:200],
+            )
+
+            if not self._try_fix_git_hook_errors(repo_dir, error_msg):
+                raise
+
+            return gh.add_and_commit(repo_dir, message)
+
+    @staticmethod
     def _run_precommit_checks_and_fixes(repo_dir: Path) -> None:
         command = ["uv", "run", "pre-commit", "run", "--all-files"]
 
@@ -314,7 +371,8 @@ class Hand(abc.ABC):
             or f"feat({backend}): apply hand updates"
         )
 
-        commit_sha = gh.add_and_commit(
+        commit_sha = self._add_and_commit_with_hook_retry(
+            gh,
             repo_dir,
             commit_msg,
         )
@@ -585,7 +643,8 @@ class Hand(abc.ABC):
                     or f"feat({backend}): apply hand updates"
                 )
 
-                commit_sha = gh.add_and_commit(
+                commit_sha = self._add_and_commit_with_hook_retry(
+                    gh,
                     repo_dir,
                     commit_msg,
                 )

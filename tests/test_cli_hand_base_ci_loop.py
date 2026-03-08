@@ -221,13 +221,13 @@ class TestCiFixLoopConclusions:
             patch(
                 "helping_hands.lib.github.GitHubClient",
                 return_value=mock_gh,
-            ) as gh_cls,
+            ),
             patch.object(stub, "_poll_ci_checks", new=poll_mock),
             patch.object(stub, "_invoke_backend", new=AsyncMock(return_value="")),
             patch.object(stub, "_repo_has_changes", return_value=True),
             patch.object(_TwoPhaseCLIHand, "_push_noninteractive", return_value=None),
         ):
-            gh_cls.add_and_commit = MagicMock(return_value="newsha123")
+            mock_gh.add_and_commit = MagicMock(return_value="newsha123")
             result = _run(stub._ci_fix_loop(prompt="p", metadata=meta, emit=emit))
         assert result["ci_fix_status"] == "success"
         assert result["ci_fix_attempts"] == "1"

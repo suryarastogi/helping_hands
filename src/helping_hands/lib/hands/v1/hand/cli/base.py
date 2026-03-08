@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import shlex
 import shutil
@@ -15,6 +16,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+logger = logging.getLogger(__name__)
 
 
 class _TwoPhaseCLIHand(Hand):
@@ -922,7 +925,8 @@ class _TwoPhaseCLIHand(Hand):
                         continue
 
                     # Commit and push the fix
-                    new_sha = GitHubClient.add_and_commit(
+                    new_sha = self._add_and_commit_with_hook_retry(
+                        gh,
                         repo_dir,
                         f"fix(ci): attempt {attempt} — "
                         f"fix CI failures ({self._BACKEND_NAME})",
@@ -967,6 +971,97 @@ class _TwoPhaseCLIHand(Hand):
             error = metadata.get("ci_fix_error", "")
             return f"[{self._CLI_LABEL}] CI fix error: {error}"
         return None
+
+    # ------------------------------------------------------------------
+    # Pre-commit hook fix
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_hook_fix_prompt(error_output: str) -> str:
+        """Build a prompt asking the AI backend to fix git hook errors."""
+        truncated = error_output.strip()
+        if len(truncated) > 3000:
+            truncated = f"{truncated[:3000]}\n...[truncated]"
+
+        return (
+            "Git pre-commit hook fix.\n\n"
+            "A git commit was rejected because pre-commit hooks "
+            "(husky/lint-staged/eslint/prettier) reported errors.\n\n"
+            "Hook error output:\n"
+            f"```\n{truncated}\n```\n\n"
+            "Please fix the issues reported by the hooks:\n"
+            "1. Read the error messages carefully\n"
+            "2. Fix the linting, formatting, or type errors in the affected files\n"
+            "3. Do not run git commit yourself\n\n"
+            "Focus only on fixing the hook errors. "
+            "Do not make unrelated changes."
+        )
+
+    def _try_fix_git_hook_errors(
+        self,
+        repo_dir: Path,
+        error_output: str,
+    ) -> bool:
+        """Invoke the AI backend synchronously to fix hook errors."""
+        prompt = self._build_hook_fix_prompt(error_output)
+        cmd = self._render_command(prompt)
+        env = self._build_subprocess_env()
+
+        logger.info(
+            "[%s] Invoking backend to fix git hook errors...",
+            self._CLI_LABEL,
+        )
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(repo_dir),
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+                timeout=300,
+            )
+        except FileNotFoundError:
+            fallback = self._fallback_command_when_not_found(cmd)
+            if fallback and fallback != cmd:
+                try:
+                    result = subprocess.run(
+                        fallback,
+                        cwd=str(repo_dir),
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        env=env,
+                        timeout=300,
+                    )
+                except (FileNotFoundError, subprocess.TimeoutExpired):
+                    logger.warning(
+                        "[%s] Fallback command also failed for hook fix.",
+                        self._CLI_LABEL,
+                    )
+                    return False
+            else:
+                logger.warning(
+                    "[%s] Backend CLI not found for hook fix.",
+                    self._CLI_LABEL,
+                )
+                return False
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "[%s] Backend timed out while attempting hook fix.",
+                self._CLI_LABEL,
+            )
+            return False
+
+        if result.returncode != 0:
+            logger.warning(
+                "[%s] Backend returned non-zero (%d) during hook fix.",
+                self._CLI_LABEL,
+                result.returncode,
+            )
+
+        return self._repo_has_changes()
 
     def interrupt(self) -> None:
         super().interrupt()
