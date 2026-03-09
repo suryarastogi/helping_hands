@@ -19,9 +19,9 @@ _No active plans._
 - [2026-03-03](exec-plans/completed/2026-03-03.md) --
   OpenCode hand, prompt in task inputs, merged schedule/skills/usage/concurrency branch; 0 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --
-  Multi-backend expansion (Goose, Gemini, Ollama), React frontend launch, animated office world view, cron scheduling, usage tracking, skills/tools refactor; pre-test-suite
+  Multi-backend expansion (Goose, Gemini, Ollama), React frontend launch, animated office world view, cron scheduling, usage tracking, skills/tools refactor; 0 tests (pre-test-suite)
 - [2026-02-23 Week 8](exec-plans/completed/2026/Week-8.md) --
-  Project inception: Hand abstraction, AI providers, Celery, MCP server, GitHub integration, Claude Code CLI, E2E flow; pre-test-suite
+  Project inception: Hand abstraction, AI providers, Celery, MCP server, GitHub integration, Claude Code CLI, E2E flow; 0 tests (pre-test-suite)
 
 ## How plans work
 
