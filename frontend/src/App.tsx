@@ -170,7 +170,7 @@ type CharacterStyle = {
   variant: WorkerVariant;
 };
 
-type SceneWorkerPhase = "arriving" | "active" | "leaving";
+type SceneWorkerPhase = "at-factory" | "walking-to-desk" | "active" | "walking-to-exit" | "at-exit";
 
 type SceneWorker = {
   taskId: string;
@@ -260,12 +260,23 @@ const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
 };
 
 const DASHBOARD_VIEW_STORAGE_KEY = "helping_hands_dashboard_view_v1";
-const SCENE_PHASE_DURATION_MS = 900;
+const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
+  "at-factory": 80,
+  "walking-to-desk": 1500,
+  "active": Infinity,
+  "walking-to-exit": 1500,
+  "at-exit": 400,
+};
 const DEFAULT_WORLD_MAX_WORKERS = 8;
+
+const FACTORY_POS = { left: 8, top: 52 };
+const INCINERATOR_POS = { left: 92, top: 52 };
 
 const PLAYER_MOVE_STEP = 1.2;
 const PLAYER_SIZE = { width: 3.5, height: 4 };
 const DESK_SIZE = { width: 8, height: 7 };
+const FACTORY_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
+const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 };
 const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
 
 const DEFAULT_CHARACTER_STYLE: CharacterStyle = {
@@ -651,6 +662,17 @@ export function checkDeskCollision(
     const overlapsY = playerBottom > collisionTop && playerTop < deskBottom;
 
     if (overlapsX && overlapsY) {
+      return true;
+    }
+  }
+
+  // Check factory and incinerator collisions
+  for (const box of [FACTORY_COLLISION, INCINERATOR_COLLISION]) {
+    const bLeft = box.left;
+    const bRight = box.left + box.width;
+    const bTop = box.top;
+    const bBottom = box.top + box.height;
+    if (playerRight > bLeft && playerLeft < bRight && playerBottom > bTop && playerTop < bBottom) {
       return true;
     }
   }
@@ -1340,16 +1362,16 @@ export default function App() {
           next.push({
             taskId: task.taskId,
             slot,
-            phase: "arriving",
+            phase: "at-factory",
             phaseChangedAt: now,
           });
           continue;
         }
-        if (existing.phase === "leaving") {
+        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
           next.push({
             ...existing,
             slot,
-            phase: "arriving",
+            phase: "at-factory",
             phaseChangedAt: now,
           });
           continue;
@@ -1368,13 +1390,13 @@ export default function App() {
         if (activeIds.has(existing.taskId)) {
           continue;
         }
-        if (existing.phase === "leaving") {
+        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
           next.push(existing);
           continue;
         }
         next.push({
           ...existing,
-          phase: "leaving",
+          phase: "walking-to-exit",
           phaseChangedAt: now,
         });
       }
@@ -1388,6 +1410,13 @@ export default function App() {
       return;
     }
 
+    const NEXT_PHASE: Partial<Record<SceneWorkerPhase, SceneWorkerPhase | null>> = {
+      "at-factory": "walking-to-desk",
+      "walking-to-desk": "active",
+      "walking-to-exit": "at-exit",
+      "at-exit": null,
+    };
+
     const handle = window.setInterval(() => {
       const now = Date.now();
       setSceneWorkers((current) => {
@@ -1396,17 +1425,19 @@ export default function App() {
 
         for (const worker of current) {
           const elapsed = now - worker.phaseChangedAt;
-          if (worker.phase === "arriving" && elapsed >= SCENE_PHASE_DURATION_MS) {
+          const duration = PHASE_DURATION[worker.phase];
+          if (duration !== Infinity && elapsed >= duration) {
+            const nextPhase = NEXT_PHASE[worker.phase];
+            if (nextPhase === null || nextPhase === undefined) {
+              delete slotByTaskRef.current[worker.taskId];
+              hasChanges = true;
+              continue;
+            }
             next.push({
               ...worker,
-              phase: "active",
+              phase: nextPhase,
               phaseChangedAt: now,
             });
-            hasChanges = true;
-            continue;
-          }
-          if (worker.phase === "leaving" && elapsed >= SCENE_PHASE_DURATION_MS) {
-            delete slotByTaskRef.current[worker.taskId];
             hasChanges = true;
             continue;
           }
@@ -1415,7 +1446,7 @@ export default function App() {
 
         return hasChanges ? next : current;
       });
-    }, 180);
+    }, 100);
 
     return () => {
       window.clearInterval(handle);
@@ -2934,42 +2965,104 @@ export default function App() {
           <>
             <section className="card hand-world-card">
               <header className="header">
-                <h1>Hand Office</h1>
-                <p>{maxOfficeWorkers} desks &middot; click a hand to stream its output</p>
+                <h1>Zen Garden</h1>
+                <p>{maxOfficeWorkers} plots &middot; click a gardener to stream its output</p>
               </header>
 
               <div
                 ref={sceneRef}
                 className="world-scene office-scene"
                 role="list"
-                aria-label="Current office workers"
+                aria-label="Current garden workers"
                 style={worldSceneStyle}
                 tabIndex={0}
               >
-                <div className="office-border" aria-hidden="true" />
-                <div className="office-main-floor" aria-hidden="true" />
+                <div className="zen-border" aria-hidden="true" />
+                <div className="zen-sand-floor" aria-hidden="true" />
 
-                {deskSlots.map((slot) => (
-                  <div
-                    key={slot.id}
-                    className="office-desk"
-                    style={{ left: `${slot.left}%`, top: `${slot.top}%` }}
-                    aria-hidden="true"
-                  >
-                    <span className="desk-screen" />
-                    <span className="desk-keyboard" />
-                    <span className="desk-chair" />
-                  </div>
-                ))}
+                {/* Sky & mountains backdrop */}
+                <div className="zen-sky" aria-hidden="true">
+                  <div className="zen-mountain zen-mountain-1" />
+                  <div className="zen-mountain zen-mountain-2" />
+                  <div className="zen-mountain zen-mountain-3" />
+                  <div className="zen-moon" />
+                </div>
 
-                <div className="office-status-summary">
-                  <div className="status-summary-header">Office Status</div>
+                {/* Garden decorations */}
+                <div className="zen-gravel-path" aria-hidden="true" />
+                <div className="zen-bamboo" aria-hidden="true">
+                  <span className="bamboo-stalk bamboo-stalk-1" />
+                  <span className="bamboo-stalk bamboo-stalk-2" />
+                  <span className="bamboo-stalk bamboo-stalk-3" />
+                  <span className="bamboo-leaves" />
+                </div>
+                <div className="zen-maple" aria-hidden="true">
+                  <span className="maple-trunk" />
+                  <span className="maple-canopy maple-canopy-1" />
+                  <span className="maple-canopy maple-canopy-2" />
+                  <span className="maple-canopy maple-canopy-3" />
+                </div>
+                <div className="zen-lantern" aria-hidden="true">
+                  <span className="lantern-cap" />
+                  <span className="lantern-light" />
+                  <span className="lantern-base" />
+                  <span className="lantern-glow" />
+                </div>
+                <div className="zen-rock zen-rock-lg" aria-hidden="true" />
+                <div className="zen-rock zen-rock-sm" aria-hidden="true" />
+
+                {/* Torii gate entrance (middle-left) */}
+                <div className="zen-torii" aria-hidden="true">
+                  <span className="torii-top" />
+                  <span className="torii-beam" />
+                  <span className="torii-pillar torii-pillar-l" />
+                  <span className="torii-pillar torii-pillar-r" />
+                  <span className="torii-lantern" />
+                  <div className="torii-label">GATE</div>
+                </div>
+
+                {/* Spirit shrine exit (middle-right) */}
+                <div className="zen-shrine" aria-hidden="true">
+                  <span className="shrine-roof" />
+                  <span className="shrine-body" />
+                  <span className="shrine-opening" />
+                  <span className="shrine-smoke shrine-smoke-1" />
+                  <span className="shrine-smoke shrine-smoke-2" />
+                  <span className="shrine-glow" />
+                  <div className="shrine-label">SHRINE</div>
+                </div>
+
+                {deskSlots.map((slot, slotIdx) => {
+                  const occupant = sceneWorkerEntries.find((w) => w.slot === slotIdx);
+                  const showBonsai = occupant && (occupant.phase === "walking-to-desk" || occupant.phase === "active");
+                  return (
+                    <div
+                      key={slot.id}
+                      className="zen-plot"
+                      style={{ left: `${slot.left}%`, top: `${slot.top}%` }}
+                      aria-hidden="true"
+                    >
+                      {showBonsai && (
+                        <span className={`bonsai-tree${occupant.phase === "active" ? " grown" : ""}`}>
+                          <span className="bonsai-trunk" />
+                          <span className="bonsai-canopy bonsai-canopy-1" />
+                          <span className="bonsai-canopy bonsai-canopy-2" />
+                          <span className="bonsai-canopy bonsai-canopy-3" />
+                          <span className="bonsai-pot" />
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="zen-status-summary">
+                  <div className="status-summary-header">Garden Status</div>
                   <div className="status-summary-stat">
-                    <span className="stat-icon">&#128187;</span>
-                    <span>{maxOfficeWorkers} Desks</span>
+                    <span className="stat-icon">&#127794;</span>
+                    <span>{maxOfficeWorkers} Plots</span>
                   </div>
                   <div className="status-summary-stat">
-                    <span className="stat-icon">&#129302;</span>
+                    <span className="stat-icon">&#129488;</span>
                     <span>{sceneWorkerEntries.length} Active</span>
                   </div>
                   <div className="status-summary-stat">
@@ -2979,7 +3072,7 @@ export default function App() {
                   <div className="status-summary-hint">Use arrow keys to walk</div>
                 </div>
 
-                <div className="office-usage-summary">
+                <div className="zen-usage-summary">
                   <div className="status-summary-header">
                     Claude Usage
                     <button
@@ -3030,16 +3123,29 @@ export default function App() {
                   <span className="human-shadow" />
                   <span className="human-body">
                     <span className="human-helmet" />
+                    <span className="human-helmet-light" />
                     <span className="human-visor" />
+                    <span className="human-visor-shine" />
                     <span className="human-torso" />
+                    <span className="human-belt" />
+                    <span className="human-buckle" />
                     <span className="human-arm human-arm-left" />
+                    <span className="human-glove human-glove-left" />
                     <span className="human-arm human-arm-right" />
+                    <span className="human-glove human-glove-right" />
                     <span className="human-leg human-leg-left" />
+                    <span className="human-boot human-boot-left" />
                     <span className="human-leg human-leg-right" />
+                    <span className="human-boot human-boot-right" />
                   </span>
                 </div>
 
-                {sceneWorkerEntries.map((worker) => (
+                {sceneWorkerEntries.map((worker) => {
+                  const isAtFactory = worker.phase === "at-factory";
+                  const isAtExit = worker.phase === "walking-to-exit" || worker.phase === "at-exit";
+                  const posLeft = isAtFactory ? FACTORY_POS.left : isAtExit ? INCINERATOR_POS.left : worker.desk.left;
+                  const posTop = isAtFactory ? FACTORY_POS.top : isAtExit ? INCINERATOR_POS.top : worker.desk.top;
+                  return (
                     <button
                       key={worker.taskId}
                       type="button"
@@ -3048,8 +3154,8 @@ export default function App() {
                         taskId === worker.taskId ? " selected" : ""
                       }`}
                       style={{
-                        left: `${worker.desk.left}%`,
-                        top: `${worker.desk.top}%`,
+                        left: `${posLeft}%`,
+                        top: `${posTop}%`,
                       }}
                       onClick={() => selectTask(worker.taskId)}
                       title={`${worker.task?.backend ?? "unknown"} • ${worker.taskId}${worker.task?.repoPath ? ` • ${worker.task.repoPath}` : ""}${worker.schedule ? ` • ${worker.schedule.name} (${worker.schedule.cron_expression})` : ""}`}
@@ -3059,6 +3165,13 @@ export default function App() {
                         <span className="sprite-shadow" />
                         {worker.spriteVariant === "goose" ? (
                           <>
+                            <span
+                              className="goose-tail"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
+                              }}
+                            />
                             <span
                               className="goose-body"
                               style={{
@@ -3070,6 +3183,19 @@ export default function App() {
                               className="goose-wing"
                               style={{
                                 backgroundColor: worker.style.skinColor,
+                              }}
+                            />
+                            <span
+                              className="goose-wing-tip"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                              }}
+                            />
+                            <span
+                              className="goose-neck"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
                               }}
                             />
                             <span
@@ -3086,6 +3212,14 @@ export default function App() {
                               }}
                             />
                             <span
+                              className="goose-eye"
+                              style={{
+                                backgroundColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span className="goose-brow" style={{ backgroundColor: worker.style.outlineColor }} />
+                            <span className="goose-cheek" />
+                            <span
                               className="goose-leg goose-leg-left"
                               style={{
                                 backgroundColor: worker.style.accentColor,
@@ -3098,19 +3232,69 @@ export default function App() {
                               }}
                             />
                             <span
-                              className="goose-eye"
+                              className="goose-foot goose-foot-left"
                               style={{
-                                backgroundColor: worker.style.outlineColor,
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="goose-foot goose-foot-right"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
                               }}
                             />
                           </>
                         ) : (
                           <>
                             <span
+                              className="bot-antenna"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="bot-antenna-tip"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="bot-ear bot-ear-left"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="bot-ear bot-ear-right"
+                              style={{
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
                               className="bot-head"
                               style={{
                                 backgroundColor: worker.style.skinColor,
                                 borderColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="bot-eye bot-eye-left"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="bot-eye bot-eye-right"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
+                              }}
+                            />
+                            <span
+                              className="bot-mouth"
+                              style={{
+                                backgroundColor: worker.style.accentColor,
                               }}
                             />
                             <span
@@ -3127,15 +3311,17 @@ export default function App() {
                               }}
                             />
                             <span
-                              className="bot-eye bot-eye-left"
+                              className="bot-arm bot-arm-left"
                               style={{
-                                backgroundColor: worker.style.accentColor,
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
                               }}
                             />
                             <span
-                              className="bot-eye bot-eye-right"
+                              className="bot-arm bot-arm-right"
                               style={{
-                                backgroundColor: worker.style.accentColor,
+                                backgroundColor: worker.style.bodyColor,
+                                borderColor: worker.style.outlineColor,
                               }}
                             />
                             <span
@@ -3151,9 +3337,15 @@ export default function App() {
                               }}
                             />
                             <span
-                              className="bot-antenna"
+                              className="bot-foot bot-foot-left"
                               style={{
-                                backgroundColor: worker.style.accentColor,
+                                backgroundColor: worker.style.outlineColor,
+                              }}
+                            />
+                            <span
+                              className="bot-foot bot-foot-right"
+                              style={{
+                                backgroundColor: worker.style.outlineColor,
                               }}
                             />
                           </>
@@ -3183,7 +3375,8 @@ export default function App() {
                         })()}
                       </span>
                     </button>
-                  ))}
+                  );
+                })}
               </div>
 
             </section>

@@ -1,6 +1,5 @@
 # Project todos
 
-## Front end
-
-- [x] improve test coverage to 80%+ (82.3% statements, 80.2% branches as of v55)
-- [x] use integration test/playwright for better coverage of UI components and interactions (25 Playwright e2e tests covering smoke, submission, schedule, monitor, world view)
+## Hand World
+- [ ] Make better/more detailed like a DS game 
+- [ ] Add an entrance (like a factory producing bots) where the bots come from and walk to a desk, after completing the bot should walk into an incinerator and disappear

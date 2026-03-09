@@ -410,7 +410,7 @@ describe("buildDeskSlots", () => {
 describe("checkDeskCollision", () => {
   it("returns false when player is far from desks", () => {
     const desks = buildDeskSlots(1);
-    expect(checkDeskCollision(90, 90, desks)).toBe(false);
+    expect(checkDeskCollision(50, 50, desks)).toBe(false);
   });
 
   it("returns true when player overlaps a desk", () => {

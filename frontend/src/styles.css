@@ -762,15 +762,15 @@ h2 {
   box-shadow: inset 0 0 0 3px rgba(59, 130, 246, 0.5);
 }
 
-.office-border {
+.zen-border {
   position: absolute;
   inset: 0;
-  border: 4px solid #020617;
-  box-shadow: inset 0 0 0 2px #1e293b;
+  border: 4px solid #3d3225;
+  box-shadow: inset 0 0 0 2px #5c4a3a;
   z-index: 0;
 }
 
-.office-main-floor {
+.zen-sand-floor {
   position: absolute;
   left: 2%;
   top: 3%;
@@ -778,76 +778,554 @@ h2 {
   height: 94%;
   background:
     repeating-linear-gradient(
-      to right,
-      #a16835 0,
-      #a16835 14px,
-      #975f2f 14px,
-      #975f2f 28px
+      135deg,
+      transparent 0,
+      transparent 18px,
+      rgba(180, 160, 130, 0.15) 18px,
+      rgba(180, 160, 130, 0.15) 19px
     ),
     repeating-linear-gradient(
-      to bottom,
-      #aa7444 0,
-      #aa7444 14px,
-      #9a6434 14px,
-      #9a6434 28px
-    );
-  border: 3px solid #2e1b11;
-  box-shadow: inset 0 0 0 2px rgba(241, 186, 132, 0.25);
+      45deg,
+      transparent 0,
+      transparent 24px,
+      rgba(160, 140, 110, 0.1) 24px,
+      rgba(160, 140, 110, 0.1) 25px
+    ),
+    linear-gradient(180deg, #d4c5a9 0%, #c9b898 100%);
+  border: 3px solid #8b7355;
+  box-shadow: inset 0 0 0 2px rgba(212, 197, 169, 0.4);
   z-index: 1;
 }
 
-.office-desk {
+/* ── Sky & Mountains Backdrop ── */
+.zen-sky {
   position: absolute;
-  width: 17%;
-  min-width: 88px;
-  max-width: 128px;
-  height: 52px;
-  transform: translate(-50%, -50%);
-  border: 3px solid #221206;
+  left: 2%;
+  top: 3%;
+  width: 96%;
+  height: 18%;
+  background: linear-gradient(180deg, #4a6fa5 0%, #7ba7cc 40%, #c9a8b8 70%, #dcc5a0 100%);
+  border: 3px solid #8b7355;
+  border-bottom: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.zen-mountain {
+  position: absolute;
+  bottom: 0;
+  background: #6b7f6b;
+  border-radius: 50% 50% 0 0;
+}
+
+.zen-mountain-1 {
+  left: 10%;
+  width: 35%;
+  height: 70%;
+  background: linear-gradient(180deg, #5a6d5a 0%, #7a8d7a 100%);
+}
+
+.zen-mountain-2 {
+  left: 35%;
+  width: 40%;
+  height: 90%;
+  background: linear-gradient(180deg, #4a5d4a 0%, #6b7f6b 100%);
+}
+
+.zen-mountain-3 {
+  right: 5%;
+  width: 30%;
+  height: 55%;
+  background: linear-gradient(180deg, #6b806b 0%, #8a9d8a 100%);
+}
+
+.zen-moon {
+  position: absolute;
+  right: 12%;
+  top: 15%;
+  width: 14px;
+  height: 14px;
+  background: #fef9c3;
+  border-radius: 50%;
+  box-shadow: 0 0 8px 3px rgba(254, 249, 195, 0.3);
+  z-index: 1;
+}
+
+/* ── Gravel Path ── */
+.zen-gravel-path {
+  position: absolute;
+  left: 12%;
+  top: 45%;
+  width: 64%;
+  height: 12%;
   background:
     repeating-linear-gradient(
-      to right,
-      #8b541f 0,
-      #8b541f 12px,
-      #9d6227 12px,
-      #9d6227 24px
-    ),
-    linear-gradient(180deg, transparent 0 70%, #3b2413 70%);
-  box-shadow: 0 3px 0 #120a04;
-  z-index: 4;
+      90deg,
+      #a89880 0,
+      #a89880 3px,
+      #9e8e76 3px,
+      #9e8e76 6px
+    );
+  border: 2px solid #8b7a62;
+  border-radius: 4px;
+  opacity: 0.5;
+  z-index: 1;
 }
 
-.desk-screen {
+/* ── Bamboo Cluster ── */
+.zen-bamboo {
   position: absolute;
-  left: 10px;
-  top: 6px;
-  width: 30px;
-  height: 16px;
-  border: 2px solid #111827;
-  background: linear-gradient(180deg, #1e293b, #0f172a);
-}
-
-.desk-keyboard {
-  position: absolute;
-  left: 12px;
-  top: 26px;
+  left: 4%;
+  top: 18%;
   width: 24px;
-  height: 8px;
-  border: 1px solid #1f2937;
-  background: #94a3b8;
+  height: 50px;
+  z-index: 5;
 }
 
-.desk-chair {
+.bamboo-stalk {
   position: absolute;
-  right: 12px;
-  bottom: -14px;
-  width: 18px;
-  height: 12px;
-  border: 2px solid #402c19;
-  background: #c7ab84;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #4ade80 0%, #16a34a 50%, #15803d 100%);
+  border: 1px solid #166534;
+  border-radius: 2px;
 }
 
-.office-status-summary {
+.bamboo-stalk-1 { left: 2px; height: 42px; }
+.bamboo-stalk-2 { left: 9px; height: 48px; }
+.bamboo-stalk-3 { left: 16px; height: 36px; }
+
+.bamboo-leaves {
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 28px;
+  height: 16px;
+  background: radial-gradient(ellipse at 50% 100%, #22c55e 0%, transparent 70%);
+}
+
+/* ── Maple Tree ── */
+.zen-maple {
+  position: absolute;
+  right: 16%;
+  top: 18%;
+  width: 30px;
+  height: 40px;
+  z-index: 5;
+}
+
+.maple-trunk {
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  width: 5px;
+  height: 20px;
+  background: linear-gradient(180deg, #78350f, #92400e);
+  border: 1px solid #451a03;
+  border-radius: 1px;
+}
+
+.maple-canopy {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.maple-canopy-1 {
+  left: 2px;
+  top: 0;
+  width: 18px;
+  height: 16px;
+  background: #dc2626;
+  border: 1px solid #991b1b;
+}
+
+.maple-canopy-2 {
+  left: 10px;
+  top: 3px;
+  width: 16px;
+  height: 14px;
+  background: #ef4444;
+}
+
+.maple-canopy-3 {
+  left: 5px;
+  top: 6px;
+  width: 14px;
+  height: 12px;
+  background: #f97316;
+}
+
+/* ── Stone Lantern (Tōrō) ── */
+.zen-lantern {
+  position: absolute;
+  left: 82%;
+  top: 19%;
+  width: 16px;
+  height: 32px;
+  z-index: 5;
+}
+
+.lantern-cap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 6px;
+  background: linear-gradient(180deg, #78716c, #57534e);
+  border: 1px solid #44403c;
+  border-radius: 2px 2px 0 0;
+}
+
+.lantern-light {
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 12px;
+  height: 10px;
+  background: #fef3c7;
+  border: 1px solid #d97706;
+  border-radius: 1px;
+  box-shadow: 0 0 6px 2px rgba(251, 191, 36, 0.3);
+  animation: lantern-pulse 3s ease-in-out infinite alternate;
+}
+
+.lantern-base {
+  position: absolute;
+  left: 3px;
+  top: 16px;
+  width: 10px;
+  height: 14px;
+  background: linear-gradient(180deg, #78716c 0%, #57534e 100%);
+  border: 1px solid #44403c;
+  border-radius: 0 0 1px 1px;
+}
+
+.lantern-glow {
+  position: absolute;
+  left: -4px;
+  top: 2px;
+  width: 24px;
+  height: 18px;
+  background: radial-gradient(ellipse, rgba(251, 191, 36, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+@keyframes lantern-pulse {
+  0% { box-shadow: 0 0 4px 1px rgba(251, 191, 36, 0.2); }
+  100% { box-shadow: 0 0 8px 3px rgba(251, 191, 36, 0.4); }
+}
+
+/* ── Garden Rocks ── */
+.zen-rock {
+  position: absolute;
+  z-index: 3;
+  border-radius: 40% 50% 45% 55%;
+}
+
+.zen-rock-lg {
+  left: 4%;
+  top: 55%;
+  width: 22px;
+  height: 16px;
+  background: linear-gradient(135deg, #78716c, #57534e);
+  border: 2px solid #44403c;
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.3);
+}
+
+.zen-rock-sm {
+  left: 7%;
+  top: 62%;
+  width: 14px;
+  height: 10px;
+  background: linear-gradient(135deg, #a8a29e, #78716c);
+  border: 1px solid #57534e;
+}
+
+/* ── Torii Gate (middle-left entrance) ── */
+.zen-torii {
+  position: absolute;
+  left: 2%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 70px;
+  height: 70px;
+  z-index: 5;
+}
+
+.torii-top {
+  position: absolute;
+  left: -4px;
+  top: 4px;
+  width: 78px;
+  height: 8px;
+  background: linear-gradient(180deg, #dc2626, #b91c1c);
+  border: 2px solid #7f1d1d;
+  border-radius: 3px 3px 0 0;
+}
+
+.torii-beam {
+  position: absolute;
+  left: 2px;
+  top: 14px;
+  width: 66px;
+  height: 5px;
+  background: #dc2626;
+  border: 1px solid #991b1b;
+}
+
+.torii-pillar {
+  position: absolute;
+  top: 12px;
+  width: 8px;
+  height: 46px;
+  background: linear-gradient(180deg, #dc2626, #991b1b);
+  border: 2px solid #7f1d1d;
+  border-radius: 1px;
+}
+
+.torii-pillar-l { left: 8px; }
+.torii-pillar-r { right: 8px; }
+
+.torii-lantern {
+  position: absolute;
+  left: 50%;
+  top: 20px;
+  width: 8px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: #fef3c7;
+  border: 1px solid #d97706;
+  border-radius: 2px;
+  box-shadow: 0 0 6px 2px rgba(251, 191, 36, 0.3);
+  animation: lantern-pulse 2.5s ease-in-out infinite alternate;
+}
+
+.torii-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.36rem;
+  color: #fca5a5;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Spirit Shrine (middle-right exit) ── */
+.zen-shrine {
+  position: absolute;
+  right: 2%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 70px;
+  height: 70px;
+  z-index: 5;
+}
+
+.shrine-roof {
+  position: absolute;
+  left: -6px;
+  top: 2px;
+  width: 82px;
+  height: 14px;
+  background: linear-gradient(180deg, #1c1917, #292524);
+  border: 2px solid #0c0a09;
+  border-radius: 4px 4px 0 0;
+  clip-path: polygon(10% 100%, 0% 0%, 100% 0%, 90% 100%);
+}
+
+.shrine-body {
+  position: absolute;
+  left: 6px;
+  top: 14px;
+  width: 58px;
+  height: 36px;
+  background: linear-gradient(180deg, #78716c, #57534e);
+  border: 2px solid #44403c;
+  border-radius: 2px;
+}
+
+.shrine-opening {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  width: 18px;
+  height: 26px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #1c1917, #0c0a09);
+  border: 1px solid #292524;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.shrine-smoke {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: rgba(168, 162, 158, 0.5);
+  border-radius: 50%;
+  animation: smoke-rise 2.5s ease-out infinite;
+}
+
+.shrine-smoke-1 {
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+}
+
+.shrine-smoke-2 {
+  left: 55%;
+  top: 16px;
+  animation-delay: 1.2s;
+  width: 4px;
+  height: 4px;
+}
+
+@keyframes smoke-rise {
+  0% { transform: translateY(0) scale(1); opacity: 0.5; }
+  100% { transform: translateY(-20px) scale(2); opacity: 0; }
+}
+
+.shrine-glow {
+  position: absolute;
+  left: 50%;
+  top: 22px;
+  width: 30px;
+  height: 20px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(251, 191, 36, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.shrine-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.36rem;
+  color: #d6d3d1;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Zen Sand Plot ── */
+.zen-plot {
+  position: absolute;
+  width: 15%;
+  min-width: 72px;
+  max-width: 100px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(ellipse at center, #e8dcc8 0%, #d4c5a9 40%, #c9b898 100%);
+  border: 2px solid #a89880;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 4px rgba(168, 152, 128, 0.25),
+    inset 0 0 0 8px rgba(168, 152, 128, 0.12),
+    inset 0 0 0 12px rgba(168, 152, 128, 0.06),
+    0 2px 4px rgba(0, 0, 0, 0.15);
+  z-index: 3;
+}
+
+/* ── Bonsai Tree (appears when worker is at plot) ── */
+.bonsai-tree {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform: translateX(-50%) scale(0.5);
+  width: 40px;
+  height: 44px;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  animation: bonsai-grow 0.8s ease-out forwards;
+}
+
+.bonsai-tree.grown {
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+  animation: none;
+}
+
+@keyframes bonsai-grow {
+  0% { transform: translateX(-50%) scale(0.3); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.05); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+.bonsai-trunk {
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  width: 6px;
+  height: 22px;
+  background: linear-gradient(180deg, #78350f, #92400e);
+  border: 1px solid #451a03;
+  border-radius: 2px 2px 1px 1px;
+}
+
+.bonsai-trunk::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: -6px;
+  width: 8px;
+  height: 4px;
+  background: #78350f;
+  border: 1px solid #451a03;
+  border-radius: 2px;
+  transform: rotate(-25deg);
+}
+
+.bonsai-canopy {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.bonsai-canopy-1 {
+  left: 4px;
+  top: 0;
+  width: 20px;
+  height: 16px;
+  background: #16a34a;
+  border: 1px solid #15803d;
+}
+
+.bonsai-canopy-2 {
+  left: 14px;
+  top: 3px;
+  width: 18px;
+  height: 14px;
+  background: #22c55e;
+  border: 1px solid #16a34a;
+}
+
+.bonsai-canopy-3 {
+  left: 8px;
+  top: 6px;
+  width: 16px;
+  height: 12px;
+  background: #15803d;
+  border: 1px solid #166534;
+}
+
+.bonsai-pot {
+  position: absolute;
+  bottom: -2px;
+  left: 10px;
+  width: 18px;
+  height: 8px;
+  background: linear-gradient(180deg, #b45309, #92400e);
+  border: 1px solid #78350f;
+  border-radius: 1px 1px 3px 3px;
+}
+
+.zen-status-summary {
   position: absolute;
   right: 8px;
   top: 8px;
@@ -896,7 +1374,7 @@ h2 {
 }
 
 /* ── Claude Usage Overlay ── */
-.office-usage-summary {
+.zen-usage-summary {
   position: absolute;
   right: 8px;
   top: 138px;
@@ -914,7 +1392,7 @@ h2 {
   min-width: 130px;
 }
 
-.office-usage-summary .status-summary-header {
+.zen-usage-summary .status-summary-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1026,12 +1504,12 @@ h2 {
   top: 0px;
   width: 24px;
   height: 20px;
-  background: linear-gradient(135deg, #2d3748 0%, #1a202c 50%, #2d3748 100%);
-  border: 2px solid #0f1419;
-  border-radius: 8px 8px 6px 6px;
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 50%, #4a5568 100%);
+  border: 2px solid #1a202c;
+  border-radius: 10px 10px 8px 8px;
   box-shadow:
-    inset 1px 1px 2px rgba(255, 255, 255, 0.15),
-    inset -1px -1px 2px rgba(0, 0, 0, 0.3);
+    inset 1px 1px 2px rgba(255, 255, 255, 0.2),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .human-visor {
@@ -1057,13 +1535,13 @@ h2 {
 
 .human-torso {
   position: absolute;
-  left: 6px;
+  left: 7px;
   top: 20px;
-  width: 24px;
+  width: 22px;
   height: 16px;
-  background: #3b82f6;
-  border: 2px solid #1e40af;
-  border-radius: 3px;
+  background: #5b9a8b;
+  border: 2px solid #3d7a6e;
+  border-radius: 5px;
 }
 
 .human-arm {
@@ -1071,27 +1549,50 @@ h2 {
   top: 21px;
   width: 6px;
   height: 12px;
-  background: #3b82f6;
-  border: 2px solid #1e40af;
-  border-radius: 2px;
+  background: #5b9a8b;
+  border: 2px solid #3d7a6e;
+  border-radius: 3px;
 }
 
 .human-arm-left {
-  left: 1px;
+  left: 2px;
 }
 
 .human-arm-right {
-  right: 1px;
+  right: 2px;
+}
+
+.human-belt {
+  position: absolute;
+  left: 7px;
+  top: 34px;
+  width: 22px;
+  height: 3px;
+  background: #3d5a54;
+  border-radius: 1px;
+  z-index: 1;
+}
+
+.human-buckle {
+  position: absolute;
+  left: 15px;
+  top: 33px;
+  width: 4px;
+  height: 4px;
+  background: #e2c07c;
+  border: 1px solid #c9a55a;
+  border-radius: 50%;
+  z-index: 2;
 }
 
 .human-leg {
   position: absolute;
   top: 36px;
   width: 8px;
-  height: 10px;
-  background: #374151;
-  border: 2px solid #1f2937;
-  border-radius: 2px;
+  height: 8px;
+  background: #4a5568;
+  border: 2px solid #2d3748;
+  border-radius: 3px;
 }
 
 .human-leg-left {
@@ -1102,19 +1603,94 @@ h2 {
   right: 9px;
 }
 
-.human-player.walking .human-leg-left {
+.human-boot {
+  position: absolute;
+  top: 42px;
+  width: 10px;
+  height: 6px;
+  background: #2d3748;
+  border: 1px solid #1a202c;
+  border-radius: 3px 3px 4px 4px;
+}
+
+.human-boot-left {
+  left: 8px;
+}
+
+.human-boot-right {
+  right: 8px;
+}
+
+.human-glove {
+  position: absolute;
+  width: 7px;
+  height: 5px;
+  background: #3d7a6e;
+  border-radius: 3px;
+}
+
+.human-glove-left {
+  left: 0px;
+  top: 31px;
+}
+
+.human-glove-right {
+  right: 0px;
+  top: 31px;
+}
+
+.human-visor-shine {
+  position: absolute;
+  left: 10px;
+  top: 7px;
+  width: 6px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 1px;
+  z-index: 1;
+}
+
+.human-helmet-light {
+  position: absolute;
+  left: 15px;
+  top: -2px;
+  width: 5px;
+  height: 5px;
+  background: #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 0 4px #22c55e, 0 0 8px rgba(34, 197, 94, 0.4);
+  z-index: 1;
+  animation: helmet-pulse 2s ease-in-out infinite;
+}
+
+@keyframes helmet-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 4px #22c55e, 0 0 8px rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 2px #22c55e, 0 0 4px rgba(34, 197, 94, 0.2);
+  }
+}
+
+.human-player.walking .human-leg-left,
+.human-player.walking .human-boot-left {
   animation: leg-walk-left 0.25s steps(2, end) infinite;
 }
 
-.human-player.walking .human-leg-right {
+.human-player.walking .human-leg-right,
+.human-player.walking .human-boot-right {
   animation: leg-walk-right 0.25s steps(2, end) infinite;
 }
 
-.human-player.walking .human-arm-left {
+.human-player.walking .human-arm-left,
+.human-player.walking .human-glove-left {
   animation: arm-walk-left 0.25s steps(2, end) infinite;
 }
 
-.human-player.walking .human-arm-right {
+.human-player.walking .human-arm-right,
+.human-player.walking .human-glove-right {
   animation: arm-walk-right 0.25s steps(2, end) infinite;
 }
 
@@ -1158,12 +1734,13 @@ h2 {
   transform: translate(-50%, -50%) scaleX(-1);
 }
 
-.human-player.up .human-visor {
+.human-player.up .human-visor,
+.human-player.up .human-visor-shine {
   visibility: hidden;
 }
 
 .human-player.up .human-helmet {
-  background: linear-gradient(135deg, #1a202c 0%, #2d3748 50%, #1a202c 100%);
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 50%, #2d3748 100%);
 }
 
 button.worker-sprite {
@@ -1185,17 +1762,101 @@ button.worker-sprite:hover {
   background: transparent;
 }
 
-button.worker-sprite.arriving {
-  animation: worker-arrive 0.8s steps(5, end) both;
+button.worker-sprite.at-factory {
+  opacity: 0;
+  animation: factory-spawn 0.08s steps(1) forwards;
+}
+
+button.worker-sprite.walking-to-desk,
+button.worker-sprite.walking-to-exit {
+  transition: left 1.4s linear, top 1.4s linear;
+  transform: translate(-50%, 28px);
 }
 
 button.worker-sprite.active {
   animation: worker-bob 1.05s steps(2, end) infinite;
 }
 
-button.worker-sprite.leaving {
-  animation: worker-leave 0.8s steps(5, end) both;
+button.worker-sprite.walking-to-exit {
   pointer-events: none;
+}
+
+button.worker-sprite.at-exit {
+  animation: incinerator-despawn 0.4s ease-in forwards;
+  pointer-events: none;
+}
+
+/* Walking leg animations for bots */
+button.worker-sprite.walking-to-desk .bot-leg-left,
+button.worker-sprite.walking-to-exit .bot-leg-left {
+  animation: bot-walk-leg-l 0.3s steps(2, end) infinite;
+}
+
+button.worker-sprite.walking-to-desk .bot-leg-right,
+button.worker-sprite.walking-to-exit .bot-leg-right {
+  animation: bot-walk-leg-r 0.3s steps(2, end) infinite;
+}
+
+/* Walking foot animations for bots (follow legs) */
+button.worker-sprite.walking-to-desk .bot-foot-left,
+button.worker-sprite.walking-to-exit .bot-foot-left {
+  animation: bot-walk-leg-l 0.3s steps(2, end) infinite;
+}
+
+button.worker-sprite.walking-to-desk .bot-foot-right,
+button.worker-sprite.walking-to-exit .bot-foot-right {
+  animation: bot-walk-leg-r 0.3s steps(2, end) infinite;
+}
+
+/* Walking arm swing for bots */
+button.worker-sprite.walking-to-desk .bot-arm-left,
+button.worker-sprite.walking-to-exit .bot-arm-left {
+  animation: arm-walk-left 0.3s steps(2, end) infinite;
+}
+
+button.worker-sprite.walking-to-desk .bot-arm-right,
+button.worker-sprite.walking-to-exit .bot-arm-right {
+  animation: arm-walk-right 0.3s steps(2, end) infinite;
+}
+
+/* Walking leg animations for geese */
+button.worker-sprite.walking-to-desk .goose-leg-left,
+button.worker-sprite.walking-to-exit .goose-leg-left {
+  animation: bot-walk-leg-l 0.25s steps(2, end) infinite;
+}
+
+button.worker-sprite.walking-to-desk .goose-leg-right,
+button.worker-sprite.walking-to-exit .goose-leg-right {
+  animation: bot-walk-leg-r 0.25s steps(2, end) infinite;
+}
+
+/* Walking foot animations for geese */
+button.worker-sprite.walking-to-desk .goose-foot-left,
+button.worker-sprite.walking-to-exit .goose-foot-left {
+  animation: bot-walk-leg-l 0.25s steps(2, end) infinite;
+}
+
+button.worker-sprite.walking-to-desk .goose-foot-right,
+button.worker-sprite.walking-to-exit .goose-foot-right {
+  animation: bot-walk-leg-r 0.25s steps(2, end) infinite;
+}
+
+/* Goose head bob during active phase */
+button.worker-sprite.active .goose-head,
+button.worker-sprite.active .goose-beak,
+button.worker-sprite.active .goose-eye,
+button.worker-sprite.active .goose-brow,
+button.worker-sprite.active .goose-cheek {
+  animation: goose-head-bob 1.05s steps(2, end) infinite;
+}
+
+@keyframes goose-head-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 button.worker-sprite.selected .worker-caption {
@@ -1221,12 +1882,23 @@ button.worker-sprite:disabled .worker-caption {
 .bot-eye,
 .bot-leg,
 .bot-antenna,
+.bot-antenna-tip,
+.bot-arm,
+.bot-foot,
+.bot-ear,
+.bot-mouth,
 .goose-body,
 .goose-wing,
+.goose-wing-tip,
 .goose-head,
 .goose-beak,
+.goose-neck,
+.goose-tail,
 .goose-leg,
-.goose-eye {
+.goose-foot,
+.goose-eye,
+.goose-cheek,
+.goose-brow {
   position: absolute;
 }
 
@@ -1296,19 +1968,119 @@ button.worker-sprite:disabled .worker-caption {
 }
 
 .bot-antenna {
-  left: 24px;
-  top: 1px;
-  width: 4px;
+  left: 25px;
+  top: 0px;
+  width: 2px;
+  height: 6px;
+  border-radius: 0;
+}
+
+.bot-antenna-tip {
+  left: 23px;
+  top: -2px;
+  width: 6px;
   height: 4px;
+  border-radius: 50%;
+  box-shadow: 0 0 3px currentColor;
+}
+
+.bot-ear {
+  top: 8px;
+  width: 4px;
+  height: 8px;
+  border: 1px solid #0f172a;
+  border-radius: 2px;
+}
+
+.bot-ear-left {
+  left: 9px;
+}
+
+.bot-ear-right {
+  left: 39px;
+}
+
+.bot-mouth {
+  left: 20px;
+  top: 16px;
+  width: 12px;
+  height: 2px;
   border-radius: 1px;
+  opacity: 0.6;
+}
+
+.bot-arm {
+  top: 24px;
+  width: 5px;
+  height: 12px;
+  border: 1px solid #0f172a;
+  border-radius: 2px;
+}
+
+.bot-arm-left {
+  left: 5px;
+}
+
+.bot-arm-right {
+  left: 42px;
+}
+
+.bot-foot {
+  top: 52px;
+  width: 8px;
+  height: 4px;
+  border-radius: 1px 1px 2px 2px;
+}
+
+.bot-foot-left {
+  left: 17px;
+}
+
+.bot-foot-right {
+  left: 28px;
+}
+
+/* Torso panel lines */
+.bot-torso::before,
+.bot-torso::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 1px;
+  opacity: 0.3;
+}
+
+.bot-torso::before {
+  top: 5px;
+  background: currentColor;
+}
+
+.bot-torso::after {
+  top: 12px;
+  background: currentColor;
 }
 
 .worker-art.bot-round .bot-head {
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .worker-art.bot-round .bot-torso {
-  border-radius: 8px;
+  border-radius: 10px;
+}
+
+.worker-art.bot-round .bot-ear {
+  border-radius: 50%;
+}
+
+.worker-art.bot-round .bot-mouth {
+  border-radius: 3px;
+  height: 3px;
+  top: 15px;
+}
+
+.worker-art.bot-round .bot-antenna-tip {
+  border-radius: 50%;
 }
 
 .worker-art.bot-heavy .bot-head {
@@ -1323,64 +2095,175 @@ button.worker-sprite:disabled .worker-caption {
   height: 24px;
 }
 
+.worker-art.bot-heavy .bot-arm {
+  width: 7px;
+  height: 14px;
+}
+
+.worker-art.bot-heavy .bot-arm-left {
+  left: 3px;
+}
+
+.worker-art.bot-heavy .bot-arm-right {
+  left: 42px;
+}
+
 .worker-art.bot-heavy .bot-leg {
   height: 8px;
   top: 45px;
+}
+
+.worker-art.bot-heavy .bot-foot {
+  width: 10px;
+  height: 5px;
+  top: 51px;
+}
+
+.worker-art.bot-heavy .bot-foot-left {
+  left: 16px;
+}
+
+.worker-art.bot-heavy .bot-foot-right {
+  left: 27px;
+}
+
+.worker-art.bot-heavy .bot-ear {
+  width: 5px;
+  height: 10px;
+}
+
+.worker-art.bot-heavy .bot-ear-left {
+  left: 7px;
+}
+
+.worker-art.bot-heavy .bot-ear-right {
+  left: 40px;
+}
+
+.goose-tail {
+  left: 6px;
+  top: 22px;
+  width: 10px;
+  height: 8px;
+  border: 2px solid #334155;
+  border-radius: 4px 0 6px 2px;
+  z-index: 0;
 }
 
 .goose-body {
   left: 12px;
   top: 24px;
   width: 24px;
-  height: 14px;
+  height: 16px;
   border: 2px solid #334155;
-  border-radius: 6px;
+  border-radius: 7px;
+  z-index: 1;
 }
 
 .goose-wing {
-  left: 17px;
-  top: 28px;
-  width: 10px;
-  height: 7px;
-  border-radius: 4px;
+  left: 15px;
+  top: 27px;
+  width: 12px;
+  height: 9px;
+  border-radius: 5px;
+  z-index: 2;
+}
+
+.goose-wing-tip {
+  left: 13px;
+  top: 31px;
+  width: 5px;
+  height: 5px;
+  border-radius: 0 3px 3px 0;
+  opacity: 0.5;
+  z-index: 3;
+}
+
+.goose-neck {
+  left: 31px;
+  top: 20px;
+  width: 6px;
+  height: 10px;
+  border: 2px solid #334155;
+  border-radius: 3px;
+  z-index: 1;
 }
 
 .goose-head {
-  left: 29px;
-  top: 14px;
-  width: 12px;
+  left: 28px;
+  top: 12px;
+  width: 14px;
   height: 12px;
   border: 2px solid #334155;
-  border-radius: 5px;
+  border-radius: 6px;
+  z-index: 2;
 }
 
 .goose-beak {
   left: 39px;
-  top: 18px;
-  width: 8px;
+  top: 16px;
+  width: 9px;
   height: 5px;
-  border-radius: 1px;
+  border-radius: 1px 3px 2px 1px;
+  z-index: 3;
+}
+
+.goose-eye {
+  left: 36px;
+  top: 16px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  z-index: 3;
+}
+
+.goose-brow {
+  left: 35px;
+  top: 14px;
+  width: 4px;
+  height: 1px;
+  z-index: 3;
+}
+
+.goose-cheek {
+  left: 33px;
+  top: 20px;
+  width: 4px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(251, 146, 60, 0.35);
+  z-index: 3;
 }
 
 .goose-leg {
-  top: 39px;
+  top: 41px;
   width: 3px;
   height: 8px;
+  z-index: 1;
 }
 
 .goose-leg-left {
-  left: 22px;
+  left: 21px;
 }
 
 .goose-leg-right {
   left: 29px;
 }
 
-.goose-eye {
-  left: 35px;
-  top: 18px;
-  width: 2px;
-  height: 2px;
+.goose-foot {
+  top: 48px;
+  width: 6px;
+  height: 3px;
+  border-radius: 3px 3px 1px 1px;
+  z-index: 1;
+}
+
+.goose-foot-left {
+  left: 19px;
+}
+
+.goose-foot-right {
+  left: 27px;
 }
 
 .worker-caption {
@@ -1449,25 +2332,32 @@ button.worker-sprite:disabled .worker-caption {
   }
 }
 
-@keyframes worker-arrive {
+@keyframes factory-spawn {
   0% {
-    transform: translate(-50%, 86px);
     opacity: 0;
+    transform: translate(-50%, 28px) scale(0.3);
   }
   100% {
-    transform: translate(-50%, 28px);
     opacity: 1;
+    transform: translate(-50%, 28px) scale(1);
   }
 }
 
-@keyframes worker-leave {
+@keyframes incinerator-despawn {
   0% {
-    transform: translate(-50%, 28px);
     opacity: 1;
+    transform: translate(-50%, 28px) scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translate(-50%, 24px) scale(0.9);
+    filter: brightness(2) saturate(0.5);
   }
   100% {
-    transform: translate(-50%, 96px);
     opacity: 0;
+    transform: translate(-50%, 20px) scale(0.2);
+    filter: brightness(3) saturate(0);
   }
 }
 
@@ -1481,6 +2371,16 @@ button.worker-sprite:disabled .worker-caption {
   100% {
     transform: translate(-50%, 28px);
   }
+}
+
+@keyframes bot-walk-leg-l {
+  0%, 100% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+}
+
+@keyframes bot-walk-leg-r {
+  0%, 100% { transform: translateX(2px); }
+  50% { transform: translateX(-2px); }
 }
 
 @media (max-width: 1020px) {
