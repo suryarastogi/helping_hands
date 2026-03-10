@@ -129,15 +129,12 @@ class TestFetchClaudeUsage:
         assert result.fetched_at == "cached"
 
     def test_cache_expired_refetches(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import time
-
         cached = ClaudeUsageResponse(levels=[], error=None, fetched_at="stale")
         monkeypatch.setattr("helping_hands.server.app._usage_cache", cached)
-        # Set cache timestamp far enough in the past to guarantee expiry
-        monkeypatch.setattr(
-            "helping_hands.server.app._usage_cache_ts",
-            time.monotonic() - 600,
-        )
+        # Use a fixed monotonic clock to make the test fully deterministic:
+        # cache was written at t=100, current time is t=500, TTL is 300 → expired.
+        monkeypatch.setattr("helping_hands.server.app._usage_cache_ts", 100.0)
+        monkeypatch.setattr("time.monotonic", lambda: 500.0)
         monkeypatch.setattr(
             "helping_hands.server.app._get_claude_oauth_token", lambda: None
         )
