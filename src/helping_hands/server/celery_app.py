@@ -61,6 +61,7 @@ _SUPPORTED_BACKENDS = {
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "docker-sandbox-claude",
     "goose",
     "geminicli",
     "opencodecli",
@@ -382,6 +383,7 @@ def build_feature(
         BasicLangGraphHand,
         ClaudeCodeHand,
         CodexCLIHand,
+        DockerSandboxClaudeCodeHand,
         E2EHand,
         GeminiCLIHand,
         GooseCLIHand,
@@ -585,6 +587,11 @@ def build_feature(
                 )
             elif runtime_backend == "claudecodecli":
                 hand = ClaudeCodeHand(
+                    config,
+                    repo_index,
+                )
+            elif runtime_backend == "docker-sandbox-claude":
+                hand = DockerSandboxClaudeCodeHand(
                     config,
                     repo_index,
                 )

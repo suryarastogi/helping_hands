@@ -9,7 +9,7 @@ _No active plans._
 ## Completed plans
 
 - [2026-03-10](exec-plans/completed/2026-03-10.md) --
-  v104: Dead code cleanup (codex/goose/e2e/iterative/web), tech-debt resolved, weekly consolidation, pre-existing test fix; 3031 -> 3073 tests
+  v104-v105: Dead code cleanup, server routing completion (docker-sandbox-claude), E2E draft PR support, frontend backend sync, weekly consolidation; 3031 -> 3080 tests
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
   v0-v103: Docs infrastructure, 28 design docs, massive validation test suite, provider tests, Config edge cases, Playwright e2e tests, exec-plan workflow; 0 -> 3031 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --

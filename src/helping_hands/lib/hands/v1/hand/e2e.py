@@ -71,6 +71,15 @@ class E2EHand(Hand):
             f"- commit: `{commit_sha}`\n"
         )
 
+    @staticmethod
+    def _draft_pr_enabled() -> bool:
+        """Check whether E2E PRs should be created as drafts."""
+        return os.environ.get("HELPING_HANDS_E2E_DRAFT_PR", "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
     def run(
         self,
         prompt: str,
@@ -169,6 +178,7 @@ class E2EHand(Hand):
                         body=pr_body,
                         head=branch,
                         base=base_branch,
+                        draft=self._draft_pr_enabled(),
                     )
                     pr_url = pr.url
                     final_pr_number = pr.number

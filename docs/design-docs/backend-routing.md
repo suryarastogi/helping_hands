@@ -70,8 +70,8 @@ original backend name for logging while using the canonical implementation.
 - Iterative hands (`basic-langgraph`, `basic-atomic`) require their
   respective `--extra` packages
 - All backends share the same finalization path (base `Hand._finalize_repo_pr`)
-- `docker-sandbox-claude` is only available via CLI (not in `_BACKEND_LOOKUP`
-  or `_SUPPORTED_BACKENDS`)
+- `docker-sandbox-claude` is available across all entry points (CLI, server,
+  Celery); requires Docker Desktop plugin at runtime
 
 ## Alternatives considered
 
@@ -88,5 +88,5 @@ original backend name for logging while using the canonical implementation.
   `_SUPPORTED_BACKENDS`.
 - The duplication is intentional: each entry point can tailor error messages
   and import handling to its context.
-- `docker-sandbox-claude` is CLI-only by design (requires Docker Desktop
-  plugin not available in server containers).
+- `docker-sandbox-claude` requires Docker Desktop plugin at runtime; the
+  hand gracefully reports unavailability if Docker is not present.

@@ -46,6 +46,7 @@ class TestParseBackend:
             "basic-agent",
             "codexcli",
             "claudecodecli",
+            "docker-sandbox-claude",
             "goose",
             "geminicli",
             "opencodecli",

@@ -15,6 +15,7 @@ type Backend =
   | "basic-agent"
   | "codexcli"
   | "claudecodecli"
+  | "docker-sandbox-claude"
   | "goose"
   | "geminicli"
   | "opencodecli";
@@ -203,8 +204,10 @@ const BACKEND_OPTIONS: Backend[] = [
   "basic-agent",
   "codexcli",
   "claudecodecli",
+  "docker-sandbox-claude",
   "goose",
   "geminicli",
+  "opencodecli",
 ];
 
 const DEFAULT_PROMPT =
@@ -356,6 +359,7 @@ const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
 
 export function backendDisplayName(backend: string): string {
   if (backend === "e2e") return "Smoke Test (internal)";
+  if (backend === "docker-sandbox-claude") return "Claude (Docker Sandbox)";
   return backend;
 }
 

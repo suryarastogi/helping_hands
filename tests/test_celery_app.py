@@ -222,6 +222,11 @@ class TestNormalizeBackend:
         assert requested == "e2e"
         assert runtime == "e2e"
 
+    def test_docker_sandbox_claude_is_supported(self) -> None:
+        requested, runtime = celery_app._normalize_backend("docker-sandbox-claude")
+        assert requested == "docker-sandbox-claude"
+        assert runtime == "docker-sandbox-claude"
+
 
 class TestCodexAuth:
     def test_has_codex_auth_with_openai_key(self, monkeypatch) -> None:
