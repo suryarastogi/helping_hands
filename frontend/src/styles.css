@@ -765,8 +765,8 @@ h2 {
 .zen-border {
   position: absolute;
   inset: 0;
-  border: 4px solid #3d3225;
-  box-shadow: inset 0 0 0 2px #5c4a3a;
+  border: 4px solid #1e293b;
+  box-shadow: inset 0 0 0 2px #334155;
   z-index: 0;
 }
 
@@ -778,34 +778,34 @@ h2 {
   height: 94%;
   background:
     repeating-linear-gradient(
-      135deg,
+      90deg,
       transparent 0,
-      transparent 18px,
-      rgba(180, 160, 130, 0.15) 18px,
-      rgba(180, 160, 130, 0.15) 19px
+      transparent 31px,
+      rgba(100, 116, 139, 0.12) 31px,
+      rgba(100, 116, 139, 0.12) 32px
     ),
     repeating-linear-gradient(
-      45deg,
+      0deg,
       transparent 0,
-      transparent 24px,
-      rgba(160, 140, 110, 0.1) 24px,
-      rgba(160, 140, 110, 0.1) 25px
+      transparent 31px,
+      rgba(100, 116, 139, 0.12) 31px,
+      rgba(100, 116, 139, 0.12) 32px
     ),
-    linear-gradient(180deg, #d4c5a9 0%, #c9b898 100%);
-  border: 3px solid #8b7355;
-  box-shadow: inset 0 0 0 2px rgba(212, 197, 169, 0.4);
+    linear-gradient(180deg, #475569 0%, #334155 100%);
+  border: 3px solid #1e293b;
+  box-shadow: inset 0 0 0 2px rgba(71, 85, 105, 0.4);
   z-index: 1;
 }
 
-/* ── Sky & Mountains Backdrop ── */
+/* ── Sky & Cityscape Backdrop ── */
 .zen-sky {
   position: absolute;
   left: 2%;
   top: 3%;
   width: 96%;
   height: 18%;
-  background: linear-gradient(180deg, #4a6fa5 0%, #7ba7cc 40%, #c9a8b8 70%, #dcc5a0 100%);
-  border: 3px solid #8b7355;
+  background: linear-gradient(180deg, #1e293b 0%, #334155 40%, #475569 70%, #64748b 100%);
+  border: 3px solid #1e293b;
   border-bottom: none;
   overflow: hidden;
   z-index: 2;
@@ -814,29 +814,29 @@ h2 {
 .zen-mountain {
   position: absolute;
   bottom: 0;
-  background: #6b7f6b;
-  border-radius: 50% 50% 0 0;
+  background: #334155;
+  border-radius: 2px 2px 0 0;
 }
 
 .zen-mountain-1 {
   left: 10%;
-  width: 35%;
+  width: 15%;
   height: 70%;
-  background: linear-gradient(180deg, #5a6d5a 0%, #7a8d7a 100%);
+  background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
 }
 
 .zen-mountain-2 {
-  left: 35%;
-  width: 40%;
+  left: 30%;
+  width: 20%;
   height: 90%;
-  background: linear-gradient(180deg, #4a5d4a 0%, #6b7f6b 100%);
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
 }
 
 .zen-mountain-3 {
-  right: 5%;
-  width: 30%;
+  right: 15%;
+  width: 12%;
   height: 55%;
-  background: linear-gradient(180deg, #6b806b 0%, #8a9d8a 100%);
+  background: linear-gradient(180deg, #1e293b 0%, #475569 100%);
 }
 
 .zen-moon {
@@ -851,7 +851,7 @@ h2 {
   z-index: 1;
 }
 
-/* ── Gravel Path ── */
+/* ── Factory Floor Path ── */
 .zen-gravel-path {
   position: absolute;
   left: 12%;
@@ -861,18 +861,18 @@ h2 {
   background:
     repeating-linear-gradient(
       90deg,
-      #a89880 0,
-      #a89880 3px,
-      #9e8e76 3px,
-      #9e8e76 6px
+      #64748b 0,
+      #64748b 3px,
+      #475569 3px,
+      #475569 6px
     );
-  border: 2px solid #8b7a62;
-  border-radius: 4px;
-  opacity: 0.5;
+  border: 2px solid #334155;
+  border-radius: 2px;
+  opacity: 0.4;
   z-index: 1;
 }
 
-/* ── Bamboo Cluster ── */
+/* ── Pipe Cluster (left decor) ── */
 .zen-bamboo {
   position: absolute;
   left: 4%;
@@ -886,8 +886,8 @@ h2 {
   position: absolute;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(180deg, #4ade80 0%, #16a34a 50%, #15803d 100%);
-  border: 1px solid #166534;
+  background: linear-gradient(180deg, #64748b 0%, #475569 50%, #334155 100%);
+  border: 1px solid #1e293b;
   border-radius: 2px;
 }
 
@@ -900,11 +900,13 @@ h2 {
   top: 0;
   left: -2px;
   width: 28px;
-  height: 16px;
-  background: radial-gradient(ellipse at 50% 100%, #22c55e 0%, transparent 70%);
+  height: 6px;
+  background: linear-gradient(90deg, #475569, #334155);
+  border: 1px solid #1e293b;
+  border-radius: 2px;
 }
 
-/* ── Maple Tree ── */
+/* ── Equipment Rack (right decor) ── */
 .zen-maple {
   position: absolute;
   right: 16%;
@@ -918,44 +920,46 @@ h2 {
   position: absolute;
   bottom: 0;
   left: 12px;
-  width: 5px;
-  height: 20px;
-  background: linear-gradient(180deg, #78350f, #92400e);
-  border: 1px solid #451a03;
+  width: 6px;
+  height: 36px;
+  background: linear-gradient(180deg, #475569, #334155);
+  border: 1px solid #1e293b;
   border-radius: 1px;
 }
 
 .maple-canopy {
   position: absolute;
-  border-radius: 50%;
+  border-radius: 2px;
 }
 
 .maple-canopy-1 {
   left: 2px;
-  top: 0;
+  top: 2px;
   width: 18px;
-  height: 16px;
-  background: #dc2626;
-  border: 1px solid #991b1b;
+  height: 8px;
+  background: #334155;
+  border: 1px solid #1e293b;
 }
 
 .maple-canopy-2 {
-  left: 10px;
-  top: 3px;
+  left: 6px;
+  top: 14px;
   width: 16px;
-  height: 14px;
-  background: #ef4444;
+  height: 8px;
+  background: #475569;
+  border: 1px solid #334155;
 }
 
 .maple-canopy-3 {
-  left: 5px;
-  top: 6px;
+  left: 4px;
+  top: 26px;
   width: 14px;
-  height: 12px;
-  background: #f97316;
+  height: 8px;
+  background: #334155;
+  border: 1px solid #1e293b;
 }
 
-/* ── Stone Lantern (Tōrō) ── */
+/* ── Warning Light Post ── */
 .zen-lantern {
   position: absolute;
   left: 82%;
@@ -967,46 +971,39 @@ h2 {
 
 .lantern-cap {
   position: absolute;
-  left: 0;
+  left: 4px;
   top: 0;
-  width: 16px;
-  height: 6px;
-  background: linear-gradient(180deg, #78716c, #57534e);
-  border: 1px solid #44403c;
-  border-radius: 2px 2px 0 0;
+  width: 8px;
+  height: 8px;
+  background: #f59e0b;
+  border: 1px solid #d97706;
+  border-radius: 50%;
+  box-shadow: 0 0 6px 2px rgba(245, 158, 11, 0.4);
+  animation: lantern-pulse 2s ease-in-out infinite alternate;
 }
 
 .lantern-light {
-  position: absolute;
-  left: 2px;
-  top: 6px;
-  width: 12px;
-  height: 10px;
-  background: #fef3c7;
-  border: 1px solid #d97706;
-  border-radius: 1px;
-  box-shadow: 0 0 6px 2px rgba(251, 191, 36, 0.3);
-  animation: lantern-pulse 3s ease-in-out infinite alternate;
+  display: none;
 }
 
 .lantern-base {
   position: absolute;
-  left: 3px;
-  top: 16px;
-  width: 10px;
-  height: 14px;
-  background: linear-gradient(180deg, #78716c 0%, #57534e 100%);
-  border: 1px solid #44403c;
+  left: 6px;
+  top: 8px;
+  width: 4px;
+  height: 22px;
+  background: linear-gradient(180deg, #475569 0%, #334155 100%);
+  border: 1px solid #1e293b;
   border-radius: 0 0 1px 1px;
 }
 
 .lantern-glow {
   position: absolute;
-  left: -4px;
-  top: 2px;
-  width: 24px;
-  height: 18px;
-  background: radial-gradient(ellipse, rgba(251, 191, 36, 0.15) 0%, transparent 70%);
+  left: -2px;
+  top: -2px;
+  width: 20px;
+  height: 14px;
+  background: radial-gradient(ellipse, rgba(245, 158, 11, 0.2) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -1015,11 +1012,11 @@ h2 {
   100% { box-shadow: 0 0 8px 3px rgba(251, 191, 36, 0.4); }
 }
 
-/* ── Garden Rocks ── */
+/* ── Supply Crates ── */
 .zen-rock {
   position: absolute;
   z-index: 3;
-  border-radius: 40% 50% 45% 55%;
+  border-radius: 2px;
 }
 
 .zen-rock-lg {
@@ -1027,8 +1024,8 @@ h2 {
   top: 55%;
   width: 22px;
   height: 16px;
-  background: linear-gradient(135deg, #78716c, #57534e);
-  border: 2px solid #44403c;
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border: 2px solid #451a03;
   box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.3);
 }
 
@@ -1037,292 +1034,501 @@ h2 {
   top: 62%;
   width: 14px;
   height: 10px;
-  background: linear-gradient(135deg, #a8a29e, #78716c);
-  border: 1px solid #57534e;
+  background: linear-gradient(135deg, #92400e, #78350f);
+  border: 1px solid #451a03;
 }
 
-/* ── Torii Gate (middle-left entrance) ── */
-.zen-torii {
+/* ── Factory Entrance (middle-left) ── */
+.hh-factory {
   position: absolute;
   left: 2%;
   top: 50%;
   transform: translateY(-50%);
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 78px;
   z-index: 5;
 }
 
-.torii-top {
+.factory-building {
   position: absolute;
-  left: -4px;
-  top: 4px;
-  width: 78px;
-  height: 8px;
-  background: linear-gradient(180deg, #dc2626, #b91c1c);
-  border: 2px solid #7f1d1d;
-  border-radius: 3px 3px 0 0;
-}
-
-.torii-beam {
-  position: absolute;
-  left: 2px;
-  top: 14px;
-  width: 66px;
-  height: 5px;
-  background: #dc2626;
-  border: 1px solid #991b1b;
-}
-
-.torii-pillar {
-  position: absolute;
-  top: 12px;
-  width: 8px;
-  height: 46px;
-  background: linear-gradient(180deg, #dc2626, #991b1b);
-  border: 2px solid #7f1d1d;
-  border-radius: 1px;
-}
-
-.torii-pillar-l { left: 8px; }
-.torii-pillar-r { right: 8px; }
-
-.torii-lantern {
-  position: absolute;
-  left: 50%;
-  top: 20px;
-  width: 8px;
-  height: 10px;
-  transform: translateX(-50%);
-  background: #fef3c7;
-  border: 1px solid #d97706;
+  left: 4px;
+  top: 16px;
+  width: 64px;
+  height: 44px;
+  background: linear-gradient(180deg, #475569, #334155);
+  border: 2px solid #1e293b;
   border-radius: 2px;
-  box-shadow: 0 0 6px 2px rgba(251, 191, 36, 0.3);
-  animation: lantern-pulse 2.5s ease-in-out infinite alternate;
+  box-shadow: inset 0 -2px 0 #1e293b;
 }
 
-.torii-label {
+.factory-roof {
   position: absolute;
-  bottom: 0;
   left: 0;
-  width: 100%;
-  text-align: center;
-  font-family: "Press Start 2P", var(--mono);
-  font-size: 0.36rem;
-  color: #fca5a5;
-  letter-spacing: 0.06em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  top: 12px;
+  width: 72px;
+  height: 8px;
+  background: linear-gradient(180deg, #64748b, #475569);
+  border: 2px solid #1e293b;
+  border-radius: 2px 2px 0 0;
 }
 
-/* ── Spirit Shrine (middle-right exit) ── */
-.zen-shrine {
+.factory-chimney {
   position: absolute;
-  right: 2%;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 70px;
-  height: 70px;
-  z-index: 5;
-}
-
-.shrine-roof {
-  position: absolute;
-  left: -6px;
-  top: 2px;
-  width: 82px;
-  height: 14px;
-  background: linear-gradient(180deg, #1c1917, #292524);
-  border: 2px solid #0c0a09;
-  border-radius: 4px 4px 0 0;
-  clip-path: polygon(10% 100%, 0% 0%, 100% 0%, 90% 100%);
-}
-
-.shrine-body {
-  position: absolute;
-  left: 6px;
-  top: 14px;
-  width: 58px;
-  height: 36px;
-  background: linear-gradient(180deg, #78716c, #57534e);
-  border: 2px solid #44403c;
-  border-radius: 2px;
-}
-
-.shrine-opening {
-  position: absolute;
-  left: 50%;
-  top: 24px;
-  width: 18px;
-  height: 26px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #1c1917, #0c0a09);
-  border: 1px solid #292524;
+  left: 52px;
+  top: 0;
+  width: 10px;
+  height: 16px;
+  background: linear-gradient(180deg, #64748b, #475569);
+  border: 2px solid #1e293b;
   border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  border-radius: 2px 2px 0 0;
 }
 
-.shrine-smoke {
+.factory-smoke {
   position: absolute;
+  width: 6px;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 50%;
+  animation: factory-smoke-rise 2s ease-out infinite;
+}
+
+.factory-smoke-1 {
+  left: 54px;
+  top: -2px;
+}
+
+.factory-smoke-2 {
+  left: 56px;
+  top: -4px;
+  animation-delay: 0.7s;
   width: 5px;
   height: 5px;
-  background: rgba(168, 162, 158, 0.5);
-  border-radius: 50%;
-  animation: smoke-rise 2.5s ease-out infinite;
 }
 
-.shrine-smoke-1 {
-  left: 50%;
-  top: 14px;
-  transform: translateX(-50%);
-}
-
-.shrine-smoke-2 {
-  left: 55%;
-  top: 16px;
-  animation-delay: 1.2s;
+.factory-smoke-3 {
+  left: 52px;
+  top: -3px;
+  animation-delay: 1.4s;
   width: 4px;
   height: 4px;
 }
 
-@keyframes smoke-rise {
+@keyframes factory-smoke-rise {
   0% { transform: translateY(0) scale(1); opacity: 0.5; }
-  100% { transform: translateY(-20px) scale(2); opacity: 0; }
+  50% { transform: translateY(-12px) scale(1.5); opacity: 0.3; }
+  100% { transform: translateY(-24px) scale(2); opacity: 0; }
 }
 
-.shrine-glow {
+.factory-door {
   position: absolute;
   left: 50%;
-  top: 22px;
-  width: 30px;
-  height: 20px;
+  top: 36px;
+  width: 18px;
+  height: 24px;
   transform: translateX(-50%);
-  background: radial-gradient(ellipse, rgba(251, 191, 36, 0.2) 0%, transparent 70%);
-  pointer-events: none;
+  background: linear-gradient(180deg, #0f172a, #020617);
+  border: 2px solid #334155;
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
 }
 
-.shrine-label {
+.factory-window {
   position: absolute;
-  bottom: 0;
+  width: 10px;
+  height: 8px;
+  background: #fef3c7;
+  border: 1px solid #1e293b;
+  border-radius: 1px;
+  box-shadow: 0 0 4px 1px rgba(254, 243, 199, 0.3);
+  animation: factory-window-flicker 4s ease-in-out infinite alternate;
+}
+
+.factory-window-1 {
+  left: 12px;
+  top: 24px;
+}
+
+.factory-window-2 {
+  right: 16px;
+  top: 24px;
+}
+
+@keyframes factory-window-flicker {
+  0%, 80% { box-shadow: 0 0 4px 1px rgba(254, 243, 199, 0.3); }
+  90% { box-shadow: 0 0 2px 0px rgba(254, 243, 199, 0.1); }
+  100% { box-shadow: 0 0 4px 1px rgba(254, 243, 199, 0.3); }
+}
+
+.factory-conveyor {
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 80px;
+  height: 6px;
+  background: #334155;
+  border: 1px solid #1e293b;
+  border-radius: 3px;
+}
+
+.factory-conveyor-line {
+  position: absolute;
+  bottom: -1px;
+  height: 4px;
+  width: 8px;
+  background: #475569;
+  border: 1px solid #1e293b;
+  border-radius: 1px;
+  animation: conveyor-scroll 1.2s linear infinite;
+}
+
+.factory-conveyor-line-1 { left: 8px; }
+.factory-conveyor-line-2 { left: 32px; animation-delay: 0.4s; }
+.factory-conveyor-line-3 { left: 56px; animation-delay: 0.8s; }
+
+@keyframes conveyor-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(16px); opacity: 0; }
+}
+
+.factory-light {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  width: 6px;
+  height: 6px;
+  transform: translateX(-50%);
+  background: #22c55e;
+  border-radius: 50%;
+  border: 1px solid #166534;
+  box-shadow: 0 0 4px 2px rgba(34, 197, 94, 0.4);
+  animation: factory-blink 2s steps(1) infinite;
+}
+
+@keyframes factory-blink {
+  0%, 70% { background: #22c55e; box-shadow: 0 0 4px 2px rgba(34, 197, 94, 0.4); }
+  70.1%, 100% { background: #16a34a; box-shadow: 0 0 2px 1px rgba(34, 197, 94, 0.2); }
+}
+
+.factory-label {
+  position: absolute;
+  bottom: -12px;
   left: 0;
   width: 100%;
   text-align: center;
   font-family: "Press Start 2P", var(--mono);
-  font-size: 0.36rem;
-  color: #d6d3d1;
+  font-size: 0.32rem;
+  color: #94a3b8;
   letter-spacing: 0.06em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Zen Sand Plot ── */
-.zen-plot {
+/* ── Incinerator Exit (middle-right) ── */
+.hh-incinerator {
+  position: absolute;
+  right: 2%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 80px;
+  height: 78px;
+  z-index: 5;
+}
+
+.incinerator-body {
+  position: absolute;
+  left: 8px;
+  top: 18px;
+  width: 56px;
+  height: 40px;
+  background: linear-gradient(180deg, #78350f, #451a03);
+  border: 2px solid #292524;
+  border-radius: 3px;
+  box-shadow: inset 0 -2px 0 #292524;
+}
+
+.incinerator-top {
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  width: 64px;
+  height: 8px;
+  background: linear-gradient(180deg, #92400e, #78350f);
+  border: 2px solid #292524;
+  border-radius: 2px 2px 0 0;
+}
+
+.incinerator-mouth {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  width: 22px;
+  height: 24px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #1c1917, #0c0a09);
+  border: 2px solid #44403c;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+
+.incinerator-grate {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 22px;
+  height: 4px;
+  transform: translateX(-50%);
+  background: repeating-linear-gradient(
+    90deg,
+    #44403c 0,
+    #44403c 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  border: 1px solid #292524;
+}
+
+.incinerator-flame {
+  position: absolute;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  animation: flame-dance 0.4s ease-in-out infinite alternate;
+}
+
+.incinerator-flame-1 {
+  left: 50%;
+  top: 36px;
+  width: 10px;
+  height: 14px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #fbbf24, #f97316, #ef4444);
+  box-shadow: 0 0 6px 2px rgba(249, 115, 22, 0.5);
+}
+
+.incinerator-flame-2 {
+  left: 42%;
+  top: 40px;
+  width: 7px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #fde68a, #fbbf24, #f97316);
+  animation-delay: 0.15s;
+}
+
+.incinerator-flame-3 {
+  left: 58%;
+  top: 42px;
+  width: 6px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #fef3c7, #fbbf24, #f97316);
+  animation-delay: 0.3s;
+}
+
+@keyframes flame-dance {
+  0% { transform: translateX(-50%) scaleY(1) scaleX(1); }
+  25% { transform: translateX(-50%) scaleY(1.15) scaleX(0.9); }
+  50% { transform: translateX(-50%) scaleY(0.9) scaleX(1.1); }
+  75% { transform: translateX(-50%) scaleY(1.1) scaleX(0.95); }
+  100% { transform: translateX(-50%) scaleY(0.95) scaleX(1.05); }
+}
+
+.incinerator-ember {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: #fbbf24;
+  border-radius: 50%;
+  animation: ember-float 1.5s ease-out infinite;
+}
+
+.incinerator-ember-1 {
+  left: 50%;
+  top: 32px;
+}
+
+.incinerator-ember-2 {
+  left: 45%;
+  top: 34px;
+  animation-delay: 0.6s;
+  width: 2px;
+  height: 2px;
+  background: #f97316;
+}
+
+@keyframes ember-float {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-16px) translateX(4px); opacity: 0; }
+}
+
+.incinerator-heat-glow {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  width: 40px;
+  height: 30px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(249, 115, 22, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+  animation: heat-pulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes heat-pulse {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.incinerator-chimney {
+  position: absolute;
+  right: 14px;
+  top: 2px;
+  width: 8px;
+  height: 14px;
+  background: linear-gradient(180deg, #57534e, #44403c);
+  border: 2px solid #292524;
+  border-bottom: none;
+  border-radius: 2px 2px 0 0;
+}
+
+.incinerator-exhaust {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: rgba(120, 113, 108, 0.4);
+  border-radius: 50%;
+  animation: factory-smoke-rise 2.5s ease-out infinite;
+}
+
+.incinerator-exhaust-1 {
+  right: 16px;
+  top: 0;
+}
+
+.incinerator-exhaust-2 {
+  right: 14px;
+  top: -2px;
+  animation-delay: 1s;
+  width: 4px;
+  height: 4px;
+}
+
+.incinerator-label {
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.28rem;
+  color: #f97316;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Work Desk (workstation) ── */
+.work-desk {
   position: absolute;
   width: 15%;
   min-width: 72px;
   max-width: 100px;
   height: 48px;
   transform: translate(-50%, -50%);
-  background:
-    radial-gradient(ellipse at center, #e8dcc8 0%, #d4c5a9 40%, #c9b898 100%);
-  border: 2px solid #a89880;
-  border-radius: 50%;
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  border: 2px solid #0f172a;
+  border-radius: 3px;
   box-shadow:
-    inset 0 0 0 4px rgba(168, 152, 128, 0.25),
-    inset 0 0 0 8px rgba(168, 152, 128, 0.12),
-    inset 0 0 0 12px rgba(168, 152, 128, 0.06),
-    0 2px 4px rgba(0, 0, 0, 0.15);
+    inset 0 1px 0 rgba(100, 116, 139, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 3;
 }
 
-/* ── Bonsai Tree (appears when worker is at plot) ── */
-.bonsai-tree {
+/* ── Monitor (appears when worker is at desk) ── */
+.desk-monitor {
   position: absolute;
   bottom: 50%;
   left: 50%;
   transform: translateX(-50%) scale(0.5);
-  width: 40px;
-  height: 44px;
+  width: 32px;
+  height: 30px;
   pointer-events: none;
   z-index: 5;
   opacity: 0;
-  animation: bonsai-grow 0.8s ease-out forwards;
+  animation: monitor-boot 0.6s ease-out forwards;
 }
 
-.bonsai-tree.grown {
+.desk-monitor.monitor-on {
   transform: translateX(-50%) scale(1);
   opacity: 1;
   animation: none;
 }
 
-@keyframes bonsai-grow {
+@keyframes monitor-boot {
   0% { transform: translateX(-50%) scale(0.3); opacity: 0; }
   60% { transform: translateX(-50%) scale(1.05); opacity: 1; }
   100% { transform: translateX(-50%) scale(1); opacity: 1; }
 }
 
-.bonsai-trunk {
+.monitor-screen {
   position: absolute;
-  bottom: 0;
-  left: 16px;
-  width: 6px;
-  height: 22px;
-  background: linear-gradient(180deg, #78350f, #92400e);
-  border: 1px solid #451a03;
-  border-radius: 2px 2px 1px 1px;
-}
-
-.bonsai-trunk::before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  left: -6px;
-  width: 8px;
-  height: 4px;
-  background: #78350f;
-  border: 1px solid #451a03;
-  border-radius: 2px;
-  transform: rotate(-25deg);
-}
-
-.bonsai-canopy {
-  position: absolute;
-  border-radius: 50%;
-}
-
-.bonsai-canopy-1 {
-  left: 4px;
+  left: 2px;
   top: 0;
-  width: 20px;
-  height: 16px;
-  background: #16a34a;
-  border: 1px solid #15803d;
+  width: 28px;
+  height: 20px;
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px #1e293b;
 }
 
-.bonsai-canopy-2 {
-  left: 14px;
-  top: 3px;
-  width: 18px;
-  height: 14px;
-  background: #22c55e;
-  border: 1px solid #16a34a;
+.desk-monitor.monitor-on .monitor-screen {
+  background: linear-gradient(180deg, #1e3a5f 0%, #0c1929 100%);
+  box-shadow:
+    inset 0 0 0 1px #1e293b,
+    0 0 3px 1px rgba(59, 130, 246, 0.2);
+  animation: screen-flicker 3s steps(1) infinite;
 }
 
-.bonsai-canopy-3 {
-  left: 8px;
-  top: 6px;
-  width: 16px;
-  height: 12px;
-  background: #15803d;
-  border: 1px solid #166534;
+@keyframes screen-flicker {
+  0%, 95% { opacity: 1; }
+  96% { opacity: 0.85; }
+  97%, 100% { opacity: 1; }
 }
 
-.bonsai-pot {
+.monitor-stand {
   position: absolute;
-  bottom: -2px;
-  left: 10px;
-  width: 18px;
-  height: 8px;
-  background: linear-gradient(180deg, #b45309, #92400e);
-  border: 1px solid #78350f;
-  border-radius: 1px 1px 3px 3px;
+  left: 50%;
+  top: 20px;
+  width: 4px;
+  height: 6px;
+  transform: translateX(-50%);
+  background: #475569;
+  border: 1px solid #334155;
+}
+
+.monitor-base {
+  position: absolute;
+  left: 50%;
+  top: 25px;
+  width: 14px;
+  height: 3px;
+  transform: translateX(-50%);
+  background: #475569;
+  border: 1px solid #334155;
+  border-radius: 0 0 2px 2px;
+}
+
+.monitor-glow {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 20px;
+  height: 12px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.desk-monitor.monitor-on .monitor-glow {
+  opacity: 1;
 }
 
 .zen-status-summary {

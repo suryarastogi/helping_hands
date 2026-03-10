@@ -2969,15 +2969,15 @@ export default function App() {
           <>
             <section className="card hand-world-card">
               <header className="header">
-                <h1>Zen Garden</h1>
-                <p>{maxOfficeWorkers} plots &middot; click a gardener to stream its output</p>
+                <h1>Hand World</h1>
+                <p>{maxOfficeWorkers} stations &middot; click a worker to stream its output</p>
               </header>
 
               <div
                 ref={sceneRef}
                 className="world-scene office-scene"
                 role="list"
-                aria-label="Current garden workers"
+                aria-label="Current factory workers"
                 style={worldSceneStyle}
                 tabIndex={0}
               >
@@ -3015,44 +3015,59 @@ export default function App() {
                 <div className="zen-rock zen-rock-lg" aria-hidden="true" />
                 <div className="zen-rock zen-rock-sm" aria-hidden="true" />
 
-                {/* Torii gate entrance (middle-left) */}
-                <div className="zen-torii" aria-hidden="true">
-                  <span className="torii-top" />
-                  <span className="torii-beam" />
-                  <span className="torii-pillar torii-pillar-l" />
-                  <span className="torii-pillar torii-pillar-r" />
-                  <span className="torii-lantern" />
-                  <div className="torii-label">GATE</div>
+                {/* Factory entrance (middle-left) */}
+                <div className="hh-factory" aria-hidden="true">
+                  <span className="factory-building" />
+                  <span className="factory-roof" />
+                  <span className="factory-chimney" />
+                  <span className="factory-smoke factory-smoke-1" />
+                  <span className="factory-smoke factory-smoke-2" />
+                  <span className="factory-smoke factory-smoke-3" />
+                  <span className="factory-door" />
+                  <span className="factory-window factory-window-1" />
+                  <span className="factory-window factory-window-2" />
+                  <span className="factory-conveyor" />
+                  <span className="factory-conveyor-line factory-conveyor-line-1" />
+                  <span className="factory-conveyor-line factory-conveyor-line-2" />
+                  <span className="factory-conveyor-line factory-conveyor-line-3" />
+                  <span className="factory-light" />
+                  <div className="factory-label">FACTORY</div>
                 </div>
 
-                {/* Spirit shrine exit (middle-right) */}
-                <div className="zen-shrine" aria-hidden="true">
-                  <span className="shrine-roof" />
-                  <span className="shrine-body" />
-                  <span className="shrine-opening" />
-                  <span className="shrine-smoke shrine-smoke-1" />
-                  <span className="shrine-smoke shrine-smoke-2" />
-                  <span className="shrine-glow" />
-                  <div className="shrine-label">SHRINE</div>
+                {/* Incinerator exit (middle-right) */}
+                <div className="hh-incinerator" aria-hidden="true">
+                  <span className="incinerator-body" />
+                  <span className="incinerator-top" />
+                  <span className="incinerator-mouth" />
+                  <span className="incinerator-grate" />
+                  <span className="incinerator-flame incinerator-flame-1" />
+                  <span className="incinerator-flame incinerator-flame-2" />
+                  <span className="incinerator-flame incinerator-flame-3" />
+                  <span className="incinerator-ember incinerator-ember-1" />
+                  <span className="incinerator-ember incinerator-ember-2" />
+                  <span className="incinerator-heat-glow" />
+                  <span className="incinerator-chimney" />
+                  <span className="incinerator-exhaust incinerator-exhaust-1" />
+                  <span className="incinerator-exhaust incinerator-exhaust-2" />
+                  <div className="incinerator-label">INCINERATOR</div>
                 </div>
 
                 {deskSlots.map((slot, slotIdx) => {
                   const occupant = sceneWorkerEntries.find((w) => w.slot === slotIdx);
-                  const showBonsai = occupant && (occupant.phase === "walking-to-desk" || occupant.phase === "active");
+                  const showMonitor = occupant && (occupant.phase === "walking-to-desk" || occupant.phase === "active");
                   return (
                     <div
                       key={slot.id}
-                      className="zen-plot"
+                      className="work-desk"
                       style={{ left: `${slot.left}%`, top: `${slot.top}%` }}
                       aria-hidden="true"
                     >
-                      {showBonsai && (
-                        <span className={`bonsai-tree${occupant.phase === "active" ? " grown" : ""}`}>
-                          <span className="bonsai-trunk" />
-                          <span className="bonsai-canopy bonsai-canopy-1" />
-                          <span className="bonsai-canopy bonsai-canopy-2" />
-                          <span className="bonsai-canopy bonsai-canopy-3" />
-                          <span className="bonsai-pot" />
+                      {showMonitor && (
+                        <span className={`desk-monitor${occupant.phase === "active" ? " monitor-on" : ""}`}>
+                          <span className="monitor-screen" />
+                          <span className="monitor-stand" />
+                          <span className="monitor-base" />
+                          <span className="monitor-glow" />
                         </span>
                       )}
                     </div>
@@ -3060,13 +3075,13 @@ export default function App() {
                 })}
 
                 <div className="zen-status-summary">
-                  <div className="status-summary-header">Garden Status</div>
+                  <div className="status-summary-header">Factory Floor</div>
                   <div className="status-summary-stat">
-                    <span className="stat-icon">&#127794;</span>
-                    <span>{maxOfficeWorkers} Plots</span>
+                    <span className="stat-icon">&#128187;</span>
+                    <span>{maxOfficeWorkers} Stations</span>
                   </div>
                   <div className="status-summary-stat">
-                    <span className="stat-icon">&#129488;</span>
+                    <span className="stat-icon">&#129302;</span>
                     <span>{sceneWorkerEntries.length} Active</span>
                   </div>
                   <div className="status-summary-stat">
