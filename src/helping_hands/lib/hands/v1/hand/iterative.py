@@ -824,10 +824,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             except AssertionError:
                 partial = await asyncio.to_thread(self._agent.run, step_input)
                 current = self._extract_message(partial)
-                if current.startswith(stream_text):
-                    delta = current[len(stream_text) :]
-                else:
-                    delta = current
+                delta = current[len(stream_text) :]
                 stream_text = current
                 if delta:
                     yield delta
@@ -852,10 +849,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 except AssertionError:
                     partial = await asyncio.to_thread(self._agent.run, step_input)
                 current = self._extract_message(partial)
-                if current.startswith(stream_text):
-                    delta = current[len(stream_text) :]
-                else:
-                    delta = current
+                delta = current[len(stream_text) :]
                 stream_text = current
                 if delta:
                     yield delta

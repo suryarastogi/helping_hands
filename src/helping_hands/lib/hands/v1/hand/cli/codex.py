@@ -58,8 +58,6 @@ class CodexCLIHand(_TwoPhaseCLIHand):
             sandbox_mode = self._auto_sandbox_mode()
         else:
             sandbox_mode = sandbox_mode.strip() or self._auto_sandbox_mode()
-        if not sandbox_mode:
-            sandbox_mode = self._auto_sandbox_mode()
         return [*cmd[:2], "--sandbox", sandbox_mode, *cmd[2:]]
 
     def _auto_sandbox_mode(self) -> str:

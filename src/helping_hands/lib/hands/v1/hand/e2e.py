@@ -172,19 +172,18 @@ class E2EHand(Hand):
                     )
                     pr_url = pr.url
                     final_pr_number = pr.number
-                if final_pr_number is not None:
-                    gh.update_pr_body(repo, final_pr_number, body=pr_body)
-                    gh.upsert_pr_comment(
-                        repo,
-                        final_pr_number,
-                        body=self._build_e2e_pr_comment(
-                            hand_uuid=hand_uuid,
-                            prompt=prompt,
-                            stamp_utc=stamp,
-                            commit_sha=commit_sha,
-                        ),
-                        marker="<!-- helping_hands:e2e-status -->",
-                    )
+                gh.update_pr_body(repo, final_pr_number, body=pr_body)
+                gh.upsert_pr_comment(
+                    repo,
+                    final_pr_number,
+                    body=self._build_e2e_pr_comment(
+                        hand_uuid=hand_uuid,
+                        prompt=prompt,
+                        stamp_utc=stamp,
+                        commit_sha=commit_sha,
+                    ),
+                    marker="<!-- helping_hands:e2e-status -->",
+                )
 
         if dry_run:
             message = "E2EHand dry run complete. No push/PR performed."

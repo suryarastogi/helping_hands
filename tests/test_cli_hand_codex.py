@@ -235,6 +235,17 @@ class TestApplyCodexExecSandboxDefaultsEdge:
         assert "--sandbox" in result
         assert "workspace-write" in result
 
+    def test_sandbox_mode_always_populated_without_env(
+        self, codex_hand, monkeypatch
+    ) -> None:
+        """After dead code removal (v104), sandbox is always set via env or auto."""
+        monkeypatch.delenv("HELPING_HANDS_CODEX_SANDBOX_MODE", raising=False)
+        cmd = ["codex", "exec", "-p", "fix"]
+        result = codex_hand._apply_codex_exec_sandbox_defaults(cmd)
+        sandbox_idx = result.index("--sandbox")
+        sandbox_val = result[sandbox_idx + 1]
+        assert sandbox_val  # never empty
+
 
 # ---------------------------------------------------------------------------
 # _build_failure_message — instance delegation

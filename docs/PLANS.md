@@ -8,16 +8,10 @@ _No active plans._
 
 ## Completed plans
 
-- [2026-03-07 consolidated](exec-plans/completed/2026-03-07.md) --
-  v80-v103: 28 design docs, massive docs validation test suite, provider tests, Config edge cases, plan consolidation, Playwright e2e tests; 1740 -> 3031 tests
-- [2026-03-06 consolidated](exec-plans/completed/2026-03-06.md) --
-  v32-v79: PR description, schedule, E2E, server health, Docker sandbox, celery usage, frontend 82.3%, shared conftest fixtures, 21 design docs; 1263 -> 1717 tests
-- [2026-03-05 consolidated](exec-plans/completed/2026-03-05.md) --
-  v5-v31: CLI hand, AI provider, iterative hand, Docker sandbox, celery, MCP, web tool, PR description test suites; provider abstraction design doc; 470 -> 1256 tests
-- [2026-03-04 consolidated](exec-plans/completed/2026-03-04.md) --
-  v1-v4: Established docs structure, product specs, hand abstraction design doc, iterative hand tests, SECURITY.md sandboxing; 50 -> 470 tests
-- [2026-03-03](exec-plans/completed/2026-03-03.md) --
-  OpenCode hand, prompt in task inputs, merged schedule/skills/usage/concurrency branch; 0 tests
+- [2026-03-10](exec-plans/completed/2026-03-10.md) --
+  v104: Dead code cleanup (codex/goose/e2e/iterative/web), tech-debt resolved, weekly consolidation, pre-existing test fix; 3031 -> 3073 tests
+- [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
+  v0-v103: Docs infrastructure, 28 design docs, massive validation test suite, provider tests, Config edge cases, Playwright e2e tests, exec-plan workflow; 0 -> 3031 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --
   Multi-backend expansion (Goose, Gemini, Ollama), React frontend launch, animated office world view, cron scheduling, usage tracking, skills/tools refactor; 0 tests (pre-test-suite)
 - [2026-02-23 Week 8](exec-plans/completed/2026/Week-8.md) --

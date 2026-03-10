@@ -114,18 +114,17 @@ Target Python: 3.12+
 
 ## Remaining coverage gaps
 
-All remaining uncovered lines are documented dead code or inherently untestable
-entry point guards.  See `docs/exec-plans/tech-debt-tracker.md` for details.
+All remaining uncovered lines are inherently untestable entry point guards or
+defensive fallbacks.  See `docs/exec-plans/tech-debt-tracker.md` for details.
+
+Dead code in `codex.py`, `goose.py`, `e2e.py`, and `iterative.py` was removed
+in v104 (2026-03-10).
 
 | Module | Line(s) | Reason |
 |---|---|---|
 | `cli/main.py` | 367 | `if __name__` guard |
 | `cli/base.py` | 552->559 | Heartbeat-without-timeout timing |
-| `codex.py` | 62 | Dead code (always-truthy sandbox mode) |
-| `goose.py` | 135 | Dead code (always-non-empty after strip) |
-| `e2e.py` | 175->189 | Dead code (always-non-None PR number) |
-| `iterative.py` | 830, 858 | Dead code (delta=current unreachable) |
-| `web.py` | 66 | Dead code (latin-1 accepts all bytes) |
+| `web.py` | 66 | Defensive fallback (`pragma: no cover`; latin-1 accepts all bytes) |
 | `mcp_server.py` | 393 | `if __name__` guard |
 
 ## Areas for improvement

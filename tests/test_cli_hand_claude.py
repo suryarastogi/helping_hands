@@ -81,11 +81,11 @@ class TestResolveCliModel:
         result = claude_hand._resolve_cli_model()
         assert result == "claude-sonnet-4-5"
 
-    def test_empty_model_returns_empty(self, make_cli_hand) -> None:
+    def test_default_model_returns_opus(self, make_cli_hand) -> None:
         hand = make_cli_hand(ClaudeCodeHand, model="default")
-        # _DEFAULT_MODEL is "" so super() should return "" for "default"
+        # _DEFAULT_MODEL is "claude-opus-4-6"
         result = hand._resolve_cli_model()
-        assert result == "" or result == "default"
+        assert result == "claude-opus-4-6"
 
 
 # ---------------------------------------------------------------------------

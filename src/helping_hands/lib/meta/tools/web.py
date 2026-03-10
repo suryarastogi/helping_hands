@@ -58,12 +58,15 @@ def _require_http_url(url: str) -> str:
 
 
 def _decode_bytes(payload: bytes) -> str:
+    """Decode bytes trying UTF-8, UTF-16, then latin-1 (which accepts all byte values)."""
     for encoding in ("utf-8", "utf-16", "latin-1"):
         try:
             return payload.decode(encoding)
         except UnicodeDecodeError:
             continue
-    return payload.decode("utf-8", errors="replace")
+    # latin-1 accepts all byte values so we always return above, but keep
+    # a safe fallback for defensive completeness.
+    return payload.decode("utf-8", errors="replace")  # pragma: no cover
 
 
 def _strip_html(raw_html: str) -> str:
