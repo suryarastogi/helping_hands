@@ -27,12 +27,8 @@ class TestGetClaudeOauthToken:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         creds = {"claudeAiOauth": {"accessToken": "eyABC123"}}
-        mock_result = SimpleNamespace(
-            returncode=0, stdout=json.dumps(creds), stderr=""
-        )
-        monkeypatch.setattr(
-            subprocess, "run", lambda *a, **kw: mock_result
-        )
+        mock_result = SimpleNamespace(returncode=0, stdout=json.dumps(creds), stderr="")
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
 
         assert _get_claude_oauth_token() == "eyABC123"
 
@@ -42,33 +38,23 @@ class TestGetClaudeOauthToken:
         mock_result = SimpleNamespace(
             returncode=0, stdout='{"other": "data"}', stderr=""
         )
-        monkeypatch.setattr(
-            subprocess, "run", lambda *a, **kw: mock_result
-        )
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
 
         assert _get_claude_oauth_token() is None
 
     def test_returns_plain_token_starting_with_ey(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        mock_result = SimpleNamespace(
-            returncode=0, stdout="eyPlainJWT", stderr=""
-        )
-        monkeypatch.setattr(
-            subprocess, "run", lambda *a, **kw: mock_result
-        )
+        mock_result = SimpleNamespace(returncode=0, stdout="eyPlainJWT", stderr="")
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
 
         assert _get_claude_oauth_token() == "eyPlainJWT"
 
     def test_returns_none_for_plain_non_jwt(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        mock_result = SimpleNamespace(
-            returncode=0, stdout="not-a-jwt-token", stderr=""
-        )
-        monkeypatch.setattr(
-            subprocess, "run", lambda *a, **kw: mock_result
-        )
+        mock_result = SimpleNamespace(returncode=0, stdout="not-a-jwt-token", stderr="")
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
 
         assert _get_claude_oauth_token() is None
 
@@ -76,9 +62,7 @@ class TestGetClaudeOauthToken:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_result = SimpleNamespace(returncode=44, stdout="", stderr="err")
-        monkeypatch.setattr(
-            subprocess, "run", lambda *a, **kw: mock_result
-        )
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
 
         assert _get_claude_oauth_token() is None
 
@@ -86,9 +70,7 @@ class TestGetClaudeOauthToken:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_result = SimpleNamespace(returncode=0, stdout="  \n  ", stderr="")
-        monkeypatch.setattr(
-            subprocess, "run", lambda *a, **kw: mock_result
-        )
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
 
         assert _get_claude_oauth_token() is None
 
@@ -115,12 +97,8 @@ class TestGetClaudeOauthToken:
     def test_returns_none_for_malformed_json(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        mock_result = SimpleNamespace(
-            returncode=0, stdout="{bad json", stderr=""
-        )
-        monkeypatch.setattr(
-            subprocess, "run", lambda *a, **kw: mock_result
-        )
+        mock_result = SimpleNamespace(returncode=0, stdout="{bad json", stderr="")
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
 
         # Malformed JSON that doesn't start with "ey" → None
         assert _get_claude_oauth_token() is None
@@ -141,9 +119,7 @@ class TestFetchClaudeUsage:
     ) -> None:
         import time
 
-        cached = ClaudeUsageResponse(
-            levels=[], error=None, fetched_at="cached"
-        )
+        cached = ClaudeUsageResponse(levels=[], error=None, fetched_at="cached")
         monkeypatch.setattr("helping_hands.server.app._usage_cache", cached)
         monkeypatch.setattr(
             "helping_hands.server.app._usage_cache_ts", time.monotonic()
@@ -152,12 +128,8 @@ class TestFetchClaudeUsage:
         result = _fetch_claude_usage()
         assert result.fetched_at == "cached"
 
-    def test_cache_expired_refetches(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        cached = ClaudeUsageResponse(
-            levels=[], error=None, fetched_at="stale"
-        )
+    def test_cache_expired_refetches(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        cached = ClaudeUsageResponse(levels=[], error=None, fetched_at="stale")
         monkeypatch.setattr("helping_hands.server.app._usage_cache", cached)
         # Set cache timestamp far in the past
         monkeypatch.setattr("helping_hands.server.app._usage_cache_ts", 0.0)
@@ -170,9 +142,7 @@ class TestFetchClaudeUsage:
         assert result.fetched_at != "stale"
         assert "Keychain" in result.error
 
-    def test_no_token_returns_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_no_token_returns_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self._reset_cache(monkeypatch)
         monkeypatch.setattr(
             "helping_hands.server.app._get_claude_oauth_token", lambda: None
@@ -183,9 +153,7 @@ class TestFetchClaudeUsage:
         assert "Keychain" in result.error
         assert result.levels == []
 
-    def test_http_error_returns_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_http_error_returns_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from urllib.error import HTTPError
 
         self._reset_cache(monkeypatch)
@@ -271,9 +239,7 @@ class TestFetchClaudeUsage:
         assert result.levels[1].name == "Weekly"
         assert result.levels[1].percent_used == 15.3
 
-    def test_no_usage_data_returns_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_no_usage_data_returns_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self._reset_cache(monkeypatch)
         monkeypatch.setattr(
             "helping_hands.server.app._get_claude_oauth_token",
@@ -293,14 +259,10 @@ class TestFetchClaudeUsage:
         result = _fetch_claude_usage()
         assert "No usage data" in result.error
 
-    def test_force_bypasses_fresh_cache(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_force_bypasses_fresh_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import time
 
-        cached = ClaudeUsageResponse(
-            levels=[], error=None, fetched_at="cached"
-        )
+        cached = ClaudeUsageResponse(levels=[], error=None, fetched_at="cached")
         monkeypatch.setattr("helping_hands.server.app._usage_cache", cached)
         monkeypatch.setattr(
             "helping_hands.server.app._usage_cache_ts", time.monotonic()
@@ -312,9 +274,7 @@ class TestFetchClaudeUsage:
         result = _fetch_claude_usage(force=True)
         assert result.fetched_at != "cached"
 
-    def test_session_only_no_weekly(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_session_only_no_weekly(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self._reset_cache(monkeypatch)
         monkeypatch.setattr(
             "helping_hands.server.app._get_claude_oauth_token",

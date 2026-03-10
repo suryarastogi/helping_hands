@@ -32,9 +32,10 @@ Steps:
    exercised
 5. **Ruff check** -- lint with the project ruleset (E, W, F, I, N, UP, B, SIM, RUF)
 6. **Ruff format check** -- verify formatting matches `ruff format` output
-7. **Run tests** via `pytest -v --cov-report=xml` with `GITHUB_TOKEN` from
+7. **Type check** via `uv run ty check src --ignore unresolved-import --ignore invalid-method-override`
+8. **Run tests** via `pytest -v --cov-report=xml` with `GITHUB_TOKEN` from
    secrets for E2E integration tests (opt-in via `HELPING_HANDS_RUN_E2E_INTEGRATION`)
-8. **Upload coverage** to Codecov (Python 3.12 job only, `backend` flag)
+9. **Upload coverage** to Codecov (Python 3.12 job only, `backend` flag)
 
 ### Frontend job (`frontend-check`)
 
@@ -60,8 +61,9 @@ Steps:
 - **Coverage on one version only** -- uploading coverage from all matrix versions
   would create confusing Codecov reports.  Python 3.12 is the canonical coverage
   source.
-- **No type checker in CI yet** -- `ty` is tracked as tech debt; adding it when
-  it has a stable CI runner story.
+- **Type checker (`ty`) in CI** -- `ty check src` runs with `--ignore
+  unresolved-import` (optional dependencies) and `--ignore invalid-method-override`
+  (third-party abstract classes).  Added in v109.
 
 ## Docs workflow (`docs.yml`)
 
@@ -98,7 +100,7 @@ Steps:
 
 ## Consequences
 
-- Every PR must pass lint, format, and tests on all 3 Python versions before merge.
+- Every PR must pass lint, format, type check, and tests on all 3 Python versions before merge.
 - Coverage trends are tracked on Codecov with separate backend/frontend flags.
 - Documentation is always in sync with the default branch code.
 - Adding a new optional extra requires updating the `uv sync` line in `ci.yml`.

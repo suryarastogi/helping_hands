@@ -10,6 +10,7 @@ Metrics and standards for code quality in helping_hands.
 |---|---|---|---|
 | Lint | `ruff check` | All Python | Enforced |
 | Format | `ruff format --check` | All Python | Enforced |
+| Type check | `ty check` | `src/` | Enforced |
 | Tests | `pytest -v` | `tests/` | Enforced |
 | Coverage | `pytest-cov` + Codecov | Python 3.12 job | Reporting |
 | Frontend lint | `eslint` | `frontend/src/` | Enforced |
@@ -129,7 +130,7 @@ in v104 (2026-03-10).
 
 ## Areas for improvement
 
-- [ ] Add type checking to CI (ty, when stable for CI runners)
+- [x] Add type checking to CI (ty, when stable for CI runners) — added in v109
 - [ ] Add mutation testing for critical path safety (filesystem tools)
 - [ ] Add load testing for app mode concurrent task handling
 - [x] Add tests for `_build_tree_snapshot` / `_build_bootstrap_context` (iterative.py) — added in v9

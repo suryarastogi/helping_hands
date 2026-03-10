@@ -182,6 +182,7 @@ class E2EHand(Hand):
                     )
                     pr_url = pr.url
                     final_pr_number = pr.number
+                assert final_pr_number is not None
                 gh.update_pr_body(repo, final_pr_number, body=pr_body)
                 gh.upsert_pr_comment(
                     repo,

@@ -6,7 +6,6 @@ Ongoing technical debt items that don't warrant a full execution plan.
 
 | Item | Priority | Module | Notes |
 |---|---|---|---|
-| Type checker not in CI | Medium | CI | ty lacks stable CI runner; add when available |
 | Streaming for scaffold CLI hands | Low | CLI hands | Replace single-chunk with real streaming |
 | E2E hardening | Low | `e2e.py` | Branch collision, idempotency (draft PR added in v105) |
 | `if __name__ == "__main__"` guard | None | `cli/main.py` | Line 367: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
@@ -27,3 +26,4 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | Frontend localStorage polyfill | 2026-03-10 | Full polyfill in `test/setup.ts` with getItem/setItem/removeItem/clear/length/key (v105) |
 | Claude CLI scaffold placeholder | 2026-03-10 | Claude Code CLI hand is fully implemented with `_StreamJsonEmitter`, async `_invoke_claude`, and complete test coverage (v107) |
 | Gemini CLI scaffold placeholder | 2026-03-10 | Gemini CLI hand is fully implemented with model resolution, auth, retry logic, and complete test coverage (v107) |
+| Type checker not in CI | 2026-03-10 | Added `ty check` step to CI workflow; fixed 12 type errors in `e2e.py`, `celery_app.py`, `schedules.py`; removed stale `type: ignore` comments (v109) |

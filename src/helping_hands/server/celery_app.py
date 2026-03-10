@@ -389,7 +389,7 @@ def build_feature(
     task; a worker picks it up, runs the hand, and stores the result.
     The Celery task ID is used as the hand UUID.
     """
-    from helping_hands.lib.config import Config
+    from helping_hands.lib.config import Config, ConfigValue
     from helping_hands.lib.hands.v1.hand import (
         BasicAtomicHand,
         BasicLangGraphHand,
@@ -513,7 +513,10 @@ def build_feature(
         raise
 
     try:
-        overrides = {"repo": str(resolved_repo_path), "model": model}
+        overrides: dict[str, ConfigValue] = {
+            "repo": str(resolved_repo_path),
+            "model": model,
+        }
         overrides["enable_execution"] = enable_execution
         overrides["enable_web"] = enable_web
         overrides["use_native_cli_auth"] = use_native_cli_auth
@@ -915,6 +918,6 @@ def ensure_usage_schedule() -> None:
         pass  # best-effort; Redis or redbeat may not be available
 
 
-@celery_app.on_after_finalize.connect  # type: ignore[union-attr]
+@celery_app.on_after_finalize.connect
 def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
     ensure_usage_schedule()

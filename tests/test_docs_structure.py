@@ -7487,3 +7487,39 @@ class TestQualityScoreDeadCodeCleanup:
 
     def test_v104_cleanup_noted(self, content: str) -> None:
         assert "v104" in content
+
+
+class TestCIWorkflowTypeChecker:
+    """CI workflow should include ty type checker step."""
+
+    @pytest.fixture()
+    def ci_content(self) -> str:
+        return (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+
+    def test_ty_check_step_present(self, ci_content: str) -> None:
+        """CI workflow must have a 'Type check' step."""
+        assert "Type check" in ci_content
+
+    def test_ty_check_command(self, ci_content: str) -> None:
+        """CI workflow must run ty check with correct flags."""
+        assert "uv run ty check src" in ci_content
+
+    def test_ty_ignores_unresolved_import(self, ci_content: str) -> None:
+        """ty must ignore unresolved-import errors (optional deps)."""
+        assert "--ignore unresolved-import" in ci_content
+
+    def test_ty_ignores_invalid_method_override(self, ci_content: str) -> None:
+        """ty must ignore invalid-method-override (third-party abstract classes)."""
+        assert "--ignore invalid-method-override" in ci_content
+
+    def test_ty_step_before_tests(self, ci_content: str) -> None:
+        """Type check step should come before test execution."""
+        ty_pos = ci_content.index("Type check")
+        test_pos = ci_content.index("Run tests")
+        assert ty_pos < test_pos, "Type check should run before tests"
+
+    def test_ty_step_after_ruff(self, ci_content: str) -> None:
+        """Type check step should come after ruff checks."""
+        ruff_pos = ci_content.index("Ruff format check")
+        ty_pos = ci_content.index("Type check")
+        assert ruff_pos < ty_pos, "Type check should run after ruff"
