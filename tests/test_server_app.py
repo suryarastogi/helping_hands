@@ -12,7 +12,13 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
-from helping_hands.server.app import app
+from helping_hands.server.app import (
+    ClaudeUsageResponse,
+    _check_db_health,
+    _check_redis_health,
+    _check_workers_health,
+    app,
+)
 
 
 def _query_from_location(location: str) -> dict[str, list[str]]:
@@ -637,3 +643,298 @@ class TestCurrentTasksEndpoint:
                 "source": "celery+flower",
             }
         ]
+
+
+# --- /health endpoint ---
+
+
+class TestHealthEndpoint:
+    """Tests for the basic /health endpoint."""
+
+    def test_returns_ok(self) -> None:
+        client = TestClient(app)
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+
+# --- /health/services endpoint ---
+
+
+class TestHealthServicesEndpoint:
+    """Tests for the /health/services endpoint with mocked service checks."""
+
+    def test_all_healthy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_redis_health", lambda: "ok"
+        )
+        monkeypatch.setattr("helping_hands.server.app._check_db_health", lambda: "ok")
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_workers_health", lambda: "ok"
+        )
+
+        client = TestClient(app)
+        response = client.get("/health/services")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload == {"redis": "ok", "db": "ok", "workers": "ok"}
+
+    def test_redis_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_redis_health", lambda: "error"
+        )
+        monkeypatch.setattr("helping_hands.server.app._check_db_health", lambda: "ok")
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_workers_health", lambda: "ok"
+        )
+
+        client = TestClient(app)
+        response = client.get("/health/services")
+
+        assert response.status_code == 200
+        assert response.json()["redis"] == "error"
+
+    def test_db_not_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_redis_health", lambda: "ok"
+        )
+        monkeypatch.setattr("helping_hands.server.app._check_db_health", lambda: "na")
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_workers_health", lambda: "ok"
+        )
+
+        client = TestClient(app)
+        response = client.get("/health/services")
+
+        assert response.status_code == 200
+        assert response.json()["db"] == "na"
+
+    def test_workers_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_redis_health", lambda: "ok"
+        )
+        monkeypatch.setattr("helping_hands.server.app._check_db_health", lambda: "ok")
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_workers_health", lambda: "error"
+        )
+
+        client = TestClient(app)
+        response = client.get("/health/services")
+
+        assert response.status_code == 200
+        assert response.json()["workers"] == "error"
+
+    def test_all_services_degraded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_redis_health", lambda: "error"
+        )
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_db_health", lambda: "error"
+        )
+        monkeypatch.setattr(
+            "helping_hands.server.app._check_workers_health", lambda: "error"
+        )
+
+        client = TestClient(app)
+        response = client.get("/health/services")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload == {"redis": "error", "db": "error", "workers": "error"}
+
+
+# --- Health check helper functions ---
+
+
+class TestCheckRedisHealth:
+    """Tests for _check_redis_health helper."""
+
+    def test_returns_ok_when_ping_succeeds(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_redis_cls = MagicMock()
+        mock_redis_cls.from_url.return_value.ping.return_value = True
+        mock_redis_mod = MagicMock()
+        mock_redis_mod.Redis = mock_redis_cls
+        monkeypatch.setitem(__import__("sys").modules, "redis", mock_redis_mod)
+
+        assert _check_redis_health() == "ok"
+
+    def test_returns_error_when_ping_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_redis_mod = MagicMock()
+        mock_redis_mod.Redis.from_url.side_effect = ConnectionError("refused")
+        monkeypatch.setitem(__import__("sys").modules, "redis", mock_redis_mod)
+
+        assert _check_redis_health() == "error"
+
+    def test_returns_error_when_import_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+
+        original_import = (
+            __builtins__.__import__
+            if hasattr(__builtins__, "__import__")
+            else __import__
+        )
+
+        def fail_redis_import(name: str, *args: object, **kwargs: object) -> object:
+            if name == "redis":
+                raise ImportError("no redis")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.__import__", fail_redis_import)
+
+        assert _check_redis_health() == "error"
+
+
+class TestCheckDbHealth:
+    """Tests for _check_db_health helper."""
+
+    def test_returns_na_when_no_database_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        assert _check_db_health() == "na"
+
+    def test_returns_na_when_empty_database_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DATABASE_URL", "  ")
+        assert _check_db_health() == "na"
+
+    def test_returns_ok_when_connection_succeeds(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/test")
+        mock_psycopg2 = MagicMock()
+        mock_conn = MagicMock()
+        mock_psycopg2.connect.return_value = mock_conn
+        monkeypatch.setitem(__import__("sys").modules, "psycopg2", mock_psycopg2)
+
+        assert _check_db_health() == "ok"
+        mock_conn.close.assert_called_once()
+
+    def test_returns_error_when_connection_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/test")
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.connect.side_effect = Exception("connection refused")
+        monkeypatch.setitem(__import__("sys").modules, "psycopg2", mock_psycopg2)
+
+        assert _check_db_health() == "error"
+
+
+class TestCheckWorkersHealth:
+    """Tests for _check_workers_health helper."""
+
+    def test_returns_ok_when_workers_respond(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_inspector = MagicMock()
+        mock_inspector.ping.return_value = {"worker@1": {"ok": "pong"}}
+        mock_control = MagicMock()
+        mock_control.inspect.return_value = mock_inspector
+        monkeypatch.setattr("helping_hands.server.app.celery_app.control", mock_control)
+
+        assert _check_workers_health() == "ok"
+
+    def test_returns_error_when_no_workers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_inspector = MagicMock()
+        mock_inspector.ping.return_value = None
+        mock_control = MagicMock()
+        mock_control.inspect.return_value = mock_inspector
+        monkeypatch.setattr("helping_hands.server.app.celery_app.control", mock_control)
+
+        assert _check_workers_health() == "error"
+
+    def test_returns_error_when_empty_ping(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_inspector = MagicMock()
+        mock_inspector.ping.return_value = {}
+        mock_control = MagicMock()
+        mock_control.inspect.return_value = mock_inspector
+        monkeypatch.setattr("helping_hands.server.app.celery_app.control", mock_control)
+
+        assert _check_workers_health() == "error"
+
+    def test_returns_error_when_inspect_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_control = MagicMock()
+        mock_control.inspect.side_effect = ConnectionError("no broker")
+        monkeypatch.setattr("helping_hands.server.app.celery_app.control", mock_control)
+
+        assert _check_workers_health() == "error"
+
+
+# --- /health/claude-usage endpoint ---
+
+
+class TestClaudeUsageEndpoint:
+    """Tests for the /health/claude-usage endpoint."""
+
+    def test_returns_error_when_no_credentials(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._get_claude_oauth_token", lambda: None
+        )
+        # Reset cache to force fresh fetch
+        monkeypatch.setattr("helping_hands.server.app._usage_cache", None)
+
+        client = TestClient(app)
+        response = client.get("/health/claude-usage")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["error"] is not None
+        assert "Keychain" in payload["error"]
+        assert payload["fetched_at"] is not None
+
+    def test_returns_cached_response(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import time
+
+        cached = ClaudeUsageResponse(
+            levels=[], error=None, fetched_at="2026-03-10T00:00:00"
+        )
+        monkeypatch.setattr("helping_hands.server.app._usage_cache", cached)
+        monkeypatch.setattr(
+            "helping_hands.server.app._usage_cache_ts", time.monotonic()
+        )
+
+        client = TestClient(app)
+        response = client.get("/health/claude-usage")
+
+        assert response.status_code == 200
+        assert response.json()["fetched_at"] == "2026-03-10T00:00:00"
+
+    def test_force_bypasses_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import time
+
+        cached = ClaudeUsageResponse(
+            levels=[], error=None, fetched_at="2026-01-01T00:00:00"
+        )
+        monkeypatch.setattr("helping_hands.server.app._usage_cache", cached)
+        monkeypatch.setattr(
+            "helping_hands.server.app._usage_cache_ts", time.monotonic()
+        )
+        # When forced, it re-fetches — mock the token as missing
+        monkeypatch.setattr(
+            "helping_hands.server.app._get_claude_oauth_token", lambda: None
+        )
+
+        client = TestClient(app)
+        response = client.get("/health/claude-usage?force=true")
+
+        assert response.status_code == 200
+        payload = response.json()
+        # Should have re-fetched (error from no credentials, not cached)
+        assert payload["error"] is not None
+        assert payload["fetched_at"] != "2026-01-01T00:00:00"

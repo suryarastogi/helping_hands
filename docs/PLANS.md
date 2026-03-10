@@ -9,7 +9,7 @@ _No active plans._
 ## Completed plans
 
 - [2026-03-10](exec-plans/completed/2026-03-10.md) --
-  v104-v106: Dead code cleanup, server routing completion, E2E draft PR, Celery helper extraction, stream collector tests; 3031 -> 3107 tests
+  v104-v107: Dead code cleanup, server routing completion, E2E draft PR, Celery helper extraction, stream collector tests, health check tests, tech-debt cleanup; 3031 -> 3127 tests
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
   v0-v103: Docs infrastructure, 28 design docs, massive validation test suite, provider tests, Config edge cases, Playwright e2e tests, exec-plan workflow; 0 -> 3031 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --

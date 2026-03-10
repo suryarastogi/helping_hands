@@ -7,8 +7,6 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | Item | Priority | Module | Notes |
 |---|---|---|---|
 | Type checker not in CI | Medium | CI | ty lacks stable CI runner; add when available |
-| Claude CLI scaffold placeholder | Low | `cli/claude.py` | Replace with real subprocess integration |
-| Gemini CLI scaffold placeholder | Low | `cli/gemini.py` | Replace with real subprocess integration |
 | Streaming for scaffold CLI hands | Low | CLI hands | Replace single-chunk with real streaming |
 | E2E hardening | Low | `e2e.py` | Branch collision, idempotency (draft PR added in v105) |
 | `if __name__ == "__main__"` guard | None | `cli/main.py` | Line 367: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
@@ -27,3 +25,5 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | Backend routing incomplete | 2026-03-10 | Added `docker-sandbox-claude` to server `_SUPPORTED_BACKENDS`, `_BACKEND_LOOKUP`, `BackendName`, and Celery hand instantiation (v105) |
 | E2E draft PR | 2026-03-10 | E2E hand now creates draft PRs by default via `HELPING_HANDS_E2E_DRAFT_PR` env var (v105) |
 | Frontend localStorage polyfill | 2026-03-10 | Full polyfill in `test/setup.ts` with getItem/setItem/removeItem/clear/length/key (v105) |
+| Claude CLI scaffold placeholder | 2026-03-10 | Claude Code CLI hand is fully implemented with `_StreamJsonEmitter`, async `_invoke_claude`, and complete test coverage (v107) |
+| Gemini CLI scaffold placeholder | 2026-03-10 | Gemini CLI hand is fully implemented with model resolution, auth, retry logic, and complete test coverage (v107) |
