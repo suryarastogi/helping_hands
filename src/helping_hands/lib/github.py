@@ -20,6 +20,47 @@ from github.Repository import Repository
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_GIT_TIMEOUT = 300  # seconds
+
+
+def _git_timeout() -> int:
+    """Return the git operation timeout in seconds.
+
+    Reads ``HELPING_HANDS_GIT_TIMEOUT`` from the environment, falling back to
+    :data:`_DEFAULT_GIT_TIMEOUT` (300 s).
+    """
+    raw = os.environ.get("HELPING_HANDS_GIT_TIMEOUT", "")
+    if raw.strip():
+        try:
+            value = int(raw)
+            if value > 0:
+                return value
+            logger.warning("HELPING_HANDS_GIT_TIMEOUT must be positive, using default")
+        except ValueError:
+            logger.warning(
+                "HELPING_HANDS_GIT_TIMEOUT=%r is not an integer, using default",
+                raw,
+            )
+    return _DEFAULT_GIT_TIMEOUT
+
+
+def _validate_full_name(full_name: str) -> None:
+    """Validate that *full_name* matches the ``owner/repo`` format.
+
+    Raises:
+        ValueError: If the string is empty, missing a ``/``, has empty segments,
+            or contains whitespace.
+    """
+    if not full_name or not full_name.strip():
+        raise ValueError("full_name must not be empty")
+    if " " in full_name or "\t" in full_name:
+        raise ValueError(f"full_name must not contain whitespace: {full_name!r}")
+    parts = full_name.split("/")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(
+            f"full_name must be in 'owner/repo' format, got: {full_name!r}"
+        )
+
 
 def _redact_sensitive(text: str) -> str:
     """Redact token-bearing GitHub URLs in logs/errors."""
@@ -81,6 +122,7 @@ class GitHubClient:
 
     def get_repo(self, full_name: str) -> Repository:
         """Get a repository by owner/name (e.g. ``"suryarastogi/helping_hands"``)."""
+        _validate_full_name(full_name)
         return self._gh.get_repo(full_name)
 
     # ------------------------------------------------------------------
@@ -444,14 +486,21 @@ def _run_git(
     *,
     cwd: Path | str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a git command, raising on failure."""
-    result = subprocess.run(
-        cmd,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    """Run a git command, raising on failure or timeout."""
+    timeout = _git_timeout()
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        safe_cmd = " ".join(_redact_sensitive(part) for part in cmd)
+        msg = f"git timed out after {timeout}s ({safe_cmd})"
+        raise RuntimeError(msg) from None
     if result.returncode != 0:
         safe_cmd = " ".join(_redact_sensitive(part) for part in cmd)
         safe_stderr = _redact_sensitive(result.stderr.strip())

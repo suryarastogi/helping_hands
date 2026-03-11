@@ -9,7 +9,7 @@ _No active plans._
 ## Completed plans
 
 - [2026-03-11 Week 11](exec-plans/completed/2026/Week-11.md) --
-  v104-v123: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion; 3031 -> 3219 tests (backend), 153 -> 169 tests (frontend)
+  v104-v124: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening; 3031 -> 3243 tests (backend), 153 -> 169 tests (frontend)
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
   v0-v103: Docs infrastructure, 28 design docs, massive validation test suite, provider tests, Config edge cases, Playwright e2e tests, exec-plan workflow; 0 -> 3031 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --
