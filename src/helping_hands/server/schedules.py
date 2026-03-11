@@ -7,12 +7,15 @@ via celery-redbeat and supporting standard cron expressions.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 from celery import Celery
+
+logger = logging.getLogger(__name__)
 
 # Lazy imports for optional dependencies
 _redbeat_available = True
@@ -109,9 +112,25 @@ class ScheduledTask:
             "run_count": self.run_count,
         }
 
+    _REQUIRED_FIELDS = (
+        "schedule_id",
+        "name",
+        "cron_expression",
+        "repo_path",
+        "prompt",
+    )
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScheduledTask:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Raises:
+            ValueError: If any required field is missing.
+        """
+        missing = [f for f in cls._REQUIRED_FIELDS if f not in data]
+        if missing:
+            msg = f"Missing required fields: {', '.join(missing)}"
+            raise ValueError(msg)
         return cls(
             schedule_id=data["schedule_id"],
             name=data["name"],
@@ -333,7 +352,7 @@ class ScheduleManager:
             )
             entry.delete()
         except KeyError:
-            pass  # Entry doesn't exist, nothing to delete
+            logger.debug("RedBeat entry not found for schedule %s", schedule_id)
 
     def get_schedule(self, schedule_id: str) -> ScheduledTask | None:
         """Get a scheduled task by ID.

@@ -7,6 +7,7 @@ push, PR create/update, and status-comment refresh.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import AsyncIterator
@@ -16,6 +17,8 @@ from typing import Any
 from uuid import uuid4
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+logger = logging.getLogger(__name__)
 
 
 class E2EHand(Hand):
@@ -122,6 +125,11 @@ class E2EHand(Hand):
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
                 except Exception:
+                    logger.debug(
+                        "Failed to fetch default branch for %s",
+                        repo,
+                        exc_info=True,
+                    )
                     clone_branch = None
 
             gh.clone(repo, repo_dir, branch=clone_branch, depth=1)
@@ -182,7 +190,10 @@ class E2EHand(Hand):
                     )
                     pr_url = pr.url
                     final_pr_number = pr.number
-                assert final_pr_number is not None
+                if final_pr_number is None:
+                    raise RuntimeError(
+                        "final_pr_number is unexpectedly None after PR creation"
+                    )
                 gh.update_pr_body(repo, final_pr_number, body=pr_body)
                 gh.upsert_pr_comment(
                     repo,

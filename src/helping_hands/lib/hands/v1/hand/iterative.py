@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import shlex
@@ -32,6 +33,8 @@ from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.meta.tools import web as system_web_tools
+
+logger = logging.getLogger(__name__)
 
 
 class _BasicIterativeHand(Hand):
@@ -413,6 +416,7 @@ class _BasicIterativeHand(Hand):
             try:
                 display_path = system_tools.write_text_file(root, rel_path, body)
             except ValueError:
+                logger.debug("Skipping inline edit for %r: invalid path", rel_path)
                 continue
             changed.append(display_path)
         if changed:

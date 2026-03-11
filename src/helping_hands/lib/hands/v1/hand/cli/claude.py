@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+logger = logging.getLogger(__name__)
 
 
 class _StreamJsonEmitter:
@@ -243,7 +246,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 if int(geteuid()) == 0:
                     return False
             except Exception:
-                pass
+                logger.debug("geteuid() check failed", exc_info=True)
         return True
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:

@@ -202,7 +202,8 @@ def run_bash_script(
     normalized_args = _normalize_args(args)
 
     if has_script_path:
-        assert script_path is not None
+        if script_path is None:  # pragma: no cover - guarded by has_script_path
+            raise RuntimeError("script_path is unexpectedly None")
         script = resolve_repo_target(root, script_path)
         if not script.exists():
             msg = f"script not found: {script_path}"
@@ -213,7 +214,8 @@ def run_bash_script(
         command = ["bash", str(script), *normalized_args]
         return _run_command(command, cwd=working_dir, timeout_s=timeout_s)
 
-    assert inline_script is not None
+    if inline_script is None:  # pragma: no cover - guarded by has_inline
+        raise RuntimeError("inline_script is unexpectedly None")
     tmp_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
