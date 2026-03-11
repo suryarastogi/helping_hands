@@ -9,7 +9,7 @@ _No active plans._
 ## Completed plans
 
 - [2026-03-11 v130](exec-plans/completed/2026-03-11.md) --
-  Defensive CI response handling (.get() defaults), frontend form validation (submitRun/saveSchedule emptiness checks), statusBlinkerColor test coverage; 3304+ backend tests, 178 frontend tests
+  Defensive CI response handling (.get() defaults), frontend form validation (submitRun/saveSchedule emptiness checks), statusBlinkerColor test coverage; 3482 tests (3304+ backend, 178 frontend)
 - [2026-03-11 v129](exec-plans/completed/2026-03-11.md) --
   Exception debug logging in atomic.py/iterative.py, Goose _build_subprocess_env test coverage (10 tests); 3304 passing tests
 - [2026-03-11 v128](exec-plans/completed/2026-03-11.md) --
