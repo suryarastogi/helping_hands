@@ -9,6 +9,7 @@ callers can stream output even when the underlying client is sync-only.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -17,6 +18,8 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     resolve_hand_model,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AtomicHand(Hand):
@@ -89,6 +92,7 @@ class AtomicHand(Hand):
                 yield text
             async_result = None
         except Exception:
+            logger.debug("run_async raised non-AssertionError", exc_info=True)
             raise
         if async_result is None:
             pass

@@ -846,6 +846,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                     yield delta
                 async_result = None
             except Exception:
+                logger.debug("run_async raised non-AssertionError", exc_info=True)
                 raise
             if async_result is not None and hasattr(async_result, "__aiter__"):
                 async for partial in async_result:

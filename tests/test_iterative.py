@@ -1828,6 +1828,28 @@ class TestBasicAtomicHandStreamPrStatusElif:
         with pytest.raises(RuntimeError, match="provider unreachable"):
             asyncio.run(_collect_stream(hand, "task"))
 
+    def test_stream_run_async_non_assertion_error_logs_debug(
+        self, tmp_path, caplog
+    ) -> None:
+        """Debug message is logged before non-AssertionError is re-raised."""
+        import logging
+
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)
+
+        def _raise_runtime(_input):
+            raise RuntimeError("provider unreachable")
+
+        mock_agent.run_async = _raise_runtime
+
+        with (
+            caplog.at_level(
+                logging.DEBUG, logger="helping_hands.lib.hands.v1.hand.iterative"
+            ),
+            pytest.raises(RuntimeError, match="provider unreachable"),
+        ):
+            asyncio.run(_collect_stream(hand, "task"))
+        assert any("non-AssertionError" in r.message for r in caplog.records)
+
     def test_stream_async_iter_duplicate_message_empty_delta(self, tmp_path) -> None:
         """stream() skips yielding when async iter returns same message (empty delta, branch 847->838)."""
         hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)
