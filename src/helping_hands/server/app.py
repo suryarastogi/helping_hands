@@ -13,7 +13,7 @@ import os
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 from urllib.parse import urlencode
@@ -28,10 +28,13 @@ from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.task_result import normalize_task_result
 
+if TYPE_CHECKING:
+    from helping_hands.server.schedules import ScheduleManager
+
 logger = logging.getLogger(__name__)
 
 # Lazy import for optional schedule dependencies
-_schedule_manager = None
+_schedule_manager: ScheduleManager | None = None
 
 # Maximum number of tool or skill entries in a single request.
 _MAX_TOOL_SKILL_ITEMS = 50
@@ -3155,7 +3158,7 @@ def get_task(task_id: str) -> TaskStatus:
 # --- Schedule Endpoints ---
 
 
-def _get_schedule_manager():
+def _get_schedule_manager() -> ScheduleManager:
     """Get or create the schedule manager singleton."""
     global _schedule_manager
     if _schedule_manager is None:

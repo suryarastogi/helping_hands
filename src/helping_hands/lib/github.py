@@ -21,21 +21,33 @@ from github.Repository import Repository
 logger = logging.getLogger(__name__)
 
 _DEFAULT_GIT_TIMEOUT = 300  # seconds
+_MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
 
 
 def _git_timeout() -> int:
     """Return the git operation timeout in seconds.
 
     Reads ``HELPING_HANDS_GIT_TIMEOUT`` from the environment, falling back to
-    :data:`_DEFAULT_GIT_TIMEOUT` (300 s).
+    :data:`_DEFAULT_GIT_TIMEOUT` (300 s).  Values above
+    :data:`_MAX_GIT_TIMEOUT` (3600 s) are capped with a warning.
     """
     raw = os.environ.get("HELPING_HANDS_GIT_TIMEOUT", "")
     if raw.strip():
         try:
             value = int(raw)
-            if value > 0:
+            if value <= 0:
+                logger.warning(
+                    "HELPING_HANDS_GIT_TIMEOUT must be positive, using default"
+                )
+            elif value > _MAX_GIT_TIMEOUT:
+                logger.warning(
+                    "HELPING_HANDS_GIT_TIMEOUT=%d exceeds max %d, capping",
+                    value,
+                    _MAX_GIT_TIMEOUT,
+                )
+                return _MAX_GIT_TIMEOUT
+            else:
                 return value
-            logger.warning("HELPING_HANDS_GIT_TIMEOUT must be positive, using default")
         except ValueError:
             logger.warning(
                 "HELPING_HANDS_GIT_TIMEOUT=%r is not an integer, using default",
