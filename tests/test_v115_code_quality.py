@@ -5,7 +5,9 @@ Covers:
 - _update_pr_description logging (base.py)
 - _schedule_to_response logging (app.py)
 - _fetch_claude_usage error body logging (app.py)
-- _base_command shlex.split error wrapping (cli/base.py)
+
+Note: _base_command shlex.split error wrapping tests moved to
+test_cli_hand_base_utils.py (v120) to avoid fastapi importorskip gate.
 """
 
 from __future__ import annotations
@@ -19,7 +21,6 @@ pytest.importorskip("fastapi")
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.base import Hand
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.server.app import (
     _build_form_redirect_query,
@@ -336,56 +337,3 @@ class TestFetchClaudeUsageErrorBodyLogging:
         assert any(
             "Failed to read HTTP error body" in r.message for r in caplog.records
         )
-
-
-# ---------------------------------------------------------------------------
-# _base_command shlex.split error wrapping (cli/base.py)
-# ---------------------------------------------------------------------------
-
-
-def _make_stub(monkeypatch, env_value):
-    """Create a minimal _TwoPhaseCLIHand stub with STUB_CMD env var."""
-    monkeypatch.setenv("STUB_CMD", env_value)
-    cls = type(
-        "_Stub",
-        (_TwoPhaseCLIHand,),
-        {
-            "_COMMAND_ENV_VAR": "STUB_CMD",
-            "_DEFAULT_CLI_CMD": "stub-cli",
-            "_DEFAULT_MODEL": "test-model",
-            "_DEFAULT_APPEND_ARGS": (),
-            "_PROMPT_PLACEHOLDER": "{prompt}",
-            "_REPO_ROOT_PLACEHOLDER": "{repo}",
-            "_VERBOSE_FLAGS": (),
-            "run": lambda self, **kw: None,
-            "stream": lambda self, **kw: None,
-            "_pr_description_cmd": lambda self: None,
-        },
-    )
-    return cls(
-        config=Config(repo="/tmp/test", model="test"),
-        repo_index=RepoIndex(root=None),
-    )
-
-
-class TestBaseCommandShlexError:
-    """Verify shlex.split ValueError is wrapped with context."""
-
-    def test_unclosed_quote_gives_clear_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        stub = _make_stub(monkeypatch, "my-cli --flag 'unclosed")
-        with pytest.raises(RuntimeError, match="invalid shell expression"):
-            stub._base_command()
-
-    def test_shlex_error_includes_raw_value(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        stub = _make_stub(monkeypatch, 'my-cli "unclosed')
-        with pytest.raises(RuntimeError, match=r"my-cli"):
-            stub._base_command()
-
-    def test_valid_command_still_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        stub = _make_stub(monkeypatch, "my-cli --flag value")
-        result = stub._base_command()
-        assert result == ["my-cli", "--flag", "value"]

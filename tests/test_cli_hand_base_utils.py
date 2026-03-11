@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+from helping_hands.lib.repo import RepoIndex
 
 
 class TestIsTruthy:
@@ -82,3 +84,56 @@ class TestFloatEnv:
     ) -> None:
         monkeypatch.setenv("__TEST_FLOAT__", "-1.5")
         assert _TwoPhaseCLIHand._float_env("__TEST_FLOAT__", default=7.0) == 7.0
+
+
+# ---------------------------------------------------------------------------
+# _base_command shlex.split error wrapping
+# ---------------------------------------------------------------------------
+
+
+def _make_cli_stub(monkeypatch, env_value):
+    """Create a minimal _TwoPhaseCLIHand stub with STUB_CMD env var."""
+    monkeypatch.setenv("STUB_CMD", env_value)
+    cls = type(
+        "_Stub",
+        (_TwoPhaseCLIHand,),
+        {
+            "_COMMAND_ENV_VAR": "STUB_CMD",
+            "_DEFAULT_CLI_CMD": "stub-cli",
+            "_DEFAULT_MODEL": "test-model",
+            "_DEFAULT_APPEND_ARGS": (),
+            "_PROMPT_PLACEHOLDER": "{prompt}",
+            "_REPO_ROOT_PLACEHOLDER": "{repo}",
+            "_VERBOSE_FLAGS": (),
+            "run": lambda self, **kw: None,
+            "stream": lambda self, **kw: None,
+            "_pr_description_cmd": lambda self: None,
+        },
+    )
+    return cls(
+        config=Config(repo="/tmp/test", model="test"),
+        repo_index=RepoIndex(root=None),
+    )
+
+
+class TestBaseCommandShlexError:
+    """Verify shlex.split ValueError is wrapped with context."""
+
+    def test_unclosed_quote_gives_clear_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        stub = _make_cli_stub(monkeypatch, "my-cli --flag 'unclosed")
+        with pytest.raises(RuntimeError, match="invalid shell expression"):
+            stub._base_command()
+
+    def test_shlex_error_includes_raw_value(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        stub = _make_cli_stub(monkeypatch, 'my-cli "unclosed')
+        with pytest.raises(RuntimeError, match=r"my-cli"):
+            stub._base_command()
+
+    def test_valid_command_still_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        stub = _make_cli_stub(monkeypatch, "my-cli --flag value")
+        result = stub._base_command()
+        assert result == ["my-cli", "--flag", "value"]

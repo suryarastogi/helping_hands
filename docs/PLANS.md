@@ -9,7 +9,7 @@ _No active plans._
 ## Completed plans
 
 - [2026-03-11](exec-plans/completed/2026-03-11.md) --
-  v119: DRY validator extraction (`_ToolSkillValidatorMixin`), tools/skills `max_length` constraints, NaN-safe frontend parsing, assert→ValueError guards in base.py; 3543 -> 3560 tests (backend)
+  v119-v120: DRY validator extraction (`_ToolSkillValidatorMixin`), tools/skills `max_length` constraints, NaN-safe frontend parsing, assert→ValueError guards in base.py, CLI base test isolation fix (shlex tests moved from fastapi-gated file), hook fix fallback coverage; 3186 tests (backend)
 - [2026-03-10](exec-plans/completed/2026-03-10.md) --
   v104-v118: Dead code cleanup, server routing completion, E2E draft PR, Celery helper extraction, stream collector tests, health check tests, tech-debt cleanup, server helper unit tests, ty type checker in CI, Claude CLI emitter hardening, Hand World factory/incinerator theme, input validation hardening, Claude CLI emitter enhancements, CLI base test coverage, code quality hardening, exception handler logging, defensive guards, input validation and safety hardening; 3031 -> 3543 tests (backend), 153 -> 169 tests (frontend)
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
