@@ -8,10 +8,8 @@ _No active plans._
 
 ## Completed plans
 
-- [2026-03-11 v126](exec-plans/completed/2026-03-11-v126.md) --
-  Input validation hardening (min_length on server requests, bash script mutual exclusivity) and web helper test coverage (_as_string_keyed_dict, _require_http_url host validation); 3300 tests
-- [2026-03-11 v125](exec-plans/completed/2026-03-11.md) --
-  Type safety, timeout bounds, and _is_boilerplate_line tests; 3278 tests
+- [2026-03-11 v125-v126](exec-plans/completed/2026-03-11.md) --
+  Type safety, timeout bounds, _is_boilerplate_line tests, input validation hardening (min_length on server requests, bash script mutual exclusivity) and web helper test coverage; 3300 tests
 - [2026-03-11 Week 11](exec-plans/completed/2026/Week-11.md) --
   v104-v125: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage; 3031 -> 3278 tests (backend), 153 -> 169 tests (frontend)
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
