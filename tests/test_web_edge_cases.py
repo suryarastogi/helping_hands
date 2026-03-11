@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -236,3 +237,77 @@ class TestBrowseUrlEdgeCases:
         result = web_tools.browse_url("https://example.com")
         assert "Content" in result.content
         assert "<p>" not in result.content
+
+
+# ===================================================================
+# search_web network errors
+# ===================================================================
+
+
+class TestSearchWebNetworkErrors:
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_http_error_raises_runtime_error(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = HTTPError(
+            url="https://api.duckduckgo.com/",
+            code=503,
+            msg="Service Unavailable",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=None,
+        )
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            web_tools.search_web("test query")
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_url_error_raises_runtime_error(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = URLError("Name or service not known")
+        with pytest.raises(RuntimeError, match="search request failed"):
+            web_tools.search_web("test query")
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_http_error_includes_status_code(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = HTTPError(
+            url="https://api.duckduckgo.com/",
+            code=429,
+            msg="Too Many Requests",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=None,
+        )
+        with pytest.raises(RuntimeError, match="HTTP 429"):
+            web_tools.search_web("test query")
+
+
+# ===================================================================
+# browse_url network errors
+# ===================================================================
+
+
+class TestBrowseUrlNetworkErrors:
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_http_error_raises_runtime_error(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = HTTPError(
+            url="https://example.com",
+            code=404,
+            msg="Not Found",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=None,
+        )
+        with pytest.raises(RuntimeError, match="HTTP 404"):
+            web_tools.browse_url("https://example.com")
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_url_error_raises_runtime_error(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = URLError("Connection refused")
+        with pytest.raises(RuntimeError, match="browse request failed"):
+            web_tools.browse_url("https://example.com")
+
+    @patch("helping_hands.lib.meta.tools.web.urlopen")
+    def test_http_error_includes_reason(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = HTTPError(
+            url="https://example.com",
+            code=500,
+            msg="Internal Server Error",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=None,
+        )
+        with pytest.raises(RuntimeError, match="Internal Server Error"):
+            web_tools.browse_url("https://example.com")

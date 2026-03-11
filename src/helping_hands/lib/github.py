@@ -161,6 +161,8 @@ class GitHubClient:
             Path to the cloned repository.
         """
         dest = Path(dest)
+        if depth is not None and depth <= 0:
+            raise ValueError(f"depth must be positive, got {depth}")
         url = f"https://x-access-token:{self.token}@github.com/{full_name}.git"
         cmd: list[str] = ["git", "clone"]
         if depth is not None:

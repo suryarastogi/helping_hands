@@ -8,6 +8,8 @@ _No active plans._
 
 ## Completed plans
 
+- [2026-03-11 v131](exec-plans/completed/2026-03-11.md) --
+  Network error handling (URLError/HTTPError → RuntimeError) in search_web/browse_url, clone() depth validation, Google provider empty messages guard; 3321 passing tests (3353 total including 32 skipped)
 - [2026-03-11 v130](exec-plans/completed/2026-03-11.md) --
   Defensive CI response handling (.get() defaults), frontend form validation (submitRun/saveSchedule emptiness checks), statusBlinkerColor test coverage; 3482 tests (3304+ backend, 178 frontend)
 - [2026-03-11 v129](exec-plans/completed/2026-03-11.md) --
@@ -19,7 +21,7 @@ _No active plans._
 - [2026-03-11 v125-v126](exec-plans/completed/2026-03-11.md) --
   Type safety, timeout bounds, _is_boilerplate_line tests, input validation hardening (min_length on server requests, bash script mutual exclusivity) and web helper test coverage; 3300 tests
 - [2026-03-11 Week 11](exec-plans/completed/2026/Week-11.md) --
-  v104-v130: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage, robustness hardening, exception debug logging, Goose env test coverage, defensive CI response handling, frontend form validation; 3031 -> 3304 passing tests (backend), 153 -> 178 tests (frontend)
+  v104-v131: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage, robustness hardening, exception debug logging, Goose env test coverage, defensive CI response handling, frontend form validation, network error handling; 3031 -> 3329 passing tests (backend), 153 -> 178 tests (frontend)
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
   v0-v103: Docs infrastructure, 28 design docs, massive validation test suite, provider tests, Config edge cases, Playwright e2e tests, exec-plan workflow; 0 -> 3031 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --
