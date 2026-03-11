@@ -57,6 +57,9 @@ celery_app.conf.update(
 )
 
 
+_USAGE_LOG_INTERVAL_S = 3600.0
+"""Interval in seconds between automatic Claude usage log entries."""
+
 _SUPPORTED_BACKENDS = {
     "e2e",
     "basic-langgraph",
@@ -913,7 +916,7 @@ def ensure_usage_schedule() -> None:
         entry = RedBeatSchedulerEntry(
             name=entry_name,
             task="helping_hands.log_claude_usage",
-            schedule=interval_schedule(run_every=3600.0),
+            schedule=interval_schedule(run_every=_USAGE_LOG_INTERVAL_S),
             app=celery_app,
         )
         entry.save()

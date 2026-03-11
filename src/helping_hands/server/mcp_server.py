@@ -52,6 +52,12 @@ mcp = FastMCP(
 
 _indexed_repos: dict[str, RepoIndex] = {}
 
+_DEFAULT_EXEC_TIMEOUT_S = 60
+"""Default timeout in seconds for code/script execution MCP tools."""
+
+_DEFAULT_BROWSE_MAX_CHARS = 12000
+"""Default maximum characters returned by the web_browse MCP tool."""
+
 
 def _repo_root(repo_path: str) -> Path:
     """Resolve and validate a repository root path."""
@@ -269,7 +275,7 @@ def run_python_code(
     code: str,
     python_version: str = "3.13",
     args: list[str] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
 ) -> dict:
     """Execute inline Python code from a repository context."""
@@ -291,7 +297,7 @@ def run_python_script(
     script_path: str,
     python_version: str = "3.13",
     args: list[str] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
 ) -> dict:
     """Execute a repo-relative Python script from a repository context."""
@@ -313,7 +319,7 @@ def run_bash_script(
     script_path: str | None = None,
     inline_script: str | None = None,
     args: list[str] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
 ) -> dict:
     """Execute a repo-relative or inline bash script from repo context."""
@@ -355,7 +361,7 @@ def web_search(
 @mcp.tool()
 def web_browse(
     url: str,
-    max_chars: int = 12000,
+    max_chars: int = _DEFAULT_BROWSE_MAX_CHARS,
     timeout_s: int = 20,
 ) -> dict:
     """Browse a URL and return extracted text content."""

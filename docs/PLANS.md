@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [2026-03-11 v135](exec-plans/completed/2026-03-11.md) --
+  Extract hardcoded magic numbers to module-level constants: `_DEFAULT_EXEC_TIMEOUT_S` and `_DEFAULT_BROWSE_MAX_CHARS` in `mcp_server.py`, `_USAGE_LOG_INTERVAL_S` in `celery_app.py`; constant value and function signature default tests (10 tests, 3 skipped without celery)
+
 - [2026-03-11 v134](exec-plans/completed/2026-03-11.md) --
   _parse_str_list empty/whitespace string rejection (registry.py + iterative.py), _load_env_files tilde expansion test coverage, _collect_celery_current_tasks direct test coverage (7 tests); 3780 passing tests (+ 14 new)
 
