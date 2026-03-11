@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 # Lazy import for optional schedule dependencies
 _schedule_manager = None
 
+# Maximum number of tool or skill entries in a single request.
+_MAX_TOOL_SKILL_ITEMS = 50
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
@@ -40,34 +43,11 @@ app = FastAPI(
 )
 
 
-class BuildRequest(BaseModel):
-    """Request body for the /build endpoint."""
+class _ToolSkillValidatorMixin(BaseModel):
+    """Shared coercion and validation for tools/skills list fields."""
 
-    repo_path: str = Field(max_length=500)
-    prompt: str = Field(max_length=50_000)
-    backend: Literal[
-        "e2e",
-        "basic-langgraph",
-        "basic-atomic",
-        "basic-agent",
-        "codexcli",
-        "claudecodecli",
-        "docker-sandbox-claude",
-        "goose",
-        "geminicli",
-        "opencodecli",
-    ] = "claudecodecli"
-    model: str | None = Field(default=None, max_length=200)
-    max_iterations: int = Field(default=6, ge=1, le=100)
-    no_pr: bool = False
-    enable_execution: bool = False
-    enable_web: bool = False
-    use_native_cli_auth: bool = False
-    pr_number: int | None = None
-    fix_ci: bool = False
-    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
-    tools: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list, max_length=_MAX_TOOL_SKILL_ITEMS)
+    skills: list[str] = Field(default_factory=list, max_length=_MAX_TOOL_SKILL_ITEMS)
 
     @field_validator("tools", mode="before")
     @classmethod
@@ -96,6 +76,34 @@ class BuildRequest(BaseModel):
     def _validate_skills(cls, value: list[str]) -> list[str]:
         meta_skills.validate_skill_names(tuple(value))
         return value
+
+
+class BuildRequest(_ToolSkillValidatorMixin):
+    """Request body for the /build endpoint."""
+
+    repo_path: str = Field(max_length=500)
+    prompt: str = Field(max_length=50_000)
+    backend: Literal[
+        "e2e",
+        "basic-langgraph",
+        "basic-atomic",
+        "basic-agent",
+        "codexcli",
+        "claudecodecli",
+        "docker-sandbox-claude",
+        "goose",
+        "geminicli",
+        "opencodecli",
+    ] = "claudecodecli"
+    model: str | None = Field(default=None, max_length=200)
+    max_iterations: int = Field(default=6, ge=1, le=100)
+    no_pr: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
+    use_native_cli_auth: bool = False
+    pr_number: int | None = None
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
 
 
 BackendName = Literal[
@@ -164,7 +172,7 @@ class ServerConfig(BaseModel):
 # --- Scheduled Task Models ---
 
 
-class ScheduleRequest(BaseModel):
+class ScheduleRequest(_ToolSkillValidatorMixin):
     """Request body for creating/updating a scheduled task."""
 
     name: str = Field(min_length=1, max_length=100)
@@ -185,37 +193,7 @@ class ScheduleRequest(BaseModel):
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
-    tools: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
     enabled: bool = True
-
-    @field_validator("tools", mode="before")
-    @classmethod
-    def _coerce_tools(
-        cls, value: str | list[str] | tuple[str, ...] | None
-    ) -> list[str]:
-        normalized = meta_tools.normalize_tool_selection(value)
-        return list(normalized)
-
-    @field_validator("tools")
-    @classmethod
-    def _validate_tools(cls, value: list[str]) -> list[str]:
-        meta_tools.validate_tool_category_names(tuple(value))
-        return value
-
-    @field_validator("skills", mode="before")
-    @classmethod
-    def _coerce_skills(
-        cls, value: str | list[str] | tuple[str, ...] | None
-    ) -> list[str]:
-        normalized = meta_skills.normalize_skill_selection(value)
-        return list(normalized)
-
-    @field_validator("skills")
-    @classmethod
-    def _validate_skills(cls, value: list[str]) -> list[str]:
-        meta_skills.validate_skill_names(tuple(value))
-        return value
 
 
 class ScheduleResponse(BaseModel):

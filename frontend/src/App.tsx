@@ -2000,7 +2000,10 @@ export default function App() {
       body.model = form.model.trim();
     }
     if (form.pr_number.trim()) {
-      body.pr_number = Number(form.pr_number.trim());
+      const parsed = Number(form.pr_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.pr_number = parsed;
+      }
     }
     if (form.tools.trim()) {
       body.tools = form.tools
@@ -2137,7 +2140,12 @@ export default function App() {
       enabled: scheduleForm.enabled,
     };
     if (scheduleForm.model.trim()) body.model = scheduleForm.model.trim();
-    if (scheduleForm.pr_number.trim()) body.pr_number = Number(scheduleForm.pr_number.trim());
+    if (scheduleForm.pr_number.trim()) {
+      const parsed = Number(scheduleForm.pr_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.pr_number = parsed;
+      }
+    }
     if (scheduleForm.tools.trim()) {
       body.tools = scheduleForm.tools
         .split(",")

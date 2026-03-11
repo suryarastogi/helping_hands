@@ -348,7 +348,10 @@ class Hand(abc.ABC):
         If the push fails (e.g. unexpected remote changes), a new PR is created
         against the original PR's base branch, referencing the original PR.
         """
-        assert self.pr_number is not None
+        if self.pr_number is None:
+            raise ValueError(
+                "pr_number must be set before calling _push_to_existing_pr"
+            )
 
         pr_info = gh.get_pr(repo, self.pr_number)
         branch = str(pr_info["head"])
@@ -442,7 +445,10 @@ class Hand(abc.ABC):
         commit_sha: str,
     ) -> None:
         """Generate and update the PR description for an owned PR."""
-        assert self.pr_number is not None
+        if self.pr_number is None:
+            raise ValueError(
+                "pr_number must be set before calling _update_pr_description"
+            )
         stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
         from helping_hands.lib.hands.v1.hand.pr_description import (
             generate_pr_description,
@@ -491,7 +497,10 @@ class Hand(abc.ABC):
         The new PR targets the original PR's head branch so it can be merged
         into the existing PR rather than going directly to the base branch.
         """
-        assert self.pr_number is not None
+        if self.pr_number is None:
+            raise ValueError(
+                "pr_number must be set before calling _create_pr_for_diverged_branch"
+            )
         new_branch = f"helping-hands/{backend}-{uuid4().hex[:8]}"
         gh.create_branch(repo_dir, new_branch)
         self._push_noninteractive(gh, repo_dir, new_branch)
