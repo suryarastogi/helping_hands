@@ -86,8 +86,12 @@ def write_text_file(repo_root: Path, rel_path: str, content: str) -> str:
     """Write UTF-8 text to a repo-relative file and return normalized path."""
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        display = target.relative_to(root).as_posix()
+        raise RuntimeError(f"cannot write file {display}: {exc}") from exc
     return target.relative_to(root).as_posix()
 
 

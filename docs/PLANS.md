@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [2026-03-11 v133](exec-plans/completed/2026-03-11.md) --
+  Warning logging for silent env var fallbacks (_timeout_seconds/_diff_char_limit), git-not-found handling in _get_diff/_get_uncommitted_diff, write_text_file OSError wrapping; 3369 tests (3336 passing, 33 skipped)
+
 - [2026-03-11 v132](exec-plans/completed/2026-03-11.md) --
   CLI model None guard (_resolve_cli_model treats "None" as default), _resolve_worker_capacity env var test coverage (13 tests), LangGraph run/build_agent/stream test gaps (5 tests); 3361 tests (3328 passing, 33 skipped)
 - [2026-03-11 v131](exec-plans/completed/2026-03-11.md) --

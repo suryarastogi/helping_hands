@@ -134,6 +134,29 @@ class TestWriteTextFile:
         write_text_file(tmp_path, "file.txt", "new")
         assert (tmp_path / "file.txt").read_text(encoding="utf-8") == "new"
 
+    def test_wraps_permission_error_in_runtime_error(self, tmp_path: Path) -> None:
+        """OSError (e.g. permission denied) is wrapped in RuntimeError."""
+        from unittest.mock import patch
+
+        with (
+            patch.object(Path, "write_text", side_effect=PermissionError("denied")),
+            pytest.raises(RuntimeError, match="cannot write file"),
+        ):
+            write_text_file(tmp_path, "blocked.txt", "data")
+
+    def test_wraps_oserror_includes_file_path(self, tmp_path: Path) -> None:
+        """RuntimeError message includes the display path of the file."""
+        from unittest.mock import patch
+
+        with (
+            patch.object(
+                Path, "write_text", side_effect=OSError("No space left on device")
+            ),
+            pytest.raises(RuntimeError, match=r"blocked\.txt") as exc_info,
+        ):
+            write_text_file(tmp_path, "blocked.txt", "data")
+        assert "No space left on device" in str(exc_info.value)
+
 
 class TestMkdirPath:
     def test_creates_directory(self, tmp_path: Path) -> None:

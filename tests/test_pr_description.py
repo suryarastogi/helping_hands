@@ -73,6 +73,15 @@ class TestTimeoutSeconds:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_TIMEOUT", "not-a-number")
         assert _timeout_seconds() == 60.0
 
+    def test_warns_on_invalid_env(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_TIMEOUT", "abc")
+        with caplog.at_level("WARNING"):
+            _timeout_seconds()
+        assert "non-numeric" in caplog.text
+        assert "abc" in caplog.text
+
     def test_ignores_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_TIMEOUT", "0")
         assert _timeout_seconds() == 60.0
@@ -80,6 +89,15 @@ class TestTimeoutSeconds:
     def test_ignores_negative(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_TIMEOUT", "-5")
         assert _timeout_seconds() == 60.0
+
+    def test_warns_on_negative_env(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_TIMEOUT", "-10")
+        with caplog.at_level("WARNING"):
+            _timeout_seconds()
+        assert "non-positive" in caplog.text
+        assert "-10" in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +118,15 @@ class TestDiffCharLimit:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "xyz")
         assert _diff_char_limit() == 12_000
 
+    def test_warns_on_invalid_env(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "abc")
+        with caplog.at_level("WARNING"):
+            _diff_char_limit()
+        assert "non-numeric" in caplog.text
+        assert "abc" in caplog.text
+
     def test_ignores_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "0")
         assert _diff_char_limit() == 12_000
@@ -107,6 +134,15 @@ class TestDiffCharLimit:
     def test_ignores_negative(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "-100")
         assert _diff_char_limit() == 12_000
+
+    def test_warns_on_negative_env(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT", "-50")
+        with caplog.at_level("WARNING"):
+            _diff_char_limit()
+        assert "non-positive" in caplog.text
+        assert "-50" in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +221,14 @@ class TestGetDiff:
         ]
         assert _get_diff(tmp_path, base_branch="main") == ""
         assert mock_run.call_count == 2
+
+    @patch("helping_hands.lib.hands.v1.hand.pr_description.subprocess.run")
+    def test_returns_empty_when_git_not_found(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        """Returns empty string when git is not installed."""
+        mock_run.side_effect = FileNotFoundError("git not found")
+        assert _get_diff(tmp_path, base_branch="main") == ""
 
 
 # ---------------------------------------------------------------------------
@@ -573,6 +617,14 @@ class TestGetUncommittedDiff:
             subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""),
             subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""),
         ]
+        assert _get_uncommitted_diff(tmp_path) == ""
+
+    @patch("helping_hands.lib.hands.v1.hand.pr_description.subprocess.run")
+    def test_returns_empty_when_git_not_found(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        """Returns empty string when git is not installed."""
+        mock_run.side_effect = FileNotFoundError("git not found")
         assert _get_uncommitted_diff(tmp_path) == ""
 
 
