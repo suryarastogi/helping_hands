@@ -264,11 +264,23 @@ class ScheduleManager:
         )
 
     def _load_meta(self, schedule_id: str) -> ScheduledTask | None:
-        """Load schedule metadata from Redis."""
+        """Load schedule metadata from Redis.
+
+        Returns None if the data is missing or corrupted (invalid JSON or
+        missing required fields).
+        """
         data = self._redis.get(self._meta_key(schedule_id))
         if data is None:
             return None
-        return ScheduledTask.from_dict(json.loads(data))
+        try:
+            return ScheduledTask.from_dict(json.loads(data))
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            logger.warning(
+                "Corrupted schedule metadata for %s, skipping: %s",
+                schedule_id,
+                exc,
+            )
+            return None
 
     def _delete_meta(self, schedule_id: str) -> None:
         """Delete schedule metadata from Redis."""

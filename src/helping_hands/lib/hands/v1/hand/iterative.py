@@ -62,6 +62,7 @@ class _BasicIterativeHand(Hand):
     _MAX_BOOTSTRAP_DOC_CHARS = 12000
     _BOOTSTRAP_TREE_MAX_DEPTH = 4
     _BOOTSTRAP_TREE_MAX_ENTRIES = 250
+    _MAX_ITERATIONS = 1000
 
     def __init__(
         self,
@@ -71,7 +72,15 @@ class _BasicIterativeHand(Hand):
         max_iterations: int = 6,
     ) -> None:
         super().__init__(config, repo_index)
-        self.max_iterations = max(1, max_iterations)
+        clamped = max(1, max_iterations)
+        if clamped > self._MAX_ITERATIONS:
+            logger.warning(
+                "max_iterations %d exceeds cap %d, clamping",
+                clamped,
+                self._MAX_ITERATIONS,
+            )
+            clamped = self._MAX_ITERATIONS
+        self.max_iterations = clamped
         # _selected_tool_categories is resolved by Hand.__init__(); build dispatch map.
         self._tool_runners = tool_registry.build_tool_runner_map(
             self._selected_tool_categories
@@ -417,6 +426,9 @@ class _BasicIterativeHand(Hand):
                 display_path = system_tools.write_text_file(root, rel_path, body)
             except ValueError:
                 logger.debug("Skipping inline edit for %r: invalid path", rel_path)
+                continue
+            except OSError as exc:
+                logger.warning("Failed to write inline edit for %r: %s", rel_path, exc)
                 continue
             changed.append(display_path)
         if changed:

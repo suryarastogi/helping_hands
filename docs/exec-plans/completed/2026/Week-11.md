@@ -26,6 +26,10 @@ Added `min_length=1` to `BuildRequest` and `ScheduleRequest` `repo_path` and `pr
 
 Hardened `normalize_messages()` in `ai_providers/types.py` to reject non-Mapping items in message sequences with a clear `TypeError` (previously crashed with `AttributeError` on `.get()`). Added empty-model `ValueError` guard to `AIProvider.complete()` to prevent silent failures when no model is specified and `default_model` is empty/whitespace. Added `_MAX_TASK_KWARGS_LEN` (1MB) size guard to `_parse_task_kwargs_str()` in `server/app.py` with warning log, preventing parsing of unreasonably large payloads. **3300 → 3310 tests (backend).**
 
+## Mar 11 (cont.) — Robustness hardening (v128)
+
+Hardened `_load_meta()` in `schedules.py` to catch corrupted Redis data (`json.JSONDecodeError`, `ValueError`, `TypeError`) with warning log and graceful `None` return instead of crashing. Added `_MAX_ITERATIONS` constant (1000) to `_BasicIterativeHand` in `iterative.py` with warning log when clamping, preventing accidental runaway iteration loops. Added `OSError` catch to `_apply_inline_edits()` in `iterative.py` with warning-level logging (previously only caught `ValueError` for invalid paths; now also handles permission denied, disk full, etc.). **3310 → 3312 tests (backend).**
+
 ---
 
 **Week summary:** Systematic hardening across the codebase. Replaced all remaining `assert` statements in production code with explicit guards. Added debug logging to all silent exception handlers. Expanded Claude CLI tool summarization. Consolidated validators via mixin extraction. Added input validation to MCP server tools and server request models. Hardened git subprocess operations with timeout protection and input format validation. Added type annotations and test coverage for previously untested helpers. Added empty-string rejection to server request models and mutual exclusivity validation to bash script runner. Hardened AI provider message normalization and model validation.
