@@ -9,7 +9,7 @@ _No active plans._
 ## Completed plans
 
 - [2026-03-11 v125](exec-plans/completed/2026-03-11.md) --
-  Type safety, timeout bounds, and _is_boilerplate_line test coverage
+  Type safety, timeout bounds, and _is_boilerplate_line tests; 3669 tests
 - [2026-03-11 Week 11](exec-plans/completed/2026/Week-11.md) --
   v104-v125: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage; 3031 -> 3278 tests (backend), 153 -> 169 tests (frontend)
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
