@@ -39,6 +39,19 @@ _schedule_manager: ScheduleManager | None = None
 # Maximum number of tool or skill entries in a single request.
 _MAX_TOOL_SKILL_ITEMS = 50
 
+# --- Health-check & API timeout constants (seconds) ---
+_KEYCHAIN_TIMEOUT_S = 5
+_USAGE_API_TIMEOUT_S = 10
+_REDIS_HEALTH_TIMEOUT_S = 2
+_DB_HEALTH_TIMEOUT_S = 3
+_CELERY_HEALTH_TIMEOUT_S = 2.0
+_CELERY_INSPECT_TIMEOUT_S = 1.0
+
+# --- Anthropic usage API constants ---
+_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
+_USAGE_USER_AGENT = "claude-code/2.0.32"
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
@@ -277,7 +290,7 @@ def _get_claude_oauth_token() -> str | None:
             ],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=_KEYCHAIN_TIMEOUT_S,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return None
@@ -327,14 +340,14 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     try:
         req = urllib_request.Request(
-            "https://api.anthropic.com/api/oauth/usage",
+            _ANTHROPIC_USAGE_URL,
             headers={
                 "Authorization": f"Bearer {token}",
-                "anthropic-beta": "oauth-2025-04-20",
-                "User-Agent": "claude-code/2.0.32",
+                "anthropic-beta": _ANTHROPIC_BETA_HEADER,
+                "User-Agent": _USAGE_USER_AGENT,
             },
         )
-        with urllib_request.urlopen(req, timeout=10) as resp:
+        with urllib_request.urlopen(req, timeout=_USAGE_API_TIMEOUT_S) as resp:
             data = json.loads(resp.read().decode())
     except urllib_error.HTTPError as exc:
         body = ""
@@ -2293,8 +2306,8 @@ def _check_redis_health() -> Literal["ok", "error"]:
         broker_url = celery_app.conf.broker_url or "redis://localhost:6379/0"
         r = redis_lib.Redis.from_url(
             broker_url,
-            socket_connect_timeout=2,
-            socket_timeout=2,
+            socket_connect_timeout=_REDIS_HEALTH_TIMEOUT_S,
+            socket_timeout=_REDIS_HEALTH_TIMEOUT_S,
         )
         r.ping()
         return "ok"
@@ -2310,7 +2323,7 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
     try:
         import psycopg2  # psycopg2-binary is a declared dependency
 
-        conn = psycopg2.connect(db_url, connect_timeout=3)
+        conn = psycopg2.connect(db_url, connect_timeout=_DB_HEALTH_TIMEOUT_S)
         conn.close()
         return "ok"
     except Exception:
@@ -2320,7 +2333,7 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
 
 def _check_workers_health() -> Literal["ok", "error"]:
     try:
-        inspector = celery_app.control.inspect(timeout=2.0)
+        inspector = celery_app.control.inspect(timeout=_CELERY_HEALTH_TIMEOUT_S)
         ping = inspector.ping()
         return "ok" if ping else "error"
     except Exception:
@@ -2652,7 +2665,7 @@ def _safe_inspect_call(inspector: Any, method_name: str) -> Any:
 def _collect_celery_current_tasks() -> list[dict[str, Any]]:
     """Collect currently active/queued task summaries from Celery inspect."""
     try:
-        inspector = celery_app.control.inspect(timeout=1.0)
+        inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
     except Exception:  # pragma: no cover - defensive runtime guard
         return []
     if inspector is None:
@@ -3103,7 +3116,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
     """Resolve max worker capacity: Celery inspect stats > env override > default."""
     per_worker: dict[str, int] = {}
     try:
-        inspector = celery_app.control.inspect(timeout=1.0)
+        inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
         if inspector is not None:
             stats = _safe_inspect_call(inspector, "stats")
             if isinstance(stats, dict):

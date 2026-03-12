@@ -60,6 +60,12 @@ celery_app.conf.update(
 _USAGE_LOG_INTERVAL_S = 3600.0
 """Interval in seconds between automatic Claude usage log entries."""
 
+# --- Anthropic usage API constants ---
+_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
+_USAGE_USER_AGENT = "claude-code/2.0.32"
+_USAGE_API_TIMEOUT_S = 10
+
 _SUPPORTED_BACKENDS = {
     "e2e",
     "basic-langgraph",
@@ -840,14 +846,14 @@ def log_claude_usage() -> dict[str, Any]:
     # --- Call the Anthropic usage API ---
     try:
         req = _url_request.Request(
-            "https://api.anthropic.com/api/oauth/usage",
+            _ANTHROPIC_USAGE_URL,
             headers={
                 "Authorization": f"Bearer {token}",
-                "anthropic-beta": "oauth-2025-04-20",
-                "User-Agent": "claude-code/2.0.32",
+                "anthropic-beta": _ANTHROPIC_BETA_HEADER,
+                "User-Agent": _USAGE_USER_AGENT,
             },
         )
-        with _url_request.urlopen(req, timeout=10) as resp:
+        with _url_request.urlopen(req, timeout=_USAGE_API_TIMEOUT_S) as resp:
             data = _json.loads(resp.read().decode())
     except _url_error.HTTPError as exc:
         return {"status": "error", "message": f"Usage API HTTP {exc.code}"}

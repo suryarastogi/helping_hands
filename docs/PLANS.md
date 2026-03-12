@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [2026-03-12 v137](exec-plans/completed/2026-03-12.md) --
+  Extract health check timeout constants (`_KEYCHAIN_TIMEOUT_S`, `_USAGE_API_TIMEOUT_S`, `_REDIS_HEALTH_TIMEOUT_S`, `_DB_HEALTH_TIMEOUT_S`, `_CELERY_HEALTH_TIMEOUT_S`, `_CELERY_INSPECT_TIMEOUT_S`) in `server/app.py`; DRY Anthropic usage API constants (`_ANTHROPIC_USAGE_URL`, `_ANTHROPIC_BETA_HEADER`, `_USAGE_USER_AGENT`) in both `server/app.py` and `server/celery_app.py`; 3835 tests (17 new)
+
 - [2026-03-12 v136](exec-plans/completed/2026-03-12.md) --
   Gitignore E2E/Playwright test artifacts (`frontend/test-results/`, `playwright-report/`, `blob-report/`, `coverage.xml`); commit message quality hardening — `_is_trivial_message()` rejects meaningless messages like `feat: -` or `feat: ...` in both `_parse_commit_message` and `_commit_message_from_prompt`; TODO.md items resolved; 3376 tests (27 new)
 
