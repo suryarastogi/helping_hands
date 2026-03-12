@@ -19,6 +19,17 @@ from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
 logger = logging.getLogger(__name__)
 
+# --- Module-level constants ---------------------------------------------------
+
+_PROCESS_TERMINATE_TIMEOUT_S = 5
+"""Seconds to wait for a subprocess to exit after SIGTERM before SIGKILL."""
+
+_CI_POLL_INTERVAL_S = 30.0
+"""Seconds between CI check polling attempts."""
+
+_PR_DESCRIPTION_TIMEOUT_S = 300
+"""Seconds timeout for the subprocess used to generate PR descriptions."""
+
 
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
@@ -494,7 +505,7 @@ class _TwoPhaseCLIHand(Hand):
             return
         process.terminate()
         try:
-            await asyncio.wait_for(process.wait(), timeout=5)
+            await asyncio.wait_for(process.wait(), timeout=_PROCESS_TERMINATE_TIMEOUT_S)
         except TimeoutError:
             process.kill()
             await process.wait()
@@ -789,7 +800,7 @@ class _TwoPhaseCLIHand(Hand):
         )
         await asyncio.sleep(initial_wait)
 
-        poll_interval = 30.0
+        poll_interval = _CI_POLL_INTERVAL_S
         deadline = time.monotonic() + max_poll_seconds
         while time.monotonic() < deadline:
             result = gh.get_check_runs(repo, ref)
@@ -1043,7 +1054,7 @@ class _TwoPhaseCLIHand(Hand):
                 text=True,
                 check=False,
                 env=env,
-                timeout=300,
+                timeout=_PR_DESCRIPTION_TIMEOUT_S,
             )
         except FileNotFoundError:
             fallback = self._fallback_command_when_not_found(cmd)
@@ -1056,7 +1067,7 @@ class _TwoPhaseCLIHand(Hand):
                         text=True,
                         check=False,
                         env=env,
-                        timeout=300,
+                        timeout=_PR_DESCRIPTION_TIMEOUT_S,
                     )
                 except (FileNotFoundError, subprocess.TimeoutExpired):
                     logger.warning(

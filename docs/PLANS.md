@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [2026-03-12 v138](exec-plans/completed/2026-03-12.md) --
+  Extract hardcoded magic numbers to module-level constants in Hand base (`_DEFAULT_BASE_BRANCH`, `_DEFAULT_GIT_USER_NAME`, `_DEFAULT_GIT_USER_EMAIL`, `_DEFAULT_CI_WAIT_MINUTES`, `_DEFAULT_CI_MAX_RETRIES`, `_BRANCH_PREFIX`, `_UUID_HEX_LENGTH`, `_MAX_OUTPUT_DISPLAY_LENGTH`, `_FILE_LIST_PREVIEW_LIMIT`, `_LOG_TRUNCATION_LENGTH`), CLI base (`_PROCESS_TERMINATE_TIMEOUT_S`, `_CI_POLL_INTERVAL_S`, `_PR_DESCRIPTION_TIMEOUT_S`), and CLI main (`_DEFAULT_CLONE_DEPTH`, `_TEMP_CLONE_PREFIX`); 3436 tests (31 new)
+
 - [2026-03-12 v137](exec-plans/completed/2026-03-12.md) --
   Extract health check timeout constants (`_KEYCHAIN_TIMEOUT_S`, `_USAGE_API_TIMEOUT_S`, `_REDIS_HEALTH_TIMEOUT_S`, `_DB_HEALTH_TIMEOUT_S`, `_CELERY_HEALTH_TIMEOUT_S`, `_CELERY_INSPECT_TIMEOUT_S`) in `server/app.py`; DRY Anthropic usage API constants (`_ANTHROPIC_USAGE_URL`, `_ANTHROPIC_BETA_HEADER`, `_USAGE_USER_AGENT`) in both `server/app.py` and `server/celery_app.py`; 3835 tests (17 new)
 

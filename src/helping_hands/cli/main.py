@@ -33,6 +33,14 @@ from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 
+# --- Module-level constants ---------------------------------------------------
+
+_DEFAULT_CLONE_DEPTH = 1
+"""Shallow clone depth used when cloning ``owner/repo`` inputs."""
+
+_TEMP_CLONE_PREFIX = "helping_hands_repo_"
+"""Prefix for temporary directories created for cloned repositories."""
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for CLI mode."""
@@ -342,12 +350,12 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
         return path, None
 
     if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
-        dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
+        dest_root = Path(mkdtemp(prefix=_TEMP_CLONE_PREFIX, dir=_repo_tmp_dir()))
         atexit.register(shutil.rmtree, dest_root, True)
         dest = dest_root / "repo"
         url = _github_clone_url(repo)
         result = subprocess.run(
-            ["git", "clone", "--depth", "1", url, str(dest)],
+            ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
             capture_output=True,
             text=True,
             check=False,
