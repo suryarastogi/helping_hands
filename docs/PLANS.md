@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v145](exec-plans/active/v145-keychain-constants-utilization-guard-decode-safety.md) --
-  Extract keychain constants (`_KEYCHAIN_SERVICE_NAME`, `_KEYCHAIN_OAUTH_KEY`, `_KEYCHAIN_ACCESS_TOKEN_KEY`) in app.py and celery_app.py, utilization numeric type guard, decode safety with `errors="replace"`
+- [v146](exec-plans/active/v146-commit-message-quality-truncation-indicators-type-inference.md) --
+  Commit message quality: `_truncate_text()` truncation indicators for prompt/summary context, `_infer_commit_type()` smart type inference replacing hardcoded `"feat:"` prefix
 
 ## Completed plans
+
+- [2026-03-12 v145](exec-plans/completed/2026-03-12.md) --
+  Extract keychain constants (`_KEYCHAIN_SERVICE_NAME`, `_KEYCHAIN_OAUTH_KEY`, `_KEYCHAIN_ACCESS_TOKEN_KEY`) in app.py and celery_app.py, utilization numeric type guard, decode safety with `errors="replace"`; 3494 tests (20 new)
 
 - [2026-03-12 v144](exec-plans/completed/2026-03-12.md) --
   MCP index file limit constant (`_INDEX_FILES_LIMIT`), JWT token prefix constant (`_JWT_TOKEN_PREFIX`) in app.py and celery_app.py, E2E UUID hex length reuse from base.py; 3494 tests (15 new)

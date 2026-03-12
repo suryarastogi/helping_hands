@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.hands.v1.hand.pr_description import (
+    _COMMIT_SUMMARY_TRUNCATION_LENGTH,
+    _COMMIT_TYPE_KEYWORDS,
     _MIN_COMMIT_MSG_LENGTH,
+    _PR_SUMMARY_TRUNCATION_LENGTH,
+    _PROMPT_CONTEXT_LENGTH,
     PRDescription,
     _build_commit_message_prompt,
     _build_prompt,
@@ -17,12 +21,14 @@ from helping_hands.lib.hands.v1.hand.pr_description import (
     _diff_char_limit,
     _get_diff,
     _get_uncommitted_diff,
+    _infer_commit_type,
     _is_disabled,
     _is_trivial_message,
     _parse_commit_message,
     _parse_output,
     _timeout_seconds,
     _truncate_diff,
+    _truncate_text,
     generate_commit_message,
     generate_pr_description,
 )
@@ -815,7 +821,8 @@ class TestCommitMessageFromPrompt:
             "Task execution phase.\n"
         )
         result = _commit_message_from_prompt("fix login crash", summary)
-        # "fix" prefix is stripped and re-added as "feat:"
+        # "fix" is not a conventional prefix here (no colon), so text keeps
+        # "fix login crash" → _infer_commit_type detects "fix" → "fix:" prefix
         assert "login crash" in result.lower()
         assert "execution context" not in result.lower()
 
@@ -999,26 +1006,26 @@ class TestCommitMessageFromPromptEdgeCases:
         assert "did we fix the auth" in result
         assert "Seems" not in result
 
-    def test_strips_existing_fix_prefix(self) -> None:
+    def test_strips_existing_fix_prefix_and_reinfers_type(self) -> None:
         result = _commit_message_from_prompt("", "fix: resolve crash on login")
-        assert result == "feat: resolve crash on login"
+        assert result == "fix: resolve crash on login"
         assert "fix: fix:" not in result
 
-    def test_strips_existing_refactor_prefix(self) -> None:
+    def test_strips_existing_refactor_prefix_and_reinfers_type(self) -> None:
         result = _commit_message_from_prompt("", "refactor: simplify auth flow")
-        assert result == "feat: simplify auth flow"
+        assert result == "refactor: simplify auth flow"
 
-    def test_strips_existing_docs_prefix(self) -> None:
+    def test_strips_existing_docs_prefix_and_reinfers_type(self) -> None:
         result = _commit_message_from_prompt("", "docs: update README")
-        assert result == "feat: update README"
+        assert result == "docs: update README"
 
-    def test_strips_existing_chore_prefix(self) -> None:
+    def test_strips_existing_chore_prefix_and_reinfers_type(self) -> None:
         result = _commit_message_from_prompt("", "chore: bump dependencies")
-        assert result == "feat: bump dependencies"
+        assert result == "chore: bump dependencies"
 
-    def test_strips_existing_test_prefix(self) -> None:
+    def test_strips_existing_test_prefix_and_reinfers_type(self) -> None:
         result = _commit_message_from_prompt("", "test: add unit tests for auth")
-        assert result == "feat: add unit tests for auth"
+        assert result == "test: add unit tests for auth"
 
     def test_strips_prefix_case_insensitive(self) -> None:
         result = _commit_message_from_prompt("", "FEAT: add dark mode")
@@ -1029,9 +1036,9 @@ class TestCommitMessageFromPromptEdgeCases:
         assert not result.endswith(".")
         assert "added new endpoint" in result
 
-    def test_single_word_summary(self) -> None:
+    def test_single_word_summary_infers_type(self) -> None:
         result = _commit_message_from_prompt("", "Refactored")
-        assert result == "feat: refactored"
+        assert result == "refactor: refactored"
 
     def test_multiline_takes_first_line_only(self) -> None:
         result = _commit_message_from_prompt(
@@ -1040,9 +1047,10 @@ class TestCommitMessageFromPromptEdgeCases:
         assert "added caching layer" in result
         assert "performance" not in result
 
-    def test_prefix_with_colon_space(self) -> None:
+    def test_prefix_with_colon_space_reinfers_type(self) -> None:
         result = _commit_message_from_prompt("", "ci: run linter on PRs")
-        assert result == "feat: run linter on PRs"
+        # "linter" matches "lint" keyword → "style" type
+        assert result == "style: run linter on PRs"
 
     def test_prefix_with_parenthetical_scope_stripped(self) -> None:
         result = _commit_message_from_prompt("", "feat(auth): add JWT support")
@@ -1249,3 +1257,255 @@ class TestCommitMessageFromPromptTrivialRejection:
         result = _commit_message_from_prompt("add login page", "")
         assert result.startswith("feat: ")
         assert len(result) > _MIN_COMMIT_MSG_LENGTH
+
+
+# ---------------------------------------------------------------------------
+# _truncate_text
+# ---------------------------------------------------------------------------
+
+
+class TestTruncateText:
+    """Tests for _truncate_text helper."""
+
+    def test_short_text_returned_as_is(self) -> None:
+        assert _truncate_text("hello", limit=10) == "hello"
+
+    def test_exact_limit_returned_as_is(self) -> None:
+        assert _truncate_text("hello", limit=5) == "hello"
+
+    def test_long_text_truncated_with_indicator(self) -> None:
+        result = _truncate_text("a" * 20, limit=10)
+        assert result.startswith("a" * 10)
+        assert result.endswith("...[truncated]")
+        assert len(result) == 10 + len("...[truncated]")
+
+    def test_strips_whitespace_before_truncation(self) -> None:
+        result = _truncate_text("  hello  ", limit=100)
+        assert result == "hello"
+
+    def test_empty_text_returns_empty(self) -> None:
+        assert _truncate_text("", limit=10) == ""
+
+    def test_whitespace_only_returns_empty(self) -> None:
+        assert _truncate_text("   ", limit=10) == ""
+
+    def test_zero_limit_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            _truncate_text("hello", limit=0)
+
+    def test_negative_limit_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            _truncate_text("hello", limit=-1)
+
+
+# ---------------------------------------------------------------------------
+# _infer_commit_type
+# ---------------------------------------------------------------------------
+
+
+class TestInferCommitType:
+    """Tests for _infer_commit_type helper."""
+
+    def test_fix_keyword(self) -> None:
+        assert _infer_commit_type("fix the login crash") == "fix"
+
+    def test_bug_keyword(self) -> None:
+        assert _infer_commit_type("resolve a bug in auth") == "fix"
+
+    def test_crash_keyword(self) -> None:
+        assert _infer_commit_type("handle crash on startup") == "fix"
+
+    def test_refactor_keyword(self) -> None:
+        assert _infer_commit_type("refactor the database layer") == "refactor"
+
+    def test_simplify_keyword(self) -> None:
+        assert _infer_commit_type("simplify the auth flow") == "refactor"
+
+    def test_documentation_keyword(self) -> None:
+        assert _infer_commit_type("update documentation for API") == "docs"
+
+    def test_docs_keyword(self) -> None:
+        assert _infer_commit_type("update the docs") == "docs"
+
+    def test_readme_keyword(self) -> None:
+        assert _infer_commit_type("update README with examples") == "docs"
+
+    def test_test_keyword(self) -> None:
+        assert _infer_commit_type("add test for new endpoint") == "test"
+
+    def test_coverage_keyword(self) -> None:
+        assert _infer_commit_type("increase coverage for auth module") == "test"
+
+    def test_ci_keyword(self) -> None:
+        assert _infer_commit_type("update ci pipeline config") == "ci"
+
+    def test_workflow_keyword(self) -> None:
+        assert _infer_commit_type("add github workflow for deploy") == "ci"
+
+    def test_style_keyword(self) -> None:
+        assert _infer_commit_type("format code with ruff") == "style"
+
+    def test_lint_keyword(self) -> None:
+        assert _infer_commit_type("run linter across codebase") == "style"
+
+    def test_perf_keyword(self) -> None:
+        assert _infer_commit_type("optimize database queries") == "perf"
+
+    def test_performance_keyword(self) -> None:
+        assert _infer_commit_type("improve performance of search") == "perf"
+
+    def test_chore_keyword(self) -> None:
+        assert _infer_commit_type("bump dependency versions") == "chore"
+
+    def test_upgrade_keyword(self) -> None:
+        assert _infer_commit_type("upgrade python to 3.13") == "chore"
+
+    def test_default_feat(self) -> None:
+        assert _infer_commit_type("add dark mode toggle") == "feat"
+
+    def test_no_keywords_returns_feat(self) -> None:
+        assert _infer_commit_type("implement new feature") == "feat"
+
+    def test_case_insensitive(self) -> None:
+        assert _infer_commit_type("FIX the login crash") == "fix"
+
+    def test_fix_takes_priority_over_test(self) -> None:
+        """'fix the test' should be 'fix' not 'test'."""
+        assert _infer_commit_type("fix the test suite") == "fix"
+
+    def test_docker_does_not_match_docs(self) -> None:
+        """'docker' should not trigger 'docs' type."""
+        assert _infer_commit_type("update docker config") == "feat"
+
+    def test_dependencies_does_not_match_ci(self) -> None:
+        """'dependencies' should not trigger 'ci' type."""
+        assert _infer_commit_type("update dependencies") == "chore"
+
+    def test_keywords_dict_is_nonempty(self) -> None:
+        assert len(_COMMIT_TYPE_KEYWORDS) > 0
+
+    def test_all_types_have_keywords(self) -> None:
+        for commit_type, keywords in _COMMIT_TYPE_KEYWORDS.items():
+            assert len(keywords) > 0, f"{commit_type} has no keywords"
+
+
+# ---------------------------------------------------------------------------
+# _build_prompt — truncation indicator tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPromptTruncationIndicators:
+    """Tests for truncation indicators in _build_prompt."""
+
+    def test_long_prompt_includes_truncation_indicator(self) -> None:
+        long_prompt = "x" * (_PROMPT_CONTEXT_LENGTH + 100)
+        result = _build_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt=long_prompt,
+            summary="",
+        )
+        assert "...[truncated]" in result
+
+    def test_short_prompt_no_truncation_indicator(self) -> None:
+        result = _build_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="short task",
+            summary="",
+        )
+        assert "...[truncated]" not in result
+
+    def test_long_summary_includes_truncation_indicator(self) -> None:
+        long_summary = "s" * (_PR_SUMMARY_TRUNCATION_LENGTH + 100)
+        result = _build_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary=long_summary,
+        )
+        assert "...[truncated]" in result
+
+    def test_short_summary_no_truncation_indicator(self) -> None:
+        result = _build_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary="short summary",
+        )
+        assert "...[truncated]" not in result
+
+
+# ---------------------------------------------------------------------------
+# _build_commit_message_prompt — truncation indicator tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCommitMessagePromptTruncationIndicators:
+    """Tests for truncation indicators in _build_commit_message_prompt."""
+
+    def test_long_prompt_includes_truncation_indicator(self) -> None:
+        long_prompt = "x" * (_PROMPT_CONTEXT_LENGTH + 100)
+        result = _build_commit_message_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt=long_prompt,
+            summary="",
+        )
+        assert "...[truncated]" in result
+
+    def test_short_prompt_no_truncation_indicator(self) -> None:
+        result = _build_commit_message_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="short task",
+            summary="",
+        )
+        assert "...[truncated]" not in result
+
+    def test_long_summary_includes_truncation_indicator(self) -> None:
+        long_summary = "s" * (_COMMIT_SUMMARY_TRUNCATION_LENGTH + 100)
+        result = _build_commit_message_prompt(
+            diff="diff",
+            backend="test",
+            user_prompt="task",
+            summary=long_summary,
+        )
+        assert "...[truncated]" in result
+
+
+# ---------------------------------------------------------------------------
+# _commit_message_from_prompt — type inference tests
+# ---------------------------------------------------------------------------
+
+
+class TestCommitMessageFromPromptTypeInference:
+    """_commit_message_from_prompt infers commit type from text content."""
+
+    def test_fix_prompt_gets_fix_prefix(self) -> None:
+        result = _commit_message_from_prompt("fix the login crash", "")
+        assert result.startswith("fix: ")
+
+    def test_refactor_prompt_gets_refactor_prefix(self) -> None:
+        result = _commit_message_from_prompt("refactor auth module", "")
+        assert result.startswith("refactor: ")
+
+    def test_docs_prompt_gets_docs_prefix(self) -> None:
+        result = _commit_message_from_prompt("update documentation for API", "")
+        assert result.startswith("docs: ")
+
+    def test_test_prompt_gets_test_prefix(self) -> None:
+        result = _commit_message_from_prompt("add test for new endpoint", "")
+        assert result.startswith("test: ")
+
+    def test_generic_prompt_gets_feat_prefix(self) -> None:
+        result = _commit_message_from_prompt("add dark mode toggle", "")
+        assert result.startswith("feat: ")
+
+    def test_chore_prompt_gets_chore_prefix(self) -> None:
+        result = _commit_message_from_prompt("bump dependency versions", "")
+        assert result.startswith("chore: ")
+
+    def test_perf_prompt_gets_perf_prefix(self) -> None:
+        result = _commit_message_from_prompt("optimize database queries", "")
+        assert result.startswith("perf: ")

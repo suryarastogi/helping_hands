@@ -42,6 +42,69 @@ _COMMIT_MSG_MAX_LENGTH = 72
 """Maximum length for generated commit messages (conventional commit standard)."""
 
 
+def _truncate_text(text: str, *, limit: int) -> str:
+    """Truncate *text* to *limit* characters with a truncation indicator.
+
+    Unlike ``_truncate_diff``, this is designed for prompt/summary context
+    where the AI needs to know context was cut off (to avoid generating
+    generic or meaningless output from incomplete input).
+    """
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit}")
+    stripped = text.strip()
+    if len(stripped) <= limit:
+        return stripped
+    return f"{stripped[:limit]}...[truncated]"
+
+
+_COMMIT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "fix": ("fix", "bug", "patch", "hotfix", "repair", "resolve", "crash"),
+    "refactor": ("refactor", "restructure", "reorganize", "clean up", "simplify"),
+    "docs": ("document", "docs", "readme", "comment"),
+    "test": ("test", "spec", "coverage"),
+    "ci": ("ci", "pipeline", "workflow", "github action"),
+    "style": ("style", "format", "lint", "whitespace"),
+    "perf": ("perf", "performance", "optimize", "speed"),
+    "chore": ("chore", "bump", "upgrade", "dependency", "dependencies"),
+}
+"""Keyword mapping for inferring conventional commit type from text.
+
+Order matters: earlier entries take priority when text matches multiple
+types.  ``chore`` is last as a catch-all for maintenance tasks.
+"""
+
+
+def _infer_commit_type(text: str) -> str:
+    """Infer the conventional commit type from *text* content.
+
+    Scans *text* for keywords associated with each commit type and returns
+    the best match.  Uses word-boundary matching to avoid false positives
+    (e.g. ``"ci"`` should not match ``"dependencies"``).
+    Defaults to ``"feat"`` when no keywords match.
+    """
+    import re
+
+    lower = text.lower()
+    for commit_type, keywords in _COMMIT_TYPE_KEYWORDS.items():
+        for kw in keywords:
+            if " " in kw:
+                # Multi-word keywords use simple substring match.
+                if kw in lower:
+                    return commit_type
+            elif len(kw) <= 2:
+                # Very short keywords (e.g. "ci") need full word-boundary
+                # match to avoid false positives like "dependencies".
+                if re.search(rf"\b{re.escape(kw)}\b", lower):
+                    return commit_type
+            else:
+                # Longer keywords use word-start boundary to allow
+                # inflected forms (e.g. "test" matches "tests",
+                # "refactor" matches "refactored").
+                if re.search(rf"\b{re.escape(kw)}", lower):
+                    return commit_type
+    return "feat"
+
+
 @dataclass(frozen=True)
 class PRDescription:
     """Parsed PR title and body from CLI output."""
@@ -165,8 +228,10 @@ def _build_prompt(
     """Build the prompt that asks the CLI to generate a PR description."""
     summary_section = ""
     if summary.strip():
-        truncated = summary.strip()[:_PR_SUMMARY_TRUNCATION_LENGTH]
+        truncated = _truncate_text(summary, limit=_PR_SUMMARY_TRUNCATION_LENGTH)
         summary_section = f"\n## AI Summary of Changes\n{truncated}\n"
+
+    prompt_context = _truncate_text(user_prompt, limit=_PROMPT_CONTEXT_LENGTH)
 
     return (
         "You are generating a pull request title and description for a code change.\n\n"
@@ -184,7 +249,7 @@ def _build_prompt(
         "<your markdown body here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
-        f"- Original task prompt: {user_prompt[:_PROMPT_CONTEXT_LENGTH]}\n"
+        f"- Original task prompt: {prompt_context}\n"
         f"{summary_section}\n"
         f"## Git Diff\n"
         f"```diff\n{diff}\n```\n"
@@ -361,8 +426,10 @@ def _build_commit_message_prompt(
     """Build the prompt that asks the CLI to generate a commit message."""
     summary_section = ""
     if summary.strip():
-        truncated = summary.strip()[:_COMMIT_SUMMARY_TRUNCATION_LENGTH]
+        truncated = _truncate_text(summary, limit=_COMMIT_SUMMARY_TRUNCATION_LENGTH)
         summary_section = f"\n## AI Summary of Changes\n{truncated}\n"
+
+    prompt_context = _truncate_text(user_prompt, limit=_PROMPT_CONTEXT_LENGTH)
 
     return (
         "You are generating a git commit message for a code change.\n\n"
@@ -377,7 +444,7 @@ def _build_commit_message_prompt(
         "COMMIT_MSG: <your message here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
-        f"- Original task prompt: {user_prompt[:_PROMPT_CONTEXT_LENGTH]}\n"
+        f"- Original task prompt: {prompt_context}\n"
         f"{summary_section}\n"
         f"## Git Diff\n"
         f"```diff\n{diff}\n```\n"
@@ -514,11 +581,12 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     text = text.rstrip(".")
 
     # Reject trivially short or punctuation-only text.
-    if not text or _is_trivial_message(f"feat: {text}"):
+    commit_type = _infer_commit_type(text)
+    if not text or _is_trivial_message(f"{commit_type}: {text}"):
         return ""
 
-    # Assemble with prefix and enforce 72-char limit.
-    msg = f"feat: {text}"
+    # Assemble with inferred prefix and enforce 72-char limit.
+    msg = f"{commit_type}: {text}"
     return msg[:_COMMIT_MSG_MAX_LENGTH]
 
 
