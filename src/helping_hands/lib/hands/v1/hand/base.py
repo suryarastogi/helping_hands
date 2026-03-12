@@ -30,6 +30,15 @@ from helping_hands.lib.meta.tools import registry as tool_registry
 
 logger = logging.getLogger(__name__)
 
+_MAX_FILE_LIST_DISPLAY = 200
+"""Maximum number of files to show in the system prompt file listing."""
+
+_ERROR_PREVIEW_CHARS = 200
+"""Maximum characters shown in error message previews (e.g. git hook failures)."""
+
+_PRECOMMIT_OUTPUT_LIMIT = 4000
+"""Maximum characters of pre-commit output included in error messages."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -77,7 +86,9 @@ class Hand(abc.ABC):
 
     def _build_system_prompt(self) -> str:
         """Build a system prompt that includes repo context."""
-        file_list = "\n".join(f"  - {f}" for f in self.repo_index.files[:200])
+        file_list = "\n".join(
+            f"  - {f}" for f in self.repo_index.files[:_MAX_FILE_LIST_DISPLAY]
+        )
         return (
             "You are a helpful coding assistant working on a repository.\n"
             f"Repo root: {self.repo_index.root}\n"
@@ -247,7 +258,7 @@ class Hand(abc.ABC):
 
             logger.info(
                 "Git hook failure detected, attempting AI-assisted fix: %s",
-                error_msg[:200],
+                error_msg[:_ERROR_PREVIEW_CHARS],
             )
 
             if not self._try_fix_git_hook_errors(repo_dir, error_msg):
@@ -299,8 +310,10 @@ class Hand(abc.ABC):
         if stderr:
             output_parts.append(f"stderr:\n{stderr}")
         combined_output = "\n\n".join(output_parts) or "no output captured"
-        if len(combined_output) > 4000:
-            combined_output = f"{combined_output[:4000]}\n...[truncated]"
+        if len(combined_output) > _PRECOMMIT_OUTPUT_LIMIT:
+            combined_output = (
+                f"{combined_output[:_PRECOMMIT_OUTPUT_LIMIT]}\n...[truncated]"
+            )
         msg = (
             "pre-commit checks failed after an auto-fix retry. "
             "Resolve hook failures locally before PR push.\n"

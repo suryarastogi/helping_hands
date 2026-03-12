@@ -1,6 +1,6 @@
-# Week 11 (Mar 10 – Mar 11, 2026)
+# Week 11 (Mar 10 – Mar 12, 2026)
 
-Hardening and code quality week. DRY extraction, assert cleanup, input validation, defensive guards, debug logging, test isolation fixes, git operation hardening, type safety, boilerplate line coverage, web helper test coverage, frontend form validation, network error handling. Grew from 3031 to 3361 backend tests, 153 to 178 frontend tests.
+Hardening and code quality week. DRY extraction, assert cleanup, input validation, defensive guards, debug logging, test isolation fixes, git operation hardening, type safety, boilerplate line coverage, web helper test coverage, frontend form validation, network error handling, constant extraction. Grew from 3031 to 3367+ backend tests, 153 to 178 frontend tests.
 
 ---
 
@@ -59,6 +59,12 @@ Hardened `_parse_str_list()` in both `registry.py` and `iterative.py` to reject 
 ## Mar 11 (cont.) — Extract magic numbers to constants (v135)
 
 Extracted hardcoded magic numbers into module-level constants for maintainability: `_DEFAULT_EXEC_TIMEOUT_S = 60` and `_DEFAULT_BROWSE_MAX_CHARS = 12000` in `mcp_server.py` (used in `run_python_code`, `run_python_script`, `run_bash_script`, and `web_browse` function signature defaults), and `_USAGE_LOG_INTERVAL_S = 3600.0` in `celery_app.py` (used in `ensure_usage_schedule`). Added tests verifying constant values, type/sign invariants, and function signature defaults. **3382 → 3392 backend tests (7 new MCP constant tests passed, 3 celery constant tests skipped without celery extra).**
+
+---
+
+## Mar 12 — Gitignore E2E artifacts, constant extraction, truncation validation (v136)
+
+Added UUID directory pattern (`????????-????-????-????-????????????/`) to `.gitignore` to prevent accidental commits of E2E test artifacts (resolves TODO.md item). Extracted hardcoded magic numbers to module-level constants in `base.py` (`_MAX_FILE_LIST_DISPLAY = 200`, `_ERROR_PREVIEW_CHARS = 200`, `_PRECOMMIT_OUTPUT_LIMIT = 4000`) and `cli/base.py` (`_APPLY_CHANGES_SUMMARY_LIMIT = 2000`). Added `limit <= 0` `ValueError` guard to `_truncate_summary()`. Added 10 tests (constant values, positive integer assertions, limit validation). **3392 → 3402 backend tests (10 new, all passed).**
 
 ---
 

@@ -8,6 +8,9 @@ _No active plans._
 
 ## Completed plans
 
+- [2026-03-12 v136](exec-plans/completed/2026-03-12.md) --
+  Gitignore E2E artifacts, base.py/cli/base.py constant extraction, _truncate_summary limit validation; 10 tests
+
 - [2026-03-11 v135](exec-plans/completed/2026-03-11.md) --
   Extract hardcoded magic numbers to module-level constants: `_DEFAULT_EXEC_TIMEOUT_S` and `_DEFAULT_BROWSE_MAX_CHARS` in `mcp_server.py`, `_USAGE_LOG_INTERVAL_S` in `celery_app.py`; constant value and function signature default tests (10 tests, 3 skipped without celery)
 

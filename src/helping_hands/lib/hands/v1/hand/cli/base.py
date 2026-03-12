@@ -19,6 +19,9 @@ from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
 logger = logging.getLogger(__name__)
 
+_APPLY_CHANGES_SUMMARY_LIMIT = 2000
+"""Maximum characters of prior task output shown in the apply-changes prompt."""
+
 
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
@@ -50,6 +53,8 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
+        if limit <= 0:
+            raise ValueError(f"limit must be positive, got {limit}")
         clean = text.strip()
         if len(clean) <= limit:
             return clean
@@ -465,7 +470,9 @@ class _TwoPhaseCLIHand(Hand):
         return not self._repo_has_changes()
 
     def _build_apply_changes_prompt(self, *, prompt: str, task_output: str) -> str:
-        summarized_output = self._truncate_summary(task_output, limit=2000)
+        summarized_output = self._truncate_summary(
+            task_output, limit=_APPLY_CHANGES_SUMMARY_LIMIT
+        )
         return (
             "Follow-up enforcement phase.\n"
             "You previously responded without applying repository file changes.\n\n"
