@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.hands.v1.hand.pr_description import (
+    _MIN_COMMIT_MSG_LENGTH,
     PRDescription,
     _build_commit_message_prompt,
     _build_prompt,
@@ -17,6 +18,7 @@ from helping_hands.lib.hands.v1.hand.pr_description import (
     _get_diff,
     _get_uncommitted_diff,
     _is_disabled,
+    _is_trivial_message,
     _parse_commit_message,
     _parse_output,
     _timeout_seconds,
@@ -1147,3 +1149,103 @@ class TestBuildCommitMessagePromptEdgeCases:
             diff="d", backend="b", user_prompt="p", summary=""
         )
         assert "72" in result
+
+
+# ---------------------------------------------------------------------------
+# _is_trivial_message
+# ---------------------------------------------------------------------------
+
+
+class TestIsTrivialMessage:
+    """Tests for _is_trivial_message that guards against meaningless messages."""
+
+    def test_constant_value(self) -> None:
+        assert _MIN_COMMIT_MSG_LENGTH == 8
+
+    def test_good_message_is_not_trivial(self) -> None:
+        assert _is_trivial_message("feat: add user authentication") is False
+
+    def test_short_body_after_prefix_is_trivial(self) -> None:
+        assert _is_trivial_message("feat: -") is True
+
+    def test_ellipsis_only_body_is_trivial(self) -> None:
+        assert _is_trivial_message("feat: ...") is True
+
+    def test_dashes_only_body_is_trivial(self) -> None:
+        assert _is_trivial_message("feat: ---") is True
+
+    def test_punctuation_only_body_is_trivial(self) -> None:
+        assert _is_trivial_message("feat: !!??") is True
+
+    def test_single_char_body_is_trivial(self) -> None:
+        assert _is_trivial_message("fix: x") is True
+
+    def test_two_char_body_is_trivial(self) -> None:
+        assert _is_trivial_message("fix: ab") is True
+
+    def test_three_char_meaningful_body_is_not_trivial(self) -> None:
+        assert _is_trivial_message("fix: abc") is False
+
+    def test_no_prefix_short_message_is_trivial(self) -> None:
+        assert _is_trivial_message("hi") is True
+
+    def test_no_prefix_meaningful_message_is_not_trivial(self) -> None:
+        assert _is_trivial_message("add user authentication") is False
+
+    def test_whitespace_body_is_trivial(self) -> None:
+        assert _is_trivial_message("feat:    ") is True
+
+    def test_empty_body_after_prefix_is_trivial(self) -> None:
+        assert _is_trivial_message("feat: ") is True
+
+    def test_stars_and_slashes_body_is_trivial(self) -> None:
+        assert _is_trivial_message("fix: **/") is True
+
+
+# ---------------------------------------------------------------------------
+# _parse_commit_message — trivial message rejection
+# ---------------------------------------------------------------------------
+
+
+class TestParseCommitMessageTrivialRejection:
+    """_parse_commit_message rejects trivially short/meaningless messages."""
+
+    def test_rejects_single_dash(self) -> None:
+        assert _parse_commit_message("COMMIT_MSG: feat: -") is None
+
+    def test_rejects_ellipsis(self) -> None:
+        assert _parse_commit_message("COMMIT_MSG: feat: ...") is None
+
+    def test_rejects_punctuation_only(self) -> None:
+        assert _parse_commit_message("COMMIT_MSG: fix: !!") is None
+
+    def test_accepts_meaningful_message(self) -> None:
+        result = _parse_commit_message("COMMIT_MSG: feat: add user login")
+        assert result == "feat: add user login"
+
+    def test_accepts_short_but_meaningful(self) -> None:
+        result = _parse_commit_message("COMMIT_MSG: fix: typo in readme")
+        assert result == "fix: typo in readme"
+
+
+# ---------------------------------------------------------------------------
+# _commit_message_from_prompt — trivial text rejection
+# ---------------------------------------------------------------------------
+
+
+class TestCommitMessageFromPromptTrivialRejection:
+    """_commit_message_from_prompt returns empty for trivially short text."""
+
+    def test_single_char_prompt_returns_empty(self) -> None:
+        assert _commit_message_from_prompt("-", "") == ""
+
+    def test_punctuation_only_prompt_returns_empty(self) -> None:
+        assert _commit_message_from_prompt("...", "") == ""
+
+    def test_dashes_only_prompt_returns_empty(self) -> None:
+        assert _commit_message_from_prompt("---", "") == ""
+
+    def test_meaningful_prompt_returns_message(self) -> None:
+        result = _commit_message_from_prompt("add login page", "")
+        assert result.startswith("feat: ")
+        assert len(result) > _MIN_COMMIT_MSG_LENGTH

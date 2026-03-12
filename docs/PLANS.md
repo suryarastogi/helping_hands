@@ -8,6 +8,10 @@ _No active plans._
 
 ## Completed plans
 
+- [2026-03-12 v136](exec-plans/completed/2026-03-12.md) --
+  Gitignore E2E/Playwright test artifacts (`frontend/test-results/`, `playwright-report/`, `blob-report/`, `coverage.xml`); commit message quality hardening — `_is_trivial_message()` rejects meaningless messages like `feat: -` or `feat: ...` in both `_parse_commit_message` and `_commit_message_from_prompt`; TODO.md items resolved; 3376 tests (27 new)
+
+
 - [2026-03-11 v135](exec-plans/completed/2026-03-11.md) --
   Extract hardcoded magic numbers to module-level constants: `_DEFAULT_EXEC_TIMEOUT_S` and `_DEFAULT_BROWSE_MAX_CHARS` in `mcp_server.py`, `_USAGE_LOG_INTERVAL_S` in `celery_app.py`; constant value and function signature default tests (10 tests, 3 skipped without celery)
 

@@ -363,15 +363,38 @@ def _build_commit_message_prompt(
     )
 
 
+_MIN_COMMIT_MSG_LENGTH = 8
+
+
+def _is_trivial_message(msg: str) -> bool:
+    """Return True if *msg* is too short or contains only punctuation/filler."""
+    import re
+
+    # Strip conventional-commit prefix for length check.
+    body = re.sub(
+        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)"
+        r"(\([^)]*\))?\s*:\s*",
+        "",
+        msg,
+        flags=re.IGNORECASE,
+    )
+    # Reject if the body (after prefix) is empty or very short.
+    if len(body) < 3:
+        return True
+    # Reject if body is only punctuation, ellipses, dashes, or whitespace.
+    return bool(re.fullmatch(r"[\s\-.,;:!?*/\\#@^&(){}[\]|`~\"']+", body))
+
+
 def _parse_commit_message(output: str) -> str | None:
     """Extract the commit message from CLI output.
 
-    Returns ``None`` if the output cannot be parsed.
+    Returns ``None`` if the output cannot be parsed or the message is
+    trivially short / meaningless.
     """
     for line in output.split("\n"):
         if line.startswith("COMMIT_MSG:"):
             msg = line[len("COMMIT_MSG:") :].strip()
-            if msg:
+            if msg and not _is_trivial_message(msg):
                 return msg[:72]
     return None
 
@@ -468,6 +491,10 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     # Lowercase first char, strip trailing period.
     text = text[0].lower() + text[1:] if text else text
     text = text.rstrip(".")
+
+    # Reject trivially short or punctuation-only text.
+    if not text or _is_trivial_message(f"feat: {text}"):
+        return ""
 
     # Assemble with prefix and enforce 72-char limit.
     msg = f"feat: {text}"

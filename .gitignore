@@ -38,6 +38,12 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+coverage.xml
+
+# Playwright test artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 
 # Type checking
 .mypy_cache/
