@@ -877,7 +877,9 @@ def log_claude_usage() -> dict[str, Any]:
     try:
         import psycopg2
 
-        conn = psycopg2.connect(_get_db_url_writer(), connect_timeout=_DB_CONNECT_TIMEOUT_S)
+        conn = psycopg2.connect(
+            _get_db_url_writer(), connect_timeout=_DB_CONNECT_TIMEOUT_S
+        )
         try:
             with conn.cursor() as cur:
                 cur.execute(_USAGE_TABLE_DDL)
