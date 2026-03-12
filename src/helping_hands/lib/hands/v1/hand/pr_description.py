@@ -23,6 +23,24 @@ _DISABLE_ENV_VAR = "HELPING_HANDS_DISABLE_PR_DESCRIPTION"
 _TIMEOUT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_TIMEOUT"
 _DIFF_LIMIT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT"
 
+_PR_SUMMARY_TRUNCATION_LENGTH = 2000
+"""Maximum characters of summary included in the PR description prompt."""
+
+_COMMIT_SUMMARY_TRUNCATION_LENGTH = 1000
+"""Maximum characters of summary included in the commit message prompt."""
+
+_PROMPT_CONTEXT_LENGTH = 500
+"""Maximum characters of the user prompt included as context."""
+
+_PR_ERROR_TAIL_LENGTH = 500
+"""Trailing characters of CLI output kept in PR generation error/debug logs."""
+
+_COMMIT_ERROR_TAIL_LENGTH = 300
+"""Trailing characters of CLI output kept in commit message error/debug logs."""
+
+_COMMIT_MSG_MAX_LENGTH = 72
+"""Maximum length for generated commit messages (conventional commit standard)."""
+
 
 @dataclass(frozen=True)
 class PRDescription:
@@ -145,7 +163,7 @@ def _build_prompt(
     """Build the prompt that asks the CLI to generate a PR description."""
     summary_section = ""
     if summary.strip():
-        truncated = summary.strip()[:2000]
+        truncated = summary.strip()[:_PR_SUMMARY_TRUNCATION_LENGTH]
         summary_section = f"\n## AI Summary of Changes\n{truncated}\n"
 
     return (
@@ -164,7 +182,7 @@ def _build_prompt(
         "<your markdown body here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
-        f"- Original task prompt: {user_prompt[:500]}\n"
+        f"- Original task prompt: {user_prompt[:_PROMPT_CONTEXT_LENGTH]}\n"
         f"{summary_section}\n"
         f"## Git Diff\n"
         f"```diff\n{diff}\n```\n"
@@ -273,16 +291,17 @@ def generate_pr_description(
             "%s PR description generation failed (exit=%d): %s",
             cli_label,
             result.returncode,
-            result.stderr.strip()[-500:],
+            result.stderr.strip()[-_PR_ERROR_TAIL_LENGTH:],
         )
         return None
 
     parsed = _parse_output(result.stdout)
     if parsed is None:
         logger.warning(
-            "Could not parse %s PR description output. Output (last 500 chars): %s",
+            "Could not parse %s PR description output. Output (last %d chars): %s",
             cli_label,
-            result.stdout.strip()[-500:],
+            _PR_ERROR_TAIL_LENGTH,
+            result.stdout.strip()[-_PR_ERROR_TAIL_LENGTH:],
         )
         return None
 
@@ -340,7 +359,7 @@ def _build_commit_message_prompt(
     """Build the prompt that asks the CLI to generate a commit message."""
     summary_section = ""
     if summary.strip():
-        truncated = summary.strip()[:1000]
+        truncated = summary.strip()[:_COMMIT_SUMMARY_TRUNCATION_LENGTH]
         summary_section = f"\n## AI Summary of Changes\n{truncated}\n"
 
     return (
@@ -356,7 +375,7 @@ def _build_commit_message_prompt(
         "COMMIT_MSG: <your message here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
-        f"- Original task prompt: {user_prompt[:500]}\n"
+        f"- Original task prompt: {user_prompt[:_PROMPT_CONTEXT_LENGTH]}\n"
         f"{summary_section}\n"
         f"## Git Diff\n"
         f"```diff\n{diff}\n```\n"
@@ -395,7 +414,7 @@ def _parse_commit_message(output: str) -> str | None:
         if line.startswith("COMMIT_MSG:"):
             msg = line[len("COMMIT_MSG:") :].strip()
             if msg and not _is_trivial_message(msg):
-                return msg[:72]
+                return msg[:_COMMIT_MSG_MAX_LENGTH]
     return None
 
 
@@ -498,7 +517,7 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
 
     # Assemble with prefix and enforce 72-char limit.
     msg = f"feat: {text}"
-    return msg[:72]
+    return msg[:_COMMIT_MSG_MAX_LENGTH]
 
 
 def generate_commit_message(
@@ -569,7 +588,7 @@ def generate_commit_message(
             "%s commit message generation failed (exit=%d): %s",
             cli_label,
             result.returncode,
-            result.stderr.strip()[-300:],
+            result.stderr.strip()[-_COMMIT_ERROR_TAIL_LENGTH:],
         )
         return None
 
@@ -578,7 +597,7 @@ def generate_commit_message(
         logger.warning(
             "Could not parse %s commit message output: %s",
             cli_label,
-            result.stdout.strip()[-300:],
+            result.stdout.strip()[-_COMMIT_ERROR_TAIL_LENGTH:],
         )
         return None
 

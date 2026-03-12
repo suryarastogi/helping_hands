@@ -11,6 +11,20 @@ from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 logger = logging.getLogger(__name__)
 
+# --- Module-level constants ---------------------------------------------------
+
+_TEXT_PREVIEW_MAX_LENGTH = 200
+"""Maximum length for assistant text previews before truncation."""
+
+_TOOL_RESULT_PREVIEW_MAX_LENGTH = 150
+"""Maximum length for tool result previews before truncation."""
+
+_COMMAND_PREVIEW_MAX_LENGTH = 80
+"""Maximum length for Bash command / CronCreate prompt previews."""
+
+_FAILURE_OUTPUT_TAIL_LENGTH = 2000
+"""Number of trailing characters kept from CLI output in failure messages."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -69,8 +83,8 @@ class _StreamJsonEmitter:
                     if text:
                         self._text_parts.append(text)
                         preview = text.strip().replace("\n", " ")
-                        if len(preview) > 200:
-                            preview = preview[:197] + "..."
+                        if len(preview) > _TEXT_PREVIEW_MAX_LENGTH:
+                            preview = preview[: _TEXT_PREVIEW_MAX_LENGTH - 3] + "..."
                         if preview:
                             await self._emit(f"[{self._label}] {preview}\n")
 
@@ -91,8 +105,8 @@ class _StreamJsonEmitter:
                     )
                 if isinstance(content, str) and content.strip():
                     preview = content.strip().replace("\n", " ")
-                    if len(preview) > 150:
-                        preview = preview[:147] + "..."
+                    if len(preview) > _TOOL_RESULT_PREVIEW_MAX_LENGTH:
+                        preview = preview[: _TOOL_RESULT_PREVIEW_MAX_LENGTH - 3] + "..."
                     await self._emit(f"[{self._label}] -> {preview}\n")
 
         elif event_type == "result":
@@ -131,8 +145,8 @@ class _StreamJsonEmitter:
             return f"Write {path}"
         if name == "Bash":
             cmd = input_data.get("command", "")
-            if len(cmd) > 80:
-                cmd = cmd[:77] + "..."
+            if len(cmd) > _COMMAND_PREVIEW_MAX_LENGTH:
+                cmd = cmd[: _COMMAND_PREVIEW_MAX_LENGTH - 3] + "..."
             return f"$ {cmd}"
         if name == "Glob":
             pattern = input_data.get("pattern", "")
@@ -163,8 +177,8 @@ class _StreamJsonEmitter:
             return f"Skill: {skill}" if skill else "Skill"
         if name == "CronCreate":
             prompt = input_data.get("prompt", "")
-            if len(prompt) > 80:
-                prompt = prompt[:77] + "..."
+            if len(prompt) > _COMMAND_PREVIEW_MAX_LENGTH:
+                prompt = prompt[: _COMMAND_PREVIEW_MAX_LENGTH - 3] + "..."
             return f"CronCreate {prompt!r}" if prompt else "CronCreate"
         if name == "CronDelete":
             cron_id = input_data.get("id", "")
@@ -222,7 +236,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
-        tail = output.strip()[-2000:]
+        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
         lower_tail = tail.lower()
         if any(
             token in lower_tail

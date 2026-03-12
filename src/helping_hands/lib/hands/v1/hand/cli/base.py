@@ -15,7 +15,11 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, Protocol
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _FILE_LIST_PREVIEW_LIMIT,
+    Hand,
+    HandResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -350,7 +354,9 @@ class _TwoPhaseCLIHand(Hand):
         return None
 
     def _build_init_prompt(self) -> str:
-        file_list = "\n".join(f"- {path}" for path in self.repo_index.files[:200])
+        file_list = "\n".join(
+            f"- {path}" for path in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
+        )
         if not file_list:
             file_list = "- (no indexed files)"
         return (

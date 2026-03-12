@@ -4,7 +4,8 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-_No active plans._
+- [v139](exec-plans/active/v139-extract-constants-claude-pr-description.md) --
+  Extract hardcoded magic numbers in claude.py (`_TEXT_PREVIEW_MAX_LENGTH`, `_TOOL_RESULT_PREVIEW_MAX_LENGTH`, `_COMMAND_PREVIEW_MAX_LENGTH`), pr_description.py (`_PR_SUMMARY_TRUNCATION_LENGTH`, `_COMMIT_SUMMARY_TRUNCATION_LENGTH`, `_PROMPT_CONTEXT_LENGTH`, `_PR_ERROR_TAIL_LENGTH`, `_COMMIT_ERROR_TAIL_LENGTH`, `_COMMIT_MSG_MAX_LENGTH`), DRY `_FAILURE_OUTPUT_TAIL_LENGTH` across 4 CLI hands, import `_FILE_LIST_PREVIEW_LIMIT` in cli/base.py; 3436 tests (29 new)
 
 ## Completed plans
 
