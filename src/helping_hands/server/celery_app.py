@@ -72,6 +72,9 @@ _KEYCHAIN_TIMEOUT_S = 5
 _DB_CONNECT_TIMEOUT_S = 5
 """Timeout in seconds for PostgreSQL connection attempts."""
 
+_JWT_TOKEN_PREFIX = "ey"
+"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
+
 _SUPPORTED_BACKENDS = {
     "e2e",
     "basic-langgraph",
@@ -842,7 +845,7 @@ def log_claude_usage() -> dict[str, Any]:
             creds = _json.loads(raw)
             token = creds.get("claudeAiOauth", {}).get("accessToken")
         except (_json.JSONDecodeError, AttributeError):
-            token = raw if raw.startswith("ey") else None
+            token = raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
     except Exception as exc:
         return {"status": "error", "message": f"Keychain read failed: {exc}"}
 

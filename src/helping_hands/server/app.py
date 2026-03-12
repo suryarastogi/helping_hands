@@ -53,6 +53,9 @@ _ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
 _USAGE_USER_AGENT = "claude-code/2.0.32"
 
 # --- Preview truncation limits for error/debug messages ---
+_JWT_TOKEN_PREFIX = "ey"
+"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
+
 _HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
 _USAGE_DATA_PREVIEW_LENGTH = 300
 
@@ -305,7 +308,7 @@ def _get_claude_oauth_token() -> str | None:
             return creds.get("claudeAiOauth", {}).get("accessToken")
         except (json.JSONDecodeError, AttributeError):
             # Maybe stored as plain token
-            return raw if raw.startswith("ey") else None
+            return raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
     except Exception:
         logger.debug("Failed to read Claude OAuth token from Keychain", exc_info=True)
         return None

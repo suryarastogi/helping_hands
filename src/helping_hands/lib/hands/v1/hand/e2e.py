@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH, Hand, HandResponse
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class E2EHand(Hand):
         repo_dir.parent.mkdir(parents=True, exist_ok=True)
 
         base_branch = self._configured_base_branch() or "main"
-        branch = f"helping-hands/e2e-{hand_uuid[:8]}"
+        branch = f"helping-hands/e2e-{hand_uuid[:_UUID_HEX_LENGTH]}"
         e2e_file = _E2E_MARKER_FILE
         e2e_path = repo_dir / e2e_file
 
