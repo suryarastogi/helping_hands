@@ -68,7 +68,14 @@ class _TwoPhaseCLIHand(Hand):
 
     def _base_command(self) -> list[str]:
         raw = os.environ.get(self._COMMAND_ENV_VAR, self._DEFAULT_CLI_CMD)
-        tokens = shlex.split(raw)
+        try:
+            tokens = shlex.split(raw)
+        except ValueError as exc:
+            msg = (
+                f"{self._COMMAND_ENV_VAR} contains an invalid shell expression"
+                f" ({raw!r}): {exc}"
+            )
+            raise RuntimeError(msg) from exc
         if not tokens:
             msg = f"{self._COMMAND_ENV_VAR} resolved to an empty command."
             raise RuntimeError(msg)
@@ -76,7 +83,7 @@ class _TwoPhaseCLIHand(Hand):
 
     def _resolve_cli_model(self) -> str:
         model = str(self.config.model).strip()
-        if not model or model == "default":
+        if not model or model in ("default", "None"):
             return self._DEFAULT_MODEL
         if "/" in model:
             _, _, provider_model = model.partition("/")
@@ -94,7 +101,7 @@ class _TwoPhaseCLIHand(Hand):
         appear before ``-p``/``--prompt`` and the prompt text itself.
         Some CLIs ignore flags that appear after the prompt argument.
         """
-        if not self.config.verbose or not self._VERBOSE_CLI_FLAGS:
+        if not self.config.verbose or not self._VERBOSE_CLI_FLAGS or not cmd:
             return cmd
         for flag in self._VERBOSE_CLI_FLAGS:
             if flag not in cmd:
@@ -261,8 +268,20 @@ class _TwoPhaseCLIHand(Hand):
         try:
             value = float(raw.strip())
         except ValueError:
+            logger.warning(
+                "%s has non-numeric value %r, using default %s",
+                name,
+                raw,
+                default,
+            )
             return default
         if value <= 0:
+            logger.warning(
+                "%s has non-positive value %s, using default %s",
+                name,
+                value,
+                default,
+            )
             return default
         return value
 
@@ -298,7 +317,7 @@ class _TwoPhaseCLIHand(Hand):
         return env
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
-        tail = output.strip()[-2000:]
+        tail = output.strip()[-self._SUMMARY_CHAR_LIMIT :]
         return f"{self._CLI_DISPLAY_NAME} failed (exit={return_code}). Output:\n{tail}"
 
     def _command_not_found_message(self, command: str) -> str:
@@ -410,6 +429,10 @@ class _TwoPhaseCLIHand(Hand):
             check=False,
         )
         if result.returncode != 0:
+            logger.debug(
+                "git status check failed (code=%d); assuming no changes",
+                result.returncode,
+            )
             return False
         return bool(result.stdout.strip())
 
@@ -770,7 +793,7 @@ class _TwoPhaseCLIHand(Hand):
         deadline = time.monotonic() + max_poll_seconds
         while time.monotonic() < deadline:
             result = gh.get_check_runs(repo, ref)
-            conclusion = result["conclusion"]
+            conclusion = result.get("conclusion", "pending")
             if conclusion not in ("pending", "no_checks"):
                 return result
             await emit(
@@ -868,8 +891,8 @@ class _TwoPhaseCLIHand(Hand):
                         max_poll_seconds=max_poll,
                     )
 
-                    conclusion = check_result["conclusion"]
-                    total = check_result["total_count"]
+                    conclusion = check_result.get("conclusion", "pending")
+                    total = check_result.get("total_count", 0)
 
                     if conclusion == "success":
                         await emit(

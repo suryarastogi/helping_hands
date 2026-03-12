@@ -317,6 +317,79 @@ class TestE2EHandRunAutoUuid:
         assert len(result.metadata["hand_uuid"]) > 8
 
 
+class TestE2EHandDraftPR:
+    """E2E hand draft PR configuration."""
+
+    def test_draft_pr_enabled_by_default(self) -> None:
+        assert E2EHand._draft_pr_enabled() is True
+
+    def test_draft_pr_disabled_via_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "false")
+        assert E2EHand._draft_pr_enabled() is False
+
+    def test_draft_pr_enabled_via_env_yes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "yes")
+        assert E2EHand._draft_pr_enabled() is True
+
+    def test_draft_pr_disabled_via_env_zero(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "0")
+        assert E2EHand._draft_pr_enabled() is False
+
+    def test_draft_pr_disabled_via_env_no(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "no")
+        assert E2EHand._draft_pr_enabled() is False
+
+    def test_create_pr_called_with_draft_true(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+        monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_E2E_DRAFT_PR", raising=False)
+        hand = _make_hand()
+        gh = _mock_gh()
+
+        def _fake_clone(repo: str, dest: Path, **kwargs: Any) -> Path:
+            dest.mkdir(parents=True, exist_ok=True)
+            return dest
+
+        gh.clone.side_effect = _fake_clone
+
+        with patch("helping_hands.lib.github.GitHubClient", return_value=gh):
+            hand.run("add feature", hand_uuid="uuid-draft")
+
+        gh.create_pr.assert_called_once()
+        _, kwargs = gh.create_pr.call_args
+        assert kwargs.get("draft") is True
+
+    def test_create_pr_called_with_draft_false_when_disabled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_WORK_ROOT", str(tmp_path))
+        monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "false")
+        hand = _make_hand()
+        gh = _mock_gh()
+
+        def _fake_clone(repo: str, dest: Path, **kwargs: Any) -> Path:
+            dest.mkdir(parents=True, exist_ok=True)
+            return dest
+
+        gh.clone.side_effect = _fake_clone
+
+        with patch("helping_hands.lib.github.GitHubClient", return_value=gh):
+            hand.run("add feature", hand_uuid="uuid-nodraft")
+
+        gh.create_pr.assert_called_once()
+        _, kwargs = gh.create_pr.call_args
+        assert kwargs.get("draft") is False
+
+
 class TestE2EHandStream:
     """stream() yields run() message."""
 

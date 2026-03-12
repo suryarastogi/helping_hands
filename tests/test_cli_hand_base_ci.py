@@ -142,6 +142,41 @@ class TestFormatPrStatusMessage:
         assert stub._format_pr_status_message({}) is None
 
 
+class TestBuildCiFixPromptMalformed:
+    """Defensive handling of malformed check_result dicts."""
+
+    def test_missing_check_runs_key(self) -> None:
+        """check_result with no 'check_runs' key uses empty list fallback."""
+        prompt = _TwoPhaseCLIHand._build_ci_fix_prompt(
+            check_result={},
+            original_prompt="task",
+            attempt=1,
+        )
+        assert "(no details available)" in prompt
+
+    def test_check_run_missing_all_fields(self) -> None:
+        """check_run dicts with no fields get filtered out (no matching conclusion)."""
+        prompt = _TwoPhaseCLIHand._build_ci_fix_prompt(
+            check_result={"check_runs": [{}]},
+            original_prompt="task",
+            attempt=1,
+        )
+        assert "(no details available)" in prompt
+
+    def test_timed_out_conclusion_included(self) -> None:
+        """check_run with 'timed_out' conclusion is included in failure summary."""
+        prompt = _TwoPhaseCLIHand._build_ci_fix_prompt(
+            check_result={
+                "check_runs": [
+                    {"name": "deploy", "conclusion": "timed_out", "html_url": ""},
+                ],
+            },
+            original_prompt="task",
+            attempt=1,
+        )
+        assert "deploy: timed_out" in prompt
+
+
 class TestFormatCiFixMessage:
     """Test _format_ci_fix_message via a minimal subclass."""
 

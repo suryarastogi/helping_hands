@@ -12,7 +12,6 @@ consistent regardless of which concrete hand class is selected.
 from __future__ import annotations
 
 import abc
-import contextlib
 import logging
 import os
 import re
@@ -349,7 +348,10 @@ class Hand(abc.ABC):
         If the push fails (e.g. unexpected remote changes), a new PR is created
         against the original PR's base branch, referencing the original PR.
         """
-        assert self.pr_number is not None
+        if self.pr_number is None:
+            raise ValueError(
+                "pr_number must be set before calling _push_to_existing_pr"
+            )
 
         pr_info = gh.get_pr(repo, self.pr_number)
         branch = str(pr_info["head"])
@@ -406,6 +408,9 @@ class Hand(abc.ABC):
         try:
             token_user = gh.whoami().get("login", "")
         except Exception:
+            logger.debug(
+                "whoami() failed; skipping PR description update", exc_info=True
+            )
             token_user = ""
         if pr_creator and token_user and pr_creator == token_user:
             self._update_pr_description(
@@ -443,7 +448,10 @@ class Hand(abc.ABC):
         commit_sha: str,
     ) -> None:
         """Generate and update the PR description for an owned PR."""
-        assert self.pr_number is not None
+        if self.pr_number is None:
+            raise ValueError(
+                "pr_number must be set before calling _update_pr_description"
+            )
         stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
         from helping_hands.lib.hands.v1.hand.pr_description import (
             generate_pr_description,
@@ -467,8 +475,12 @@ class Hand(abc.ABC):
                 commit_sha=commit_sha,
                 stamp_utc=stamp,
             )
-        with contextlib.suppress(Exception):
+        try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
+        except Exception:
+            logger.debug(
+                "Failed to update PR #%s description", self.pr_number, exc_info=True
+            )
 
     def _create_pr_for_diverged_branch(
         self,
@@ -488,7 +500,10 @@ class Hand(abc.ABC):
         The new PR targets the original PR's head branch so it can be merged
         into the existing PR rather than going directly to the base branch.
         """
-        assert self.pr_number is not None
+        if self.pr_number is None:
+            raise ValueError(
+                "pr_number must be set before calling _create_pr_for_diverged_branch"
+            )
         new_branch = f"helping-hands/{backend}-{uuid4().hex[:8]}"
         gh.create_branch(repo_dir, new_branch)
         self._push_noninteractive(gh, repo_dir, new_branch)
@@ -656,7 +671,12 @@ class Hand(abc.ABC):
                     if getattr(repo_obj, "default_branch", ""):
                         base_branch = str(repo_obj.default_branch)
                 except Exception:
-                    pass
+                    logger.debug(
+                        "could not fetch default branch for %s, using %r",
+                        repo,
+                        base_branch,
+                        exc_info=True,
+                    )
 
                 stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
 

@@ -46,8 +46,22 @@ def _timeout_seconds() -> float:
     try:
         value = float(raw.strip())
     except ValueError:
+        logger.warning(
+            "ignoring non-numeric %s=%r, using default %.0fs",
+            _TIMEOUT_ENV_VAR,
+            raw,
+            _DEFAULT_TIMEOUT_SECONDS,
+        )
         return _DEFAULT_TIMEOUT_SECONDS
-    return value if value > 0 else _DEFAULT_TIMEOUT_SECONDS
+    if value <= 0:
+        logger.warning(
+            "ignoring non-positive %s=%r, using default %.0fs",
+            _TIMEOUT_ENV_VAR,
+            raw,
+            _DEFAULT_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_TIMEOUT_SECONDS
+    return value
 
 
 def _diff_char_limit() -> int:
@@ -58,33 +72,56 @@ def _diff_char_limit() -> int:
     try:
         value = int(raw.strip())
     except ValueError:
+        logger.warning(
+            "ignoring non-numeric %s=%r, using default %d",
+            _DIFF_LIMIT_ENV_VAR,
+            raw,
+            _DEFAULT_DIFF_CHAR_LIMIT,
+        )
         return _DEFAULT_DIFF_CHAR_LIMIT
-    return value if value > 0 else _DEFAULT_DIFF_CHAR_LIMIT
+    if value <= 0:
+        logger.warning(
+            "ignoring non-positive %s=%r, using default %d",
+            _DIFF_LIMIT_ENV_VAR,
+            raw,
+            _DEFAULT_DIFF_CHAR_LIMIT,
+        )
+        return _DEFAULT_DIFF_CHAR_LIMIT
+    return value
 
 
 def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
     """Get the git diff between the current HEAD and *base_branch*.
 
     Falls back to ``HEAD~1..HEAD`` if the base-branch comparison fails
-    (e.g. shallow clone without the base ref).
+    (e.g. shallow clone without the base ref).  Returns empty string if
+    git is not installed.
     """
-    result = subprocess.run(
-        ["git", "diff", f"{base_branch}...HEAD"],
-        cwd=repo_dir,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "diff", f"{base_branch}...HEAD"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.debug("git not found on PATH; cannot compute diff")
+        return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
 
-    result = subprocess.run(
-        ["git", "diff", "HEAD~1", "HEAD"],
-        cwd=repo_dir,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "diff", "HEAD~1", "HEAD"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.debug("git not found on PATH; cannot compute diff")
+        return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
 
@@ -265,21 +302,29 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
     """Get the diff of uncommitted changes (both staged and unstaged).
 
     Stages all changes first so new files are included, then reads
-    ``git diff --cached``.
+    ``git diff --cached``.  Returns empty string if git is not installed.
     """
-    subprocess.run(
-        ["git", "add", "."],
-        cwd=repo_dir,
-        capture_output=True,
-        check=False,
-    )
-    result = subprocess.run(
-        ["git", "diff", "--cached"],
-        cwd=repo_dir,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=repo_dir,
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--cached"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
     return ""

@@ -6,14 +6,14 @@ Exposes an HTTP API that enqueues repo-building jobs via Celery.
 from __future__ import annotations
 
 import ast
-import contextlib
 import html
 import json
+import logging
 import os
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 from urllib.parse import urlencode
@@ -28,8 +28,16 @@ from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.task_result import normalize_task_result
 
+if TYPE_CHECKING:
+    from helping_hands.server.schedules import ScheduleManager
+
+logger = logging.getLogger(__name__)
+
 # Lazy import for optional schedule dependencies
-_schedule_manager = None
+_schedule_manager: ScheduleManager | None = None
+
+# Maximum number of tool or skill entries in a single request.
+_MAX_TOOL_SKILL_ITEMS = 50
 
 app = FastAPI(
     title="helping_hands",
@@ -38,33 +46,11 @@ app = FastAPI(
 )
 
 
-class BuildRequest(BaseModel):
-    """Request body for the /build endpoint."""
+class _ToolSkillValidatorMixin(BaseModel):
+    """Shared coercion and validation for tools/skills list fields."""
 
-    repo_path: str
-    prompt: str
-    backend: Literal[
-        "e2e",
-        "basic-langgraph",
-        "basic-atomic",
-        "basic-agent",
-        "codexcli",
-        "claudecodecli",
-        "goose",
-        "geminicli",
-        "opencodecli",
-    ] = "claudecodecli"
-    model: str | None = None
-    max_iterations: int = 6
-    no_pr: bool = False
-    enable_execution: bool = False
-    enable_web: bool = False
-    use_native_cli_auth: bool = False
-    pr_number: int | None = None
-    fix_ci: bool = False
-    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
-    tools: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list, max_length=_MAX_TOOL_SKILL_ITEMS)
+    skills: list[str] = Field(default_factory=list, max_length=_MAX_TOOL_SKILL_ITEMS)
 
     @field_validator("tools", mode="before")
     @classmethod
@@ -95,6 +81,34 @@ class BuildRequest(BaseModel):
         return value
 
 
+class BuildRequest(_ToolSkillValidatorMixin):
+    """Request body for the /build endpoint."""
+
+    repo_path: str = Field(min_length=1, max_length=500)
+    prompt: str = Field(min_length=1, max_length=50_000)
+    backend: Literal[
+        "e2e",
+        "basic-langgraph",
+        "basic-atomic",
+        "basic-agent",
+        "codexcli",
+        "claudecodecli",
+        "docker-sandbox-claude",
+        "goose",
+        "geminicli",
+        "opencodecli",
+    ] = "claudecodecli"
+    model: str | None = Field(default=None, max_length=200)
+    max_iterations: int = Field(default=6, ge=1, le=100)
+    no_pr: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
+    use_native_cli_auth: bool = False
+    pr_number: int | None = None
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
+
+
 BackendName = Literal[
     "e2e",
     "basic-langgraph",
@@ -102,6 +116,7 @@ BackendName = Literal[
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "docker-sandbox-claude",
     "goose",
     "geminicli",
     "opencodecli",
@@ -160,19 +175,20 @@ class ServerConfig(BaseModel):
 # --- Scheduled Task Models ---
 
 
-class ScheduleRequest(BaseModel):
+class ScheduleRequest(_ToolSkillValidatorMixin):
     """Request body for creating/updating a scheduled task."""
 
     name: str = Field(min_length=1, max_length=100)
     cron_expression: str = Field(
         min_length=1,
+        max_length=100,
         description="Cron expression (e.g., '0 0 * * *') or preset name",
     )
-    repo_path: str
-    prompt: str
+    repo_path: str = Field(min_length=1, max_length=500)
+    prompt: str = Field(min_length=1, max_length=50_000)
     backend: BackendName = "claudecodecli"
-    model: str | None = None
-    max_iterations: int = Field(default=6, ge=1)
+    model: str | None = Field(default=None, max_length=200)
+    max_iterations: int = Field(default=6, ge=1, le=100)
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
@@ -180,37 +196,7 @@ class ScheduleRequest(BaseModel):
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
-    tools: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
     enabled: bool = True
-
-    @field_validator("tools", mode="before")
-    @classmethod
-    def _coerce_tools(
-        cls, value: str | list[str] | tuple[str, ...] | None
-    ) -> list[str]:
-        normalized = meta_tools.normalize_tool_selection(value)
-        return list(normalized)
-
-    @field_validator("tools")
-    @classmethod
-    def _validate_tools(cls, value: list[str]) -> list[str]:
-        meta_tools.validate_tool_category_names(tuple(value))
-        return value
-
-    @field_validator("skills", mode="before")
-    @classmethod
-    def _coerce_skills(
-        cls, value: str | list[str] | tuple[str, ...] | None
-    ) -> list[str]:
-        normalized = meta_skills.normalize_skill_selection(value)
-        return list(normalized)
-
-    @field_validator("skills")
-    @classmethod
-    def _validate_skills(cls, value: list[str]) -> list[str]:
-        meta_skills.validate_skill_names(tuple(value))
-        return value
 
 
 class ScheduleResponse(BaseModel):
@@ -304,6 +290,7 @@ def _get_claude_oauth_token() -> str | None:
             # Maybe stored as plain token
             return raw if raw.startswith("ey") else None
     except Exception:
+        logger.debug("Failed to read Claude OAuth token from Keychain", exc_info=True)
         return None
 
 
@@ -351,8 +338,10 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
             data = json.loads(resp.read().decode())
     except urllib_error.HTTPError as exc:
         body = ""
-        with contextlib.suppress(Exception):
+        try:
             body = exc.read().decode()[:200]
+        except Exception:
+            logger.debug("Failed to read HTTP error body", exc_info=True)
         return ClaudeUsageResponse(
             error=f"Usage API returned {exc.code}: {body}",
             fetched_at=now,
@@ -435,6 +424,7 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     "basic-agent": "basic-agent",
     "codexcli": "codexcli",
     "claudecodecli": "claudecodecli",
+    "docker-sandbox-claude": "docker-sandbox-claude",
     "goose": "goose",
     "geminicli": "geminicli",
     "opencodecli": "opencodecli",
@@ -2309,6 +2299,7 @@ def _check_redis_health() -> Literal["ok", "error"]:
         r.ping()
         return "ok"
     except Exception:
+        logger.debug("Redis health check failed", exc_info=True)
         return "error"
 
 
@@ -2323,6 +2314,7 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
         conn.close()
         return "ok"
     except Exception:
+        logger.debug("Database health check failed", exc_info=True)
         return "error"
 
 
@@ -2332,6 +2324,7 @@ def _check_workers_health() -> Literal["ok", "error"]:
         ping = inspector.ping()
         return "ok" if ping else "error"
     except Exception:
+        logger.debug("Workers health check failed", exc_info=True)
         return "error"
 
 
@@ -2468,10 +2461,20 @@ def _coerce_optional_str(value: Any) -> str | None:
     return text or None
 
 
+_MAX_TASK_KWARGS_LEN = 1_000_000  # 1 MB — reject unreasonably large payloads
+
+
 def _parse_task_kwargs_str(raw: str) -> dict[str, Any]:
     """Parse kwargs strings from Flower/Celery payloads into a mapping."""
     text = raw.strip()
     if not text:
+        return {}
+    if len(text) > _MAX_TASK_KWARGS_LEN:
+        logger.warning(
+            "Task kwargs string exceeds %d chars (%d), skipping parse",
+            _MAX_TASK_KWARGS_LEN,
+            len(text),
+        )
         return {}
     try:
         json_payload = json.loads(text)
@@ -2924,6 +2927,55 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
     return _enqueue_build_task(req)
 
 
+def _build_form_redirect_query(
+    *,
+    repo_path: str,
+    prompt: str,
+    backend: str,
+    max_iterations: int,
+    error: str,
+    model: str | None = None,
+    no_pr: bool = False,
+    enable_execution: bool = False,
+    enable_web: bool = False,
+    use_native_cli_auth: bool = False,
+    fix_ci: bool = False,
+    ci_check_wait_minutes: float = 3.0,
+    pr_number: int | None = None,
+    tools: str | None = None,
+    skills: str | None = None,
+) -> dict[str, str]:
+    """Build the query dict for form error redirects back to the index page."""
+    query: dict[str, str] = {
+        "repo_path": repo_path,
+        "prompt": prompt,
+        "backend": backend,
+        "max_iterations": str(max_iterations),
+        "error": error,
+    }
+    if model:
+        query["model"] = model
+    if no_pr:
+        query["no_pr"] = "1"
+    if enable_execution:
+        query["enable_execution"] = "1"
+    if enable_web:
+        query["enable_web"] = "1"
+    if use_native_cli_auth:
+        query["use_native_cli_auth"] = "1"
+    if fix_ci:
+        query["fix_ci"] = "1"
+    if ci_check_wait_minutes != 3.0:
+        query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
+    if pr_number is not None:
+        query["pr_number"] = str(pr_number)
+    if tools and tools.strip():
+        query["tools"] = tools
+    if skills and skills.strip():
+        query["skills"] = skills
+    return query
+
+
 @app.post("/build/form")
 def enqueue_build_form(
     repo_path: str = Form(...),
@@ -2945,33 +2997,23 @@ def enqueue_build_form(
     try:
         validated_backend = _parse_backend(backend)
     except ValueError as exc:
-        query: dict[str, str] = {
-            "repo_path": repo_path,
-            "prompt": prompt,
-            "backend": backend,
-            "max_iterations": str(max_iterations),
-            "error": str(exc),
-        }
-        if model:
-            query["model"] = model
-        if no_pr:
-            query["no_pr"] = "1"
-        if enable_execution:
-            query["enable_execution"] = "1"
-        if enable_web:
-            query["enable_web"] = "1"
-        if use_native_cli_auth:
-            query["use_native_cli_auth"] = "1"
-        if fix_ci:
-            query["fix_ci"] = "1"
-        if ci_check_wait_minutes != 3.0:
-            query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
-        if pr_number is not None:
-            query["pr_number"] = str(pr_number)
-        if tools and tools.strip():
-            query["tools"] = tools
-        if skills and skills.strip():
-            query["skills"] = skills
+        query = _build_form_redirect_query(
+            repo_path=repo_path,
+            prompt=prompt,
+            backend=backend,
+            max_iterations=max_iterations,
+            error=str(exc),
+            model=model,
+            no_pr=no_pr,
+            enable_execution=enable_execution,
+            enable_web=enable_web,
+            use_native_cli_auth=use_native_cli_auth,
+            fix_ci=fix_ci,
+            ci_check_wait_minutes=ci_check_wait_minutes,
+            pr_number=pr_number,
+            tools=tools,
+            skills=skills,
+        )
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
 
     try:
@@ -3001,33 +3043,23 @@ def enqueue_build_form(
                 if isinstance(maybe_msg, str):
                     error_msg = maybe_msg
 
-        query: dict[str, str] = {
-            "repo_path": repo_path,
-            "prompt": prompt,
-            "backend": backend,
-            "max_iterations": str(max_iterations),
-            "error": error_msg,
-        }
-        if model:
-            query["model"] = model
-        if no_pr:
-            query["no_pr"] = "1"
-        if enable_execution:
-            query["enable_execution"] = "1"
-        if enable_web:
-            query["enable_web"] = "1"
-        if use_native_cli_auth:
-            query["use_native_cli_auth"] = "1"
-        if fix_ci:
-            query["fix_ci"] = "1"
-        if ci_check_wait_minutes != 3.0:
-            query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
-        if pr_number is not None:
-            query["pr_number"] = str(pr_number)
-        if tools and tools.strip():
-            query["tools"] = tools
-        if skills and skills.strip():
-            query["skills"] = skills
+        query = _build_form_redirect_query(
+            repo_path=repo_path,
+            prompt=prompt,
+            backend=backend,
+            max_iterations=max_iterations,
+            error=error_msg,
+            model=model,
+            no_pr=no_pr,
+            enable_execution=enable_execution,
+            enable_web=enable_web,
+            use_native_cli_auth=use_native_cli_auth,
+            fix_ci=fix_ci,
+            ci_check_wait_minutes=ci_check_wait_minutes,
+            pr_number=pr_number,
+            tools=tools,
+            skills=skills,
+        )
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
 
     response = _enqueue_build_task(req)
@@ -3084,7 +3116,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
                         if isinstance(concurrency, int) and concurrency > 0:
                             per_worker[worker_name] = concurrency
     except Exception:
-        pass
+        logger.debug("Failed to resolve worker capacity", exc_info=True)
 
     if per_worker:
         return WorkerCapacityResponse(
@@ -3136,7 +3168,7 @@ def get_task(task_id: str) -> TaskStatus:
 # --- Schedule Endpoints ---
 
 
-def _get_schedule_manager():
+def _get_schedule_manager() -> ScheduleManager:
     """Get or create the schedule manager singleton."""
     global _schedule_manager
     if _schedule_manager is None:
@@ -3157,14 +3189,18 @@ def _get_schedule_manager():
 
 def _schedule_to_response(task) -> ScheduleResponse:
     """Convert a ScheduledTask to a ScheduleResponse."""
-    import contextlib
-
     from helping_hands.server.schedules import next_run_time
 
     next_run = None
     if task.enabled:
-        with contextlib.suppress(Exception):
+        try:
             next_run = next_run_time(task.cron_expression).isoformat()
+        except Exception:
+            logger.debug(
+                "Failed to calculate next run for schedule %s",
+                getattr(task, "schedule_id", "?"),
+                exc_info=True,
+            )
 
     return ScheduleResponse(
         schedule_id=task.schedule_id,

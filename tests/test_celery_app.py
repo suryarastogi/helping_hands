@@ -222,6 +222,11 @@ class TestNormalizeBackend:
         assert requested == "e2e"
         assert runtime == "e2e"
 
+    def test_docker_sandbox_claude_is_supported(self) -> None:
+        requested, runtime = celery_app._normalize_backend("docker-sandbox-claude")
+        assert requested == "docker-sandbox-claude"
+        assert runtime == "docker-sandbox-claude"
+
 
 class TestCodexAuth:
     def test_has_codex_auth_with_openai_key(self, monkeypatch) -> None:
@@ -381,6 +386,126 @@ class TestCollectStream:
         assert result == "chunk1\nchunk2\nchunk3\n"
         # update_progress is called at least once (final call)
         assert mock_task.update_state.call_count >= 1
+
+    def test_empty_stream_returns_empty_string(self) -> None:
+        mock_task = MagicMock()
+
+        async def mock_stream(prompt):
+            return
+            yield  # make this an async generator
+
+        hand = MagicMock()
+        hand.stream = mock_stream
+
+        result = asyncio.run(
+            celery_app._collect_stream(
+                hand,
+                "test prompt",
+                task=mock_task,
+                task_id="t-empty",
+                pr_number=None,
+                updates=[],
+                backend="codexcli",
+                runtime_backend="codexcli",
+                repo_path="/tmp/repo",
+                model=None,
+                max_iterations=6,
+                no_pr=False,
+                enable_execution=False,
+                enable_web=False,
+                use_native_cli_auth=False,
+                tools=(),
+                skills=(),
+            )
+        )
+        assert result == ""
+        # Final update_progress is still called
+        assert mock_task.update_state.call_count >= 1
+
+    def test_workspace_and_started_at_forwarded(self) -> None:
+        mock_task = MagicMock()
+
+        async def mock_stream(prompt):
+            yield "data\n"
+
+        hand = MagicMock()
+        hand.stream = mock_stream
+
+        asyncio.run(
+            celery_app._collect_stream(
+                hand,
+                "test prompt",
+                task=mock_task,
+                task_id="t-ws",
+                pr_number=None,
+                updates=[],
+                backend="codexcli",
+                runtime_backend="codexcli",
+                repo_path="/tmp/repo",
+                model=None,
+                max_iterations=6,
+                no_pr=False,
+                enable_execution=False,
+                enable_web=False,
+                use_native_cli_auth=False,
+                tools=(),
+                skills=(),
+                workspace="/tmp/workspace",
+                started_at="2026-03-10T00:00:00+00:00",
+            )
+        )
+        # Verify the final call includes workspace and started_at
+        final_meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert final_meta["workspace"] == "/tmp/workspace"
+        assert final_meta["started_at"] == "2026-03-10T00:00:00+00:00"
+
+    def test_periodic_updates_called_for_many_chunks(self) -> None:
+        mock_task = MagicMock()
+        chunk_count = 24
+
+        async def mock_stream(prompt):
+            for i in range(chunk_count):
+                yield f"chunk{i}\n"
+
+        hand = MagicMock()
+        hand.stream = mock_stream
+
+        asyncio.run(
+            celery_app._collect_stream(
+                hand,
+                "prompt",
+                task=mock_task,
+                task_id="t-many",
+                pr_number=None,
+                updates=[],
+                backend="codexcli",
+                runtime_backend="codexcli",
+                repo_path="/tmp/repo",
+                model=None,
+                max_iterations=6,
+                no_pr=False,
+                enable_execution=False,
+                enable_web=False,
+                use_native_cli_auth=False,
+                tools=(),
+                skills=(),
+            )
+        )
+        # With 24 chunks and update every 8, expect 3 periodic + 1 final = 4
+        assert mock_task.update_state.call_count >= 4
+
+
+class TestFormatRuntime:
+    """Tests for _format_runtime helper (via celery_app module)."""
+
+    def test_sub_minute(self) -> None:
+        assert celery_app._format_runtime(30.5) == "30.5s"
+
+    def test_over_minute(self) -> None:
+        assert celery_app._format_runtime(90.0) == "1m 30s"
+
+    def test_zero(self) -> None:
+        assert celery_app._format_runtime(0.0) == "0.0s"
 
 
 class TestGetDbUrlWriter:

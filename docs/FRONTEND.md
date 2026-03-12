@@ -11,8 +11,8 @@ Features:
 - Task submission form (backend, model, prompt, iterations, toggles)
 - JS-based polling monitor via `/tasks/{task_id}`
 - No-JS fallback via `/monitor/{task_id}` (server-rendered auto-refresh)
-- "Classic" and "world" dashboard views
-- Isometric agent office visualization in world view
+- "Classic" and "Hand world" dashboard views
+- Industrial factory/incinerator visualization in world view
 - Keyboard navigation (arrows/WASD) in world view
 
 ## 2. React frontend (`frontend/`)

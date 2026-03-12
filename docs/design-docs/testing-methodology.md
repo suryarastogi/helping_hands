@@ -127,9 +127,9 @@ fetch-based API interactions.
 
 | Scope | Target | Current |
 |---|---|---|
-| Backend (overall) | Increasing per PR | 77% (3031 tests) |
+| Backend (overall) | Increasing per PR | 96% (3278 tests) |
 | Per-module (core) | 90%+ | Most modules 95-100% |
-| Frontend (statements) | 80%+ | 82.3% (153 tests) |
+| Frontend (statements) | 80%+ | 82.3% (169 tests) |
 | Frontend (branches) | 80%+ | 80.2% |
 
 Remaining gaps are documented dead code or inherently untestable paths (e.g.

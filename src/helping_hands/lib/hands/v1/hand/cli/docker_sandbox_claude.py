@@ -136,7 +136,8 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         # (template pulls, microVM setup, etc.).
         chunks: list[str] = []
         stdout = process.stdout
-        assert stdout is not None
+        if stdout is None:
+            raise RuntimeError("subprocess stdout stream is unexpectedly None")
         while True:
             data = await stdout.read(1024)
             if not data:

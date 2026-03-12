@@ -5,39 +5,39 @@ test.beforeEach(async ({ page }) => {
   await mockApiRoutes(page);
 });
 
-test("switching to world view shows Zen Garden", async ({ page }) => {
+test("switching to world view shows Hand World", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Hand world" }).click();
-  await expect(page.getByText("Zen Garden")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hand World" })).toBeVisible();
 });
 
-test("world view shows garden scene with plots and player", async ({ page }) => {
+test("world view shows factory scene with stations and player", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Hand world" }).click();
 
   await expect(page.locator(".world-scene")).toBeVisible();
-  await expect(page.locator(".zen-plot").first()).toBeVisible();
+  await expect(page.locator(".work-desk").first()).toBeVisible();
   await expect(page.locator(".human-player")).toBeVisible();
 });
 
-test("world view shows garden status summary", async ({ page }) => {
+test("world view shows factory status summary", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Hand world" }).click();
 
-  await expect(page.getByText("Garden Status")).toBeVisible();
-  await expect(page.locator(".zen-status-summary").getByText("8 Plots")).toBeVisible();
+  await expect(page.getByText("Factory Floor")).toBeVisible();
+  await expect(page.locator(".zen-status-summary").getByText("Stations")).toBeVisible();
   await expect(page.getByText("Use arrow keys to walk")).toBeVisible();
 });
 
-test("switching back to classic view hides the garden", async ({ page }) => {
+test("switching back to classic view hides the factory", async ({ page }) => {
   await page.goto("/");
   // Go to world view
   await page.getByRole("tab", { name: "Hand world" }).click();
-  await expect(page.getByText("Zen Garden")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hand World" })).toBeVisible();
 
   // Go back to classic
   await page.getByRole("tab", { name: "Classic view" }).click();
-  await expect(page.getByText("Zen Garden")).not.toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hand World" })).not.toBeVisible();
   await expect(page.locator("input.repo-input")).toBeVisible();
 });
 

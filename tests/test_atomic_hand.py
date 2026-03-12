@@ -259,6 +259,24 @@ class TestStream:
         with pytest.raises(RuntimeError, match="provider unavailable"):
             asyncio.run(_collect_stream(hand, "prompt"))
 
+    def test_stream_non_assertion_error_logs_debug(self, tmp_path, caplog) -> None:
+        """Debug message is logged before non-AssertionError is re-raised."""
+        import logging
+
+        hand, mock_agent, _ = _make_hand(tmp_path)
+        mock_agent.run_async.side_effect = RuntimeError("provider unavailable")
+
+        import pytest
+
+        with (
+            caplog.at_level(
+                logging.DEBUG, logger="helping_hands.lib.hands.v1.hand.atomic"
+            ),
+            pytest.raises(RuntimeError, match="provider unavailable"),
+        ):
+            asyncio.run(_collect_stream(hand, "prompt"))
+        assert any("non-AssertionError" in r.message for r in caplog.records)
+
     def test_stream_awaitable_empty_chat_message(self, tmp_path) -> None:
         """When awaitable yields partial with falsy chat_message, nothing is yielded."""
         hand, mock_agent, _ = _make_hand(tmp_path)

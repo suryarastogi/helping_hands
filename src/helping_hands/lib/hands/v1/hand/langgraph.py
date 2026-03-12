@@ -45,8 +45,15 @@ class LangGraphHand(Hand):
 
     def run(self, prompt: str) -> HandResponse:
         result = self._agent.invoke({"messages": [{"role": "user", "content": prompt}]})
-        last_msg = result["messages"][-1]
-        content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
+        messages = result.get("messages") or []
+        last_msg = messages[-1] if messages else None
+        content = (
+            last_msg.content
+            if last_msg is not None and hasattr(last_msg, "content")
+            else str(last_msg)
+            if last_msg is not None
+            else ""
+        )
         pr_metadata = self._finalize_repo_pr(
             backend="langgraph",
             prompt=prompt,

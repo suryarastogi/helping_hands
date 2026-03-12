@@ -6,6 +6,7 @@ _push_noninteractive, and _push_to_existing_pr.
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from pathlib import Path
@@ -945,3 +946,112 @@ class TestFinalizeEmptyDefaultBranch:
         # create_pr was called with the fallback base branch (main), not empty
         call_kwargs = mock_gh.create_pr.call_args
         assert call_kwargs.kwargs.get("base") or call_kwargs[1].get("base") or "main"
+
+
+# ---------------------------------------------------------------------------
+# _finalize_repo_pr — get_repo exception debug logging (v121)
+# ---------------------------------------------------------------------------
+
+
+class TestFinalizeDefaultBranchExceptionLogging:
+    def test_get_repo_exception_emits_debug_log(
+        self, repo_index: RepoIndex, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When get_repo raises, a debug log with exc_info should be emitted."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+
+        def fake_git_read(_repo_dir: Path, *args: str) -> str:
+            if args == ("rev-parse", "--is-inside-work-tree"):
+                return "true"
+            if args == ("status", "--porcelain"):
+                return " M main.py"
+            return ""
+
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        mock_gh.get_repo.side_effect = RuntimeError("API down")
+        mock_gh.create_pr.return_value = MagicMock(
+            html_url="https://github.com/owner/repo/pull/1",
+            number=1,
+        )
+        mock_gh.add_and_commit.return_value = "sha999"
+        mock_gh.token = "ghp_test"
+
+        with (
+            patch.object(Hand, "_run_git_read", side_effect=fake_git_read),
+            patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(Hand, "_should_run_precommit_before_pr", return_value=False),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(Hand, "_push_noninteractive"),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",
+                return_value=None,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description._commit_message_from_prompt",
+                return_value="commit msg",
+            ),
+            caplog.at_level(
+                logging.DEBUG, logger="helping_hands.lib.hands.v1.hand.base"
+            ),
+        ):
+            result = hand._finalize_repo_pr(
+                backend="test", prompt="task", summary="done"
+            )
+
+        assert result["pr_status"] == "created"
+        assert any(
+            "could not fetch default branch" in r.message for r in caplog.records
+        )
+
+
+# ---------------------------------------------------------------------------
+# _push_to_existing_pr — whoami exception debug logging (v121)
+# ---------------------------------------------------------------------------
+
+
+class TestPushToExistingPrWhoamiExceptionLogging:
+    def test_whoami_exception_emits_debug_log(
+        self, repo_index: RepoIndex, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When whoami raises, a debug log should be emitted."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        hand.pr_number = 10
+
+        mock_gh = MagicMock()
+        mock_gh.get_pr.return_value = {
+            "head": "branch",
+            "base": "main",
+            "url": "https://example.com/pr/10",
+            "user": "some-user",
+        }
+        mock_gh.add_and_commit.return_value = "sha789"
+        mock_gh.whoami.side_effect = RuntimeError("network error")
+
+        with (
+            patch.object(Hand, "_push_noninteractive"),
+            patch.object(Hand, "_update_pr_description") as mock_update,
+            caplog.at_level(
+                logging.DEBUG, logger="helping_hands.lib.hands.v1.hand.base"
+            ),
+        ):
+            result = hand._push_to_existing_pr(
+                gh=mock_gh,
+                repo="owner/repo",
+                repo_dir=repo_index.root,
+                backend="test",
+                prompt="fix",
+                summary="done",
+                metadata={},
+            )
+
+        assert result["pr_status"] == "updated"
+        mock_update.assert_not_called()
+        assert any("whoami() failed" in r.message for r in caplog.records)

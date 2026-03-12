@@ -7,6 +7,7 @@ push, PR create/update, and status-comment refresh.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import AsyncIterator
@@ -16,6 +17,8 @@ from typing import Any
 from uuid import uuid4
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+
+logger = logging.getLogger(__name__)
 
 
 class E2EHand(Hand):
@@ -71,6 +74,15 @@ class E2EHand(Hand):
             f"- commit: `{commit_sha}`\n"
         )
 
+    @staticmethod
+    def _draft_pr_enabled() -> bool:
+        """Check whether E2E PRs should be created as drafts."""
+        return os.environ.get("HELPING_HANDS_E2E_DRAFT_PR", "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
     def run(
         self,
         prompt: str,
@@ -113,6 +125,11 @@ class E2EHand(Hand):
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
                 except Exception:
+                    logger.debug(
+                        "Failed to fetch default branch for %s",
+                        repo,
+                        exc_info=True,
+                    )
                     clone_branch = None
 
             gh.clone(repo, repo_dir, branch=clone_branch, depth=1)
@@ -169,22 +186,26 @@ class E2EHand(Hand):
                         body=pr_body,
                         head=branch,
                         base=base_branch,
+                        draft=self._draft_pr_enabled(),
                     )
                     pr_url = pr.url
                     final_pr_number = pr.number
-                if final_pr_number is not None:
-                    gh.update_pr_body(repo, final_pr_number, body=pr_body)
-                    gh.upsert_pr_comment(
-                        repo,
-                        final_pr_number,
-                        body=self._build_e2e_pr_comment(
-                            hand_uuid=hand_uuid,
-                            prompt=prompt,
-                            stamp_utc=stamp,
-                            commit_sha=commit_sha,
-                        ),
-                        marker="<!-- helping_hands:e2e-status -->",
+                if final_pr_number is None:
+                    raise RuntimeError(
+                        "final_pr_number is unexpectedly None after PR creation"
                     )
+                gh.update_pr_body(repo, final_pr_number, body=pr_body)
+                gh.upsert_pr_comment(
+                    repo,
+                    final_pr_number,
+                    body=self._build_e2e_pr_comment(
+                        hand_uuid=hand_uuid,
+                        prompt=prompt,
+                        stamp_utc=stamp,
+                        commit_sha=commit_sha,
+                    ),
+                    marker="<!-- helping_hands:e2e-status -->",
+                )
 
         if dry_run:
             message = "E2EHand dry run complete. No push/PR performed."

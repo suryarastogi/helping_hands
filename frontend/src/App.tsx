@@ -15,6 +15,7 @@ type Backend =
   | "basic-agent"
   | "codexcli"
   | "claudecodecli"
+  | "docker-sandbox-claude"
   | "goose"
   | "geminicli"
   | "opencodecli";
@@ -203,8 +204,10 @@ const BACKEND_OPTIONS: Backend[] = [
   "basic-agent",
   "codexcli",
   "claudecodecli",
+  "docker-sandbox-claude",
   "goose",
   "geminicli",
+  "opencodecli",
 ];
 
 const DEFAULT_PROMPT =
@@ -356,6 +359,7 @@ const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
 
 export function backendDisplayName(backend: string): string {
   if (backend === "e2e") return "Smoke Test (internal)";
+  if (backend === "docker-sandbox-claude") return "Claude (Docker Sandbox)";
   return backend;
 }
 
@@ -487,7 +491,7 @@ export function parseBool(value: string | null): boolean {
   return value === "1" || value === "true";
 }
 
-function statusBlinkerColor(status: string): string {
+export function statusBlinkerColor(status: string): string {
   const tone = statusTone(status);
   if (tone === "ok") return "var(--success)";
   if (tone === "fail") return "var(--danger)";
@@ -1973,15 +1977,22 @@ export default function App() {
   const submitRun = async (event: FormEvent) => {
     event.preventDefault();
 
+    const repoPath = form.repo_path.trim();
+    const prompt = form.prompt.trim();
+    if (!repoPath || !prompt) {
+      setStatus("error");
+      setPayload({ error: "Repository path and prompt are required." });
+      setUpdates(["Error: Repository path and prompt are required."]);
+      return;
+    }
+
     setStatus("submitting");
     setMainView("monitor");
     setPayload(null);
     setUpdates([]);
-
-    const repoPath = form.repo_path.trim();
     const body: Record<string, unknown> = {
       repo_path: repoPath,
-      prompt: form.prompt.trim(),
+      prompt,
       backend: form.backend,
       max_iterations: form.max_iterations,
       no_pr: form.no_pr,
@@ -1996,7 +2007,10 @@ export default function App() {
       body.model = form.model.trim();
     }
     if (form.pr_number.trim()) {
-      body.pr_number = Number(form.pr_number.trim());
+      const parsed = Number(form.pr_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.pr_number = parsed;
+      }
     }
     if (form.tools.trim()) {
       body.tools = form.tools
@@ -2117,11 +2131,20 @@ export default function App() {
     event.preventDefault();
     setScheduleError(null);
 
+    const name = scheduleForm.name.trim();
+    const cronExpr = scheduleForm.cron_expression.trim();
+    const schedRepoPath = scheduleForm.repo_path.trim();
+    const schedPrompt = scheduleForm.prompt.trim();
+    if (!name || !cronExpr || !schedRepoPath || !schedPrompt) {
+      setScheduleError("Name, cron expression, repository path, and prompt are required.");
+      return;
+    }
+
     const body: Record<string, unknown> = {
-      name: scheduleForm.name.trim(),
-      cron_expression: scheduleForm.cron_expression.trim(),
-      repo_path: scheduleForm.repo_path.trim(),
-      prompt: scheduleForm.prompt.trim(),
+      name,
+      cron_expression: cronExpr,
+      repo_path: schedRepoPath,
+      prompt: schedPrompt,
       backend: scheduleForm.backend,
       max_iterations: scheduleForm.max_iterations,
       no_pr: scheduleForm.no_pr,
@@ -2133,7 +2156,12 @@ export default function App() {
       enabled: scheduleForm.enabled,
     };
     if (scheduleForm.model.trim()) body.model = scheduleForm.model.trim();
-    if (scheduleForm.pr_number.trim()) body.pr_number = Number(scheduleForm.pr_number.trim());
+    if (scheduleForm.pr_number.trim()) {
+      const parsed = Number(scheduleForm.pr_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.pr_number = parsed;
+      }
+    }
     if (scheduleForm.tools.trim()) {
       body.tools = scheduleForm.tools
         .split(",")
@@ -2965,15 +2993,15 @@ export default function App() {
           <>
             <section className="card hand-world-card">
               <header className="header">
-                <h1>Zen Garden</h1>
-                <p>{maxOfficeWorkers} plots &middot; click a gardener to stream its output</p>
+                <h1>Hand World</h1>
+                <p>{maxOfficeWorkers} stations &middot; click a worker to stream its output</p>
               </header>
 
               <div
                 ref={sceneRef}
                 className="world-scene office-scene"
                 role="list"
-                aria-label="Current garden workers"
+                aria-label="Current factory workers"
                 style={worldSceneStyle}
                 tabIndex={0}
               >
@@ -3011,44 +3039,59 @@ export default function App() {
                 <div className="zen-rock zen-rock-lg" aria-hidden="true" />
                 <div className="zen-rock zen-rock-sm" aria-hidden="true" />
 
-                {/* Torii gate entrance (middle-left) */}
-                <div className="zen-torii" aria-hidden="true">
-                  <span className="torii-top" />
-                  <span className="torii-beam" />
-                  <span className="torii-pillar torii-pillar-l" />
-                  <span className="torii-pillar torii-pillar-r" />
-                  <span className="torii-lantern" />
-                  <div className="torii-label">GATE</div>
+                {/* Factory entrance (middle-left) */}
+                <div className="hh-factory" aria-hidden="true">
+                  <span className="factory-building" />
+                  <span className="factory-roof" />
+                  <span className="factory-chimney" />
+                  <span className="factory-smoke factory-smoke-1" />
+                  <span className="factory-smoke factory-smoke-2" />
+                  <span className="factory-smoke factory-smoke-3" />
+                  <span className="factory-door" />
+                  <span className="factory-window factory-window-1" />
+                  <span className="factory-window factory-window-2" />
+                  <span className="factory-conveyor" />
+                  <span className="factory-conveyor-line factory-conveyor-line-1" />
+                  <span className="factory-conveyor-line factory-conveyor-line-2" />
+                  <span className="factory-conveyor-line factory-conveyor-line-3" />
+                  <span className="factory-light" />
+                  <div className="factory-label">FACTORY</div>
                 </div>
 
-                {/* Spirit shrine exit (middle-right) */}
-                <div className="zen-shrine" aria-hidden="true">
-                  <span className="shrine-roof" />
-                  <span className="shrine-body" />
-                  <span className="shrine-opening" />
-                  <span className="shrine-smoke shrine-smoke-1" />
-                  <span className="shrine-smoke shrine-smoke-2" />
-                  <span className="shrine-glow" />
-                  <div className="shrine-label">SHRINE</div>
+                {/* Incinerator exit (middle-right) */}
+                <div className="hh-incinerator" aria-hidden="true">
+                  <span className="incinerator-body" />
+                  <span className="incinerator-top" />
+                  <span className="incinerator-mouth" />
+                  <span className="incinerator-grate" />
+                  <span className="incinerator-flame incinerator-flame-1" />
+                  <span className="incinerator-flame incinerator-flame-2" />
+                  <span className="incinerator-flame incinerator-flame-3" />
+                  <span className="incinerator-ember incinerator-ember-1" />
+                  <span className="incinerator-ember incinerator-ember-2" />
+                  <span className="incinerator-heat-glow" />
+                  <span className="incinerator-chimney" />
+                  <span className="incinerator-exhaust incinerator-exhaust-1" />
+                  <span className="incinerator-exhaust incinerator-exhaust-2" />
+                  <div className="incinerator-label">INCINERATOR</div>
                 </div>
 
                 {deskSlots.map((slot, slotIdx) => {
                   const occupant = sceneWorkerEntries.find((w) => w.slot === slotIdx);
-                  const showBonsai = occupant && (occupant.phase === "walking-to-desk" || occupant.phase === "active");
+                  const showMonitor = occupant && (occupant.phase === "walking-to-desk" || occupant.phase === "active");
                   return (
                     <div
                       key={slot.id}
-                      className="zen-plot"
+                      className="work-desk"
                       style={{ left: `${slot.left}%`, top: `${slot.top}%` }}
                       aria-hidden="true"
                     >
-                      {showBonsai && (
-                        <span className={`bonsai-tree${occupant.phase === "active" ? " grown" : ""}`}>
-                          <span className="bonsai-trunk" />
-                          <span className="bonsai-canopy bonsai-canopy-1" />
-                          <span className="bonsai-canopy bonsai-canopy-2" />
-                          <span className="bonsai-canopy bonsai-canopy-3" />
-                          <span className="bonsai-pot" />
+                      {showMonitor && (
+                        <span className={`desk-monitor${occupant.phase === "active" ? " monitor-on" : ""}`}>
+                          <span className="monitor-screen" />
+                          <span className="monitor-stand" />
+                          <span className="monitor-base" />
+                          <span className="monitor-glow" />
                         </span>
                       )}
                     </div>
@@ -3056,13 +3099,13 @@ export default function App() {
                 })}
 
                 <div className="zen-status-summary">
-                  <div className="status-summary-header">Garden Status</div>
+                  <div className="status-summary-header">Factory Floor</div>
                   <div className="status-summary-stat">
-                    <span className="stat-icon">&#127794;</span>
-                    <span>{maxOfficeWorkers} Plots</span>
+                    <span className="stat-icon">&#128187;</span>
+                    <span>{maxOfficeWorkers} Stations</span>
                   </div>
                   <div className="status-summary-stat">
-                    <span className="stat-icon">&#129488;</span>
+                    <span className="stat-icon">&#129302;</span>
                     <span>{sceneWorkerEntries.length} Active</span>
                   </div>
                   <div className="status-summary-stat">

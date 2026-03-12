@@ -8,9 +8,11 @@ pytest.importorskip("celery")
 
 from helping_hands.server.celery_app import (
     _append_update,
+    _format_runtime,
     _git_noninteractive_env,
     _github_clone_url,
     _has_codex_auth,
+    _has_gemini_auth,
     _redact_sensitive,
     _repo_tmp_dir,
     _trim_updates,
@@ -211,3 +213,127 @@ class TestHasCodexAuth:
         monkeypatch.setenv("OPENAI_API_KEY", "")
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
         assert _has_codex_auth() is False
+
+
+class TestHasGeminiAuth:
+    """Tests for _has_gemini_auth helper in test_celery_helpers."""
+
+    def test_true_when_key_set(self, monkeypatch) -> None:
+        monkeypatch.setenv("GEMINI_API_KEY", "AIza-test")
+        assert _has_gemini_auth() is True
+
+    def test_false_when_not_set(self, monkeypatch) -> None:
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        assert _has_gemini_auth() is False
+
+    def test_false_when_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("GEMINI_API_KEY", "")
+        assert _has_gemini_auth() is False
+
+    def test_false_when_whitespace_only(self, monkeypatch) -> None:
+        monkeypatch.setenv("GEMINI_API_KEY", "   ")
+        assert _has_gemini_auth() is False
+
+
+class TestFormatRuntime:
+    """Tests for _format_runtime helper."""
+
+    def test_sub_minute_shows_decimal(self) -> None:
+        assert _format_runtime(45.3) == "45.3s"
+
+    def test_exactly_zero(self) -> None:
+        assert _format_runtime(0.0) == "0.0s"
+
+    def test_sub_second(self) -> None:
+        assert _format_runtime(0.5) == "0.5s"
+
+    def test_exactly_one_minute(self) -> None:
+        assert _format_runtime(60.0) == "1m 0s"
+
+    def test_minutes_and_seconds(self) -> None:
+        assert _format_runtime(125.7) == "2m 6s"
+
+    def test_large_value(self) -> None:
+        result = _format_runtime(3661.0)
+        assert result == "61m 1s"
+
+    def test_just_under_one_minute(self) -> None:
+        assert _format_runtime(59.9) == "59.9s"
+
+
+class TestUpdateCollectorEdgeCases:
+    """Extended edge case tests for _UpdateCollector."""
+
+    def test_multiple_newlines_in_single_chunk(self) -> None:
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("a\nb\nc\n")
+        assert "a" in updates
+        assert "b" in updates
+        assert "c" in updates
+
+    def test_newline_only_chunk(self) -> None:
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("hello")
+        collector.feed("\n")
+        assert "hello" in updates
+
+    def test_split_line_across_two_feeds(self) -> None:
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("hel")
+        collector.feed("lo\n")
+        assert "hello" in updates
+
+    def test_feed_after_flush(self) -> None:
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("first")
+        collector.flush()
+        collector.feed("second\n")
+        assert "first" in updates
+        assert "second" in updates
+
+    def test_multiple_flushes_are_idempotent(self) -> None:
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("data")
+        collector.flush()
+        collector.flush()
+        assert updates == ["data"]
+
+    def test_buffer_flush_boundary_exact(self, monkeypatch) -> None:
+        monkeypatch.setattr("helping_hands.server.celery_app._BUFFER_FLUSH_CHARS", 5)
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("abcde")  # exactly at boundary
+        assert len(updates) == 1
+        assert updates[0] == "abcde"
+
+    def test_buffer_flush_then_newline(self, monkeypatch) -> None:
+        monkeypatch.setattr("helping_hands.server.celery_app._BUFFER_FLUSH_CHARS", 5)
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("abcdefgh\nij")
+        # "abcdefgh" should be emitted as a line, "ij" stays in buffer
+        assert "abcdefgh" in updates
+        collector.flush()
+        assert "ij" in updates
+
+    def test_whitespace_only_lines_are_skipped(self) -> None:
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("   \n")
+        # _append_update strips and skips empty
+        assert updates == []
+
+    def test_long_line_is_truncated(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.celery_app._MAX_UPDATE_LINE_CHARS", 10
+        )
+        updates: list[str] = []
+        collector = _UpdateCollector(updates)
+        collector.feed("a" * 50 + "\n")
+        assert updates[0].endswith("...[truncated]")
+        assert len(updates[0]) < 50

@@ -382,6 +382,53 @@ describe("Form submission", () => {
   });
 });
 
+describe("Form validation", () => {
+  it("shows error when repo_path is empty on submit", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    render(<App />);
+
+    // Clear the default repo_path
+    const repoInput = screen.getByDisplayValue(
+      "suryarastogi/helping_hands"
+    ) as HTMLInputElement;
+    fireEvent.change(repoInput, { target: { value: "   " } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Run"));
+    });
+
+    // fetch should NOT have been called — validation should catch it
+    const buildCalls = fetchSpy.mock.calls.filter(
+      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("/build")
+    );
+    expect(buildCalls).toHaveLength(0);
+  });
+
+  it("shows error when prompt is empty on submit", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    render(<App />);
+
+    // Clear the prompt textarea by finding it via its default value
+    const promptTextarea = screen.getByDisplayValue(
+      "Update README.md with results of your smoke test. Keep changes minimal and safe."
+    ) as HTMLTextAreaElement;
+    fireEvent.change(promptTextarea, { target: { value: "" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Run"));
+    });
+
+    const buildCalls = fetchSpy.mock.calls.filter(
+      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("/build")
+    );
+    expect(buildCalls).toHaveLength(0);
+  });
+});
+
 describe("Monitor view", () => {
   async function submitAndEnterMonitor() {
     const mockFetch = mockFetchResponses({
@@ -1273,5 +1320,123 @@ describe("New submission button resets state", () => {
     // Should be back in submission view with Run button
     expect(screen.getByText("Run")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("owner/repo")).toBeInTheDocument();
+  });
+});
+
+describe("Hand World factory and incinerator", () => {
+  function switchToHandWorld() {
+    render(<App />);
+    fireEvent.click(screen.getByText("Hand world"));
+  }
+
+  it("renders the Hand World card header", () => {
+    switchToHandWorld();
+    expect(screen.getByText("Hand World")).toBeInTheDocument();
+  });
+
+  it("renders factory entrance with FACTORY label", () => {
+    switchToHandWorld();
+    expect(screen.getByText("FACTORY")).toBeInTheDocument();
+  });
+
+  it("renders incinerator exit with INCINERATOR label", () => {
+    switchToHandWorld();
+    expect(screen.getByText("INCINERATOR")).toBeInTheDocument();
+  });
+
+  it("renders factory DOM elements (building, chimney, conveyor)", () => {
+    switchToHandWorld();
+    const factory = document.querySelector(".hh-factory");
+    expect(factory).not.toBeNull();
+    expect(factory!.querySelector(".factory-building")).not.toBeNull();
+    expect(factory!.querySelector(".factory-chimney")).not.toBeNull();
+    expect(factory!.querySelector(".factory-conveyor")).not.toBeNull();
+    expect(factory!.querySelector(".factory-door")).not.toBeNull();
+    expect(factory!.querySelector(".factory-roof")).not.toBeNull();
+  });
+
+  it("renders factory windows and status light", () => {
+    switchToHandWorld();
+    const factory = document.querySelector(".hh-factory");
+    expect(factory!.querySelector(".factory-window-1")).not.toBeNull();
+    expect(factory!.querySelector(".factory-window-2")).not.toBeNull();
+    expect(factory!.querySelector(".factory-light")).not.toBeNull();
+  });
+
+  it("renders factory smoke particles", () => {
+    switchToHandWorld();
+    const factory = document.querySelector(".hh-factory");
+    expect(factory!.querySelector(".factory-smoke-1")).not.toBeNull();
+    expect(factory!.querySelector(".factory-smoke-2")).not.toBeNull();
+    expect(factory!.querySelector(".factory-smoke-3")).not.toBeNull();
+  });
+
+  it("renders factory conveyor belt lines", () => {
+    switchToHandWorld();
+    const factory = document.querySelector(".hh-factory");
+    expect(factory!.querySelector(".factory-conveyor-line-1")).not.toBeNull();
+    expect(factory!.querySelector(".factory-conveyor-line-2")).not.toBeNull();
+    expect(factory!.querySelector(".factory-conveyor-line-3")).not.toBeNull();
+  });
+
+  it("renders incinerator DOM elements (body, mouth, flames)", () => {
+    switchToHandWorld();
+    const incinerator = document.querySelector(".hh-incinerator");
+    expect(incinerator).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-body")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-mouth")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-top")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-grate")).not.toBeNull();
+  });
+
+  it("renders incinerator flames", () => {
+    switchToHandWorld();
+    const incinerator = document.querySelector(".hh-incinerator");
+    expect(incinerator!.querySelector(".incinerator-flame-1")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-flame-2")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-flame-3")).not.toBeNull();
+  });
+
+  it("renders incinerator embers and heat glow", () => {
+    switchToHandWorld();
+    const incinerator = document.querySelector(".hh-incinerator");
+    expect(incinerator!.querySelector(".incinerator-ember-1")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-ember-2")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-heat-glow")).not.toBeNull();
+  });
+
+  it("renders incinerator chimney and exhaust", () => {
+    switchToHandWorld();
+    const incinerator = document.querySelector(".hh-incinerator");
+    expect(incinerator!.querySelector(".incinerator-chimney")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-exhaust-1")).not.toBeNull();
+    expect(incinerator!.querySelector(".incinerator-exhaust-2")).not.toBeNull();
+  });
+
+  it("renders work desks instead of zen plots", () => {
+    switchToHandWorld();
+    expect(document.querySelector(".work-desk")).not.toBeNull();
+    expect(document.querySelector(".zen-plot")).toBeNull();
+  });
+
+  it("renders Factory Floor status summary", () => {
+    switchToHandWorld();
+    expect(screen.getByText("Factory Floor")).toBeInTheDocument();
+  });
+
+  it("renders Stations count in status summary", () => {
+    switchToHandWorld();
+    expect(screen.getByText(/Stations/)).toBeInTheDocument();
+  });
+
+  it("renders factory workers aria label on scene", () => {
+    switchToHandWorld();
+    expect(screen.getByLabelText("Current factory workers")).toBeInTheDocument();
+  });
+
+  it("does not render old zen-torii or zen-shrine elements", () => {
+    switchToHandWorld();
+    expect(document.querySelector(".zen-torii")).toBeNull();
+    expect(document.querySelector(".zen-shrine")).toBeNull();
   });
 });

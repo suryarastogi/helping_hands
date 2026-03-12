@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from html import unescape
 from typing import cast
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -58,12 +62,15 @@ def _require_http_url(url: str) -> str:
 
 
 def _decode_bytes(payload: bytes) -> str:
+    """Decode bytes trying UTF-8, UTF-16, then latin-1 (which accepts all byte values)."""
     for encoding in ("utf-8", "utf-16", "latin-1"):
         try:
             return payload.decode(encoding)
         except UnicodeDecodeError:
             continue
-    return payload.decode("utf-8", errors="replace")
+    # latin-1 accepts all byte values so we always return above, but keep
+    # a safe fallback for defensive completeness.
+    return payload.decode("utf-8", errors="replace")  # pragma: no cover
 
 
 def _strip_html(raw_html: str) -> str:
@@ -139,8 +146,17 @@ def search_web(
         url,
         headers={"Accept": "application/json", "User-Agent": _DEFAULT_USER_AGENT},
     )
-    with urlopen(request, timeout=timeout_s) as response:
-        payload = response.read()
+    try:
+        with urlopen(request, timeout=timeout_s) as response:
+            payload = response.read()
+    except HTTPError as exc:
+        logger.debug("search_web HTTP error: %s", exc, exc_info=True)
+        raise RuntimeError(
+            f"search request failed with HTTP {exc.code}: {exc.reason}"
+        ) from exc
+    except URLError as exc:
+        logger.debug("search_web URL error: %s", exc, exc_info=True)
+        raise RuntimeError(f"search request failed: {exc.reason}") from exc
     data = json.loads(_decode_bytes(payload))
     record = _as_string_keyed_dict(data)
     if record is None:
@@ -190,11 +206,20 @@ def browse_url(
         raise ValueError("timeout_s must be > 0")
 
     request = Request(normalized_url, headers={"User-Agent": _DEFAULT_USER_AGENT})
-    with urlopen(request, timeout=timeout_s) as response:
-        payload = response.read()
-        final_url = response.geturl()
-        status = getattr(response, "status", None)
-        content_type = str(response.headers.get("Content-Type", "")).lower()
+    try:
+        with urlopen(request, timeout=timeout_s) as response:
+            payload = response.read()
+            final_url = response.geturl()
+            status = getattr(response, "status", None)
+            content_type = str(response.headers.get("Content-Type", "")).lower()
+    except HTTPError as exc:
+        logger.debug("browse_url HTTP error: %s", exc, exc_info=True)
+        raise RuntimeError(
+            f"browse request failed with HTTP {exc.code}: {exc.reason}"
+        ) from exc
+    except URLError as exc:
+        logger.debug("browse_url URL error: %s", exc, exc_info=True)
+        raise RuntimeError(f"browse request failed: {exc.reason}") from exc
 
     decoded = _decode_bytes(payload)
     if "html" in content_type or "<html" in decoded.lower():

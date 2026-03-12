@@ -190,6 +190,40 @@ class TestTryFixGitHookErrorsCLI:
 
         assert result is False
 
+    def test_handles_fallback_also_file_not_found(self) -> None:
+        stub = _CLIStub()
+        stub._render_command = MagicMock(return_value=["claude", "-p", "fix"])
+        stub._build_subprocess_env = MagicMock(return_value={})
+        stub._fallback_command_when_not_found = MagicMock(
+            return_value=["npx", "claude", "-p", "fix"]
+        )
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = stub._try_fix_git_hook_errors(Path("/repo"), "error")
+
+        assert result is False
+
+    def test_handles_fallback_timeout(self) -> None:
+        import subprocess
+
+        stub = _CLIStub()
+        stub._render_command = MagicMock(return_value=["claude", "-p", "fix"])
+        stub._build_subprocess_env = MagicMock(return_value={})
+        stub._fallback_command_when_not_found = MagicMock(
+            return_value=["npx", "claude", "-p", "fix"]
+        )
+
+        with patch(
+            "subprocess.run",
+            side_effect=[
+                FileNotFoundError,
+                subprocess.TimeoutExpired("npx", 300),
+            ],
+        ):
+            result = stub._try_fix_git_hook_errors(Path("/repo"), "error")
+
+        assert result is False
+
     def test_handles_timeout(self) -> None:
         import subprocess
 

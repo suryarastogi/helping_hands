@@ -78,6 +78,11 @@ class TestResolveCliModel:
         stub = _Stub(model="a/b/c")
         assert stub._resolve_cli_model() == "b/c"
 
+    def test_none_model_returns_backend_model(self) -> None:
+        """str(None) produces 'None'; should fall back to _DEFAULT_MODEL."""
+        stub = _Stub(model=None)
+        assert stub._resolve_cli_model() == "stub-model-1"
+
 
 # ---------------------------------------------------------------------------
 # _inject_prompt_argument (static)
@@ -166,10 +171,10 @@ class TestBuildFailureMessage:
 
     def test_truncates_long_output(self) -> None:
         stub = _Stub()
-        long_output = "x" * 5000
+        long_output = "x" * 8000
         msg = stub._build_failure_message(return_code=1, output=long_output)
-        # Only last 2000 chars of output are included
-        assert len(msg) < 5000
+        # Only last _SUMMARY_CHAR_LIMIT (6000) chars of output are included
+        assert len(msg) < 8000
         assert "...[truncated]" not in msg  # it just takes the tail
 
 
@@ -423,3 +428,16 @@ class TestRepoHasChanges:
         stub = _Stub()
         stub.repo_index = SimpleNamespace(root=tmp_path)
         assert stub._repo_has_changes() is False
+
+    def test_git_status_failure_logs_debug(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """v123: git status failure emits debug log with return code."""
+        import logging
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        with caplog.at_level(logging.DEBUG):
+            result = stub._repo_has_changes()
+        assert result is False
+        assert any("git status check failed" in r.message for r in caplog.records)

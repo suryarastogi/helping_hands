@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+
+logger = logging.getLogger(__name__)
 
 
 class _StreamJsonEmitter:
@@ -51,7 +54,9 @@ class _StreamJsonEmitter:
         if event_type == "assistant":
             # Claude Code stream-json: message is a full Anthropic API message
             # with message.content[] array of {type: "text"} / {type: "tool_use"}.
-            message = event.get("message", {})
+            message = event.get("message")
+            if not isinstance(message, dict):
+                return
             for block in message.get("content", []):
                 block_type = block.get("type", "")
                 if block_type == "tool_use":
@@ -71,7 +76,9 @@ class _StreamJsonEmitter:
 
         elif event_type == "user":
             # Tool results: message.content[] array of {type: "tool_result"}.
-            message = event.get("message", {})
+            message = event.get("message")
+            if not isinstance(message, dict):
+                return
             for block in message.get("content", []):
                 if block.get("type") != "tool_result":
                     continue
@@ -92,11 +99,22 @@ class _StreamJsonEmitter:
             self._result = event.get("result", "")
             cost = event.get("total_cost_usd")
             duration = event.get("duration_ms")
+            usage = event.get("usage")
             parts: list[str] = []
             if cost is not None:
                 parts.append(f"${cost:.4f}")
             if duration is not None:
                 parts.append(f"{duration / 1000:.1f}s")
+            if isinstance(usage, dict):
+                inp = usage.get("input_tokens")
+                out = usage.get("output_tokens")
+                if inp is not None or out is not None:
+                    tok_parts: list[str] = []
+                    if inp is not None:
+                        tok_parts.append(f"in={inp}")
+                    if out is not None:
+                        tok_parts.append(f"out={out}")
+                    parts.append(" ".join(tok_parts))
             if parts:
                 await self._emit(f"[{self._label}] api: {', '.join(parts)}\n")
 
@@ -122,6 +140,43 @@ class _StreamJsonEmitter:
         if name == "Grep":
             pattern = input_data.get("pattern", "")
             return f"Grep /{pattern}/"
+        if name == "Agent":
+            desc = input_data.get("description", "")
+            return f"Agent: {desc}" if desc else "Agent"
+        if name == "WebFetch":
+            url = input_data.get("url", "")
+            return f"WebFetch {url}"
+        if name == "WebSearch":
+            query = input_data.get("query", "")
+            return f"WebSearch {query!r}" if query else "WebSearch"
+        if name == "NotebookEdit":
+            path = input_data.get("notebook_path", "")
+            return f"NotebookEdit {path}"
+        if name == "TodoWrite":
+            return "TodoWrite"
+        if name == "MultiTool":
+            tool_uses = input_data.get("tool_uses", [])
+            count = len(tool_uses) if isinstance(tool_uses, list) else 0
+            return f"MultiTool ({count} tools)"
+        if name == "Skill":
+            skill = input_data.get("skill", "")
+            return f"Skill: {skill}" if skill else "Skill"
+        if name == "CronCreate":
+            prompt = input_data.get("prompt", "")
+            if len(prompt) > 80:
+                prompt = prompt[:77] + "..."
+            return f"CronCreate {prompt!r}" if prompt else "CronCreate"
+        if name == "CronDelete":
+            cron_id = input_data.get("id", "")
+            return f"CronDelete {cron_id}" if cron_id else "CronDelete"
+        if name == "CronList":
+            return "CronList"
+        if name == "EnterWorktree":
+            wt_name = input_data.get("name", "")
+            return f"EnterWorktree {wt_name}" if wt_name else "EnterWorktree"
+        if name == "ExitWorktree":
+            action = input_data.get("action", "")
+            return f"ExitWorktree {action}" if action else "ExitWorktree"
         return f"tool: {name}"
 
     def result_text(self) -> str:
@@ -210,7 +265,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 if int(geteuid()) == 0:
                     return False
             except Exception:
-                pass
+                logger.debug("geteuid() check failed", exc_info=True)
         return True
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
@@ -298,8 +353,10 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         cmd = self._render_command(prompt)
         cmd = self._inject_output_format(cmd, "stream-json")
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
-        raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
-        await parser.flush()
+        try:
+            raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
+        finally:
+            await parser.flush()
         return parser.result_text() or raw
 
     async def _invoke_backend(

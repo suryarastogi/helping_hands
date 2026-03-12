@@ -140,6 +140,18 @@ class TestClone:
         assert "dev" in cmd
         assert "--depth" not in cmd
 
+    def test_clone_rejects_zero_depth(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="depth must be positive"):
+            client.clone("owner/repo", tmp_path / "repo", depth=0)
+
+    def test_clone_rejects_negative_depth(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="depth must be positive"):
+            client.clone("owner/repo", tmp_path / "repo", depth=-5)
+
 
 # ---------------------------------------------------------------------------
 # Branch operations

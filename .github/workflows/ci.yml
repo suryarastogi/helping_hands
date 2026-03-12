@@ -39,6 +39,9 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check .
 
+      - name: Type check
+        run: uv run ty check src --ignore unresolved-import --ignore invalid-method-override
+
       - name: Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}

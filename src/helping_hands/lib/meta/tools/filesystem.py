@@ -21,16 +21,21 @@ def normalize_relative_path(rel_path: str) -> str:
 def resolve_repo_target(repo_root: Path, rel_path: str) -> Path:
     """Resolve a relative path inside ``repo_root`` or raise ``ValueError``."""
     root = repo_root.resolve()
+    if not root.is_dir():
+        raise ValueError("repo_root must be an existing directory")
     normalized = normalize_relative_path(rel_path)
     if not normalized or normalized.startswith("/"):
-        raise ValueError("invalid path")
+        raise ValueError("path must be a non-empty relative path")
 
     target = (root / normalized).resolve()
     try:
         target.relative_to(root)
     except ValueError as exc:
-        raise ValueError("invalid path") from exc
+        raise ValueError("path escapes repository root") from exc
     return target
+
+
+_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 def read_text_file(
@@ -38,8 +43,17 @@ def read_text_file(
     rel_path: str,
     *,
     max_chars: int | None = None,
+    max_file_size: int = _MAX_FILE_SIZE_BYTES,
 ) -> tuple[str, bool, str]:
-    """Read a text file and return ``(content, truncated, display_path)``."""
+    """Read a text file and return ``(content, truncated, display_path)``.
+
+    Args:
+        repo_root: Repository root directory.
+        rel_path: Relative path within the repository.
+        max_chars: Optional character limit for returned content.
+        max_file_size: Maximum file size in bytes (default 10 MB).
+            Files exceeding this limit raise ``ValueError``.
+    """
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
 
@@ -47,6 +61,12 @@ def read_text_file(
         raise FileNotFoundError("file not found")
     if target.is_dir():
         raise IsADirectoryError("path is a directory")
+
+    file_size = target.stat().st_size
+    if file_size > max_file_size:
+        mb = file_size / (1024 * 1024)
+        limit_mb = max_file_size / (1024 * 1024)
+        raise ValueError(f"file is too large ({mb:.1f} MB, limit {limit_mb:.1f} MB)")
 
     try:
         text = target.read_text(encoding="utf-8")
@@ -66,8 +86,12 @@ def write_text_file(repo_root: Path, rel_path: str, content: str) -> str:
     """Write UTF-8 text to a repo-relative file and return normalized path."""
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        display = target.relative_to(root).as_posix()
+        raise RuntimeError(f"cannot write file {display}: {exc}") from exc
     return target.relative_to(root).as_posix()
 
 

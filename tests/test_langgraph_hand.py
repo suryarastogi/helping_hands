@@ -72,6 +72,42 @@ class TestBuildAgent:
         call_kwargs = mock_create.call_args
         assert call_kwargs[1]["model"] is mock_llm
 
+    def test_build_agent_passes_streaming_true(self, tmp_path) -> None:
+        """Verify build_langchain_chat_model is called with streaming=True."""
+        (tmp_path / "main.py").write_text("")
+        repo_index = RepoIndex.from_path(tmp_path)
+        config = Config(repo=str(tmp_path), model="openai/gpt-test")
+
+        mock_build_llm = MagicMock(return_value=MagicMock())
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "langgraph": MagicMock(),
+                    "langgraph.prebuilt": MagicMock(
+                        create_react_agent=MagicMock(return_value=MagicMock())
+                    ),
+                },
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.langgraph.build_langchain_chat_model",
+                mock_build_llm,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.langgraph.resolve_hand_model",
+                return_value=SimpleNamespace(
+                    model="gpt-test",
+                    provider=SimpleNamespace(name="openai"),
+                ),
+            ),
+        ):
+            _hand = LangGraphHand(config, repo_index)
+
+        mock_build_llm.assert_called_once()
+        _, kwargs = mock_build_llm.call_args
+        assert kwargs.get("streaming") is True
+
 
 # ---------------------------------------------------------------------------
 # run()
@@ -103,6 +139,36 @@ class TestRun:
             result = hand.run("prompt")
 
         assert result.message == "plain string message"
+
+    def test_run_empty_messages_returns_empty_content(self, tmp_path) -> None:
+        """Empty messages list triggers the `else ""` branch."""
+        hand, mock_agent = _make_hand(tmp_path)
+        mock_agent.invoke.return_value = {"messages": []}
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            result = hand.run("prompt")
+
+        assert result.message == ""
+
+    def test_run_missing_messages_key_returns_empty_content(self, tmp_path) -> None:
+        """Missing 'messages' key triggers `or []` guard then empty content."""
+        hand, mock_agent = _make_hand(tmp_path)
+        mock_agent.invoke.return_value = {}
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            result = hand.run("prompt")
+
+        assert result.message == ""
+
+    def test_run_none_messages_returns_empty_content(self, tmp_path) -> None:
+        """None messages value triggers `or []` fallback."""
+        hand, mock_agent = _make_hand(tmp_path)
+        mock_agent.invoke.return_value = {"messages": None}
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            result = hand.run("prompt")
+
+        assert result.message == ""
 
     def test_run_includes_pr_metadata(self, tmp_path) -> None:
         hand, mock_agent = _make_hand(tmp_path)
@@ -209,6 +275,31 @@ class TestStream:
             chunks = asyncio.run(_collect_stream(hand, "prompt"))
 
         assert any("PR created" in c for c in chunks)
+
+    def test_stream_skips_chunk_without_content_attr(self, tmp_path) -> None:
+        """A chunk object lacking a 'content' attribute should be silently skipped."""
+        hand, mock_agent = _make_hand(tmp_path)
+
+        chunk_no_attr = object()  # no .content attribute
+        chunk_real = MagicMock()
+        chunk_real.content = "valid"
+
+        async def _fake_events(*args, **kwargs):
+            yield {
+                "event": "on_chat_model_stream",
+                "data": {"chunk": chunk_no_attr},
+            }
+            yield {
+                "event": "on_chat_model_stream",
+                "data": {"chunk": chunk_real},
+            }
+
+        mock_agent.astream_events = _fake_events
+
+        with patch.object(hand, "_finalize_repo_pr", return_value={}):
+            chunks = asyncio.run(_collect_stream(hand, "prompt"))
+
+        assert chunks == ["valid"]
 
     def test_stream_no_pr_url_no_extra_yield(self, tmp_path) -> None:
         hand, mock_agent = _make_hand(tmp_path)

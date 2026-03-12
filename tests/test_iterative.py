@@ -217,6 +217,19 @@ class TestParseStrList:
         with pytest.raises(ValueError, match="must contain only strings"):
             _BasicIterativeHand._parse_str_list({"paths": [1, 2]}, key="paths")
 
+    def test_rejects_empty_string_items(self):
+        with pytest.raises(ValueError, match="empty or whitespace-only"):
+            _BasicIterativeHand._parse_str_list({"paths": ["a.py", ""]}, key="paths")
+
+    def test_rejects_whitespace_only_items(self):
+        with pytest.raises(ValueError, match="empty or whitespace-only"):
+            _BasicIterativeHand._parse_str_list({"paths": ["  "]}, key="paths")
+
+    def test_strips_whitespace_from_items(self):
+        assert _BasicIterativeHand._parse_str_list(
+            {"paths": [" a.py ", " b.py "]}, key="paths"
+        ) == ["a.py", "b.py"]
+
 
 # ---------------------------------------------------------------------------
 # _parse_positive_int
@@ -762,10 +775,13 @@ class TestExecuteReadRequestsErrors:
 
     def test_value_error_on_invalid_path(self, tmp_path):
         hand = _make_hand(tmp_path, {"good.txt": "hello"})
-        with patch(self._PATCH_TARGET, side_effect=ValueError("invalid path")):
+        with patch(
+            self._PATCH_TARGET,
+            side_effect=ValueError("path escapes repository root"),
+        ):
             result = hand._execute_read_requests("@@READ: ../evil.py\n")
         assert "@@READ_RESULT: ../evil.py" in result
-        assert "ERROR: invalid path" in result
+        assert "ERROR: path escapes repository root" in result
 
     def test_file_not_found(self, tmp_path):
         hand = _make_hand(tmp_path)
@@ -1824,6 +1840,28 @@ class TestBasicAtomicHandStreamPrStatusElif:
 
         with pytest.raises(RuntimeError, match="provider unreachable"):
             asyncio.run(_collect_stream(hand, "task"))
+
+    def test_stream_run_async_non_assertion_error_logs_debug(
+        self, tmp_path, caplog
+    ) -> None:
+        """Debug message is logged before non-AssertionError is re-raised."""
+        import logging
+
+        hand, mock_agent = _make_atomic_hand(tmp_path, max_iterations=1)
+
+        def _raise_runtime(_input):
+            raise RuntimeError("provider unreachable")
+
+        mock_agent.run_async = _raise_runtime
+
+        with (
+            caplog.at_level(
+                logging.DEBUG, logger="helping_hands.lib.hands.v1.hand.iterative"
+            ),
+            pytest.raises(RuntimeError, match="provider unreachable"),
+        ):
+            asyncio.run(_collect_stream(hand, "task"))
+        assert any("non-AssertionError" in r.message for r in caplog.records)
 
     def test_stream_async_iter_duplicate_message_empty_delta(self, tmp_path) -> None:
         """stream() skips yielding when async iter returns same message (empty delta, branch 847->838)."""

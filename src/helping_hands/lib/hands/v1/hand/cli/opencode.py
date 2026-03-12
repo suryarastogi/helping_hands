@@ -18,7 +18,7 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
     def _resolve_cli_model(self) -> str:
         """Preserve provider/model format (e.g. anthropic/claude-sonnet-4-6)."""
         model = str(self.config.model).strip()
-        if not model or model == "default":
+        if not model or model in ("default", "None"):
             return self._DEFAULT_MODEL
         return model
 

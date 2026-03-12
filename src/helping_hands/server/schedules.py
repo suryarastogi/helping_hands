@@ -7,12 +7,15 @@ via celery-redbeat and supporting standard cron expressions.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 from celery import Celery
+
+logger = logging.getLogger(__name__)
 
 # Lazy imports for optional dependencies
 _redbeat_available = True
@@ -21,14 +24,14 @@ try:
     from redbeat.decoder import RedBeatJSONDecoder, RedBeatJSONEncoder
 except ImportError:
     _redbeat_available = False
-    RedBeatSchedulerEntry = None  # type: ignore[assignment]
-    RedBeatJSONDecoder = None  # type: ignore[assignment]
-    RedBeatJSONEncoder = None  # type: ignore[assignment]
+    RedBeatSchedulerEntry = None  # ty: ignore[invalid-assignment]
+    RedBeatJSONDecoder = None  # ty: ignore[invalid-assignment]
+    RedBeatJSONEncoder = None  # ty: ignore[invalid-assignment]
 
 try:
     from croniter import croniter
 except ImportError:
-    croniter = None  # type: ignore[assignment]
+    croniter = None  # ty: ignore[invalid-assignment]
 
 
 def _check_redbeat() -> None:
@@ -109,9 +112,25 @@ class ScheduledTask:
             "run_count": self.run_count,
         }
 
+    _REQUIRED_FIELDS = (
+        "schedule_id",
+        "name",
+        "cron_expression",
+        "repo_path",
+        "prompt",
+    )
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScheduledTask:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Raises:
+            ValueError: If any required field is missing.
+        """
+        missing = [f for f in cls._REQUIRED_FIELDS if f not in data]
+        if missing:
+            msg = f"Missing required fields: {', '.join(missing)}"
+            raise ValueError(msg)
         return cls(
             schedule_id=data["schedule_id"],
             name=data["name"],
@@ -175,6 +194,8 @@ def validate_cron_expression(cron_expr: str) -> str:
         cron_expr = CRON_PRESETS[cron_expr]
 
     # Validate using croniter
+    if croniter is None:
+        raise RuntimeError("croniter unavailable after _check_croniter")
     try:
         croniter(cron_expr)
     except (ValueError, KeyError) as exc:
@@ -199,6 +220,8 @@ def next_run_time(cron_expr: str, base_time: datetime | None = None) -> datetime
     if base_time is None:
         base_time = datetime.now(UTC)
 
+    if croniter is None:
+        raise RuntimeError("croniter unavailable after _check_croniter")
     cron = croniter(cron_expr, base_time)
     return cron.get_next(datetime)
 
@@ -241,11 +264,23 @@ class ScheduleManager:
         )
 
     def _load_meta(self, schedule_id: str) -> ScheduledTask | None:
-        """Load schedule metadata from Redis."""
+        """Load schedule metadata from Redis.
+
+        Returns None if the data is missing or corrupted (invalid JSON or
+        missing required fields).
+        """
         data = self._redis.get(self._meta_key(schedule_id))
         if data is None:
             return None
-        return ScheduledTask.from_dict(json.loads(data))
+        try:
+            return ScheduledTask.from_dict(json.loads(data))
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            logger.warning(
+                "Corrupted schedule metadata for %s, skipping: %s",
+                schedule_id,
+                exc,
+            )
+            return None
 
     def _delete_meta(self, schedule_id: str) -> None:
         """Delete schedule metadata from Redis."""
@@ -311,6 +346,8 @@ class ScheduleManager:
             day_of_week=day_of_week,
         )
 
+        if RedBeatSchedulerEntry is None:
+            raise RuntimeError("RedBeatSchedulerEntry unavailable after _check_redbeat")
         entry = RedBeatSchedulerEntry(
             name=f"helping_hands:scheduled:{task.schedule_id}",
             task="helping_hands.scheduled_build",
@@ -324,12 +361,16 @@ class ScheduleManager:
         """Delete the RedBeat scheduler entry."""
         entry_name = f"helping_hands:scheduled:{schedule_id}"
         try:
+            if RedBeatSchedulerEntry is None:
+                raise RuntimeError(
+                    "RedBeatSchedulerEntry unavailable after _check_redbeat"
+                )
             entry = RedBeatSchedulerEntry.from_key(
                 f"redbeat:{entry_name}", app=self._app
             )
             entry.delete()
         except KeyError:
-            pass  # Entry doesn't exist, nothing to delete
+            logger.debug("RedBeat entry not found for schedule %s", schedule_id)
 
     def get_schedule(self, schedule_id: str) -> ScheduledTask | None:
         """Get a scheduled task by ID.

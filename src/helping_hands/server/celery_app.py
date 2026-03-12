@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 import shutil
@@ -14,6 +15,8 @@ from tempfile import mkdtemp
 from typing import Any
 
 from celery import Celery
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_celery_urls() -> tuple[str, str]:
@@ -54,6 +57,9 @@ celery_app.conf.update(
 )
 
 
+_USAGE_LOG_INTERVAL_S = 3600.0
+"""Interval in seconds between automatic Claude usage log entries."""
+
 _SUPPORTED_BACKENDS = {
     "e2e",
     "basic-langgraph",
@@ -61,6 +67,7 @@ _SUPPORTED_BACKENDS = {
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "docker-sandbox-claude",
     "goose",
     "geminicli",
     "opencodecli",
@@ -267,6 +274,18 @@ def _update_progress(
     update_state(state="PROGRESS", meta=meta)
 
 
+def _format_runtime(elapsed_seconds: float) -> str:
+    """Format an elapsed time as a human-readable string.
+
+    Returns ``"Xm Ys"`` when the elapsed time is at least one minute,
+    otherwise ``"X.Ys"``.
+    """
+    minutes, seconds = divmod(elapsed_seconds, 60)
+    if minutes >= 1:
+        return f"{int(minutes)}m {seconds:.0f}s"
+    return f"{seconds:.1f}s"
+
+
 async def _collect_stream(
     hand: Any,
     prompt: str,
@@ -376,12 +395,13 @@ def build_feature(
     task; a worker picks it up, runs the hand, and stores the result.
     The Celery task ID is used as the hand UUID.
     """
-    from helping_hands.lib.config import Config
+    from helping_hands.lib.config import Config, ConfigValue
     from helping_hands.lib.hands.v1.hand import (
         BasicAtomicHand,
         BasicLangGraphHand,
         ClaudeCodeHand,
         CodexCLIHand,
+        DockerSandboxClaudeCodeHand,
         E2EHand,
         GeminiCLIHand,
         GooseCLIHand,
@@ -499,7 +519,10 @@ def build_feature(
         raise
 
     try:
-        overrides = {"repo": str(resolved_repo_path), "model": model}
+        overrides: dict[str, ConfigValue] = {
+            "repo": str(resolved_repo_path),
+            "model": model,
+        }
         overrides["enable_execution"] = enable_execution
         overrides["enable_web"] = enable_web
         overrides["use_native_cli_auth"] = use_native_cli_auth
@@ -588,6 +611,11 @@ def build_feature(
                     config,
                     repo_index,
                 )
+            elif runtime_backend == "docker-sandbox-claude":
+                hand = DockerSandboxClaudeCodeHand(
+                    config,
+                    repo_index,
+                )
             elif runtime_backend == "goose":
                 hand = GooseCLIHand(
                     config,
@@ -658,11 +686,7 @@ def build_feature(
             )
         )
         hand_elapsed = time.monotonic() - hand_start
-        minutes, seconds = divmod(hand_elapsed, 60)
-        if minutes >= 1:
-            runtime_str = f"{int(minutes)}m {seconds:.0f}s"
-        else:
-            runtime_str = f"{seconds:.1f}s"
+        runtime_str = _format_runtime(hand_elapsed)
         _append_update(updates, f"Task complete. Runtime: {runtime_str}")
         return {
             "status": "ok",
@@ -887,19 +911,22 @@ def ensure_usage_schedule() -> None:
             if existing:
                 return  # already registered
         except Exception:
-            pass  # doesn't exist yet
+            logger.debug("Usage schedule entry not found, creating", exc_info=True)
 
         entry = RedBeatSchedulerEntry(
             name=entry_name,
             task="helping_hands.log_claude_usage",
-            schedule=interval_schedule(run_every=3600.0),
+            schedule=interval_schedule(run_every=_USAGE_LOG_INTERVAL_S),
             app=celery_app,
         )
         entry.save()
     except Exception:
-        pass  # best-effort; Redis or redbeat may not be available
+        logger.debug(
+            "Failed to register usage schedule (Redis/redbeat unavailable)",
+            exc_info=True,
+        )
 
 
-@celery_app.on_after_finalize.connect  # type: ignore[union-attr]
+@celery_app.on_after_finalize.connect  # ty: ignore[unresolved-attribute]
 def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
     ensure_usage_schedule()

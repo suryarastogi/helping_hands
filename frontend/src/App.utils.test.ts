@@ -21,6 +21,7 @@ import {
   readStringValue,
   repoName,
   shortTaskId,
+  statusBlinkerColor,
   statusTone,
   upsertTaskHistory,
 } from "./App";
@@ -732,5 +733,35 @@ describe("upsertTaskHistory edge cases", () => {
     expect(result[0].status).toBe("queued");
     expect(result[0].backend).toBe("unknown");
     expect(result[0].repoPath).toBe("");
+  });
+});
+
+describe("statusBlinkerColor", () => {
+  it("returns success color for ok tone (SUCCESS status)", () => {
+    expect(statusBlinkerColor("SUCCESS")).toBe("var(--success)");
+  });
+
+  it("returns danger color for fail tone (FAILURE status)", () => {
+    expect(statusBlinkerColor("FAILURE")).toBe("var(--danger)");
+  });
+
+  it("returns danger color for poll_error", () => {
+    expect(statusBlinkerColor("poll_error")).toBe("var(--danger)");
+  });
+
+  it("returns yellow for run tone (STARTED status)", () => {
+    expect(statusBlinkerColor("STARTED")).toBe("#eab308");
+  });
+
+  it("returns yellow for submitting status", () => {
+    expect(statusBlinkerColor("submitting")).toBe("#eab308");
+  });
+
+  it("returns gray for idle tone (unknown status)", () => {
+    expect(statusBlinkerColor("idle")).toBe("#6b7280");
+  });
+
+  it("returns gray for empty string", () => {
+    expect(statusBlinkerColor("")).toBe("#6b7280");
   });
 });

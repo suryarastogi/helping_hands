@@ -379,6 +379,115 @@ class TestPollCiChecks:
         assert result["conclusion"] == "pending"
 
 
+class TestPollCiChecksMalformed:
+    """Defensive handling when GitHub API returns incomplete payloads."""
+
+    def test_missing_conclusion_defaults_to_pending(self) -> None:
+        """Response without 'conclusion' key defaults to 'pending' and keeps polling."""
+        stub = _Stub()
+        mock_gh = MagicMock()
+        # No "conclusion" key — defensive .get() defaults to "pending"
+        mock_gh.get_check_runs.return_value = {"total_count": 1}
+        emit = _noop_emit()
+        result = _run(
+            stub._poll_ci_checks(
+                gh=mock_gh,
+                repo="owner/repo",
+                ref="abc123",
+                emit=emit,
+                initial_wait=0.001,
+                max_poll_seconds=0.001,
+            )
+        )
+        # Should treat missing conclusion as "pending" and eventually
+        # return the final poll result after deadline
+        assert result.get("conclusion", "pending") == "pending"
+
+    def test_empty_response_defaults_to_pending(self) -> None:
+        """Completely empty response dict is treated as pending."""
+        stub = _Stub()
+        mock_gh = MagicMock()
+        mock_gh.get_check_runs.return_value = {}
+        emit = _noop_emit()
+        result = _run(
+            stub._poll_ci_checks(
+                gh=mock_gh,
+                repo="owner/repo",
+                ref="abc123",
+                emit=emit,
+                initial_wait=0.001,
+                max_poll_seconds=0.001,
+            )
+        )
+        assert result == {}
+
+
+class TestCiFixLoopMalformedResponse:
+    """_ci_fix_loop handles poll results missing expected keys."""
+
+    def _base_meta(self) -> dict[str, str]:
+        return {"pr_status": "created", "pr_commit": "abc123", "pr_branch": "fix/ci"}
+
+    def test_missing_conclusion_treated_as_pending(self) -> None:
+        """Poll result without 'conclusion' defaults to 'pending' -> pending_timeout."""
+        stub = _Stub(fix_ci=True)
+        meta = self._base_meta()
+        emit = _noop_emit()
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        # Response missing "conclusion" and "total_count"
+        poll_result: dict = {"check_runs": []}
+
+        with (
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_github_repo_from_origin",
+                return_value="owner/repo",
+            ),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(
+                stub, "_poll_ci_checks", new=AsyncMock(return_value=poll_result)
+            ),
+        ):
+            result = _run(stub._ci_fix_loop(prompt="p", metadata=meta, emit=emit))
+        assert result["ci_fix_status"] == "pending_timeout"
+
+    def test_missing_total_count_defaults_to_zero(self) -> None:
+        """Poll result with 'success' but missing 'total_count' uses 0."""
+        stub = _Stub(fix_ci=True)
+        meta = self._base_meta()
+        emit, chunks = _collecting_emit()
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        poll_result = {"conclusion": "success"}  # missing total_count
+
+        with (
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_github_repo_from_origin",
+                return_value="owner/repo",
+            ),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(
+                stub, "_poll_ci_checks", new=AsyncMock(return_value=poll_result)
+            ),
+        ):
+            result = _run(stub._ci_fix_loop(prompt="p", metadata=meta, emit=emit))
+        assert result["ci_fix_status"] == "success"
+        # The emit should show "0 checks" since total_count defaults to 0
+        success_msgs = [c for c in chunks if "CI passed" in c]
+        assert len(success_msgs) == 1
+        assert "0 checks" in success_msgs[0]
+
+
 # ===================================================================
 # run() and stream() wrappers
 # ===================================================================

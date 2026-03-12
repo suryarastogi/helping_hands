@@ -32,6 +32,17 @@ class TestParseStrList:
         with pytest.raises(ValueError, match="only strings"):
             _parse_str_list({"args": [1, 2]}, key="args")
 
+    def test_rejects_empty_string_items(self) -> None:
+        with pytest.raises(ValueError, match="empty or whitespace-only"):
+            _parse_str_list({"args": ["valid", ""]}, key="args")
+
+    def test_rejects_whitespace_only_items(self) -> None:
+        with pytest.raises(ValueError, match="empty or whitespace-only"):
+            _parse_str_list({"args": ["  ", "valid"]}, key="args")
+
+    def test_strips_whitespace_from_items(self) -> None:
+        assert _parse_str_list({"args": [" a ", " b "]}, key="args") == ["a", "b"]
+
 
 class TestParsePositiveInt:
     def test_valid_int(self) -> None:

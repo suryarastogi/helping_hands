@@ -21,7 +21,12 @@ def normalize_messages(prompt_or_messages: PromptInput) -> list[dict[str, str]]:
         return [{"role": "user", "content": prompt_or_messages}]
 
     normalized: list[dict[str, str]] = []
-    for msg in prompt_or_messages:
+    for idx, msg in enumerate(prompt_or_messages):
+        if not isinstance(msg, Mapping):
+            raise TypeError(
+                f"Expected a Mapping for message at index {idx}, "
+                f"got {type(msg).__name__}"
+            )
         role = str(msg.get("role", "user"))
         content = str(msg.get("content", ""))
         normalized.append({"role": role, "content": content})
@@ -75,6 +80,10 @@ class AIProvider(abc.ABC):
         """Run a completion call using the provider-specific implementation."""
         messages = normalize_messages(prompt_or_messages)
         resolved_model = model or self.default_model
+        if not resolved_model or not resolved_model.strip():
+            raise ValueError(
+                "No model specified and no default_model configured on the provider."
+            )
         return self._complete_impl(
             inner=self.inner,
             messages=messages,

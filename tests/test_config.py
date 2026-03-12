@@ -213,6 +213,32 @@ class TestLoadEnvFilesNonDirRepo:
         assert len(loaded_paths) == 1
 
 
+class TestLoadEnvFilesTildeExpansion:
+    def test_tilde_path_is_expanded_before_is_dir_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When repo contains ~, expanduser() resolves it before is_dir()."""
+        loaded_paths: list[Path] = []
+
+        def fake_load_dotenv(path: Path, override: bool = False) -> bool:
+            loaded_paths.append(path)
+            return True
+
+        monkeypatch.setattr(config_module, "load_dotenv", fake_load_dotenv)
+        monkeypatch.chdir(tmp_path)
+
+        # Monkeypatch expanduser so ~ maps to tmp_path
+        real_dir = tmp_path / "myrepo"
+        real_dir.mkdir()
+        monkeypatch.setattr(Path, "expanduser", lambda self: real_dir)
+
+        config_module._load_env_files(repo="~/myrepo")
+
+        # Both cwd .env and expanded repo .env should be loaded
+        assert len(loaded_paths) == 2
+        assert loaded_paths[1] == real_dir / ".env"
+
+
 class TestConfigPathField:
     def test_config_path_default_is_none(self) -> None:
         config = Config()

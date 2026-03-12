@@ -131,8 +131,6 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             if provider_model:
                 provider = self._normalize_goose_provider(provider_prefix)
                 model = provider_model.strip()
-        if not model:
-            model = self._GOOSE_DEFAULT_MODEL
         if not provider:
             provider = self._infer_goose_provider_from_model(model)
         return provider, model

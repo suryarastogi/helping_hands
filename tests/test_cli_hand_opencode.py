@@ -89,6 +89,11 @@ class TestResolveCliModel:
         hand = make_cli_hand(OpenCodeCLIHand, model="  ")
         assert hand._resolve_cli_model() == ""
 
+    def test_none_model_returns_empty(self, make_cli_hand) -> None:
+        """str(None) produces 'None'; should fall back to _DEFAULT_MODEL."""
+        hand = make_cli_hand(OpenCodeCLIHand, model=None)
+        assert hand._resolve_cli_model() == ""
+
 
 # ---------------------------------------------------------------------------
 # _command_not_found_message

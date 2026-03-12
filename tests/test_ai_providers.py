@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from helping_hands.lib.ai_providers import (
     ANTHROPIC_PROVIDER,
     GOOGLE_PROVIDER,
@@ -228,6 +230,63 @@ def test_normalize_messages_missing_content_defaults_to_empty() -> None:
     """Messages missing 'content' key default to empty string."""
     result = normalize_messages([{"role": "system"}])
     assert result == [{"role": "system", "content": ""}]
+
+
+def test_normalize_messages_rejects_non_mapping_string() -> None:
+    """A bare string item in the sequence raises TypeError."""
+    with pytest.raises(TypeError, match=r"index 0.*got str"):
+        normalize_messages(["hello"])  # type: ignore[list-item]
+
+
+def test_normalize_messages_rejects_non_mapping_int() -> None:
+    """An int item in the sequence raises TypeError."""
+    with pytest.raises(TypeError, match=r"index 0.*got int"):
+        normalize_messages([42])  # type: ignore[list-item]
+
+
+def test_normalize_messages_rejects_none_item() -> None:
+    """A None item in the sequence raises TypeError."""
+    with pytest.raises(TypeError, match=r"index 0.*got NoneType"):
+        normalize_messages([None])  # type: ignore[list-item]
+
+
+def test_normalize_messages_rejects_non_mapping_at_later_index() -> None:
+    """Error message includes correct index for non-first items."""
+    with pytest.raises(TypeError, match=r"index 1.*got list"):
+        normalize_messages([{"role": "user", "content": "ok"}, []])  # type: ignore[list-item]
+
+
+def test_complete_rejects_empty_model_no_default() -> None:
+    """complete() raises ValueError when no model specified and default is empty."""
+
+    class _NoModelProvider(_FakeProvider):
+        default_model = ""
+
+    provider = _NoModelProvider(inner={"client": "x"})
+    with pytest.raises(ValueError, match="No model specified"):
+        provider.complete("hello")
+
+
+def test_complete_rejects_whitespace_model() -> None:
+    """complete() raises ValueError when model resolves to whitespace-only."""
+
+    class _WhitespaceModelProvider(_FakeProvider):
+        default_model = "   "
+
+    provider = _WhitespaceModelProvider(inner={"client": "x"})
+    with pytest.raises(ValueError, match="No model specified"):
+        provider.complete("hello")
+
+
+def test_complete_accepts_explicit_model_with_empty_default() -> None:
+    """Explicit model= overrides empty default and works fine."""
+
+    class _NoModelProvider(_FakeProvider):
+        default_model = ""
+
+    provider = _NoModelProvider(inner={"client": "x"})
+    result = provider.complete("hello", model="gpt-4")
+    assert result["model"] == "gpt-4"
 
 
 def test_anthropic_provider_complete_custom_max_tokens() -> None:

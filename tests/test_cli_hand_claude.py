@@ -81,11 +81,11 @@ class TestResolveCliModel:
         result = claude_hand._resolve_cli_model()
         assert result == "claude-sonnet-4-5"
 
-    def test_empty_model_returns_empty(self, make_cli_hand) -> None:
+    def test_default_model_returns_opus(self, make_cli_hand) -> None:
         hand = make_cli_hand(ClaudeCodeHand, model="default")
-        # _DEFAULT_MODEL is "" so super() should return "" for "default"
+        # _DEFAULT_MODEL is "claude-opus-4-6"
         result = hand._resolve_cli_model()
-        assert result == "" or result == "default"
+        assert result == "claude-opus-4-6"
 
 
 # ---------------------------------------------------------------------------
@@ -617,8 +617,108 @@ class TestStreamJsonEmitterEdgeCases:
         api_emissions = [e for e in emitted if "api:" in e]
         assert len(api_emissions) == 1
         assert "$0.0100" in api_emissions[0]
-        # Only cost shown, no duration
-        assert "," not in api_emissions[0]
+
+    def test_result_event_with_usage_tokens(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.05,
+                "duration_ms": 5000,
+                "usage": {"input_tokens": 1200, "output_tokens": 300},
+            }
+        )
+        self._run(parser(event + "\n"))
+        api_emissions = [e for e in emitted if "api:" in e]
+        assert len(api_emissions) == 1
+        assert "in=1200" in api_emissions[0]
+        assert "out=300" in api_emissions[0]
+        assert "$0.0500" in api_emissions[0]
+        assert "5.0s" in api_emissions[0]
+
+    def test_result_event_with_usage_input_only(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "usage": {"input_tokens": 500},
+            }
+        )
+        self._run(parser(event + "\n"))
+        api_emissions = [e for e in emitted if "api:" in e]
+        assert len(api_emissions) == 1
+        assert "in=500" in api_emissions[0]
+        assert "out=" not in api_emissions[0]
+
+    def test_result_event_with_usage_output_only(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "usage": {"output_tokens": 150},
+            }
+        )
+        self._run(parser(event + "\n"))
+        api_emissions = [e for e in emitted if "api:" in e]
+        assert len(api_emissions) == 1
+        assert "out=150" in api_emissions[0]
+        assert "in=" not in api_emissions[0]
+
+    def test_result_event_with_non_dict_usage_ignored(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "usage": "not-a-dict",
+            }
+        )
+        self._run(parser(event + "\n"))
+        api_emissions = [e for e in emitted if "api:" in e]
+        # No cost/duration/tokens, so no api line
+        assert api_emissions == []
+
+    def test_result_event_with_empty_usage_dict(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "usage": {},
+            }
+        )
+        self._run(parser(event + "\n"))
+        api_emissions = [e for e in emitted if "api:" in e]
+        # Empty usage dict has no tokens, no cost/duration either
+        assert api_emissions == []
 
     def test_user_tool_result_empty_content_skipped(self) -> None:
         emitted: list[str] = []
@@ -875,3 +975,308 @@ class TestInvokeClaude:
         result = asyncio.run(claude_hand._invoke_backend("hello", emit=emit))
         assert result == "delegated"
         assert calls == ["hello"]
+
+    def test_invoke_claude_flushes_parser_on_error(
+        self, claude_hand, monkeypatch
+    ) -> None:
+        """Parser flush runs even when _invoke_cli_with_cmd raises."""
+
+        async def failing_invoke(cmd, *, emit):
+            # Feed partial buffer (no trailing newline) then crash
+            await emit("partial data without newline")
+            raise RuntimeError("subprocess crashed")
+
+        monkeypatch.setattr(claude_hand, "_invoke_cli_with_cmd", failing_invoke)
+        monkeypatch.setattr(
+            claude_hand,
+            "_render_command",
+            lambda prompt: ["claude", "-p", prompt],
+        )
+
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        with pytest.raises(RuntimeError, match="subprocess crashed"):
+            asyncio.run(claude_hand._invoke_claude("fix bug", emit=emit))
+
+        # The partial buffer should have been flushed despite the error
+        assert any("partial data" in e for e in emitted)
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter non-dict message defense
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterNonDictMessage:
+    """Defensive handling when message field is not a dict."""
+
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_assistant_event_with_string_message(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "assistant", "message": "not a dict"})
+        self._run(parser(event + "\n"))
+        # Should silently skip — no crash, no emission
+        assert emitted == []
+
+    def test_assistant_event_with_null_message(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "assistant", "message": None})
+        self._run(parser(event + "\n"))
+        assert emitted == []
+
+    def test_assistant_event_with_missing_message(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "assistant"})
+        self._run(parser(event + "\n"))
+        assert emitted == []
+
+    def test_assistant_event_with_list_message(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "assistant", "message": [1, 2, 3]})
+        self._run(parser(event + "\n"))
+        assert emitted == []
+
+    def test_user_event_with_string_message(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "user", "message": "not a dict"})
+        self._run(parser(event + "\n"))
+        assert emitted == []
+
+    def test_user_event_with_null_message(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "user", "message": None})
+        self._run(parser(event + "\n"))
+        assert emitted == []
+
+    def test_user_event_with_missing_message(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "user"})
+        self._run(parser(event + "\n"))
+        assert emitted == []
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter._summarize_tool (direct tests)
+# ---------------------------------------------------------------------------
+
+
+class TestSummarizeTool:
+    def test_read_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("Read", {"file_path": "/a/b.py"})
+            == "Read /a/b.py"
+        )
+
+    def test_edit_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("Edit", {"file_path": "/x.py"})
+            == "Edit /x.py"
+        )
+
+    def test_write_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("Write", {"file_path": "/out.txt"})
+            == "Write /out.txt"
+        )
+
+    def test_bash_tool(self) -> None:
+        result = _StreamJsonEmitter._summarize_tool("Bash", {"command": "ls -la"})
+        assert result == "$ ls -la"
+
+    def test_bash_tool_truncates_long_command(self) -> None:
+        long_cmd = "x" * 100
+        result = _StreamJsonEmitter._summarize_tool("Bash", {"command": long_cmd})
+        assert result.startswith("$ ")
+        assert result.endswith("...")
+        assert len(result) <= 82  # "$ " + 77 + "..."
+
+    def test_glob_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("Glob", {"pattern": "**/*.py"})
+            == "Glob **/*.py"
+        )
+
+    def test_grep_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("Grep", {"pattern": "TODO"})
+            == "Grep /TODO/"
+        )
+
+    def test_agent_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "Agent", {"description": "search codebase"}
+            )
+            == "Agent: search codebase"
+        )
+
+    def test_agent_tool_no_description(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("Agent", {}) == "Agent"
+
+    def test_web_fetch_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "WebFetch", {"url": "https://example.com"}
+            )
+            == "WebFetch https://example.com"
+        )
+
+    def test_web_search_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("WebSearch", {"query": "python async"})
+            == "WebSearch 'python async'"
+        )
+
+    def test_web_search_tool_no_query(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("WebSearch", {}) == "WebSearch"
+
+    def test_notebook_edit_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "NotebookEdit", {"notebook_path": "/nb.ipynb"}
+            )
+            == "NotebookEdit /nb.ipynb"
+        )
+
+    def test_todo_write_tool(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("TodoWrite", {}) == "TodoWrite"
+
+    def test_multi_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "MultiTool", {"tool_uses": [{"name": "a"}, {"name": "b"}]}
+            )
+            == "MultiTool (2 tools)"
+        )
+
+    def test_multi_tool_non_list(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("MultiTool", {"tool_uses": "bad"})
+            == "MultiTool (0 tools)"
+        )
+
+    def test_unknown_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("SomeNewTool", {}) == "tool: SomeNewTool"
+        )
+
+    def test_missing_input_fields_default_to_empty(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("Read", {}) == "Read "
+        assert _StreamJsonEmitter._summarize_tool("Bash", {}) == "$ "
+        assert _StreamJsonEmitter._summarize_tool("Glob", {}) == "Glob "
+        assert _StreamJsonEmitter._summarize_tool("Grep", {}) == "Grep //"
+
+    # v123 — new tool type summarizations
+
+    def test_skill_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("Skill", {"skill": "commit"})
+            == "Skill: commit"
+        )
+
+    def test_skill_tool_no_skill(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("Skill", {}) == "Skill"
+
+    def test_cron_create_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "CronCreate", {"prompt": "run tests every hour"}
+            )
+            == "CronCreate 'run tests every hour'"
+        )
+
+    def test_cron_create_tool_truncates_long_prompt(self) -> None:
+        long_prompt = "x" * 100
+        result = _StreamJsonEmitter._summarize_tool(
+            "CronCreate", {"prompt": long_prompt}
+        )
+        assert result.startswith("CronCreate '")
+        assert result.endswith("...'")
+
+    def test_cron_create_tool_no_prompt(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("CronCreate", {}) == "CronCreate"
+
+    def test_cron_delete_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("CronDelete", {"id": "abc123"})
+            == "CronDelete abc123"
+        )
+
+    def test_cron_delete_tool_no_id(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("CronDelete", {}) == "CronDelete"
+
+    def test_cron_list_tool(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("CronList", {}) == "CronList"
+
+    def test_enter_worktree_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "EnterWorktree", {"name": "feature-branch"}
+            )
+            == "EnterWorktree feature-branch"
+        )
+
+    def test_enter_worktree_tool_no_name(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("EnterWorktree", {}) == "EnterWorktree"
+        )
+
+    def test_exit_worktree_tool(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("ExitWorktree", {"action": "merge"})
+            == "ExitWorktree merge"
+        )
+
+    def test_exit_worktree_tool_no_action(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("ExitWorktree", {}) == "ExitWorktree"
+
+
+# ---------------------------------------------------------------------------
+# _inject_output_format edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestInjectOutputFormatEdgeCases:
+    def test_empty_cmd(self) -> None:
+        result = ClaudeCodeHand._inject_output_format([], "stream-json")
+        assert result == ["--output-format", "stream-json"]

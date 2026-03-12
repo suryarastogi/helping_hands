@@ -83,8 +83,8 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
         return ChatOpenAI(
             model_name=hand_model.model,
             streaming=streaming,
-            base_url=base_url,
-            api_key=api_key,
+            base_url=base_url,  # ty: ignore[unknown-argument]
+            api_key=api_key,  # ty: ignore[unknown-argument]
         )
     if provider == "anthropic":
         try:

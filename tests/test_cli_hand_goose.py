@@ -329,6 +329,105 @@ class TestResolveGooseProviderModelFromConfig:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# _build_subprocess_env
+# ---------------------------------------------------------------------------
+
+
+class TestBuildSubprocessEnv:
+    def test_gh_token_propagated(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
+        monkeypatch.setenv("GH_TOKEN", "tok-123")
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["GH_TOKEN"] == "tok-123"
+        assert env["GITHUB_TOKEN"] == "tok-123"
+
+    def test_github_token_fallback(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        monkeypatch.setenv("GITHUB_TOKEN", "tok-456")
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["GH_TOKEN"] == "tok-456"
+        assert env["GITHUB_TOKEN"] == "tok-456"
+
+    def test_missing_token_raises(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        with pytest.raises(RuntimeError, match="GH_TOKEN or GITHUB_TOKEN"):
+            hand._build_subprocess_env()
+
+    def test_provider_and_model_from_config(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="anthropic/claude-test")
+        monkeypatch.setenv("GH_TOKEN", "tok")
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["GOOSE_PROVIDER"] == "anthropic"
+        assert env["GOOSE_MODEL"] == "claude-test"
+
+    def test_goose_provider_env_override(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
+        monkeypatch.setenv("GH_TOKEN", "tok")
+        monkeypatch.setenv("GOOSE_PROVIDER", "anthropic")
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["GOOSE_PROVIDER"] == "anthropic"
+
+    def test_goose_model_env_override(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
+        monkeypatch.setenv("GH_TOKEN", "tok")
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.setenv("GOOSE_MODEL", "custom-model")
+        env = hand._build_subprocess_env()
+        assert env["GOOSE_MODEL"] == "custom-model"
+
+    def test_ollama_host_injected_for_ollama_provider(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="ollama/llama3.2")
+        monkeypatch.setenv("GH_TOKEN", "tok")
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        monkeypatch.delenv("OLLAMA_HOST", raising=False)
+        monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["GOOSE_PROVIDER"] == "ollama"
+        assert env["OLLAMA_HOST"] == "http://localhost:11434"
+
+    def test_ollama_host_not_injected_for_non_ollama(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="openai/gpt-5.2")
+        monkeypatch.setenv("GH_TOKEN", "tok")
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        monkeypatch.delenv("OLLAMA_HOST", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["GOOSE_PROVIDER"] == "openai"
+        # OLLAMA_HOST should not be explicitly set for non-ollama
+        assert "OLLAMA_HOST" not in env
+
+    def test_default_model_when_config_empty(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(GooseCLIHand, model="default")
+        monkeypatch.setenv("GH_TOKEN", "tok")
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["GOOSE_PROVIDER"] == GooseCLIHand._GOOSE_DEFAULT_PROVIDER
+        assert env["GOOSE_MODEL"] == GooseCLIHand._GOOSE_DEFAULT_MODEL
+
+
+# ---------------------------------------------------------------------------
+# _invoke_goose / _invoke_backend async tests
+# ---------------------------------------------------------------------------
+
+
 class TestInvokeGoose:
     def test_invoke_backend_delegates_to_invoke_cli(
         self, make_cli_hand, monkeypatch

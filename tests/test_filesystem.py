@@ -55,19 +55,19 @@ class TestResolveRepoTarget:
         assert target == tmp_path / "src" / "main.py"
 
     def test_rejects_absolute_path(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="invalid path"):
+        with pytest.raises(ValueError, match="non-empty relative path"):
             resolve_repo_target(tmp_path, "/etc/passwd")
 
     def test_rejects_empty_path(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="invalid path"):
+        with pytest.raises(ValueError, match="non-empty relative path"):
             resolve_repo_target(tmp_path, "")
 
     def test_rejects_traversal(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="invalid path"):
+        with pytest.raises(ValueError, match="escapes repository root"):
             resolve_repo_target(tmp_path, "../../../etc/passwd")
 
     def test_rejects_dot_dot_within_path(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="invalid path"):
+        with pytest.raises(ValueError, match="escapes repository root"):
             resolve_repo_target(tmp_path, "src/../../etc/passwd")
 
     def test_normalizes_dot_slash(self, tmp_path: Path) -> None:
@@ -134,6 +134,29 @@ class TestWriteTextFile:
         write_text_file(tmp_path, "file.txt", "new")
         assert (tmp_path / "file.txt").read_text(encoding="utf-8") == "new"
 
+    def test_wraps_permission_error_in_runtime_error(self, tmp_path: Path) -> None:
+        """OSError (e.g. permission denied) is wrapped in RuntimeError."""
+        from unittest.mock import patch
+
+        with (
+            patch.object(Path, "write_text", side_effect=PermissionError("denied")),
+            pytest.raises(RuntimeError, match="cannot write file"),
+        ):
+            write_text_file(tmp_path, "blocked.txt", "data")
+
+    def test_wraps_oserror_includes_file_path(self, tmp_path: Path) -> None:
+        """RuntimeError message includes the display path of the file."""
+        from unittest.mock import patch
+
+        with (
+            patch.object(
+                Path, "write_text", side_effect=OSError("No space left on device")
+            ),
+            pytest.raises(RuntimeError, match=r"blocked\.txt") as exc_info,
+        ):
+            write_text_file(tmp_path, "blocked.txt", "data")
+        assert "No space left on device" in str(exc_info.value)
+
 
 class TestMkdirPath:
     def test_creates_directory(self, tmp_path: Path) -> None:
@@ -166,3 +189,51 @@ class TestPathExists:
 
     def test_traversal_returns_false(self, tmp_path: Path) -> None:
         assert path_exists(tmp_path, "../../../etc/passwd") is False
+
+
+class TestResolveRepoTargetErrorMessages:
+    """Verify that empty/absolute vs traversal produce distinct error messages."""
+
+    def test_empty_path_message_differs_from_traversal(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="non-empty relative path"):
+            resolve_repo_target(tmp_path, "")
+
+    def test_absolute_path_message_differs_from_traversal(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="non-empty relative path"):
+            resolve_repo_target(tmp_path, "/etc/passwd")
+
+    def test_whitespace_only_path_message(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="non-empty relative path"):
+            resolve_repo_target(tmp_path, "   ")
+
+    def test_traversal_mentions_repository_root(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="escapes repository root"):
+            resolve_repo_target(tmp_path, "../../../etc/passwd")
+
+    def test_embedded_traversal_mentions_repository_root(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="escapes repository root"):
+            resolve_repo_target(tmp_path, "a/b/../../../../etc/passwd")
+
+    def test_dot_slash_only_is_non_empty_relative(self, tmp_path: Path) -> None:
+        # "./" normalizes to "" which triggers the non-empty check
+        with pytest.raises(ValueError, match="non-empty relative path"):
+            resolve_repo_target(tmp_path, "./")
+
+
+class TestResolveRepoTargetRootValidation:
+    """Verify that resolve_repo_target rejects non-directory repo_root."""
+
+    def test_rejects_nonexistent_root(self, tmp_path: Path) -> None:
+        fake_root = tmp_path / "does-not-exist"
+        with pytest.raises(ValueError, match="existing directory"):
+            resolve_repo_target(fake_root, "file.txt")
+
+    def test_rejects_file_as_root(self, tmp_path: Path) -> None:
+        file_path = tmp_path / "a-file.txt"
+        file_path.write_text("hello")
+        with pytest.raises(ValueError, match="existing directory"):
+            resolve_repo_target(file_path, "file.txt")
+
+    def test_accepts_valid_directory_root(self, tmp_path: Path) -> None:
+        target = resolve_repo_target(tmp_path, "file.txt")
+        assert target == tmp_path / "file.txt"

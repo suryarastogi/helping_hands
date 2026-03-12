@@ -144,6 +144,67 @@ class TestRunBashScriptErrors:
         with pytest.raises(ValueError, match="exactly one"):
             run_bash_script(tmp_path, script_path="", inline_script="")
 
+    def test_rejects_both_sources_none(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="exactly one"):
+            run_bash_script(tmp_path, script_path=None, inline_script=None)
+
+
+# ---------------------------------------------------------------------------
+# _run_command — FileNotFoundError / OSError handling
+# ---------------------------------------------------------------------------
+
+
+class TestRunCommandExecErrors:
+    @patch("helping_hands.lib.meta.tools.command.subprocess.run")
+    def test_returns_127_for_missing_executable(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = FileNotFoundError()
+        result = _run_command(["nonexistent-binary"], cwd=Path("/tmp"), timeout_s=10)
+        assert result.exit_code == 127
+        assert result.timed_out is False
+        assert "command not found" in result.stderr
+        assert "nonexistent-binary" in result.stderr
+        assert result.stdout == ""
+
+    @patch("helping_hands.lib.meta.tools.command.subprocess.run")
+    def test_returns_126_for_os_error(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = OSError("Permission denied")
+        result = _run_command(["restricted-cmd"], cwd=Path("/tmp"), timeout_s=10)
+        assert result.exit_code == 126
+        assert result.timed_out is False
+        assert "cannot execute command" in result.stderr
+        assert "Permission denied" in result.stderr
+        assert result.stdout == ""
+
+    @patch("helping_hands.lib.meta.tools.command.subprocess.run")
+    def test_command_not_found_preserves_command_list(
+        self, mock_run: MagicMock
+    ) -> None:
+        mock_run.side_effect = FileNotFoundError()
+        result = _run_command(
+            ["missing", "--flag", "arg"], cwd=Path("/tmp"), timeout_s=5
+        )
+        assert result.command == ["missing", "--flag", "arg"]
+        assert result.cwd == "/tmp"
+
+    @patch("helping_hands.lib.meta.tools.command.subprocess.run")
+    def test_command_not_found_not_successful(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = FileNotFoundError()
+        result = _run_command(["nope"], cwd=Path("/tmp"), timeout_s=5)
+        assert result.success is False
+
+    @patch("helping_hands.lib.meta.tools.command.subprocess.run")
+    def test_os_error_not_successful(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = OSError("Exec format error")
+        result = _run_command(["bad-binary"], cwd=Path("/tmp"), timeout_s=5)
+        assert result.success is False
+
+
+# ---------------------------------------------------------------------------
+# run_bash_script — inline passthrough
+# ---------------------------------------------------------------------------
+
+
+class TestRunBashScriptInline:
     def test_inline_script_passes_args(self, tmp_path: Path) -> None:
         result = run_bash_script(
             tmp_path,

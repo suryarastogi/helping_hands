@@ -690,6 +690,43 @@ class TestEnsureSandboxVerboseBranch:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# _ensure_sandbox — stdout-None RuntimeError (v121)
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureSandboxStdoutNone:
+    def test_raises_runtime_error_when_stdout_is_none(self, hand, monkeypatch) -> None:
+        """When create_subprocess_exec returns a process with stdout=None,
+        _ensure_sandbox should raise RuntimeError instead of AssertionError."""
+        monkeypatch.setattr(
+            "helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude.shutil.which",
+            lambda cmd: "/usr/bin/docker",
+        )
+        with patch.object(
+            DockerSandboxClaudeCodeHand,
+            "_docker_sandbox_available",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            mock_proc = AsyncMock()
+            mock_proc.stdout = None  # simulate stdout being None
+            mock_proc.returncode = 0
+            mock_proc.wait = AsyncMock()
+
+            with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+                emit = AsyncMock()
+                with pytest.raises(
+                    RuntimeError, match="stdout stream is unexpectedly None"
+                ):
+                    asyncio.new_event_loop().run_until_complete(
+                        hand._ensure_sandbox(emit)
+                    )
+
+
+# ---------------------------------------------------------------------------
+
+
 class TestBuildFailureMessageSandboxInBase:
     def test_skips_note_when_base_contains_sandbox(self, hand, monkeypatch) -> None:
         """When _build_claude_failure_message already mentions 'sandbox',

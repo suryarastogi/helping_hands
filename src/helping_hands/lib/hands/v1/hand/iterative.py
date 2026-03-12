@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import shlex
@@ -32,6 +33,8 @@ from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.meta.tools import web as system_web_tools
+
+logger = logging.getLogger(__name__)
 
 
 class _BasicIterativeHand(Hand):
@@ -59,6 +62,7 @@ class _BasicIterativeHand(Hand):
     _MAX_BOOTSTRAP_DOC_CHARS = 12000
     _BOOTSTRAP_TREE_MAX_DEPTH = 4
     _BOOTSTRAP_TREE_MAX_ENTRIES = 250
+    _MAX_ITERATIONS = 1000
 
     def __init__(
         self,
@@ -68,7 +72,15 @@ class _BasicIterativeHand(Hand):
         max_iterations: int = 6,
     ) -> None:
         super().__init__(config, repo_index)
-        self.max_iterations = max(1, max_iterations)
+        clamped = max(1, max_iterations)
+        if clamped > self._MAX_ITERATIONS:
+            logger.warning(
+                "max_iterations %d exceeds cap %d, clamping",
+                clamped,
+                self._MAX_ITERATIONS,
+            )
+            clamped = self._MAX_ITERATIONS
+        self.max_iterations = clamped
         # _selected_tool_categories is resolved by Hand.__init__(); build dispatch map.
         self._tool_runners = tool_registry.build_tool_runner_map(
             self._selected_tool_categories
@@ -206,8 +218,8 @@ class _BasicIterativeHand(Hand):
                     f"@@READ_RESULT: {rel_path}\nERROR: file is not UTF-8 text"
                 )
                 continue
-            except ValueError:
-                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: invalid path")
+            except ValueError as exc:
+                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: {exc}")
                 continue
             except FileNotFoundError:
                 chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: file not found")
@@ -237,7 +249,10 @@ class _BasicIterativeHand(Hand):
         for value in raw:
             if not isinstance(value, str):
                 raise ValueError(f"{key} must contain only strings")
-            values.append(value)
+            stripped = value.strip()
+            if not stripped:
+                raise ValueError(f"{key} contains empty or whitespace-only strings")
+            values.append(stripped)
         return values
 
     @staticmethod
@@ -413,6 +428,10 @@ class _BasicIterativeHand(Hand):
             try:
                 display_path = system_tools.write_text_file(root, rel_path, body)
             except ValueError:
+                logger.debug("Skipping inline edit for %r: invalid path", rel_path)
+                continue
+            except OSError as exc:
+                logger.warning("Failed to write inline edit for %r: %s", rel_path, exc)
                 continue
             changed.append(display_path)
         if changed:
@@ -824,15 +843,13 @@ class BasicAtomicHand(_BasicIterativeHand):
             except AssertionError:
                 partial = await asyncio.to_thread(self._agent.run, step_input)
                 current = self._extract_message(partial)
-                if current.startswith(stream_text):
-                    delta = current[len(stream_text) :]
-                else:
-                    delta = current
+                delta = current[len(stream_text) :]
                 stream_text = current
                 if delta:
                     yield delta
                 async_result = None
             except Exception:
+                logger.debug("run_async raised non-AssertionError", exc_info=True)
                 raise
             if async_result is not None and hasattr(async_result, "__aiter__"):
                 async for partial in async_result:
@@ -852,10 +869,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 except AssertionError:
                     partial = await asyncio.to_thread(self._agent.run, step_input)
                 current = self._extract_message(partial)
-                if current.startswith(stream_text):
-                    delta = current[len(stream_text) :]
-                else:
-                    delta = current
+                delta = current[len(stream_text) :]
                 stream_text = current
                 if delta:
                     yield delta

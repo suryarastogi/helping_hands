@@ -38,6 +38,10 @@ class GoogleProvider(AIProvider):
         **kwargs: Any,
     ) -> Any:
         contents = [m["content"] for m in messages if m["content"]]
+        if not contents:
+            raise ValueError(
+                "all messages have empty content; cannot send empty request"
+            )
         return inner.models.generate_content(
             model=model,
             contents=contents,
