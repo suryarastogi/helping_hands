@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v144](exec-plans/active/v144-mcp-index-limit-jwt-prefix-e2e-uuid-constant.md) --
-  MCP index file limit constant (`_INDEX_FILES_LIMIT`), JWT token prefix constant (`_JWT_TOKEN_PREFIX`) in app.py and celery_app.py, E2E UUID hex length reuse from base.py
+- [v145](exec-plans/active/v145-keychain-constants-utilization-guard-decode-safety.md) --
+  Extract keychain constants (`_KEYCHAIN_SERVICE_NAME`, `_KEYCHAIN_OAUTH_KEY`, `_KEYCHAIN_ACCESS_TOKEN_KEY`) in app.py and celery_app.py, utilization numeric type guard, decode safety with `errors="replace"`
 
 ## Completed plans
+
+- [2026-03-12 v144](exec-plans/completed/2026-03-12.md) --
+  MCP index file limit constant (`_INDEX_FILES_LIMIT`), JWT token prefix constant (`_JWT_TOKEN_PREFIX`) in app.py and celery_app.py, E2E UUID hex length reuse from base.py; 3494 tests (15 new)
 
 - [2026-03-12 v143](exec-plans/completed/2026-03-12.md) --
   Redis write/delete/list error handling in schedules.py (`_save_meta`, `_delete_meta`, `_list_meta_keys`), extract `_SCHEDULE_ID_HEX_LENGTH` in schedules.py, extract `_OLLAMA_DEFAULT_HOST` in goose.py; 3487 tests (7 new)

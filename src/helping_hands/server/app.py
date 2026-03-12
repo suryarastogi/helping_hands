@@ -59,6 +59,16 @@ _JWT_TOKEN_PREFIX = "ey"
 _HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
 _USAGE_DATA_PREVIEW_LENGTH = 300
 
+# --- Keychain constants ---
+_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
+"""macOS Keychain service name for Claude Code OAuth credentials."""
+
+_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
+"""Top-level JSON key in the Keychain credential payload."""
+
+_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
+"""Nested JSON key for the OAuth access token."""
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
@@ -292,7 +302,7 @@ def _get_claude_oauth_token() -> str | None:
                 "security",
                 "find-generic-password",
                 "-s",
-                "Claude Code-credentials",
+                _KEYCHAIN_SERVICE_NAME,
                 "-w",
             ],
             capture_output=True,
@@ -305,7 +315,7 @@ def _get_claude_oauth_token() -> str | None:
         # The keychain value is JSON — extract the OAuth access token
         try:
             creds = json.loads(raw)
-            return creds.get("claudeAiOauth", {}).get("accessToken")
+            return creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
         except (json.JSONDecodeError, AttributeError):
             # Maybe stored as plain token
             return raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
@@ -355,11 +365,11 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
             },
         )
         with urllib_request.urlopen(req, timeout=_USAGE_API_TIMEOUT_S) as resp:
-            data = json.loads(resp.read().decode())
+            data = json.loads(resp.read().decode(errors="replace"))
     except urllib_error.HTTPError as exc:
         body = ""
         try:
-            body = exc.read().decode()[:_HTTP_ERROR_BODY_PREVIEW_LENGTH]
+            body = exc.read().decode(errors="replace")[:_HTTP_ERROR_BODY_PREVIEW_LENGTH]
         except Exception:
             logger.debug("Failed to read HTTP error body", exc_info=True)
         return ClaudeUsageResponse(
@@ -376,8 +386,9 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     # Session (5-hour window)
     five_hour = data.get("five_hour", {})
-    if five_hour.get("utilization") is not None:
-        pct = round(five_hour["utilization"], 1)
+    five_hour_util = five_hour.get("utilization")
+    if isinstance(five_hour_util, (int, float)):
+        pct = round(five_hour_util, 1)
         resets = five_hour.get("resets_at", "")
         levels.append(
             ClaudeUsageLevel(
@@ -389,8 +400,9 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     # Weekly (7-day window)
     seven_day = data.get("seven_day", {})
-    if seven_day.get("utilization") is not None:
-        pct = round(seven_day["utilization"], 1)
+    seven_day_util = seven_day.get("utilization")
+    if isinstance(seven_day_util, (int, float)):
+        pct = round(seven_day_util, 1)
         resets = seven_day.get("resets_at", "")
         levels.append(
             ClaudeUsageLevel(

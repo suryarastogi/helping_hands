@@ -75,6 +75,16 @@ _DB_CONNECT_TIMEOUT_S = 5
 _JWT_TOKEN_PREFIX = "ey"
 """Base64-encoded JWT header prefix used for raw token heuristic detection."""
 
+# --- Keychain constants ---
+_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
+"""macOS Keychain service name for Claude Code OAuth credentials."""
+
+_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
+"""Top-level JSON key in the Keychain credential payload."""
+
+_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
+"""Nested JSON key for the OAuth access token."""
+
 _SUPPORTED_BACKENDS = {
     "e2e",
     "basic-langgraph",
@@ -833,7 +843,7 @@ def log_claude_usage() -> dict[str, Any]:
                 "security",
                 "find-generic-password",
                 "-s",
-                "Claude Code-credentials",
+                _KEYCHAIN_SERVICE_NAME,
                 "-w",
             ],
             capture_output=True,
@@ -843,7 +853,7 @@ def log_claude_usage() -> dict[str, Any]:
         raw = result.stdout.strip() if result.returncode == 0 else ""
         try:
             creds = _json.loads(raw)
-            token = creds.get("claudeAiOauth", {}).get("accessToken")
+            token = creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
         except (_json.JSONDecodeError, AttributeError):
             token = raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
     except Exception as exc:
