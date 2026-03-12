@@ -66,6 +66,12 @@ _ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
 _USAGE_USER_AGENT = "claude-code/2.0.32"
 _USAGE_API_TIMEOUT_S = 10
 
+_KEYCHAIN_TIMEOUT_S = 5
+"""Timeout in seconds for macOS Keychain subprocess calls."""
+
+_DB_CONNECT_TIMEOUT_S = 5
+"""Timeout in seconds for PostgreSQL connection attempts."""
+
 _SUPPORTED_BACKENDS = {
     "e2e",
     "basic-langgraph",
@@ -829,7 +835,7 @@ def log_claude_usage() -> dict[str, Any]:
             ],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=_KEYCHAIN_TIMEOUT_S,
         )
         raw = result.stdout.strip() if result.returncode == 0 else ""
         try:
@@ -871,7 +877,7 @@ def log_claude_usage() -> dict[str, Any]:
     try:
         import psycopg2
 
-        conn = psycopg2.connect(_get_db_url_writer(), connect_timeout=5)
+        conn = psycopg2.connect(_get_db_url_writer(), connect_timeout=_DB_CONNECT_TIMEOUT_S)
         try:
             with conn.cursor() as cur:
                 cur.execute(_USAGE_TABLE_DDL)

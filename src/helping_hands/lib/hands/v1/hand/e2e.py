@@ -20,6 +20,11 @@ from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 
 logger = logging.getLogger(__name__)
 
+# --- Module-level constants ---------------------------------------------------
+
+_E2E_MARKER_FILE = "HELPING_HANDS_E2E.md"
+"""Filename for the E2E marker file written into cloned repositories."""
+
 
 class E2EHand(Hand):
     """Minimal end-to-end hand for validating clone/edit/PR workflow."""
@@ -104,7 +109,7 @@ class E2EHand(Hand):
 
         base_branch = self._configured_base_branch() or "main"
         branch = f"helping-hands/e2e-{hand_uuid[:8]}"
-        e2e_file = "HELPING_HANDS_E2E.md"
+        e2e_file = _E2E_MARKER_FILE
         e2e_path = repo_dir / e2e_file
 
         with GitHubClient() as gh:

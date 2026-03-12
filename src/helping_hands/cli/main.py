@@ -165,6 +165,13 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    if args.pr_number is not None and args.pr_number <= 0:
+        print(
+            f"Error: --pr-number must be a positive integer (got {args.pr_number})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if args.e2e:
         config = Config.from_env(
             overrides={

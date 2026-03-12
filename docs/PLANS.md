@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v140](exec-plans/active/v140-magic-numbers-github-validation-truncation-safety.md) --
-  Extract remaining magic numbers (`_APPLY_CHANGES_TRUNCATION_LIMIT`, `_STREAM_READ_BUFFER_SIZE` in cli/base.py, `_DEFAULT_MAX_TOKENS` in anthropic.py), GitHub PR number/limit validation (`get_pr`, `update_pr_body`, `list_prs`), `_truncate_diff` limit safety guard
+- [v141](exec-plans/active/v141-e2e-constant-pr-number-validation-celery-timeouts.md) --
+  E2E marker filename constant (`_E2E_MARKER_FILE`), CLI `--pr-number` positive validation, Celery timeout constants (`_KEYCHAIN_TIMEOUT_S`, `_DB_CONNECT_TIMEOUT_S`)
 
 ## Completed plans
+
+- [2026-03-12 v140](exec-plans/completed/2026-03-12.md) --
+  Extract remaining magic numbers (`_APPLY_CHANGES_TRUNCATION_LIMIT`, `_STREAM_READ_BUFFER_SIZE` in cli/base.py, `_DEFAULT_MAX_TOKENS` in anthropic.py), GitHub PR number/limit validation (`get_pr`, `update_pr_body`, `list_prs`), `_truncate_diff` limit safety guard; 3456 tests (20 new)
 
 - [2026-03-12 v139](exec-plans/completed/2026-03-12.md) --
   Extract hardcoded magic numbers in claude.py (`_TEXT_PREVIEW_MAX_LENGTH`, `_TOOL_RESULT_PREVIEW_MAX_LENGTH`, `_COMMAND_PREVIEW_MAX_LENGTH`), pr_description.py (`_PR_SUMMARY_TRUNCATION_LENGTH`, `_COMMIT_SUMMARY_TRUNCATION_LENGTH`, `_PROMPT_CONTEXT_LENGTH`, `_PR_ERROR_TAIL_LENGTH`, `_COMMIT_ERROR_TAIL_LENGTH`, `_COMMIT_MSG_MAX_LENGTH`), DRY `_FAILURE_OUTPUT_TAIL_LENGTH` across 4 CLI hands, import `_FILE_LIST_PREVIEW_LIMIT` in cli/base.py; 3436 tests (29 new)
