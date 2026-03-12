@@ -40,6 +40,12 @@ _APPLY_CHANGES_TRUNCATION_LIMIT = 2000
 _STREAM_READ_BUFFER_SIZE = 1024
 """Bytes to read at a time from subprocess stdout during streaming."""
 
+_HOOK_ERROR_TRUNCATION_LIMIT = 3000
+"""Character limit for hook error output in the hook-fix prompt."""
+
+_GIT_REF_DISPLAY_LENGTH = 8
+"""Number of characters to show when displaying a git commit ref."""
+
 
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
@@ -810,7 +816,7 @@ class _TwoPhaseCLIHand(Hand):
         """Wait for CI checks to complete and return the result."""
         await emit(
             f"\n[{self._CLI_LABEL}] Waiting {initial_wait:.0f}s "
-            f"for CI checks on {ref[:8]}...\n"
+            f"for CI checks on {ref[:_GIT_REF_DISPLAY_LENGTH]}...\n"
         )
         await asyncio.sleep(initial_wait)
 
@@ -1028,8 +1034,8 @@ class _TwoPhaseCLIHand(Hand):
     def _build_hook_fix_prompt(error_output: str) -> str:
         """Build a prompt asking the AI backend to fix git hook errors."""
         truncated = error_output.strip()
-        if len(truncated) > 3000:
-            truncated = f"{truncated[:3000]}\n...[truncated]"
+        if len(truncated) > _HOOK_ERROR_TRUNCATION_LIMIT:
+            truncated = f"{truncated[:_HOOK_ERROR_TRUNCATION_LIMIT]}\n...[truncated]"
 
         return (
             "Git pre-commit hook fix.\n\n"

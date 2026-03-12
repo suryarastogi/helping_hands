@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v141](exec-plans/active/v141-e2e-constant-pr-number-validation-celery-timeouts.md) --
-  E2E marker filename constant (`_E2E_MARKER_FILE`), CLI `--pr-number` positive validation, Celery timeout constants (`_KEYCHAIN_TIMEOUT_S`, `_DB_CONNECT_TIMEOUT_S`)
+- [v142](exec-plans/active/v142-remaining-magic-numbers-and-repo-error-handling.md) --
+  Extract remaining magic numbers (`_HTTP_ERROR_BODY_PREVIEW_LENGTH`, `_USAGE_DATA_PREVIEW_LENGTH` in server/app.py, `_HOOK_ERROR_TRUNCATION_LIMIT`, `_GIT_REF_DISPLAY_LENGTH` in cli/base.py, `_SANDBOX_NAME_MAX_LENGTH`, `_SANDBOX_UUID_HEX_LENGTH` in docker_sandbox_claude.py), RepoIndex PermissionError handling in repo.py
 
 ## Completed plans
+
+- [2026-03-12 v141](exec-plans/completed/2026-03-12.md) --
+  E2E marker filename constant (`_E2E_MARKER_FILE`), CLI `--pr-number` positive validation, Celery timeout constants (`_KEYCHAIN_TIMEOUT_S`, `_DB_CONNECT_TIMEOUT_S`); 3464 tests (15 new)
 
 - [2026-03-12 v140](exec-plans/completed/2026-03-12.md) --
   Extract remaining magic numbers (`_APPLY_CHANGES_TRUNCATION_LIMIT`, `_STREAM_READ_BUFFER_SIZE` in cli/base.py, `_DEFAULT_MAX_TOKENS` in anthropic.py), GitHub PR number/limit validation (`get_pr`, `update_pr_body`, `list_prs`), `_truncate_diff` limit safety guard; 3456 tests (20 new)

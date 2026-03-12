@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -20,9 +23,17 @@ class RepoIndex:
             msg = f"Not a directory: {path}"
             raise FileNotFoundError(msg)
 
-        files = sorted(
-            str(p.relative_to(path))
-            for p in path.rglob("*")
-            if p.is_file() and ".git" not in p.parts
-        )
+        files: list[str] = []
+        try:
+            files = sorted(
+                str(p.relative_to(path))
+                for p in path.rglob("*")
+                if p.is_file() and ".git" not in p.parts
+            )
+        except PermissionError:
+            logger.warning(
+                "Permission denied during file traversal of %s; "
+                "returning partial index",
+                path,
+            )
         return cls(root=path, files=files)

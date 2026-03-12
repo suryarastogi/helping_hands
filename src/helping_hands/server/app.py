@@ -52,6 +52,10 @@ _ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 _ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
 _USAGE_USER_AGENT = "claude-code/2.0.32"
 
+# --- Preview truncation limits for error/debug messages ---
+_HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
+_USAGE_DATA_PREVIEW_LENGTH = 300
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
@@ -352,7 +356,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
     except urllib_error.HTTPError as exc:
         body = ""
         try:
-            body = exc.read().decode()[:200]
+            body = exc.read().decode()[:_HTTP_ERROR_BODY_PREVIEW_LENGTH]
         except Exception:
             logger.debug("Failed to read HTTP error body", exc_info=True)
         return ClaudeUsageResponse(
@@ -395,7 +399,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     if not levels:
         return ClaudeUsageResponse(
-            error=f"No usage data in response: {json.dumps(data)[:300]}",
+            error=f"No usage data in response: {json.dumps(data)[:_USAGE_DATA_PREVIEW_LENGTH]}",
             fetched_at=now,
         )
 

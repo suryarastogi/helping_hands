@@ -27,6 +27,12 @@ from helping_hands.lib.hands.v1.hand.cli.claude import (
     _StreamJsonEmitter,
 )
 
+_SANDBOX_NAME_MAX_LENGTH = 30
+"""Maximum character length for the sanitised repo-name portion of a sandbox name."""
+
+_SANDBOX_UUID_HEX_LENGTH = 8
+"""Number of hex characters from a UUID4 appended to sandbox names."""
+
 
 class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
     """Claude Code running inside a Docker Desktop sandbox (microVM).
@@ -73,8 +79,10 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
             self._sandbox_name = override
             return override
         repo_name = self.repo_index.root.name
-        safe = re.sub(r"[^a-zA-Z0-9-]", "-", repo_name).strip("-")[:30]
-        self._sandbox_name = f"hh-{safe}-{uuid.uuid4().hex[:8]}"
+        safe = re.sub(r"[^a-zA-Z0-9-]", "-", repo_name).strip("-")[
+            :_SANDBOX_NAME_MAX_LENGTH
+        ]
+        self._sandbox_name = f"hh-{safe}-{uuid.uuid4().hex[:_SANDBOX_UUID_HEX_LENGTH]}"
         return self._sandbox_name
 
     # ------------------------------------------------------------------
