@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v142](exec-plans/active/v142-remaining-magic-numbers-and-repo-error-handling.md) --
-  Extract remaining magic numbers (`_HTTP_ERROR_BODY_PREVIEW_LENGTH`, `_USAGE_DATA_PREVIEW_LENGTH` in server/app.py, `_HOOK_ERROR_TRUNCATION_LIMIT`, `_GIT_REF_DISPLAY_LENGTH` in cli/base.py, `_SANDBOX_NAME_MAX_LENGTH`, `_SANDBOX_UUID_HEX_LENGTH` in docker_sandbox_claude.py), RepoIndex PermissionError handling in repo.py
+- [v143](exec-plans/active/v143-redis-error-handling-and-constant-extraction.md) --
+  Redis write/delete/list error handling in schedules.py (`_save_meta`, `_delete_meta`, `_list_meta_keys`), extract `_SCHEDULE_ID_HEX_LENGTH` in schedules.py, extract `_OLLAMA_DEFAULT_HOST` in goose.py
 
 ## Completed plans
+
+- [2026-03-12 v142](exec-plans/completed/2026-03-12.md) --
+  Extract remaining magic numbers (`_HTTP_ERROR_BODY_PREVIEW_LENGTH`, `_USAGE_DATA_PREVIEW_LENGTH` in server/app.py, `_HOOK_ERROR_TRUNCATION_LIMIT`, `_GIT_REF_DISPLAY_LENGTH` in cli/base.py, `_SANDBOX_NAME_MAX_LENGTH`, `_SANDBOX_UUID_HEX_LENGTH` in docker_sandbox_claude.py), RepoIndex PermissionError handling in repo.py; 3480 tests (26 new)
 
 - [2026-03-12 v141](exec-plans/completed/2026-03-12.md) --
   E2E marker filename constant (`_E2E_MARKER_FILE`), CLI `--pr-number` positive validation, Celery timeout constants (`_KEYCHAIN_TIMEOUT_S`, `_DB_CONNECT_TIMEOUT_S`); 3464 tests (15 new)

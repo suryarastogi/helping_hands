@@ -174,6 +174,9 @@ CRON_PRESETS: dict[str, str] = {
 # Schedule metadata key prefix in Redis
 _SCHEDULE_META_PREFIX = "helping_hands:schedule:meta:"
 
+_SCHEDULE_ID_HEX_LENGTH = 12
+"""Number of hex characters used from uuid4 in schedule IDs."""
+
 
 def validate_cron_expression(cron_expr: str) -> str:
     """Validate and normalize a cron expression.
@@ -228,7 +231,7 @@ def next_run_time(cron_expr: str, base_time: datetime | None = None) -> datetime
 
 def generate_schedule_id() -> str:
     """Generate a unique schedule ID."""
-    return f"sched_{uuid.uuid4().hex[:12]}"
+    return f"sched_{uuid.uuid4().hex[:_SCHEDULE_ID_HEX_LENGTH]}"
 
 
 class ScheduleManager:
@@ -257,11 +260,24 @@ class ScheduleManager:
         return f"{_SCHEDULE_META_PREFIX}{schedule_id}"
 
     def _save_meta(self, task: ScheduledTask) -> None:
-        """Save schedule metadata to Redis."""
-        self._redis.set(
-            self._meta_key(task.schedule_id),
-            json.dumps(task.to_dict()),
-        )
+        """Save schedule metadata to Redis.
+
+        Raises:
+            RuntimeError: If the Redis write fails.
+        """
+        try:
+            self._redis.set(
+                self._meta_key(task.schedule_id),
+                json.dumps(task.to_dict()),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to save schedule metadata for %s: %s",
+                task.schedule_id,
+                exc,
+            )
+            msg = f"Failed to persist schedule {task.schedule_id}"
+            raise RuntimeError(msg) from exc
 
     def _load_meta(self, schedule_id: str) -> ScheduledTask | None:
         """Load schedule metadata from Redis.
@@ -283,13 +299,31 @@ class ScheduleManager:
             return None
 
     def _delete_meta(self, schedule_id: str) -> None:
-        """Delete schedule metadata from Redis."""
-        self._redis.delete(self._meta_key(schedule_id))
+        """Delete schedule metadata from Redis.
+
+        Logs a warning on failure but does not raise, consistent with
+        ``_load_meta`` graceful degradation.
+        """
+        try:
+            self._redis.delete(self._meta_key(schedule_id))
+        except Exception as exc:
+            logger.warning(
+                "Failed to delete schedule metadata for %s: %s",
+                schedule_id,
+                exc,
+            )
 
     def _list_meta_keys(self) -> list[str]:
-        """List all schedule metadata keys."""
+        """List all schedule metadata keys.
+
+        Returns an empty list on Redis errors to allow graceful degradation.
+        """
         pattern = f"{_SCHEDULE_META_PREFIX}*"
-        keys = self._redis.keys(pattern)
+        try:
+            keys = self._redis.keys(pattern)
+        except Exception as exc:
+            logger.warning("Failed to list schedule metadata keys: %s", exc)
+            return []
         return [k.decode() if isinstance(k, bytes) else k for k in keys]
 
     def create_schedule(self, task: ScheduledTask) -> ScheduledTask:
