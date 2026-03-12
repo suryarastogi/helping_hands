@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v139](exec-plans/active/v139-extract-constants-claude-pr-description.md) --
-  Extract hardcoded magic numbers in claude.py (`_TEXT_PREVIEW_MAX_LENGTH`, `_TOOL_RESULT_PREVIEW_MAX_LENGTH`, `_COMMAND_PREVIEW_MAX_LENGTH`), pr_description.py (`_PR_SUMMARY_TRUNCATION_LENGTH`, `_COMMIT_SUMMARY_TRUNCATION_LENGTH`, `_PROMPT_CONTEXT_LENGTH`, `_PR_ERROR_TAIL_LENGTH`, `_COMMIT_ERROR_TAIL_LENGTH`, `_COMMIT_MSG_MAX_LENGTH`), DRY `_FAILURE_OUTPUT_TAIL_LENGTH` across 4 CLI hands, import `_FILE_LIST_PREVIEW_LIMIT` in cli/base.py; 3436 tests (29 new)
+- [v140](exec-plans/active/v140-magic-numbers-github-validation-truncation-safety.md) --
+  Extract remaining magic numbers (`_APPLY_CHANGES_TRUNCATION_LIMIT`, `_STREAM_READ_BUFFER_SIZE` in cli/base.py, `_DEFAULT_MAX_TOKENS` in anthropic.py), GitHub PR number/limit validation (`get_pr`, `update_pr_body`, `list_prs`), `_truncate_diff` limit safety guard
 
 ## Completed plans
+
+- [2026-03-12 v139](exec-plans/completed/2026-03-12.md) --
+  Extract hardcoded magic numbers in claude.py (`_TEXT_PREVIEW_MAX_LENGTH`, `_TOOL_RESULT_PREVIEW_MAX_LENGTH`, `_COMMAND_PREVIEW_MAX_LENGTH`), pr_description.py (`_PR_SUMMARY_TRUNCATION_LENGTH`, `_COMMIT_SUMMARY_TRUNCATION_LENGTH`, `_PROMPT_CONTEXT_LENGTH`, `_PR_ERROR_TAIL_LENGTH`, `_COMMIT_ERROR_TAIL_LENGTH`, `_COMMIT_MSG_MAX_LENGTH`), DRY `_FAILURE_OUTPUT_TAIL_LENGTH` across 4 CLI hands, import `_FILE_LIST_PREVIEW_LIMIT` in cli/base.py; 3436 tests (29 new)
 
 - [2026-03-12 v138](exec-plans/completed/2026-03-12.md) --
   Extract hardcoded magic numbers to module-level constants in Hand base (`_DEFAULT_BASE_BRANCH`, `_DEFAULT_GIT_USER_NAME`, `_DEFAULT_GIT_USER_EMAIL`, `_DEFAULT_CI_WAIT_MINUTES`, `_DEFAULT_CI_MAX_RETRIES`, `_BRANCH_PREFIX`, `_UUID_HEX_LENGTH`, `_MAX_OUTPUT_DISPLAY_LENGTH`, `_FILE_LIST_PREVIEW_LIMIT`, `_LOG_TRUNCATION_LENGTH`), CLI base (`_PROCESS_TERMINATE_TIMEOUT_S`, `_CI_POLL_INTERVAL_S`, `_PR_DESCRIPTION_TIMEOUT_S`), and CLI main (`_DEFAULT_CLONE_DEPTH`, `_TEMP_CLONE_PREFIX`); 3436 tests (31 new)
@@ -43,7 +46,7 @@ Index of execution plans for helping_hands development.
 - [2026-03-11 v125-v126](exec-plans/completed/2026-03-11.md) --
   Type safety, timeout bounds, _is_boilerplate_line tests, input validation hardening (min_length on server requests, bash script mutual exclusivity) and web helper test coverage; 3300 tests
 - [2026-03-11 Week 11](exec-plans/completed/2026/Week-11.md) --
-  v104-v131: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage, robustness hardening, exception debug logging, Goose env test coverage, defensive CI response handling, frontend form validation, network error handling; 3031 -> 3329 passing tests (backend), 153 -> 178 tests (frontend)
+  v104-v140: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage, robustness hardening, exception debug logging, Goose env test coverage, defensive CI response handling, frontend form validation, network error handling, constant extraction, GitHub PR validation, truncation safety; 3031 -> 3456 passing tests (backend), 153 -> 178 tests (frontend)
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
   v0-v103: Docs infrastructure, 28 design docs, massive validation test suite, provider tests, Config edge cases, Playwright e2e tests, exec-plan workflow; 0 -> 3031 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --

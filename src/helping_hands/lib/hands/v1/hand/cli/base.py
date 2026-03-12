@@ -34,6 +34,12 @@ _CI_POLL_INTERVAL_S = 30.0
 _PR_DESCRIPTION_TIMEOUT_S = 300
 """Seconds timeout for the subprocess used to generate PR descriptions."""
 
+_APPLY_CHANGES_TRUNCATION_LIMIT = 2000
+"""Character limit for task output in the apply-changes enforcement prompt."""
+
+_STREAM_READ_BUFFER_SIZE = 1024
+"""Bytes to read at a time from subprocess stdout during streaming."""
+
 
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
@@ -482,7 +488,9 @@ class _TwoPhaseCLIHand(Hand):
         return not self._repo_has_changes()
 
     def _build_apply_changes_prompt(self, *, prompt: str, task_output: str) -> str:
-        summarized_output = self._truncate_summary(task_output, limit=2000)
+        summarized_output = self._truncate_summary(
+            task_output, limit=_APPLY_CHANGES_TRUNCATION_LIMIT
+        )
         return (
             "Follow-up enforcement phase.\n"
             "You previously responded without applying repository file changes.\n\n"
@@ -584,7 +592,7 @@ class _TwoPhaseCLIHand(Hand):
 
                 try:
                     data = await asyncio.wait_for(
-                        stdout.read(1024),
+                        stdout.read(_STREAM_READ_BUFFER_SIZE),
                         timeout=io_poll_seconds,
                     )
                 except TimeoutError as exc:

@@ -148,6 +148,8 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
 
 def _truncate_diff(diff: str, *, limit: int) -> str:
     """Truncate *diff* to stay within *limit* characters."""
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit}")
     if len(diff) <= limit:
         return diff
     return f"{diff[:limit]}\n...[truncated — {len(diff) - limit} chars omitted]"

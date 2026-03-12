@@ -349,6 +349,8 @@ class GitHubClient:
             state: ``"open"``, ``"closed"``, or ``"all"``.
             limit: Maximum number of PRs to return.
         """
+        if limit <= 0:
+            raise ValueError(f"limit must be positive, got {limit}")
         repo = self.get_repo(full_name)
         prs: list[PullRequest] = list(
             repo.get_pulls(state=state, sort="created", direction="desc")
@@ -367,6 +369,8 @@ class GitHubClient:
 
     def get_pr(self, full_name: str, number: int) -> dict[str, Any]:
         """Get details of a single pull request."""
+        if number <= 0:
+            raise ValueError(f"PR number must be positive, got {number}")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         return {
@@ -389,6 +393,8 @@ class GitHubClient:
 
     def update_pr_body(self, full_name: str, number: int, *, body: str) -> None:
         """Update the body/description of an existing pull request."""
+        if number <= 0:
+            raise ValueError(f"PR number must be positive, got {number}")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         pr.edit(body=body)

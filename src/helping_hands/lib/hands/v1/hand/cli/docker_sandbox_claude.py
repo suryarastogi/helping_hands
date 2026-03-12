@@ -18,7 +18,10 @@ import shutil
 import uuid
 from typing import Any
 
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+from helping_hands.lib.hands.v1.hand.cli.base import (
+    _STREAM_READ_BUFFER_SIZE,
+    _TwoPhaseCLIHand,
+)
 from helping_hands.lib.hands.v1.hand.cli.claude import (
     ClaudeCodeHand,
     _StreamJsonEmitter,
@@ -139,7 +142,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         if stdout is None:
             raise RuntimeError("subprocess stdout stream is unexpectedly None")
         while True:
-            data = await stdout.read(1024)
+            data = await stdout.read(_STREAM_READ_BUFFER_SIZE)
             if not data:
                 break
             text = data.decode("utf-8", errors="replace")
