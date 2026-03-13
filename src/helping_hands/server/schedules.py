@@ -17,6 +17,16 @@ from celery import Celery
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "CRON_PRESETS",
+    "ScheduleManager",
+    "ScheduledTask",
+    "generate_schedule_id",
+    "get_schedule_manager",
+    "next_run_time",
+    "validate_cron_expression",
+]
+
 # Lazy imports for optional dependencies
 _redbeat_available = True
 try:

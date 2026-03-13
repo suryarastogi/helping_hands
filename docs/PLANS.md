@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v159](exec-plans/completed/2026-03-13.md) --
+  Add `__all__` to 8 modules: 5 AI providers (openai, anthropic, google, litellm, ollama), pr_description, model_provider, schedules; 3809 tests (48 new: 38 passed, 10 skipped)
+
 - [2026-03-13 v158](exec-plans/completed/2026-03-13.md) --
   Add `__all__` to web.py/repo.py/default_prompts.py/task_result.py, extract `_DUCKDUCKGO_API_URL` in web.py, `normalize_relative_path` empty-string validation; 3772 tests (29 new)
 

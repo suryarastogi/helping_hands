@@ -7,6 +7,8 @@ from typing import Any
 
 from helping_hands.lib.ai_providers.types import AIProvider
 
+__all__ = ["LITELLM_PROVIDER", "LiteLLMProvider"]
+
 
 class LiteLLMProvider(AIProvider):
     """Wrapper around the LiteLLM Python package."""

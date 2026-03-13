@@ -7,6 +7,8 @@ from typing import Any
 
 from helping_hands.lib.ai_providers.types import AIProvider
 
+__all__ = ["ANTHROPIC_PROVIDER", "AnthropicProvider"]
+
 _DEFAULT_MAX_TOKENS = 1024
 """Default ``max_tokens`` for Anthropic completions when not specified."""
 

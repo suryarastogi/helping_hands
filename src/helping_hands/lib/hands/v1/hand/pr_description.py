@@ -18,6 +18,8 @@ from subprocess import TimeoutExpired
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["PRDescription", "generate_commit_message", "generate_pr_description"]
+
 _DEFAULT_DIFF_CHAR_LIMIT = 12_000
 _DEFAULT_TIMEOUT_SECONDS = 60.0
 _DISABLE_ENV_VAR = "HELPING_HANDS_DISABLE_PR_DESCRIPTION"

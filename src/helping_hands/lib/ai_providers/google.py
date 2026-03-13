@@ -7,6 +7,8 @@ from typing import Any
 
 from helping_hands.lib.ai_providers.types import AIProvider
 
+__all__ = ["GOOGLE_PROVIDER", "GoogleProvider"]
+
 
 class GoogleProvider(AIProvider):
     """Wrapper around the Google GenAI Python SDK client."""
