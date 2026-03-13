@@ -4,10 +4,12 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v148](exec-plans/active/v148-security-db-creds-github-input-validation.md) --
-  Remove hardcoded DB credentials in `_get_db_url_writer()`, add empty-string validation to GitHubClient branch/commit methods
+(none)
 
 ## Completed plans
+
+- [2026-03-13 v149](exec-plans/completed/2026-03-13.md) --
+  Git subprocess timeouts (`_run_git_read`, `_repo_has_changes`), clone URL `_validate_repo_spec()`, error message redaction; 3599 tests (17 new)
 
 - [2026-03-13 v148](exec-plans/completed/2026-03-13.md) --
   Remove hardcoded DB credentials in `_get_db_url_writer()` (security fix), GitHubClient branch/commit input validation (`_validate_branch_name`, empty message/name/email guards); 3582 tests (19 new)

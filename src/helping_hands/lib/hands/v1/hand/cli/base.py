@@ -17,6 +17,7 @@ from typing import Any, Protocol
 
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
+    _GIT_READ_TIMEOUT_S,
     Hand,
     HandResponse,
 )
@@ -98,10 +99,7 @@ class _TwoPhaseCLIHand(Hand):
         try:
             tokens = shlex.split(raw)
         except ValueError as exc:
-            msg = (
-                f"{self._COMMAND_ENV_VAR} contains an invalid shell expression"
-                f" ({raw!r}): {exc}"
-            )
+            msg = f"{self._COMMAND_ENV_VAR} contains an invalid shell expression: {exc}"
             raise RuntimeError(msg) from exc
         if not tokens:
             msg = f"{self._COMMAND_ENV_VAR} resolved to an empty command."
@@ -450,13 +448,21 @@ class _TwoPhaseCLIHand(Hand):
 
     def _repo_has_changes(self) -> bool:
         repo_root = self.repo_index.root.resolve()
-        result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "git status timed out after %ds; assuming no changes",
+                _GIT_READ_TIMEOUT_S,
+            )
+            return False
         if result.returncode != 0:
             logger.debug(
                 "git status check failed (code=%d); assuming no changes",

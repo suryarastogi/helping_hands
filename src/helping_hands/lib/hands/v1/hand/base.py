@@ -62,6 +62,9 @@ _FILE_LIST_PREVIEW_LIMIT = 200
 _LOG_TRUNCATION_LENGTH = 200
 """Maximum character length for error messages in log output."""
 
+_GIT_READ_TIMEOUT_S = 30
+"""Seconds timeout for lightweight git read subprocesses (e.g. status, remote)."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -145,13 +148,22 @@ class Hand(abc.ABC):
 
     @staticmethod
     def _run_git_read(repo_dir: Path, *args: str) -> str:
-        result = subprocess.run(
-            ["git", *args],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["git", *args],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "git read timed out after %ds: git %s",
+                _GIT_READ_TIMEOUT_S,
+                " ".join(args),
+            )
+            return ""
         if result.returncode != 0:
             return ""
         return result.stdout.strip()

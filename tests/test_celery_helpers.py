@@ -17,6 +17,7 @@ from helping_hands.server.celery_app import (
     _repo_tmp_dir,
     _trim_updates,
     _UpdateCollector,
+    _validate_repo_spec,
 )
 
 
@@ -337,3 +338,45 @@ class TestUpdateCollectorEdgeCases:
         collector.feed("a" * 50 + "\n")
         assert updates[0].endswith("...[truncated]")
         assert len(updates[0]) < 50
+
+
+# ---------------------------------------------------------------------------
+# _validate_repo_spec — v149
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRepoSpecCelery:
+    def test_valid_owner_repo(self) -> None:
+        _validate_repo_spec("owner/repo")  # should not raise
+
+    def test_empty_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_repo_spec("")
+
+    def test_whitespace_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_repo_spec("   ")
+
+    def test_no_slash_raises(self) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            _validate_repo_spec("just-a-repo")
+
+    def test_trailing_slash_raises(self) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            _validate_repo_spec("owner/")
+
+
+class TestGithubCloneUrlValidationCelery:
+    """v149: _github_clone_url rejects invalid repo specs."""
+
+    def test_empty_repo_raises(self, monkeypatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        with pytest.raises(ValueError, match="must not be empty"):
+            _github_clone_url("")
+
+    def test_no_slash_raises(self, monkeypatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        with pytest.raises(ValueError, match="owner/repo"):
+            _github_clone_url("just-a-name")

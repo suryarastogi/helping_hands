@@ -324,7 +324,17 @@ async def _stream_hand(hand: Hand, prompt: str) -> None:
     print()
 
 
+def _validate_repo_spec(repo: str) -> None:
+    """Validate that *repo* looks like ``owner/repo`` before embedding in a URL."""
+    if not repo or not repo.strip():
+        raise ValueError("repo spec must not be empty")
+    parts = repo.strip().split("/")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
+
+
 def _github_clone_url(repo: str) -> str:
+    _validate_repo_spec(repo)
     token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
     if token:
         return f"https://x-access-token:{token}@github.com/{repo}.git"

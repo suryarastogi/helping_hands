@@ -31,6 +31,8 @@ credential prompts are explicitly disabled (`GIT_TERMINAL_PROMPT=0`,
 - `--use-native-cli-auth` strips API keys from subprocess environments
   when delegating to external CLI tools
 - `.env` files are in `.gitignore`
+- Error messages from env var parsing (e.g. `_base_command()`) redact raw
+  values to prevent accidental token/secret leakage in logs
 
 ## Subprocess execution
 
@@ -39,7 +41,17 @@ CLI-backed hands run external tools as subprocesses:
 - Commands are constructed from known safe components (not user-provided shell strings)
 - Subprocess environments are explicitly configured (no shell=True with user input)
 - Idle timeouts prevent runaway processes (`HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS`)
+- Git read subprocesses (`_run_git_read`, `_repo_has_changes`) enforce a
+  `_GIT_READ_TIMEOUT_S` (30s) timeout to prevent indefinite blocking on
+  hung git processes
 - Execution tools (`python.run_code`, `bash.run_script`) are opt-in via `--enable-execution`
+
+## Clone URL validation
+
+`_github_clone_url()` (in both CLI and Celery) validates the repo spec
+matches `owner/repo` format via `_validate_repo_spec()` before embedding
+it into a URL. This prevents malformed or empty strings from producing
+invalid git clone URLs.
 
 ## Docker security
 

@@ -15,6 +15,7 @@ from helping_hands.cli.main import (
     _redact_sensitive,
     _repo_tmp_dir,
     _stream_hand,
+    _validate_repo_spec,
     build_parser,
     main,
 )
@@ -998,3 +999,53 @@ class TestGitHubTokenArg:
             )
             assert len(overrides_seen) > 0
             assert overrides_seen[0].get("github_token") == "ghp_task"
+
+
+# ---------------------------------------------------------------------------
+# _validate_repo_spec — v149
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRepoSpec:
+    def test_valid_owner_repo(self) -> None:
+        _validate_repo_spec("owner/repo")  # should not raise
+
+    def test_empty_string_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_repo_spec("")
+
+    def test_whitespace_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_repo_spec("   ")
+
+    def test_no_slash_raises(self) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            _validate_repo_spec("just-a-repo")
+
+    def test_trailing_slash_raises(self) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            _validate_repo_spec("owner/")
+
+    def test_leading_slash_raises(self) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            _validate_repo_spec("/repo")
+
+    def test_too_many_slashes_raises(self) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            _validate_repo_spec("a/b/c")
+
+
+class TestGithubCloneUrlValidation:
+    """v149: _github_clone_url rejects invalid repo specs."""
+
+    def test_empty_repo_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        with pytest.raises(ValueError, match="must not be empty"):
+            _github_clone_url("")
+
+    def test_no_slash_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        with pytest.raises(ValueError, match="owner/repo"):
+            _github_clone_url("just-a-name")
