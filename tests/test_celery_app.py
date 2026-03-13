@@ -509,17 +509,30 @@ class TestFormatRuntime:
 
 
 class TestGetDbUrlWriter:
-    def test_returns_env_override(self, monkeypatch) -> None:
+    def test_returns_env_value(self, monkeypatch) -> None:
         monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@host:5432/mydb")
         assert (
             celery_app._get_db_url_writer() == "postgresql://user:pass@host:5432/mydb"
         )
 
-    def test_returns_default_when_not_set(self, monkeypatch) -> None:
+    def test_raises_when_not_set(self, monkeypatch) -> None:
         monkeypatch.delenv("DATABASE_URL", raising=False)
-        result = celery_app._get_db_url_writer()
-        assert result.startswith("postgresql://")
-        assert "cavern" in result
+        with pytest.raises(RuntimeError, match="DATABASE_URL"):
+            celery_app._get_db_url_writer()
+
+    def test_raises_when_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("DATABASE_URL", "")
+        with pytest.raises(RuntimeError, match="DATABASE_URL"):
+            celery_app._get_db_url_writer()
+
+    def test_raises_when_whitespace_only(self, monkeypatch) -> None:
+        monkeypatch.setenv("DATABASE_URL", "   ")
+        with pytest.raises(RuntimeError, match="DATABASE_URL"):
+            celery_app._get_db_url_writer()
+
+    def test_strips_whitespace(self, monkeypatch) -> None:
+        monkeypatch.setenv("DATABASE_URL", "  postgresql://host/db  ")
+        assert celery_app._get_db_url_writer() == "postgresql://host/db"
 
 
 class TestEnsureUsageSchedule:

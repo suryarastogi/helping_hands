@@ -805,11 +805,18 @@ def scheduled_build(
 
 
 def _get_db_url_writer() -> str:
-    """Return the DATABASE_URL for writing (must point to a writer role)."""
-    return os.environ.get(
-        "DATABASE_URL",
-        "postgresql://cavern_writer:bQAGOqYIS1TwGipVyUIeDiyz@192.168.1.143:5432/cavern",
-    )
+    """Return the DATABASE_URL for writing (must point to a writer role).
+
+    Raises:
+        RuntimeError: If the ``DATABASE_URL`` environment variable is not set
+            or is empty.
+    """
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is required for usage logging"
+        )
+    return url
 
 
 _USAGE_TABLE_DDL = """

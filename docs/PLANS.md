@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v147](exec-plans/active/v147-per-task-github-token-dead-code-cleanup.md) --
-  Per-task GitHub token override (`Config.github_token`, `--github-token` CLI arg, server/Celery wiring), dead `if cmd else "cli"` removal in pr_description.py, constant docstrings for `_COMMIT_MSG_DIFF_LIMIT`/`_COMMIT_MSG_TIMEOUT`
+- [v148](exec-plans/active/v148-security-db-creds-github-input-validation.md) --
+  Remove hardcoded DB credentials in `_get_db_url_writer()`, add empty-string validation to GitHubClient branch/commit methods
 
 ## Completed plans
+
+- [2026-03-13 v148](exec-plans/completed/2026-03-13.md) --
+  Remove hardcoded DB credentials in `_get_db_url_writer()` (security fix), GitHubClient branch/commit input validation (`_validate_branch_name`, empty message/name/email guards); 3582 tests (19 new)
 
 - [2026-03-13 v147](exec-plans/completed/2026-03-13.md) --
   Per-task GitHub token override (Config → CLI → server → Celery → GitHubClient), dead code removal, constant docstrings; 3563 tests (21 new)

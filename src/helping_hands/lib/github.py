@@ -74,6 +74,16 @@ def _validate_full_name(full_name: str) -> None:
         )
 
 
+def _validate_branch_name(branch_name: str) -> None:
+    """Validate that *branch_name* is a non-empty string.
+
+    Raises:
+        ValueError: If the string is empty or whitespace-only.
+    """
+    if not branch_name or not branch_name.strip():
+        raise ValueError("branch_name must not be empty")
+
+
 def _redact_sensitive(text: str) -> str:
     """Redact token-bearing GitHub URLs in logs/errors."""
     return re.sub(
@@ -181,11 +191,13 @@ class GitHubClient:
     @staticmethod
     def create_branch(repo_path: Path | str, branch_name: str) -> None:
         """Create and switch to a new branch in a local repo."""
+        _validate_branch_name(branch_name)
         _run_git(["git", "checkout", "-b", branch_name], cwd=repo_path)
 
     @staticmethod
     def switch_branch(repo_path: Path | str, branch_name: str) -> None:
         """Switch to an existing branch."""
+        _validate_branch_name(branch_name)
         _run_git(["git", "checkout", branch_name], cwd=repo_path)
 
     @staticmethod
@@ -196,6 +208,7 @@ class GitHubClient:
         remote: str = "origin",
     ) -> None:
         """Fetch a remote branch into a matching local branch name."""
+        _validate_branch_name(branch_name)
         _run_git(
             [
                 "git",
@@ -246,6 +259,8 @@ class GitHubClient:
         Returns:
             The short SHA of the new commit.
         """
+        if not message or not message.strip():
+            raise ValueError("commit message must not be empty")
         targets = paths or ["."]
         _run_git(["git", "add", *targets], cwd=repo_path)
         _run_git(["git", "commit", "-m", message], cwd=repo_path)
@@ -260,6 +275,10 @@ class GitHubClient:
         email: str,
     ) -> None:
         """Set git author identity in local repo config."""
+        if not name or not name.strip():
+            raise ValueError("name must not be empty")
+        if not email or not email.strip():
+            raise ValueError("email must not be empty")
         _run_git(["git", "config", "user.name", name], cwd=repo_path)
         _run_git(["git", "config", "user.email", email], cwd=repo_path)
 

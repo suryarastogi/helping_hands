@@ -8,7 +8,12 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from helping_hands.lib.github import GitHubClient, PRResult, _run_git
+from helping_hands.lib.github import (
+    GitHubClient,
+    PRResult,
+    _run_git,
+    _validate_branch_name,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -611,3 +616,92 @@ class TestContextManager:
         with client as c:
             assert c is client
         client._gh.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _validate_branch_name
+# ---------------------------------------------------------------------------
+
+
+class TestValidateBranchName:
+    def test_empty_string_raises(self) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            _validate_branch_name("")
+
+    def test_whitespace_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            _validate_branch_name("   ")
+
+    def test_tab_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            _validate_branch_name("\t")
+
+    def test_valid_branch_name_passes(self) -> None:
+        _validate_branch_name("feat/new-feature")  # should not raise
+
+    def test_valid_simple_name_passes(self) -> None:
+        _validate_branch_name("main")  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# Branch method input validation
+# ---------------------------------------------------------------------------
+
+
+class TestBranchInputValidation:
+    def test_create_branch_rejects_empty(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.create_branch(tmp_path, "")
+
+    def test_create_branch_rejects_whitespace(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.create_branch(tmp_path, "   ")
+
+    def test_switch_branch_rejects_empty(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.switch_branch(tmp_path, "")
+
+    def test_switch_branch_rejects_whitespace(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.switch_branch(tmp_path, "  ")
+
+    def test_fetch_branch_rejects_empty(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.fetch_branch(tmp_path, "")
+
+    def test_fetch_branch_rejects_whitespace(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.fetch_branch(tmp_path, "\t")
+
+
+# ---------------------------------------------------------------------------
+# Commit/identity input validation
+# ---------------------------------------------------------------------------
+
+
+class TestCommitInputValidation:
+    def test_add_and_commit_rejects_empty_message(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="commit message must not be empty"):
+            GitHubClient.add_and_commit(tmp_path, "")
+
+    def test_add_and_commit_rejects_whitespace_message(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="commit message must not be empty"):
+            GitHubClient.add_and_commit(tmp_path, "   ")
+
+
+class TestIdentityInputValidation:
+    def test_set_local_identity_rejects_empty_name(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="name must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="", email="a@b.com")
+
+    def test_set_local_identity_rejects_whitespace_name(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="name must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="  ", email="a@b.com")
+
+    def test_set_local_identity_rejects_empty_email(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="email must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="Bot", email="")
+
+    def test_set_local_identity_rejects_whitespace_email(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="email must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="Bot", email="  ")
