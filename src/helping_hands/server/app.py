@@ -170,6 +170,14 @@ class TaskStatus(BaseModel):
     result: dict[str, Any] | None = None
 
 
+class TaskCancelResponse(BaseModel):
+    """Response for cancelling a running task."""
+
+    task_id: str
+    cancelled: bool
+    detail: str
+
+
 class CurrentTask(BaseModel):
     """Summary of a currently active/queued task."""
 
@@ -2897,6 +2905,19 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
       a:hover {{
         background: var(--secondary-hover);
       }}
+      .cancel-btn {{
+        border: 1px solid #7f1d1d;
+        border-radius: 10px;
+        padding: 8px 12px;
+        background: #450a0a;
+        color: #fca5a5;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: inherit;
+      }}
+      .cancel-btn:hover {{
+        background: #7f1d1d;
+      }}
       h2 {{
         margin: 0 0 8px;
         font-size: 1rem;
@@ -2936,6 +2957,11 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
         <div class="actions">
           <a href="/">Back to runner</a>
           <a href="/tasks/{html.escape(task_status.task_id)}">Raw JSON</a>
+          {
+        ""
+        if status in _TERMINAL_TASK_STATES
+        else f'''<button class="cancel-btn" onclick="cancelTask('{html.escape(task_status.task_id)}')">Cancel task</button>'''
+    }
         </div>
       </section>
       <section class="card">
@@ -2947,6 +2973,17 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
         <pre>{escaped_payload}</pre>
       </section>
     </main>
+    <script>
+      function cancelTask(taskId) {{
+        if (!confirm("Cancel this task?")) return;
+        fetch("/tasks/" + encodeURIComponent(taskId) + "/cancel", {{
+          method: "POST",
+        }})
+          .then(function (r) {{ return r.json(); }})
+          .then(function () {{ location.reload(); }})
+          .catch(function (e) {{ alert("Cancel failed: " + e.message); }});
+      }}
+    </script>
   </body>
 </html>
 """
@@ -3199,6 +3236,38 @@ def get_current_tasks() -> CurrentTasksResponse:
 def get_task(task_id: str) -> TaskStatus:
     """Check the status of an enqueued task."""
     return _build_task_status(task_id)
+
+
+@app.post("/tasks/{task_id}/cancel", response_model=TaskCancelResponse)
+def cancel_task(task_id: str) -> TaskCancelResponse:
+    """Cancel a running or queued task by revoking it via Celery."""
+    return _cancel_task(task_id)
+
+
+def _cancel_task(task_id: str) -> TaskCancelResponse:
+    """Revoke a Celery task, sending SIGTERM to terminate it if running."""
+    if not task_id or not task_id.strip():
+        raise ValueError("task_id must be a non-empty string")
+
+    task_id = task_id.strip()
+    result = build_feature.AsyncResult(task_id)
+    current_status = result.status
+
+    if current_status in _TERMINAL_TASK_STATES:
+        return TaskCancelResponse(
+            task_id=task_id,
+            cancelled=False,
+            detail=f"Task already in terminal state: {current_status}",
+        )
+
+    celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
+    logger.info("Revoked task %s (was %s)", task_id, current_status)
+
+    return TaskCancelResponse(
+        task_id=task_id,
+        cancelled=True,
+        detail=f"Task revoked (was {current_status})",
+    )
 
 
 # --- Schedule Endpoints ---

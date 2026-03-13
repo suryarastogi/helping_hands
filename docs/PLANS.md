@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v160](exec-plans/completed/2026-03-13.md) --
+  Task cancellation (kill signal from UI): `POST /tasks/{task_id}/cancel` endpoint, cancel button in inline HTML + React frontend, Celery `revoke(terminate=True)`; 4367 tests (15 new)
+
 - [2026-03-13 v159](exec-plans/completed/2026-03-13.md) --
   Add `__all__` to 8 modules: 5 AI providers (openai, anthropic, google, litellm, ollama), pr_description, model_provider, schedules; 3809 tests (48 new: 38 passed, 10 skipped)
 
