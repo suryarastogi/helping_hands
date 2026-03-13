@@ -675,13 +675,13 @@ class TestLogClaudeUsage:
         ).encode()
         mock_resp = MagicMock()
         mock_resp.read.return_value = usage_data
-        mock_resp.__enter__ = lambda s: s
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_conn.cursor.return_value.__enter__ = lambda s: mock_cursor
-        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn.cursor.return_value.__exit__.return_value = False
 
         mock_psycopg2 = MagicMock()
         mock_psycopg2.connect.return_value = mock_conn
