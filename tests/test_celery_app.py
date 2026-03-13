@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -692,6 +693,9 @@ class TestLogClaudeUsage:
             ),
             patch("urllib.request.urlopen", return_value=mock_resp),
             patch.dict("sys.modules", {"psycopg2": mock_psycopg2}),
+            patch.dict(
+                os.environ, {"DATABASE_URL": "postgres://test:test@localhost/test"}
+            ),
         ):
             result = celery_app.log_claude_usage()
 
