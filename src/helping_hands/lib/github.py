@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_GIT_TIMEOUT = 300  # seconds
 _MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
+_VALID_PR_STATES = frozenset({"open", "closed", "all"})
 
 
 def _git_timeout() -> int:
@@ -336,7 +337,15 @@ class GitHubClient:
 
         Returns:
             A ``PRResult`` with the PR number, URL, title, head, and base.
+
+        Raises:
+            ValueError: If *title* is empty/whitespace, or *head*/*base* are
+                invalid branch names.
         """
+        if not title or not title.strip():
+            raise ValueError("title must not be empty")
+        _validate_branch_name(head)
+        _validate_branch_name(base)
         repo = self.get_repo(full_name)
         pr: PullRequest = repo.create_pull(
             title=title, body=body, head=head, base=base, draft=draft
@@ -370,6 +379,10 @@ class GitHubClient:
         """
         if limit <= 0:
             raise ValueError(f"limit must be positive, got {limit}")
+        if state not in _VALID_PR_STATES:
+            raise ValueError(
+                f"state must be one of {sorted(_VALID_PR_STATES)}, got {state!r}"
+            )
         repo = self.get_repo(full_name)
         prs: list[PullRequest] = list(
             repo.get_pulls(state=state, sort="created", direction="desc")
@@ -432,7 +445,12 @@ class GitHubClient:
         Returns:
             A dict with ``ref``, ``total_count``, ``conclusion`` (overall),
             and ``check_runs`` (list of individual run summaries).
+
+        Raises:
+            ValueError: If *ref* is empty or whitespace-only.
         """
+        if not ref or not ref.strip():
+            raise ValueError("ref must not be empty")
         repo = self.get_repo(full_name)
         commit = repo.get_commit(ref)
         runs = commit.get_check_runs()
@@ -484,7 +502,14 @@ class GitHubClient:
 
         If a comment containing ``marker`` already exists, it is edited in place.
         Otherwise, a new comment is created.
+
+        Raises:
+            ValueError: If *number* is not positive or *body* is empty/whitespace.
         """
+        if number <= 0:
+            raise ValueError(f"PR number must be positive, got {number}")
+        if not body or not body.strip():
+            raise ValueError("comment body must not be empty")
         repo = self.get_repo(full_name)
         issue = repo.get_issue(number=number)
         comment_body = body.rstrip()

@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v150](exec-plans/completed/2026-03-13.md) --
+  GitHubClient method input validation hardening: `create_pr()` title/head/base, `list_prs()` `_VALID_PR_STATES` enum, `get_check_runs()` ref, `upsert_pr_comment()` number/body; 3619 tests (20 new)
+
 - [2026-03-13 v149](exec-plans/completed/2026-03-13.md) --
   Git subprocess timeouts (`_run_git_read`, `_repo_has_changes`), clone URL `_validate_repo_spec()`, error message redaction; 3599 tests (17 new)
 
