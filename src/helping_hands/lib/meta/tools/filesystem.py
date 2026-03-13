@@ -9,6 +9,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+__all__ = [
+    "mkdir_path",
+    "normalize_relative_path",
+    "path_exists",
+    "read_text_file",
+    "resolve_repo_target",
+    "write_text_file",
+]
+
 
 def normalize_relative_path(rel_path: str) -> str:
     """Normalize a repo-relative path to a safe forward-slash form."""

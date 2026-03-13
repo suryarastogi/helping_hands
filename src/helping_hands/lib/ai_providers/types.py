@@ -12,11 +12,27 @@ import asyncio
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+__all__ = ["AIProvider", "PromptInput", "normalize_messages"]
+
 PromptInput = str | Sequence[Mapping[str, str]]
 
 
 def normalize_messages(prompt_or_messages: PromptInput) -> list[dict[str, str]]:
-    """Normalize caller input into chat-style ``[{role, content}]`` messages."""
+    """Normalize caller input into chat-style ``[{role, content}]`` messages.
+
+    Args:
+        prompt_or_messages: Either a plain string (wrapped as a single user
+            message) or a sequence of mapping objects with ``role`` and
+            ``content`` keys.
+
+    Returns:
+        A list of ``{"role": ..., "content": ...}`` dicts ready for provider
+        completion calls.
+
+    Raises:
+        TypeError: If any element in a sequence input is not a
+            :class:`~collections.abc.Mapping`.
+    """
     if isinstance(prompt_or_messages, str):
         return [{"role": "user", "content": prompt_or_messages}]
 

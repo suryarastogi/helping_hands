@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v157](exec-plans/completed/2026-03-13.md) --
+  Add `__all__` exports to types.py, github.py, filesystem.py, command.py; enhance `normalize_messages()` docstring to Google-style with Args/Returns/Raises; 3743 tests (27 new)
+
+
 - [2026-03-13 v156](exec-plans/completed/2026-03-13.md) --
   Config.from_env() whitespace stripping (`repo`/`model`/`github_token`), `__all__` export in config.py, `_build_generic_pr_body` input validation, `_is_git_hook_failure` edge case tests; 3716 tests (16 new)
 

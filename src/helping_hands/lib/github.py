@@ -18,6 +18,8 @@ from github import Auth, Github
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
+__all__ = ["GitHubClient", "PRResult"]
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_GIT_TIMEOUT = 300  # seconds
