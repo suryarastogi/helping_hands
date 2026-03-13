@@ -974,6 +974,6 @@ def ensure_usage_schedule() -> None:
         )
 
 
-@celery_app.on_after_finalize.connect  # ty: ignore[unresolved-attribute]
+@celery_app.on_after_finalize.connect
 def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
     ensure_usage_schedule()

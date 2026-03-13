@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v152](exec-plans/completed/2026-03-13.md) --
+  Remove 7 stale `ty: ignore` comments causing CI `unused-ignore-comment` warnings (model_provider.py, celery_app.py, schedules.py); 3649 tests (5 new regression guards)
+
 - [2026-03-13 v151](exec-plans/completed/2026-03-13.md) --
   Input type validation: `normalize_relative_path` non-string TypeError, `normalize_tool_selection`/`normalize_skill_selection` dict/set/int rejection, `_truncate_summary` positive limit guard; 3644 tests (28 new)
 

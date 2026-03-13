@@ -114,6 +114,14 @@ Target Python: 3.12+
 | `frontend/src/App.tsx` (utils) | Excellent (100 tests) | 80%+ | `shortTaskId`, `statusTone`, `parseBool`, `extractUpdates`, `parseOptimisticUpdates`, `parseError` (detail/no-detail/non-JSON/empty body), `isTerminalTaskStatus` (terminal/non-terminal/whitespace), `apiUrl`, `loadTaskHistory`, `upsertTaskHistory` added in v47; `backendDisplayName`, `providerFromBackend` (all 10 backends), `formatProviderName` (openai/opencode/e2e/generic), `repoName` (slash/trailing-slash/no-slash), `cronFrequency` (9 presets + fallbacks), `buildDeskSlots` (count/ids/layout), `checkDeskCollision` (overlap/far/empty), `asRecord` (object/null/primitives), `readStringValue` (string/number/null/non-finite), `readBoolishValue` (bool/string/non-bool), `readSkillsValue` (array/empty/non-array), `parseOptimisticUpdates` edge cases (bold/exec/mcp/failed exec/long lines/dedup/flush at EOF) added in v50; `statusTone` additional statuses (RECEIVED/RETRY/SCHEDULED/RESERVED/SENT/ERROR), `cronFrequency` fallback patterns (hourly/minute-interval/empty), `loadTaskHistory` edge cases (invalid JSON/non-array/empty taskId/limit enforcement), `upsertTaskHistory` (empty/whitespace taskId, default values) added in v52; `statusBlinkerColor` (ok/fail/run/idle tones, empty string, 7 tests) added in v130 |
 | `frontend/src/App.tsx` (component) | Excellent (62 tests, 82.3% stmts) | Maintained | Smoke render test, default form values (repo path, prompt), empty task list, service health bar, dashboard view toggles, navigation buttons, submitted tasks header added in v50; interaction tests (Hand world/Classic view toggle, schedule navigation, New submission return, Advanced settings expand, repo path/prompt/backend input changes, Clear button disabled state) added in v52; form submission tests (POST payload validation, error handling via network/server errors, model/tools/skills inclusion, checkbox toggles, max iterations), monitor view tests (output tab switching Updates/Raw/Payload, task ID badge, status blinker, task inputs section), schedule view tests (form rendering, field changes, cron preset dropdown, schedule creation API, Cancel button, Refresh, error handling) added in v54; schedule CRUD tests (edit/delete/trigger/toggle), task discovery polling, notification banner/toast UI, monitor resize/scroll, poll error handling added in v55; form validation tests (empty repo_path/prompt rejection before API call, 2 tests) added in v130 |
 
+## Type checking
+
+`ty check` runs in CI with `--ignore unresolved-import --ignore invalid-method-override`.
+All stale `ty: ignore` suppression comments were removed in v152 (2026-03-13) —
+the underlying issues were resolved in newer `ty` versions. A codebase-wide
+regression guard test (`test_v152_ty_ignore_cleanup.py::TestNoTyIgnoreInSource`)
+prevents reintroduction.
+
 ## Remaining coverage gaps
 
 All remaining uncovered lines are inherently untestable entry point guards or
