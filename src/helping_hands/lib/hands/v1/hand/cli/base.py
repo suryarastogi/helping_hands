@@ -823,7 +823,18 @@ class _TwoPhaseCLIHand(Hand):
         poll_interval = _CI_POLL_INTERVAL_S
         deadline = time.monotonic() + max_poll_seconds
         while time.monotonic() < deadline:
-            result = gh.get_check_runs(repo, ref)
+            try:
+                result = gh.get_check_runs(repo, ref)
+            except Exception:
+                logger.warning(
+                    "[%s] GitHub API error while polling CI checks, "
+                    "retrying in %.0fs...",
+                    self._CLI_LABEL,
+                    poll_interval,
+                    exc_info=True,
+                )
+                await asyncio.sleep(poll_interval)
+                continue
             conclusion = result.get("conclusion", "pending")
             if conclusion not in ("pending", "no_checks"):
                 return result
@@ -833,7 +844,15 @@ class _TwoPhaseCLIHand(Hand):
             )
             await asyncio.sleep(poll_interval)
 
-        return gh.get_check_runs(repo, ref)
+        try:
+            return gh.get_check_runs(repo, ref)
+        except Exception:
+            logger.warning(
+                "[%s] GitHub API error on final CI check poll, returning empty result.",
+                self._CLI_LABEL,
+                exc_info=True,
+            )
+            return {"conclusion": "pending", "total_count": 0}
 
     @staticmethod
     def _build_ci_fix_prompt(
@@ -853,7 +872,10 @@ class _TwoPhaseCLIHand(Hand):
             name = r.get("name", "unknown")
             conclusion = r.get("conclusion", "unknown")
             url = r.get("html_url", "")
-            failure_lines.append(f"  - {name}: {conclusion} ({url})")
+            if url:
+                failure_lines.append(f"  - {name}: {conclusion} ({url})")
+            else:
+                failure_lines.append(f"  - {name}: {conclusion}")
 
         failure_summary = "\n".join(failure_lines) or "  (no details available)"
 
@@ -1004,6 +1026,12 @@ class _TwoPhaseCLIHand(Hand):
                 )
 
         except Exception as exc:
+            logger.debug(
+                "[%s] CI fix loop raised %s",
+                self._CLI_LABEL,
+                type(exc).__name__,
+                exc_info=True,
+            )
             metadata["ci_fix_status"] = "error"
             metadata["ci_fix_error"] = str(exc)
             await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")

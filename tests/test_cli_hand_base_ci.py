@@ -177,6 +177,87 @@ class TestBuildCiFixPromptMalformed:
         assert "deploy: timed_out" in prompt
 
 
+class TestBuildCiFixPromptUrlFormatting:
+    """URL formatting: empty URLs omit parentheses, present URLs include them (v147)."""
+
+    def test_present_url_included_in_parentheses(self) -> None:
+        prompt = _TwoPhaseCLIHand._build_ci_fix_prompt(
+            check_result={
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "conclusion": "failure",
+                        "html_url": "https://ci.example.com/lint/123",
+                    },
+                ],
+            },
+            original_prompt="task",
+            attempt=1,
+        )
+        assert "lint: failure (https://ci.example.com/lint/123)" in prompt
+
+    def test_empty_url_omits_parentheses(self) -> None:
+        prompt = _TwoPhaseCLIHand._build_ci_fix_prompt(
+            check_result={
+                "check_runs": [
+                    {
+                        "name": "test",
+                        "conclusion": "failure",
+                        "html_url": "",
+                    },
+                ],
+            },
+            original_prompt="task",
+            attempt=1,
+        )
+        assert "test: failure" in prompt
+        assert "()" not in prompt
+        assert "test: failure (" not in prompt
+
+    def test_missing_url_key_omits_parentheses(self) -> None:
+        prompt = _TwoPhaseCLIHand._build_ci_fix_prompt(
+            check_result={
+                "check_runs": [
+                    {
+                        "name": "build",
+                        "conclusion": "cancelled",
+                    },
+                ],
+            },
+            original_prompt="task",
+            attempt=1,
+        )
+        assert "build: cancelled" in prompt
+        assert "()" not in prompt
+
+    def test_mixed_urls_formatted_correctly(self) -> None:
+        prompt = _TwoPhaseCLIHand._build_ci_fix_prompt(
+            check_result={
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "conclusion": "failure",
+                        "html_url": "https://ci.example.com/lint",
+                    },
+                    {
+                        "name": "test",
+                        "conclusion": "failure",
+                        "html_url": "",
+                    },
+                ],
+            },
+            original_prompt="task",
+            attempt=1,
+        )
+        assert "lint: failure (https://ci.example.com/lint)" in prompt
+        assert "  - test: failure\n" in prompt or "  - test: failure" in prompt
+        # test line should NOT have parentheses
+        lines = prompt.split("\n")
+        test_lines = [line for line in lines if "test: failure" in line]
+        assert len(test_lines) == 1
+        assert "(" not in test_lines[0]
+
+
 class TestFormatCiFixMessage:
     """Test _format_ci_fix_message via a minimal subclass."""
 

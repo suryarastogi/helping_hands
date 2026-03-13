@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -794,3 +795,197 @@ class TestStreamWrapper:
 
         assert chunks == ["chunk1"]
         assert producer_cancelled
+
+
+# ===================================================================
+# _poll_ci_checks — API exception resilience (v147)
+# ===================================================================
+
+
+class TestPollCiChecksApiExceptions:
+    """Exception resilience when gh.get_check_runs() fails."""
+
+    def test_transient_failure_retries_and_succeeds(self) -> None:
+        """A transient API failure mid-poll is logged and retried."""
+        stub = _Stub()
+        mock_gh = MagicMock()
+        # First call raises, second succeeds
+        mock_gh.get_check_runs.side_effect = [
+            RuntimeError("network timeout"),
+            {"conclusion": "success", "total_count": 2},
+        ]
+        emit, _chunks = _collecting_emit()
+        result = _run(
+            stub._poll_ci_checks(
+                gh=mock_gh,
+                repo="owner/repo",
+                ref="abc123",
+                emit=emit,
+                initial_wait=0.001,
+                max_poll_seconds=5.0,
+            )
+        )
+        assert result["conclusion"] == "success"
+        assert mock_gh.get_check_runs.call_count == 2
+
+    def test_transient_failure_logs_warning(self, caplog) -> None:
+        """API exception is logged at WARNING level with exc_info."""
+        stub = _Stub()
+        mock_gh = MagicMock()
+        mock_gh.get_check_runs.side_effect = [
+            ConnectionError("refused"),
+            {"conclusion": "success", "total_count": 1},
+        ]
+        with caplog.at_level(logging.WARNING):
+            _run(
+                stub._poll_ci_checks(
+                    gh=mock_gh,
+                    repo="owner/repo",
+                    ref="abc123",
+                    emit=_noop_emit(),
+                    initial_wait=0.001,
+                    max_poll_seconds=5.0,
+                )
+            )
+        assert any(
+            "GitHub API error while polling" in r.message for r in caplog.records
+        )
+
+    def test_all_failures_within_deadline_returns_fallback(self) -> None:
+        """If all calls fail, the post-deadline call also fails -> fallback dict."""
+        stub = _Stub()
+        mock_gh = MagicMock()
+        mock_gh.get_check_runs.side_effect = RuntimeError("always fails")
+        result = _run(
+            stub._poll_ci_checks(
+                gh=mock_gh,
+                repo="owner/repo",
+                ref="abc123",
+                emit=_noop_emit(),
+                initial_wait=0.001,
+                max_poll_seconds=0.001,
+            )
+        )
+        assert result["conclusion"] == "pending"
+        assert result["total_count"] == 0
+
+    def test_post_deadline_failure_returns_fallback(self) -> None:
+        """Post-deadline gh.get_check_runs() failure returns safe fallback."""
+        stub = _Stub()
+        mock_gh = MagicMock()
+        # In-loop call returns pending, post-deadline call raises
+        mock_gh.get_check_runs.side_effect = [
+            {"conclusion": "pending", "total_count": 1},
+            RuntimeError("rate limited"),
+        ]
+        result = _run(
+            stub._poll_ci_checks(
+                gh=mock_gh,
+                repo="owner/repo",
+                ref="abc123",
+                emit=_noop_emit(),
+                initial_wait=0.001,
+                max_poll_seconds=0.001,
+            )
+        )
+        assert result["conclusion"] == "pending"
+        assert result["total_count"] == 0
+
+    def test_post_deadline_failure_logs_warning(self, caplog) -> None:
+        """Post-deadline API failure is logged at WARNING level."""
+        stub = _Stub()
+        mock_gh = MagicMock()
+        mock_gh.get_check_runs.side_effect = [
+            {"conclusion": "pending", "total_count": 1},
+            ConnectionError("reset"),
+        ]
+        with caplog.at_level(logging.WARNING):
+            _run(
+                stub._poll_ci_checks(
+                    gh=mock_gh,
+                    repo="owner/repo",
+                    ref="abc123",
+                    emit=_noop_emit(),
+                    initial_wait=0.001,
+                    max_poll_seconds=0.001,
+                )
+            )
+        assert any("final CI check poll" in r.message for r in caplog.records)
+
+
+# ===================================================================
+# _ci_fix_loop — exception debug logging (v147)
+# ===================================================================
+
+
+class TestCiFixLoopExceptionDebugLogging:
+    """The broad except Exception handler now logs debug with exc_info."""
+
+    def test_exception_logs_debug_with_exc_info(self, caplog) -> None:
+        stub = _Stub(fix_ci=True)
+        meta = {"pr_status": "updated", "pr_commit": "abc", "pr_branch": "b"}
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with (
+            caplog.at_level(logging.DEBUG),
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_github_repo_from_origin",
+                return_value="owner/repo",
+            ),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(
+                stub,
+                "_poll_ci_checks",
+                new=AsyncMock(side_effect=ValueError("bad data")),
+            ),
+        ):
+            result = _run(
+                stub._ci_fix_loop(prompt="p", metadata=meta, emit=_noop_emit())
+            )
+        assert result["ci_fix_status"] == "error"
+        debug_records = [
+            r
+            for r in caplog.records
+            if "CI fix loop raised" in r.message and r.levelno == logging.DEBUG
+        ]
+        assert len(debug_records) == 1
+        assert "ValueError" in debug_records[0].message
+
+    def test_exception_type_in_debug_message(self, caplog) -> None:
+        """Debug log includes the exception class name."""
+        stub = _Stub(fix_ci=True)
+        meta = {"pr_status": "created", "pr_commit": "abc", "pr_branch": "b"}
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with (
+            caplog.at_level(logging.DEBUG),
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_github_repo_from_origin",
+                return_value="owner/repo",
+            ),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch.object(
+                stub,
+                "_poll_ci_checks",
+                new=AsyncMock(side_effect=TypeError("wrong type")),
+            ),
+        ):
+            result = _run(
+                stub._ci_fix_loop(prompt="p", metadata=meta, emit=_noop_emit())
+            )
+        assert result["ci_fix_status"] == "error"
+        debug_records = [r for r in caplog.records if "CI fix loop raised" in r.message]
+        assert len(debug_records) == 1
+        assert "TypeError" in debug_records[0].message
