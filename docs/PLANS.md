@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v156](exec-plans/completed/2026-03-13.md) --
+  Config.from_env() whitespace stripping (`repo`/`model`/`github_token`), `__all__` export in config.py, `_build_generic_pr_body` input validation, `_is_git_hook_failure` edge case tests; 3716 tests (16 new)
+
 - [2026-03-13 v155](exec-plans/completed/2026-03-13.md) --
   Input validation and defensive coding: `read_text_file()` `max_file_size` positive validation, Google provider `_complete_impl()` KeyError defense, `_get_diff()` fallback test coverage; 3700 tests (14 new)
 

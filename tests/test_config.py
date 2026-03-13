@@ -365,3 +365,52 @@ class TestConfigGitHubToken:
         config = Config(github_token="ghp_test")
         with pytest.raises(FrozenInstanceError):
             config.github_token = "changed"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# v156 — __all__ export
+# ---------------------------------------------------------------------------
+
+
+class TestConfigModuleAll:
+    def test_all_contains_config(self) -> None:
+        assert "Config" in config_module.__all__
+
+    def test_all_does_not_contain_private_helpers(self) -> None:
+        for name in config_module.__all__:
+            assert not name.startswith("_"), f"private name {name!r} in __all__"
+
+
+# ---------------------------------------------------------------------------
+# v156 — Config.from_env() whitespace stripping
+# ---------------------------------------------------------------------------
+
+
+class TestConfigFromEnvWhitespaceStripping:
+    def test_repo_whitespace_stripped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        config = Config.from_env(overrides={"repo": "  /path/to/repo  "})
+        assert config.repo == "/path/to/repo"
+
+    def test_model_whitespace_stripped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_MODEL", "  gpt-5.2  ")
+        config = Config.from_env()
+        assert config.model == "gpt-5.2"
+
+    def test_github_token_whitespace_stripped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "  ghp_abc123  ")
+        config = Config.from_env()
+        assert config.github_token == "ghp_abc123"
+
+    def test_repo_already_clean_unchanged(self) -> None:
+        config = Config.from_env(overrides={"repo": "/clean/path"})
+        assert config.repo == "/clean/path"
+
+    def test_model_already_clean_unchanged(self) -> None:
+        config = Config.from_env(overrides={"model": "gpt-5.2"})
+        assert config.model == "gpt-5.2"
+
+    def test_github_token_already_clean_unchanged(self) -> None:
+        config = Config.from_env(overrides={"github_token": "ghp_clean"})
+        assert config.github_token == "ghp_clean"

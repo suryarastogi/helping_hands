@@ -557,6 +557,46 @@ class TestBuildGenericPrBody:
         )
         assert "No summary provided." in body
 
+    def test_empty_backend_raises(self) -> None:
+        with pytest.raises(ValueError, match="backend must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="",
+                prompt="do stuff",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
+    def test_whitespace_backend_raises(self) -> None:
+        with pytest.raises(ValueError, match="backend must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="   ",
+                prompt="do stuff",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
+    def test_empty_prompt_raises(self) -> None:
+        with pytest.raises(ValueError, match="prompt must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="test",
+                prompt="",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
+    def test_whitespace_prompt_raises(self) -> None:
+        with pytest.raises(ValueError, match="prompt must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="test",
+                prompt="  \n  ",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
 
 # ---------------------------------------------------------------------------
 # Hand skill resolution

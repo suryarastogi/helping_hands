@@ -203,6 +203,10 @@ class Hand(abc.ABC):
         commit_sha: str,
         stamp_utc: str,
     ) -> str:
+        if not backend or not backend.strip():
+            raise ValueError("backend must not be empty")
+        if not prompt or not prompt.strip():
+            raise ValueError("prompt must not be empty")
         return (
             f"Automated update from `{backend}`.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
