@@ -1874,7 +1874,11 @@ class TestActivePlanConsistency:
         self, plans_text: str, active_plan_files: list[str]
     ) -> None:
         if not active_plan_files:
-            assert "No active plans" in plans_text or "no active" in plans_text.lower()
+            assert (
+                "No active plans" in plans_text
+                or "no active" in plans_text.lower()
+                or "(none)" in plans_text.lower()
+            )
         else:
             for filename in active_plan_files:
                 stem = filename.replace(".md", "")
