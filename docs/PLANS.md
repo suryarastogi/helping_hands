@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v154](exec-plans/completed/2026-03-13.md) --
+  Git subprocess timeouts for `pr_description.py` diff/add calls, `cli/main.py` and `celery_app.py` clone calls, `read_text_file()` `max_chars` positive validation; 3687 tests (21 new)
+
 - [2026-03-13 v153](exec-plans/completed/2026-03-13.md) --
   Subprocess timeouts for `_configure_authenticated_push_remote()` and `_run_precommit_checks_and_fixes()`, input validation for `_configure_authenticated_push_remote()` repo/token params and `GitHubClient.clone()` full_name; 3666 tests (16 new)
 

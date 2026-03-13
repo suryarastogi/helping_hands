@@ -14,6 +14,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from subprocess import TimeoutExpired
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ _DEFAULT_TIMEOUT_SECONDS = 60.0
 _DISABLE_ENV_VAR = "HELPING_HANDS_DISABLE_PR_DESCRIPTION"
 _TIMEOUT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_TIMEOUT"
 _DIFF_LIMIT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT"
+
+_GIT_DIFF_TIMEOUT_S = 30
+"""Timeout in seconds for git diff subprocess calls."""
 
 _PR_SUMMARY_TRUNCATION_LENGTH = 2000
 """Maximum characters of summary included in the PR description prompt."""
@@ -185,9 +189,13 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git diff timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -199,9 +207,13 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git diff HEAD~1 timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -399,9 +411,13 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
             cwd=repo_dir,
             capture_output=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git add timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     try:
         result = subprocess.run(
@@ -410,9 +426,13 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git diff --cached timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()

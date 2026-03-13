@@ -12,6 +12,7 @@ import subprocess
 import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
+from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import cast
 
@@ -40,6 +41,9 @@ _DEFAULT_CLONE_DEPTH = 1
 
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
+
+_GIT_CLONE_TIMEOUT_S = 120
+"""Timeout in seconds for git clone subprocess calls."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -381,13 +385,20 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
         atexit.register(shutil.rmtree, dest_root, True)
         dest = dest_root / "repo"
         url = _github_clone_url(repo)
-        result = subprocess.run(
-            ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
-            capture_output=True,
-            text=True,
-            check=False,
-            env=_git_noninteractive_env(),
-        )
+        try:
+            result = subprocess.run(
+                ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=_git_noninteractive_env(),
+                timeout=_GIT_CLONE_TIMEOUT_S,
+            )
+        except TimeoutExpired as exc:
+            shutil.rmtree(dest_root, ignore_errors=True)
+            raise ValueError(
+                f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
+            ) from exc
         if result.returncode != 0:
             stderr = result.stderr.strip() or "unknown git clone error"
             stderr = _redact_sensitive(stderr)

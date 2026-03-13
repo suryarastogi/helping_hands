@@ -11,6 +11,7 @@ import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import Any
 
@@ -84,6 +85,9 @@ _KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
 
 _KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
 """Nested JSON key for the OAuth access token."""
+
+_GIT_CLONE_TIMEOUT_S = 120
+"""Timeout in seconds for git clone subprocess calls."""
 
 _SUPPORTED_BACKENDS = {
     "e2e",
@@ -173,13 +177,20 @@ def _resolve_repo_path(
         if pr_number is not None:
             clone_cmd.append("--no-single-branch")
         clone_cmd += [url, str(dest)]
-        result = subprocess.run(
-            clone_cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            env=_git_noninteractive_env(),
-        )
+        try:
+            result = subprocess.run(
+                clone_cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=_git_noninteractive_env(),
+                timeout=_GIT_CLONE_TIMEOUT_S,
+            )
+        except TimeoutExpired as exc:
+            shutil.rmtree(dest_root, ignore_errors=True)
+            raise ValueError(
+                f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
+            ) from exc
         if result.returncode != 0:
             shutil.rmtree(dest_root, ignore_errors=True)
             stderr = result.stderr.strip() or "unknown git clone error"
