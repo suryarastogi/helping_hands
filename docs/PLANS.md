@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v151](exec-plans/completed/2026-03-13.md) --
+  Input type validation: `normalize_relative_path` non-string TypeError, `normalize_tool_selection`/`normalize_skill_selection` dict/set/int rejection, `_truncate_summary` positive limit guard; 3644 tests (28 new)
+
 - [2026-03-13 v150](exec-plans/completed/2026-03-13.md) --
   GitHubClient method input validation hardening: `create_pr()` title/head/base, `list_prs()` `_VALID_PR_STATES` enum, `get_check_runs()` ref, `upsert_pr_comment()` number/body; 3619 tests (20 new)
 

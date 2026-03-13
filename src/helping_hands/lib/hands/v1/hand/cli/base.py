@@ -78,6 +78,8 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
+        if limit < 1:
+            raise ValueError("limit must be a positive integer")
         clean = text.strip()
         if len(clean) <= limit:
             return clean
