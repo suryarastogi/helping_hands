@@ -4,10 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v148](exec-plans/active/v148-security-db-creds-github-input-validation.md) --
-  Remove hardcoded DB credentials in `_get_db_url_writer()`, add empty-string validation to GitHubClient branch/commit methods
+- [v149](exec-plans/active/v149-command-validation-web-timeout-cap-diff-oserror.md) --
+  Empty command list guard in `_run_command()`, maximum timeout cap for web tools, OSError handling in `_get_diff`/`_get_uncommitted_diff`
 
 ## Completed plans
+
+- [2026-03-13 v149](exec-plans/completed/2026-03-13.md) --
+  Empty command list validation in `_run_command()`, `_MAX_WEB_TIMEOUT_S` cap for `search_web`/`browse_url`, OSError handling in `_get_diff`/`_get_uncommitted_diff`; 3597 tests (15 new)
 
 - [2026-03-13 v148](exec-plans/completed/2026-03-13.md) --
   Remove hardcoded DB credentials in `_get_db_url_writer()` (security fix), GitHubClient branch/commit input validation (`_validate_branch_name`, empty message/name/email guards); 3582 tests (19 new)

@@ -189,6 +189,9 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute diff")
         return ""
+    except OSError as exc:
+        logger.debug("git diff failed with OS error: %s", exc)
+        return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
 
@@ -202,6 +205,9 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute diff")
+        return ""
+    except OSError as exc:
+        logger.debug("git diff fallback failed with OS error: %s", exc)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -403,6 +409,9 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute uncommitted diff")
         return ""
+    except OSError as exc:
+        logger.debug("git add failed with OS error: %s", exc)
+        return ""
     try:
         result = subprocess.run(
             ["git", "diff", "--cached"],
@@ -413,6 +422,9 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        return ""
+    except OSError as exc:
+        logger.debug("git diff --cached failed with OS error: %s", exc)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()

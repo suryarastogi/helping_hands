@@ -78,6 +78,8 @@ def _resolve_python_command(python_version: str) -> list[str]:
 
 
 def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandResult:
+    if not command:
+        raise ValueError("command list must not be empty")
     if timeout_s <= 0:
         raise ValueError("timeout_s must be > 0")
 

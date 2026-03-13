@@ -15,6 +15,13 @@ from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
+_MAX_WEB_TIMEOUT_S = 300
+"""Maximum allowed timeout in seconds for web requests.
+
+Values above this are clamped with a warning log, consistent with
+``_MAX_GIT_TIMEOUT`` in ``github.py``.
+"""
+
 
 @dataclass(frozen=True)
 class WebSearchItem:
@@ -132,6 +139,13 @@ def search_web(
         raise ValueError("max_results must be > 0")
     if timeout_s <= 0:
         raise ValueError("timeout_s must be > 0")
+    if timeout_s > _MAX_WEB_TIMEOUT_S:
+        logger.warning(
+            "timeout_s=%d exceeds maximum %d; clamping",
+            timeout_s,
+            _MAX_WEB_TIMEOUT_S,
+        )
+        timeout_s = _MAX_WEB_TIMEOUT_S
 
     params = urlencode(
         {
@@ -204,6 +218,13 @@ def browse_url(
         raise ValueError("max_chars must be > 0")
     if timeout_s <= 0:
         raise ValueError("timeout_s must be > 0")
+    if timeout_s > _MAX_WEB_TIMEOUT_S:
+        logger.warning(
+            "timeout_s=%d exceeds maximum %d; clamping",
+            timeout_s,
+            _MAX_WEB_TIMEOUT_S,
+        )
+        timeout_s = _MAX_WEB_TIMEOUT_S
 
     request = Request(normalized_url, headers={"User-Agent": _DEFAULT_USER_AGENT})
     try:
