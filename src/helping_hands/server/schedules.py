@@ -24,14 +24,14 @@ try:
     from redbeat.decoder import RedBeatJSONDecoder, RedBeatJSONEncoder
 except ImportError:
     _redbeat_available = False
-    RedBeatSchedulerEntry = None
-    RedBeatJSONDecoder = None
-    RedBeatJSONEncoder = None
+    RedBeatSchedulerEntry = None  # type: ignore[assignment]
+    RedBeatJSONDecoder = None  # type: ignore[assignment]
+    RedBeatJSONEncoder = None  # type: ignore[assignment]
 
 try:
     from croniter import croniter
 except ImportError:
-    croniter = None
+    croniter = None  # type: ignore[assignment]
 
 
 def _check_redbeat() -> None:
