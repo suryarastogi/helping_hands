@@ -330,7 +330,7 @@ def generate_pr_description(
         summary=summary,
     )
 
-    cli_label = cmd[0] if cmd else "cli"
+    cli_label = cmd[0]
     timeout = _timeout_seconds()
     try:
         result = subprocess.run(
@@ -381,7 +381,10 @@ def generate_pr_description(
 # ------------------------------------------------------------------
 
 _COMMIT_MSG_DIFF_LIMIT = 8_000
+"""Maximum characters of diff included in the commit message generation prompt."""
+
 _COMMIT_MSG_TIMEOUT = 30.0
+"""Timeout in seconds for the CLI commit message generation subprocess."""
 
 
 def _get_uncommitted_diff(repo_dir: Path) -> str:
@@ -632,7 +635,7 @@ def generate_commit_message(
         summary=summary,
     )
 
-    cli_label = cmd[0] if cmd else "cli"
+    cli_label = cmd[0]
     try:
         result = subprocess.run(
             cmd,

@@ -41,6 +41,7 @@ class Config:
     use_native_cli_auth: bool = False
     enabled_tools: tuple[str, ...] = ()
     enabled_skills: tuple[str, ...] = ()
+    github_token: str = ""
     config_path: Path | None = None
 
     @classmethod
@@ -68,6 +69,7 @@ class Config:
             in ("1", "true", "yes"),
             "enabled_tools": os.environ.get("HELPING_HANDS_TOOLS"),
             "enabled_skills": os.environ.get("HELPING_HANDS_SKILLS"),
+            "github_token": os.environ.get("HELPING_HANDS_GITHUB_TOKEN"),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
@@ -99,4 +101,5 @@ class Config:
             enabled_skills=meta_skills.normalize_skill_selection(
                 normalized_skills_input
             ),
+            github_token=str(merged.get("github_token", cls.github_token)),
         )

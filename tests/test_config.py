@@ -324,3 +324,44 @@ class TestFromEnvPrecedence:
     def test_repo_override_sets_repo_field(self) -> None:
         config = Config.from_env(overrides={"repo": "/tmp/myrepo"})
         assert config.repo == "/tmp/myrepo"
+
+
+class TestConfigGitHubToken:
+    """Tests for the github_token Config field (v147)."""
+
+    def test_default_is_empty_string(self) -> None:
+        config = Config()
+        assert config.github_token == ""
+
+    def test_override_sets_github_token(self) -> None:
+        config = Config.from_env(overrides={"github_token": "ghp_test123"})
+        assert config.github_token == "ghp_test123"
+
+    def test_env_var_sets_github_token(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "ghp_from_env")
+        config = Config.from_env()
+        assert config.github_token == "ghp_from_env"
+
+    def test_override_beats_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "ghp_from_env")
+        config = Config.from_env(overrides={"github_token": "ghp_override"})
+        assert config.github_token == "ghp_override"
+
+    def test_none_override_preserves_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "ghp_from_env")
+        config = Config.from_env(overrides={"github_token": None})
+        assert config.github_token == "ghp_from_env"
+
+    def test_no_env_no_override_uses_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_GITHUB_TOKEN", raising=False)
+        config = Config.from_env()
+        assert config.github_token == ""
+
+    def test_frozen_immutability(self) -> None:
+        config = Config(github_token="ghp_test")
+        with pytest.raises(FrozenInstanceError):
+            config.github_token = "changed"  # type: ignore[misc]

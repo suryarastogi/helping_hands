@@ -906,7 +906,8 @@ class _TwoPhaseCLIHand(Hand):
         metadata["ci_fix_status"] = "checking"
 
         try:
-            with GitHubClient() as gh:
+            gh_token = getattr(self.config, "github_token", "")
+            with GitHubClient(token=gh_token) as gh:
                 current_ref = pr_commit
                 for attempt in range(1, self.ci_max_retries + 1):
                     if self._is_interrupted():

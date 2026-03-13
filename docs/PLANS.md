@@ -4,10 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v146](exec-plans/active/v146-commit-message-quality-truncation-indicators-type-inference.md) --
-  Commit message quality: `_truncate_text()` truncation indicators for prompt/summary context, `_infer_commit_type()` smart type inference replacing hardcoded `"feat:"` prefix
+- [v147](exec-plans/active/v147-per-task-github-token-dead-code-cleanup.md) --
+  Per-task GitHub token override (`Config.github_token`, `--github-token` CLI arg, server/Celery wiring), dead `if cmd else "cli"` removal in pr_description.py, constant docstrings for `_COMMIT_MSG_DIFF_LIMIT`/`_COMMIT_MSG_TIMEOUT`
 
 ## Completed plans
+
+- [2026-03-13 v147](exec-plans/completed/2026-03-13.md) --
+  Per-task GitHub token override (Config → CLI → server → Celery → GitHubClient), dead code removal, constant docstrings; 3563 tests (21 new)
+
+- [2026-03-12 v146](exec-plans/completed/2026-03-12.md) --
+  Commit message quality: `_truncate_text()` truncation indicators for prompt/summary context, `_infer_commit_type()` smart type inference replacing hardcoded `"feat:"` prefix; 3542 tests (48 new)
 
 - [2026-03-12 v145](exec-plans/completed/2026-03-12.md) --
   Extract keychain constants (`_KEYCHAIN_SERVICE_NAME`, `_KEYCHAIN_OAUTH_KEY`, `_KEYCHAIN_ACCESS_TOKEN_KEY`) in app.py and celery_app.py, utilization numeric type guard, decode safety with `errors="replace"`; 3494 tests (20 new)
@@ -64,7 +70,7 @@ Index of execution plans for helping_hands development.
 - [2026-03-11 v125-v126](exec-plans/completed/2026-03-11.md) --
   Type safety, timeout bounds, _is_boilerplate_line tests, input validation hardening (min_length on server requests, bash script mutual exclusivity) and web helper test coverage; 3300 tests
 - [2026-03-11 Week 11](exec-plans/completed/2026/Week-11.md) --
-  v104-v140: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage, robustness hardening, exception debug logging, Goose env test coverage, defensive CI response handling, frontend form validation, network error handling, constant extraction, GitHub PR validation, truncation safety; 3031 -> 3456 passing tests (backend), 153 -> 178 tests (frontend)
+  v104-v146: Dead code cleanup, server routing, E2E draft PR, Celery helpers, health checks, ty in CI, Claude CLI emitter hardening, Hand World factory theme, input validation, DRY validators, assert→RuntimeError guards, debug logging, MCP validation, tool summarization expansion, git operation hardening, type safety, timeout bounds, boilerplate line test coverage, robustness hardening, exception debug logging, Goose env test coverage, defensive CI response handling, frontend form validation, network error handling, constant extraction, GitHub PR validation, truncation safety, commit message quality; 3031 -> 3542 passing tests (backend), 153 -> 178 tests (frontend)
 - [2026-03-07 Week 10](exec-plans/completed/2026/Week-10.md) --
   v0-v103: Docs infrastructure, 28 design docs, massive validation test suite, provider tests, Config edge cases, Playwright e2e tests, exec-plan workflow; 0 -> 3031 tests
 - [2026-03-02 Week 9](exec-plans/completed/2026/Week-9.md) --

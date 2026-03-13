@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.hands.v1.hand.pr_description import (
+    _COMMIT_MSG_DIFF_LIMIT,
+    _COMMIT_MSG_TIMEOUT,
     _COMMIT_SUMMARY_TRUNCATION_LENGTH,
     _COMMIT_TYPE_KEYWORDS,
     _MIN_COMMIT_MSG_LENGTH,
@@ -1509,3 +1511,108 @@ class TestCommitMessageFromPromptTypeInference:
     def test_perf_prompt_gets_perf_prefix(self) -> None:
         result = _commit_message_from_prompt("optimize database queries", "")
         assert result.startswith("perf: ")
+
+
+# ---------------------------------------------------------------------------
+# _COMMIT_MSG_DIFF_LIMIT and _COMMIT_MSG_TIMEOUT constants (v147)
+# ---------------------------------------------------------------------------
+
+
+class TestCommitMsgConstants:
+    """Tests for commit message generation constant values and types."""
+
+    def test_commit_msg_diff_limit_is_positive_int(self) -> None:
+        assert isinstance(_COMMIT_MSG_DIFF_LIMIT, int)
+        assert _COMMIT_MSG_DIFF_LIMIT > 0
+
+    def test_commit_msg_diff_limit_value(self) -> None:
+        assert _COMMIT_MSG_DIFF_LIMIT == 8_000
+
+    def test_commit_msg_timeout_is_positive_float(self) -> None:
+        assert isinstance(_COMMIT_MSG_TIMEOUT, float)
+        assert _COMMIT_MSG_TIMEOUT > 0
+
+    def test_commit_msg_timeout_value(self) -> None:
+        assert _COMMIT_MSG_TIMEOUT == 30.0
+
+    def test_commit_msg_diff_limit_has_docstring(self) -> None:
+        """Verify the constant has a module-level docstring annotation."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod)
+        assert '_COMMIT_MSG_DIFF_LIMIT = 8_000\n"""' in src
+
+    def test_commit_msg_timeout_has_docstring(self) -> None:
+        """Verify the constant has a module-level docstring annotation."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod)
+        assert '_COMMIT_MSG_TIMEOUT = 30.0\n"""' in src
+
+
+# ---------------------------------------------------------------------------
+# cli_label dead code removal (v147)
+# ---------------------------------------------------------------------------
+
+
+class TestCliLabelSimplification:
+    """Verify cli_label uses cmd[0] directly (dead fallback removed)."""
+
+    def test_generate_pr_description_uses_cmd_zero(self, tmp_path: Path) -> None:
+        """generate_pr_description uses cmd[0] as cli_label."""
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "error"
+        mock_result.stdout = ""
+
+        with (
+            patch("subprocess.run", return_value=mock_result),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description._is_disabled",
+                return_value=False,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description._get_diff",
+                return_value="diff content",
+            ),
+        ):
+            result = generate_pr_description(
+                cmd=["my-cli", "-p"],
+                repo_dir=tmp_path,
+                base_branch="main",
+                backend="test",
+                prompt="task",
+                summary="summary",
+            )
+            assert result is None  # fails due to returncode=1
+
+    def test_generate_commit_message_uses_cmd_zero(self, tmp_path: Path) -> None:
+        """generate_commit_message uses cmd[0] as cli_label."""
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "error"
+        mock_result.stdout = ""
+
+        with (
+            patch("subprocess.run", return_value=mock_result),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description._is_disabled",
+                return_value=False,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description._get_uncommitted_diff",
+                return_value="diff content",
+            ),
+        ):
+            result = generate_commit_message(
+                cmd=["my-cli", "-p"],
+                repo_dir=tmp_path,
+                backend="test",
+                prompt="task",
+                summary="summary",
+            )
+            assert result is None  # fails due to returncode=1

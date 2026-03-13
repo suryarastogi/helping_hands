@@ -138,6 +138,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--github-token",
+        default=None,
+        help=(
+            "GitHub token for this task (overrides GITHUB_TOKEN / GH_TOKEN). "
+            "Useful when a task requires different permissions."
+        ),
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -183,6 +191,7 @@ def main(argv: list[str] | None = None) -> None:
                 "use_native_cli_auth": args.use_native_cli_auth,
                 "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
+                "github_token": args.github_token,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -215,6 +224,7 @@ def main(argv: list[str] | None = None) -> None:
             "use_native_cli_auth": args.use_native_cli_auth,
             "enabled_tools": selected_tools,
             "enabled_skills": selected_skills,
+            "github_token": args.github_token,
         }
     )
     repo_index = RepoIndex.from_path(Path(config.repo))

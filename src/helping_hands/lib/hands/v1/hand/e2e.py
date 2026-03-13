@@ -112,7 +112,8 @@ class E2EHand(Hand):
         e2e_file = _E2E_MARKER_FILE
         e2e_path = repo_dir / e2e_file
 
-        with GitHubClient() as gh:
+        gh_token = getattr(self.config, "github_token", "")
+        with GitHubClient(token=gh_token) as gh:
             pr_url = ""
             resumed_pr = False
             pr_info: dict[str, Any] | None = None

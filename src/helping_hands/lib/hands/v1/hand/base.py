@@ -652,7 +652,8 @@ class Hand(abc.ABC):
         from helping_hands.lib.github import GitHubClient
 
         try:
-            with GitHubClient() as gh:
+            gh_token = getattr(self.config, "github_token", "")
+            with GitHubClient(token=gh_token) as gh:
                 git_name = os.environ.get(
                     "HELPING_HANDS_GIT_USER_NAME", _DEFAULT_GIT_USER_NAME
                 )

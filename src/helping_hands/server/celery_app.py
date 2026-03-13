@@ -413,6 +413,7 @@ def build_feature(
     skills: list[str] | None = None,
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
+    github_token: str | None = None,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -489,6 +490,7 @@ def build_feature(
                 "use_native_cli_auth": use_native_cli_auth,
                 "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
+                "github_token": github_token,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -553,6 +555,7 @@ def build_feature(
         overrides["use_native_cli_auth"] = use_native_cli_auth
         overrides["enabled_tools"] = selected_tools
         overrides["enabled_skills"] = selected_skills
+        overrides["github_token"] = github_token
         config = Config.from_env(overrides=overrides)
         repo_index = RepoIndex.from_path(Path(config.repo))
 

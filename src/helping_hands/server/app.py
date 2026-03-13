@@ -137,6 +137,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     pr_number: int | None = None
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
+    github_token: str | None = Field(default=None, max_length=500)
 
 
 BackendName = Literal[
@@ -226,6 +227,7 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
+    github_token: str | None = Field(default=None, max_length=500)
     enabled: bool = True
 
 
@@ -247,6 +249,7 @@ class ScheduleResponse(BaseModel):
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = 3.0
+    github_token: str | None = None
     tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
@@ -2402,6 +2405,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         skills=req.skills,
         fix_ci=req.fix_ci,
         ci_check_wait_minutes=req.ci_check_wait_minutes,
+        github_token=req.github_token,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -3250,6 +3254,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         use_native_cli_auth=task.use_native_cli_auth,
         fix_ci=getattr(task, "fix_ci", False),
         ci_check_wait_minutes=getattr(task, "ci_check_wait_minutes", 3.0),
+        github_token=getattr(task, "github_token", None),
         tools=getattr(task, "tools", []),
         skills=task.skills,
         enabled=task.enabled,
@@ -3305,6 +3310,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         use_native_cli_auth=request.use_native_cli_auth,
         fix_ci=request.fix_ci,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
+        github_token=request.github_token,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,
@@ -3355,6 +3361,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         use_native_cli_auth=request.use_native_cli_auth,
         fix_ci=request.fix_ci,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
+        github_token=request.github_token,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,

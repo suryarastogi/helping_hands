@@ -73,6 +73,7 @@ class ScheduledTask:
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = 3.0
+    github_token: str | None = None
     tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     enabled: bool = True
@@ -103,6 +104,7 @@ class ScheduledTask:
             "use_native_cli_auth": self.use_native_cli_auth,
             "fix_ci": self.fix_ci,
             "ci_check_wait_minutes": self.ci_check_wait_minutes,
+            "github_token": self.github_token,
             "tools": self.tools,
             "skills": self.skills,
             "enabled": self.enabled,
@@ -147,6 +149,7 @@ class ScheduledTask:
             use_native_cli_auth=data.get("use_native_cli_auth", False),
             fix_ci=data.get("fix_ci", False),
             ci_check_wait_minutes=data.get("ci_check_wait_minutes", 3.0),
+            github_token=data.get("github_token"),
             tools=data.get("tools", []),
             skills=data.get("skills", []),
             enabled=data.get("enabled", True),
@@ -571,6 +574,7 @@ class ScheduleManager:
             skills=task.skills,
             fix_ci=task.fix_ci,
             ci_check_wait_minutes=task.ci_check_wait_minutes,
+            github_token=task.github_token,
         )
 
         self.record_run(schedule_id, result.id)

@@ -18,6 +18,7 @@ from helping_hands.cli.main import (
     build_parser,
     main,
 )
+from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand import HandResponse
 
@@ -916,3 +917,84 @@ class TestPackageVersion:
         assert hasattr(helping_hands, "__version__")
         assert isinstance(helping_hands.__version__, str)
         assert len(helping_hands.__version__) > 0
+
+
+# ---------------------------------------------------------------------------
+# --github-token CLI arg (v147)
+# ---------------------------------------------------------------------------
+
+
+class TestGitHubTokenArg:
+    """Tests for the --github-token CLI argument."""
+
+    def test_parser_accepts_github_token(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["/tmp/repo", "--github-token", "ghp_test123"])
+        assert args.github_token == "ghp_test123"
+
+    def test_parser_default_github_token_is_none(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["/tmp/repo"])
+        assert args.github_token is None
+
+    def test_github_token_wired_to_config_e2e(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--github-token flows into Config.from_env overrides for --e2e."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_default")
+        overrides_seen: list = []
+
+        _original_from_env = Config.from_env.__func__
+
+        def capture_config(cls, *args, **kwargs):
+            overrides_seen.append(kwargs.get("overrides", {}))
+            return _original_from_env(cls, *args, **kwargs)
+
+        with (
+            patch.object(Config, "from_env", classmethod(capture_config)),
+            patch("helping_hands.cli.main.E2EHand") as mock_hand_cls,
+        ):
+            mock_hand = MagicMock()
+            mock_hand.run.return_value = HandResponse(
+                message="ok",
+                metadata={"hand_uuid": "abc", "workspace": "/tmp", "pr_url": ""},
+            )
+            mock_hand_cls.return_value = mock_hand
+
+            main(["owner/repo", "--e2e", "--github-token", "ghp_custom"])
+            assert len(overrides_seen) > 0
+            assert overrides_seen[0].get("github_token") == "ghp_custom"
+
+    def test_github_token_wired_to_config_backend(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--github-token flows into Config.from_env overrides for --backend."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_default")
+        overrides_seen: list = []
+
+        _original_from_env = Config.from_env.__func__
+
+        def capture_config(cls, *args, **kwargs):
+            overrides_seen.append(kwargs.get("overrides", {}))
+            return _original_from_env(cls, *args, **kwargs)
+
+        with (
+            patch.object(Config, "from_env", classmethod(capture_config)),
+            patch("helping_hands.cli.main.RepoIndex") as mock_ri,
+            patch("helping_hands.cli.main.ClaudeCodeHand") as mock_hand_cls,
+            patch("helping_hands.cli.main.asyncio.run"),
+        ):
+            mock_ri.from_path.return_value = MagicMock(root=tmp_path, files=[])
+            mock_hand_cls.return_value = MagicMock()
+
+            main(
+                [
+                    str(tmp_path),
+                    "--backend",
+                    "claudecodecli",
+                    "--github-token",
+                    "ghp_task",
+                ]
+            )
+            assert len(overrides_seen) > 0
+            assert overrides_seen[0].get("github_token") == "ghp_task"

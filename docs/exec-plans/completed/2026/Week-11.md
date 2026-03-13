@@ -1,6 +1,6 @@
 # Week 11 (Mar 10 – Mar 12, 2026)
 
-Hardening and code quality week. DRY extraction, assert cleanup, input validation, defensive guards, debug logging, test isolation fixes, git operation hardening, type safety, boilerplate line coverage, web helper test coverage, frontend form validation, network error handling, constant extraction. Grew from 3031 to 3494 backend tests, 153 to 178 frontend tests.
+Hardening and code quality week. DRY extraction, assert cleanup, input validation, defensive guards, debug logging, test isolation fixes, git operation hardening, type safety, boilerplate line coverage, web helper test coverage, frontend form validation, network error handling, constant extraction, commit message quality. Grew from 3031 to 3542 backend tests, 153 to 178 frontend tests.
 
 ---
 
@@ -114,7 +114,7 @@ Extracted keychain constants (`_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials
 
 ## Mar 12 (cont.) — Commit message quality: truncation indicators and smart type inference (v146)
 
-Added `_truncate_text()` helper to `pr_description.py` that appends `...[truncated]` indicator when prompt/summary context is cut off, replacing silent truncation in `_build_prompt()` and `_build_commit_message_prompt()` — this gives the AI model explicit awareness that context was truncated instead of receiving an incomplete mid-sentence input. Added `_infer_commit_type()` with `_COMMIT_TYPE_KEYWORDS` dictionary mapping commit types to keyword tuples (fix/refactor/docs/test/ci/style/perf/chore), using word-boundary matching for single-word keywords (avoids false positives like "ci" matching "dependencies") and word-start matching for longer keywords (allows inflected forms like "tests", "refactored", "linter"). Replaced hardcoded `"feat:"` prefix in `_commit_message_from_prompt()` with inferred type, so "fix the crash" now correctly generates `fix:` instead of `feat:`. Updated 7 existing tests for new behavior. **3542 passing tests (+48 new), 80 skipped.**
+Added `_truncate_text()` helper to `pr_description.py` that appends `...[truncated]` indicator when prompt/summary context is cut off, replacing silent truncation in `_build_prompt()` and `_build_commit_message_prompt()`. Added `_infer_commit_type()` with `_COMMIT_TYPE_KEYWORDS` dictionary mapping commit types to keyword tuples, using word-boundary matching for single-word keywords and word-start matching for longer keywords. Replaced hardcoded `"feat:"` prefix in `_commit_message_from_prompt()` with inferred type. **3542 passing tests (+48 new), 80 skipped.**
 
 ---
 
