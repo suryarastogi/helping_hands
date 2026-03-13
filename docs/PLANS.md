@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v155](exec-plans/completed/2026-03-13.md) --
+  Input validation and defensive coding: `read_text_file()` `max_file_size` positive validation, Google provider `_complete_impl()` KeyError defense, `_get_diff()` fallback test coverage; 3700 tests (14 new)
+
 - [2026-03-13 v154](exec-plans/completed/2026-03-13.md) --
   Git subprocess timeouts for `pr_description.py` diff/add calls, `cli/main.py` and `celery_app.py` clone calls, `read_text_file()` `max_chars` positive validation; 3687 tests (21 new)
 

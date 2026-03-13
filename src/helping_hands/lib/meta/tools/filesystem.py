@@ -56,6 +56,8 @@ def read_text_file(
         max_file_size: Maximum file size in bytes (default 10 MB).
             Files exceeding this limit raise ``ValueError``.
     """
+    if max_file_size <= 0:
+        raise ValueError(f"max_file_size must be positive, got {max_file_size}")
     if max_chars is not None and max_chars <= 0:
         raise ValueError(f"max_chars must be positive, got {max_chars}")
 
