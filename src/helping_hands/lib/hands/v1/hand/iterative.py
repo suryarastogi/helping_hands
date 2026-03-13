@@ -462,8 +462,9 @@ class _BasicIterativeHand(Hand):
     def _build_tree_snapshot(self) -> str:
         entries: set[str] = set()
         for rel_path in sorted(self.repo_index.files):
-            normalized = system_tools.normalize_relative_path(rel_path)
-            if not normalized:
+            try:
+                normalized = system_tools.normalize_relative_path(rel_path)
+            except ValueError:
                 continue
             parts = [part for part in normalized.split("/") if part]
             if not parts:

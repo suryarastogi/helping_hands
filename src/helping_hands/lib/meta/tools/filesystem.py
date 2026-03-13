@@ -23,6 +23,8 @@ def normalize_relative_path(rel_path: str) -> str:
     """Normalize a repo-relative path to a safe forward-slash form."""
     if not isinstance(rel_path, str):
         raise TypeError("rel_path must be a string")
+    if not rel_path.strip():
+        raise ValueError("rel_path must be non-empty")
     normalized = rel_path.strip().replace("\\", "/")
     if normalized.startswith("./"):
         normalized = normalized[2:]

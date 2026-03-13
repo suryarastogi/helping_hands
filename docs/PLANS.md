@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v158](exec-plans/completed/2026-03-13.md) --
+  Add `__all__` to web.py/repo.py/default_prompts.py/task_result.py, extract `_DUCKDUCKGO_API_URL` in web.py, `normalize_relative_path` empty-string validation; 3772 tests (29 new)
+
 - [2026-03-13 v157](exec-plans/completed/2026-03-13.md) --
   Add `__all__` exports to types.py, github.py, filesystem.py, command.py; enhance `normalize_messages()` docstring to Google-style with Args/Returns/Raises; 3743 tests (27 new)
 
