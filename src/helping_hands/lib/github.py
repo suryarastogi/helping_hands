@@ -171,6 +171,7 @@ class GitHubClient:
         Returns:
             Path to the cloned repository.
         """
+        _validate_full_name(full_name)
         dest = Path(dest)
         if depth is not None and depth <= 0:
             raise ValueError(f"depth must be positive, got {depth}")

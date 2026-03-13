@@ -65,6 +65,9 @@ _LOG_TRUNCATION_LENGTH = 200
 _GIT_READ_TIMEOUT_S = 30
 """Seconds timeout for lightweight git read subprocesses (e.g. status, remote)."""
 
+_PRECOMMIT_TIMEOUT_S = 300
+"""Seconds timeout for ``uv run pre-commit run --all-files`` subprocesses."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -213,14 +216,28 @@ class Hand(abc.ABC):
     def _configure_authenticated_push_remote(
         repo_dir: Path, repo: str, token: str
     ) -> None:
+        if not repo or not repo.strip():
+            raise ValueError("repo must not be empty")
+        if not token or not token.strip():
+            raise ValueError("token must not be empty")
         push_url = f"https://x-access-token:{token}@github.com/{repo}.git"
-        result = subprocess.run(
-            ["git", "remote", "set-url", "--push", "origin", push_url],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["git", "remote", "set-url", "--push", "origin", push_url],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "git remote set-url timed out after %ds",
+                _GIT_READ_TIMEOUT_S,
+            )
+            raise RuntimeError(
+                f"git remote set-url timed out after {_GIT_READ_TIMEOUT_S}s"
+            ) from None
         if result.returncode != 0:
             stderr = result.stderr.strip() or "unknown git error"
             msg = f"failed to configure authenticated push remote: {stderr}"
@@ -312,6 +329,7 @@ class Hand(abc.ABC):
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=_PRECOMMIT_TIMEOUT_S,
             )
 
         try:

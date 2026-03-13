@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-13 v153](exec-plans/completed/2026-03-13.md) --
+  Subprocess timeouts for `_configure_authenticated_push_remote()` and `_run_precommit_checks_and_fixes()`, input validation for `_configure_authenticated_push_remote()` repo/token params and `GitHubClient.clone()` full_name; 3666 tests (16 new)
+
+
 - [2026-03-13 v152](exec-plans/completed/2026-03-13.md) --
   Remove 7 stale `ty: ignore` comments causing CI `unused-ignore-comment` warnings (model_provider.py, celery_app.py, schedules.py); 3649 tests (5 new regression guards)
 

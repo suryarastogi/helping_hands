@@ -158,6 +158,24 @@ class TestClone:
         with pytest.raises(ValueError, match="depth must be positive"):
             client.clone("owner/repo", tmp_path / "repo", depth=-5)
 
+    def test_clone_rejects_empty_full_name(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="full_name must not be empty"):
+            client.clone("", tmp_path / "repo")
+
+    def test_clone_rejects_whitespace_full_name(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="full_name must not be empty"):
+            client.clone("   ", tmp_path / "repo")
+
+    def test_clone_rejects_no_slash_full_name(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            client.clone("justrepo", tmp_path / "repo")
+
 
 # ---------------------------------------------------------------------------
 # Branch operations
