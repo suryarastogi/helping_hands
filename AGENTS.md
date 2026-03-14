@@ -9,8 +9,8 @@
 | LangGraphHand | LangChain / LangGraph | Implemented | Full agent loop with tool use |
 | AtomicHand | atomic-agents | Implemented | Structured output agent |
 | ClaudeCodeHand | Claude Code CLI | Implemented | Subprocess CLI agent |
-| CodexCLIHand | Codex CLI | Scaffold | Subprocess CLI agent |
-| GeminiCLIHand | Gemini CLI | Scaffold | Subprocess CLI agent |
+| CodexCLIHand | Codex CLI | Implemented | Subprocess CLI agent |
+| GeminiCLIHand | Gemini CLI | Implemented | Subprocess CLI agent |
 | E2EHand | CI test runner | Active | End-to-end validation |
 
 ## Backend selection

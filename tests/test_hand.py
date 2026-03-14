@@ -337,53 +337,201 @@ class TestClaudeCodeHand:
 
 
 # ---------------------------------------------------------------------------
-# CodexCLIHand (scaffolding)
+# CodexCLIHand (subprocess)
 # ---------------------------------------------------------------------------
 
 
 class TestCodexCLIHand:
-    def test_run_returns_placeholder(
-        self, config: Config, repo_index: RepoIndex
+    def test_build_command(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CODEX_CLI_CMD", raising=False)
         hand = CodexCLIHand(config, repo_index)
-        resp = hand.run("do something")
-        assert "not yet implemented" in resp.message
-        assert resp.metadata["backend"] == "codexcli"
+        cmd = hand._build_command("hello world")
+        assert cmd == ["codex", "--quiet", "hello world"]
 
-    def test_stream_yields_placeholder(
-        self, config: Config, repo_index: RepoIndex
+    def test_custom_cli_cmd(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_CLI_CMD", "my-codex")
         hand = CodexCLIHand(config, repo_index)
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
+        assert hand._cmd == "my-codex"
+        cmd = hand._build_command("test")
+        assert cmd[0] == "my-codex"
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_success(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["codex", "--quiet", "hello"],
+            returncode=0,
+            stdout="Codex response here",
+            stderr="",
         )
-        assert len(chunks) == 1
-        assert "not yet implemented" in chunks[0]
+        hand = CodexCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert resp.message == "Codex response here"
+        assert resp.metadata["backend"] == "codexcli"
+        mock_run.assert_called_once()
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs["cwd"] == str(repo_index.root)
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_nonzero_exit(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["codex", "--quiet", "hello"],
+            returncode=1,
+            stdout="",
+            stderr="error: codex failed",
+        )
+        hand = CodexCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert "codex failed" in resp.message
+        assert resp.metadata["returncode"] == 1
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_cli_not_found(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.side_effect = FileNotFoundError()
+        hand = CodexCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert "not found" in resp.message.lower()
+        assert resp.metadata["error"] == "cli_not_found"
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_timeout(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="codex", timeout=300)
+        hand = CodexCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert "timed out" in resp.message.lower()
+        assert resp.metadata["error"] == "timeout"
 
 
 # ---------------------------------------------------------------------------
-# GeminiCLIHand (scaffolding)
+# GeminiCLIHand (subprocess)
 # ---------------------------------------------------------------------------
 
 
 class TestGeminiCLIHand:
-    def test_run_returns_placeholder(
-        self, config: Config, repo_index: RepoIndex
+    def test_build_command(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_GEMINI_CLI_CMD", raising=False)
         hand = GeminiCLIHand(config, repo_index)
-        resp = hand.run("do something")
-        assert "not yet implemented" in resp.message
-        assert resp.metadata["backend"] == "geminicli"
+        cmd = hand._build_command("hello world")
+        assert cmd == ["gemini", "--prompt", "hello world"]
 
-    def test_stream_yields_placeholder(
-        self, config: Config, repo_index: RepoIndex
+    def test_custom_cli_cmd(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GEMINI_CLI_CMD", "my-gemini")
         hand = GeminiCLIHand(config, repo_index)
-        chunks = asyncio.get_event_loop().run_until_complete(
-            _collect_stream(hand, "hello")
+        assert hand._cmd == "my-gemini"
+        cmd = hand._build_command("test")
+        assert cmd[0] == "my-gemini"
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_success(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["gemini", "--prompt", "hello"],
+            returncode=0,
+            stdout="Gemini response here",
+            stderr="",
         )
-        assert len(chunks) == 1
-        assert "not yet implemented" in chunks[0]
+        hand = GeminiCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert resp.message == "Gemini response here"
+        assert resp.metadata["backend"] == "geminicli"
+        mock_run.assert_called_once()
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs["cwd"] == str(repo_index.root)
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_nonzero_exit(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["gemini", "--prompt", "hello"],
+            returncode=1,
+            stdout="",
+            stderr="error: gemini failed",
+        )
+        hand = GeminiCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert "gemini failed" in resp.message
+        assert resp.metadata["returncode"] == 1
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_cli_not_found(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.side_effect = FileNotFoundError()
+        hand = GeminiCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert "not found" in resp.message.lower()
+        assert resp.metadata["error"] == "cli_not_found"
+
+    @patch("helping_hands.lib.hands.v1.hand.subprocess.run")
+    def test_run_timeout(
+        self,
+        mock_run: MagicMock,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="gemini", timeout=300)
+        hand = GeminiCLIHand(config, repo_index)
+        resp = hand.run("hello")
+
+        assert "timed out" in resp.message.lower()
+        assert resp.metadata["error"] == "timeout"
 
 
 # ---------------------------------------------------------------------------

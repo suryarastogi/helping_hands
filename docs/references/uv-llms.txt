@@ -1,0 +1,27 @@
+# uv Reference for LLMs
+#
+# uv is the Python package manager used by this project.
+# Docs: https://docs.astral.sh/uv/
+
+## Common commands
+uv sync              # Install all dependencies from lockfile
+uv sync --dev        # Include dev dependencies
+uv add <pkg>         # Add a production dependency
+uv add --dev <pkg>   # Add a dev dependency
+uv run <cmd>         # Run command in the project venv
+uv run pytest -v     # Run tests
+uv lock              # Regenerate lockfile without installing
+
+## Project layout
+- pyproject.toml     # Project metadata + dependency groups
+- uv.lock            # Lockfile (committed to git)
+- .venv/             # Local virtualenv (not committed)
+
+## Dependency groups in this project
+- [project.dependencies]           # Core runtime deps
+- [project.optional-dependencies]
+  - dev: pytest, ruff, pre-commit, PyGithub, mcp[cli]
+  - server: fastapi, uvicorn, celery[redis], flower, psycopg2-binary
+  - langchain: langchain-openai, langgraph
+  - atomic: atomic-agents, instructor, openai
+  - docs: mkdocs-material, mkdocstrings[python]

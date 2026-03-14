@@ -129,4 +129,4 @@ When making updates:
 
 ---
 
-*Last updated: 2026-02-22 — dotenv config loading + CLI hand scaffolds (Claude/Codex/Gemini), python-dotenv dependency.*
+*Last updated: 2026-03-14 — All CLI hands (Claude/Codex/Gemini) fully implemented with subprocess execution, backend routing factory, docs structure per template.*

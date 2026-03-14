@@ -47,8 +47,8 @@ High-level view of helping_hands. For working-on-the-code guidance, see
 | `LangGraphHand` | Creates a LangChain ReAct agent via `create_react_agent` |
 | `AtomicHand` | Uses atomic-agents with instructor for structured output |
 | `ClaudeCodeHand` | Runs Claude Code CLI as subprocess, captures stdout |
-| `CodexCLIHand` | Scaffold — will run Codex CLI as subprocess |
-| `GeminiCLIHand` | Scaffold — will run Gemini CLI as subprocess |
+| `CodexCLIHand` | Runs Codex CLI as subprocess, captures stdout |
+| `GeminiCLIHand` | Runs Gemini CLI as subprocess, captures stdout |
 
 Backend selection is via `Config.backend` field (CLI `--backend` flag or
 `HELPING_HANDS_BACKEND` env var).

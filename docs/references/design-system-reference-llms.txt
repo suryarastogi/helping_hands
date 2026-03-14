@@ -1,0 +1,21 @@
+# Design System Reference for LLMs
+#
+# This file contains pointers to design patterns, component libraries,
+# and style guidelines used by the helping_hands project.
+#
+# Purpose: Give LLM agents context about UI/UX conventions when
+# generating or reviewing frontend code.
+
+## Colour palette
+- Primary: system defaults (CLI mode — no custom colours yet)
+- Terminal output: plain text, no ANSI colour codes by default
+
+## Component patterns
+- CLI: argparse-based, single entry point per mode
+- Server: FastAPI routers, standard REST patterns
+- MCP: Model Context Protocol tools/resources
+
+## Typography / formatting
+- Docstrings: Google-style
+- Markdown: GitHub-flavoured
+- Code: ruff-formatted, 88-char line length

@@ -1,0 +1,28 @@
+# Nixpacks Reference for LLMs
+#
+# Nixpacks auto-detects and builds Docker images for apps.
+# Docs: https://nixpacks.com/docs
+#
+# This project uses a custom Dockerfile rather than Nixpacks for
+# production builds, but Nixpacks can be used for quick deployments
+# on platforms like Railway.
+
+## Detection
+Nixpacks detects Python projects via:
+- pyproject.toml (preferred)
+- requirements.txt
+- Pipfile
+
+## Build phases (Python)
+1. Setup: installs Python + system deps
+2. Install: pip install / uv install
+3. Build: (none for pure Python)
+4. Start: detected from pyproject.toml scripts or Procfile
+
+## Environment variables
+NIXPACKS_PYTHON_VERSION=3.13   # Pin Python version
+NIXPACKS_NO_CACHE=1            # Disable layer caching
+
+## Usage with this project
+nixpacks build . --name helping-hands
+# Or let the platform (Railway, etc.) auto-detect

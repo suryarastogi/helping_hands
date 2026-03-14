@@ -293,55 +293,213 @@ class ClaudeCodeHand(Hand):
 
 
 # ---------------------------------------------------------------------------
-# Codex CLI backend (scaffolding)
+# Codex CLI backend
 # ---------------------------------------------------------------------------
+
+_DEFAULT_CODEX_CMD = "codex"
 
 
 class CodexCLIHand(Hand):
-    """Hand backed by Codex CLI via a terminal/bash invocation.
+    """Hand backed by Codex CLI via a subprocess invocation.
 
-    This backend would run the Codex CLI as a subprocess with repo context
-    and the user prompt, then capture stdout/stderr. Not yet implemented;
-    this class is scaffolding for future integration.
+    Runs the Codex CLI as a subprocess, passing the user prompt via
+    the ``--quiet`` flag for non-interactive use. The working directory is
+    set to the repo root so Codex picks up repo context.
+
+    The CLI command is configurable via ``HELPING_HANDS_CODEX_CLI_CMD``
+    (default: ``codex``).
     """
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         super().__init__(config, repo_index)
+        self._cmd = os.environ.get("HELPING_HANDS_CODEX_CLI_CMD", _DEFAULT_CODEX_CMD)
+        self._timeout = int(
+            os.environ.get("HELPING_HANDS_CODEX_TIMEOUT", str(_DEFAULT_TIMEOUT))
+        )
+
+    def _build_command(self, prompt: str) -> list[str]:
+        """Build the CLI command list for a given prompt."""
+        return [self._cmd, "--quiet", prompt]
 
     def run(self, prompt: str) -> HandResponse:
+        """Run Codex CLI and return the complete response."""
+        cmd = self._build_command(prompt)
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.repo_index.root),
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                check=False,
+            )
+        except FileNotFoundError:
+            msg = (
+                f"Codex CLI not found: {self._cmd!r}. "
+                "Install it or set HELPING_HANDS_CODEX_CLI_CMD."
+            )
+            return HandResponse(
+                message=msg,
+                metadata={"backend": "codexcli", "error": "cli_not_found"},
+            )
+        except subprocess.TimeoutExpired:
+            return HandResponse(
+                message=f"Codex CLI timed out after {self._timeout}s.",
+                metadata={"backend": "codexcli", "error": "timeout"},
+            )
+
+        if result.returncode != 0:
+            logger.warning(
+                "Codex CLI exited %d: %s", result.returncode, result.stderr.strip()
+            )
+            err_msg = (
+                result.stderr.strip()
+                or f"Codex CLI exited with code {result.returncode}."
+            )
+            return HandResponse(
+                message=err_msg,
+                metadata={
+                    "backend": "codexcli",
+                    "model": self.config.model,
+                    "returncode": result.returncode,
+                },
+            )
+
         return HandResponse(
-            message="CodexCLI hand not yet implemented.",
+            message=result.stdout,
             metadata={"backend": "codexcli", "model": self.config.model},
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
-        yield "CodexCLI hand not yet implemented."
+        """Run Codex CLI and yield output lines as they arrive."""
+        cmd = self._build_command(prompt)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(self.repo_index.root),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            yield (
+                f"Codex CLI not found: {self._cmd!r}. "
+                "Install it or set HELPING_HANDS_CODEX_CLI_CMD."
+            )
+            return
+
+        assert proc.stdout is not None
+        while True:
+            line = await proc.stdout.readline()
+            if not line:
+                break
+            yield line.decode("utf-8", errors="replace")
+
+        await proc.wait()
 
 
 # ---------------------------------------------------------------------------
-# Gemini CLI backend (scaffolding)
+# Gemini CLI backend
 # ---------------------------------------------------------------------------
+
+_DEFAULT_GEMINI_CMD = "gemini"
 
 
 class GeminiCLIHand(Hand):
-    """Hand backed by Gemini CLI via a terminal/bash invocation.
+    """Hand backed by Gemini CLI via a subprocess invocation.
 
-    This backend would run the Gemini CLI as a subprocess with repo context
-    and the user prompt, then capture stdout/stderr. Not yet implemented;
-    this class is scaffolding for future integration.
+    Runs the Gemini CLI as a subprocess, passing the user prompt via
+    the ``--prompt`` flag for non-interactive use. The working directory is
+    set to the repo root so Gemini picks up repo context.
+
+    The CLI command is configurable via ``HELPING_HANDS_GEMINI_CLI_CMD``
+    (default: ``gemini``).
     """
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         super().__init__(config, repo_index)
+        self._cmd = os.environ.get("HELPING_HANDS_GEMINI_CLI_CMD", _DEFAULT_GEMINI_CMD)
+        self._timeout = int(
+            os.environ.get("HELPING_HANDS_GEMINI_TIMEOUT", str(_DEFAULT_TIMEOUT))
+        )
+
+    def _build_command(self, prompt: str) -> list[str]:
+        """Build the CLI command list for a given prompt."""
+        return [self._cmd, "--prompt", prompt]
 
     def run(self, prompt: str) -> HandResponse:
+        """Run Gemini CLI and return the complete response."""
+        cmd = self._build_command(prompt)
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.repo_index.root),
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                check=False,
+            )
+        except FileNotFoundError:
+            msg = (
+                f"Gemini CLI not found: {self._cmd!r}. "
+                "Install it or set HELPING_HANDS_GEMINI_CLI_CMD."
+            )
+            return HandResponse(
+                message=msg,
+                metadata={"backend": "geminicli", "error": "cli_not_found"},
+            )
+        except subprocess.TimeoutExpired:
+            return HandResponse(
+                message=f"Gemini CLI timed out after {self._timeout}s.",
+                metadata={"backend": "geminicli", "error": "timeout"},
+            )
+
+        if result.returncode != 0:
+            logger.warning(
+                "Gemini CLI exited %d: %s", result.returncode, result.stderr.strip()
+            )
+            err_msg = (
+                result.stderr.strip()
+                or f"Gemini CLI exited with code {result.returncode}."
+            )
+            return HandResponse(
+                message=err_msg,
+                metadata={
+                    "backend": "geminicli",
+                    "model": self.config.model,
+                    "returncode": result.returncode,
+                },
+            )
+
         return HandResponse(
-            message="GeminiCLI hand not yet implemented.",
+            message=result.stdout,
             metadata={"backend": "geminicli", "model": self.config.model},
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
-        yield "GeminiCLI hand not yet implemented."
+        """Run Gemini CLI and yield output lines as they arrive."""
+        cmd = self._build_command(prompt)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(self.repo_index.root),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            yield (
+                f"Gemini CLI not found: {self._cmd!r}. "
+                "Install it or set HELPING_HANDS_GEMINI_CLI_CMD."
+            )
+            return
+
+        assert proc.stdout is not None
+        while True:
+            line = await proc.stdout.readline()
+            if not line:
+                break
+            yield line.decode("utf-8", errors="replace")
+
+        await proc.wait()
 
 
 # ---------------------------------------------------------------------------
