@@ -16,6 +16,7 @@ class TestMetaSkills:
             "execution",
             "prd",
             "ralph",
+            "review",
             "web",
         )
 
