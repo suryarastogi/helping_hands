@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-14 v163](exec-plans/completed/2026-03-14.md) --
+  Add Google-style docstrings to 9 Hand base.py methods, extract 6 Claude CLI stream-json event type constants; 3902 tests (22 new)
+
+
 - [2026-03-14 v162](exec-plans/completed/2026-03-14.md) --
   Extract bootstrap doc constants (`_README_CANDIDATES`, `_AGENT_DOC_CANDIDATES`), DRY backend name class constants (`_BACKEND_NAME`), add Google-style docstrings to 8 key methods in iterative.py; 3880 tests (22 new)
 
