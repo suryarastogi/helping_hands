@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-14 v164](exec-plans/completed/2026-03-14.md) --
+  Close 10 uncovered lines: Hand base.py pr_number None guards (3 tests), pr_description.py multi-word keywords + second FileNotFoundError + empty-line skip (4 tests), claude.py empty model guard (1 test); 3910 tests (8 new)
+
 - [2026-03-14 v163](exec-plans/completed/2026-03-14.md) --
   Add Google-style docstrings to 9 Hand base.py methods, extract 6 Claude CLI stream-json event type constants; 3902 tests (22 new)
 

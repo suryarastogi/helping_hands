@@ -1239,3 +1239,70 @@ class TestPrecommitRunTimeout:
         ]
         with pytest.raises(subprocess.TimeoutExpired):
             Hand._run_precommit_checks_and_fixes(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# pr_number None guards — _push_to_existing_pr, _update_pr_description,
+# _create_pr_for_diverged_branch
+# ---------------------------------------------------------------------------
+
+
+class TestPrNumberNoneGuards:
+    """Verify that methods requiring pr_number raise ValueError when it is None."""
+
+    def test_push_to_existing_pr_raises_when_pr_number_none(
+        self, repo_index: RepoIndex
+    ) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        assert hand.pr_number is None
+
+        with pytest.raises(ValueError, match="pr_number must be set"):
+            hand._push_to_existing_pr(
+                gh=MagicMock(),
+                repo="owner/repo",
+                repo_dir=repo_index.root,
+                backend="test",
+                prompt="fix",
+                summary="done",
+                metadata={},
+            )
+
+    def test_update_pr_description_raises_when_pr_number_none(
+        self, repo_index: RepoIndex
+    ) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        assert hand.pr_number is None
+
+        with pytest.raises(ValueError, match="pr_number must be set"):
+            hand._update_pr_description(
+                gh=MagicMock(),
+                repo="owner/repo",
+                repo_dir=repo_index.root,
+                backend="test",
+                prompt="fix",
+                summary="done",
+                base_branch="main",
+                commit_sha="abc123",
+            )
+
+    def test_create_pr_for_diverged_branch_raises_when_pr_number_none(
+        self, repo_index: RepoIndex
+    ) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        assert hand.pr_number is None
+
+        with pytest.raises(ValueError, match="pr_number must be set"):
+            hand._create_pr_for_diverged_branch(
+                gh=MagicMock(),
+                repo="owner/repo",
+                repo_dir=repo_index.root,
+                backend="test",
+                prompt="fix",
+                summary="done",
+                pr_branch="feature-branch",
+                commit_sha="abc123",
+                metadata={},
+            )

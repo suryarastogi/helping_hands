@@ -637,6 +637,19 @@ class TestGetUncommittedDiff:
         mock_run.side_effect = FileNotFoundError("git not found")
         assert _get_uncommitted_diff(tmp_path) == ""
 
+    @patch("helping_hands.lib.hands.v1.hand.pr_description.subprocess.run")
+    def test_returns_empty_when_git_diff_cached_not_found(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        """git add succeeds but git diff --cached raises FileNotFoundError."""
+        mock_run.side_effect = [
+            # git add . — succeeds
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""),
+            # git diff --cached — git disappears
+            FileNotFoundError("git not found"),
+        ]
+        assert _get_uncommitted_diff(tmp_path) == ""
+
 
 # ---------------------------------------------------------------------------
 # _build_commit_message_prompt
@@ -813,6 +826,18 @@ class TestCommitMessageFromPrompt:
         result = _commit_message_from_prompt("add auth", summary)
         assert "added a new authentication endpoint" in result
         assert "execution context" not in result.lower()
+
+    def test_skips_empty_lines_between_boilerplate_and_content(self) -> None:
+        """Empty lines in summary are skipped during boilerplate extraction."""
+        summary = (
+            "[claudecodecli] isolation=workspace-write | auth=native-cli\n"
+            "\n"
+            "\n"
+            "Added a new endpoint for user profiles."
+        )
+        result = _commit_message_from_prompt("add profiles", summary)
+        assert "added a new endpoint" in result
+        assert "claudecodecli" not in result
 
     def test_falls_back_to_prompt_when_summary_is_all_boilerplate(self) -> None:
         summary = (
@@ -1382,6 +1407,14 @@ class TestInferCommitType:
     def test_dependencies_does_not_match_ci(self) -> None:
         """'dependencies' should not trigger 'ci' type."""
         assert _infer_commit_type("update dependencies") == "chore"
+
+    def test_multi_word_keyword_clean_up(self) -> None:
+        """Multi-word keyword 'clean up' triggers substring match branch."""
+        assert _infer_commit_type("clean up the module") == "refactor"
+
+    def test_multi_word_keyword_github_action(self) -> None:
+        """Multi-word keyword 'github action' triggers substring match branch."""
+        assert _infer_commit_type("add github action for deploy") == "ci"
 
     def test_keywords_dict_is_nonempty(self) -> None:
         assert len(_COMMIT_TYPE_KEYWORDS) > 0
