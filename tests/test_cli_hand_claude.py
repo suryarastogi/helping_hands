@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 
 import pytest
@@ -1280,3 +1281,149 @@ class TestInjectOutputFormatEdgeCases:
     def test_empty_cmd(self) -> None:
         result = ClaudeCodeHand._inject_output_format([], "stream-json")
         assert result == ["--output-format", "stream-json"]
+
+
+# ---------------------------------------------------------------------------
+# v164 — new tool summarizations: ToolSearch, AskUserQuestion,
+#         EnterPlanMode, ExitPlanMode, TaskOutput, TaskStop
+# ---------------------------------------------------------------------------
+
+
+class TestSummarizeToolV164:
+    """Tests for tool summarizations added in v164."""
+
+    def test_tool_search_with_query(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "ToolSearch", {"query": "select:Read,Edit"}
+            )
+            == "ToolSearch 'select:Read,Edit'"
+        )
+
+    def test_tool_search_no_query(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("ToolSearch", {}) == "ToolSearch"
+
+    def test_ask_user_question_with_question(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "AskUserQuestion", {"question": "Which file?"}
+            )
+            == "AskUserQuestion 'Which file?'"
+        )
+
+    def test_ask_user_question_truncates_long_question(self) -> None:
+        long_q = "x" * 100
+        result = _StreamJsonEmitter._summarize_tool(
+            "AskUserQuestion", {"question": long_q}
+        )
+        assert result.startswith("AskUserQuestion '")
+        assert result.endswith("...'")
+
+    def test_ask_user_question_no_question(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("AskUserQuestion", {})
+            == "AskUserQuestion"
+        )
+
+    def test_enter_plan_mode(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("EnterPlanMode", {}) == "EnterPlanMode"
+        )
+
+    def test_exit_plan_mode(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("ExitPlanMode", {}) == "ExitPlanMode"
+
+    def test_task_output_with_id(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("TaskOutput", {"task_id": "abc-123"})
+            == "TaskOutput abc-123"
+        )
+
+    def test_task_output_no_id(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("TaskOutput", {}) == "TaskOutput"
+
+    def test_task_stop_with_id(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("TaskStop", {"task_id": "xyz-789"})
+            == "TaskStop xyz-789"
+        )
+
+    def test_task_stop_no_id(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("TaskStop", {}) == "TaskStop"
+
+
+# ---------------------------------------------------------------------------
+# v164 — docstring presence for ClaudeCodeHand and _StreamJsonEmitter
+# ---------------------------------------------------------------------------
+
+_CLAUDE_HAND_METHODS_WITH_DOCSTRINGS = (
+    "_native_cli_auth_env_names",
+    "_pr_description_cmd",
+    "_build_claude_failure_message",
+    "_resolve_cli_model",
+    "_skip_permissions_enabled",
+    "_apply_backend_defaults",
+    "_retry_command_after_failure",
+    "_build_failure_message",
+    "_command_not_found_message",
+    "_no_change_error_after_retries",
+    "_fallback_command_when_not_found",
+    "_inject_output_format",
+    "_invoke_claude",
+    "_invoke_backend",
+)
+
+_EMITTER_METHODS_WITH_DOCSTRINGS = (
+    "__call__",
+    "flush",
+    "_process_line",
+    "_summarize_tool",
+    "result_text",
+)
+
+
+class TestClaudeHandDocstrings:
+    """Verify that ClaudeCodeHand methods have Google-style docstrings."""
+
+    def test_all_claude_hand_methods_have_docstrings(self) -> None:
+        for method_name in _CLAUDE_HAND_METHODS_WITH_DOCSTRINGS:
+            method = getattr(ClaudeCodeHand, method_name)
+            doc = inspect.getdoc(method)
+            assert doc, f"ClaudeCodeHand.{method_name} is missing a docstring"
+
+    def test_claude_hand_docstrings_are_non_trivial(self) -> None:
+        for method_name in _CLAUDE_HAND_METHODS_WITH_DOCSTRINGS:
+            method = getattr(ClaudeCodeHand, method_name)
+            doc = inspect.getdoc(method)
+            assert doc and len(doc.strip()) >= 10, (
+                f"ClaudeCodeHand.{method_name} docstring is too short"
+            )
+
+    def test_all_emitter_methods_have_docstrings(self) -> None:
+        for method_name in _EMITTER_METHODS_WITH_DOCSTRINGS:
+            method = getattr(_StreamJsonEmitter, method_name)
+            doc = inspect.getdoc(method)
+            assert doc, f"_StreamJsonEmitter.{method_name} is missing a docstring"
+
+    def test_emitter_docstrings_are_non_trivial(self) -> None:
+        for method_name in _EMITTER_METHODS_WITH_DOCSTRINGS:
+            method = getattr(_StreamJsonEmitter, method_name)
+            doc = inspect.getdoc(method)
+            assert doc and len(doc.strip()) >= 10, (
+                f"_StreamJsonEmitter.{method_name} docstring is too short"
+            )
+
+    def test_summarize_tool_docstring_has_args_and_returns(self) -> None:
+        doc = inspect.getdoc(_StreamJsonEmitter._summarize_tool)
+        assert "Args:" in doc
+        assert "Returns:" in doc
+
+    def test_build_claude_failure_message_docstring_has_args(self) -> None:
+        doc = inspect.getdoc(ClaudeCodeHand._build_claude_failure_message)
+        assert "Args:" in doc
+        assert "Returns:" in doc
+
+    def test_invoke_claude_docstring_has_args(self) -> None:
+        doc = inspect.getdoc(ClaudeCodeHand._invoke_claude)
+        assert "Args:" in doc
+        assert "Returns:" in doc

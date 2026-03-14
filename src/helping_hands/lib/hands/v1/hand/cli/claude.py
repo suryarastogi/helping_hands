@@ -65,6 +65,11 @@ class _StreamJsonEmitter:
         self._text_parts: list[str] = []
 
     async def __call__(self, chunk: str) -> None:
+        """Buffer incoming text and process complete JSON lines.
+
+        Args:
+            chunk: Raw text chunk from the Claude Code subprocess stdout.
+        """
         self._buffer += chunk
         while "\n" in self._buffer:
             line, self._buffer = self._buffer.split("\n", 1)
@@ -80,6 +85,15 @@ class _StreamJsonEmitter:
             self._buffer = ""
 
     async def _process_line(self, line: str) -> None:
+        """Parse a single JSON line and emit human-readable progress.
+
+        Handles three event types: ``assistant`` (text and tool_use blocks),
+        ``user`` (tool_result blocks), and ``result`` (cost/duration/usage
+        summary).
+
+        Args:
+            line: A single stripped line from the stream-json output.
+        """
         try:
             event = json.loads(line)
         except (json.JSONDecodeError, TypeError):
@@ -158,6 +172,15 @@ class _StreamJsonEmitter:
 
     @staticmethod
     def _summarize_tool(name: str, input_data: dict) -> str:
+        """Return a concise one-line summary for a Claude Code tool invocation.
+
+        Args:
+            name: The tool name (e.g. ``"Read"``, ``"Bash"``, ``"Grep"``).
+            input_data: The tool input dict from the stream-json payload.
+
+        Returns:
+            A human-readable string summarising what the tool is doing.
+        """
         if name == "Read":
             path = input_data.get("file_path", "")
             return f"Read {path}"
@@ -215,9 +238,35 @@ class _StreamJsonEmitter:
         if name == "ExitWorktree":
             action = input_data.get("action", "")
             return f"ExitWorktree {action}" if action else "ExitWorktree"
+        if name == "ToolSearch":
+            query = input_data.get("query", "")
+            return f"ToolSearch {query!r}" if query else "ToolSearch"
+        if name == "AskUserQuestion":
+            question = input_data.get("question", "")
+            if len(question) > _COMMAND_PREVIEW_MAX_LENGTH:
+                question = question[: _COMMAND_PREVIEW_MAX_LENGTH - 3] + "..."
+            return f"AskUserQuestion {question!r}" if question else "AskUserQuestion"
+        if name == "EnterPlanMode":
+            return "EnterPlanMode"
+        if name == "ExitPlanMode":
+            return "ExitPlanMode"
+        if name == "TaskOutput":
+            task_id = input_data.get("task_id", "")
+            return f"TaskOutput {task_id}" if task_id else "TaskOutput"
+        if name == "TaskStop":
+            task_id = input_data.get("task_id", "")
+            return f"TaskStop {task_id}" if task_id else "TaskStop"
         return f"tool: {name}"
 
     def result_text(self) -> str:
+        """Return the final result text from the stream.
+
+        Prefers the explicit ``result`` event payload. Falls back to
+        concatenated assistant text blocks if no result event was received.
+
+        Returns:
+            The result string, or empty string if nothing was captured.
+        """
         if self._result:
             return self._result
         if self._text_parts:
@@ -251,15 +300,38 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     )
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return environment variable names used for CLI authentication.
+
+        Returns:
+            Tuple of env var names that carry API credentials.
+        """
         return ("ANTHROPIC_API_KEY",)
 
     def _pr_description_cmd(self) -> list[str] | None:
+        """Return the command to generate PR descriptions via Claude Code CLI.
+
+        Returns:
+            Command list if the ``claude`` binary is available, else ``None``.
+        """
         if shutil.which("claude") is not None:
             return ["claude", "-p", "--output-format", "text"]
         return None
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
+        """Build a user-facing error message from a failed Claude Code CLI run.
+
+        Detects authentication-related failures (401, invalid API key) and
+        provides actionable guidance. Otherwise returns a generic failure
+        message with the trailing CLI output.
+
+        Args:
+            return_code: The subprocess exit code.
+            output: The full CLI stdout/stderr output.
+
+        Returns:
+            A formatted error message string.
+        """
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
         lower_tail = tail.lower()
         if any(
@@ -282,6 +354,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _resolve_cli_model(self) -> str:
+        """Resolve the model name, filtering out incompatible GPT models.
+
+        Returns:
+            The resolved model string, or empty string if the model is a
+            GPT variant (which cannot be used with Claude Code CLI).
+        """
         model = super()._resolve_cli_model()
         if not model:
             return ""
@@ -291,6 +369,15 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return model
 
     def _skip_permissions_enabled(self) -> bool:
+        """Check whether ``--dangerously-skip-permissions`` should be added.
+
+        Reads ``HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS`` (default
+        ``"1"``). Disabled when running as root (euid == 0) because Claude
+        Code CLI rejects the flag under root privileges.
+
+        Returns:
+            ``True`` if the flag should be injected into the command.
+        """
         raw = os.environ.get(
             "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS",
             self._DEFAULT_SKIP_PERMISSIONS,
@@ -307,6 +394,15 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return True
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``--dangerously-skip-permissions`` when appropriate.
+
+        Args:
+            cmd: The base command token list.
+
+        Returns:
+            The command with the permissions flag inserted after the
+            binary name, or the original command if not applicable.
+        """
         if (
             cmd
             and cmd[0] == "claude"
@@ -323,6 +419,20 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         output: str,
         return_code: int,
     ) -> list[str] | None:
+        """Return a retry command if the failure was due to root permission error.
+
+        When ``--dangerously-skip-permissions`` is present and the output
+        indicates it was rejected (root/sudo), retry without the flag.
+
+        Args:
+            cmd: The command that failed.
+            output: The CLI stdout/stderr output.
+            return_code: The subprocess exit code.
+
+        Returns:
+            A modified command without the permissions flag, or ``None``
+            if no retry is applicable.
+        """
         if return_code == 0:
             return None
         if "--dangerously-skip-permissions" not in cmd:
@@ -333,12 +443,29 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return [token for token in cmd if token != "--dangerously-skip-permissions"]
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Build a failure message by delegating to the static helper.
+
+        Args:
+            return_code: The subprocess exit code.
+            output: The full CLI stdout/stderr output.
+
+        Returns:
+            A formatted error message string.
+        """
         return self._build_claude_failure_message(
             return_code=return_code,
             output=output,
         )
 
     def _command_not_found_message(self, command: str) -> str:
+        """Return an error message when the Claude Code CLI binary is missing.
+
+        Args:
+            command: The command that was not found.
+
+        Returns:
+            A user-facing error message with remediation guidance.
+        """
         return (
             f"Claude Code CLI command not found: {command!r}. "
             "Set HELPING_HANDS_CLAUDE_CLI_CMD to a valid command."
@@ -350,6 +477,20 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         prompt: str,
         combined_output: str,
     ) -> str | None:
+        """Return an error message if retries failed due to permission prompts.
+
+        Checks whether the combined output contains markers indicating that
+        Claude Code was blocked waiting for write permission approval in
+        non-interactive mode.
+
+        Args:
+            prompt: The original task prompt (unused).
+            combined_output: Concatenated output from all retry attempts.
+
+        Returns:
+            An error message string if permission prompts were detected,
+            or ``None`` if the failure was unrelated.
+        """
         del prompt
         lowered = combined_output.lower()
         if any(marker in lowered for marker in self._PERMISSION_PROMPT_MARKERS):
@@ -363,6 +504,15 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return None
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
+        """Try ``npx @anthropic-ai/claude-code`` as a fallback when ``claude`` is missing.
+
+        Args:
+            cmd: The original command that was not found.
+
+        Returns:
+            An ``npx``-based command list, or ``None`` if ``npx`` is also
+            unavailable or the command wasn't ``claude``.
+        """
         if not cmd or cmd[0] != "claude":
             return None
         if shutil.which("npx") is None:
@@ -386,6 +536,20 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Run the Claude Code CLI with stream-json output parsing.
+
+        Injects ``--output-format stream-json`` into the command, pipes
+        output through a ``_StreamJsonEmitter``, and returns the final
+        result text.
+
+        Args:
+            prompt: The task prompt to send to Claude Code.
+            emit: Callback for streaming progress lines to the caller.
+
+        Returns:
+            The result text from the stream, or the raw CLI output as
+            fallback.
+        """
         model = self._resolve_cli_model() or "(default)"
         await emit(f"[{self._CLI_LABEL}] model={model}\n")
         cmd = self._render_command(prompt)
@@ -403,4 +567,13 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Execute the backend by delegating to ``_invoke_claude()``.
+
+        Args:
+            prompt: The task prompt.
+            emit: Callback for streaming progress lines.
+
+        Returns:
+            The result text from the Claude Code CLI run.
+        """
         return await self._invoke_claude(prompt, emit=emit)

@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-14 v164](exec-plans/completed/2026-03-14.md) --
+  Add 6 missing tool summarizations to Claude CLI `_summarize_tool()` (ToolSearch, AskUserQuestion, EnterPlanMode, ExitPlanMode, TaskOutput, TaskStop), Google-style docstrings to 14 ClaudeCodeHand + 5 _StreamJsonEmitter methods; 3919 tests (17 new)
+
 - [2026-03-14 v163](exec-plans/completed/2026-03-14.md) --
   Add Google-style docstrings to 9 Hand base.py methods, extract 6 Claude CLI stream-json event type constants; 3902 tests (22 new)
 
