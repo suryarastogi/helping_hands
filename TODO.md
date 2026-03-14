@@ -44,11 +44,11 @@
 
 - [x] **Dotenv bootstrap** — `Config.from_env()` loads `.env` from cwd and repo path (without overriding exported env vars)
 - [x] **CLI hand scaffolds added** — `ClaudeCodeHand`, `CodexCLIHand`, and `GeminiCLIHand` placeholder backends exist in `src/helping_hands/lib/hands/v1/hand.py`
-- [ ] **Claude CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
+- [x] **Claude CLI execution** — Subprocess integration with command/env wiring, stdout/stderr handling, errors/timeouts (2026-03-14)
 - [ ] **Codex CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
 - [ ] **Gemini CLI execution** — Replace scaffold placeholder with real subprocess integration (command/env wiring, stdout/stderr handling, errors/timeouts)
-- [ ] **Backend selection/routing** — Add explicit config or CLI flag to choose backend (`langgraph`, `atomic`, `claudecode`, `codexcli`, `geminicli`)
-- [ ] **Streaming for CLI hands** — Implement incremental output streaming (instead of single placeholder chunk)
+- [x] **Backend selection/routing** — `--backend` CLI flag, `HELPING_HANDS_BACKEND` env var, `Config.backend` field, `create_hand()` factory (2026-03-14)
+- [ ] **Streaming for CLI hands** — Implement incremental output streaming for Codex/Gemini (ClaudeCodeHand streaming implemented)
 
 ---
 

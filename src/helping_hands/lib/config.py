@@ -24,12 +24,16 @@ def _load_env_files(repo: str | None = None) -> None:
             load_dotenv(repo_path / ".env", override=False)
 
 
+VALID_BACKENDS = ("langgraph", "atomic", "claudecode", "codexcli", "geminicli")
+
+
 @dataclass(frozen=True)
 class Config:
     """Immutable application configuration."""
 
     repo: str = ""
     model: str = "default"
+    backend: str = "langgraph"
     verbose: bool = False
     config_path: Path | None = None
 
@@ -44,6 +48,7 @@ class Config:
 
         env_values: dict[str, str | bool | None] = {
             "model": os.environ.get("HELPING_HANDS_MODEL"),
+            "backend": os.environ.get("HELPING_HANDS_BACKEND"),
             "verbose": os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
             in ("1", "true", "yes"),
         }
@@ -52,8 +57,17 @@ class Config:
         if overrides:
             merged.update({k: v for k, v in overrides.items() if v is not None})
 
+        backend = str(merged.get("backend", cls.backend))
+        if backend not in VALID_BACKENDS:
+            msg = (
+                f"Invalid backend {backend!r}. "
+                f"Valid options: {', '.join(VALID_BACKENDS)}"
+            )
+            raise ValueError(msg)
+
         return cls(
             repo=str(merged.get("repo", cls.repo)),
             model=str(merged.get("model", cls.model)),
+            backend=backend,
             verbose=bool(merged.get("verbose", cls.verbose)),
         )

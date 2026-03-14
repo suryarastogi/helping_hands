@@ -5,8 +5,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
 import helping_hands.lib.config as config_module
-from helping_hands.lib.config import Config
+from helping_hands.lib.config import VALID_BACKENDS, Config
 
 
 class TestConfigDefaults:
@@ -14,6 +16,7 @@ class TestConfigDefaults:
         config = Config()
         assert config.repo == ""
         assert config.model == "default"
+        assert config.backend == "langgraph"
         assert config.verbose is False
 
     def test_from_env_picks_up_env_var(self, monkeypatch: object) -> None:
@@ -55,3 +58,32 @@ class TestConfigDefaults:
         finally:
             if "HELPING_HANDS_MODEL" in os.environ:
                 del os.environ["HELPING_HANDS_MODEL"]
+
+
+class TestConfigBackend:
+    def test_default_backend(self) -> None:
+        config = Config.from_env()
+        assert config.backend == "langgraph"
+
+    def test_backend_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_BACKEND", "claudecode")
+        config = Config.from_env()
+        assert config.backend == "claudecode"
+
+    def test_backend_from_override(self) -> None:
+        config = Config.from_env(overrides={"backend": "atomic"})
+        assert config.backend == "atomic"
+
+    def test_override_beats_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_BACKEND", "langgraph")
+        config = Config.from_env(overrides={"backend": "claudecode"})
+        assert config.backend == "claudecode"
+
+    def test_invalid_backend_raises(self) -> None:
+        with pytest.raises(ValueError, match="Invalid backend"):
+            Config.from_env(overrides={"backend": "nonexistent"})
+
+    def test_all_valid_backends_accepted(self) -> None:
+        for backend in VALID_BACKENDS:
+            config = Config.from_env(overrides={"backend": backend})
+            assert config.backend == backend

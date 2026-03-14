@@ -23,6 +23,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="AI model to use (overrides env/config).",
     )
     parser.add_argument(
+        "--backend",
+        default=None,
+        help="Hand backend (langgraph, atomic, claudecode, codexcli, geminicli).",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -43,7 +48,12 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
 
     Config.from_env(
-        overrides={"repo": str(repo_path), "model": args.model, "verbose": args.verbose}
+        overrides={
+            "repo": str(repo_path),
+            "model": args.model,
+            "backend": args.backend,
+            "verbose": args.verbose,
+        }
     )
     repo_index = RepoIndex.from_path(repo_path)
     n = len(repo_index.files)

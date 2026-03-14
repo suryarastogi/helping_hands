@@ -13,6 +13,10 @@ A Hand is the AI agent that operates on a repo. This module defines:
 from __future__ import annotations
 
 import abc
+import asyncio
+import logging
+import os
+import subprocess
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -20,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -181,30 +187,109 @@ class AtomicHand(Hand):
 
 
 # ---------------------------------------------------------------------------
-# Claude Code backend (scaffolding)
+# Claude Code backend
 # ---------------------------------------------------------------------------
+
+_DEFAULT_CLAUDE_CMD = "claude"
+_DEFAULT_TIMEOUT = 300
 
 
 class ClaudeCodeHand(Hand):
-    """Hand backed by Claude Code via a terminal/bash invocation.
+    """Hand backed by Claude Code via a subprocess invocation.
 
-    This backend would run the Claude Code CLI (or equivalent) as a
-    subprocess: e.g. a terminal/bash call that passes the repo path and
-    user prompt, then captures stdout/stderr. Not yet implemented; this
-    class is scaffolding for future integration.
+    Runs the Claude Code CLI as a subprocess, passing the user prompt via
+    the ``--print`` flag for non-interactive use. The working directory is
+    set to the repo root so Claude Code picks up repo context.
+
+    The CLI command is configurable via ``HELPING_HANDS_CLAUDE_CLI_CMD``
+    (default: ``claude``).
     """
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         super().__init__(config, repo_index)
+        self._cmd = os.environ.get("HELPING_HANDS_CLAUDE_CLI_CMD", _DEFAULT_CLAUDE_CMD)
+        self._timeout = int(
+            os.environ.get("HELPING_HANDS_CLAUDE_TIMEOUT", str(_DEFAULT_TIMEOUT))
+        )
+
+    def _build_command(self, prompt: str) -> list[str]:
+        """Build the CLI command list for a given prompt."""
+        return [self._cmd, "--print", prompt]
 
     def run(self, prompt: str) -> HandResponse:
+        """Run Claude Code CLI and return the complete response."""
+        cmd = self._build_command(prompt)
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.repo_index.root),
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                check=False,
+            )
+        except FileNotFoundError:
+            msg = (
+                f"Claude CLI not found: {self._cmd!r}. "
+                "Install it or set HELPING_HANDS_CLAUDE_CLI_CMD."
+            )
+            return HandResponse(
+                message=msg,
+                metadata={"backend": "claudecode", "error": "cli_not_found"},
+            )
+        except subprocess.TimeoutExpired:
+            return HandResponse(
+                message=f"Claude CLI timed out after {self._timeout}s.",
+                metadata={"backend": "claudecode", "error": "timeout"},
+            )
+
+        if result.returncode != 0:
+            logger.warning(
+                "Claude CLI exited %d: %s", result.returncode, result.stderr.strip()
+            )
+            err_msg = (
+                result.stderr.strip()
+                or f"Claude CLI exited with code {result.returncode}."
+            )
+            return HandResponse(
+                message=err_msg,
+                metadata={
+                    "backend": "claudecode",
+                    "model": self.config.model,
+                    "returncode": result.returncode,
+                },
+            )
+
         return HandResponse(
-            message="ClaudeCode hand not yet implemented.",
+            message=result.stdout,
             metadata={"backend": "claudecode", "model": self.config.model},
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
-        yield "ClaudeCode hand not yet implemented."
+        """Run Claude Code CLI and yield output lines as they arrive."""
+        cmd = self._build_command(prompt)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(self.repo_index.root),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            yield (
+                f"Claude CLI not found: {self._cmd!r}. "
+                "Install it or set HELPING_HANDS_CLAUDE_CLI_CMD."
+            )
+            return
+
+        assert proc.stdout is not None
+        while True:
+            line = await proc.stdout.readline()
+            if not line:
+                break
+            yield line.decode("utf-8", errors="replace")
+
+        await proc.wait()
 
 
 # ---------------------------------------------------------------------------
@@ -257,3 +342,39 @@ class GeminiCLIHand(Hand):
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
         yield "GeminiCLI hand not yet implemented."
+
+
+# ---------------------------------------------------------------------------
+# Factory
+# ---------------------------------------------------------------------------
+
+_BACKEND_MAP: dict[str, type[Hand]] = {
+    "langgraph": LangGraphHand,
+    "atomic": AtomicHand,
+    "claudecode": ClaudeCodeHand,
+    "codexcli": CodexCLIHand,
+    "geminicli": GeminiCLIHand,
+}
+
+
+def create_hand(config: Config, repo_index: RepoIndex) -> Hand:
+    """Create a Hand instance based on the configured backend.
+
+    Args:
+        config: Application configuration with ``backend`` field.
+        repo_index: Indexed repository.
+
+    Returns:
+        A Hand subclass instance for the configured backend.
+
+    Raises:
+        ValueError: If the backend name is not recognised.
+    """
+    hand_cls = _BACKEND_MAP.get(config.backend)
+    if hand_cls is None:
+        msg = (
+            f"Unknown backend {config.backend!r}. "
+            f"Valid options: {', '.join(_BACKEND_MAP)}"
+        )
+        raise ValueError(msg)
+    return hand_cls(config, repo_index)
