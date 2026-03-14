@@ -66,6 +66,7 @@ type FormState = {
   fix_ci: boolean;
   ci_check_wait_minutes: number;
   github_token: string;
+  reference_repos: string;
 };
 
 type TaskHistoryItem = {
@@ -117,6 +118,7 @@ type ScheduleItem = {
   fix_ci: boolean;
   ci_check_wait_minutes: number;
   github_token: string | null;
+  reference_repos: string[];
   tools: string[];
   skills: string[];
   enabled: boolean;
@@ -143,6 +145,7 @@ type ScheduleFormState = {
   fix_ci: boolean;
   ci_check_wait_minutes: number;
   github_token: string;
+  reference_repos: string;
   tools: string;
   skills: string;
   enabled: boolean;
@@ -232,6 +235,7 @@ const INITIAL_FORM: FormState = {
   fix_ci: false,
   ci_check_wait_minutes: 3,
   github_token: "",
+  reference_repos: "",
 };
 
 const CRON_PRESETS: Record<string, string> = {
@@ -262,6 +266,7 @@ const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   fix_ci: false,
   ci_check_wait_minutes: 3,
   github_token: "",
+  reference_repos: "",
   tools: "",
   skills: "",
   enabled: true,
@@ -1251,6 +1256,7 @@ export default function App() {
     const tools = readSkills(["tools"]);
     const skills = readSkills(["skills"]);
     const runtime = readString(["runtime"]);
+    const referenceRepos = readSkills(["reference_repos"]);
 
     if (repoPath) {
       items.push({ label: "Repo", value: repoPath });
@@ -1290,6 +1296,9 @@ export default function App() {
     }
     if (skills) {
       items.push({ label: "Skills", value: skills });
+    }
+    if (referenceRepos) {
+      items.push({ label: "Reference repos", value: referenceRepos });
     }
     if (runtime) {
       items.push({ label: "Runtime", value: runtime });
@@ -2011,6 +2020,9 @@ export default function App() {
     if (form.github_token.trim()) {
       body.github_token = form.github_token.trim();
     }
+    if (form.reference_repos.trim()) {
+      body.reference_repos = form.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+    }
     if (form.model.trim()) {
       body.model = form.model.trim();
     }
@@ -2125,6 +2137,7 @@ export default function App() {
         fix_ci: item.fix_ci ?? false,
         ci_check_wait_minutes: item.ci_check_wait_minutes ?? 3,
         github_token: item.github_token ?? "",
+        reference_repos: (item.reference_repos ?? []).join(", "),
         tools: (item.tools ?? []).join(", "),
         skills: item.skills.join(", "),
         enabled: item.enabled,
@@ -2166,6 +2179,9 @@ export default function App() {
     };
     if (scheduleForm.github_token.trim()) {
       body.github_token = scheduleForm.github_token.trim();
+    }
+    if (scheduleForm.reference_repos.trim()) {
+      body.reference_repos = scheduleForm.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
     }
     if (scheduleForm.model.trim()) body.model = scheduleForm.model.trim();
     if (scheduleForm.pr_number.trim()) {
@@ -2515,6 +2531,17 @@ export default function App() {
                 />
               </label>
             </div>
+            <div className="row">
+              <label>
+                Reference Repos
+                <input
+                  type="text"
+                  value={form.reference_repos}
+                  onChange={(event) => updateField("reference_repos", event.target.value)}
+                  placeholder="owner/repo, owner/repo2 (optional, read-only)"
+                />
+              </label>
+            </div>
           </div>
         </details>
       </form>
@@ -2817,6 +2844,17 @@ export default function App() {
                 value={scheduleForm.github_token}
                 onChange={(e) => updateScheduleField("github_token", e.target.value)}
                 placeholder="ghp_... (optional)"
+              />
+            </label>
+          </div>
+          <div className="row">
+            <label>
+              Reference Repos
+              <input
+                type="text"
+                value={scheduleForm.reference_repos}
+                onChange={(e) => updateScheduleField("reference_repos", e.target.value)}
+                placeholder="owner/repo, owner/repo2 (optional, read-only)"
               />
             </label>
           </div>

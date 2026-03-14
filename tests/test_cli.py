@@ -1002,6 +1002,62 @@ class TestGitHubTokenArg:
 
 
 # ---------------------------------------------------------------------------
+# --reference-repos CLI arg
+# ---------------------------------------------------------------------------
+
+
+class TestReferenceReposArg:
+    """Tests for the --reference-repos CLI argument."""
+
+    def test_parser_accepts_reference_repos(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            ["/tmp/repo", "--reference-repos", "acme/lib,acme/utils"]
+        )
+        assert args.reference_repos == "acme/lib,acme/utils"
+
+    def test_parser_default_is_none(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["/tmp/repo"])
+        assert args.reference_repos is None
+
+    def test_reference_repos_wired_to_config_backend(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--reference-repos flows into Config.from_env overrides for --backend."""
+        overrides_seen: list = []
+
+        _original_from_env = Config.from_env.__func__
+
+        def capture_config(cls, *args, **kwargs):
+            overrides_seen.append(kwargs.get("overrides", {}))
+            return _original_from_env(cls, *args, **kwargs)
+
+        with (
+            patch.object(Config, "from_env", classmethod(capture_config)),
+            patch("helping_hands.cli.main.RepoIndex") as mock_ri,
+            patch("helping_hands.cli.main.ClaudeCodeHand") as mock_hand_cls,
+            patch("helping_hands.cli.main.asyncio.run"),
+        ):
+            mock_ri.from_path.return_value = MagicMock(
+                root=tmp_path, files=[], reference_repos=[]
+            )
+            mock_hand_cls.return_value = MagicMock()
+
+            main(
+                [
+                    str(tmp_path),
+                    "--backend",
+                    "claudecodecli",
+                    "--reference-repos",
+                    "acme/lib",
+                ]
+            )
+            assert len(overrides_seen) > 0
+            assert overrides_seen[0].get("reference_repos") == "acme/lib"
+
+
+# ---------------------------------------------------------------------------
 # _validate_repo_spec — v149
 # ---------------------------------------------------------------------------
 

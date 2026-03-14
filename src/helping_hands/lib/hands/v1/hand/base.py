@@ -120,13 +120,34 @@ class Hand(abc.ABC):
         file_list = "\n".join(
             f"  - {f}" for f in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
         )
+        ref_section = self._build_reference_repos_prompt_section()
         return (
             "You are a helpful coding assistant working on a repository.\n"
             f"Repo root: {self.repo_index.root}\n"
             f"Files ({len(self.repo_index.files)} total):\n{file_list}\n\n"
             "Follow the repo's conventions. Propose focused, reviewable "
             "changes. Explain your reasoning."
+            f"{ref_section}"
         )
+
+    def _build_reference_repos_prompt_section(self) -> str:
+        """Build a prompt section describing read-only reference repos."""
+        if not self.repo_index.reference_repos:
+            return ""
+        parts: list[str] = ["\n\nReference repositories (read-only, do not modify):"]
+        for name, path in self.repo_index.reference_repos:
+            parts.append(f"\n- {name} at {path}")
+            try:
+                ref_files = sorted(
+                    str(p.relative_to(path))
+                    for p in path.rglob("*")
+                    if p.is_file() and ".git" not in p.parts
+                )[:_FILE_LIST_PREVIEW_LIMIT]
+                for f in ref_files:
+                    parts.append(f"    {f}")
+            except PermissionError:
+                parts.append("    (permission denied)")
+        return "\n".join(parts)
 
     @abc.abstractmethod
     def run(self, prompt: str) -> HandResponse:

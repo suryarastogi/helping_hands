@@ -158,6 +158,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
     github_token: str | None = Field(default=None, max_length=500)
+    reference_repos: list[str] = Field(default_factory=list)
 
 
 BackendName = Literal[
@@ -256,6 +257,7 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
     github_token: str | None = Field(default=None, max_length=500)
+    reference_repos: list[str] = Field(default_factory=list)
     enabled: bool = True
 
 
@@ -278,6 +280,7 @@ class ScheduleResponse(BaseModel):
     fix_ci: bool = False
     ci_check_wait_minutes: float = 3.0
     github_token: str | None = None
+    reference_repos: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
@@ -1189,6 +1192,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     <input id="github_token" name="github_token" type="password" placeholder="ghp_... (optional)" />
                   </label>
                 </div>
+                <div class="row">
+                  <label for="reference_repos">Reference Repos
+                    <input id="reference_repos" name="reference_repos" type="text" placeholder="owner/repo, owner/repo2 (optional, read-only)" />
+                  </label>
+                </div>
               </div>
             </details>
 
@@ -1366,6 +1374,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                   <div class="row">
                     <label for="schedule_github_token">GitHub Token
                       <input id="schedule_github_token" name="github_token" type="password" placeholder="ghp_... (optional)" />
+                    </label>
+                  </div>
+                  <div class="row">
+                    <label for="schedule_reference_repos">Reference Repos
+                      <input id="schedule_reference_repos" name="reference_repos" type="text" placeholder="owner/repo, owner/repo2 (optional, read-only)" />
                     </label>
                   </div>
                 </div>
@@ -1903,6 +1916,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         if (githubTokenParam) {
           document.getElementById("github_token").value = githubTokenParam;
         }
+        const referenceReposParam = params.get("reference_repos");
+        if (referenceReposParam) {
+          document.getElementById("reference_repos").value = referenceReposParam;
+        }
         if (error) {
           setStatus("error");
           setOutput({ error });
@@ -2054,6 +2071,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const useNativeCliAuth = document.getElementById("use_native_cli_auth").checked;
         const fixCi = document.getElementById("fix_ci").checked;
         const githubToken = document.getElementById("github_token").value.trim();
+        const referenceRepos = document.getElementById("reference_repos").value.trim();
         const payload = {
           repo_path: repoPath,
           prompt,
@@ -2085,6 +2103,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (githubToken) {
           payload.github_token = githubToken;
+        }
+        if (referenceRepos) {
+          payload.reference_repos = referenceRepos.split(",").map(s => s.trim()).filter(s => s.length > 0);
         }
 
         try {
@@ -2231,7 +2252,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         };
         const schedGhToken = document.getElementById("schedule_github_token").value.trim();
         if (schedGhToken) {
-          schedPayload.github_token = schedGhToken;
+          payload.github_token = schedGhToken;
+        }
+        const schedRefRepos = document.getElementById("schedule_reference_repos").value.trim();
+        if (schedRefRepos) {
+          payload.reference_repos = schedRefRepos.split(",").map(s => s.trim()).filter(s => s.length > 0);
         }
 
         try {
@@ -2271,6 +2296,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           document.getElementById("schedule_enabled").checked = s.enabled;
           document.getElementById("schedule_fix_ci").checked = s.fix_ci || false;
           document.getElementById("schedule_github_token").value = s.github_token || "";
+          document.getElementById("schedule_reference_repos").value = (s.reference_repos || []).join(", ");
 
           scheduleFormTitle.textContent = "Edit schedule";
           scheduleSubmitBtn.textContent = "Update schedule";
@@ -2457,6 +2483,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         fix_ci=req.fix_ci,
         ci_check_wait_minutes=req.ci_check_wait_minutes,
         github_token=req.github_token,
+        reference_repos=req.reference_repos,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -3108,6 +3135,8 @@ def enqueue_build_form(
     skills: str | None = Form(None),
     fix_ci: bool = Form(False),
     ci_check_wait_minutes: float = Form(3.0),
+    github_token: str | None = Form(None),
+    reference_repos: str | None = Form(None),
 ) -> RedirectResponse:
     """Fallback form endpoint so UI submits still enqueue without JS."""
     try:
@@ -3148,6 +3177,12 @@ def enqueue_build_form(
             ci_check_wait_minutes=ci_check_wait_minutes,
             tools=list(meta_tools.normalize_tool_selection(tools)),
             skills=list(meta_skills.normalize_skill_selection(skills)),
+            github_token=github_token
+            if github_token and github_token.strip()
+            else None,
+            reference_repos=[
+                r.strip() for r in (reference_repos or "").split(",") if r.strip()
+            ],
         )
     except ValidationError as exc:
         error_msg = "Invalid form submission."
@@ -3376,6 +3411,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         fix_ci=getattr(task, "fix_ci", False),
         ci_check_wait_minutes=getattr(task, "ci_check_wait_minutes", 3.0),
         github_token=_redact_token(getattr(task, "github_token", None)),
+        reference_repos=getattr(task, "reference_repos", []),
         tools=getattr(task, "tools", []),
         skills=task.skills,
         enabled=task.enabled,
@@ -3432,6 +3468,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         fix_ci=request.fix_ci,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
         github_token=request.github_token,
+        reference_repos=request.reference_repos,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,
@@ -3489,6 +3526,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         fix_ci=request.fix_ci,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
         github_token=github_token,
+        reference_repos=request.reference_repos,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,

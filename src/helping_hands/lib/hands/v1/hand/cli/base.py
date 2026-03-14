@@ -417,6 +417,7 @@ class _TwoPhaseCLIHand(Hand):
         )
         if not file_list:
             file_list = "- (no indexed files)"
+        ref_section = self._build_reference_repos_prompt_section()
         return (
             "Initialization phase: learn this repository before task execution.\n"
             "Execution context: this hand is running inside a non-interactive "
@@ -432,6 +433,7 @@ class _TwoPhaseCLIHand(Hand):
             "Do not perform edits in this phase.\n\n"
             "Indexed files:\n"
             f"{file_list}\n"
+            f"{ref_section}"
         )
 
     def _stage_skill_catalog(self) -> None:
@@ -492,6 +494,7 @@ class _TwoPhaseCLIHand(Hand):
             "Do not ask the user to paste files."
             f"{tool_section}"
             f"{skill_section}"
+            f"{self._build_reference_repos_prompt_section()}"
         )
 
     def _repo_has_changes(self) -> bool:

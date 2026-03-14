@@ -60,6 +60,7 @@ class Config:
     enabled_tools: tuple[str, ...] = ()
     enabled_skills: tuple[str, ...] = ()
     github_token: str = ""
+    reference_repos: tuple[str, ...] = ()
     config_path: Path | None = None
 
     @classmethod
@@ -80,6 +81,7 @@ class Config:
             "enabled_tools": os.environ.get("HELPING_HANDS_TOOLS"),
             "enabled_skills": os.environ.get("HELPING_HANDS_SKILLS"),
             "github_token": os.environ.get("HELPING_HANDS_GITHUB_TOKEN"),
+            "reference_repos": os.environ.get("HELPING_HANDS_REFERENCE_REPOS"),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
@@ -98,6 +100,14 @@ class Config:
         else:
             normalized_skills_input = raw_skill_selection
 
+        raw_ref_repos = merged.get("reference_repos", cls.reference_repos)
+        if isinstance(raw_ref_repos, str):
+            ref_repos = tuple(r.strip() for r in raw_ref_repos.split(",") if r.strip())
+        elif isinstance(raw_ref_repos, list | tuple):
+            ref_repos = tuple(str(r).strip() for r in raw_ref_repos if str(r).strip())
+        else:
+            ref_repos = ()
+
         return cls(
             repo=str(merged.get("repo", cls.repo)).strip(),
             model=str(merged.get("model", cls.model)).strip(),
@@ -112,4 +122,5 @@ class Config:
                 normalized_skills_input
             ),
             github_token=str(merged.get("github_token", cls.github_token)).strip(),
+            reference_repos=ref_repos,
         )

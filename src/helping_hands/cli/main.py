@@ -152,6 +152,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--reference-repos",
+        default=None,
+        help=(
+            "Comma-separated owner/repo references to clone as read-only "
+            "context (e.g. 'owner/repo1,owner/repo2')."
+        ),
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -198,6 +206,7 @@ def main(argv: list[str] | None = None) -> None:
                 "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
                 "github_token": args.github_token,
+                "reference_repos": args.reference_repos,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -231,9 +240,14 @@ def main(argv: list[str] | None = None) -> None:
             "enabled_tools": selected_tools,
             "enabled_skills": selected_skills,
             "github_token": args.github_token,
+            "reference_repos": args.reference_repos,
         }
     )
     repo_index = RepoIndex.from_path(Path(config.repo))
+    if config.reference_repos:
+        _clone_reference_repos(
+            config.reference_repos, repo_index, github_token=config.github_token
+        )
 
     if args.backend:
         hand: Hand
@@ -339,11 +353,13 @@ def _validate_repo_spec(repo: str) -> None:
         raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
 
 
-def _github_clone_url(repo: str) -> str:
+def _github_clone_url(repo: str, token: str | None = None) -> str:
     _validate_repo_spec(repo)
-    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
-    if token:
-        return f"https://x-access-token:{token}@github.com/{repo}.git"
+    effective_token = (token or "").strip() or os.environ.get(
+        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
+    ).strip()
+    if effective_token:
+        return f"https://x-access-token:{effective_token}@github.com/{repo}.git"
     return f"https://github.com/{repo}.git"
 
 
@@ -409,6 +425,54 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
         return dest.resolve(), repo
 
     raise ValueError(f"{repo} is not a directory or owner/repo reference")
+
+
+def _clone_reference_repos(
+    repos: tuple[str, ...],
+    repo_index: RepoIndex,
+    *,
+    github_token: str = "",
+) -> None:
+    """Clone reference repos as shallow read-only clones and attach to *repo_index*."""
+    for spec in repos:
+        try:
+            _validate_repo_spec(spec)
+        except ValueError as exc:
+            print(f"Warning: skipping invalid reference repo {spec!r}: {exc}")
+            continue
+        safe_name = spec.replace("/", "_")
+        dest_root = Path(
+            mkdtemp(prefix=f"helping_hands_ref_{safe_name}_", dir=_repo_tmp_dir())
+        )
+        atexit.register(shutil.rmtree, dest_root, True)
+        dest = dest_root / "repo"
+        url = _github_clone_url(spec, token=github_token)
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "clone",
+                    "--depth",
+                    str(_DEFAULT_CLONE_DEPTH),
+                    url,
+                    str(dest),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=_git_noninteractive_env(),
+                timeout=_GIT_CLONE_TIMEOUT_S,
+            )
+        except TimeoutExpired:
+            print(f"Warning: git clone timed out for reference repo {spec}")
+            continue
+        if result.returncode != 0:
+            stderr = _redact_sensitive(result.stderr.strip() or "unknown error")
+            print(f"Warning: failed to clone reference repo {spec}: {stderr}")
+            continue
+        resolved = dest.resolve()
+        repo_index.reference_repos.append((spec, resolved))
+        print(f"Cloned reference repo {spec} to {resolved}")
 
 
 if __name__ == "__main__":

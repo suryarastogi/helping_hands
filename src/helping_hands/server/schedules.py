@@ -84,6 +84,7 @@ class ScheduledTask:
     fix_ci: bool = False
     ci_check_wait_minutes: float = 3.0
     github_token: str | None = None
+    reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     enabled: bool = True
@@ -115,6 +116,7 @@ class ScheduledTask:
             "fix_ci": self.fix_ci,
             "ci_check_wait_minutes": self.ci_check_wait_minutes,
             "github_token": self.github_token,
+            "reference_repos": self.reference_repos,
             "tools": self.tools,
             "skills": self.skills,
             "enabled": self.enabled,
@@ -160,6 +162,7 @@ class ScheduledTask:
             fix_ci=data.get("fix_ci", False),
             ci_check_wait_minutes=data.get("ci_check_wait_minutes", 3.0),
             github_token=data.get("github_token"),
+            reference_repos=data.get("reference_repos", []),
             tools=data.get("tools", []),
             skills=data.get("skills", []),
             enabled=data.get("enabled", True),
@@ -585,6 +588,7 @@ class ScheduleManager:
             fix_ci=task.fix_ci,
             ci_check_wait_minutes=task.ci_check_wait_minutes,
             github_token=task.github_token,
+            reference_repos=task.reference_repos,
         )
 
         self.record_run(schedule_id, result.id)

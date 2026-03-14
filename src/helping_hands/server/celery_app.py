@@ -118,11 +118,13 @@ def _validate_repo_spec(repo: str) -> None:
         raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
 
 
-def _github_clone_url(repo: str) -> str:
+def _github_clone_url(repo: str, token: str | None = None) -> str:
     _validate_repo_spec(repo)
-    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
-    if token:
-        return f"https://x-access-token:{token}@github.com/{repo}.git"
+    effective_token = (token or "").strip() or os.environ.get(
+        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
+    ).strip()
+    if effective_token:
+        return f"https://x-access-token:{effective_token}@github.com/{repo}.git"
     return f"https://github.com/{repo}.git"
 
 
@@ -158,6 +160,7 @@ def _resolve_repo_path(
     repo: str,
     *,
     pr_number: int | None = None,
+    token: str | None = None,
 ) -> tuple[Path, str | None, Path | None]:
     """Resolve local repo path or clone an owner/repo reference.
 
@@ -174,7 +177,7 @@ def _resolve_repo_path(
     if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
         dest = dest_root / "repo"
-        url = _github_clone_url(repo)
+        url = _github_clone_url(repo, token=token)
         clone_cmd = ["git", "clone", "--depth", "1"]
         if pr_number is not None:
             clone_cmd.append("--no-single-branch")
@@ -289,6 +292,7 @@ def _update_progress(
     skills: tuple[str, ...],
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
+    reference_repos: list[str] | None = None,
     workspace: str | None = None,
     started_at: str | None = None,
 ) -> None:
@@ -313,6 +317,7 @@ def _update_progress(
         "ci_check_wait_minutes": ci_check_wait_minutes,
         "tools": list(tools),
         "skills": list(skills),
+        "reference_repos": list(reference_repos or []),
         "updates": list(updates),
     }
     if workspace:
@@ -355,6 +360,7 @@ async def _collect_stream(
     skills: tuple[str, ...],
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
+    reference_repos: list[str] | None = None,
     workspace: str | None = None,
     started_at: str | None = None,
 ) -> str:
@@ -388,6 +394,7 @@ async def _collect_stream(
                 skills=skills,
                 fix_ci=fix_ci,
                 ci_check_wait_minutes=ci_check_wait_minutes,
+                reference_repos=reference_repos,
                 workspace=workspace,
                 started_at=started_at,
             )
@@ -413,6 +420,7 @@ async def _collect_stream(
         skills=skills,
         fix_ci=fix_ci,
         ci_check_wait_minutes=ci_check_wait_minutes,
+        reference_repos=reference_repos,
         workspace=workspace,
         started_at=started_at,
     )
@@ -437,6 +445,7 @@ def build_feature(
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
     github_token: str | None = None,
+    reference_repos: list[str] | None = None,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -477,7 +486,8 @@ def build_feature(
             f"no_pr={no_pr}, enable_execution={enable_execution}, "
             f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}, "
             f"tools={','.join(selected_tools) or 'none'}, "
-            f"skills={','.join(selected_skills) or 'none'}"
+            f"skills={','.join(selected_skills) or 'none'}, "
+            f"reference_repos={','.join(reference_repos) if reference_repos else 'none'}"
         ),
     )
     _update_progress(
@@ -500,6 +510,7 @@ def build_feature(
         skills=selected_skills,
         fix_ci=fix_ci,
         ci_check_wait_minutes=ci_check_wait_minutes,
+        reference_repos=list(reference_repos or []),
         started_at=task_started_at,
     )
 
@@ -514,6 +525,7 @@ def build_feature(
                 "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
                 "github_token": github_token,
+                "reference_repos": tuple(reference_repos) if reference_repos else (),
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -539,6 +551,7 @@ def build_feature(
             skills=selected_skills,
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
+            reference_repos=list(reference_repos or []),
             started_at=task_started_at,
         )
         response = hand.run(
@@ -562,7 +575,7 @@ def build_feature(
 
     try:
         resolved_repo_path, cloned_from, _tmp_root = _resolve_repo_path(
-            repo_path, pr_number=pr_number
+            repo_path, pr_number=pr_number, token=github_token
         )
     except ValueError as exc:
         _append_update(updates, f"Repo resolution failed: {exc}")
@@ -579,8 +592,49 @@ def build_feature(
         overrides["enabled_tools"] = selected_tools
         overrides["enabled_skills"] = selected_skills
         overrides["github_token"] = github_token
+        overrides["reference_repos"] = tuple(reference_repos) if reference_repos else ()
         config = Config.from_env(overrides=overrides)
         repo_index = RepoIndex.from_path(Path(config.repo))
+
+        # Clone reference repos as read-only context
+        ref_tmp_roots: list[Path] = []
+        for ref_spec in config.reference_repos:
+            try:
+                _validate_repo_spec(ref_spec)
+            except ValueError:
+                _append_update(updates, f"Skipping invalid reference repo: {ref_spec}")
+                continue
+            safe_name = ref_spec.replace("/", "_")
+            ref_root = Path(
+                mkdtemp(prefix=f"helping_hands_ref_{safe_name}_", dir=_repo_tmp_dir())
+            )
+            ref_tmp_roots.append(ref_root)
+            ref_dest = ref_root / "repo"
+            ref_url = _github_clone_url(ref_spec, token=config.github_token)
+            try:
+                ref_result = subprocess.run(
+                    ["git", "clone", "--depth", "1", ref_url, str(ref_dest)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=_git_noninteractive_env(),
+                    timeout=_GIT_CLONE_TIMEOUT_S,
+                )
+            except TimeoutExpired:
+                _append_update(
+                    updates,
+                    f"Reference repo clone timed out: {ref_spec}",
+                )
+                continue
+            if ref_result.returncode != 0:
+                stderr = _redact_sensitive(ref_result.stderr.strip() or "unknown error")
+                _append_update(
+                    updates,
+                    f"Failed to clone reference repo {ref_spec}: {stderr}",
+                )
+                continue
+            repo_index.reference_repos.append((ref_spec, ref_dest.resolve()))
+            _append_update(updates, f"Cloned reference repo {ref_spec}")
 
         if cloned_from:
             _append_update(updates, f"Cloned {cloned_from} to {resolved_repo_path}")
@@ -641,6 +695,7 @@ def build_feature(
             skills=selected_skills,
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
+            reference_repos=list(reference_repos or []),
             workspace=str(resolved_repo_path),
             started_at=task_started_at,
         )
@@ -732,6 +787,7 @@ def build_feature(
                 skills=selected_skills,
                 fix_ci=fix_ci,
                 ci_check_wait_minutes=ci_check_wait_minutes,
+                reference_repos=list(reference_repos or []),
                 workspace=str(resolved_repo_path),
                 started_at=task_started_at,
             )
@@ -765,6 +821,8 @@ def build_feature(
     finally:
         if _tmp_root is not None:
             shutil.rmtree(_tmp_root, ignore_errors=True)
+        for ref_root in ref_tmp_roots:
+            shutil.rmtree(ref_root, ignore_errors=True)
 
 
 @celery_app.task(bind=True, name="helping_hands.scheduled_build")
@@ -812,6 +870,7 @@ def scheduled_build(
         skills=schedule.skills,
         fix_ci=getattr(schedule, "fix_ci", False),
         ci_check_wait_minutes=getattr(schedule, "ci_check_wait_minutes", 3.0),
+        reference_repos=getattr(schedule, "reference_repos", []),
     )
 
     # Record the run

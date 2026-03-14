@@ -17,6 +17,8 @@ class RepoIndex:
 
     root: Path
     files: list[str] = field(default_factory=list)
+    reference_repos: list[tuple[str, Path]] = field(default_factory=list)
+    """Each entry is ``(name, local_path)`` for a read-only reference repo."""
 
     @classmethod
     def from_path(cls, path: Path) -> RepoIndex:

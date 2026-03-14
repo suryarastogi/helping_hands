@@ -50,7 +50,9 @@ class _Stub(_TwoPhaseCLIHand):
             use_native_cli_auth=use_native_cli_auth,
         )
         root = repo_root or Path("/tmp/fake-repo")
-        self.repo_index = SimpleNamespace(root=root, files=files or [])
+        self.repo_index = SimpleNamespace(
+            root=root, files=files or [], reference_repos=[]
+        )
         self.auto_pr = True
         self._active_process = None
         self._skill_catalog_dir = None

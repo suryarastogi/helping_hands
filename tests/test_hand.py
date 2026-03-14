@@ -90,6 +90,47 @@ class TestHandABC:
         assert "utils.py" in prompt
         assert str(repo_index.root) in prompt
 
+    def test_system_prompt_includes_reference_repos(self, config: Config) -> None:
+        """System prompt includes reference repo info when present."""
+        import tempfile
+
+        class StubHand(Hand):
+            def run(self, prompt: str) -> HandResponse:
+                return HandResponse(message="")
+
+            async def stream(self, prompt: str):  # type: ignore[override]
+                yield ""
+
+        with tempfile.TemporaryDirectory() as ref_dir:
+            ref_path = Path(ref_dir)
+            (ref_path / "lib.py").write_text("# ref file")
+            repo_index = RepoIndex(
+                root=Path("/tmp/fake"),
+                files=["main.py"],
+                reference_repos=[("acme/lib", ref_path)],
+            )
+            hand = StubHand(config, repo_index)
+            prompt = hand._build_system_prompt()
+            assert "acme/lib" in prompt
+            assert "read-only" in prompt.lower()
+            assert "lib.py" in prompt
+
+    def test_system_prompt_no_reference_repos(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        """System prompt does not include reference section when empty."""
+
+        class StubHand(Hand):
+            def run(self, prompt: str) -> HandResponse:
+                return HandResponse(message="")
+
+            async def stream(self, prompt: str):  # type: ignore[override]
+                yield ""
+
+        hand = StubHand(config, repo_index)
+        prompt = hand._build_system_prompt()
+        assert "Reference repositories" not in prompt
+
     def test_use_native_git_auth_for_push_prefers_token(
         self, repo_index: RepoIndex
     ) -> None:

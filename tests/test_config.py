@@ -414,3 +414,62 @@ class TestConfigFromEnvWhitespaceStripping:
     def test_github_token_already_clean_unchanged(self) -> None:
         config = Config.from_env(overrides={"github_token": "ghp_clean"})
         assert config.github_token == "ghp_clean"
+
+
+# ---------------------------------------------------------------------------
+# reference_repos Config field
+# ---------------------------------------------------------------------------
+
+
+class TestConfigReferenceRepos:
+    """Tests for the reference_repos Config field."""
+
+    def test_default_is_empty_tuple(self) -> None:
+        config = Config()
+        assert config.reference_repos == ()
+
+    def test_override_comma_separated_string(self) -> None:
+        config = Config.from_env(
+            overrides={"reference_repos": "owner/repo1, owner/repo2"}
+        )
+        assert config.reference_repos == ("owner/repo1", "owner/repo2")
+
+    def test_override_tuple(self) -> None:
+        config = Config.from_env(overrides={"reference_repos": ("a/b", "c/d")})
+        assert config.reference_repos == ("a/b", "c/d")
+
+    def test_override_list(self) -> None:
+        config = Config.from_env(overrides={"reference_repos": ["a/b", "c/d"]})
+        assert config.reference_repos == ("a/b", "c/d")
+
+    def test_env_var_sets_reference_repos(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_REFERENCE_REPOS", "owner/repo1,owner/repo2")
+        config = Config.from_env()
+        assert config.reference_repos == ("owner/repo1", "owner/repo2")
+
+    def test_override_beats_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_REFERENCE_REPOS", "env/repo")
+        config = Config.from_env(overrides={"reference_repos": "override/repo"})
+        assert config.reference_repos == ("override/repo",)
+
+    def test_none_override_preserves_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_REFERENCE_REPOS", "env/repo")
+        config = Config.from_env(overrides={"reference_repos": None})
+        assert config.reference_repos == ("env/repo",)
+
+    def test_empty_string_yields_empty_tuple(self) -> None:
+        config = Config.from_env(overrides={"reference_repos": ""})
+        assert config.reference_repos == ()
+
+    def test_whitespace_stripped(self) -> None:
+        config = Config.from_env(overrides={"reference_repos": "  a/b  ,  c/d  "})
+        assert config.reference_repos == ("a/b", "c/d")
+
+    def test_frozen_immutability(self) -> None:
+        config = Config(reference_repos=("a/b",))
+        with pytest.raises(FrozenInstanceError):
+            config.reference_repos = ("changed",)  # type: ignore[misc]

@@ -109,6 +109,7 @@ class TestBuildForm:
             "tools": [],
             "skills": [],
             "github_token": None,
+            "reference_repos": [],
         }
 
     def test_enqueues_codexcli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -154,6 +155,7 @@ class TestBuildForm:
             "tools": [],
             "skills": [],
             "github_token": None,
+            "reference_repos": [],
         }
 
     def test_enqueues_claudecodecli_backend(
@@ -201,6 +203,7 @@ class TestBuildForm:
             "tools": [],
             "skills": [],
             "github_token": None,
+            "reference_repos": [],
         }
 
     def test_enqueues_goose_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -245,6 +248,7 @@ class TestBuildForm:
             "tools": [],
             "skills": [],
             "github_token": None,
+            "reference_repos": [],
         }
 
     def test_enqueues_geminicli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -290,6 +294,7 @@ class TestBuildForm:
             "tools": [],
             "skills": [],
             "github_token": None,
+            "reference_repos": [],
         }
 
     def test_enqueues_with_tools_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -778,7 +783,6 @@ class TestCheckRedisHealth:
     def test_returns_error_when_import_fails(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-
         original_import = (
             __builtins__.__import__
             if hasattr(__builtins__, "__import__")
