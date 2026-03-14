@@ -14,14 +14,101 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from subprocess import TimeoutExpired
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["PRDescription", "generate_commit_message", "generate_pr_description"]
 
 _DEFAULT_DIFF_CHAR_LIMIT = 12_000
 _DEFAULT_TIMEOUT_SECONDS = 60.0
 _DISABLE_ENV_VAR = "HELPING_HANDS_DISABLE_PR_DESCRIPTION"
 _TIMEOUT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_TIMEOUT"
 _DIFF_LIMIT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT"
+
+_GIT_DIFF_TIMEOUT_S = 30
+"""Timeout in seconds for git diff subprocess calls."""
+
+_PR_SUMMARY_TRUNCATION_LENGTH = 2000
+"""Maximum characters of summary included in the PR description prompt."""
+
+_COMMIT_SUMMARY_TRUNCATION_LENGTH = 1000
+"""Maximum characters of summary included in the commit message prompt."""
+
+_PROMPT_CONTEXT_LENGTH = 500
+"""Maximum characters of the user prompt included as context."""
+
+_PR_ERROR_TAIL_LENGTH = 500
+"""Trailing characters of CLI output kept in PR generation error/debug logs."""
+
+_COMMIT_ERROR_TAIL_LENGTH = 300
+"""Trailing characters of CLI output kept in commit message error/debug logs."""
+
+_COMMIT_MSG_MAX_LENGTH = 72
+"""Maximum length for generated commit messages (conventional commit standard)."""
+
+
+def _truncate_text(text: str, *, limit: int) -> str:
+    """Truncate *text* to *limit* characters with a truncation indicator.
+
+    Unlike ``_truncate_diff``, this is designed for prompt/summary context
+    where the AI needs to know context was cut off (to avoid generating
+    generic or meaningless output from incomplete input).
+    """
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit}")
+    stripped = text.strip()
+    if len(stripped) <= limit:
+        return stripped
+    return f"{stripped[:limit]}...[truncated]"
+
+
+_COMMIT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "fix": ("fix", "bug", "patch", "hotfix", "repair", "resolve", "crash"),
+    "refactor": ("refactor", "restructure", "reorganize", "clean up", "simplify"),
+    "docs": ("document", "docs", "readme", "comment"),
+    "test": ("test", "spec", "coverage"),
+    "ci": ("ci", "pipeline", "workflow", "github action"),
+    "style": ("style", "format", "lint", "whitespace"),
+    "perf": ("perf", "performance", "optimize", "speed"),
+    "chore": ("chore", "bump", "upgrade", "dependency", "dependencies"),
+}
+"""Keyword mapping for inferring conventional commit type from text.
+
+Order matters: earlier entries take priority when text matches multiple
+types.  ``chore`` is last as a catch-all for maintenance tasks.
+"""
+
+
+def _infer_commit_type(text: str) -> str:
+    """Infer the conventional commit type from *text* content.
+
+    Scans *text* for keywords associated with each commit type and returns
+    the best match.  Uses word-boundary matching to avoid false positives
+    (e.g. ``"ci"`` should not match ``"dependencies"``).
+    Defaults to ``"feat"`` when no keywords match.
+    """
+    import re
+
+    lower = text.lower()
+    for commit_type, keywords in _COMMIT_TYPE_KEYWORDS.items():
+        for kw in keywords:
+            if " " in kw:
+                # Multi-word keywords use simple substring match.
+                if kw in lower:
+                    return commit_type
+            elif len(kw) <= 2:
+                # Very short keywords (e.g. "ci") need full word-boundary
+                # match to avoid false positives like "dependencies".
+                if re.search(rf"\b{re.escape(kw)}\b", lower):
+                    return commit_type
+            else:
+                # Longer keywords use word-start boundary to allow
+                # inflected forms (e.g. "test" matches "tests",
+                # "refactor" matches "refactored").
+                if re.search(rf"\b{re.escape(kw)}", lower):
+                    return commit_type
+    return "feat"
 
 
 @dataclass(frozen=True)
@@ -104,9 +191,13 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git diff timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -118,9 +209,13 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git diff HEAD~1 timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -130,6 +225,8 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
 
 def _truncate_diff(diff: str, *, limit: int) -> str:
     """Truncate *diff* to stay within *limit* characters."""
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit}")
     if len(diff) <= limit:
         return diff
     return f"{diff[:limit]}\n...[truncated — {len(diff) - limit} chars omitted]"
@@ -145,8 +242,10 @@ def _build_prompt(
     """Build the prompt that asks the CLI to generate a PR description."""
     summary_section = ""
     if summary.strip():
-        truncated = summary.strip()[:2000]
+        truncated = _truncate_text(summary, limit=_PR_SUMMARY_TRUNCATION_LENGTH)
         summary_section = f"\n## AI Summary of Changes\n{truncated}\n"
+
+    prompt_context = _truncate_text(user_prompt, limit=_PROMPT_CONTEXT_LENGTH)
 
     return (
         "You are generating a pull request title and description for a code change.\n\n"
@@ -164,7 +263,7 @@ def _build_prompt(
         "<your markdown body here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
-        f"- Original task prompt: {user_prompt[:500]}\n"
+        f"- Original task prompt: {prompt_context}\n"
         f"{summary_section}\n"
         f"## Git Diff\n"
         f"```diff\n{diff}\n```\n"
@@ -245,7 +344,7 @@ def generate_pr_description(
         summary=summary,
     )
 
-    cli_label = cmd[0] if cmd else "cli"
+    cli_label = cmd[0]
     timeout = _timeout_seconds()
     try:
         result = subprocess.run(
@@ -273,16 +372,17 @@ def generate_pr_description(
             "%s PR description generation failed (exit=%d): %s",
             cli_label,
             result.returncode,
-            result.stderr.strip()[-500:],
+            result.stderr.strip()[-_PR_ERROR_TAIL_LENGTH:],
         )
         return None
 
     parsed = _parse_output(result.stdout)
     if parsed is None:
         logger.warning(
-            "Could not parse %s PR description output. Output (last 500 chars): %s",
+            "Could not parse %s PR description output. Output (last %d chars): %s",
             cli_label,
-            result.stdout.strip()[-500:],
+            _PR_ERROR_TAIL_LENGTH,
+            result.stdout.strip()[-_PR_ERROR_TAIL_LENGTH:],
         )
         return None
 
@@ -295,7 +395,10 @@ def generate_pr_description(
 # ------------------------------------------------------------------
 
 _COMMIT_MSG_DIFF_LIMIT = 8_000
+"""Maximum characters of diff included in the commit message generation prompt."""
+
 _COMMIT_MSG_TIMEOUT = 30.0
+"""Timeout in seconds for the CLI commit message generation subprocess."""
 
 
 def _get_uncommitted_diff(repo_dir: Path) -> str:
@@ -310,9 +413,13 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
             cwd=repo_dir,
             capture_output=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git add timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     try:
         result = subprocess.run(
@@ -321,9 +428,13 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
         logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        return ""
+    except TimeoutExpired:
+        logger.warning("git diff --cached timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -340,8 +451,10 @@ def _build_commit_message_prompt(
     """Build the prompt that asks the CLI to generate a commit message."""
     summary_section = ""
     if summary.strip():
-        truncated = summary.strip()[:1000]
+        truncated = _truncate_text(summary, limit=_COMMIT_SUMMARY_TRUNCATION_LENGTH)
         summary_section = f"\n## AI Summary of Changes\n{truncated}\n"
+
+    prompt_context = _truncate_text(user_prompt, limit=_PROMPT_CONTEXT_LENGTH)
 
     return (
         "You are generating a git commit message for a code change.\n\n"
@@ -356,23 +469,46 @@ def _build_commit_message_prompt(
         "COMMIT_MSG: <your message here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
-        f"- Original task prompt: {user_prompt[:500]}\n"
+        f"- Original task prompt: {prompt_context}\n"
         f"{summary_section}\n"
         f"## Git Diff\n"
         f"```diff\n{diff}\n```\n"
     )
 
 
+_MIN_COMMIT_MSG_LENGTH = 8
+
+
+def _is_trivial_message(msg: str) -> bool:
+    """Return True if *msg* is too short or contains only punctuation/filler."""
+    import re
+
+    # Strip conventional-commit prefix for length check.
+    body = re.sub(
+        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)"
+        r"(\([^)]*\))?\s*:\s*",
+        "",
+        msg,
+        flags=re.IGNORECASE,
+    )
+    # Reject if the body (after prefix) is empty or very short.
+    if len(body) < 3:
+        return True
+    # Reject if body is only punctuation, ellipses, dashes, or whitespace.
+    return bool(re.fullmatch(r"[\s\-.,;:!?*/\\#@^&(){}[\]|`~\"']+", body))
+
+
 def _parse_commit_message(output: str) -> str | None:
     """Extract the commit message from CLI output.
 
-    Returns ``None`` if the output cannot be parsed.
+    Returns ``None`` if the output cannot be parsed or the message is
+    trivially short / meaningless.
     """
     for line in output.split("\n"):
         if line.startswith("COMMIT_MSG:"):
             msg = line[len("COMMIT_MSG:") :].strip()
-            if msg:
-                return msg[:72]
+            if msg and not _is_trivial_message(msg):
+                return msg[:_COMMIT_MSG_MAX_LENGTH]
     return None
 
 
@@ -469,9 +605,14 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     text = text[0].lower() + text[1:] if text else text
     text = text.rstrip(".")
 
-    # Assemble with prefix and enforce 72-char limit.
-    msg = f"feat: {text}"
-    return msg[:72]
+    # Reject trivially short or punctuation-only text.
+    commit_type = _infer_commit_type(text)
+    if not text or _is_trivial_message(f"{commit_type}: {text}"):
+        return ""
+
+    # Assemble with inferred prefix and enforce 72-char limit.
+    msg = f"{commit_type}: {text}"
+    return msg[:_COMMIT_MSG_MAX_LENGTH]
 
 
 def generate_commit_message(
@@ -516,7 +657,7 @@ def generate_commit_message(
         summary=summary,
     )
 
-    cli_label = cmd[0] if cmd else "cli"
+    cli_label = cmd[0]
     try:
         result = subprocess.run(
             cmd,
@@ -542,7 +683,7 @@ def generate_commit_message(
             "%s commit message generation failed (exit=%d): %s",
             cli_label,
             result.returncode,
-            result.stderr.strip()[-300:],
+            result.stderr.strip()[-_COMMIT_ERROR_TAIL_LENGTH:],
         )
         return None
 
@@ -551,7 +692,7 @@ def generate_commit_message(
         logger.warning(
             "Could not parse %s commit message output: %s",
             cli_label,
-            result.stdout.strip()[-300:],
+            result.stdout.strip()[-_COMMIT_ERROR_TAIL_LENGTH:],
         )
         return None
 

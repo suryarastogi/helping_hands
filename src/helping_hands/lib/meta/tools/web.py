@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "WebBrowseResult",
+    "WebSearchItem",
+    "WebSearchResult",
+    "browse_url",
+    "search_web",
+]
+
 import json
 import logging
 import re
@@ -47,6 +55,9 @@ class WebBrowseResult:
 _DEFAULT_USER_AGENT = (
     "helping_hands/0.1 (+https://github.com/suryarastogi/helping_hands)"
 )
+
+_DUCKDUCKGO_API_URL = "https://api.duckduckgo.com/"
+"""Base URL for the DuckDuckGo Instant Answer API."""
 
 
 def _require_http_url(url: str) -> str:
@@ -141,7 +152,7 @@ def search_web(
             "skip_disambig": "1",
         }
     )
-    url = f"https://api.duckduckgo.com/?{params}"
+    url = f"{_DUCKDUCKGO_API_URL}?{params}"
     request = Request(
         url,
         headers={"Accept": "application/json", "User-Agent": _DEFAULT_USER_AGENT},

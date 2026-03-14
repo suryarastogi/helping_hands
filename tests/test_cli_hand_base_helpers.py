@@ -441,3 +441,36 @@ class TestRepoHasChanges:
             result = stub._repo_has_changes()
         assert result is False
         assert any("git status check failed" in r.message for r in caplog.records)
+
+    def test_timeout_returns_false(self, tmp_path: Path) -> None:
+        """v149: git status timeout returns False instead of hanging."""
+        import subprocess
+        from unittest.mock import patch
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        with patch(
+            "helping_hands.lib.hands.v1.hand.cli.base.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd=["git"], timeout=30),
+        ):
+            assert stub._repo_has_changes() is False
+
+    def test_timeout_logs_warning(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """v149: git status timeout emits warning log."""
+        import logging
+        import subprocess
+        from unittest.mock import patch
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        with (
+            patch(
+                "helping_hands.lib.hands.v1.hand.cli.base.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd=["git"], timeout=30),
+            ),
+            caplog.at_level(logging.WARNING),
+        ):
+            stub._repo_has_changes()
+        assert any("git status timed out" in r.message for r in caplog.records)

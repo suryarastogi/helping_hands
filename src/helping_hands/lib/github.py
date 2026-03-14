@@ -18,10 +18,13 @@ from github import Auth, Github
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
+__all__ = ["GitHubClient", "PRResult"]
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_GIT_TIMEOUT = 300  # seconds
 _MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
+_VALID_PR_STATES = frozenset({"open", "closed", "all"})
 
 
 def _git_timeout() -> int:
@@ -72,6 +75,16 @@ def _validate_full_name(full_name: str) -> None:
         raise ValueError(
             f"full_name must be in 'owner/repo' format, got: {full_name!r}"
         )
+
+
+def _validate_branch_name(branch_name: str) -> None:
+    """Validate that *branch_name* is a non-empty string.
+
+    Raises:
+        ValueError: If the string is empty or whitespace-only.
+    """
+    if not branch_name or not branch_name.strip():
+        raise ValueError("branch_name must not be empty")
 
 
 def _redact_sensitive(text: str) -> str:
@@ -160,6 +173,7 @@ class GitHubClient:
         Returns:
             Path to the cloned repository.
         """
+        _validate_full_name(full_name)
         dest = Path(dest)
         if depth is not None and depth <= 0:
             raise ValueError(f"depth must be positive, got {depth}")
@@ -181,11 +195,13 @@ class GitHubClient:
     @staticmethod
     def create_branch(repo_path: Path | str, branch_name: str) -> None:
         """Create and switch to a new branch in a local repo."""
+        _validate_branch_name(branch_name)
         _run_git(["git", "checkout", "-b", branch_name], cwd=repo_path)
 
     @staticmethod
     def switch_branch(repo_path: Path | str, branch_name: str) -> None:
         """Switch to an existing branch."""
+        _validate_branch_name(branch_name)
         _run_git(["git", "checkout", branch_name], cwd=repo_path)
 
     @staticmethod
@@ -196,6 +212,7 @@ class GitHubClient:
         remote: str = "origin",
     ) -> None:
         """Fetch a remote branch into a matching local branch name."""
+        _validate_branch_name(branch_name)
         _run_git(
             [
                 "git",
@@ -246,6 +263,8 @@ class GitHubClient:
         Returns:
             The short SHA of the new commit.
         """
+        if not message or not message.strip():
+            raise ValueError("commit message must not be empty")
         targets = paths or ["."]
         _run_git(["git", "add", *targets], cwd=repo_path)
         _run_git(["git", "commit", "-m", message], cwd=repo_path)
@@ -260,6 +279,10 @@ class GitHubClient:
         email: str,
     ) -> None:
         """Set git author identity in local repo config."""
+        if not name or not name.strip():
+            raise ValueError("name must not be empty")
+        if not email or not email.strip():
+            raise ValueError("email must not be empty")
         _run_git(["git", "config", "user.name", name], cwd=repo_path)
         _run_git(["git", "config", "user.email", email], cwd=repo_path)
 
@@ -317,7 +340,15 @@ class GitHubClient:
 
         Returns:
             A ``PRResult`` with the PR number, URL, title, head, and base.
+
+        Raises:
+            ValueError: If *title* is empty/whitespace, or *head*/*base* are
+                invalid branch names.
         """
+        if not title or not title.strip():
+            raise ValueError("title must not be empty")
+        _validate_branch_name(head)
+        _validate_branch_name(base)
         repo = self.get_repo(full_name)
         pr: PullRequest = repo.create_pull(
             title=title, body=body, head=head, base=base, draft=draft
@@ -349,6 +380,12 @@ class GitHubClient:
             state: ``"open"``, ``"closed"``, or ``"all"``.
             limit: Maximum number of PRs to return.
         """
+        if limit <= 0:
+            raise ValueError(f"limit must be positive, got {limit}")
+        if state not in _VALID_PR_STATES:
+            raise ValueError(
+                f"state must be one of {sorted(_VALID_PR_STATES)}, got {state!r}"
+            )
         repo = self.get_repo(full_name)
         prs: list[PullRequest] = list(
             repo.get_pulls(state=state, sort="created", direction="desc")
@@ -367,6 +404,8 @@ class GitHubClient:
 
     def get_pr(self, full_name: str, number: int) -> dict[str, Any]:
         """Get details of a single pull request."""
+        if number <= 0:
+            raise ValueError(f"PR number must be positive, got {number}")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         return {
@@ -389,6 +428,8 @@ class GitHubClient:
 
     def update_pr_body(self, full_name: str, number: int, *, body: str) -> None:
         """Update the body/description of an existing pull request."""
+        if number <= 0:
+            raise ValueError(f"PR number must be positive, got {number}")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         pr.edit(body=body)
@@ -407,7 +448,12 @@ class GitHubClient:
         Returns:
             A dict with ``ref``, ``total_count``, ``conclusion`` (overall),
             and ``check_runs`` (list of individual run summaries).
+
+        Raises:
+            ValueError: If *ref* is empty or whitespace-only.
         """
+        if not ref or not ref.strip():
+            raise ValueError("ref must not be empty")
         repo = self.get_repo(full_name)
         commit = repo.get_commit(ref)
         runs = commit.get_check_runs()
@@ -459,7 +505,14 @@ class GitHubClient:
 
         If a comment containing ``marker`` already exists, it is edited in place.
         Otherwise, a new comment is created.
+
+        Raises:
+            ValueError: If *number* is not positive or *body* is empty/whitespace.
         """
+        if number <= 0:
+            raise ValueError(f"PR number must be positive, got {number}")
+        if not body or not body.strip():
+            raise ValueError("comment body must not be empty")
         repo = self.get_repo(full_name)
         issue = repo.get_issue(number=number)
         comment_body = body.rstrip()

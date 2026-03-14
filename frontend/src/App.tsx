@@ -2534,6 +2534,24 @@ export default function App() {
           </div>
         </div>
         <div className="monitor-bar-right">
+          {taskId && !isTerminalTaskStatus(status) && (
+            <button
+              type="button"
+              className="secondary cancel-task-btn"
+              style={{ fontSize: "0.7rem", padding: "2px 8px", color: "#fca5a5", borderColor: "#7f1d1d" }}
+              title="Cancel this task"
+              onClick={async () => {
+                if (!confirm("Cancel this task?")) return;
+                try {
+                  await fetch(apiUrl(`/tasks/${taskId}/cancel`), { method: "POST" });
+                } catch {
+                  /* swallow — next poll picks up REVOKED */
+                }
+              }}
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="button"
             className="secondary"

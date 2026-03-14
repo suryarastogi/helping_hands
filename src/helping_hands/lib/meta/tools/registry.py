@@ -242,6 +242,8 @@ def normalize_tool_selection(
     """Normalize user-provided tool category names into a deduplicated tuple."""
     if values is None:
         return ()
+    if not isinstance(values, (str, list, tuple)):
+        raise TypeError("tools must be a string, list, or tuple")
 
     tokens: list[str] = []
     candidates = values.split(",") if isinstance(values, str) else list(values)

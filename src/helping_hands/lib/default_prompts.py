@@ -1,5 +1,7 @@
 """Shared default prompts used by CLI and app entry points."""
 
+__all__ = ["DEFAULT_SMOKE_TEST_PROMPT"]
+
 DEFAULT_SMOKE_TEST_PROMPT = (
     "Update README.md with results of your smoke test.\n"
     "Try out each capability and summarize outcome:\n"

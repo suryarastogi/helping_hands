@@ -12,6 +12,7 @@ import subprocess
 import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
+from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import cast
 
@@ -32,6 +33,19 @@ from helping_hands.lib.hands.v1.hand import (
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
+
+__all__ = ["build_parser", "main"]
+
+# --- Module-level constants ---------------------------------------------------
+
+_DEFAULT_CLONE_DEPTH = 1
+"""Shallow clone depth used when cloning ``owner/repo`` inputs."""
+
+_TEMP_CLONE_PREFIX = "helping_hands_repo_"
+"""Prefix for temporary directories created for cloned repositories."""
+
+_GIT_CLONE_TIMEOUT_S = 120
+"""Timeout in seconds for git clone subprocess calls."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -130,6 +144,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--github-token",
+        default=None,
+        help=(
+            "GitHub token for this task (overrides GITHUB_TOKEN / GH_TOKEN). "
+            "Useful when a task requires different permissions."
+        ),
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -157,6 +179,13 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    if args.pr_number is not None and args.pr_number <= 0:
+        print(
+            f"Error: --pr-number must be a positive integer (got {args.pr_number})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if args.e2e:
         config = Config.from_env(
             overrides={
@@ -168,6 +197,7 @@ def main(argv: list[str] | None = None) -> None:
                 "use_native_cli_auth": args.use_native_cli_auth,
                 "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
+                "github_token": args.github_token,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -200,6 +230,7 @@ def main(argv: list[str] | None = None) -> None:
             "use_native_cli_auth": args.use_native_cli_auth,
             "enabled_tools": selected_tools,
             "enabled_skills": selected_skills,
+            "github_token": args.github_token,
         }
     )
     repo_index = RepoIndex.from_path(Path(config.repo))
@@ -299,7 +330,17 @@ async def _stream_hand(hand: Hand, prompt: str) -> None:
     print()
 
 
+def _validate_repo_spec(repo: str) -> None:
+    """Validate that *repo* looks like ``owner/repo`` before embedding in a URL."""
+    if not repo or not repo.strip():
+        raise ValueError("repo spec must not be empty")
+    parts = repo.strip().split("/")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
+
+
 def _github_clone_url(repo: str) -> str:
+    _validate_repo_spec(repo)
     token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
     if token:
         return f"https://x-access-token:{token}@github.com/{repo}.git"
@@ -342,17 +383,24 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
         return path, None
 
     if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
-        dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
+        dest_root = Path(mkdtemp(prefix=_TEMP_CLONE_PREFIX, dir=_repo_tmp_dir()))
         atexit.register(shutil.rmtree, dest_root, True)
         dest = dest_root / "repo"
         url = _github_clone_url(repo)
-        result = subprocess.run(
-            ["git", "clone", "--depth", "1", url, str(dest)],
-            capture_output=True,
-            text=True,
-            check=False,
-            env=_git_noninteractive_env(),
-        )
+        try:
+            result = subprocess.run(
+                ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=_git_noninteractive_env(),
+                timeout=_GIT_CLONE_TIMEOUT_S,
+            )
+        except TimeoutExpired as exc:
+            shutil.rmtree(dest_root, ignore_errors=True)
+            raise ValueError(
+                f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
+            ) from exc
         if result.returncode != 0:
             stderr = result.stderr.strip() or "unknown git clone error"
             stderr = _redact_sensitive(stderr)

@@ -7,6 +7,8 @@ from typing import Any
 
 from helping_hands.lib.ai_providers.types import AIProvider
 
+__all__ = ["GOOGLE_PROVIDER", "GoogleProvider"]
+
 
 class GoogleProvider(AIProvider):
     """Wrapper around the Google GenAI Python SDK client."""
@@ -37,7 +39,7 @@ class GoogleProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
-        contents = [m["content"] for m in messages if m["content"]]
+        contents = [m.get("content") for m in messages if m.get("content")]
         if not contents:
             raise ValueError(
                 "all messages have empty content; cannot send empty request"

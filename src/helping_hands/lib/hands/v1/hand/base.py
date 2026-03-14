@@ -30,6 +30,46 @@ from helping_hands.lib.meta.tools import registry as tool_registry
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["Hand", "HandResponse"]
+
+# --- Module-level constants ---------------------------------------------------
+
+_DEFAULT_BASE_BRANCH = "main"
+"""Fallback base branch when ``HELPING_HANDS_BASE_BRANCH`` is not set."""
+
+_DEFAULT_GIT_USER_NAME = "helping-hands[bot]"
+"""Default git committer name for PR finalization."""
+
+_DEFAULT_GIT_USER_EMAIL = "helping-hands-bot@users.noreply.github.com"
+"""Default git committer email for PR finalization."""
+
+_DEFAULT_CI_WAIT_MINUTES: float = 3.0
+"""Default number of minutes to wait between CI check polls."""
+
+_DEFAULT_CI_MAX_RETRIES: int = 3
+"""Default maximum number of CI fix retry attempts."""
+
+_BRANCH_PREFIX = "helping-hands/"
+"""Prefix for auto-generated branch names."""
+
+_UUID_HEX_LENGTH = 8
+"""Number of hex characters from a UUID4 used in branch names."""
+
+_MAX_OUTPUT_DISPLAY_LENGTH = 4000
+"""Maximum character length for combined pre-commit output before truncation."""
+
+_FILE_LIST_PREVIEW_LIMIT = 200
+"""Maximum number of files shown in the system prompt file list."""
+
+_LOG_TRUNCATION_LENGTH = 200
+"""Maximum character length for error messages in log output."""
+
+_GIT_READ_TIMEOUT_S = 30
+"""Seconds timeout for lightweight git read subprocesses (e.g. status, remote)."""
+
+_PRECOMMIT_TIMEOUT_S = 300
+"""Seconds timeout for ``uv run pre-commit run --all-files`` subprocesses."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -53,8 +93,8 @@ class Hand(abc.ABC):
         self.auto_pr = True
         self.pr_number: int | None = None
         self.fix_ci: bool = False
-        self.ci_check_wait_minutes: float = 3.0
-        self.ci_max_retries: int = 3
+        self.ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
+        self.ci_max_retries: int = _DEFAULT_CI_MAX_RETRIES
 
         # Resolve TOOLS (callable capabilities) — independent axis.
         tool_selection = tool_registry.normalize_tool_selection(
@@ -77,7 +117,9 @@ class Hand(abc.ABC):
 
     def _build_system_prompt(self) -> str:
         """Build a system prompt that includes repo context."""
-        file_list = "\n".join(f"  - {f}" for f in self.repo_index.files[:200])
+        file_list = "\n".join(
+            f"  - {f}" for f in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
+        )
         return (
             "You are a helpful coding assistant working on a repository.\n"
             f"Repo root: {self.repo_index.root}\n"
@@ -107,17 +149,26 @@ class Hand(abc.ABC):
 
     @staticmethod
     def _default_base_branch() -> str:
-        return os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
+        return os.environ.get("HELPING_HANDS_BASE_BRANCH", _DEFAULT_BASE_BRANCH)
 
     @staticmethod
     def _run_git_read(repo_dir: Path, *args: str) -> str:
-        result = subprocess.run(
-            ["git", *args],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["git", *args],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "git read timed out after %ds: git %s",
+                _GIT_READ_TIMEOUT_S,
+                " ".join(args),
+            )
+            return ""
         if result.returncode != 0:
             return ""
         return result.stdout.strip()
@@ -154,6 +205,10 @@ class Hand(abc.ABC):
         commit_sha: str,
         stamp_utc: str,
     ) -> str:
+        if not backend or not backend.strip():
+            raise ValueError("backend must not be empty")
+        if not prompt or not prompt.strip():
+            raise ValueError("prompt must not be empty")
         return (
             f"Automated update from `{backend}`.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -167,14 +222,28 @@ class Hand(abc.ABC):
     def _configure_authenticated_push_remote(
         repo_dir: Path, repo: str, token: str
     ) -> None:
+        if not repo or not repo.strip():
+            raise ValueError("repo must not be empty")
+        if not token or not token.strip():
+            raise ValueError("token must not be empty")
         push_url = f"https://x-access-token:{token}@github.com/{repo}.git"
-        result = subprocess.run(
-            ["git", "remote", "set-url", "--push", "origin", push_url],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["git", "remote", "set-url", "--push", "origin", push_url],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "git remote set-url timed out after %ds",
+                _GIT_READ_TIMEOUT_S,
+            )
+            raise RuntimeError(
+                f"git remote set-url timed out after {_GIT_READ_TIMEOUT_S}s"
+            ) from None
         if result.returncode != 0:
             stderr = result.stderr.strip() or "unknown git error"
             msg = f"failed to configure authenticated push remote: {stderr}"
@@ -247,7 +316,7 @@ class Hand(abc.ABC):
 
             logger.info(
                 "Git hook failure detected, attempting AI-assisted fix: %s",
-                error_msg[:200],
+                error_msg[:_LOG_TRUNCATION_LENGTH],
             )
 
             if not self._try_fix_git_hook_errors(repo_dir, error_msg):
@@ -266,6 +335,7 @@ class Hand(abc.ABC):
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=_PRECOMMIT_TIMEOUT_S,
             )
 
         try:
@@ -299,8 +369,10 @@ class Hand(abc.ABC):
         if stderr:
             output_parts.append(f"stderr:\n{stderr}")
         combined_output = "\n\n".join(output_parts) or "no output captured"
-        if len(combined_output) > 4000:
-            combined_output = f"{combined_output[:4000]}\n...[truncated]"
+        if len(combined_output) > _MAX_OUTPUT_DISPLAY_LENGTH:
+            combined_output = (
+                f"{combined_output[:_MAX_OUTPUT_DISPLAY_LENGTH]}\n...[truncated]"
+            )
         msg = (
             "pre-commit checks failed after an auto-fix retry. "
             "Resolve hook failures locally before PR push.\n"
@@ -504,7 +576,7 @@ class Hand(abc.ABC):
             raise ValueError(
                 "pr_number must be set before calling _create_pr_for_diverged_branch"
             )
-        new_branch = f"helping-hands/{backend}-{uuid4().hex[:8]}"
+        new_branch = f"{_BRANCH_PREFIX}{backend}-{uuid4().hex[:_UUID_HEX_LENGTH]}"
         gh.create_branch(repo_dir, new_branch)
         self._push_noninteractive(gh, repo_dir, new_branch)
 
@@ -616,13 +688,14 @@ class Hand(abc.ABC):
         from helping_hands.lib.github import GitHubClient
 
         try:
-            with GitHubClient() as gh:
+            gh_token = getattr(self.config, "github_token", "")
+            with GitHubClient(token=gh_token) as gh:
                 git_name = os.environ.get(
-                    "HELPING_HANDS_GIT_USER_NAME", "helping-hands[bot]"
+                    "HELPING_HANDS_GIT_USER_NAME", _DEFAULT_GIT_USER_NAME
                 )
                 git_email = os.environ.get(
                     "HELPING_HANDS_GIT_USER_EMAIL",
-                    "helping-hands-bot@users.noreply.github.com",
+                    _DEFAULT_GIT_USER_EMAIL,
                 )
                 gh.set_local_identity(repo_dir, name=git_name, email=git_email)
 
@@ -640,7 +713,7 @@ class Hand(abc.ABC):
                         metadata=metadata,
                     )
 
-                branch = f"helping-hands/{backend}-{uuid4().hex[:8]}"
+                branch = f"{_BRANCH_PREFIX}{backend}-{uuid4().hex[:_UUID_HEX_LENGTH]}"
                 gh.create_branch(repo_dir, branch)
 
                 from helping_hands.lib.hands.v1.hand.pr_description import (

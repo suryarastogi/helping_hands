@@ -7,6 +7,11 @@ from typing import Any
 
 from helping_hands.lib.ai_providers.types import AIProvider
 
+__all__ = ["ANTHROPIC_PROVIDER", "AnthropicProvider"]
+
+_DEFAULT_MAX_TOKENS = 1024
+"""Default ``max_tokens`` for Anthropic completions when not specified."""
+
 
 class AnthropicProvider(AIProvider):
     """Wrapper around the Anthropic Python SDK client."""
@@ -37,7 +42,7 @@ class AnthropicProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
-        max_tokens = kwargs.pop("max_tokens", 1024)
+        max_tokens = kwargs.pop("max_tokens", _DEFAULT_MAX_TOKENS)
         return inner.messages.create(
             model=model,
             max_tokens=max_tokens,

@@ -10,10 +10,12 @@ import pytest
 pytest.importorskip("celery", reason="celery extra not installed")
 
 from helping_hands.server.schedules import (
+    _SCHEDULE_ID_HEX_LENGTH,
     _SCHEDULE_META_PREFIX,
     ScheduledTask,
     _check_croniter,
     _check_redbeat,
+    generate_schedule_id,
 )
 
 # ---------------------------------------------------------------------------
@@ -661,3 +663,128 @@ class TestScheduledTaskFixCiRoundtrip:
         original = _make_task(use_native_cli_auth=True)
         rebuilt = ScheduledTask.from_dict(original.to_dict())
         assert rebuilt.use_native_cli_auth is True
+
+
+# ---------------------------------------------------------------------------
+# _SCHEDULE_ID_HEX_LENGTH constant (v143)
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleIdHexLengthConstant:
+    """Tests for the _SCHEDULE_ID_HEX_LENGTH module-level constant."""
+
+    def test_value(self) -> None:
+        assert _SCHEDULE_ID_HEX_LENGTH == 12
+
+    def test_type(self) -> None:
+        assert isinstance(_SCHEDULE_ID_HEX_LENGTH, int)
+
+    def test_positive(self) -> None:
+        assert _SCHEDULE_ID_HEX_LENGTH > 0
+
+    def test_generate_schedule_id_uses_constant(self) -> None:
+        """generate_schedule_id() produces IDs with the correct hex length."""
+        schedule_id = generate_schedule_id()
+        suffix = schedule_id.removeprefix("sched_")
+        assert len(suffix) == _SCHEDULE_ID_HEX_LENGTH
+
+
+# ---------------------------------------------------------------------------
+# _save_meta Redis error handling (v143)
+# ---------------------------------------------------------------------------
+
+
+class TestSaveMetaRedisError:
+    """Tests for _save_meta error handling on Redis failures."""
+
+    def test_save_meta_redis_error_raises_runtime(self) -> None:
+        """_save_meta should raise RuntimeError on Redis write failure."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.set.side_effect = ConnectionError("Redis unavailable")
+        task = _make_task()
+
+        with pytest.raises(RuntimeError, match="Failed to persist schedule"):
+            mgr._save_meta(task)
+
+    def test_save_meta_redis_error_logs_warning(self, caplog) -> None:
+        """_save_meta should log a warning on Redis write failure."""
+        import logging
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.set.side_effect = ConnectionError("Redis unavailable")
+        task = _make_task()
+
+        with (
+            caplog.at_level(logging.WARNING, logger="helping_hands.server.schedules"),
+            pytest.raises(RuntimeError),
+        ):
+            mgr._save_meta(task)
+
+        assert any("Failed to save schedule metadata" in m for m in caplog.messages)
+
+    def test_save_meta_success_no_error(self) -> None:
+        """_save_meta should not raise when Redis write succeeds."""
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task()
+        mgr._save_meta(task)  # should not raise
+        mock_redis.set.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _delete_meta Redis error handling (v143)
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteMetaRedisError:
+    """Tests for _delete_meta error handling on Redis failures."""
+
+    def test_delete_meta_redis_error_swallowed(self) -> None:
+        """_delete_meta should not raise on Redis delete failure."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.delete.side_effect = ConnectionError("Redis unavailable")
+        mgr._delete_meta("sched_abc")  # should not raise
+
+    def test_delete_meta_redis_error_logs_warning(self, caplog) -> None:
+        """_delete_meta should log a warning on Redis delete failure."""
+        import logging
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.delete.side_effect = ConnectionError("Redis unavailable")
+
+        with caplog.at_level(logging.WARNING, logger="helping_hands.server.schedules"):
+            mgr._delete_meta("sched_abc")
+
+        assert any("Failed to delete schedule metadata" in m for m in caplog.messages)
+
+
+# ---------------------------------------------------------------------------
+# _list_meta_keys Redis error handling (v143)
+# ---------------------------------------------------------------------------
+
+
+class TestListMetaKeysRedisError:
+    """Tests for _list_meta_keys error handling on Redis failures."""
+
+    def test_list_meta_keys_redis_error_returns_empty(self) -> None:
+        """_list_meta_keys should return empty list on Redis failure."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.keys.side_effect = ConnectionError("Redis unavailable")
+        assert mgr._list_meta_keys() == []
+
+    def test_list_meta_keys_redis_error_logs_warning(self, caplog) -> None:
+        """_list_meta_keys should log a warning on Redis failure."""
+        import logging
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.keys.side_effect = ConnectionError("Redis unavailable")
+
+        with caplog.at_level(logging.WARNING, logger="helping_hands.server.schedules"):
+            mgr._list_meta_keys()
+
+        assert any("Failed to list schedule metadata" in m for m in caplog.messages)
+
+    def test_list_schedules_returns_empty_on_redis_failure(self) -> None:
+        """list_schedules should return empty list when _list_meta_keys fails."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.keys.side_effect = ConnectionError("Redis unavailable")
+        assert mgr.list_schedules() == []

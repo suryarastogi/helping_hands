@@ -324,3 +324,93 @@ class TestFromEnvPrecedence:
     def test_repo_override_sets_repo_field(self) -> None:
         config = Config.from_env(overrides={"repo": "/tmp/myrepo"})
         assert config.repo == "/tmp/myrepo"
+
+
+class TestConfigGitHubToken:
+    """Tests for the github_token Config field (v147)."""
+
+    def test_default_is_empty_string(self) -> None:
+        config = Config()
+        assert config.github_token == ""
+
+    def test_override_sets_github_token(self) -> None:
+        config = Config.from_env(overrides={"github_token": "ghp_test123"})
+        assert config.github_token == "ghp_test123"
+
+    def test_env_var_sets_github_token(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "ghp_from_env")
+        config = Config.from_env()
+        assert config.github_token == "ghp_from_env"
+
+    def test_override_beats_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "ghp_from_env")
+        config = Config.from_env(overrides={"github_token": "ghp_override"})
+        assert config.github_token == "ghp_override"
+
+    def test_none_override_preserves_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "ghp_from_env")
+        config = Config.from_env(overrides={"github_token": None})
+        assert config.github_token == "ghp_from_env"
+
+    def test_no_env_no_override_uses_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_GITHUB_TOKEN", raising=False)
+        config = Config.from_env()
+        assert config.github_token == ""
+
+    def test_frozen_immutability(self) -> None:
+        config = Config(github_token="ghp_test")
+        with pytest.raises(FrozenInstanceError):
+            config.github_token = "changed"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# v156 — __all__ export
+# ---------------------------------------------------------------------------
+
+
+class TestConfigModuleAll:
+    def test_all_contains_config(self) -> None:
+        assert "Config" in config_module.__all__
+
+    def test_all_does_not_contain_private_helpers(self) -> None:
+        for name in config_module.__all__:
+            assert not name.startswith("_"), f"private name {name!r} in __all__"
+
+
+# ---------------------------------------------------------------------------
+# v156 — Config.from_env() whitespace stripping
+# ---------------------------------------------------------------------------
+
+
+class TestConfigFromEnvWhitespaceStripping:
+    def test_repo_whitespace_stripped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        config = Config.from_env(overrides={"repo": "  /path/to/repo  "})
+        assert config.repo == "/path/to/repo"
+
+    def test_model_whitespace_stripped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_MODEL", "  gpt-5.2  ")
+        config = Config.from_env()
+        assert config.model == "gpt-5.2"
+
+    def test_github_token_whitespace_stripped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_GITHUB_TOKEN", "  ghp_abc123  ")
+        config = Config.from_env()
+        assert config.github_token == "ghp_abc123"
+
+    def test_repo_already_clean_unchanged(self) -> None:
+        config = Config.from_env(overrides={"repo": "/clean/path"})
+        assert config.repo == "/clean/path"
+
+    def test_model_already_clean_unchanged(self) -> None:
+        config = Config.from_env(overrides={"model": "gpt-5.2"})
+        assert config.model == "gpt-5.2"
+
+    def test_github_token_already_clean_unchanged(self) -> None:
+        config = Config.from_env(overrides={"github_token": "ghp_clean"})
+        assert config.github_token == "ghp_clean"

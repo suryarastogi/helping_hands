@@ -7,6 +7,11 @@ from urllib.parse import urlparse
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
+__all__ = ["GooseCLIHand"]
+
+_OLLAMA_DEFAULT_HOST = "http://localhost:11434"
+"""Default Ollama API host used when no OLLAMA_HOST or OLLAMA_BASE_URL is set."""
+
 
 class GooseCLIHand(_TwoPhaseCLIHand):
     """Hand backed by Goose CLI subprocess execution."""
@@ -117,7 +122,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         from_base_url = cls._normalize_ollama_host(env.get("OLLAMA_BASE_URL", ""))
         if from_base_url:
             return from_base_url
-        return "http://localhost:11434"
+        return _OLLAMA_DEFAULT_HOST
 
     def _resolve_goose_provider_model_from_config(self) -> tuple[str, str]:
         raw_model = str(self.config.model).strip()

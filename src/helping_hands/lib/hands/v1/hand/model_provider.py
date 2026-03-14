@@ -12,6 +12,13 @@ from typing import Any
 
 from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
 
+__all__ = [
+    "HandModel",
+    "build_atomic_client",
+    "build_langchain_chat_model",
+    "resolve_hand_model",
+]
+
 
 @dataclass(frozen=True)
 class HandModel:
@@ -83,8 +90,8 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
         return ChatOpenAI(
             model_name=hand_model.model,
             streaming=streaming,
-            base_url=base_url,  # ty: ignore[unknown-argument]
-            api_key=api_key,  # ty: ignore[unknown-argument]
+            base_url=base_url,  # type: ignore[unknown-argument]
+            api_key=api_key,  # type: ignore[unknown-argument]
         )
     if provider == "anthropic":
         try:

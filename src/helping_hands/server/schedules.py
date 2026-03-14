@@ -17,6 +17,16 @@ from celery import Celery
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "CRON_PRESETS",
+    "ScheduleManager",
+    "ScheduledTask",
+    "generate_schedule_id",
+    "get_schedule_manager",
+    "next_run_time",
+    "validate_cron_expression",
+]
+
 # Lazy imports for optional dependencies
 _redbeat_available = True
 try:
@@ -24,14 +34,14 @@ try:
     from redbeat.decoder import RedBeatJSONDecoder, RedBeatJSONEncoder
 except ImportError:
     _redbeat_available = False
-    RedBeatSchedulerEntry = None  # ty: ignore[invalid-assignment]
-    RedBeatJSONDecoder = None  # ty: ignore[invalid-assignment]
-    RedBeatJSONEncoder = None  # ty: ignore[invalid-assignment]
+    RedBeatSchedulerEntry = None  # type: ignore[assignment]
+    RedBeatJSONDecoder = None  # type: ignore[assignment]
+    RedBeatJSONEncoder = None  # type: ignore[assignment]
 
 try:
     from croniter import croniter
 except ImportError:
-    croniter = None  # ty: ignore[invalid-assignment]
+    croniter = None  # type: ignore[assignment]
 
 
 def _check_redbeat() -> None:
@@ -73,6 +83,7 @@ class ScheduledTask:
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = 3.0
+    github_token: str | None = None
     tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     enabled: bool = True
@@ -103,6 +114,7 @@ class ScheduledTask:
             "use_native_cli_auth": self.use_native_cli_auth,
             "fix_ci": self.fix_ci,
             "ci_check_wait_minutes": self.ci_check_wait_minutes,
+            "github_token": self.github_token,
             "tools": self.tools,
             "skills": self.skills,
             "enabled": self.enabled,
@@ -147,6 +159,7 @@ class ScheduledTask:
             use_native_cli_auth=data.get("use_native_cli_auth", False),
             fix_ci=data.get("fix_ci", False),
             ci_check_wait_minutes=data.get("ci_check_wait_minutes", 3.0),
+            github_token=data.get("github_token"),
             tools=data.get("tools", []),
             skills=data.get("skills", []),
             enabled=data.get("enabled", True),
@@ -173,6 +186,9 @@ CRON_PRESETS: dict[str, str] = {
 
 # Schedule metadata key prefix in Redis
 _SCHEDULE_META_PREFIX = "helping_hands:schedule:meta:"
+
+_SCHEDULE_ID_HEX_LENGTH = 12
+"""Number of hex characters used from uuid4 in schedule IDs."""
 
 
 def validate_cron_expression(cron_expr: str) -> str:
@@ -228,7 +244,7 @@ def next_run_time(cron_expr: str, base_time: datetime | None = None) -> datetime
 
 def generate_schedule_id() -> str:
     """Generate a unique schedule ID."""
-    return f"sched_{uuid.uuid4().hex[:12]}"
+    return f"sched_{uuid.uuid4().hex[:_SCHEDULE_ID_HEX_LENGTH]}"
 
 
 class ScheduleManager:
@@ -257,11 +273,24 @@ class ScheduleManager:
         return f"{_SCHEDULE_META_PREFIX}{schedule_id}"
 
     def _save_meta(self, task: ScheduledTask) -> None:
-        """Save schedule metadata to Redis."""
-        self._redis.set(
-            self._meta_key(task.schedule_id),
-            json.dumps(task.to_dict()),
-        )
+        """Save schedule metadata to Redis.
+
+        Raises:
+            RuntimeError: If the Redis write fails.
+        """
+        try:
+            self._redis.set(
+                self._meta_key(task.schedule_id),
+                json.dumps(task.to_dict()),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to save schedule metadata for %s: %s",
+                task.schedule_id,
+                exc,
+            )
+            msg = f"Failed to persist schedule {task.schedule_id}"
+            raise RuntimeError(msg) from exc
 
     def _load_meta(self, schedule_id: str) -> ScheduledTask | None:
         """Load schedule metadata from Redis.
@@ -283,13 +312,31 @@ class ScheduleManager:
             return None
 
     def _delete_meta(self, schedule_id: str) -> None:
-        """Delete schedule metadata from Redis."""
-        self._redis.delete(self._meta_key(schedule_id))
+        """Delete schedule metadata from Redis.
+
+        Logs a warning on failure but does not raise, consistent with
+        ``_load_meta`` graceful degradation.
+        """
+        try:
+            self._redis.delete(self._meta_key(schedule_id))
+        except Exception as exc:
+            logger.warning(
+                "Failed to delete schedule metadata for %s: %s",
+                schedule_id,
+                exc,
+            )
 
     def _list_meta_keys(self) -> list[str]:
-        """List all schedule metadata keys."""
+        """List all schedule metadata keys.
+
+        Returns an empty list on Redis errors to allow graceful degradation.
+        """
         pattern = f"{_SCHEDULE_META_PREFIX}*"
-        keys = self._redis.keys(pattern)
+        try:
+            keys = self._redis.keys(pattern)
+        except Exception as exc:
+            logger.warning("Failed to list schedule metadata keys: %s", exc)
+            return []
         return [k.decode() if isinstance(k, bytes) else k for k in keys]
 
     def create_schedule(self, task: ScheduledTask) -> ScheduledTask:
@@ -537,6 +584,7 @@ class ScheduleManager:
             skills=task.skills,
             fix_ci=task.fix_ci,
             ci_check_wait_minutes=task.ci_check_wait_minutes,
+            github_token=task.github_token,
         )
 
         self.record_run(schedule_id, result.id)

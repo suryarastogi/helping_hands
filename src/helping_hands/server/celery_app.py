@@ -11,12 +11,15 @@ import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import Any
 
 from celery import Celery
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["build_feature", "celery_app"]
 
 
 def _resolve_celery_urls() -> tuple[str, str]:
@@ -60,6 +63,34 @@ celery_app.conf.update(
 _USAGE_LOG_INTERVAL_S = 3600.0
 """Interval in seconds between automatic Claude usage log entries."""
 
+# --- Anthropic usage API constants ---
+_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
+_USAGE_USER_AGENT = "claude-code/2.0.32"
+_USAGE_API_TIMEOUT_S = 10
+
+_KEYCHAIN_TIMEOUT_S = 5
+"""Timeout in seconds for macOS Keychain subprocess calls."""
+
+_DB_CONNECT_TIMEOUT_S = 5
+"""Timeout in seconds for PostgreSQL connection attempts."""
+
+_JWT_TOKEN_PREFIX = "ey"
+"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
+
+# --- Keychain constants ---
+_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
+"""macOS Keychain service name for Claude Code OAuth credentials."""
+
+_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
+"""Top-level JSON key in the Keychain credential payload."""
+
+_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
+"""Nested JSON key for the OAuth access token."""
+
+_GIT_CLONE_TIMEOUT_S = 120
+"""Timeout in seconds for git clone subprocess calls."""
+
 _SUPPORTED_BACKENDS = {
     "e2e",
     "basic-langgraph",
@@ -78,7 +109,17 @@ _MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800
 _BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
 
 
+def _validate_repo_spec(repo: str) -> None:
+    """Validate that *repo* looks like ``owner/repo`` before embedding in a URL."""
+    if not repo or not repo.strip():
+        raise ValueError("repo spec must not be empty")
+    parts = repo.strip().split("/")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
+
+
 def _github_clone_url(repo: str) -> str:
+    _validate_repo_spec(repo)
     token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
     if token:
         return f"https://x-access-token:{token}@github.com/{repo}.git"
@@ -138,13 +179,20 @@ def _resolve_repo_path(
         if pr_number is not None:
             clone_cmd.append("--no-single-branch")
         clone_cmd += [url, str(dest)]
-        result = subprocess.run(
-            clone_cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            env=_git_noninteractive_env(),
-        )
+        try:
+            result = subprocess.run(
+                clone_cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=_git_noninteractive_env(),
+                timeout=_GIT_CLONE_TIMEOUT_S,
+            )
+        except TimeoutExpired as exc:
+            shutil.rmtree(dest_root, ignore_errors=True)
+            raise ValueError(
+                f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
+            ) from exc
         if result.returncode != 0:
             shutil.rmtree(dest_root, ignore_errors=True)
             stderr = result.stderr.strip() or "unknown git clone error"
@@ -388,6 +436,7 @@ def build_feature(
     skills: list[str] | None = None,
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
+    github_token: str | None = None,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -464,6 +513,7 @@ def build_feature(
                 "use_native_cli_auth": use_native_cli_auth,
                 "enabled_tools": selected_tools,
                 "enabled_skills": selected_skills,
+                "github_token": github_token,
             }
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -528,6 +578,7 @@ def build_feature(
         overrides["use_native_cli_auth"] = use_native_cli_auth
         overrides["enabled_tools"] = selected_tools
         overrides["enabled_skills"] = selected_skills
+        overrides["github_token"] = github_token
         config = Config.from_env(overrides=overrides)
         repo_index = RepoIndex.from_path(Path(config.repo))
 
@@ -777,11 +828,18 @@ def scheduled_build(
 
 
 def _get_db_url_writer() -> str:
-    """Return the DATABASE_URL for writing (must point to a writer role)."""
-    return os.environ.get(
-        "DATABASE_URL",
-        "postgresql://cavern_writer:bQAGOqYIS1TwGipVyUIeDiyz@192.168.1.143:5432/cavern",
-    )
+    """Return the DATABASE_URL for writing (must point to a writer role).
+
+    Raises:
+        RuntimeError: If the ``DATABASE_URL`` environment variable is not set
+            or is empty.
+    """
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is required for usage logging"
+        )
+    return url
 
 
 _USAGE_TABLE_DDL = """
@@ -818,19 +876,19 @@ def log_claude_usage() -> dict[str, Any]:
                 "security",
                 "find-generic-password",
                 "-s",
-                "Claude Code-credentials",
+                _KEYCHAIN_SERVICE_NAME,
                 "-w",
             ],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=_KEYCHAIN_TIMEOUT_S,
         )
         raw = result.stdout.strip() if result.returncode == 0 else ""
         try:
             creds = _json.loads(raw)
-            token = creds.get("claudeAiOauth", {}).get("accessToken")
+            token = creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
         except (_json.JSONDecodeError, AttributeError):
-            token = raw if raw.startswith("ey") else None
+            token = raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
     except Exception as exc:
         return {"status": "error", "message": f"Keychain read failed: {exc}"}
 
@@ -840,14 +898,14 @@ def log_claude_usage() -> dict[str, Any]:
     # --- Call the Anthropic usage API ---
     try:
         req = _url_request.Request(
-            "https://api.anthropic.com/api/oauth/usage",
+            _ANTHROPIC_USAGE_URL,
             headers={
                 "Authorization": f"Bearer {token}",
-                "anthropic-beta": "oauth-2025-04-20",
-                "User-Agent": "claude-code/2.0.32",
+                "anthropic-beta": _ANTHROPIC_BETA_HEADER,
+                "User-Agent": _USAGE_USER_AGENT,
             },
         )
-        with _url_request.urlopen(req, timeout=10) as resp:
+        with _url_request.urlopen(req, timeout=_USAGE_API_TIMEOUT_S) as resp:
             data = _json.loads(resp.read().decode())
     except _url_error.HTTPError as exc:
         return {"status": "error", "message": f"Usage API HTTP {exc.code}"}
@@ -865,7 +923,9 @@ def log_claude_usage() -> dict[str, Any]:
     try:
         import psycopg2
 
-        conn = psycopg2.connect(_get_db_url_writer(), connect_timeout=5)
+        conn = psycopg2.connect(
+            _get_db_url_writer(), connect_timeout=_DB_CONNECT_TIMEOUT_S
+        )
         try:
             with conn.cursor() as cur:
                 cur.execute(_USAGE_TABLE_DDL)
@@ -927,6 +987,6 @@ def ensure_usage_schedule() -> None:
         )
 
 
-@celery_app.on_after_finalize.connect  # ty: ignore[unresolved-attribute]
+@celery_app.on_after_finalize.connect  # type: ignore[union-attr]
 def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
     ensure_usage_schedule()

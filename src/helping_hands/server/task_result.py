@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["normalize_task_result"]
+
 from typing import Any
 
 

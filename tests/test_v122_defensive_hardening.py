@@ -82,6 +82,9 @@ class TestClaudeGeteuidExceptionLogging:
         config = MagicMock()
         config.model = "claude-opus-4-6"
         config.verbose = False
+        config.tools = None
+        config.enabled_tools = ()
+        config.enabled_skills = ()
         repo_index = MagicMock()
         return ClaudeCodeHand(config, repo_index)
 
@@ -231,6 +234,9 @@ class TestApplyInlineEditsLogging:
         config.verbose = False
         config.enable_execution = False
         config.enable_web = False
+        config.tools = None
+        config.enabled_tools = ()
+        config.enabled_skills = ()
 
         @dataclass
         class _FakeIndex:
@@ -272,6 +278,9 @@ class TestE2EDefaultBranchLogging:
         config = MagicMock()
         config.repo = "owner/repo"
         config.model = "test"
+        config.tools = None
+        config.enabled_tools = ()
+        config.enabled_skills = ()
         repo_index = MagicMock()
         hand = E2EHand(config, repo_index)
 

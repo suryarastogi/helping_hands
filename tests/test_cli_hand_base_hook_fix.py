@@ -98,6 +98,15 @@ class TestIsGitHookFailure:
         msg = "git failed: HEAD detached at abc123"
         assert Hand._is_git_hook_failure(msg) is False
 
+    def test_empty_string_returns_false(self) -> None:
+        assert Hand._is_git_hook_failure("") is False
+
+    def test_whitespace_only_returns_false(self) -> None:
+        assert Hand._is_git_hook_failure("   \n\t  ") is False
+
+    def test_no_marker_plain_text_returns_false(self) -> None:
+        assert Hand._is_git_hook_failure("some unrelated error message") is False
+
 
 # ===================================================================
 # _build_hook_fix_prompt

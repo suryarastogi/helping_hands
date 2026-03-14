@@ -7,6 +7,11 @@ from pathlib import Path
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
+__all__ = ["CodexCLIHand"]
+
+_FAILURE_OUTPUT_TAIL_LENGTH = 2000
+"""Number of trailing characters kept from CLI output in failure messages."""
+
 
 class CodexCLIHand(_TwoPhaseCLIHand):
     """Hand backed by Codex CLI subprocess execution."""
@@ -28,7 +33,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_codex_failure_message(*, return_code: int, output: str) -> str:
-        tail = output.strip()[-2000:]
+        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
         lower_tail = tail.lower()
         if (
             "401 unauthorized" in lower_tail

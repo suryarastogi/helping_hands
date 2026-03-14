@@ -9,9 +9,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
+__all__ = [
+    "mkdir_path",
+    "normalize_relative_path",
+    "path_exists",
+    "read_text_file",
+    "resolve_repo_target",
+    "write_text_file",
+]
+
 
 def normalize_relative_path(rel_path: str) -> str:
     """Normalize a repo-relative path to a safe forward-slash form."""
+    if not isinstance(rel_path, str):
+        raise TypeError("rel_path must be a string")
+    if not rel_path.strip():
+        raise ValueError("rel_path must be non-empty")
     normalized = rel_path.strip().replace("\\", "/")
     if normalized.startswith("./"):
         normalized = normalized[2:]
@@ -54,6 +67,11 @@ def read_text_file(
         max_file_size: Maximum file size in bytes (default 10 MB).
             Files exceeding this limit raise ``ValueError``.
     """
+    if max_file_size <= 0:
+        raise ValueError(f"max_file_size must be positive, got {max_file_size}")
+    if max_chars is not None and max_chars <= 0:
+        raise ValueError(f"max_chars must be positive, got {max_chars}")
+
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
 

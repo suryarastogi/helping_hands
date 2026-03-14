@@ -42,6 +42,8 @@ from helping_hands.lib.meta.tools import web as web_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.server.task_result import normalize_task_result
 
+__all__ = ["main", "mcp"]
+
 mcp = FastMCP(
     "helping_hands",
     instructions=(
@@ -57,6 +59,9 @@ _DEFAULT_EXEC_TIMEOUT_S = 60
 
 _DEFAULT_BROWSE_MAX_CHARS = 12000
 """Default maximum characters returned by the web_browse MCP tool."""
+
+_INDEX_FILES_LIMIT = 200
+"""Maximum number of file paths returned by the index_repo MCP tool."""
 
 
 def _repo_root(repo_path: str) -> Path:
@@ -89,7 +94,7 @@ def index_repo(repo_path: str) -> dict:
         repo_path: Absolute path to the repository on disk.
 
     Returns:
-        Dict with root path, file count, and first 200 file paths.
+        Dict with root path, file count, and first ``_INDEX_FILES_LIMIT`` file paths.
     """
     path = Path(repo_path).resolve()
     idx = RepoIndex.from_path(path)
@@ -97,7 +102,7 @@ def index_repo(repo_path: str) -> dict:
     return {
         "root": str(idx.root),
         "file_count": len(idx.files),
-        "files": idx.files[:200],
+        "files": idx.files[:_INDEX_FILES_LIMIT],
     }
 
 

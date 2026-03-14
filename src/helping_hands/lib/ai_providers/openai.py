@@ -7,6 +7,8 @@ from typing import Any
 
 from helping_hands.lib.ai_providers.types import AIProvider
 
+__all__ = ["OPENAI_PROVIDER", "OpenAIProvider"]
+
 
 class OpenAIProvider(AIProvider):
     """Wrapper around the OpenAI Python SDK client."""

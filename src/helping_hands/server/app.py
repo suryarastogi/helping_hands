@@ -33,11 +33,61 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "BuildRequest",
+    "BuildResponse",
+    "ClaudeUsageLevel",
+    "ClaudeUsageResponse",
+    "CronPresetsResponse",
+    "CurrentTask",
+    "CurrentTasksResponse",
+    "ScheduleListResponse",
+    "ScheduleRequest",
+    "ScheduleResponse",
+    "ScheduleTriggerResponse",
+    "ServerConfig",
+    "ServiceHealthResponse",
+    "TaskCancelResponse",
+    "TaskStatus",
+    "WorkerCapacityResponse",
+    "app",
+]
+
 # Lazy import for optional schedule dependencies
 _schedule_manager: ScheduleManager | None = None
 
 # Maximum number of tool or skill entries in a single request.
 _MAX_TOOL_SKILL_ITEMS = 50
+
+# --- Health-check & API timeout constants (seconds) ---
+_KEYCHAIN_TIMEOUT_S = 5
+_USAGE_API_TIMEOUT_S = 10
+_REDIS_HEALTH_TIMEOUT_S = 2
+_DB_HEALTH_TIMEOUT_S = 3
+_CELERY_HEALTH_TIMEOUT_S = 2.0
+_CELERY_INSPECT_TIMEOUT_S = 1.0
+
+# --- Anthropic usage API constants ---
+_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
+_USAGE_USER_AGENT = "claude-code/2.0.32"
+
+# --- Preview truncation limits for error/debug messages ---
+_JWT_TOKEN_PREFIX = "ey"
+"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
+
+_HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
+_USAGE_DATA_PREVIEW_LENGTH = 300
+
+# --- Keychain constants ---
+_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
+"""macOS Keychain service name for Claude Code OAuth credentials."""
+
+_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
+"""Top-level JSON key in the Keychain credential payload."""
+
+_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
+"""Nested JSON key for the OAuth access token."""
 
 app = FastAPI(
     title="helping_hands",
@@ -107,6 +157,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     pr_number: int | None = None
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
+    github_token: str | None = Field(default=None, max_length=500)
 
 
 BackendName = Literal[
@@ -137,6 +188,14 @@ class TaskStatus(BaseModel):
     task_id: str
     status: str
     result: dict[str, Any] | None = None
+
+
+class TaskCancelResponse(BaseModel):
+    """Response for cancelling a running task."""
+
+    task_id: str
+    cancelled: bool
+    detail: str
 
 
 class CurrentTask(BaseModel):
@@ -196,6 +255,7 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
+    github_token: str | None = Field(default=None, max_length=500)
     enabled: bool = True
 
 
@@ -217,6 +277,7 @@ class ScheduleResponse(BaseModel):
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = 3.0
+    github_token: str | None = None
     tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     enabled: bool = True
@@ -272,12 +333,12 @@ def _get_claude_oauth_token() -> str | None:
                 "security",
                 "find-generic-password",
                 "-s",
-                "Claude Code-credentials",
+                _KEYCHAIN_SERVICE_NAME,
                 "-w",
             ],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=_KEYCHAIN_TIMEOUT_S,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return None
@@ -285,10 +346,10 @@ def _get_claude_oauth_token() -> str | None:
         # The keychain value is JSON — extract the OAuth access token
         try:
             creds = json.loads(raw)
-            return creds.get("claudeAiOauth", {}).get("accessToken")
+            return creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
         except (json.JSONDecodeError, AttributeError):
             # Maybe stored as plain token
-            return raw if raw.startswith("ey") else None
+            return raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
     except Exception:
         logger.debug("Failed to read Claude OAuth token from Keychain", exc_info=True)
         return None
@@ -327,19 +388,19 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     try:
         req = urllib_request.Request(
-            "https://api.anthropic.com/api/oauth/usage",
+            _ANTHROPIC_USAGE_URL,
             headers={
                 "Authorization": f"Bearer {token}",
-                "anthropic-beta": "oauth-2025-04-20",
-                "User-Agent": "claude-code/2.0.32",
+                "anthropic-beta": _ANTHROPIC_BETA_HEADER,
+                "User-Agent": _USAGE_USER_AGENT,
             },
         )
-        with urllib_request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
+        with urllib_request.urlopen(req, timeout=_USAGE_API_TIMEOUT_S) as resp:
+            data = json.loads(resp.read().decode(errors="replace"))
     except urllib_error.HTTPError as exc:
         body = ""
         try:
-            body = exc.read().decode()[:200]
+            body = exc.read().decode(errors="replace")[:_HTTP_ERROR_BODY_PREVIEW_LENGTH]
         except Exception:
             logger.debug("Failed to read HTTP error body", exc_info=True)
         return ClaudeUsageResponse(
@@ -356,8 +417,9 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     # Session (5-hour window)
     five_hour = data.get("five_hour", {})
-    if five_hour.get("utilization") is not None:
-        pct = round(five_hour["utilization"], 1)
+    five_hour_util = five_hour.get("utilization")
+    if isinstance(five_hour_util, (int, float)):
+        pct = round(five_hour_util, 1)
         resets = five_hour.get("resets_at", "")
         levels.append(
             ClaudeUsageLevel(
@@ -369,8 +431,9 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     # Weekly (7-day window)
     seven_day = data.get("seven_day", {})
-    if seven_day.get("utilization") is not None:
-        pct = round(seven_day["utilization"], 1)
+    seven_day_util = seven_day.get("utilization")
+    if isinstance(seven_day_util, (int, float)):
+        pct = round(seven_day_util, 1)
         resets = seven_day.get("resets_at", "")
         levels.append(
             ClaudeUsageLevel(
@@ -382,7 +445,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     if not levels:
         return ClaudeUsageResponse(
-            error=f"No usage data in response: {json.dumps(data)[:300]}",
+            error=f"No usage data in response: {json.dumps(data)[:_USAGE_DATA_PREVIEW_LENGTH]}",
             fetched_at=now,
         )
 
@@ -2293,8 +2356,8 @@ def _check_redis_health() -> Literal["ok", "error"]:
         broker_url = celery_app.conf.broker_url or "redis://localhost:6379/0"
         r = redis_lib.Redis.from_url(
             broker_url,
-            socket_connect_timeout=2,
-            socket_timeout=2,
+            socket_connect_timeout=_REDIS_HEALTH_TIMEOUT_S,
+            socket_timeout=_REDIS_HEALTH_TIMEOUT_S,
         )
         r.ping()
         return "ok"
@@ -2310,7 +2373,7 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
     try:
         import psycopg2  # psycopg2-binary is a declared dependency
 
-        conn = psycopg2.connect(db_url, connect_timeout=3)
+        conn = psycopg2.connect(db_url, connect_timeout=_DB_HEALTH_TIMEOUT_S)
         conn.close()
         return "ok"
     except Exception:
@@ -2320,7 +2383,7 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
 
 def _check_workers_health() -> Literal["ok", "error"]:
     try:
-        inspector = celery_app.control.inspect(timeout=2.0)
+        inspector = celery_app.control.inspect(timeout=_CELERY_HEALTH_TIMEOUT_S)
         ping = inspector.ping()
         return "ok" if ping else "error"
     except Exception:
@@ -2370,6 +2433,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         skills=req.skills,
         fix_ci=req.fix_ci,
         ci_check_wait_minutes=req.ci_check_wait_minutes,
+        github_token=req.github_token,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -2652,7 +2716,7 @@ def _safe_inspect_call(inspector: Any, method_name: str) -> Any:
 def _collect_celery_current_tasks() -> list[dict[str, Any]]:
     """Collect currently active/queued task summaries from Celery inspect."""
     try:
-        inspector = celery_app.control.inspect(timeout=1.0)
+        inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
     except Exception:  # pragma: no cover - defensive runtime guard
         return []
     if inspector is None:
@@ -2861,6 +2925,19 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
       a:hover {{
         background: var(--secondary-hover);
       }}
+      .cancel-btn {{
+        border: 1px solid #7f1d1d;
+        border-radius: 10px;
+        padding: 8px 12px;
+        background: #450a0a;
+        color: #fca5a5;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: inherit;
+      }}
+      .cancel-btn:hover {{
+        background: #7f1d1d;
+      }}
       h2 {{
         margin: 0 0 8px;
         font-size: 1rem;
@@ -2900,6 +2977,11 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
         <div class="actions">
           <a href="/">Back to runner</a>
           <a href="/tasks/{html.escape(task_status.task_id)}">Raw JSON</a>
+          {
+        ""
+        if status in _TERMINAL_TASK_STATES
+        else f'''<button class="cancel-btn" onclick="cancelTask('{html.escape(task_status.task_id)}')">Cancel task</button>'''
+    }
         </div>
       </section>
       <section class="card">
@@ -2911,6 +2993,17 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
         <pre>{escaped_payload}</pre>
       </section>
     </main>
+    <script>
+      function cancelTask(taskId) {{
+        if (!confirm("Cancel this task?")) return;
+        fetch("/tasks/" + encodeURIComponent(taskId) + "/cancel", {{
+          method: "POST",
+        }})
+          .then(function (r) {{ return r.json(); }})
+          .then(function () {{ location.reload(); }})
+          .catch(function (e) {{ alert("Cancel failed: " + e.message); }});
+      }}
+    </script>
   </body>
 </html>
 """
@@ -3103,7 +3196,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
     """Resolve max worker capacity: Celery inspect stats > env override > default."""
     per_worker: dict[str, int] = {}
     try:
-        inspector = celery_app.control.inspect(timeout=1.0)
+        inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
         if inspector is not None:
             stats = _safe_inspect_call(inspector, "stats")
             if isinstance(stats, dict):
@@ -3165,6 +3258,38 @@ def get_task(task_id: str) -> TaskStatus:
     return _build_task_status(task_id)
 
 
+@app.post("/tasks/{task_id}/cancel", response_model=TaskCancelResponse)
+def cancel_task(task_id: str) -> TaskCancelResponse:
+    """Cancel a running or queued task by revoking it via Celery."""
+    return _cancel_task(task_id)
+
+
+def _cancel_task(task_id: str) -> TaskCancelResponse:
+    """Revoke a Celery task, sending SIGTERM to terminate it if running."""
+    if not task_id or not task_id.strip():
+        raise ValueError("task_id must be a non-empty string")
+
+    task_id = task_id.strip()
+    result = build_feature.AsyncResult(task_id)
+    current_status = result.status
+
+    if current_status in _TERMINAL_TASK_STATES:
+        return TaskCancelResponse(
+            task_id=task_id,
+            cancelled=False,
+            detail=f"Task already in terminal state: {current_status}",
+        )
+
+    celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
+    logger.info("Revoked task %s (was %s)", task_id, current_status)
+
+    return TaskCancelResponse(
+        task_id=task_id,
+        cancelled=True,
+        detail=f"Task revoked (was {current_status})",
+    )
+
+
 # --- Schedule Endpoints ---
 
 
@@ -3218,6 +3343,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         use_native_cli_auth=task.use_native_cli_auth,
         fix_ci=getattr(task, "fix_ci", False),
         ci_check_wait_minutes=getattr(task, "ci_check_wait_minutes", 3.0),
+        github_token=getattr(task, "github_token", None),
         tools=getattr(task, "tools", []),
         skills=task.skills,
         enabled=task.enabled,
@@ -3273,6 +3399,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         use_native_cli_auth=request.use_native_cli_auth,
         fix_ci=request.fix_ci,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
+        github_token=request.github_token,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,
@@ -3323,6 +3450,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         use_native_cli_auth=request.use_native_cli_auth,
         fix_ci=request.fix_ci,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
+        github_token=request.github_token,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,

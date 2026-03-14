@@ -16,9 +16,16 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH, Hand, HandResponse
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["E2EHand"]
+
+# --- Module-level constants ---------------------------------------------------
+
+_E2E_MARKER_FILE = "HELPING_HANDS_E2E.md"
+"""Filename for the E2E marker file written into cloned repositories."""
 
 
 class E2EHand(Hand):
@@ -103,11 +110,12 @@ class E2EHand(Hand):
         repo_dir.parent.mkdir(parents=True, exist_ok=True)
 
         base_branch = self._configured_base_branch() or "main"
-        branch = f"helping-hands/e2e-{hand_uuid[:8]}"
-        e2e_file = "HELPING_HANDS_E2E.md"
+        branch = f"helping-hands/e2e-{hand_uuid[:_UUID_HEX_LENGTH]}"
+        e2e_file = _E2E_MARKER_FILE
         e2e_path = repo_dir / e2e_file
 
-        with GitHubClient() as gh:
+        gh_token = getattr(self.config, "github_token", "")
+        with GitHubClient(token=gh_token) as gh:
             pr_url = ""
             resumed_pr = False
             pr_info: dict[str, Any] | None = None

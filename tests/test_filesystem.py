@@ -43,7 +43,8 @@ class TestNormalizeRelativePath:
         assert normalize_relative_path(".") == "."
 
     def test_only_whitespace(self) -> None:
-        assert normalize_relative_path("   ") == ""
+        with pytest.raises(ValueError, match="non-empty"):
+            normalize_relative_path("   ")
 
     def test_backslash_and_dot_combined(self) -> None:
         assert normalize_relative_path(".\\src\\main.py") == "src/main.py"
@@ -59,7 +60,7 @@ class TestResolveRepoTarget:
             resolve_repo_target(tmp_path, "/etc/passwd")
 
     def test_rejects_empty_path(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="non-empty relative path"):
+        with pytest.raises(ValueError, match="non-empty"):
             resolve_repo_target(tmp_path, "")
 
     def test_rejects_traversal(self, tmp_path: Path) -> None:
@@ -195,7 +196,7 @@ class TestResolveRepoTargetErrorMessages:
     """Verify that empty/absolute vs traversal produce distinct error messages."""
 
     def test_empty_path_message_differs_from_traversal(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="non-empty relative path"):
+        with pytest.raises(ValueError, match="non-empty"):
             resolve_repo_target(tmp_path, "")
 
     def test_absolute_path_message_differs_from_traversal(self, tmp_path: Path) -> None:
@@ -203,7 +204,7 @@ class TestResolveRepoTargetErrorMessages:
             resolve_repo_target(tmp_path, "/etc/passwd")
 
     def test_whitespace_only_path_message(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="non-empty relative path"):
+        with pytest.raises(ValueError, match="non-empty"):
             resolve_repo_target(tmp_path, "   ")
 
     def test_traversal_mentions_repository_root(self, tmp_path: Path) -> None:

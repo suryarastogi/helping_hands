@@ -15,7 +15,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.config import Config
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _GIT_READ_TIMEOUT_S,
+    _PRECOMMIT_TIMEOUT_S,
+    Hand,
+    HandResponse,
+)
 from helping_hands.lib.repo import RepoIndex
 
 # repo_index fixture provided by conftest.py
@@ -1055,3 +1060,182 @@ class TestPushToExistingPrWhoamiExceptionLogging:
         assert result["pr_status"] == "updated"
         mock_update.assert_not_called()
         assert any("whoami() failed" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# _GIT_READ_TIMEOUT_S constant — v149
+# ---------------------------------------------------------------------------
+
+
+class TestGitReadTimeoutConstant:
+    def test_value(self) -> None:
+        assert _GIT_READ_TIMEOUT_S == 30
+
+    def test_type(self) -> None:
+        assert isinstance(_GIT_READ_TIMEOUT_S, int)
+
+    def test_positive(self) -> None:
+        assert _GIT_READ_TIMEOUT_S > 0
+
+
+# ---------------------------------------------------------------------------
+# _run_git_read — timeout handling — v149
+# ---------------------------------------------------------------------------
+
+
+class TestRunGitReadTimeout:
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_returns_empty_string(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["git", "status"], timeout=30
+        )
+        result = Hand._run_git_read(tmp_path, "status")
+        assert result == ""
+
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_logs_warning(
+        self, mock_run: MagicMock, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["git", "remote"], timeout=30
+        )
+        with caplog.at_level(logging.WARNING):
+            Hand._run_git_read(tmp_path, "remote", "get-url", "origin")
+        assert any("git read timed out" in r.message for r in caplog.records)
+
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_parameter_is_passed(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="ok"
+        )
+        Hand._run_git_read(tmp_path, "branch")
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs.get("timeout") == _GIT_READ_TIMEOUT_S
+
+
+# ---------------------------------------------------------------------------
+# _PRECOMMIT_TIMEOUT_S constant — v153
+# ---------------------------------------------------------------------------
+
+
+class TestPrecommitTimeoutConstant:
+    def test_value(self) -> None:
+        assert _PRECOMMIT_TIMEOUT_S == 300
+
+    def test_type(self) -> None:
+        assert isinstance(_PRECOMMIT_TIMEOUT_S, int)
+
+    def test_positive(self) -> None:
+        assert _PRECOMMIT_TIMEOUT_S > 0
+
+
+# ---------------------------------------------------------------------------
+# _configure_authenticated_push_remote — input validation — v153
+# ---------------------------------------------------------------------------
+
+
+class TestConfigureAuthPushRemoteValidation:
+    def test_empty_repo_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="repo must not be empty"):
+            Hand._configure_authenticated_push_remote(tmp_path, "", "tok")
+
+    def test_whitespace_repo_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="repo must not be empty"):
+            Hand._configure_authenticated_push_remote(tmp_path, "   ", "tok")
+
+    def test_empty_token_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="token must not be empty"):
+            Hand._configure_authenticated_push_remote(tmp_path, "owner/repo", "")
+
+    def test_whitespace_token_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="token must not be empty"):
+            Hand._configure_authenticated_push_remote(tmp_path, "owner/repo", "  ")
+
+
+# ---------------------------------------------------------------------------
+# _configure_authenticated_push_remote — timeout — v153
+# ---------------------------------------------------------------------------
+
+
+class TestConfigureAuthPushRemoteTimeout:
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_raises_runtime_error(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["git", "remote"], timeout=30
+        )
+        with pytest.raises(RuntimeError, match="timed out"):
+            Hand._configure_authenticated_push_remote(
+                tmp_path, "owner/repo", "ghp_tok123"
+            )
+
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_logs_warning(
+        self, mock_run: MagicMock, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["git", "remote"], timeout=30
+        )
+        with caplog.at_level(logging.WARNING), pytest.raises(RuntimeError):
+            Hand._configure_authenticated_push_remote(
+                tmp_path, "owner/repo", "ghp_tok123"
+            )
+        assert any("timed out" in r.message for r in caplog.records)
+
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_parameter_is_passed(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        Hand._configure_authenticated_push_remote(tmp_path, "owner/repo", "ghp_tok123")
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs.get("timeout") == _GIT_READ_TIMEOUT_S
+
+
+# ---------------------------------------------------------------------------
+# _run_precommit_checks_and_fixes — timeout parameter — v153
+# ---------------------------------------------------------------------------
+
+
+class TestPrecommitRunTimeout:
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_parameter_is_passed(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="ok", stderr=""
+        )
+        Hand._run_precommit_checks_and_fixes(tmp_path)
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs.get("timeout") == _PRECOMMIT_TIMEOUT_S
+
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_on_first_pass_propagates(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["uv", "run", "pre-commit"], timeout=300
+        )
+        with pytest.raises(subprocess.TimeoutExpired):
+            Hand._run_precommit_checks_and_fixes(tmp_path)
+
+    @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
+    def test_timeout_on_second_pass_propagates(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        first = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="fail", stderr=""
+        )
+        mock_run.side_effect = [
+            first,
+            subprocess.TimeoutExpired(cmd=["uv", "run", "pre-commit"], timeout=300),
+        ]
+        with pytest.raises(subprocess.TimeoutExpired):
+            Hand._run_precommit_checks_and_fixes(tmp_path)

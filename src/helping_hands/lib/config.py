@@ -9,6 +9,8 @@ from pathlib import Path
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 
+__all__ = ["Config"]
+
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover - optional dependency safety
@@ -41,6 +43,7 @@ class Config:
     use_native_cli_auth: bool = False
     enabled_tools: tuple[str, ...] = ()
     enabled_skills: tuple[str, ...] = ()
+    github_token: str = ""
     config_path: Path | None = None
 
     @classmethod
@@ -68,6 +71,7 @@ class Config:
             in ("1", "true", "yes"),
             "enabled_tools": os.environ.get("HELPING_HANDS_TOOLS"),
             "enabled_skills": os.environ.get("HELPING_HANDS_SKILLS"),
+            "github_token": os.environ.get("HELPING_HANDS_GITHUB_TOKEN"),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
@@ -87,8 +91,8 @@ class Config:
             normalized_skills_input = raw_skill_selection
 
         return cls(
-            repo=str(merged.get("repo", cls.repo)),
-            model=str(merged.get("model", cls.model)),
+            repo=str(merged.get("repo", cls.repo)).strip(),
+            model=str(merged.get("model", cls.model)).strip(),
             verbose=bool(merged.get("verbose", cls.verbose)),
             enable_execution=bool(merged.get("enable_execution", cls.enable_execution)),
             enable_web=bool(merged.get("enable_web", cls.enable_web)),
@@ -99,4 +103,5 @@ class Config:
             enabled_skills=meta_skills.normalize_skill_selection(
                 normalized_skills_input
             ),
+            github_token=str(merged.get("github_token", cls.github_token)).strip(),
         )

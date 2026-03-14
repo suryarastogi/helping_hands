@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-from helping_hands.lib.hands.v1.hand.cli.goose import GooseCLIHand
+from helping_hands.lib.hands.v1.hand.cli.goose import (
+    _OLLAMA_DEFAULT_HOST,
+    GooseCLIHand,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -451,3 +454,43 @@ class TestInvokeGoose:
         result = asyncio.run(hand._invoke_backend("hello", emit=emit))
         assert result == "result"
         assert calls == ["hello"]
+
+
+# ---------------------------------------------------------------------------
+# _OLLAMA_DEFAULT_HOST constant (v143)
+# ---------------------------------------------------------------------------
+
+
+class TestOllamaDefaultHostConstant:
+    """Tests for the _OLLAMA_DEFAULT_HOST module-level constant."""
+
+    def test_value(self) -> None:
+        assert _OLLAMA_DEFAULT_HOST == "http://localhost:11434"
+
+    def test_type(self) -> None:
+        assert isinstance(_OLLAMA_DEFAULT_HOST, str)
+
+    def test_is_valid_url(self) -> None:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(_OLLAMA_DEFAULT_HOST)
+        assert parsed.scheme == "http"
+        assert parsed.netloc == "localhost:11434"
+
+    def test_resolve_ollama_host_uses_constant(self) -> None:
+        """_resolve_ollama_host() returns the constant when no env vars are set."""
+        result = GooseCLIHand._resolve_ollama_host({})
+        assert result == _OLLAMA_DEFAULT_HOST
+
+    def test_build_subprocess_env_uses_constant(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        """_build_subprocess_env injects _OLLAMA_DEFAULT_HOST for ollama provider."""
+        hand = make_cli_hand(GooseCLIHand, model="ollama/llama3.2")
+        monkeypatch.setenv("GH_TOKEN", "tok")
+        monkeypatch.delenv("GOOSE_PROVIDER", raising=False)
+        monkeypatch.delenv("GOOSE_MODEL", raising=False)
+        monkeypatch.delenv("OLLAMA_HOST", raising=False)
+        monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+        env = hand._build_subprocess_env()
+        assert env["OLLAMA_HOST"] == _OLLAMA_DEFAULT_HOST

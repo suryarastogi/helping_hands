@@ -23,7 +23,7 @@ uv run ruff format --check .          # format check
 uv run ruff format .                  # format
 
 # Type check
-uv run ty check src --ignore unresolved-import --ignore invalid-method-override
+uv run ty check src --ignore unresolved-import --ignore invalid-method-override --ignore unused-type-ignore-comment
 
 # Tests
 uv run pytest -v                      # all tests with coverage

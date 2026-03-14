@@ -15,9 +15,37 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, Protocol
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _FILE_LIST_PREVIEW_LIMIT,
+    _GIT_READ_TIMEOUT_S,
+    Hand,
+    HandResponse,
+)
 
 logger = logging.getLogger(__name__)
+
+# --- Module-level constants ---------------------------------------------------
+
+_PROCESS_TERMINATE_TIMEOUT_S = 5
+"""Seconds to wait for a subprocess to exit after SIGTERM before SIGKILL."""
+
+_CI_POLL_INTERVAL_S = 30.0
+"""Seconds between CI check polling attempts."""
+
+_PR_DESCRIPTION_TIMEOUT_S = 300
+"""Seconds timeout for the subprocess used to generate PR descriptions."""
+
+_APPLY_CHANGES_TRUNCATION_LIMIT = 2000
+"""Character limit for task output in the apply-changes enforcement prompt."""
+
+_STREAM_READ_BUFFER_SIZE = 1024
+"""Bytes to read at a time from subprocess stdout during streaming."""
+
+_HOOK_ERROR_TRUNCATION_LIMIT = 3000
+"""Character limit for hook error output in the hook-fix prompt."""
+
+_GIT_REF_DISPLAY_LENGTH = 8
+"""Number of characters to show when displaying a git commit ref."""
 
 
 class _TwoPhaseCLIHand(Hand):
@@ -50,6 +78,8 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
+        if limit < 1:
+            raise ValueError("limit must be a positive integer")
         clean = text.strip()
         if len(clean) <= limit:
             return clean
@@ -71,10 +101,7 @@ class _TwoPhaseCLIHand(Hand):
         try:
             tokens = shlex.split(raw)
         except ValueError as exc:
-            msg = (
-                f"{self._COMMAND_ENV_VAR} contains an invalid shell expression"
-                f" ({raw!r}): {exc}"
-            )
+            msg = f"{self._COMMAND_ENV_VAR} contains an invalid shell expression: {exc}"
             raise RuntimeError(msg) from exc
         if not tokens:
             msg = f"{self._COMMAND_ENV_VAR} resolved to an empty command."
@@ -339,7 +366,9 @@ class _TwoPhaseCLIHand(Hand):
         return None
 
     def _build_init_prompt(self) -> str:
-        file_list = "\n".join(f"- {path}" for path in self.repo_index.files[:200])
+        file_list = "\n".join(
+            f"- {path}" for path in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
+        )
         if not file_list:
             file_list = "- (no indexed files)"
         return (
@@ -421,13 +450,21 @@ class _TwoPhaseCLIHand(Hand):
 
     def _repo_has_changes(self) -> bool:
         repo_root = self.repo_index.root.resolve()
-        result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "git status timed out after %ds; assuming no changes",
+                _GIT_READ_TIMEOUT_S,
+            )
+            return False
         if result.returncode != 0:
             logger.debug(
                 "git status check failed (code=%d); assuming no changes",
@@ -465,7 +502,9 @@ class _TwoPhaseCLIHand(Hand):
         return not self._repo_has_changes()
 
     def _build_apply_changes_prompt(self, *, prompt: str, task_output: str) -> str:
-        summarized_output = self._truncate_summary(task_output, limit=2000)
+        summarized_output = self._truncate_summary(
+            task_output, limit=_APPLY_CHANGES_TRUNCATION_LIMIT
+        )
         return (
             "Follow-up enforcement phase.\n"
             "You previously responded without applying repository file changes.\n\n"
@@ -494,7 +533,7 @@ class _TwoPhaseCLIHand(Hand):
             return
         process.terminate()
         try:
-            await asyncio.wait_for(process.wait(), timeout=5)
+            await asyncio.wait_for(process.wait(), timeout=_PROCESS_TERMINATE_TIMEOUT_S)
         except TimeoutError:
             process.kill()
             await process.wait()
@@ -567,7 +606,7 @@ class _TwoPhaseCLIHand(Hand):
 
                 try:
                     data = await asyncio.wait_for(
-                        stdout.read(1024),
+                        stdout.read(_STREAM_READ_BUFFER_SIZE),
                         timeout=io_poll_seconds,
                     )
                 except TimeoutError as exc:
@@ -785,11 +824,11 @@ class _TwoPhaseCLIHand(Hand):
         """Wait for CI checks to complete and return the result."""
         await emit(
             f"\n[{self._CLI_LABEL}] Waiting {initial_wait:.0f}s "
-            f"for CI checks on {ref[:8]}...\n"
+            f"for CI checks on {ref[:_GIT_REF_DISPLAY_LENGTH]}...\n"
         )
         await asyncio.sleep(initial_wait)
 
-        poll_interval = 30.0
+        poll_interval = _CI_POLL_INTERVAL_S
         deadline = time.monotonic() + max_poll_seconds
         while time.monotonic() < deadline:
             result = gh.get_check_runs(repo, ref)
@@ -875,7 +914,8 @@ class _TwoPhaseCLIHand(Hand):
         metadata["ci_fix_status"] = "checking"
 
         try:
-            with GitHubClient() as gh:
+            gh_token = getattr(self.config, "github_token", "")
+            with GitHubClient(token=gh_token) as gh:
                 current_ref = pr_commit
                 for attempt in range(1, self.ci_max_retries + 1):
                     if self._is_interrupted():
@@ -1003,8 +1043,8 @@ class _TwoPhaseCLIHand(Hand):
     def _build_hook_fix_prompt(error_output: str) -> str:
         """Build a prompt asking the AI backend to fix git hook errors."""
         truncated = error_output.strip()
-        if len(truncated) > 3000:
-            truncated = f"{truncated[:3000]}\n...[truncated]"
+        if len(truncated) > _HOOK_ERROR_TRUNCATION_LIMIT:
+            truncated = f"{truncated[:_HOOK_ERROR_TRUNCATION_LIMIT]}\n...[truncated]"
 
         return (
             "Git pre-commit hook fix.\n\n"
@@ -1043,7 +1083,7 @@ class _TwoPhaseCLIHand(Hand):
                 text=True,
                 check=False,
                 env=env,
-                timeout=300,
+                timeout=_PR_DESCRIPTION_TIMEOUT_S,
             )
         except FileNotFoundError:
             fallback = self._fallback_command_when_not_found(cmd)
@@ -1056,7 +1096,7 @@ class _TwoPhaseCLIHand(Hand):
                         text=True,
                         check=False,
                         env=env,
-                        timeout=300,
+                        timeout=_PR_DESCRIPTION_TIMEOUT_S,
                     )
                 except (FileNotFoundError, subprocess.TimeoutExpired):
                     logger.warning(

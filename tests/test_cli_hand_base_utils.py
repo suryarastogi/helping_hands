@@ -126,12 +126,16 @@ class TestBaseCommandShlexError:
         with pytest.raises(RuntimeError, match="invalid shell expression"):
             stub._base_command()
 
-    def test_shlex_error_includes_raw_value(
+    def test_shlex_error_does_not_include_raw_value(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        stub = _make_cli_stub(monkeypatch, 'my-cli "unclosed')
-        with pytest.raises(RuntimeError, match=r"my-cli"):
+        """v149: raw env var value is redacted from error message."""
+        raw_value = 'my-cli "unclosed-with-secret-token'
+        stub = _make_cli_stub(monkeypatch, raw_value)
+        with pytest.raises(RuntimeError, match="invalid shell expression") as exc_info:
             stub._base_command()
+        # The raw value should NOT appear in the error message
+        assert raw_value not in str(exc_info.value)
 
     def test_valid_command_still_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
         stub = _make_cli_stub(monkeypatch, "my-cli --flag value")

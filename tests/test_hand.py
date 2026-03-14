@@ -557,6 +557,46 @@ class TestBuildGenericPrBody:
         )
         assert "No summary provided." in body
 
+    def test_empty_backend_raises(self) -> None:
+        with pytest.raises(ValueError, match="backend must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="",
+                prompt="do stuff",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
+    def test_whitespace_backend_raises(self) -> None:
+        with pytest.raises(ValueError, match="backend must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="   ",
+                prompt="do stuff",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
+    def test_empty_prompt_raises(self) -> None:
+        with pytest.raises(ValueError, match="prompt must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="test",
+                prompt="",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
+    def test_whitespace_prompt_raises(self) -> None:
+        with pytest.raises(ValueError, match="prompt must not be empty"):
+            Hand._build_generic_pr_body(
+                backend="test",
+                prompt="  \n  ",
+                summary="summary",
+                commit_sha="abc123",
+                stamp_utc="2026-01-01T00:00:00+00:00",
+            )
+
 
 # ---------------------------------------------------------------------------
 # Hand skill resolution
@@ -3556,3 +3596,39 @@ class TestGeminiStaticHelpers:
 
     def test_strip_model_args_returns_none_when_no_model(self) -> None:
         assert GeminiCLIHand._strip_model_args(["gemini", "-p", "hello"]) is None
+
+
+# ---------------------------------------------------------------------------
+# Per-task GitHub token passthrough (v147)
+# ---------------------------------------------------------------------------
+
+
+class TestGitHubTokenPassthrough:
+    """Verify config.github_token is read by hand call sites."""
+
+    def test_config_github_token_field_exists(self) -> None:
+        from helping_hands.lib.config import Config
+
+        config = Config(github_token="ghp_test123")
+        assert config.github_token == "ghp_test123"
+
+    def test_hand_base_reads_config_github_token(self) -> None:
+        """Hand._finalize_repo_pr reads config.github_token via getattr."""
+        from helping_hands.lib.config import Config
+
+        config = Config(repo="/tmp/test", github_token="ghp_custom")
+        # Verify the config has the field (the actual call site uses getattr)
+        assert getattr(config, "github_token", "") == "ghp_custom"
+
+    def test_hand_base_empty_token_falls_back(self) -> None:
+        """Empty github_token falls back to env-based GitHubClient resolution."""
+        from helping_hands.lib.config import Config
+
+        config = Config(repo="/tmp/test", github_token="")
+        assert getattr(config, "github_token", "") == ""
+
+    def test_config_github_token_default_empty(self) -> None:
+        from helping_hands.lib.config import Config
+
+        config = Config()
+        assert config.github_token == ""

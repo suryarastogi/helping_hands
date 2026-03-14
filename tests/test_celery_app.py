@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -509,17 +510,30 @@ class TestFormatRuntime:
 
 
 class TestGetDbUrlWriter:
-    def test_returns_env_override(self, monkeypatch) -> None:
+    def test_returns_env_value(self, monkeypatch) -> None:
         monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@host:5432/mydb")
         assert (
             celery_app._get_db_url_writer() == "postgresql://user:pass@host:5432/mydb"
         )
 
-    def test_returns_default_when_not_set(self, monkeypatch) -> None:
+    def test_raises_when_not_set(self, monkeypatch) -> None:
         monkeypatch.delenv("DATABASE_URL", raising=False)
-        result = celery_app._get_db_url_writer()
-        assert result.startswith("postgresql://")
-        assert "cavern" in result
+        with pytest.raises(RuntimeError, match="DATABASE_URL"):
+            celery_app._get_db_url_writer()
+
+    def test_raises_when_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("DATABASE_URL", "")
+        with pytest.raises(RuntimeError, match="DATABASE_URL"):
+            celery_app._get_db_url_writer()
+
+    def test_raises_when_whitespace_only(self, monkeypatch) -> None:
+        monkeypatch.setenv("DATABASE_URL", "   ")
+        with pytest.raises(RuntimeError, match="DATABASE_URL"):
+            celery_app._get_db_url_writer()
+
+    def test_strips_whitespace(self, monkeypatch) -> None:
+        monkeypatch.setenv("DATABASE_URL", "  postgresql://host/db  ")
+        assert celery_app._get_db_url_writer() == "postgresql://host/db"
 
 
 class TestEnsureUsageSchedule:
@@ -664,8 +678,8 @@ class TestLogClaudeUsage:
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        mock_conn = MagicMock()
         mock_cursor = MagicMock()
+        mock_conn = MagicMock()
         mock_conn.cursor.return_value.__enter__ = lambda s: mock_cursor
         mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -679,10 +693,13 @@ class TestLogClaudeUsage:
             ),
             patch("urllib.request.urlopen", return_value=mock_resp),
             patch.dict("sys.modules", {"psycopg2": mock_psycopg2}),
+            patch.dict(
+                os.environ, {"DATABASE_URL": "postgres://test:test@localhost/test"}
+            ),
         ):
             result = celery_app.log_claude_usage()
 
-        assert result["status"] == "ok"
+        assert result["status"] == "ok", f"Expected ok but got: {result}"
         assert result["session_pct"] == 0.25
         assert result["weekly_pct"] == 0.1
         mock_conn.commit.assert_called_once()

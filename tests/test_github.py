@@ -8,7 +8,13 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from helping_hands.lib.github import GitHubClient, PRResult, _run_git
+from helping_hands.lib.github import (
+    _VALID_PR_STATES,
+    GitHubClient,
+    PRResult,
+    _run_git,
+    _validate_branch_name,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -151,6 +157,24 @@ class TestClone:
     ) -> None:
         with pytest.raises(ValueError, match="depth must be positive"):
             client.clone("owner/repo", tmp_path / "repo", depth=-5)
+
+    def test_clone_rejects_empty_full_name(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="full_name must not be empty"):
+            client.clone("", tmp_path / "repo")
+
+    def test_clone_rejects_whitespace_full_name(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="full_name must not be empty"):
+            client.clone("   ", tmp_path / "repo")
+
+    def test_clone_rejects_no_slash_full_name(
+        self, client: GitHubClient, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="owner/repo"):
+            client.clone("justrepo", tmp_path / "repo")
 
 
 # ---------------------------------------------------------------------------
@@ -611,3 +635,208 @@ class TestContextManager:
         with client as c:
             assert c is client
         client._gh.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _validate_branch_name
+# ---------------------------------------------------------------------------
+
+
+class TestValidateBranchName:
+    def test_empty_string_raises(self) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            _validate_branch_name("")
+
+    def test_whitespace_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            _validate_branch_name("   ")
+
+    def test_tab_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            _validate_branch_name("\t")
+
+    def test_valid_branch_name_passes(self) -> None:
+        _validate_branch_name("feat/new-feature")  # should not raise
+
+    def test_valid_simple_name_passes(self) -> None:
+        _validate_branch_name("main")  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# Branch method input validation
+# ---------------------------------------------------------------------------
+
+
+class TestBranchInputValidation:
+    def test_create_branch_rejects_empty(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.create_branch(tmp_path, "")
+
+    def test_create_branch_rejects_whitespace(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.create_branch(tmp_path, "   ")
+
+    def test_switch_branch_rejects_empty(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.switch_branch(tmp_path, "")
+
+    def test_switch_branch_rejects_whitespace(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.switch_branch(tmp_path, "  ")
+
+    def test_fetch_branch_rejects_empty(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.fetch_branch(tmp_path, "")
+
+    def test_fetch_branch_rejects_whitespace(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="branch_name"):
+            GitHubClient.fetch_branch(tmp_path, "\t")
+
+
+# ---------------------------------------------------------------------------
+# Commit/identity input validation
+# ---------------------------------------------------------------------------
+
+
+class TestCommitInputValidation:
+    def test_add_and_commit_rejects_empty_message(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="commit message must not be empty"):
+            GitHubClient.add_and_commit(tmp_path, "")
+
+    def test_add_and_commit_rejects_whitespace_message(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="commit message must not be empty"):
+            GitHubClient.add_and_commit(tmp_path, "   ")
+
+
+class TestIdentityInputValidation:
+    def test_set_local_identity_rejects_empty_name(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="name must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="", email="a@b.com")
+
+    def test_set_local_identity_rejects_whitespace_name(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="name must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="  ", email="a@b.com")
+
+    def test_set_local_identity_rejects_empty_email(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="email must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="Bot", email="")
+
+    def test_set_local_identity_rejects_whitespace_email(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="email must not be empty"):
+            GitHubClient.set_local_identity(tmp_path, name="Bot", email="  ")
+
+
+# ---------------------------------------------------------------------------
+# create_pr input validation (v150)
+# ---------------------------------------------------------------------------
+
+
+class TestCreatePrInputValidation:
+    def test_rejects_empty_title(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="title must not be empty"):
+            client.create_pr("owner/repo", title="", head="feat", base="main")
+
+    def test_rejects_whitespace_title(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="title must not be empty"):
+            client.create_pr("owner/repo", title="   ", head="feat", base="main")
+
+    def test_rejects_empty_head(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            client.create_pr("owner/repo", title="Add feature", head="", base="main")
+
+    def test_rejects_whitespace_head(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            client.create_pr("owner/repo", title="Add feature", head="  ", base="main")
+
+    def test_rejects_empty_base(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            client.create_pr("owner/repo", title="Add feature", head="feat", base="")
+
+    def test_rejects_whitespace_base(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="branch_name must not be empty"):
+            client.create_pr("owner/repo", title="Add feature", head="feat", base="  ")
+
+
+# ---------------------------------------------------------------------------
+# list_prs state validation (v150)
+# ---------------------------------------------------------------------------
+
+
+class TestListPrsStateValidation:
+    def test_accepts_open(self, client: GitHubClient) -> None:
+        """Valid state 'open' should not raise."""
+        repo_mock = MagicMock()
+        repo_mock.get_pulls.return_value = []
+        client._gh.get_repo.return_value = repo_mock
+        result = client.list_prs("owner/repo", state="open")
+        assert result == []
+
+    def test_accepts_closed(self, client: GitHubClient) -> None:
+        repo_mock = MagicMock()
+        repo_mock.get_pulls.return_value = []
+        client._gh.get_repo.return_value = repo_mock
+        result = client.list_prs("owner/repo", state="closed")
+        assert result == []
+
+    def test_accepts_all(self, client: GitHubClient) -> None:
+        repo_mock = MagicMock()
+        repo_mock.get_pulls.return_value = []
+        client._gh.get_repo.return_value = repo_mock
+        result = client.list_prs("owner/repo", state="all")
+        assert result == []
+
+    def test_rejects_invalid_state(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="state must be one of"):
+            client.list_prs("owner/repo", state="merged")
+
+    def test_rejects_empty_state(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="state must be one of"):
+            client.list_prs("owner/repo", state="")
+
+    def test_valid_pr_states_constant(self) -> None:
+        assert {"open", "closed", "all"} == _VALID_PR_STATES
+
+    def test_valid_pr_states_is_frozenset(self) -> None:
+        assert isinstance(_VALID_PR_STATES, frozenset)
+
+
+# ---------------------------------------------------------------------------
+# get_check_runs ref validation (v150)
+# ---------------------------------------------------------------------------
+
+
+class TestGetCheckRunsRefValidation:
+    def test_rejects_empty_ref(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="ref must not be empty"):
+            client.get_check_runs("owner/repo", "")
+
+    def test_rejects_whitespace_ref(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="ref must not be empty"):
+            client.get_check_runs("owner/repo", "   ")
+
+    def test_rejects_tab_ref(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="ref must not be empty"):
+            client.get_check_runs("owner/repo", "\t")
+
+
+# ---------------------------------------------------------------------------
+# upsert_pr_comment input validation (v150)
+# ---------------------------------------------------------------------------
+
+
+class TestUpsertPrCommentInputValidation:
+    def test_rejects_zero_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="PR number must be positive"):
+            client.upsert_pr_comment("owner/repo", 0, body="hello")
+
+    def test_rejects_negative_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="PR number must be positive"):
+            client.upsert_pr_comment("owner/repo", -1, body="hello")
+
+    def test_rejects_empty_body(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="comment body must not be empty"):
+            client.upsert_pr_comment("owner/repo", 1, body="")
+
+    def test_rejects_whitespace_body(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="comment body must not be empty"):
+            client.upsert_pr_comment("owner/repo", 1, body="   ")

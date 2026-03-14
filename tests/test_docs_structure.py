@@ -1874,7 +1874,11 @@ class TestActivePlanConsistency:
         self, plans_text: str, active_plan_files: list[str]
     ) -> None:
         if not active_plan_files:
-            assert "No active plans" in plans_text or "no active" in plans_text.lower()
+            assert (
+                "No active plans" in plans_text
+                or "no active" in plans_text.lower()
+                or "(none)" in plans_text.lower()
+            )
         else:
             for filename in active_plan_files:
                 stem = filename.replace(".md", "")
@@ -7532,3 +7536,24 @@ class TestCIWorkflowTypeChecker:
         ruff_pos = ci_content.index("Ruff format check")
         ty_pos = ci_content.index("Type check")
         assert ruff_pos < ty_pos, "Type check should run after ruff"
+
+
+class TestGitignorePlaywrightArtifacts:
+    """Playwright/E2E test artifacts must be gitignored."""
+
+    @pytest.fixture()
+    def gitignore_text(self) -> str:
+        return (REPO_ROOT / ".gitignore").read_text()
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "frontend/test-results/",
+            "frontend/playwright-report/",
+            "frontend/blob-report/",
+        ],
+    )
+    def test_playwright_artifact_ignored(
+        self, gitignore_text: str, pattern: str
+    ) -> None:
+        assert pattern in gitignore_text, f".gitignore should contain '{pattern}'"
