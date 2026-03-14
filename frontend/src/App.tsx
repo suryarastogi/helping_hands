@@ -2130,7 +2130,7 @@ export default function App() {
         enabled: item.enabled,
       });
       setEditingScheduleId(scheduleId);
-      setShowScheduleForm(true);
+      setShowScheduleForm(false);
     } catch (error) {
       setScheduleError(String(error));
     }
@@ -2629,6 +2629,220 @@ export default function App() {
     </section>
   );
 
+  const scheduleFormFields = (
+    <form onSubmit={saveSchedule} className="form-grid" style={{ marginTop: 0 }}>
+      <label>
+        Name
+        <input
+          value={scheduleForm.name}
+          onChange={(e) => updateScheduleField("name", e.target.value)}
+          required
+          placeholder="e.g. Daily docs update"
+        />
+      </label>
+
+      <div className="row two-col">
+        <label>
+          Cron expression
+          <input
+            value={scheduleForm.cron_expression}
+            onChange={(e) => updateScheduleField("cron_expression", e.target.value)}
+            required
+            placeholder="0 0 * * * (midnight)"
+          />
+        </label>
+        <label>
+          Or preset
+          <select
+            value={
+              Object.entries(CRON_PRESETS).find(
+                ([, v]) => v === scheduleForm.cron_expression,
+              )?.[0] ?? ""
+            }
+            onChange={(e) => {
+              const preset = e.target.value;
+              if (preset && CRON_PRESETS[preset]) {
+                updateScheduleField("cron_expression", CRON_PRESETS[preset]);
+              }
+            }}
+          >
+            <option value="">Custom</option>
+            {Object.entries(CRON_PRESETS).map(([key, val]) => (
+              <option key={key} value={key}>
+                {key.replace(/_/g, " ")} ({val})
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Repo path (owner/repo)
+        <input
+          value={scheduleForm.repo_path}
+          onChange={(e) => updateScheduleField("repo_path", e.target.value)}
+          required
+          placeholder="owner/repo"
+        />
+      </label>
+
+      <label>
+        Prompt
+        <textarea
+          value={scheduleForm.prompt}
+          onChange={(e) => updateScheduleField("prompt", e.target.value)}
+          required
+          rows={4}
+          placeholder="Update documentation..."
+        />
+      </label>
+
+      <details className="advanced-settings">
+        <summary>Advanced settings</summary>
+        <div className="advanced-settings-body">
+          <div className="row two-col">
+            <label>
+              Backend
+              <select
+                value={scheduleForm.backend}
+                onChange={(e) => updateScheduleField("backend", e.target.value as Backend)}
+              >
+                {BACKEND_OPTIONS.map((b) => (
+                  <option key={b} value={b}>{backendDisplayName(b)}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Model
+              <input
+                value={scheduleForm.model}
+                onChange={(e) => updateScheduleField("model", e.target.value)}
+                placeholder="claude-opus-4-6"
+              />
+            </label>
+          </div>
+          <div className="row two-col">
+            <label>
+              Max iterations
+              <input
+                type="number"
+                min={1}
+                value={scheduleForm.max_iterations}
+                onChange={(e) =>
+                  updateScheduleField("max_iterations", Math.max(1, Number(e.target.value || 1)))
+                }
+              />
+            </label>
+            <label>
+              PR number
+              <input
+                type="number"
+                min={1}
+                value={scheduleForm.pr_number}
+                onChange={(e) => updateScheduleField("pr_number", e.target.value)}
+              />
+            </label>
+          </div>
+          <label>
+            Tools
+            <input
+              value={scheduleForm.tools}
+              onChange={(e) => updateScheduleField("tools", e.target.value)}
+              placeholder="execution,web"
+            />
+          </label>
+          <label>
+            Skills
+            <input
+              value={scheduleForm.skills}
+              onChange={(e) => updateScheduleField("skills", e.target.value)}
+              placeholder="execution,web,prd"
+            />
+          </label>
+          <div className="row check-grid">
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={scheduleForm.no_pr}
+                onChange={(e) => updateScheduleField("no_pr", e.target.checked)}
+              />
+              No PR
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={scheduleForm.enable_execution}
+                onChange={(e) => updateScheduleField("enable_execution", e.target.checked)}
+              />
+              Execution
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={scheduleForm.enable_web}
+                onChange={(e) => updateScheduleField("enable_web", e.target.checked)}
+              />
+              Web
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={scheduleForm.use_native_cli_auth}
+                onChange={(e) => updateScheduleField("use_native_cli_auth", e.target.checked)}
+              />
+              Native auth
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={scheduleForm.fix_ci}
+                onChange={(e) => updateScheduleField("fix_ci", e.target.checked)}
+              />
+              Fix CI
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={scheduleForm.enabled}
+                onChange={(e) => updateScheduleField("enabled", e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className="row">
+            <label>
+              GitHub Token
+              <input
+                type="password"
+                value={scheduleForm.github_token}
+                onChange={(e) => updateScheduleField("github_token", e.target.value)}
+                placeholder="ghp_... (optional)"
+              />
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="submit">
+          {editingScheduleId ? "Update schedule" : "Create schedule"}
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => {
+            setShowScheduleForm(false);
+            setEditingScheduleId(null);
+            setScheduleForm(INITIAL_SCHEDULE_FORM);
+            setScheduleError(null);
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+
   const schedulesCard = (
     <section className="card compact-form" style={{ padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -2659,222 +2873,10 @@ export default function App() {
         </div>
       )}
 
-      {showScheduleForm && (
+      {showScheduleForm && !editingScheduleId && (
         <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}>
-          <h3 style={{ margin: "0 0 10px", fontSize: "0.95rem" }}>
-            {editingScheduleId ? "Edit schedule" : "New schedule"}
-          </h3>
-          <form onSubmit={saveSchedule} className="form-grid" style={{ marginTop: 0 }}>
-            <label>
-              Name
-              <input
-                value={scheduleForm.name}
-                onChange={(e) => updateScheduleField("name", e.target.value)}
-                required
-                placeholder="e.g. Daily docs update"
-              />
-            </label>
-
-            <div className="row two-col">
-              <label>
-                Cron expression
-                <input
-                  value={scheduleForm.cron_expression}
-                  onChange={(e) => updateScheduleField("cron_expression", e.target.value)}
-                  required
-                  placeholder="0 0 * * * (midnight)"
-                />
-              </label>
-              <label>
-                Or preset
-                <select
-                  value={
-                    Object.entries(CRON_PRESETS).find(
-                      ([, v]) => v === scheduleForm.cron_expression,
-                    )?.[0] ?? ""
-                  }
-                  onChange={(e) => {
-                    const preset = e.target.value;
-                    if (preset && CRON_PRESETS[preset]) {
-                      updateScheduleField("cron_expression", CRON_PRESETS[preset]);
-                    }
-                  }}
-                >
-                  <option value="">Custom</option>
-                  {Object.entries(CRON_PRESETS).map(([key, val]) => (
-                    <option key={key} value={key}>
-                      {key.replace(/_/g, " ")} ({val})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <label>
-              Repo path (owner/repo)
-              <input
-                value={scheduleForm.repo_path}
-                onChange={(e) => updateScheduleField("repo_path", e.target.value)}
-                required
-                placeholder="owner/repo"
-              />
-            </label>
-
-            <label>
-              Prompt
-              <textarea
-                value={scheduleForm.prompt}
-                onChange={(e) => updateScheduleField("prompt", e.target.value)}
-                required
-                rows={4}
-                placeholder="Update documentation..."
-              />
-            </label>
-
-            <details className="advanced-settings">
-              <summary>Advanced settings</summary>
-              <div className="advanced-settings-body">
-                <div className="row two-col">
-                  <label>
-                    Backend
-                    <select
-                      value={scheduleForm.backend}
-                      onChange={(e) => updateScheduleField("backend", e.target.value as Backend)}
-                    >
-                      {BACKEND_OPTIONS.map((b) => (
-                        <option key={b} value={b}>{backendDisplayName(b)}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Model
-                    <input
-                      value={scheduleForm.model}
-                      onChange={(e) => updateScheduleField("model", e.target.value)}
-                      placeholder="claude-opus-4-6"
-                    />
-                  </label>
-                </div>
-                <div className="row two-col">
-                  <label>
-                    Max iterations
-                    <input
-                      type="number"
-                      min={1}
-                      value={scheduleForm.max_iterations}
-                      onChange={(e) =>
-                        updateScheduleField("max_iterations", Math.max(1, Number(e.target.value || 1)))
-                      }
-                    />
-                  </label>
-                  <label>
-                    PR number
-                    <input
-                      type="number"
-                      min={1}
-                      value={scheduleForm.pr_number}
-                      onChange={(e) => updateScheduleField("pr_number", e.target.value)}
-                    />
-                  </label>
-                </div>
-                <label>
-                  Tools
-                  <input
-                    value={scheduleForm.tools}
-                    onChange={(e) => updateScheduleField("tools", e.target.value)}
-                    placeholder="execution,web"
-                  />
-                </label>
-                <label>
-                  Skills
-                  <input
-                    value={scheduleForm.skills}
-                    onChange={(e) => updateScheduleField("skills", e.target.value)}
-                    placeholder="execution,web,prd"
-                  />
-                </label>
-                <div className="row check-grid">
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={scheduleForm.no_pr}
-                      onChange={(e) => updateScheduleField("no_pr", e.target.checked)}
-                    />
-                    No PR
-                  </label>
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={scheduleForm.enable_execution}
-                      onChange={(e) => updateScheduleField("enable_execution", e.target.checked)}
-                    />
-                    Execution
-                  </label>
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={scheduleForm.enable_web}
-                      onChange={(e) => updateScheduleField("enable_web", e.target.checked)}
-                    />
-                    Web
-                  </label>
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={scheduleForm.use_native_cli_auth}
-                      onChange={(e) => updateScheduleField("use_native_cli_auth", e.target.checked)}
-                    />
-                    Native auth
-                  </label>
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={scheduleForm.fix_ci}
-                      onChange={(e) => updateScheduleField("fix_ci", e.target.checked)}
-                    />
-                    Fix CI
-                  </label>
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={scheduleForm.enabled}
-                      onChange={(e) => updateScheduleField("enabled", e.target.checked)}
-                    />
-                    Enabled
-                  </label>
-                </div>
-                <div className="row">
-                  <label>
-                    GitHub Token
-                    <input
-                      type="password"
-                      value={scheduleForm.github_token}
-                      onChange={(e) => updateScheduleField("github_token", e.target.value)}
-                      placeholder="ghp_... (optional)"
-                    />
-                  </label>
-                </div>
-              </div>
-            </details>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="submit">
-                {editingScheduleId ? "Update schedule" : "Create schedule"}
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  setShowScheduleForm(false);
-                  setEditingScheduleId(null);
-                  setScheduleForm(INITIAL_SCHEDULE_FORM);
-                  setScheduleError(null);
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+          <h3 style={{ margin: "0 0 10px", fontSize: "0.95rem" }}>New schedule</h3>
+          {scheduleFormFields}
         </div>
       )}
 
@@ -2884,64 +2886,72 @@ export default function App() {
         <div style={{ display: "grid", gap: 8 }}>
           {schedules.map((item) => (
             <div key={item.schedule_id} className="schedule-item">
-              <div className="schedule-item-header">
-                <strong>{item.name}</strong>
-                <span className={`status-pill ${item.enabled ? "ok" : "idle"}`}>
-                  {item.enabled ? "enabled" : "disabled"}
-                </span>
-              </div>
-              <div className="schedule-item-meta">
-                <code>{item.cron_expression}</code> &middot; {item.repo_path} &middot;{" "}
-                {item.backend}
-                {item.next_run_at && (
-                  <> &middot; next: {new Date(item.next_run_at).toLocaleString()}</>
-                )}
-              </div>
-              <div className="schedule-item-meta" style={{ fontSize: "0.72rem" }}>
-                {item.run_count} runs
-                {item.last_run_at && (
-                  <> &middot; last: {new Date(item.last_run_at).toLocaleString()}</>
-                )}
-              </div>
-              <div className="schedule-item-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  style={{ padding: "5px 10px", fontSize: "0.76rem" }}
-                  onClick={() => void openEditScheduleForm(item.schedule_id)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  style={{ padding: "5px 10px", fontSize: "0.76rem" }}
-                  onClick={() => void triggerSchedule(item.schedule_id)}
-                >
-                  Run now
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  style={{ padding: "5px 10px", fontSize: "0.76rem" }}
-                  onClick={() => void toggleSchedule(item.schedule_id, !item.enabled)}
-                >
-                  {item.enabled ? "Disable" : "Enable"}
-                </button>
-                <button
-                  type="button"
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "0.76rem",
-                    background: "var(--danger-soft)",
-                    border: "1px solid var(--danger)",
-                    color: "#fca5a5",
-                  }}
-                  onClick={() => void deleteSchedule(item.schedule_id)}
-                >
-                  Delete
-                </button>
-              </div>
+              {editingScheduleId === item.schedule_id ? (
+                <div style={{ padding: "4px 0" }}>
+                  {scheduleFormFields}
+                </div>
+              ) : (
+                <>
+                  <div className="schedule-item-header">
+                    <strong>{item.name}</strong>
+                    <span className={`status-pill ${item.enabled ? "ok" : "idle"}`}>
+                      {item.enabled ? "enabled" : "disabled"}
+                    </span>
+                  </div>
+                  <div className="schedule-item-meta">
+                    <code>{item.cron_expression}</code> &middot; {item.repo_path} &middot;{" "}
+                    {item.backend}
+                    {item.next_run_at && (
+                      <> &middot; next: {new Date(item.next_run_at).toLocaleString()}</>
+                    )}
+                  </div>
+                  <div className="schedule-item-meta" style={{ fontSize: "0.72rem" }}>
+                    {item.run_count} runs
+                    {item.last_run_at && (
+                      <> &middot; last: {new Date(item.last_run_at).toLocaleString()}</>
+                    )}
+                  </div>
+                  <div className="schedule-item-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ padding: "5px 10px", fontSize: "0.76rem" }}
+                      onClick={() => void openEditScheduleForm(item.schedule_id)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ padding: "5px 10px", fontSize: "0.76rem" }}
+                      onClick={() => void triggerSchedule(item.schedule_id)}
+                    >
+                      Run now
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ padding: "5px 10px", fontSize: "0.76rem" }}
+                      onClick={() => void toggleSchedule(item.schedule_id, !item.enabled)}
+                    >
+                      {item.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        padding: "5px 10px",
+                        fontSize: "0.76rem",
+                        background: "var(--danger-soft)",
+                        border: "1px solid var(--danger)",
+                        color: "#fca5a5",
+                      }}
+                      onClick={() => void deleteSchedule(item.schedule_id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
