@@ -348,12 +348,30 @@ class _TwoPhaseCLIHand(Hand):
         return f"{self._CLI_DISPLAY_NAME} failed (exit={return_code}). Output:\n{tail}"
 
     def _command_not_found_message(self, command: str) -> str:
+        """Build the error message shown when the CLI binary is not on PATH.
+
+        Args:
+            command: The binary name that was not found.
+
+        Returns:
+            A human-readable error string suggesting how to fix the issue.
+        """
         return (
             f"{self._CLI_DISPLAY_NAME} command not found: {command!r}. "
             f"Set {self._COMMAND_ENV_VAR} to a valid command."
         )
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
+        """Return an alternative command to try when the primary CLI is missing.
+
+        Subclasses may override this to provide a fallback binary (e.g. npx).
+
+        Args:
+            cmd: The original command that was not found.
+
+        Returns:
+            A replacement command list, or ``None`` to raise immediately.
+        """
         return None
 
     def _retry_command_after_failure(
@@ -363,6 +381,19 @@ class _TwoPhaseCLIHand(Hand):
         output: str,
         return_code: int,
     ) -> list[str] | None:
+        """Return a modified command to retry after a non-zero exit.
+
+        Subclasses may override this to attempt automatic recovery (e.g.
+        adjusting flags) when the CLI process fails.
+
+        Args:
+            cmd: The command that failed.
+            output: Combined stdout/stderr from the failed run.
+            return_code: The process exit code.
+
+        Returns:
+            A replacement command list to retry, or ``None`` to skip retry.
+        """
         return None
 
     def _build_init_prompt(self) -> str:
@@ -523,6 +554,18 @@ class _TwoPhaseCLIHand(Hand):
         prompt: str,
         combined_output: str,
     ) -> str | None:
+        """Return an error message when the task phase produced no file changes.
+
+        Called after all retry attempts if the working tree is still clean.
+        Subclasses may override to provide a backend-specific diagnostic.
+
+        Args:
+            prompt: The original user prompt.
+            combined_output: Accumulated CLI output across all attempts.
+
+        Returns:
+            An error message string, or ``None`` to silently accept no changes.
+        """
         del prompt
         del combined_output
         return None
@@ -1127,12 +1170,28 @@ class _TwoPhaseCLIHand(Hand):
         return self._repo_has_changes()
 
     def interrupt(self) -> None:
+        """Signal the hand to stop execution.
+
+        Extends the base ``Hand.interrupt()`` by also terminating the active
+        subprocess (if one is running) via SIGTERM.
+        """
         super().interrupt()
         process = self._active_process
         if process is not None and process.returncode is None:
             process.terminate()
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the two-phase CLI workflow synchronously.
+
+        Runs init → task phases via ``asyncio.run``, finalises the repo
+        (commit/push/PR), and optionally enters the CI-fix loop.
+
+        Args:
+            prompt: The user task description to execute.
+
+        Returns:
+            A ``HandResponse`` with the combined output and PR metadata.
+        """
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
@@ -1160,6 +1219,17 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Execute the two-phase CLI workflow with streaming output.
+
+        Yields chunks as they arrive from the subprocess, then finalises the
+        repo and optionally enters the CI-fix loop.
+
+        Args:
+            prompt: The user task description to execute.
+
+        Yields:
+            Output chunks from the subprocess and PR status messages.
+        """
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()
         collected: list[str] = []
 

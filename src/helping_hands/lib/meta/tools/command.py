@@ -19,6 +19,17 @@ from helping_hands.lib.meta.tools.filesystem import resolve_repo_target
 
 __all__ = ["CommandResult", "run_bash_script", "run_python_code", "run_python_script"]
 
+# --- Exit code constants (standard Unix conventions) --------------------------
+
+_EXIT_CODE_TIMEOUT = 124
+"""Exit code returned when a command is killed due to timeout (matches coreutils timeout)."""
+
+_EXIT_CODE_CANNOT_EXECUTE = 126
+"""Exit code returned when the command exists but cannot be executed (OSError)."""
+
+_EXIT_CODE_NOT_FOUND = 127
+"""Exit code returned when the command binary is not found (FileNotFoundError)."""
+
 
 @dataclass(frozen=True)
 class CommandResult:
@@ -100,7 +111,7 @@ def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandRes
         return CommandResult(
             command=command,
             cwd=str(cwd),
-            exit_code=124,
+            exit_code=_EXIT_CODE_TIMEOUT,
             stdout=stdout,
             stderr=stderr,
             timed_out=True,
@@ -109,7 +120,7 @@ def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandRes
         return CommandResult(
             command=command,
             cwd=str(cwd),
-            exit_code=127,
+            exit_code=_EXIT_CODE_NOT_FOUND,
             stdout="",
             stderr=f"command not found: {command[0]}",
         )
@@ -117,7 +128,7 @@ def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandRes
         return CommandResult(
             command=command,
             cwd=str(cwd),
-            exit_code=126,
+            exit_code=_EXIT_CODE_CANNOT_EXECUTE,
             stdout="",
             stderr=f"cannot execute command: {exc}",
         )

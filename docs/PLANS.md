@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-14 v165](exec-plans/completed/2026-03-14.md) --
+  Extract command exit code constants (124/127/126), DRY boolean env parsing (`_TRUTHY_VALUES`/`_is_truthy_env`), add Google-style docstrings to 7 CLI hand methods; 3944 tests (34 new)
+
+
 - [2026-03-14 v164](exec-plans/completed/2026-03-14.md) --
   Close 10 uncovered lines: Hand base.py pr_number None guards (3 tests), pr_description.py multi-word keywords + second FileNotFoundError + empty-line skip (4 tests), claude.py empty model guard (1 test); 3910 tests (8 new)
 

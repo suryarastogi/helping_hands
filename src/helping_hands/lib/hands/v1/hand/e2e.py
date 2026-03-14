@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH, Hand, HandResponse
 
 logger = logging.getLogger(__name__)
@@ -84,10 +85,9 @@ class E2EHand(Hand):
     @staticmethod
     def _draft_pr_enabled() -> bool:
         """Check whether E2E PRs should be created as drafts."""
-        return os.environ.get("HELPING_HANDS_E2E_DRAFT_PR", "true").strip().lower() in (
-            "1",
-            "true",
-            "yes",
+        return (
+            os.environ.get("HELPING_HANDS_E2E_DRAFT_PR", "true").strip().lower()
+            in _TRUTHY_VALUES
         )
 
     def run(

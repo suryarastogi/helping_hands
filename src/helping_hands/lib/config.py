@@ -18,6 +18,22 @@ except ImportError:  # pragma: no cover - optional dependency safety
 
 ConfigValue = str | bool | tuple[str, ...] | None
 
+_TRUTHY_VALUES = frozenset({"1", "true", "yes"})
+"""Lowercase string values treated as boolean True for environment variables."""
+
+
+def _is_truthy_env(name: str, default: str = "") -> bool:
+    """Check whether an environment variable holds a truthy value.
+
+    Args:
+        name: Environment variable name to look up.
+        default: Fallback if the variable is unset.
+
+    Returns:
+        True if the lowercased value is in ``_TRUTHY_VALUES``.
+    """
+    return os.environ.get(name, default).lower() in _TRUTHY_VALUES
+
 
 def _load_env_files(repo: str | None = None) -> None:
     """Load dotenv files from cwd and target repo (if available)."""
@@ -57,18 +73,10 @@ class Config:
 
         env_values: dict[str, ConfigValue] = {
             "model": os.environ.get("HELPING_HANDS_MODEL"),
-            "verbose": os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
-            in ("1", "true", "yes"),
-            "enable_execution": os.environ.get(
-                "HELPING_HANDS_ENABLE_EXECUTION", ""
-            ).lower()
-            in ("1", "true", "yes"),
-            "enable_web": os.environ.get("HELPING_HANDS_ENABLE_WEB", "").lower()
-            in ("1", "true", "yes"),
-            "use_native_cli_auth": os.environ.get(
-                "HELPING_HANDS_USE_NATIVE_CLI_AUTH", ""
-            ).lower()
-            in ("1", "true", "yes"),
+            "verbose": _is_truthy_env("HELPING_HANDS_VERBOSE"),
+            "enable_execution": _is_truthy_env("HELPING_HANDS_ENABLE_EXECUTION"),
+            "enable_web": _is_truthy_env("HELPING_HANDS_ENABLE_WEB"),
+            "use_native_cli_auth": _is_truthy_env("HELPING_HANDS_USE_NATIVE_CLI_AUTH"),
             "enabled_tools": os.environ.get("HELPING_HANDS_TOOLS"),
             "enabled_skills": os.environ.get("HELPING_HANDS_SKILLS"),
             "github_token": os.environ.get("HELPING_HANDS_GITHUB_TOKEN"),
