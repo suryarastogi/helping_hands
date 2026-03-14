@@ -33,6 +33,26 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "BuildRequest",
+    "BuildResponse",
+    "ClaudeUsageLevel",
+    "ClaudeUsageResponse",
+    "CronPresetsResponse",
+    "CurrentTask",
+    "CurrentTasksResponse",
+    "ScheduleListResponse",
+    "ScheduleRequest",
+    "ScheduleResponse",
+    "ScheduleTriggerResponse",
+    "ServerConfig",
+    "ServiceHealthResponse",
+    "TaskCancelResponse",
+    "TaskStatus",
+    "WorkerCapacityResponse",
+    "app",
+]
+
 # Lazy import for optional schedule dependencies
 _schedule_manager: ScheduleManager | None = None
 

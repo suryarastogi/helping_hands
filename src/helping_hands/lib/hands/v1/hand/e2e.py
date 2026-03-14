@@ -20,6 +20,8 @@ from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH, Hand, HandRes
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["E2EHand"]
+
 # --- Module-level constants ---------------------------------------------------
 
 _E2E_MARKER_FILE = "HELPING_HANDS_E2E.md"

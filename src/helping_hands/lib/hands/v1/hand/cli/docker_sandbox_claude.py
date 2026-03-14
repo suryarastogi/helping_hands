@@ -27,6 +27,8 @@ from helping_hands.lib.hands.v1.hand.cli.claude import (
     _StreamJsonEmitter,
 )
 
+__all__ = ["DockerSandboxClaudeCodeHand"]
+
 _SANDBOX_NAME_MAX_LENGTH = 30
 """Maximum character length for the sanitised repo-name portion of a sandbox name."""
 

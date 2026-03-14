@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
+__all__ = ["GooseCLIHand"]
+
 _OLLAMA_DEFAULT_HOST = "http://localhost:11434"
 """Default Ollama API host used when no OLLAMA_HOST or OLLAMA_BASE_URL is set."""
 

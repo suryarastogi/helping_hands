@@ -42,6 +42,8 @@ from helping_hands.lib.meta.tools import web as web_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.server.task_result import normalize_task_result
 
+__all__ = ["main", "mcp"]
+
 mcp = FastMCP(
     "helping_hands",
     instructions=(

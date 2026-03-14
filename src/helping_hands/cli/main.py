@@ -34,6 +34,8 @@ from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 
+__all__ = ["build_parser", "main"]
+
 # --- Module-level constants ---------------------------------------------------
 
 _DEFAULT_CLONE_DEPTH = 1

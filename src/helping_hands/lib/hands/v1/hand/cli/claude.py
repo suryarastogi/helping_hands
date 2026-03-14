@@ -11,6 +11,8 @@ from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["ClaudeCodeHand"]
+
 # --- Module-level constants ---------------------------------------------------
 
 _TEXT_PREVIEW_MAX_LENGTH = 200

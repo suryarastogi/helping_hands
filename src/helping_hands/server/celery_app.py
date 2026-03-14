@@ -19,6 +19,8 @@ from celery import Celery
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["build_feature", "celery_app"]
+
 
 def _resolve_celery_urls() -> tuple[str, str]:
     """Resolve broker/result backend URLs with sensible env fallbacks.

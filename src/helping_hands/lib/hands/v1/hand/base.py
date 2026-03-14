@@ -30,6 +30,8 @@ from helping_hands.lib.meta.tools import registry as tool_registry
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["Hand", "HandResponse"]
+
 # --- Module-level constants ---------------------------------------------------
 
 _DEFAULT_BASE_BRANCH = "main"

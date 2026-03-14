@@ -36,6 +36,8 @@ from helping_hands.lib.meta.tools import web as system_web_tools
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["BasicAtomicHand", "BasicLangGraphHand"]
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
