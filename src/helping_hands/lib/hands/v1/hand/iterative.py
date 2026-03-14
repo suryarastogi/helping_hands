@@ -38,6 +38,12 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["BasicAtomicHand", "BasicLangGraphHand"]
 
+_README_CANDIDATES: tuple[str, ...] = ("README.md", "readme.md")
+"""Candidate filenames for project README, checked in order during bootstrap."""
+
+_AGENT_DOC_CANDIDATES: tuple[str, ...] = ("AGENT.md", "agent.md")
+"""Candidate filenames for agent guidance doc, checked in order during bootstrap."""
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
@@ -89,12 +95,19 @@ class _BasicIterativeHand(Hand):
         )
 
     def _execution_tools_enabled(self) -> bool:
+        """Check whether execution tools (python, bash) are enabled in config."""
         return bool(getattr(self.config, "enable_execution", False))
 
     def _web_tools_enabled(self) -> bool:
+        """Check whether web tools (search, browse) are enabled in config."""
         return bool(getattr(self.config, "enable_web", False))
 
     def _tool_instructions(self) -> str:
+        """Build tool usage instructions for the iteration prompt.
+
+        Returns:
+            Formatted instruction text describing available tools and skills.
+        """
         lines = [tool_registry.format_tool_instructions(self._selected_tool_categories)]
         lines.append(
             "Tool results are returned as @@TOOL_RESULT blocks "
@@ -287,6 +300,14 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _format_command(command: list[str]) -> str:
+        """Format a command list as a shell-safe string for display.
+
+        Args:
+            command: List of command tokens to format.
+
+        Returns:
+            Shell-quoted string representation of the command.
+        """
         return " ".join(shlex.quote(token) for token in command)
 
     @classmethod
@@ -365,6 +386,15 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _tool_disabled_error(tool_name: str) -> ValueError:
+        """Build a ValueError for a tool that is not enabled.
+
+        Args:
+            tool_name: Name of the requested tool.
+
+        Returns:
+            ValueError with a message indicating which ``--tools`` category
+            must be enabled, or that the tool is unsupported.
+        """
         required_category = tool_registry.category_name_for_tool(tool_name)
         if required_category:
             return ValueError(
@@ -445,6 +475,15 @@ class _BasicIterativeHand(Hand):
         root: Path,
         candidates: tuple[str, ...],
     ) -> str:
+        """Read the first matching bootstrap document from candidate filenames.
+
+        Args:
+            root: Resolved repo root path.
+            candidates: Ordered tuple of filenames to try.
+
+        Returns:
+            Formatted document content, or empty string if none found.
+        """
         for rel_path in candidates:
             if not system_tools.path_exists(root, rel_path):
                 continue
@@ -462,6 +501,12 @@ class _BasicIterativeHand(Hand):
         return ""
 
     def _build_tree_snapshot(self) -> str:
+        """Build a bounded directory tree snapshot from the repo index.
+
+        Returns:
+            Formatted tree listing, capped at ``_BOOTSTRAP_TREE_MAX_ENTRIES``
+            entries and ``_BOOTSTRAP_TREE_MAX_DEPTH`` levels deep.
+        """
         entries: set[str] = set()
         for rel_path in sorted(self.repo_index.files):
             try:
@@ -492,14 +537,22 @@ class _BasicIterativeHand(Hand):
         return "\n".join(lines)
 
     def _build_bootstrap_context(self) -> str:
+        """Build the bootstrap context for the first iteration.
+
+        Reads README and AGENT docs (from ``_README_CANDIDATES`` and
+        ``_AGENT_DOC_CANDIDATES``) and appends a bounded tree snapshot.
+
+        Returns:
+            Combined bootstrap context string.
+        """
         root = self.repo_index.root.resolve()
         sections: list[str] = []
 
-        readme = self._read_bootstrap_doc(root, ("README.md", "readme.md"))
+        readme = self._read_bootstrap_doc(root, _README_CANDIDATES)
         if readme:
             sections.append(readme)
 
-        agent = self._read_bootstrap_doc(root, ("AGENT.md", "agent.md"))
+        agent = self._read_bootstrap_doc(root, _AGENT_DOC_CANDIDATES)
         if agent:
             sections.append(agent)
 
@@ -513,6 +566,8 @@ class _BasicIterativeHand(Hand):
 
 class BasicLangGraphHand(_BasicIterativeHand):
     """Iterative LangGraph-backed hand with streaming and interruption."""
+
+    _BACKEND_NAME = "basic-langgraph"
 
     def __init__(
         self,
@@ -599,7 +654,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             status = "max_iterations"
 
         pr_metadata = self._finalize_repo_pr(
-            backend="basic-langgraph",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary=prior,
         )
@@ -607,7 +662,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": "basic-langgraph",
+                "backend": self._BACKEND_NAME,
                 "model": self._hand_model.model,
                 "provider": self._hand_model.provider.name,
                 "iterations": iterations,
@@ -625,7 +680,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         _env_name = self._hand_model.provider.api_key_env_var
         _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
         yield (
-            f"[basic-langgraph] provider={self._hand_model.provider.name}"
+            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
             f" | auth={_env_name} ({_present})\n"
         )
 
@@ -676,7 +731,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             if self._is_satisfied(content):
                 yield "\n\nTask marked satisfied.\n"
                 pr_metadata = self._finalize_repo_pr(
-                    backend="basic-langgraph",
+                    backend=self._BACKEND_NAME,
                     prompt=prompt,
                     summary=content,
                 )
@@ -688,7 +743,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             yield "\n\nContinuing...\n"
 
         pr_metadata = self._finalize_repo_pr(
-            backend="basic-langgraph",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary=prior,
         )
@@ -701,6 +756,8 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
 class BasicAtomicHand(_BasicIterativeHand):
     """Iterative Atomic-backed hand with streaming and interruption."""
+
+    _BACKEND_NAME = "basic-atomic"
 
     def __init__(
         self,
@@ -796,7 +853,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             status = "max_iterations"
 
         pr_metadata = self._finalize_repo_pr(
-            backend="basic-atomic",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary=prior,
         )
@@ -804,7 +861,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": "basic-atomic",
+                "backend": self._BACKEND_NAME,
                 "model": self._hand_model.model,
                 "provider": self._hand_model.provider.name,
                 "iterations": iterations,
@@ -822,7 +879,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         _env_name = self._hand_model.provider.api_key_env_var
         _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
         yield (
-            f"[basic-atomic] provider={self._hand_model.provider.name}"
+            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
             f" | auth={_env_name} ({_present})\n"
         )
 
@@ -894,7 +951,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             if self._is_satisfied(stream_text):
                 yield "\n\nTask marked satisfied.\n"
                 pr_metadata = self._finalize_repo_pr(
-                    backend="basic-atomic",
+                    backend=self._BACKEND_NAME,
                     prompt=prompt,
                     summary=stream_text,
                 )
@@ -906,7 +963,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             yield "\n\nContinuing...\n"
 
         pr_metadata = self._finalize_repo_pr(
-            backend="basic-atomic",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary=prior,
         )

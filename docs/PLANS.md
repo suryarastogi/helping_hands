@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-14 v162](exec-plans/completed/2026-03-14.md) --
+  Extract bootstrap doc constants (`_README_CANDIDATES`, `_AGENT_DOC_CANDIDATES`), DRY backend name class constants (`_BACKEND_NAME`), add Google-style docstrings to 8 key methods in iterative.py; 3880 tests (22 new)
+
 - [2026-03-14 v161](exec-plans/completed/2026-03-14.md) --
   Add `__all__` exports to 13 remaining modules: hand base/e2e/iterative, 6 CLI hands (claude/codex/gemini/goose/opencode/docker_sandbox_claude), server app/celery/mcp, CLI main; 3858 tests (48 new: 35 passed, 13 skipped without server extras)
 
