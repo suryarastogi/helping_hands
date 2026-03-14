@@ -39,6 +39,7 @@ Thumbs.db
 htmlcov/
 .pytest_cache/
 coverage.xml
+**/HELPING_HANDS_E2E.md
 
 # Playwright test artifacts
 frontend/test-results/

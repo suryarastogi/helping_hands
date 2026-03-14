@@ -65,6 +65,7 @@ type FormState = {
   use_native_cli_auth: boolean;
   fix_ci: boolean;
   ci_check_wait_minutes: number;
+  github_token: string;
 };
 
 type TaskHistoryItem = {
@@ -115,6 +116,7 @@ type ScheduleItem = {
   use_native_cli_auth: boolean;
   fix_ci: boolean;
   ci_check_wait_minutes: number;
+  github_token: string | null;
   tools: string[];
   skills: string[];
   enabled: boolean;
@@ -140,6 +142,7 @@ type ScheduleFormState = {
   use_native_cli_auth: boolean;
   fix_ci: boolean;
   ci_check_wait_minutes: number;
+  github_token: string;
   tools: string;
   skills: string;
   enabled: boolean;
@@ -228,6 +231,7 @@ const INITIAL_FORM: FormState = {
   use_native_cli_auth: false,
   fix_ci: false,
   ci_check_wait_minutes: 3,
+  github_token: "",
 };
 
 const CRON_PRESETS: Record<string, string> = {
@@ -257,6 +261,7 @@ const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   use_native_cli_auth: false,
   fix_ci: false,
   ci_check_wait_minutes: 3,
+  github_token: "",
   tools: "",
   skills: "",
   enabled: true,
@@ -2003,6 +2008,9 @@ export default function App() {
       ci_check_wait_minutes: form.ci_check_wait_minutes,
     };
 
+    if (form.github_token.trim()) {
+      body.github_token = form.github_token.trim();
+    }
     if (form.model.trim()) {
       body.model = form.model.trim();
     }
@@ -2116,6 +2124,7 @@ export default function App() {
         use_native_cli_auth: item.use_native_cli_auth,
         fix_ci: item.fix_ci ?? false,
         ci_check_wait_minutes: item.ci_check_wait_minutes ?? 3,
+        github_token: item.github_token ?? "",
         tools: (item.tools ?? []).join(", "),
         skills: item.skills.join(", "),
         enabled: item.enabled,
@@ -2155,6 +2164,9 @@ export default function App() {
       ci_check_wait_minutes: scheduleForm.ci_check_wait_minutes,
       enabled: scheduleForm.enabled,
     };
+    if (scheduleForm.github_token.trim()) {
+      body.github_token = scheduleForm.github_token.trim();
+    }
     if (scheduleForm.model.trim()) body.model = scheduleForm.model.trim();
     if (scheduleForm.pr_number.trim()) {
       const parsed = Number(scheduleForm.pr_number.trim());
@@ -2492,6 +2504,17 @@ export default function App() {
                 Fix CI
               </label>
             </div>
+            <div className="row">
+              <label>
+                GitHub Token
+                <input
+                  type="password"
+                  value={form.github_token}
+                  onChange={(event) => updateField("github_token", event.target.value)}
+                  placeholder="ghp_... (optional)"
+                />
+              </label>
+            </div>
           </div>
         </details>
       </form>
@@ -2818,6 +2841,17 @@ export default function App() {
                       onChange={(e) => updateScheduleField("enabled", e.target.checked)}
                     />
                     Enabled
+                  </label>
+                </div>
+                <div className="row">
+                  <label>
+                    GitHub Token
+                    <input
+                      type="password"
+                      value={scheduleForm.github_token}
+                      onChange={(e) => updateScheduleField("github_token", e.target.value)}
+                      placeholder="ghp_... (optional)"
+                    />
                   </label>
                 </div>
               </div>

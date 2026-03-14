@@ -418,7 +418,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
     # Session (5-hour window)
     five_hour = data.get("five_hour", {})
     five_hour_util = five_hour.get("utilization")
-    if isinstance(five_hour_util, (int, float)):
+    if isinstance(five_hour_util, int | float):
         pct = round(five_hour_util, 1)
         resets = five_hour.get("resets_at", "")
         levels.append(
@@ -432,7 +432,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
     # Weekly (7-day window)
     seven_day = data.get("seven_day", {})
     seven_day_util = seven_day.get("utilization")
-    if isinstance(seven_day_util, (int, float)):
+    if isinstance(seven_day_util, int | float):
         pct = round(seven_day_util, 1)
         resets = seven_day.get("resets_at", "")
         levels.append(
@@ -1184,6 +1184,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     Fix CI failures (auto-retry)
                   </label>
                 </div>
+                <div class="row">
+                  <label for="github_token">GitHub Token
+                    <input id="github_token" name="github_token" type="password" placeholder="ghp_... (optional)" />
+                  </label>
+                </div>
               </div>
             </details>
 
@@ -1356,6 +1361,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     <label class="check-row" for="schedule_fix_ci">
                       <input id="schedule_fix_ci" name="fix_ci" type="checkbox" />
                       Fix CI
+                    </label>
+                  </div>
+                  <div class="row">
+                    <label for="schedule_github_token">GitHub Token
+                      <input id="schedule_github_token" name="github_token" type="password" placeholder="ghp_... (optional)" />
                     </label>
                   </div>
                 </div>
@@ -1889,6 +1899,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         if (fixCi === "1" || fixCi === "true") {
           document.getElementById("fix_ci").checked = true;
         }
+        const githubTokenParam = params.get("github_token");
+        if (githubTokenParam) {
+          document.getElementById("github_token").value = githubTokenParam;
+        }
         if (error) {
           setStatus("error");
           setOutput({ error });
@@ -2039,6 +2053,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const enableWeb = document.getElementById("enable_web").checked;
         const useNativeCliAuth = document.getElementById("use_native_cli_auth").checked;
         const fixCi = document.getElementById("fix_ci").checked;
+        const githubToken = document.getElementById("github_token").value.trim();
         const payload = {
           repo_path: repoPath,
           prompt,
@@ -2067,6 +2082,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
             .split(",")
             .map((item) => item.trim())
             .filter((item) => item.length > 0);
+        }
+        if (githubToken) {
+          payload.github_token = githubToken;
         }
 
         try {
@@ -2211,6 +2229,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           enabled: document.getElementById("schedule_enabled").checked,
           fix_ci: document.getElementById("schedule_fix_ci").checked
         };
+        const schedGhToken = document.getElementById("schedule_github_token").value.trim();
+        if (schedGhToken) {
+          schedPayload.github_token = schedGhToken;
+        }
 
         try {
           const url = scheduleId ? `/schedules/${scheduleId}` : "/schedules";
@@ -2248,6 +2270,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           document.getElementById("schedule_no_pr").checked = s.no_pr;
           document.getElementById("schedule_enabled").checked = s.enabled;
           document.getElementById("schedule_fix_ci").checked = s.fix_ci || false;
+          document.getElementById("schedule_github_token").value = s.github_token || "";
 
           scheduleFormTitle.textContent = "Edit schedule";
           scheduleSubmitBtn.textContent = "Update schedule";
@@ -3312,6 +3335,15 @@ def _get_schedule_manager() -> ScheduleManager:
     return _schedule_manager
 
 
+def _redact_token(token: str | None) -> str | None:
+    """Redact a token, keeping only the first 4 and last 4 characters."""
+    if not token:
+        return None
+    if len(token) <= 12:
+        return "***"
+    return f"{token[:4]}***{token[-4:]}"
+
+
 def _schedule_to_response(task) -> ScheduleResponse:
     """Convert a ScheduledTask to a ScheduleResponse."""
     from helping_hands.server.schedules import next_run_time
@@ -3343,7 +3375,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         use_native_cli_auth=task.use_native_cli_auth,
         fix_ci=getattr(task, "fix_ci", False),
         ci_check_wait_minutes=getattr(task, "ci_check_wait_minutes", 3.0),
-        github_token=getattr(task, "github_token", None),
+        github_token=_redact_token(getattr(task, "github_token", None)),
         tools=getattr(task, "tools", []),
         skills=task.skills,
         enabled=task.enabled,
@@ -3434,6 +3466,12 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
 
     manager = _get_schedule_manager()
 
+    # If the token looks redacted (contains ***), preserve the existing one.
+    github_token = request.github_token
+    if github_token and "***" in github_token:
+        existing = manager.get_schedule(schedule_id)
+        github_token = getattr(existing, "github_token", None) if existing else None
+
     task = ScheduledTask(
         schedule_id=schedule_id,
         name=request.name,
@@ -3450,7 +3488,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         use_native_cli_auth=request.use_native_cli_auth,
         fix_ci=request.fix_ci,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
-        github_token=request.github_token,
+        github_token=github_token,
         tools=request.tools,
         skills=request.skills,
         enabled=request.enabled,
