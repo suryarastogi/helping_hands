@@ -23,7 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = PROJECT_ROOT / "src" / "helping_hands" / "lib" / "meta" / "skills"
 
 # Files that belong to the package and should never be removed by --clean.
-PROTECTED = {"__init__.py", "__pycache__"}
+PROTECTED = {"__init__.py", "__pycache__", "catalog"}
 
 
 @dataclass
@@ -49,6 +49,19 @@ SOURCES: list[SkillSource] = [
         skills_path="skills",
         skills=["internal-comms"],
     ),
+    SkillSource(
+        name="gstack",
+        repo="https://github.com/garrytan/gstack.git",
+        skills_path=".",
+        skills=[
+            "review",
+            "ship",
+            "qa",
+            "retro",
+            "plan-ceo-review",
+            "plan-eng-review",
+        ],
+    ),
 ]
 
 
@@ -57,11 +70,21 @@ def _git(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=True)
 
 
-def _clone_sparse(repo: str, skills_path: str, tmpdir: Path) -> Path:
+def _clone_sparse(
+    repo: str,
+    skills_path: str,
+    tmpdir: Path,
+    skills: list[str] | None = None,
+) -> Path:
     """Sparse-clone a repo, checking out only the skills subtree."""
     dest = tmpdir / repo.split("/")[-1].removesuffix(".git")
     _git("clone", "--depth=1", "--filter=blob:none", "--sparse", repo, str(dest))
-    _git("sparse-checkout", "set", skills_path, cwd=dest)
+    # When skills_path is "." (repo root), set sparse checkout to the
+    # individual skill directories so they are actually checked out.
+    if skills_path == "." and skills:
+        _git("sparse-checkout", "set", *skills, cwd=dest)
+    else:
+        _git("sparse-checkout", "set", skills_path, cwd=dest)
     return dest
 
 
@@ -90,7 +113,12 @@ def populate(sources: list[SkillSource], skills_dir: Path) -> None:
         print(f"\n[{source.name}] cloning {source.repo} ...")
         with tempfile.TemporaryDirectory() as tmpdir:
             try:
-                repo_dir = _clone_sparse(source.repo, source.skills_path, Path(tmpdir))
+                repo_dir = _clone_sparse(
+                    source.repo,
+                    source.skills_path,
+                    Path(tmpdir),
+                    skills=source.skills or None,
+                )
             except subprocess.CalledProcessError as exc:
                 print(f"  ERROR cloning: {exc.stderr.strip()}", file=sys.stderr)
                 continue
