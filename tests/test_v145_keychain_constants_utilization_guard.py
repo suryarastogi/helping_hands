@@ -241,7 +241,7 @@ class TestUtilizationTypeGuard:
 
         source = inspect.getsource(_fetch_claude_usage)
         assert "isinstance" in source
-        assert "(int, float)" in source
+        assert "(int, float)" in source or "int | float" in source
 
 
 # ---------------------------------------------------------------------------
