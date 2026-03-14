@@ -27,6 +27,28 @@ _COMMAND_PREVIEW_MAX_LENGTH = 80
 _FAILURE_OUTPUT_TAIL_LENGTH = 2000
 """Number of trailing characters kept from CLI output in failure messages."""
 
+# Stream-json event types emitted by ``claude --output-format stream-json``.
+
+_EVENT_TYPE_ASSISTANT = "assistant"
+"""Event type for assistant messages containing text and tool_use blocks."""
+
+_EVENT_TYPE_USER = "user"
+"""Event type for user messages containing tool_result blocks."""
+
+_EVENT_TYPE_RESULT = "result"
+"""Event type for the final result summary (cost, duration, usage)."""
+
+# Content block types within assistant/user message payloads.
+
+_BLOCK_TYPE_TOOL_USE = "tool_use"
+"""Block type for a tool invocation inside an assistant message."""
+
+_BLOCK_TYPE_TOOL_RESULT = "tool_result"
+"""Block type for a tool result inside a user message."""
+
+_BLOCK_TYPE_TEXT = "text"
+"""Block type for assistant text output."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -67,7 +89,7 @@ class _StreamJsonEmitter:
 
         event_type = event.get("type", "")
 
-        if event_type == "assistant":
+        if event_type == _EVENT_TYPE_ASSISTANT:
             # Claude Code stream-json: message is a full Anthropic API message
             # with message.content[] array of {type: "text"} / {type: "tool_use"}.
             message = event.get("message")
@@ -75,12 +97,12 @@ class _StreamJsonEmitter:
                 return
             for block in message.get("content", []):
                 block_type = block.get("type", "")
-                if block_type == "tool_use":
+                if block_type == _BLOCK_TYPE_TOOL_USE:
                     name = block.get("name", "unknown")
                     input_data = block.get("input", {})
                     summary = self._summarize_tool(name, input_data)
                     await self._emit(f"[{self._label}] {summary}\n")
-                elif block_type == "text":
+                elif block_type == _BLOCK_TYPE_TEXT:
                     text = block.get("text", "")
                     if text:
                         self._text_parts.append(text)
@@ -90,13 +112,13 @@ class _StreamJsonEmitter:
                         if preview:
                             await self._emit(f"[{self._label}] {preview}\n")
 
-        elif event_type == "user":
+        elif event_type == _EVENT_TYPE_USER:
             # Tool results: message.content[] array of {type: "tool_result"}.
             message = event.get("message")
             if not isinstance(message, dict):
                 return
             for block in message.get("content", []):
-                if block.get("type") != "tool_result":
+                if block.get("type") != _BLOCK_TYPE_TOOL_RESULT:
                     continue
                 content = block.get("content", "")
                 if isinstance(content, list):
@@ -111,7 +133,7 @@ class _StreamJsonEmitter:
                         preview = preview[: _TOOL_RESULT_PREVIEW_MAX_LENGTH - 3] + "..."
                     await self._emit(f"[{self._label}] -> {preview}\n")
 
-        elif event_type == "result":
+        elif event_type == _EVENT_TYPE_RESULT:
             self._result = event.get("result", "")
             cost = event.get("total_cost_usd")
             duration = event.get("duration_ms")

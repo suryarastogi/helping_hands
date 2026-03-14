@@ -145,14 +145,42 @@ class Hand(abc.ABC):
         self._interrupt_event.clear()
 
     def _is_interrupted(self) -> bool:
+        """Check whether a cooperative interruption has been requested.
+
+        Returns:
+            True if ``interrupt()`` has been called since the last
+            ``reset_interrupt()``.
+        """
         return self._interrupt_event.is_set()
 
     @staticmethod
     def _default_base_branch() -> str:
+        """Return the base branch name for new PRs.
+
+        Reads ``HELPING_HANDS_BASE_BRANCH`` from the environment, falling
+        back to ``_DEFAULT_BASE_BRANCH`` (``"main"``).
+
+        Returns:
+            Branch name string.
+        """
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", _DEFAULT_BASE_BRANCH)
 
     @staticmethod
     def _run_git_read(repo_dir: Path, *args: str) -> str:
+        """Run a read-only git command and return its stripped stdout.
+
+        The subprocess is capped at ``_GIT_READ_TIMEOUT_S`` seconds.  On
+        timeout or non-zero exit the method returns an empty string instead
+        of raising, making it safe for optional/best-effort git queries.
+
+        Args:
+            repo_dir: Working directory for the git subprocess.
+            *args: Arguments passed to ``git`` (e.g. ``"status"``,
+                ``"--porcelain"``).
+
+        Returns:
+            Stripped stdout on success, or ``""`` on timeout/error.
+        """
         try:
             result = subprocess.run(
                 ["git", *args],
@@ -175,6 +203,18 @@ class Hand(abc.ABC):
 
     @classmethod
     def _github_repo_from_origin(cls, repo_dir: Path) -> str:
+        """Extract ``owner/repo`` from the git origin remote URL.
+
+        Supports HTTPS, SSH, and SCP-style (``git@github.com:…``) remotes.
+        Only GitHub URLs are recognised.
+
+        Args:
+            repo_dir: Path to the local git repository.
+
+        Returns:
+            ``"owner/repo"`` string, or ``""`` if the origin is not a
+            recognised GitHub URL.
+        """
         remote = cls._run_git_read(repo_dir, "remote", "get-url", "origin")
         if not remote:
             return ""
@@ -205,6 +245,21 @@ class Hand(abc.ABC):
         commit_sha: str,
         stamp_utc: str,
     ) -> str:
+        """Build a generic Markdown PR body when no rich description is available.
+
+        Args:
+            backend: Hand backend name (e.g. ``"claudecodecli"``).
+            prompt: The user-supplied task prompt.
+            summary: AI-generated change summary (may be empty).
+            commit_sha: Latest commit SHA on the PR branch.
+            stamp_utc: ISO-8601 UTC timestamp of the update.
+
+        Returns:
+            Markdown string suitable for a GitHub PR body.
+
+        Raises:
+            ValueError: If *backend* or *prompt* is empty/whitespace.
+        """
         if not backend or not backend.strip():
             raise ValueError("backend must not be empty")
         if not prompt or not prompt.strip():
@@ -222,6 +277,22 @@ class Hand(abc.ABC):
     def _configure_authenticated_push_remote(
         repo_dir: Path, repo: str, token: str
     ) -> None:
+        """Set the git push URL for ``origin`` to use token authentication.
+
+        Rewrites the push URL to
+        ``https://x-access-token:<token>@github.com/<repo>.git`` so that
+        subsequent ``git push`` calls authenticate without interactive prompts.
+
+        Args:
+            repo_dir: Path to the local git repository.
+            repo: GitHub ``owner/repo`` identifier.
+            token: GitHub access token (PAT or installation token).
+
+        Raises:
+            ValueError: If *repo* or *token* is empty/whitespace.
+            RuntimeError: If the ``git remote set-url`` command fails or
+                times out.
+        """
         if not repo or not repo.strip():
             raise ValueError("repo must not be empty")
         if not token or not token.strip():
@@ -265,6 +336,14 @@ class Hand(abc.ABC):
         return None
 
     def _should_run_precommit_before_pr(self) -> bool:
+        """Whether pre-commit hooks should run before PR finalization.
+
+        Enabled when ``config.enable_execution`` is truthy, since
+        pre-commit requires tool execution capabilities (e.g. ``uv``).
+
+        Returns:
+            True if pre-commit checks should be run.
+        """
         return bool(getattr(self.config, "enable_execution", False))
 
     @staticmethod
@@ -326,6 +405,21 @@ class Hand(abc.ABC):
 
     @staticmethod
     def _run_precommit_checks_and_fixes(repo_dir: Path) -> None:
+        """Run ``uv run pre-commit run --all-files`` with one auto-fix retry.
+
+        Many pre-commit hooks auto-fix files on the first pass (e.g.
+        ``ruff format``).  This method runs pre-commit twice: if the first
+        pass fails it runs again to pick up auto-fixes.  If the second
+        pass also fails, a ``RuntimeError`` is raised with the combined
+        output.
+
+        Args:
+            repo_dir: Path to the local git repository.
+
+        Raises:
+            RuntimeError: If ``uv`` is not found or if pre-commit fails
+                after the auto-fix retry.
+        """
         command = ["uv", "run", "pre-commit", "run", "--all-files"]
 
         def _run_once() -> subprocess.CompletedProcess[str]:
@@ -639,6 +733,24 @@ class Hand(abc.ABC):
         prompt: str,
         summary: str,
     ) -> dict[str, str]:
+        """Commit changes, push, and open (or update) a GitHub pull request.
+
+        This is the main finalization entry point called by hand
+        implementations after the AI backend has finished editing files.
+        It handles branch creation, commit message generation, push, and
+        PR creation/update.  When ``self.pr_number`` is set, changes are
+        pushed to the existing PR's branch instead of creating a new one.
+
+        Args:
+            backend: Hand backend name for PR metadata.
+            prompt: The original user-supplied task prompt.
+            summary: AI-generated change summary.
+
+        Returns:
+            Metadata dict with keys ``pr_status``, ``pr_url``,
+            ``pr_number``, ``pr_branch``, ``pr_commit``, and
+            ``auto_pr``.
+        """
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
             "pr_status": "not_attempted",

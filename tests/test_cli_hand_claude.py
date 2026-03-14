@@ -87,6 +87,12 @@ class TestResolveCliModel:
         result = hand._resolve_cli_model()
         assert result == "claude-opus-4-6"
 
+    def test_empty_default_model_returns_empty(self, make_cli_hand) -> None:
+        """When _DEFAULT_MODEL is empty and model is 'default', returns ''."""
+        hand = make_cli_hand(ClaudeCodeHand, model="default")
+        hand._DEFAULT_MODEL = ""
+        assert hand._resolve_cli_model() == ""
+
 
 # ---------------------------------------------------------------------------
 # _skip_permissions_enabled
