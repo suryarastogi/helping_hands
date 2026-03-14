@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+from helping_hands.lib.hands.v1.hand.cli.base import (
+    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _TwoPhaseCLIHand,
+)
 
 __all__ = ["OpenCodeCLIHand"]
-
-_FAILURE_OUTPUT_TAIL_LENGTH = 2000
-"""Number of trailing characters kept from CLI output in failure messages."""
 
 
 class OpenCodeCLIHand(_TwoPhaseCLIHand):

@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-14 v166](exec-plans/completed/2026-03-14.md) --
+  Consolidate `_FAILURE_OUTPUT_TAIL_LENGTH` to cli/base.py (DRY 4 copies), harmonize `_is_truthy` with config `_TRUTHY_VALUES` via `_CLI_TRUTHY_VALUES`, add Google-style docstrings to codex.py (12) and gemini.py (14); 3986 tests (42 new)
+
 - [2026-03-14 v165](exec-plans/completed/2026-03-14.md) --
   Extract command exit code constants (124/127/126), DRY boolean env parsing (`_TRUTHY_VALUES`/`_is_truthy_env`), add Google-style docstrings to 7 CLI hand methods; 3944 tests (34 new)
 

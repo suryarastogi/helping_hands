@@ -7,7 +7,10 @@ import logging
 import os
 import shutil
 
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+from helping_hands.lib.hands.v1.hand.cli.base import (
+    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _TwoPhaseCLIHand,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +26,6 @@ _TOOL_RESULT_PREVIEW_MAX_LENGTH = 150
 
 _COMMAND_PREVIEW_MAX_LENGTH = 80
 """Maximum length for Bash command / CronCreate prompt previews."""
-
-_FAILURE_OUTPUT_TAIL_LENGTH = 2000
-"""Number of trailing characters kept from CLI output in failure messages."""
 
 # Stream-json event types emitted by ``claude --output-format stream-json``.
 

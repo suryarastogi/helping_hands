@@ -15,6 +15,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, Protocol
 
+from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
@@ -46,6 +47,12 @@ _HOOK_ERROR_TRUNCATION_LIMIT = 3000
 
 _GIT_REF_DISPLAY_LENGTH = 8
 """Number of characters to show when displaying a git commit ref."""
+
+_FAILURE_OUTPUT_TAIL_LENGTH = 2000
+"""Number of trailing characters kept from CLI output in failure messages."""
+
+_CLI_TRUTHY_VALUES = _TRUTHY_VALUES | {"on"}
+"""Superset of config ``_TRUTHY_VALUES`` with ``"on"`` for CLI env var parsing."""
 
 
 class _TwoPhaseCLIHand(Hand):
@@ -87,9 +94,17 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _is_truthy(value: str | None) -> bool:
+        """Check whether a string value is truthy for CLI env var parsing.
+
+        Args:
+            value: Raw string value, or None.
+
+        Returns:
+            True if the lowercased, stripped value is in ``_CLI_TRUTHY_VALUES``.
+        """
         if value is None:
             return False
-        return value.strip().lower() in {"1", "true", "yes", "on"}
+        return value.strip().lower() in _CLI_TRUTHY_VALUES
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
         if len(tokens) == 1 and self._DEFAULT_APPEND_ARGS:
