@@ -47,6 +47,19 @@ _HOOK_ERROR_TRUNCATION_LIMIT = 3000
 _GIT_REF_DISPLAY_LENGTH = 8
 """Number of characters to show when displaying a git commit ref."""
 
+_AUTH_ERROR_TOKENS: tuple[str, ...] = (
+    "401 unauthorized",
+    "unauthorized",
+    "authentication failed",
+    "invalid api key",
+    "api key not valid",
+)
+"""Lowercase substrings that indicate an authentication failure in CLI output.
+
+Individual CLI hands may pass additional backend-specific tokens via the
+``extra_tokens`` parameter of :meth:`_TwoPhaseCLIHand._is_auth_error`.
+"""
+
 
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
@@ -91,12 +104,49 @@ class _TwoPhaseCLIHand(Hand):
             return False
         return value.strip().lower() in {"1", "true", "yes", "on"}
 
+    @staticmethod
+    def _is_auth_error(
+        output: str,
+        *,
+        extra_tokens: tuple[str, ...] = (),
+    ) -> bool:
+        """Check whether CLI output contains authentication error indicators.
+
+        Compares the lowercased *output* against the shared
+        ``_AUTH_ERROR_TOKENS`` tuple and any backend-specific *extra_tokens*.
+
+        Args:
+            output: Raw or tail-truncated CLI output to inspect.
+            extra_tokens: Additional lowercase substrings specific to a
+                particular CLI backend (e.g. ``"anthropic_api_key"``).
+
+        Returns:
+            ``True`` if any token is found in *output*, ``False`` otherwise.
+        """
+        lowered = output.lower()
+        tokens = _AUTH_ERROR_TOKENS + extra_tokens
+        return any(token in lowered for token in tokens)
+
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
         if len(tokens) == 1 and self._DEFAULT_APPEND_ARGS:
             return [*tokens, *self._DEFAULT_APPEND_ARGS]
         return tokens
 
     def _base_command(self) -> list[str]:
+        """Resolve the CLI base command from the environment or class default.
+
+        Reads ``self._COMMAND_ENV_VAR`` from the environment, falling back
+        to ``self._DEFAULT_CLI_CMD``.  The raw string is split via
+        :func:`shlex.split` and normalised through
+        :meth:`_normalize_base_command`.
+
+        Returns:
+            Tokenised command list ready for subprocess execution.
+
+        Raises:
+            RuntimeError: If the resolved command is empty or contains
+                invalid shell syntax.
+        """
         raw = os.environ.get(self._COMMAND_ENV_VAR, self._DEFAULT_CLI_CMD)
         try:
             tokens = shlex.split(raw)
@@ -109,6 +159,16 @@ class _TwoPhaseCLIHand(Hand):
         return self._normalize_base_command(tokens)
 
     def _resolve_cli_model(self) -> str:
+        """Resolve the model string to pass to the CLI subprocess.
+
+        Strips whitespace and normalises sentinel values (``"default"``,
+        ``"None"``) to the class-level ``_DEFAULT_MODEL``.  If the model
+        uses ``provider/model`` format, only the model portion is returned.
+
+        Returns:
+            The resolved model name, or an empty string when no explicit
+            model should be passed.
+        """
         model = str(self.config.model).strip()
         if not model or model in ("default", "None"):
             return self._DEFAULT_MODEL
@@ -158,6 +218,19 @@ class _TwoPhaseCLIHand(Hand):
         return False
 
     def _render_command(self, prompt: str) -> list[str]:
+        """Build the full CLI command list for a given prompt.
+
+        Resolves the base command, substitutes ``{prompt}``, ``{repo}``,
+        and ``{model}`` placeholders, injects ``--model`` when needed,
+        appends verbose flags, and optionally wraps the command in a
+        Docker container invocation.
+
+        Args:
+            prompt: The user or system prompt text to pass to the CLI.
+
+        Returns:
+            A fully rendered command list ready for subprocess execution.
+        """
         resolved_model = self._resolve_cli_model()
         placeholders = {
             "{prompt}": prompt,
@@ -344,16 +417,51 @@ class _TwoPhaseCLIHand(Hand):
         return env
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Build a human-readable error message for a failed CLI invocation.
+
+        Subclasses override this to add backend-specific diagnostics such
+        as authentication error detection.
+
+        Args:
+            return_code: The process exit code.
+            output: The full captured stdout/stderr of the process.
+
+        Returns:
+            An error message string, typically including the truncated
+            tail of the process output.
+        """
         tail = output.strip()[-self._SUMMARY_CHAR_LIMIT :]
         return f"{self._CLI_DISPLAY_NAME} failed (exit={return_code}). Output:\n{tail}"
 
     def _command_not_found_message(self, command: str) -> str:
+        """Build an error message when the CLI binary is not found on PATH.
+
+        Subclasses override this to reference the correct env var and
+        installation instructions.
+
+        Args:
+            command: The command name that could not be found.
+
+        Returns:
+            An error message string advising the user how to fix it.
+        """
         return (
             f"{self._CLI_DISPLAY_NAME} command not found: {command!r}. "
             f"Set {self._COMMAND_ENV_VAR} to a valid command."
         )
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
+        """Return an alternative command to try when the primary is not found.
+
+        The default implementation returns ``None`` (no fallback).
+        Subclasses like ``ClaudeCodeHand`` override this to try ``npx``.
+
+        Args:
+            cmd: The original command that was not found.
+
+        Returns:
+            A replacement command list, or ``None`` to skip fallback.
+        """
         return None
 
     def _retry_command_after_failure(
@@ -363,9 +471,32 @@ class _TwoPhaseCLIHand(Hand):
         output: str,
         return_code: int,
     ) -> list[str] | None:
+        """Return a modified command to retry after a non-zero exit.
+
+        The default implementation returns ``None`` (no retry).
+        Subclasses override this to handle recoverable failures, e.g.
+        stripping ``--dangerously-skip-permissions`` when running as root.
+
+        Args:
+            cmd: The command that failed.
+            output: The captured process output.
+            return_code: The process exit code.
+
+        Returns:
+            A replacement command list, or ``None`` to skip retry.
+        """
         return None
 
     def _build_init_prompt(self) -> str:
+        """Build the phase-1 initialization prompt for repository learning.
+
+        Produces a prompt instructing the AI to read README.md and AGENT.md,
+        learn conventions from the file tree snapshot, and output a concise
+        implementation-oriented summary.
+
+        Returns:
+            The formatted initialization prompt string.
+        """
         file_list = "\n".join(
             f"- {path}" for path in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
         )
@@ -406,6 +537,19 @@ class _TwoPhaseCLIHand(Hand):
             self._skill_catalog_dir = None
 
     def _build_task_prompt(self, *, prompt: str, learned_summary: str) -> str:
+        """Build the phase-2 task execution prompt.
+
+        Combines the truncated initialization summary, the user's task
+        request, enabled tool instructions, and skill catalog knowledge
+        into a single prompt for the AI backend.
+
+        Args:
+            prompt: The user's original task request.
+            learned_summary: The output from the phase-1 init invocation.
+
+        Returns:
+            The formatted task execution prompt string.
+        """
         from helping_hands.lib.meta import skills as system_skills
         from helping_hands.lib.meta.tools import registry as tool_reg
 
@@ -670,6 +814,19 @@ class _TwoPhaseCLIHand(Hand):
             self._active_process = None
 
     async def _invoke_backend(self, prompt: str, *, emit: _Emitter) -> str:
+        """Invoke the backend CLI with a prompt and return its output.
+
+        The default implementation delegates to :meth:`_invoke_cli`.
+        Subclasses override this when the backend requires custom
+        invocation logic (e.g. Claude's stream-json emitter).
+
+        Args:
+            prompt: The prompt string to send to the CLI.
+            emit: An async callable that receives streaming output chunks.
+
+        Returns:
+            The full captured output of the backend invocation.
+        """
         return await self._invoke_cli(prompt, emit=emit)
 
     async def _run_two_phase(
@@ -1133,6 +1290,18 @@ class _TwoPhaseCLIHand(Hand):
             process.terminate()
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the two-phase CLI flow synchronously.
+
+        Runs init → task → optional apply-changes enforcement, finalises
+        the repo (commit/push/PR), and optionally runs the CI fix loop.
+
+        Args:
+            prompt: The user's task request.
+
+        Returns:
+            A :class:`HandResponse` containing the combined output and
+            PR/CI metadata.
+        """
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
@@ -1160,6 +1329,17 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Execute the two-phase CLI flow with streaming output.
+
+        Yields chunks as they arrive from the subprocess, then finalises
+        the repo and runs the optional CI fix loop.
+
+        Args:
+            prompt: The user's task request.
+
+        Yields:
+            Output text chunks from the CLI backend.
+        """
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()
         collected: list[str] = []
 

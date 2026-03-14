@@ -261,17 +261,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "unauthorized",
-                "authentication failed",
-                "invalid api key",
-                "anthropic_api_key",
-            )
-        ):
+        if _TwoPhaseCLIHand._is_auth_error(tail, extra_tokens=("anthropic_api_key",)):
             return (
                 "Claude Code CLI authentication failed. "
                 "Ensure ANTHROPIC_API_KEY is set in this runtime. "

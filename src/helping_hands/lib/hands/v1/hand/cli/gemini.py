@@ -92,17 +92,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
     @staticmethod
     def _build_gemini_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "gemini_api_key",
-                "invalid api key",
-                "api key not valid",
-                "authentication failed",
-            )
-        ):
+        if _TwoPhaseCLIHand._is_auth_error(tail, extra_tokens=("gemini_api_key",)):
             return (
                 "Gemini CLI authentication failed. "
                 "Ensure GEMINI_API_KEY is set in this runtime. "

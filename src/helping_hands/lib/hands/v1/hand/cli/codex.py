@@ -34,10 +34,8 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     @staticmethod
     def _build_codex_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if (
-            "401 unauthorized" in lower_tail
-            or "missing bearer or basic authentication" in lower_tail
+        if _TwoPhaseCLIHand._is_auth_error(
+            tail, extra_tokens=("missing bearer or basic authentication",)
         ):
             return (
                 "Codex CLI authentication failed (401 Unauthorized). "

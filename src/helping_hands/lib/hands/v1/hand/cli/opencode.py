@@ -30,17 +30,7 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
     @staticmethod
     def _build_opencode_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "authentication failed",
-                "invalid api key",
-                "api key not valid",
-                "unauthorized",
-            )
-        ):
+        if _TwoPhaseCLIHand._is_auth_error(tail):
             return (
                 "OpenCode CLI authentication failed. "
                 "Ensure your provider API key is set or run 'opencode auth login'. "

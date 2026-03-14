@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-14 v165](exec-plans/completed/2026-03-14.md) --
+  DRY auth error detection across CLI hands (`_AUTH_ERROR_TOKENS` + `_is_auth_error()`), Google-style docstrings for 12 CLI base.py methods; 3962 tests (52 new)
+
 - [2026-03-14 v164](exec-plans/completed/2026-03-14.md) --
   Close 10 uncovered lines: Hand base.py pr_number None guards (3 tests), pr_description.py multi-word keywords + second FileNotFoundError + empty-line skip (4 tests), claude.py empty model guard (1 test); 3910 tests (8 new)
 
