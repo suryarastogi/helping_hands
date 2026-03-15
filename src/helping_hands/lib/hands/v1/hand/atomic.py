@@ -13,11 +13,13 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
+from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     resolve_hand_model,
 )
+from helping_hands.lib.repo import RepoIndex
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ class AtomicHand(Hand):
     Requires the ``atomic`` extra to be installed.
     """
 
-    def __init__(self, config: Any, repo_index: Any) -> None:
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         """Initialize the Atomic hand with a resolved model and agent.
 
         Args:
@@ -38,7 +40,7 @@ class AtomicHand(Hand):
             repo_index: Repository index providing the file tree and root path.
         """
         super().__init__(config, repo_index)
-        self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._input_schema: type[Any] | None = None
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
@@ -67,6 +69,7 @@ class AtomicHand(Hand):
 
     def _make_input(self, prompt: str) -> Any:
         """Build an input schema instance. Uses mock-safe stored class."""
+        assert self._input_schema is not None, "_build_agent must run first"
         return self._input_schema(chat_message=prompt)
 
     def run(self, prompt: str) -> HandResponse:

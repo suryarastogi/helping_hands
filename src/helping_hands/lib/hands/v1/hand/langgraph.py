@@ -11,11 +11,13 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
+from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_langchain_chat_model,
     resolve_hand_model,
 )
+from helping_hands.lib.repo import RepoIndex
 
 __all__ = ["_LANGCHAIN_STREAM_EVENT", "LangGraphHand"]
 
@@ -29,7 +31,7 @@ class LangGraphHand(Hand):
     Requires the ``langchain`` extra to be installed.
     """
 
-    def __init__(self, config: Any, repo_index: Any) -> None:
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         """Initialize the LangGraph hand with a resolved model and agent.
 
         Args:

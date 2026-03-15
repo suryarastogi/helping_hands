@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+from typing import Any
+
 __all__ = ["normalize_task_result"]
 
-from typing import Any
+logger = logging.getLogger(__name__)
 
 
 def normalize_task_result(status: str, raw_result: Any) -> dict[str, Any] | None:
@@ -13,6 +16,13 @@ def normalize_task_result(status: str, raw_result: Any) -> dict[str, Any] | None
     Celery can return non-dict objects (including exception instances) for
     failed tasks. API surfaces should return structured JSON payloads instead
     of leaking non-serializable objects.
+
+    Args:
+        status: Celery task status string (e.g. ``"SUCCESS"``, ``"FAILURE"``).
+        raw_result: The raw result object from Celery.
+
+    Returns:
+        A JSON-serializable dict, or ``None`` if *raw_result* is ``None``.
     """
     if raw_result is None:
         return None
@@ -24,6 +34,11 @@ def normalize_task_result(status: str, raw_result: Any) -> dict[str, Any] | None
             "error_type": type(raw_result).__name__,
             "status": status,
         }
+    logger.debug(
+        "normalize_task_result: coercing %s to str (status=%s)",
+        type(raw_result).__name__,
+        status,
+    )
     return {
         "value": str(raw_result),
         "value_type": type(raw_result).__name__,

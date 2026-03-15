@@ -22,6 +22,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.base import (
     _PR_STATUSES_SKIPPED,
     Hand,
@@ -43,6 +44,7 @@ from helping_hands.lib.meta.tools.registry import (
     parse_positive_int,
     parse_str_list,
 )
+from helping_hands.lib.repo import RepoIndex
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +104,8 @@ class _BasicIterativeHand(Hand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -718,8 +720,8 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
@@ -949,13 +951,13 @@ class BasicAtomicHand(_BasicIterativeHand):
 
     def __init__(
         self,
-        config: Any,
-        repo_index: Any,
+        config: Config,
+        repo_index: RepoIndex,
         *,
         max_iterations: int = 6,
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
-        self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._input_schema: type[Any] | None = None
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
@@ -996,6 +998,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             ``BasicChatInputSchema`` instance with the prompt as
             ``chat_message``.
         """
+        assert self._input_schema is not None, "_build_agent must run first"
         return self._input_schema(chat_message=prompt)
 
     @staticmethod

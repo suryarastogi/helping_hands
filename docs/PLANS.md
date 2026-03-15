@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v214](exec-plans/completed/2026/v214-type-hints-task-result-logging.md) —
+  Replace `config: Any` / `repo_index: Any` with `Config` / `RepoIndex` in
+  6 Hand subclass constructors, fix `_input_schema` type annotation (remove
+  `type: ignore`), add debug logging to `normalize_task_result`;
+  23 tests (5232 passed, 216 skipped)
+
 - [2026-03-15 v213](exec-plans/completed/2026/v213-public-api-cleanup-coverage.md) —
   Promote registry.py payload validators to public API (`parse_str_list`,
   `parse_positive_int`, `parse_optional_str`), remove `_TwoPhaseCLIHand`

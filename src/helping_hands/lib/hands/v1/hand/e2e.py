@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.config import _TRUTHY_VALUES, Config
 from helping_hands.lib.hands.v1.hand.base import (
     _DEFAULT_GIT_USER_EMAIL,
     _DEFAULT_GIT_USER_NAME,
@@ -24,6 +24,7 @@ from helping_hands.lib.hands.v1.hand.base import (
     HandResponse,
     _utc_stamp,
 )
+from helping_hands.lib.repo import RepoIndex
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ _E2E_STATUS_MARKER = "<!-- helping_hands:e2e-status -->"
 class E2EHand(Hand):
     """Minimal end-to-end hand for validating clone/edit/PR workflow."""
 
-    def __init__(self, config: Any, repo_index: Any) -> None:
+    def __init__(self, config: Config, repo_index: RepoIndex) -> None:
         """Initialise the E2E hand.
 
         Args:
