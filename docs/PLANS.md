@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v213](exec-plans/completed/2026/v213-public-api-cleanup-coverage.md) —
+  Promote registry.py payload validators to public API (`parse_str_list`,
+  `parse_positive_int`, `parse_optional_str`), remove `_TwoPhaseCLIHand`
+  from cli `__init__.py` `__all__`, close goose.py and codex.py coverage
+  gaps; 20 tests (5209 passed, 216 skipped)
+
 - [2026-03-15 v212](exec-plans/completed/2026/v212-dry-run-status-truncation-auth-presence.md) —
   DRY `_RUN_STATUS_*` constants, `_TRUNCATION_MARKER`, `_AUTH_PRESENT_LABEL`/
   `_AUTH_ABSENT_LABEL` in iterative.py; 25 tests (5189 passed, 216 skipped)

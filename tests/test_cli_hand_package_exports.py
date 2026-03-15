@@ -11,7 +11,6 @@ from helping_hands.lib.hands.v1.hand.cli import (
     GooseCLIHand,
     OpenCodeCLIHand,
     __all__,
-    _TwoPhaseCLIHand,
 )
 
 
@@ -26,7 +25,6 @@ class TestCLIPackageAll:
             "GeminiCLIHand",
             "GooseCLIHand",
             "OpenCodeCLIHand",
-            "_TwoPhaseCLIHand",
         }
         assert set(__all__) == expected
 
@@ -37,13 +35,6 @@ class TestCLIPackageAll:
 
 class TestCLIPackageIdentity:
     """Verify re-exported symbols match their source modules."""
-
-    def test_two_phase_cli_hand_identity(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import (
-            _TwoPhaseCLIHand as Src,
-        )
-
-        assert _TwoPhaseCLIHand is Src
 
     def test_claude_identity(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.claude import (

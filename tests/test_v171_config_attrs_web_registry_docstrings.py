@@ -100,9 +100,9 @@ class TestWebHelperDocstrings:
 # ---------------------------------------------------------------------------
 
 _REGISTRY_HELPERS = [
-    "_parse_str_list",
-    "_parse_positive_int",
-    "_parse_optional_str",
+    "parse_str_list",
+    "parse_positive_int",
+    "parse_optional_str",
     "_run_python_code",
     "_run_python_script",
     "_run_bash_script",
@@ -126,9 +126,9 @@ class TestRegistryHelperDocstrings:
     @pytest.mark.parametrize(
         ("func_name", "expected_sections"),
         [
-            ("_parse_str_list", ["Args:", "Returns:", "Raises:"]),
-            ("_parse_positive_int", ["Args:", "Returns:", "Raises:"]),
-            ("_parse_optional_str", ["Args:", "Returns:", "Raises:"]),
+            ("parse_str_list", ["Args:", "Returns:", "Raises:"]),
+            ("parse_positive_int", ["Args:", "Returns:", "Raises:"]),
+            ("parse_optional_str", ["Args:", "Returns:", "Raises:"]),
             ("_run_python_code", ["Args:", "Returns:", "Raises:"]),
             ("_run_python_script", ["Args:", "Returns:", "Raises:"]),
             ("_run_bash_script", ["Args:", "Returns:", "Raises:"]),

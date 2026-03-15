@@ -39,9 +39,9 @@ from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.meta.tools import web as system_web_tools
 from helping_hands.lib.meta.tools.registry import (
-    _parse_optional_str,
-    _parse_positive_int,
-    _parse_str_list,
+    parse_optional_str,
+    parse_positive_int,
+    parse_str_list,
 )
 
 logger = logging.getLogger(__name__)
@@ -365,9 +365,9 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     # Payload validators delegated to registry module:
-    _parse_str_list = staticmethod(_parse_str_list)
-    _parse_positive_int = staticmethod(_parse_positive_int)
-    _parse_optional_str = staticmethod(_parse_optional_str)
+    _parse_str_list = staticmethod(parse_str_list)
+    _parse_positive_int = staticmethod(parse_positive_int)
+    _parse_optional_str = staticmethod(parse_optional_str)
 
     @staticmethod
     def _format_command(command: list[str]) -> str:

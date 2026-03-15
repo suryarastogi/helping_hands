@@ -59,7 +59,7 @@ class ToolCategory:
 # ---------------------------------------------------------------------------
 
 
-def _parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
+def parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
     """Extract and validate a list of non-empty strings from a tool payload.
 
     Args:
@@ -89,7 +89,7 @@ def _parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
     return values
 
 
-def _parse_positive_int(
+def parse_positive_int(
     payload: dict[str, Any],
     *,
     key: str,
@@ -116,7 +116,7 @@ def _parse_positive_int(
     return raw
 
 
-def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
+def parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
     """Extract an optional string from a tool payload.
 
     Args:
@@ -163,17 +163,17 @@ def _run_python_code(
     if not isinstance(code, str) or not code.strip():
         raise ValueError("code must be a non-empty string")
     python_version = (
-        _parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
+        parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
     )
     return command_tools.run_python_code(
         root,
         code=code,
         python_version=python_version,
-        args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(
+        args=parse_str_list(payload, key="args"),
+        timeout_s=parse_positive_int(
             payload, key="timeout_s", default=_DEFAULT_SCRIPT_TIMEOUT_S
         ),
-        cwd=_parse_optional_str(payload, key="cwd"),
+        cwd=parse_optional_str(payload, key="cwd"),
     )
 
 
@@ -198,17 +198,17 @@ def _run_python_script(
     if not isinstance(script_path, str) or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
     python_version = (
-        _parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
+        parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
     )
     return command_tools.run_python_script(
         root,
         script_path=script_path,
         python_version=python_version,
-        args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(
+        args=parse_str_list(payload, key="args"),
+        timeout_s=parse_positive_int(
             payload, key="timeout_s", default=_DEFAULT_SCRIPT_TIMEOUT_S
         ),
-        cwd=_parse_optional_str(payload, key="cwd"),
+        cwd=parse_optional_str(payload, key="cwd"),
     )
 
 
@@ -246,11 +246,11 @@ def _run_bash_script(
         root,
         script_path=script_path,
         inline_script=inline_script,
-        args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(
+        args=parse_str_list(payload, key="args"),
+        timeout_s=parse_positive_int(
             payload, key="timeout_s", default=_DEFAULT_SCRIPT_TIMEOUT_S
         ),
-        cwd=_parse_optional_str(payload, key="cwd"),
+        cwd=parse_optional_str(payload, key="cwd"),
     )
 
 
@@ -275,10 +275,10 @@ def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchR
         raise ValueError("query must be a non-empty string")
     return web_tools.search_web(
         query,
-        max_results=_parse_positive_int(
+        max_results=parse_positive_int(
             payload, key="max_results", default=DEFAULT_SEARCH_MAX_RESULTS
         ),
-        timeout_s=_parse_positive_int(
+        timeout_s=parse_positive_int(
             payload, key="timeout_s", default=_DEFAULT_WEB_TIMEOUT_S
         ),
     )
@@ -305,10 +305,10 @@ def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseR
         raise ValueError("url must be a non-empty string")
     return web_tools.browse_url(
         url,
-        max_chars=_parse_positive_int(
+        max_chars=parse_positive_int(
             payload, key="max_chars", default=web_tools.DEFAULT_BROWSE_MAX_CHARS
         ),
-        timeout_s=_parse_positive_int(
+        timeout_s=parse_positive_int(
             payload, key="timeout_s", default=_DEFAULT_WEB_TIMEOUT_S
         ),
     )
@@ -568,6 +568,9 @@ __all__ = [
     "format_tool_instructions_for_cli",
     "merge_with_legacy_tool_flags",
     "normalize_tool_selection",
+    "parse_optional_str",
+    "parse_positive_int",
+    "parse_str_list",
     "resolve_tool_categories",
     "validate_tool_category_names",
 ]

@@ -1,6 +1,5 @@
 """CLI-backed hand implementations and shared base."""
 
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 from helping_hands.lib.hands.v1.hand.cli.claude import ClaudeCodeHand
 from helping_hands.lib.hands.v1.hand.cli.codex import CodexCLIHand
 from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
@@ -17,5 +16,4 @@ __all__ = [
     "GeminiCLIHand",
     "GooseCLIHand",
     "OpenCodeCLIHand",
-    "_TwoPhaseCLIHand",
 ]

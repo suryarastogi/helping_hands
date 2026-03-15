@@ -18,9 +18,9 @@ import pytest
 from helping_hands.lib.hands.v1.hand.iterative import _BasicIterativeHand
 from helping_hands.lib.meta.tools.registry import (
     _normalize_and_deduplicate,
-    _parse_optional_str,
-    _parse_positive_int,
-    _parse_str_list,
+    parse_optional_str,
+    parse_positive_int,
+    parse_str_list,
 )
 from helping_hands.lib.meta.tools.web import _raise_url_error
 
@@ -33,13 +33,13 @@ class TestIterativePayloadDelegation:
     """Verify iterative.py _parse_* methods delegate to registry.py."""
 
     def test_parse_str_list_is_same_function(self) -> None:
-        assert _BasicIterativeHand._parse_str_list is _parse_str_list
+        assert _BasicIterativeHand._parse_str_list is parse_str_list
 
     def test_parse_positive_int_is_same_function(self) -> None:
-        assert _BasicIterativeHand._parse_positive_int is _parse_positive_int
+        assert _BasicIterativeHand._parse_positive_int is parse_positive_int
 
     def test_parse_optional_str_is_same_function(self) -> None:
-        assert _BasicIterativeHand._parse_optional_str is _parse_optional_str
+        assert _BasicIterativeHand._parse_optional_str is parse_optional_str
 
     def test_parse_str_list_still_callable_on_class(self) -> None:
         result = _BasicIterativeHand._parse_str_list({"args": ["a", "b"]}, key="args")
