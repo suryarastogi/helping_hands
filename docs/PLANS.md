@@ -8,7 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-15 v181](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v182](exec-plans/completed/2026/Week-12.md) --
+  Extract `_PRECOMMIT_UV_MISSING_MSG` and `_DEFAULT_GIT_ERROR_MSG` constants in
+  base.py (DRY 2 duplicate error messages), add task state set
+  disjointness/subset guards in server/app.py; consolidate daily plan file;
+  4493 tests (11 new, 8 skipped without fastapi)
+
+- [2026-03-15 v181](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to last 4 undocumented functions
   (`_wrap_container_if_enabled` in cli/base.py, `_check_redis_health`,
   `_check_db_health`, `_check_workers_health` in server/app.py), completing
@@ -16,13 +22,13 @@ Index of execution plans for helping_hands development.
   (6 new, 10 skipped without server extras)
 
 
-- [2026-03-15 v180](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v180](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to 4 undocumented functions (`_trim_updates`,
   `_append_update`, `_update_progress`, `_setup_periodic_tasks`) and 3
   `_UpdateCollector` methods in celery_app.py; 4476 tests (14 new, skipped
   without celery)
 
-- [2026-03-15 v179](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v179](exec-plans/completed/2026/Week-12.md) --
   DRY GitHub URL helpers (`lib/github_url.py`) and server constants
   (`server/constants.py`): eliminate duplicated `_github_clone_url()`,
   `_validate_repo_spec()`, `_redact_sensitive()`, `_git_noninteractive_env()`,
@@ -30,42 +36,42 @@ Index of execution plans for helping_hands development.
   consolidate Anthropic usage API and Keychain constants between app.py and
   celery_app.py; 4474 tests (33 new, 1 skipped)
 
-- [2026-03-15 v178](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v178](exec-plans/completed/2026/Week-12.md) --
   Extract `_GITHUB_TOKEN_USER` constant in 4 modules (github.py, base.py, cli/main.py, celery_app.py), `_GITHUB_HOSTNAME` in base.py, `_DEFAULT_OLLAMA_BASE_URL`/`_DEFAULT_OLLAMA_API_KEY` in model_provider.py, add `__all__` to 4 namespace `__init__.py` files; 4443 tests (27 new, 2 skipped)
 
-- [2026-03-15 v177](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v177](exec-plans/completed/2026/Week-12.md) --
   Add `__all__` exports to langgraph.py/atomic.py/cli/base.py, add docstrings to AtomicHand.__init__/run/stream and LangGraphHand.stream; 4415 tests (28 new)
 
 
-- [2026-03-15 v176](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v176](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to 10 AI provider methods (5 providers), 4 github.py public methods, 7 Hand base.py methods; 4387 tests (61 new)
 
-- [2026-03-15 v175](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v175](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to 4 command.py private helpers, 4 docker_sandbox_claude.py methods, 3 github.py dunders; 4326 tests (20 new)
 
-- [2026-03-15 v174](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v174](exec-plans/completed/2026/Week-12.md) --
   Extract parser marker constants (`_PR_TITLE_MARKER`, `_PR_BODY_MARKER`, `_COMMIT_MSG_MARKER`), DRY `_COMMIT_TYPE_PREFIX_RE` regex, extract `_AUTH_FAILURE_SUBSTRINGS` in docker_sandbox_claude.py, add docstrings to 8 methods across 3 modules; 4306 tests (45 new)
 
 
-- [2026-03-15 v173](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v173](exec-plans/completed/2026/Week-12.md) --
   Close 3 remaining non-server branch partials: iterative.py empty-delta (2 partials), e2e.py final_pr_number None guard; pr_description.py 581→583 confirmed unreachable; 4261 tests (10 new)
 
-- [2026-03-15 v172](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v172](exec-plans/completed/2026/Week-12.md) --
   Close 7 uncovered lines across 4 non-server modules: _clone_reference_repos (invalid spec, timeout, success), Config reference_repos type fallback, Hand PermissionError in reference repo rglob, _run_bash_script both-None validation; 4251 tests (18 new)
 
-- [2026-03-15 v171](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v171](exec-plans/completed/2026/Week-12.md) --
   Add Attributes to Config dataclass (11 fields), add Google-style docstrings to 4 web.py and 8 registry.py private helpers; 4233 tests (36 new)
 
-- [2026-03-15 v170](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v170](exec-plans/completed/2026/Week-12.md) --
   Add Google-style Attributes sections to 12 public dataclass docstrings across 10 modules; 4197 tests (24 new)
 
-- [2026-03-15 v169](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v169](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to iterative.py: _BasicIterativeHand (18), BasicLangGraphHand (1), BasicAtomicHand (2); 4173 tests (60 new)
 
-- [2026-03-15 v168](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v168](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to langgraph.py (3), app.py validators (4), cli/base.py (22); 4113 tests (83 new)
 
-- [2026-03-15 v167](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v167](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to goose.py (13), opencode.py (5), e2e.py (8); extract `_AUTH_ERROR_TOKENS` in opencode.py, 5 E2E constants; 4030 tests (29 new)
 
 - [2026-03-14 v166](exec-plans/completed/2026/Week-12.md) --

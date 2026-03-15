@@ -542,6 +542,14 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     "geminicli": "geminicli",
     "opencodecli": "opencodecli",
 }
+assert _TERMINAL_TASK_STATES.isdisjoint(_CURRENT_TASK_STATES), (
+    "_TERMINAL_TASK_STATES and _CURRENT_TASK_STATES must be disjoint"
+)
+
+assert set(_TASK_STATE_PRIORITY.keys()) <= _CURRENT_TASK_STATES, (
+    "_TASK_STATE_PRIORITY keys must be a subset of _CURRENT_TASK_STATES"
+)
+
 _FLOWER_API_URL_ENV = "HELPING_HANDS_FLOWER_API_URL"
 _FLOWER_API_TIMEOUT_SECONDS_ENV = "HELPING_HANDS_FLOWER_API_TIMEOUT_SECONDS"
 _DEFAULT_FLOWER_API_TIMEOUT_SECONDS = 0.75

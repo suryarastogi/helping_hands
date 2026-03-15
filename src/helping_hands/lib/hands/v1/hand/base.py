@@ -76,6 +76,15 @@ _GIT_READ_TIMEOUT_S = 30
 _PRECOMMIT_TIMEOUT_S = 300
 """Seconds timeout for ``uv run pre-commit run --all-files`` subprocesses."""
 
+_PRECOMMIT_UV_MISSING_MSG = (
+    "failed to run pre-commit before PR finalization: uv is not available. "
+    "Install uv/pre-commit or disable execution tools."
+)
+"""Error message when ``uv`` is not found during pre-commit execution."""
+
+_DEFAULT_GIT_ERROR_MSG = "unknown git error"
+"""Fallback message when a git subprocess returns non-zero with empty stderr."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -381,7 +390,7 @@ class Hand(abc.ABC):
                 f"git remote set-url timed out after {_GIT_READ_TIMEOUT_S}s"
             ) from None
         if result.returncode != 0:
-            stderr = result.stderr.strip() or "unknown git error"
+            stderr = result.stderr.strip() or _DEFAULT_GIT_ERROR_MSG
             msg = f"failed to configure authenticated push remote: {stderr}"
             raise RuntimeError(msg)
 
@@ -512,11 +521,7 @@ class Hand(abc.ABC):
         try:
             first_pass = _run_once()
         except FileNotFoundError as exc:
-            msg = (
-                "failed to run pre-commit before PR finalization: uv is not available. "
-                "Install uv/pre-commit or disable execution tools."
-            )
-            raise RuntimeError(msg) from exc
+            raise RuntimeError(_PRECOMMIT_UV_MISSING_MSG) from exc
 
         if first_pass.returncode == 0:
             return
@@ -524,11 +529,7 @@ class Hand(abc.ABC):
         try:
             second_pass = _run_once()
         except FileNotFoundError as exc:
-            msg = (
-                "failed to run pre-commit before PR finalization: uv is not available. "
-                "Install uv/pre-commit or disable execution tools."
-            )
-            raise RuntimeError(msg) from exc
+            raise RuntimeError(_PRECOMMIT_UV_MISSING_MSG) from exc
         if second_pass.returncode == 0:
             return
 
