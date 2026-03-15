@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v174](exec-plans/completed/2026-03-15.md) --
+  Extract parser marker constants (`_PR_TITLE_MARKER`, `_PR_BODY_MARKER`, `_COMMIT_MSG_MARKER`), DRY `_COMMIT_TYPE_PREFIX_RE` regex, extract `_AUTH_FAILURE_SUBSTRINGS` in docker_sandbox_claude.py, add docstrings to 8 methods across 3 modules; 4306 tests (45 new)
+
+
 - [2026-03-15 v173](exec-plans/completed/2026-03-15.md) --
   Close 3 remaining non-server branch partials: iterative.py empty-delta (2 partials), e2e.py final_pr_number None guard; pr_description.py 581→583 confirmed unreachable; 4261 tests (10 new)
 

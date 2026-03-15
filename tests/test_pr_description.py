@@ -10,11 +10,15 @@ import pytest
 
 from helping_hands.lib.hands.v1.hand.pr_description import (
     _COMMIT_MSG_DIFF_LIMIT,
+    _COMMIT_MSG_MARKER,
     _COMMIT_MSG_TIMEOUT,
     _COMMIT_SUMMARY_TRUNCATION_LENGTH,
     _COMMIT_TYPE_KEYWORDS,
+    _COMMIT_TYPE_PREFIX_RE,
     _MIN_COMMIT_MSG_LENGTH,
+    _PR_BODY_MARKER,
     _PR_SUMMARY_TRUNCATION_LENGTH,
+    _PR_TITLE_MARKER,
     _PROMPT_CONTEXT_LENGTH,
     PRDescription,
     _build_commit_message_prompt,
@@ -1649,3 +1653,131 @@ class TestCliLabelSimplification:
                 summary="summary",
             )
             assert result is None  # fails due to returncode=1
+
+
+# ---------------------------------------------------------------------------
+# Parser marker constants (v174)
+# ---------------------------------------------------------------------------
+
+
+class TestParserMarkerConstants:
+    """Tests for PR/commit message parser marker constants."""
+
+    def test_pr_title_marker_value(self) -> None:
+        assert _PR_TITLE_MARKER == "PR_TITLE:"
+
+    def test_pr_title_marker_is_str(self) -> None:
+        assert isinstance(_PR_TITLE_MARKER, str)
+
+    def test_pr_body_marker_value(self) -> None:
+        assert _PR_BODY_MARKER == "PR_BODY:"
+
+    def test_pr_body_marker_is_str(self) -> None:
+        assert isinstance(_PR_BODY_MARKER, str)
+
+    def test_commit_msg_marker_value(self) -> None:
+        assert _COMMIT_MSG_MARKER == "COMMIT_MSG:"
+
+    def test_commit_msg_marker_is_str(self) -> None:
+        assert isinstance(_COMMIT_MSG_MARKER, str)
+
+    def test_pr_title_marker_ends_with_colon(self) -> None:
+        assert _PR_TITLE_MARKER.endswith(":")
+
+    def test_pr_body_marker_ends_with_colon(self) -> None:
+        assert _PR_BODY_MARKER.endswith(":")
+
+    def test_commit_msg_marker_ends_with_colon(self) -> None:
+        assert _COMMIT_MSG_MARKER.endswith(":")
+
+    def test_build_prompt_uses_pr_title_marker(self) -> None:
+        """_build_prompt output contains the _PR_TITLE_MARKER constant."""
+        prompt = _build_prompt(diff="x", backend="b", user_prompt="p", summary="")
+        assert _PR_TITLE_MARKER in prompt
+
+    def test_build_prompt_uses_pr_body_marker(self) -> None:
+        """_build_prompt output contains the _PR_BODY_MARKER constant."""
+        prompt = _build_prompt(diff="x", backend="b", user_prompt="p", summary="")
+        assert _PR_BODY_MARKER in prompt
+
+    def test_build_commit_message_prompt_uses_commit_msg_marker(self) -> None:
+        """_build_commit_message_prompt output contains _COMMIT_MSG_MARKER."""
+        prompt = _build_commit_message_prompt(
+            diff="x", backend="b", user_prompt="p", summary=""
+        )
+        assert _COMMIT_MSG_MARKER in prompt
+
+    def test_parse_output_uses_pr_title_marker(self) -> None:
+        """_parse_output correctly parses output using the marker constants."""
+        output = f"{_PR_TITLE_MARKER} My Title\n{_PR_BODY_MARKER}\nBody text"
+        result = _parse_output(output)
+        assert result is not None
+        assert result.title == "My Title"
+        assert result.body == "Body text"
+
+    def test_parse_commit_message_uses_commit_msg_marker(self) -> None:
+        """_parse_commit_message correctly parses using the marker constant."""
+        output = f"{_COMMIT_MSG_MARKER} feat: add new feature"
+        result = _parse_commit_message(output)
+        assert result == "feat: add new feature"
+
+
+# ---------------------------------------------------------------------------
+# _COMMIT_TYPE_PREFIX_RE constant (v174)
+# ---------------------------------------------------------------------------
+
+
+class TestCommitTypePrefixRe:
+    """Tests for the DRYed commit type prefix regex constant."""
+
+    def test_is_string(self) -> None:
+        assert isinstance(_COMMIT_TYPE_PREFIX_RE, str)
+
+    def test_matches_feat_prefix(self) -> None:
+        import re
+
+        assert re.match(_COMMIT_TYPE_PREFIX_RE, "feat: add feature", re.IGNORECASE)
+
+    def test_matches_fix_prefix(self) -> None:
+        import re
+
+        assert re.match(_COMMIT_TYPE_PREFIX_RE, "fix: repair bug", re.IGNORECASE)
+
+    def test_matches_prefix_with_scope(self) -> None:
+        import re
+
+        assert re.match(_COMMIT_TYPE_PREFIX_RE, "feat(auth): add login", re.IGNORECASE)
+
+    def test_no_match_plain_text(self) -> None:
+        import re
+
+        assert re.match(_COMMIT_TYPE_PREFIX_RE, "plain text", re.IGNORECASE) is None
+
+    def test_is_trivial_uses_constant(self) -> None:
+        """_is_trivial_message uses _COMMIT_TYPE_PREFIX_RE to strip prefix."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._is_trivial_message)
+        assert "_COMMIT_TYPE_PREFIX_RE" in src
+
+    def test_commit_message_from_prompt_uses_constant(self) -> None:
+        """_commit_message_from_prompt uses _COMMIT_TYPE_PREFIX_RE."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._commit_message_from_prompt)
+        assert "_COMMIT_TYPE_PREFIX_RE" in src
+
+    def test_marker_constants_have_docstrings(self) -> None:
+        """All new constants have module-level docstring annotations."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod)
+        assert '_PR_TITLE_MARKER = "PR_TITLE:"\n"""' in src
+        assert '_PR_BODY_MARKER = "PR_BODY:"\n"""' in src
+        assert '_COMMIT_MSG_MARKER = "COMMIT_MSG:"\n"""' in src

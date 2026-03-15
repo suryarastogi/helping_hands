@@ -47,6 +47,21 @@ _COMMIT_ERROR_TAIL_LENGTH = 300
 _COMMIT_MSG_MAX_LENGTH = 72
 """Maximum length for generated commit messages (conventional commit standard)."""
 
+_PR_TITLE_MARKER = "PR_TITLE:"
+"""Marker prefix for the PR title line in CLI output."""
+
+_PR_BODY_MARKER = "PR_BODY:"
+"""Marker prefix for the PR body section in CLI output."""
+
+_COMMIT_MSG_MARKER = "COMMIT_MSG:"
+"""Marker prefix for the commit message line in CLI output."""
+
+_COMMIT_TYPE_PREFIX_RE = (
+    r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)"
+    r"(\([^)]*\))?\s*:\s*"
+)
+"""Regex pattern matching a conventional commit type prefix with optional scope."""
+
 
 def _truncate_text(text: str, *, limit: int) -> str:
     """Truncate *text* to *limit* characters with a truncation indicator.
@@ -263,8 +278,8 @@ def _build_prompt(
         "- Use conventional commit style for the title "
         "(e.g., feat:, fix:, refactor:, docs:).\n\n"
         "Output format — use EXACTLY these markers:\n"
-        "PR_TITLE: <your title here>\n"
-        "PR_BODY:\n"
+        f"{_PR_TITLE_MARKER} <your title here>\n"
+        f"{_PR_BODY_MARKER}\n"
         "<your markdown body here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
@@ -285,9 +300,9 @@ def _parse_output(output: str) -> PRDescription | None:
 
     lines = output.split("\n")
     for idx, line in enumerate(lines):
-        if line.startswith("PR_TITLE:"):
-            title = line[len("PR_TITLE:") :].strip()
-        elif line.strip() == "PR_BODY:":
+        if line.startswith(_PR_TITLE_MARKER):
+            title = line[len(_PR_TITLE_MARKER) :].strip()
+        elif line.strip() == _PR_BODY_MARKER:
             body_start_idx = idx + 1
             break
 
@@ -471,7 +486,7 @@ def _build_commit_message_prompt(
         "- Focus on the purpose/effect of the change, not the mechanism.\n"
         "- Do NOT include a scope in parentheses.\n\n"
         "Output format — reply with ONLY this line, nothing else:\n"
-        "COMMIT_MSG: <your message here>\n\n"
+        f"{_COMMIT_MSG_MARKER} <your message here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
         f"- Original task prompt: {prompt_context}\n"
@@ -490,8 +505,7 @@ def _is_trivial_message(msg: str) -> bool:
 
     # Strip conventional-commit prefix for length check.
     body = re.sub(
-        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)"
-        r"(\([^)]*\))?\s*:\s*",
+        _COMMIT_TYPE_PREFIX_RE,
         "",
         msg,
         flags=re.IGNORECASE,
@@ -510,8 +524,8 @@ def _parse_commit_message(output: str) -> str | None:
     trivially short / meaningless.
     """
     for line in output.split("\n"):
-        if line.startswith("COMMIT_MSG:"):
-            msg = line[len("COMMIT_MSG:") :].strip()
+        if line.startswith(_COMMIT_MSG_MARKER):
+            msg = line[len(_COMMIT_MSG_MARKER) :].strip()
             if msg and not _is_trivial_message(msg):
                 return msg[:_COMMIT_MSG_MAX_LENGTH]
     return None
@@ -599,7 +613,7 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     # Strip leading conventional-commit prefix if already present
     # (with optional parenthetical scope, e.g. "feat(auth): ...").
     stripped = re.sub(
-        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)(\([^)]*\))?\s*:\s*",
+        _COMMIT_TYPE_PREFIX_RE,
         "",
         text,
         flags=re.IGNORECASE,

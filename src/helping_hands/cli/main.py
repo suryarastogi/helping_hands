@@ -338,6 +338,12 @@ def main(argv: list[str] | None = None) -> None:
 
 
 async def _stream_hand(hand: Hand, prompt: str) -> None:
+    """Stream hand output to stdout, printing each chunk as it arrives.
+
+    Args:
+        hand: The hand instance to stream from.
+        prompt: The task prompt to pass to the hand.
+    """
     stream = cast(AsyncIterator[str], hand.stream(prompt))
     async for chunk in stream:
         print(chunk, end="", flush=True)
@@ -354,6 +360,21 @@ def _validate_repo_spec(repo: str) -> None:
 
 
 def _github_clone_url(repo: str, token: str | None = None) -> str:
+    """Build the HTTPS clone URL for a GitHub repository.
+
+    Uses token-authenticated URL when a token is provided or available
+    in ``GITHUB_TOKEN`` / ``GH_TOKEN`` environment variables.
+
+    Args:
+        repo: GitHub repository in ``owner/repo`` format.
+        token: Optional explicit GitHub token (overrides env vars).
+
+    Returns:
+        The HTTPS clone URL string.
+
+    Raises:
+        ValueError: If *repo* is not in valid ``owner/repo`` format.
+    """
     _validate_repo_spec(repo)
     effective_token = (token or "").strip() or os.environ.get(
         "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
@@ -364,6 +385,15 @@ def _github_clone_url(repo: str, token: str | None = None) -> str:
 
 
 def _git_noninteractive_env() -> dict[str, str]:
+    """Build an environment dict that disables interactive git prompts.
+
+    Sets ``GIT_TERMINAL_PROMPT=0`` and ``GCM_INTERACTIVE=never`` to prevent
+    git and Git Credential Manager from blocking on user input during
+    automated clone operations.
+
+    Returns:
+        A copy of the current environment with non-interactive git settings.
+    """
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
@@ -394,6 +424,24 @@ def _repo_tmp_dir() -> Path | None:
 
 
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
+    """Resolve a repo argument to a local directory path.
+
+    If *repo* is an existing local directory, returns it directly.
+    If *repo* matches ``owner/repo`` format, clones it to a temporary
+    directory (registered for cleanup via ``atexit``).
+
+    Args:
+        repo: Local directory path or GitHub ``owner/repo`` reference.
+
+    Returns:
+        A tuple of ``(resolved_path, cloned_from)`` where *cloned_from*
+        is the original ``owner/repo`` string if a clone was performed,
+        or ``None`` for local directories.
+
+    Raises:
+        ValueError: If *repo* is not a directory and not a valid
+            ``owner/repo`` reference, or if cloning fails.
+    """
     path = Path(repo).expanduser().resolve()
     if path.is_dir():
         return path, None

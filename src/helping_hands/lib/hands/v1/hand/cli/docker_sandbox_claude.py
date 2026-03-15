@@ -35,6 +35,9 @@ _SANDBOX_NAME_MAX_LENGTH = 30
 _SANDBOX_UUID_HEX_LENGTH = 8
 """Number of hex characters from a UUID4 appended to sandbox names."""
 
+_AUTH_FAILURE_SUBSTRINGS = ("not logged in", "authentication_failed")
+"""Lowercase substrings in CLI output that indicate an authentication failure."""
+
 
 class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
     """Claude Code running inside a Docker Desktop sandbox (microVM).
@@ -240,6 +243,19 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke Claude Code inside the Docker sandbox.
+
+        Builds the raw claude command, wraps it with ``docker sandbox exec``,
+        and streams the output through :class:`_StreamJsonEmitter`.
+
+        Args:
+            prompt: The task prompt to pass to Claude Code.
+            emit: Callback for streaming progress messages.
+
+        Returns:
+            The parsed result text from the stream-json output, or the raw
+            CLI output if no result event was emitted.
+        """
         # Build the raw claude command (no container wrapping since
         # _CONTAINER_ENABLED_ENV_VAR is empty).
         cmd = self._render_command(prompt)
@@ -257,6 +273,18 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Run the two-phase flow inside a Docker sandbox.
+
+        Creates the sandbox before the run and removes it afterwards (unless
+        cleanup is disabled via ``HELPING_HANDS_DOCKER_SANDBOX_CLEANUP=0``).
+
+        Args:
+            prompt: The task prompt to execute.
+            emit: Callback for streaming progress messages.
+
+        Returns:
+            The raw output from the two-phase execution.
+        """
         await self._ensure_sandbox(emit)
         try:
             return await super()._run_two_phase(prompt, emit=emit)
@@ -265,8 +293,22 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
                 await self._remove_sandbox(emit)
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Build a human-readable error message for sandbox failures.
+
+        Detects authentication failures (OAuth tokens unavailable inside the
+        sandbox) and suggests ``ANTHROPIC_API_KEY`` as a workaround.  For
+        other failures, delegates to the base Claude failure message and
+        appends a sandbox context note if not already mentioned.
+
+        Args:
+            return_code: The CLI process exit code.
+            output: The raw CLI stderr/stdout output.
+
+        Returns:
+            A descriptive error message string.
+        """
         lowered = output.lower()
-        if "not logged in" in lowered or "authentication_failed" in lowered:
+        if any(s in lowered for s in _AUTH_FAILURE_SUBSTRINGS):
             return (
                 "Claude Code inside the Docker sandbox is not authenticated.\n"
                 "The sandbox cannot access the host macOS Keychain, so OAuth "
@@ -287,6 +329,15 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         return base
 
     def _command_not_found_message(self, command: str) -> str:
+        """Return the error message when a command is not found inside the sandbox.
+
+        Args:
+            command: The command name that was not found.
+
+        Returns:
+            A user-facing error message suggesting the sandbox template image
+            needs Claude Code installed.
+        """
         return (
             f"Command not found inside Docker sandbox: {command!r}. "
             "Ensure Claude Code is installed in the sandbox template image."
