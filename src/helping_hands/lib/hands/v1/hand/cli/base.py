@@ -391,6 +391,24 @@ class _TwoPhaseCLIHand(Hand):
         return tuple(name for name in env_names if name not in blocked)
 
     def _wrap_container_if_enabled(self, cmd: list[str]) -> list[str]:
+        """Wrap a CLI command with Docker execution if container mode is enabled.
+
+        When container mode is disabled, returns the command unchanged. When
+        enabled, builds a ``docker run`` invocation that mounts the repo root
+        at ``/workspace``, forwards relevant environment variables, and
+        delegates to the specified container image.
+
+        Args:
+            cmd: The CLI command tokens to wrap.
+
+        Returns:
+            The original *cmd* if container mode is off, or a new list
+            prefixed with ``docker run …`` otherwise.
+
+        Raises:
+            RuntimeError: If container mode is enabled but the ``docker``
+                binary is not found on ``PATH``.
+        """
         if not self._container_enabled():
             return cmd
         image = self._container_image()

@@ -2578,6 +2578,15 @@ class ServiceHealthResponse(BaseModel):
 
 
 def _check_redis_health() -> Literal["ok", "error"]:
+    """Ping the Redis broker and return a health status string.
+
+    Uses the Celery broker URL to connect with a short timeout. Failures
+    (connection refused, timeout, missing ``redis`` package) are logged at
+    debug level and reported as ``"error"``.
+
+    Returns:
+        ``"ok"`` if the ping succeeds, ``"error"`` otherwise.
+    """
     try:
         import redis as redis_lib  # bundled with celery[redis]
 
@@ -2595,6 +2604,16 @@ def _check_redis_health() -> Literal["ok", "error"]:
 
 
 def _check_db_health() -> Literal["ok", "error", "na"]:
+    """Open a test connection to the PostgreSQL database.
+
+    Reads ``DATABASE_URL`` from the environment. When the variable is unset
+    or empty, returns ``"na"`` (not applicable). Otherwise attempts a
+    short-lived ``psycopg2`` connection and reports the result.
+
+    Returns:
+        ``"ok"`` if the connection succeeds, ``"error"`` on failure, or
+        ``"na"`` when no database URL is configured.
+    """
     db_url = os.environ.get("DATABASE_URL", "").strip()
     if not db_url:
         return "na"
@@ -2610,6 +2629,15 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
 
 
 def _check_workers_health() -> Literal["ok", "error"]:
+    """Ping Celery workers via the control inspector.
+
+    Sends a ping with a short timeout and checks whether any worker
+    responds. Failures (no workers, timeout, broker unreachable) are
+    logged at debug level and reported as ``"error"``.
+
+    Returns:
+        ``"ok"`` if at least one worker responds, ``"error"`` otherwise.
+    """
     try:
         inspector = celery_app.control.inspect(timeout=_CELERY_HEALTH_TIMEOUT_S)
         ping = inspector.ping()
