@@ -4,6 +4,22 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY run-status strings, truncation marker, auth-presence labels (v212)
+
+**`_RUN_STATUS_INTERRUPTED` / `_RUN_STATUS_SATISFIED` / `_RUN_STATUS_MAX_ITERATIONS` constants:** Extracted the three run-status strings from identical inline assignments in both `BasicLangGraphHand.run()` and `BasicAtomicHand.run()` to module-level constants with docstrings.
+
+**`_TRUNCATION_MARKER` constant:** Extracted the repeated `"\n[truncated]"` string used in `_format_command_result()`, `_format_web_search_result()`, `_format_web_browse_result()`, and `_execute_read_requests()` to a single module-level constant.
+
+**`_AUTH_PRESENT_LABEL` / `_AUTH_ABSENT_LABEL` constants:** Extracted `"set"` / `"not set"` auth-presence indicator strings used in both `stream()` methods to module-level constants.
+
+**`tests/test_v212_dry_run_status_truncation_auth.py`:** 25 tests verifying constant values, types, distinctness, and source-level verification that functions reference the constants (not inline strings).
+
+**Housekeeping:** Created `WAITING_ON.md` (missing from doc structure), consolidated 18 individual v193-v211 plan files into Week-12 weekly rollup, updated PLANS.md links.
+
+**25 new tests. 5189 passed, 216 skipped.**
+
+---
+
 ## Mar 15 — DRY encoding fallback chain, git ref prefix, check-run status (v211)
 
 **`_ENCODING_FALLBACK_CHAIN` constant:** Extracted inline `("utf-8", "utf-16", "latin-1")` tuple from `_decode_bytes()` in `web.py` to a module-level constant with docstring.

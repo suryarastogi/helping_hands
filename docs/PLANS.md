@@ -8,39 +8,42 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-15 v211](exec-plans/completed/2026/v211-dry-encoding-chain-git-ref-prefix-check-status.md) —
+- [2026-03-15 v212](exec-plans/completed/2026/v212-dry-run-status-truncation-auth-presence.md) —
+  DRY `_RUN_STATUS_*` constants, `_TRUNCATION_MARKER`, `_AUTH_PRESENT_LABEL`/
+  `_AUTH_ABSENT_LABEL` in iterative.py; 25 tests (5189 passed, 216 skipped)
+
+- [2026-03-15 v211](exec-plans/completed/2026/Week-12.md) —
   DRY `_ENCODING_FALLBACK_CHAIN` in web.py, `_GIT_REF_PREFIX` and
   `_CHECK_RUN_STATUS_COMPLETED` in github.py; 21 tests (5164 passed, 216 skipped)
 
-- [2026-03-15 v210](exec-plans/completed/2026/v210-hook-markers-validation-github-url-tests.md) —
+- [2026-03-15 v210](exec-plans/completed/2026/Week-12.md) —
   Extract `_GIT_HOOK_FAILURE_MARKERS` constant in base.py, dedicated unit tests
   for `validation.py` (21 tests) and `github_url.py` (33 tests), versioned
   contract tests (16 tests); 5143 passed, 216 skipped
 
-- [2026-03-15 v209](exec-plans/completed/2026/v209-ci-enums-boilerplate-stream-event.md) —
+- [2026-03-15 v209](exec-plans/completed/2026/Week-12.md) —
   `CIConclusion(StrEnum)`, `CIFixStatus(StrEnum)`, pre-lowercase boilerplate
   prefixes, `_LANGCHAIN_STREAM_EVENT` constant; 36 tests (5073 passed, 216 skipped)
 
-- [2026-03-15 v208](exec-plans/completed/2026/v208-pr-status-enum-validation-cleanup.md) —
+- [2026-03-15 v208](exec-plans/completed/2026/Week-12.md) —
   `PRStatus(StrEnum)` with 12 members replacing 5 string constants + 7 ad-hoc
   strings, `_build_generic_pr_body` validation standardized to
   `require_non_empty_string`, DRY `_pr_result_metadata()` helper (3 sites);
   38 tests (5037 passed, 216 skipped)
 
-
-- [2026-03-15 v207](exec-plans/completed/2026/v207-dry-shared-validators.md) —
+- [2026-03-15 v207](exec-plans/completed/2026/Week-12.md) —
   DRY shared validation helpers (`require_non_empty_string`,
   `require_positive_int`) extracted to `validation.py`, applied across 9 files;
   36 tests (4999 passed, 216 skipped)
 
-- [2026-03-15 v206](exec-plans/completed/2026/v206-dry-payload-validators-normalize-selection-url-errors.md) --
+- [2026-03-15 v206](exec-plans/completed/2026/Week-12.md) --
   DRY payload validators (iterative.py `_parse_str_list`/`_parse_positive_int`/
   `_parse_optional_str` → registry.py delegation), shared
   `_normalize_and_deduplicate` helper for tool/skill selection normalization,
   shared `_raise_url_error` helper in web.py;
   30 tests (all new, 4967 passed, 212 skipped)
 
-- [2026-03-15 v205](exec-plans/completed/2026/v205-dry-script-validation-display-path-install-hint-timeouts.md) --
+- [2026-03-15 v205](exec-plans/completed/2026/Week-12.md) --
   DRY `_validate_script_path()` in command.py (shared helper replacing duplicated
   5-line validation in `run_python_script`/`run_bash_script`), DRY `_display_path()`
   in filesystem.py (replacing 4× inline `target.relative_to(root).as_posix()`),

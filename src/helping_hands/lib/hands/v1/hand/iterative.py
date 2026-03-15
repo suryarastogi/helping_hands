@@ -54,6 +54,24 @@ _README_CANDIDATES: tuple[str, ...] = ("README.md", "readme.md")
 _AGENT_DOC_CANDIDATES: tuple[str, ...] = ("AGENT.md", "agent.md")
 """Candidate filenames for agent guidance doc, checked in order during bootstrap."""
 
+_RUN_STATUS_INTERRUPTED: str = "interrupted"
+"""Run status when the hand was interrupted by the user."""
+
+_RUN_STATUS_SATISFIED: str = "satisfied"
+"""Run status when the AI marked the task as satisfied."""
+
+_RUN_STATUS_MAX_ITERATIONS: str = "max_iterations"
+"""Run status when the iteration cap was reached without satisfaction."""
+
+_TRUNCATION_MARKER: str = "\n[truncated]"
+"""Marker appended to tool output that was truncated to fit size limits."""
+
+_AUTH_PRESENT_LABEL: str = "set"
+"""Label shown in stream output when the provider API key is present."""
+
+_AUTH_ABSENT_LABEL: str = "not set"
+"""Label shown in stream output when the provider API key is missing."""
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
@@ -340,7 +358,7 @@ class _BasicIterativeHand(Hand):
                 chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: path is a directory")
                 continue
 
-            truncated_note = "\n[truncated]" if truncated else ""
+            truncated_note = _TRUNCATION_MARKER if truncated else ""
             chunks.append(
                 f"@@READ_RESULT: {display_path}\n```text\n{text}\n```{truncated_note}"
             )
@@ -396,8 +414,8 @@ class _BasicIterativeHand(Hand):
         """
         stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
         stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
-        stdout_note = "\n[truncated]" if stdout_truncated else ""
-        stderr_note = "\n[truncated]" if stderr_truncated else ""
+        stdout_note = _TRUNCATION_MARKER if stdout_truncated else ""
+        stderr_note = _TRUNCATION_MARKER if stderr_truncated else ""
         status = "success" if result.success else "failure"
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
@@ -437,7 +455,7 @@ class _BasicIterativeHand(Hand):
         ]
         payload = json.dumps(items, ensure_ascii=False, indent=2)
         payload_text, truncated = cls._truncate_tool_output(payload)
-        truncated_note = "\n[truncated]" if truncated else ""
+        truncated_note = _TRUNCATION_MARKER if truncated else ""
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
             "status: success\n"
@@ -464,7 +482,7 @@ class _BasicIterativeHand(Hand):
             page content.
         """
         text, output_truncated = cls._truncate_tool_output(result.content)
-        truncated_note = "\n[truncated]" if output_truncated else ""
+        truncated_note = _TRUNCATION_MARKER if output_truncated else ""
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
             "status: success\n"
@@ -625,7 +643,7 @@ class _BasicIterativeHand(Hand):
             except (FileNotFoundError, IsADirectoryError, UnicodeError, ValueError):
                 continue
 
-            truncated_note = "\n[truncated]" if truncated else ""
+            truncated_note = _TRUNCATION_MARKER if truncated else ""
             return f"{display_path}:\n```text\n{text}\n```{truncated_note}"
         return ""
 
@@ -801,11 +819,11 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
         interrupted = self._is_interrupted()
         if interrupted:
-            status = "interrupted"
+            status = _RUN_STATUS_INTERRUPTED
         elif completed:
-            status = "satisfied"
+            status = _RUN_STATUS_SATISFIED
         else:
-            status = "max_iterations"
+            status = _RUN_STATUS_MAX_ITERATIONS
 
         pr_metadata = self._finalize_repo_pr(
             backend=self._BACKEND_NAME,
@@ -844,7 +862,11 @@ class BasicLangGraphHand(_BasicIterativeHand):
         bootstrap_context = self._build_bootstrap_context()
 
         _env_name = self._hand_model.provider.api_key_env_var
-        _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
+        _present = (
+            _AUTH_PRESENT_LABEL
+            if os.environ.get(_env_name, "").strip()
+            else _AUTH_ABSENT_LABEL
+        )
         yield (
             f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
             f" | auth={_env_name} ({_present})\n"
@@ -1045,11 +1067,11 @@ class BasicAtomicHand(_BasicIterativeHand):
 
         interrupted = self._is_interrupted()
         if interrupted:
-            status = "interrupted"
+            status = _RUN_STATUS_INTERRUPTED
         elif completed:
-            status = "satisfied"
+            status = _RUN_STATUS_SATISFIED
         else:
-            status = "max_iterations"
+            status = _RUN_STATUS_MAX_ITERATIONS
 
         pr_metadata = self._finalize_repo_pr(
             backend=self._BACKEND_NAME,
@@ -1089,7 +1111,11 @@ class BasicAtomicHand(_BasicIterativeHand):
         bootstrap_context = self._build_bootstrap_context()
 
         _env_name = self._hand_model.provider.api_key_env_var
-        _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
+        _present = (
+            _AUTH_PRESENT_LABEL
+            if os.environ.get(_env_name, "").strip()
+            else _AUTH_ABSENT_LABEL
+        )
         yield (
             f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
             f" | auth={_env_name} ({_present})\n"
