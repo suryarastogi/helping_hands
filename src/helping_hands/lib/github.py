@@ -18,6 +18,8 @@ from github import Auth, Github
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
+from helping_hands.lib.github_url import GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER
+
 __all__ = ["GitHubClient", "PRResult"]
 
 logger = logging.getLogger(__name__)
@@ -25,9 +27,6 @@ logger = logging.getLogger(__name__)
 _DEFAULT_GIT_TIMEOUT = 300  # seconds
 _MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
 _VALID_PR_STATES = frozenset({"open", "closed", "all"})
-
-_GITHUB_TOKEN_USER = "x-access-token"
-"""Username used in token-authenticated GitHub HTTPS clone URLs."""
 
 
 def _git_timeout() -> int:

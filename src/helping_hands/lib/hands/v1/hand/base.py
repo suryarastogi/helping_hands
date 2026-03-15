@@ -25,6 +25,12 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from helping_hands.lib.github_url import (
+    GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
+)
+from helping_hands.lib.github_url import (
+    GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
+)
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
 
@@ -57,12 +63,6 @@ _UUID_HEX_LENGTH = 8
 
 _MAX_OUTPUT_DISPLAY_LENGTH = 4000
 """Maximum character length for combined pre-commit output before truncation."""
-
-_GITHUB_TOKEN_USER = "x-access-token"
-"""Username used in token-authenticated GitHub HTTPS clone URLs."""
-
-_GITHUB_HOSTNAME = "github.com"
-"""Hostname matched when extracting ``owner/repo`` from git remote URLs."""
 
 _FILE_LIST_PREVIEW_LIMIT = 200
 """Maximum number of files shown in the system prompt file list."""

@@ -18,6 +18,18 @@ from typing import cast
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.github_url import (
+    build_clone_url as _build_clone_url,
+)
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.github_url import (
+    redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    validate_repo_spec as _validate_repo_spec,
+)
 from helping_hands.lib.hands.v1.hand import (
     BasicAtomicHand,
     BasicLangGraphHand,
@@ -46,9 +58,6 @@ _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 
 _GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
-
-_GITHUB_TOKEN_USER = "x-access-token"
-"""Username used in token-authenticated GitHub HTTPS clone URLs."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -353,20 +362,10 @@ async def _stream_hand(hand: Hand, prompt: str) -> None:
     print()
 
 
-def _validate_repo_spec(repo: str) -> None:
-    """Validate that *repo* looks like ``owner/repo`` before embedding in a URL."""
-    if not repo or not repo.strip():
-        raise ValueError("repo spec must not be empty")
-    parts = repo.strip().split("/")
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
-
-
 def _github_clone_url(repo: str, token: str | None = None) -> str:
     """Build the HTTPS clone URL for a GitHub repository.
 
-    Uses token-authenticated URL when a token is provided or available
-    in ``GITHUB_TOKEN`` / ``GH_TOKEN`` environment variables.
+    Delegates to :func:`helping_hands.lib.github_url.build_clone_url`.
 
     Args:
         repo: GitHub repository in ``owner/repo`` format.
@@ -378,37 +377,7 @@ def _github_clone_url(repo: str, token: str | None = None) -> str:
     Raises:
         ValueError: If *repo* is not in valid ``owner/repo`` format.
     """
-    _validate_repo_spec(repo)
-    effective_token = (token or "").strip() or os.environ.get(
-        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-    ).strip()
-    if effective_token:
-        return f"https://{_GITHUB_TOKEN_USER}:{effective_token}@github.com/{repo}.git"
-    return f"https://github.com/{repo}.git"
-
-
-def _git_noninteractive_env() -> dict[str, str]:
-    """Build an environment dict that disables interactive git prompts.
-
-    Sets ``GIT_TERMINAL_PROMPT=0`` and ``GCM_INTERACTIVE=never`` to prevent
-    git and Git Credential Manager from blocking on user input during
-    automated clone operations.
-
-    Returns:
-        A copy of the current environment with non-interactive git settings.
-    """
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    return env
-
-
-def _redact_sensitive(text: str) -> str:
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
+    return _build_clone_url(repo, token=token)
 
 
 def _repo_tmp_dir() -> Path | None:

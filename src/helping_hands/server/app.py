@@ -26,6 +26,27 @@ from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.server.celery_app import build_feature, celery_app
+from helping_hands.server.constants import (
+    ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
+)
+from helping_hands.server.constants import (
+    ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
+)
+from helping_hands.server.constants import (
+    JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
+)
+from helping_hands.server.constants import (
+    USAGE_USER_AGENT as _USAGE_USER_AGENT,
+)
 from helping_hands.server.task_result import normalize_task_result
 
 if TYPE_CHECKING:
@@ -67,27 +88,9 @@ _DB_HEALTH_TIMEOUT_S = 3
 _CELERY_HEALTH_TIMEOUT_S = 2.0
 _CELERY_INSPECT_TIMEOUT_S = 1.0
 
-# --- Anthropic usage API constants ---
-_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
-_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
-_USAGE_USER_AGENT = "claude-code/2.0.32"
-
 # --- Preview truncation limits for error/debug messages ---
-_JWT_TOKEN_PREFIX = "ey"
-"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
-
 _HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
 _USAGE_DATA_PREVIEW_LENGTH = 300
-
-# --- Keychain constants ---
-_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
-"""macOS Keychain service name for Claude Code OAuth credentials."""
-
-_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
-"""Top-level JSON key in the Keychain credential payload."""
-
-_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
-"""Nested JSON key for the OAuth access token."""
 
 app = FastAPI(
     title="helping_hands",

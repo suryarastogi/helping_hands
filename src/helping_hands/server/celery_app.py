@@ -17,6 +17,40 @@ from typing import Any
 
 from celery import Celery
 
+from helping_hands.lib.github_url import (
+    build_clone_url as _build_clone_url,
+)
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.github_url import (
+    redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    validate_repo_spec as _validate_repo_spec,
+)
+from helping_hands.server.constants import (
+    ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
+)
+from helping_hands.server.constants import (
+    ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
+)
+from helping_hands.server.constants import (
+    JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
+)
+from helping_hands.server.constants import (
+    USAGE_USER_AGENT as _USAGE_USER_AGENT,
+)
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["build_feature", "celery_app"]
@@ -63,10 +97,6 @@ celery_app.conf.update(
 _USAGE_LOG_INTERVAL_S = 3600.0
 """Interval in seconds between automatic Claude usage log entries."""
 
-# --- Anthropic usage API constants ---
-_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
-_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
-_USAGE_USER_AGENT = "claude-code/2.0.32"
 _USAGE_API_TIMEOUT_S = 10
 
 _KEYCHAIN_TIMEOUT_S = 5
@@ -75,24 +105,8 @@ _KEYCHAIN_TIMEOUT_S = 5
 _DB_CONNECT_TIMEOUT_S = 5
 """Timeout in seconds for PostgreSQL connection attempts."""
 
-_JWT_TOKEN_PREFIX = "ey"
-"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
-
-# --- Keychain constants ---
-_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
-"""macOS Keychain service name for Claude Code OAuth credentials."""
-
-_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
-"""Top-level JSON key in the Keychain credential payload."""
-
-_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
-"""Nested JSON key for the OAuth access token."""
-
 _GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
-
-_GITHUB_TOKEN_USER = "x-access-token"
-"""Username used in token-authenticated GitHub HTTPS clone URLs."""
 
 _SUPPORTED_BACKENDS = {
     "e2e",
@@ -112,38 +126,13 @@ _MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800
 _BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
 
 
-def _validate_repo_spec(repo: str) -> None:
-    """Validate that *repo* looks like ``owner/repo`` before embedding in a URL."""
-    if not repo or not repo.strip():
-        raise ValueError("repo spec must not be empty")
-    parts = repo.strip().split("/")
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
-
-
 def _github_clone_url(repo: str, token: str | None = None) -> str:
-    _validate_repo_spec(repo)
-    effective_token = (token or "").strip() or os.environ.get(
-        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-    ).strip()
-    if effective_token:
-        return f"https://{_GITHUB_TOKEN_USER}:{effective_token}@github.com/{repo}.git"
-    return f"https://github.com/{repo}.git"
+    """Build the HTTPS clone URL for a GitHub repository.
 
-
-def _git_noninteractive_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    return env
-
-
-def _redact_sensitive(text: str) -> str:
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
+    Delegates to :func:`helping_hands.lib.github_url.build_clone_url`.
+    Kept as a module-level alias for backward compatibility with tests.
+    """
+    return _build_clone_url(repo, token=token)
 
 
 def _repo_tmp_dir() -> Path | None:

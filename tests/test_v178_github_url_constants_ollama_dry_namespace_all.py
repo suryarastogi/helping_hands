@@ -30,9 +30,9 @@ class TestGitHubTokenUserConstant:
         assert _GITHUB_TOKEN_USER == "x-access-token"
 
     def test_cli_main_py_value(self) -> None:
-        from helping_hands.cli.main import _GITHUB_TOKEN_USER
+        from helping_hands.lib.github_url import GITHUB_TOKEN_USER
 
-        assert _GITHUB_TOKEN_USER == "x-access-token"
+        assert GITHUB_TOKEN_USER == "x-access-token"
 
     @pytest.mark.skipif(
         not importlib.util.find_spec("celery"),
@@ -55,15 +55,15 @@ class TestGitHubTokenUserConstant:
         assert _GITHUB_VAL == _BASE_VAL
 
     def test_cross_module_sync_github_cli(self) -> None:
-        """github.py and cli/main.py constants must be identical."""
-        from helping_hands.cli.main import (
-            _GITHUB_TOKEN_USER as _CLI_VAL,
-        )
+        """github.py and github_url.py constants must be identical (same object)."""
         from helping_hands.lib.github import (
             _GITHUB_TOKEN_USER as _GITHUB_VAL,
         )
+        from helping_hands.lib.github_url import (
+            GITHUB_TOKEN_USER as _URL_VAL,
+        )
 
-        assert _GITHUB_VAL == _CLI_VAL
+        assert _GITHUB_VAL is _URL_VAL
 
     @pytest.mark.skipif(
         not importlib.util.find_spec("celery"),
