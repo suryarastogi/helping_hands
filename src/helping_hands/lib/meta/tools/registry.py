@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from helping_hands.lib.meta.tools import command as command_tools
+from helping_hands.lib.meta.tools import git as git_tools
+from helping_hands.lib.meta.tools import search as search_tools
 from helping_hands.lib.meta.tools import web as web_tools
 
 
@@ -143,6 +145,75 @@ def _run_bash_script(
     )
 
 
+def _run_git_status(root: Path, payload: dict[str, Any]) -> git_tools.GitResult:
+    del payload
+    return git_tools.git_status(root)
+
+
+def _run_git_diff(root: Path, payload: dict[str, Any]) -> git_tools.GitResult:
+    return git_tools.git_diff(
+        root,
+        ref=_parse_optional_str(payload, key="ref"),
+        staged=bool(payload.get("staged", False)),
+        name_only=bool(payload.get("name_only", False)),
+    )
+
+
+def _run_git_log(root: Path, payload: dict[str, Any]) -> git_tools.GitResult:
+    return git_tools.git_log(
+        root,
+        max_count=_parse_positive_int(payload, key="max_count", default=20),
+    )
+
+
+def _run_git_grep(root: Path, payload: dict[str, Any]) -> git_tools.GitResult:
+    pattern = payload.get("pattern")
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise ValueError("pattern must be a non-empty string")
+    return git_tools.git_grep(
+        root,
+        pattern=pattern,
+        paths=_parse_str_list(payload, key="paths"),
+        max_count=_parse_positive_int(payload, key="max_count", default=50),
+        ignore_case=bool(payload.get("ignore_case", False)),
+    )
+
+
+def _run_glob_files(root: Path, payload: dict[str, Any]) -> search_tools.GlobResult:
+    pattern = payload.get("pattern")
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise ValueError("pattern must be a non-empty string")
+    return search_tools.glob_files(
+        root,
+        pattern=pattern,
+        base_dir=_parse_optional_str(payload, key="base_dir"),
+        max_results=_parse_positive_int(payload, key="max_results", default=100),
+    )
+
+
+def _run_grep_content(root: Path, payload: dict[str, Any]) -> search_tools.GrepResult:
+    pattern = payload.get("pattern")
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise ValueError("pattern must be a non-empty string")
+    return search_tools.grep_content(
+        root,
+        pattern=pattern,
+        glob=_parse_optional_str(payload, key="glob"),
+        base_dir=_parse_optional_str(payload, key="base_dir"),
+        max_results=_parse_positive_int(payload, key="max_results", default=50),
+        ignore_case=bool(payload.get("ignore_case", False)),
+    )
+
+
+def _run_list_directory(root: Path, payload: dict[str, Any]) -> tuple[list[str], bool]:
+    return search_tools.list_directory(
+        root,
+        rel_path=_parse_optional_str(payload, key="rel_path") or ".",
+        max_entries=_parse_positive_int(payload, key="max_entries", default=200),
+        include_hidden=bool(payload.get("include_hidden", False)),
+    )
+
+
 def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchResult:
     del root
     query = payload.get("query")
@@ -214,6 +285,61 @@ _TOOL_CATEGORIES: dict[str, ToolCategory] = {
                 name="web.browse",
                 payload_example={"url": "https://example.com", "max_chars": 6000},
                 runner=_run_web_browse,
+            ),
+        ),
+    ),
+    "git": ToolCategory(
+        name="git",
+        title="Git tools for version control context.",
+        tools=(
+            ToolSpec(
+                name="git.status",
+                payload_example={},
+                runner=_run_git_status,
+            ),
+            ToolSpec(
+                name="git.diff",
+                payload_example={"ref": "HEAD~1", "staged": False, "name_only": False},
+                runner=_run_git_diff,
+            ),
+            ToolSpec(
+                name="git.log",
+                payload_example={"max_count": 10},
+                runner=_run_git_log,
+            ),
+            ToolSpec(
+                name="git.grep",
+                payload_example={
+                    "pattern": "def main",
+                    "paths": ["src/"],
+                    "ignore_case": False,
+                },
+                runner=_run_git_grep,
+            ),
+        ),
+    ),
+    "search": ToolCategory(
+        name="search",
+        title="Code search and file discovery tools.",
+        tools=(
+            ToolSpec(
+                name="search.glob",
+                payload_example={"pattern": "**/*.py", "base_dir": "src"},
+                runner=_run_glob_files,
+            ),
+            ToolSpec(
+                name="search.grep",
+                payload_example={
+                    "pattern": "class Hand",
+                    "glob": "*.py",
+                    "ignore_case": False,
+                },
+                runner=_run_grep_content,
+            ),
+            ToolSpec(
+                name="search.ls",
+                payload_example={"rel_path": "src", "max_entries": 50},
+                runner=_run_list_directory,
             ),
         ),
     ),
@@ -330,6 +456,12 @@ def format_tool_instructions(categories: tuple[ToolCategory, ...]) -> str:
             else "Use web tools for targeted research and source verification when "
             "the task needs external context."
             if cat.name == "web"
+            else "Use git tools to understand repo history, current changes, "
+            "and search tracked files before making modifications."
+            if cat.name == "git"
+            else "Use search tools to discover files and find code patterns "
+            "before reading or editing. Search narrowly to save context."
+            if cat.name == "search"
             else ""
         )
         for tool in cat.tools:
@@ -358,6 +490,22 @@ _CLI_TOOL_GUIDANCE: dict[str, str] = {
     ),
     "web.search": ("Use your web search capability to find information online."),
     "web.browse": ("Use your web browsing capability to read web page content."),
+    "git.status": ("Run git status to see the current state of the working tree."),
+    "git.diff": (
+        "Run git diff to see changes. Use --cached for staged, "
+        "or specify a ref like HEAD~1."
+    ),
+    "git.log": ("Run git log to see recent commit history."),
+    "git.grep": ("Run git grep to search tracked files for a pattern."),
+    "search.glob": (
+        "Use your file search capability to find files by glob pattern "
+        "(e.g. **/*.py, src/**/*.ts)."
+    ),
+    "search.grep": (
+        "Use your content search capability to search file contents "
+        "for a regex pattern."
+    ),
+    "search.ls": ("List directory contents to explore the repo structure."),
 }
 
 

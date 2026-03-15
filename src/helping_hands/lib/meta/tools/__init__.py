@@ -3,6 +3,8 @@
 This package contains reusable system-facing helpers:
 - ``filesystem`` for path-confined repo file operations.
 - ``command`` for path-confined Python/Bash command execution.
+- ``git`` for repo-aware version control operations.
+- ``search`` for code search and file discovery.
 """
 
 from helping_hands.lib.meta.tools.command import (
@@ -19,6 +21,13 @@ from helping_hands.lib.meta.tools.filesystem import (
     resolve_repo_target,
     write_text_file,
 )
+from helping_hands.lib.meta.tools.git import (
+    GitResult,
+    git_diff,
+    git_grep,
+    git_log,
+    git_status,
+)
 from helping_hands.lib.meta.tools.registry import (
     ToolCategory,
     ToolSpec,
@@ -32,6 +41,14 @@ from helping_hands.lib.meta.tools.registry import (
     resolve_tool_categories,
     validate_tool_category_names,
 )
+from helping_hands.lib.meta.tools.search import (
+    GlobResult,
+    GrepMatch,
+    GrepResult,
+    glob_files,
+    grep_content,
+    list_directory,
+)
 from helping_hands.lib.meta.tools.web import (
     WebBrowseResult,
     WebSearchItem,
@@ -42,6 +59,10 @@ from helping_hands.lib.meta.tools.web import (
 
 __all__ = [
     "CommandResult",
+    "GitResult",
+    "GlobResult",
+    "GrepMatch",
+    "GrepResult",
     "ToolCategory",
     "ToolSpec",
     "WebBrowseResult",
@@ -53,6 +74,13 @@ __all__ = [
     "category_name_for_tool",
     "format_tool_instructions",
     "format_tool_instructions_for_cli",
+    "git_diff",
+    "git_grep",
+    "git_log",
+    "git_status",
+    "glob_files",
+    "grep_content",
+    "list_directory",
     "merge_with_legacy_tool_flags",
     "mkdir_path",
     "normalize_relative_path",

@@ -12,6 +12,8 @@ class TestToolRegistry:
         assert tool_registry.available_tool_category_names() == (
             "execution",
             "web",
+            "git",
+            "search",
         )
 
     def test_normalize_tool_selection(self) -> None:

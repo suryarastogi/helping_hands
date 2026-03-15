@@ -13,9 +13,13 @@ from helping_hands.lib.meta import skills as meta_skills
 class TestMetaSkills:
     def test_available_skills_are_stable(self) -> None:
         assert meta_skills.available_skill_names() == (
+            "code-review",
+            "context-engineering",
             "execution",
             "prd",
             "ralph",
+            "security-audit",
+            "tdd",
             "web",
         )
 
