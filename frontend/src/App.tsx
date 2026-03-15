@@ -697,6 +697,40 @@ export function checkDeskCollision(
 
 const PREFIX_RE = /^\[([^\]]+)\]/;
 
+const API_COST_RE = /api:\s*\$([0-9]+(?:\.[0-9]+)?)/;
+
+export type AccumulatedUsage = {
+  totalCost: number;
+  totalSeconds: number;
+  totalIn: number;
+  totalOut: number;
+  count: number;
+};
+
+export function accumulateUsage(rawUpdates: string[]): AccumulatedUsage | null {
+  let totalCost = 0;
+  let totalSeconds = 0;
+  let totalIn = 0;
+  let totalOut = 0;
+  let count = 0;
+  for (const entry of rawUpdates) {
+    for (const line of String(entry).split(/\r?\n/)) {
+      const costMatch = line.match(API_COST_RE);
+      if (!costMatch) continue;
+      count++;
+      totalCost += parseFloat(costMatch[1]);
+      const secMatch = line.match(/([0-9]+(?:\.[0-9]+)?)s/);
+      if (secMatch) totalSeconds += parseFloat(secMatch[1]);
+      const inMatch = line.match(/in=([0-9]+)/);
+      if (inMatch) totalIn += parseInt(inMatch[1], 10);
+      const outMatch = line.match(/out=([0-9]+)/);
+      if (outMatch) totalOut += parseInt(outMatch[1], 10);
+    }
+  }
+  if (count === 0) return null;
+  return { totalCost, totalSeconds, totalIn, totalOut, count };
+}
+
 export function extractPrefixes(rawUpdates: string[]): string[] {
   const seen = new Set<string>();
   for (const entry of rawUpdates) {
@@ -1118,6 +1152,8 @@ export default function App() {
   }, [updates]);
 
   const detectedPrefixes = useMemo(() => extractPrefixes(updates), [updates]);
+
+  const accUsage = useMemo(() => accumulateUsage(updates), [updates]);
 
   const activeOutputText = useMemo(() => {
     let text: string;
@@ -2677,48 +2713,60 @@ export default function App() {
           </span>
         </div>
       </div>
-      {detectedPrefixes.length > 0 && outputTab !== "payload" && (
+      {(accUsage || (detectedPrefixes.length > 0 && outputTab !== "payload")) && (
         <div className="prefix-filters">
-          <span className="prefix-filters-label">Filter:</span>
-          {detectedPrefixes.map((prefix) => {
-            const mode = prefixFilters[prefix] ?? "show";
-            return (
-              <button
-                key={prefix}
-                type="button"
-                className={`prefix-chip ${mode}`}
-                title={`[${prefix}] — ${mode === "show" ? "Showing (click to hide)" : mode === "hide" ? "Hidden (click for only)" : "Only (click to reset)"}`}
-                onClick={() => {
-                  setPrefixFilters((prev) => {
-                    const current = prev[prefix] ?? "show";
-                    const next: PrefixFilterMode =
-                      current === "show" ? "hide" : current === "hide" ? "only" : "show";
-                    const updated = { ...prev };
-                    if (next === "show") {
-                      delete updated[prefix];
-                    } else {
-                      updated[prefix] = next;
-                    }
-                    return updated;
-                  });
-                }}
-              >
-                <span className="prefix-chip-icon">
-                  {mode === "show" ? "●" : mode === "hide" ? "○" : "◉"}
-                </span>
-                [{prefix}]
-              </button>
-            );
-          })}
-          {Object.keys(prefixFilters).length > 0 && (
-            <button
-              type="button"
-              className="prefix-chip reset"
-              title="Reset all filters"
-              onClick={() => setPrefixFilters({})}
+          {detectedPrefixes.length > 0 && outputTab !== "payload" && (
+            <>
+              <span className="prefix-filters-label">Filter:</span>
+              {detectedPrefixes.map((prefix) => {
+                const mode = prefixFilters[prefix] ?? "show";
+                return (
+                  <button
+                    key={prefix}
+                    type="button"
+                    className={`prefix-chip ${mode}`}
+                    title={`[${prefix}] — ${mode === "show" ? "Showing (click to hide)" : mode === "hide" ? "Hidden (click for only)" : "Only (click to reset)"}`}
+                    onClick={() => {
+                      setPrefixFilters((prev) => {
+                        const current = prev[prefix] ?? "show";
+                        const next: PrefixFilterMode =
+                          current === "show" ? "hide" : current === "hide" ? "only" : "show";
+                        const updated = { ...prev };
+                        if (next === "show") {
+                          delete updated[prefix];
+                        } else {
+                          updated[prefix] = next;
+                        }
+                        return updated;
+                      });
+                    }}
+                  >
+                    <span className="prefix-chip-icon">
+                      {mode === "show" ? "●" : mode === "hide" ? "○" : "◉"}
+                    </span>
+                    [{prefix}]
+                  </button>
+                );
+              })}
+              {Object.keys(prefixFilters).length > 0 && (
+                <button
+                  type="button"
+                  className="prefix-chip reset"
+                  title="Reset all filters"
+                  onClick={() => setPrefixFilters({})}
+                >
+                  Reset
+                </button>
+              )}
+            </>
+          )}
+          {accUsage && (
+            <span
+              className="usage-total"
+              title={`${accUsage.count} API call${accUsage.count !== 1 ? "s" : ""}, ${Math.round(accUsage.totalSeconds)}s, in=${accUsage.totalIn.toLocaleString()} out=${accUsage.totalOut.toLocaleString()}`}
             >
-              Reset
-            </button>
+              api: ${accUsage.totalCost.toFixed(4)}, {Math.round(accUsage.totalSeconds)}s, in={accUsage.totalIn.toLocaleString()} out={accUsage.totalOut.toLocaleString()}
+            </span>
           )}
         </div>
       )}

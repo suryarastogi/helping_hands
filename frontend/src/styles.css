@@ -414,6 +414,15 @@ pre.monitor-output {
   margin-right: 2px;
 }
 
+.usage-total {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-family: var(--mono);
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 button.prefix-chip {
   display: inline-flex;
   align-items: center;

@@ -937,6 +937,14 @@ _UI_HTML = """<!doctype html>
         font-weight: 600;
         margin-right: 2px;
       }
+      .usage-total {
+        margin-left: auto;
+        font-size: 0.7rem;
+        font-family: var(--mono);
+        color: var(--accent);
+        font-weight: 600;
+        white-space: nowrap;
+      }
       .prefix-chip {
         display: inline-flex;
         align-items: center;
@@ -1699,26 +1707,58 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         return result.join("\n");
       }
 
+      function accumulateUsage(rawUpdates) {
+        const apiCostRe = /api:\\s*\\$([0-9]+(?:\\.[0-9]+)?)/;
+        let totalCost = 0, totalSeconds = 0, totalIn = 0, totalOut = 0, count = 0;
+        for (const entry of rawUpdates) {
+          for (const line of String(entry).split(/\r?\n/)) {
+            const costMatch = line.match(apiCostRe);
+            if (!costMatch) continue;
+            count++;
+            totalCost += parseFloat(costMatch[1]);
+            const secMatch = line.match(/([0-9]+(?:\\.[0-9]+)?)s/);
+            if (secMatch) totalSeconds += parseFloat(secMatch[1]);
+            const inMatch = line.match(/in=([0-9]+)/);
+            if (inMatch) totalIn += parseInt(inMatch[1], 10);
+            const outMatch = line.match(/out=([0-9]+)/);
+            if (outMatch) totalOut += parseInt(outMatch[1], 10);
+          }
+        }
+        if (count === 0) return null;
+        return { totalCost, totalSeconds, totalIn, totalOut, count };
+      }
+
       function renderPrefixFilters() {
         const prefixes = extractPrefixes(updates);
-        if (prefixes.length === 0 || outputTab === "payload") {
+        const usage = accumulateUsage(updates);
+        if (prefixes.length === 0 && !usage) {
+          prefixFiltersEl.style.display = "none";
+          return;
+        }
+        if ((prefixes.length === 0 || outputTab === "payload") && !usage) {
           prefixFiltersEl.style.display = "none";
           return;
         }
         prefixFiltersEl.style.display = "flex";
-        let html = '<span class="prefix-filters-label">Filter:</span>';
-        for (const prefix of prefixes) {
-          const mode = prefixFilters[prefix] || "show";
-          const icons = { show: "\u25cf", hide: "\u25cb", only: "\u25c9" };
-          const titles = {
-            show: "Showing (click to hide)",
-            hide: "Hidden (click for only)",
-            only: "Only (click to reset)",
-          };
-          html += `<button type="button" class="prefix-chip ${mode}" data-prefix="${prefix}" title="[${prefix}] \u2014 ${titles[mode]}"><span class="prefix-chip-icon">${icons[mode]}</span>[${prefix}]</button>`;
+        let html = '';
+        if (prefixes.length > 0 && outputTab !== "payload") {
+          html += '<span class="prefix-filters-label">Filter:</span>';
+          for (const prefix of prefixes) {
+            const mode = prefixFilters[prefix] || "show";
+            const icons = { show: "\u25cf", hide: "\u25cb", only: "\u25c9" };
+            const titles = {
+              show: "Showing (click to hide)",
+              hide: "Hidden (click for only)",
+              only: "Only (click to reset)",
+            };
+            html += `<button type="button" class="prefix-chip ${mode}" data-prefix="${prefix}" title="[${prefix}] \u2014 ${titles[mode]}"><span class="prefix-chip-icon">${icons[mode]}</span>[${prefix}]</button>`;
+          }
+          if (Object.keys(prefixFilters).length > 0) {
+            html += '<button type="button" class="prefix-chip reset" data-prefix="__reset__" title="Reset all filters">Reset</button>';
+          }
         }
-        if (Object.keys(prefixFilters).length > 0) {
-          html += '<button type="button" class="prefix-chip reset" data-prefix="__reset__" title="Reset all filters">Reset</button>';
+        if (usage) {
+          html += `<span class="usage-total" title="${usage.count} API call${usage.count !== 1 ? 's' : ''}, ${Math.round(usage.totalSeconds)}s, in=${usage.totalIn.toLocaleString()} out=${usage.totalOut.toLocaleString()}">api: $${usage.totalCost.toFixed(4)}, ${Math.round(usage.totalSeconds)}s, in=${usage.totalIn.toLocaleString()} out=${usage.totalOut.toLocaleString()}</span>`;
         }
         prefixFiltersEl.innerHTML = html;
       }
