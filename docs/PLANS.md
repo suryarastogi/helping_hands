@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v172](exec-plans/completed/2026-03-15.md) --
+  Close 7 uncovered lines across 4 non-server modules: _clone_reference_repos (invalid spec, timeout, success), Config reference_repos type fallback, Hand PermissionError in reference repo rglob, _run_bash_script both-None validation; 4251 tests (18 new)
+
 - [2026-03-15 v171](exec-plans/completed/2026-03-15.md) --
   Add Attributes to Config dataclass (11 fields), add Google-style docstrings to 4 web.py and 8 registry.py private helpers; 4233 tests (36 new)
 
