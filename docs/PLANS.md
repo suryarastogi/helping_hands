@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v190](exec-plans/completed/2026/Week-12.md) --
+  Pre-compile regex constants: move `import re` to module-level in
+  `pr_description.py` (DRY 4 function-local copies), compile
+  `_COMMIT_TYPE_PREFIX_RE` to `re.compile()`, extract `_BRACKET_BANNER_RE`
+  and `_NUMBERED_LIST_RE` in `pr_description.py`, extract 4 HTML strip
+  regex constants in `web.py`; 4631 tests (28 new, 154 skipped)
+
 - [2026-03-15 v189](exec-plans/completed/2026/Week-12.md) --
   Input validation for `generate_pr_description()` (`base_branch`, `backend`
   empty/whitespace rejection) and `generate_commit_message()` (`backend`

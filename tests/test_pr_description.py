@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.hands.v1.hand.pr_description import (
+    _BRACKET_BANNER_RE,
     _COMMIT_MSG_DIFF_LIMIT,
     _COMMIT_MSG_MARKER,
     _COMMIT_MSG_TIMEOUT,
@@ -16,6 +17,7 @@ from helping_hands.lib.hands.v1.hand.pr_description import (
     _COMMIT_TYPE_KEYWORDS,
     _COMMIT_TYPE_PREFIX_RE,
     _MIN_COMMIT_MSG_LENGTH,
+    _NUMBERED_LIST_RE,
     _PR_BODY_MARKER,
     _PR_SUMMARY_TRUNCATION_LENGTH,
     _PR_TITLE_MARKER,
@@ -1730,28 +1732,27 @@ class TestParserMarkerConstants:
 class TestCommitTypePrefixRe:
     """Tests for the DRYed commit type prefix regex constant."""
 
-    def test_is_string(self) -> None:
-        assert isinstance(_COMMIT_TYPE_PREFIX_RE, str)
+    def test_is_compiled_pattern(self) -> None:
+        import re
+
+        assert isinstance(_COMMIT_TYPE_PREFIX_RE, re.Pattern)
+
+    def test_case_insensitive_flag(self) -> None:
+        import re
+
+        assert _COMMIT_TYPE_PREFIX_RE.flags & re.IGNORECASE
 
     def test_matches_feat_prefix(self) -> None:
-        import re
-
-        assert re.match(_COMMIT_TYPE_PREFIX_RE, "feat: add feature", re.IGNORECASE)
+        assert _COMMIT_TYPE_PREFIX_RE.match("feat: add feature")
 
     def test_matches_fix_prefix(self) -> None:
-        import re
-
-        assert re.match(_COMMIT_TYPE_PREFIX_RE, "fix: repair bug", re.IGNORECASE)
+        assert _COMMIT_TYPE_PREFIX_RE.match("fix: repair bug")
 
     def test_matches_prefix_with_scope(self) -> None:
-        import re
-
-        assert re.match(_COMMIT_TYPE_PREFIX_RE, "feat(auth): add login", re.IGNORECASE)
+        assert _COMMIT_TYPE_PREFIX_RE.match("feat(auth): add login")
 
     def test_no_match_plain_text(self) -> None:
-        import re
-
-        assert re.match(_COMMIT_TYPE_PREFIX_RE, "plain text", re.IGNORECASE) is None
+        assert _COMMIT_TYPE_PREFIX_RE.match("plain text") is None
 
     def test_is_trivial_uses_constant(self) -> None:
         """_is_trivial_message uses _COMMIT_TYPE_PREFIX_RE to strip prefix."""
@@ -1896,3 +1897,98 @@ class TestGenerateCommitMessageBackendValidation:
         """Valid backend passes validation (returns None because disabled)."""
         result = generate_commit_message(**self._common_kwargs(tmp_path))
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Pre-compiled boilerplate regex constants (v190)
+# ---------------------------------------------------------------------------
+
+
+class TestBracketBannerRe:
+    """Tests for the pre-compiled _BRACKET_BANNER_RE constant."""
+
+    def test_is_compiled_pattern(self) -> None:
+        import re
+
+        assert isinstance(_BRACKET_BANNER_RE, re.Pattern)
+
+    def test_matches_label_banner(self) -> None:
+        assert _BRACKET_BANNER_RE.match("[INFO] key=value")
+
+    def test_matches_nested_brackets(self) -> None:
+        assert _BRACKET_BANNER_RE.match("[some.label] data here")
+
+    def test_no_match_plain_text(self) -> None:
+        assert _BRACKET_BANNER_RE.match("plain text") is None
+
+    def test_no_match_bracket_no_space(self) -> None:
+        assert _BRACKET_BANNER_RE.match("[label]nospace") is None
+
+    def test_boilerplate_uses_constant(self) -> None:
+        """_is_boilerplate_line uses _BRACKET_BANNER_RE."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._is_boilerplate_line)
+        assert "_BRACKET_BANNER_RE" in src
+
+
+class TestNumberedListRe:
+    """Tests for the pre-compiled _NUMBERED_LIST_RE constant."""
+
+    def test_is_compiled_pattern(self) -> None:
+        import re
+
+        assert isinstance(_NUMBERED_LIST_RE, re.Pattern)
+
+    def test_matches_numbered_item(self) -> None:
+        assert _NUMBERED_LIST_RE.match("1. Read README.md")
+
+    def test_matches_two_digit(self) -> None:
+        assert _NUMBERED_LIST_RE.match("12. Step twelve")
+
+    def test_no_match_plain_text(self) -> None:
+        assert _NUMBERED_LIST_RE.match("plain text") is None
+
+    def test_no_match_no_space(self) -> None:
+        assert _NUMBERED_LIST_RE.match("1.nospace") is None
+
+    def test_boilerplate_uses_constant(self) -> None:
+        """_is_boilerplate_line uses _NUMBERED_LIST_RE."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._is_boilerplate_line)
+        assert "_NUMBERED_LIST_RE" in src
+
+
+class TestModuleLevelReImport:
+    """Verify re is imported at module level (v190 DRY improvement)."""
+
+    def test_re_in_module_globals(self) -> None:
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        assert hasattr(mod, "re")
+
+    def test_no_function_local_re_imports(self) -> None:
+        """No function should have a local ``import re`` statement."""
+        import ast
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        source = inspect.getsource(mod)
+        tree = ast.parse(source)
+        local_re_imports = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Import):
+                        for alias in child.names:
+                            if alias.name == "re":
+                                local_re_imports.append(node.name)
+        assert local_re_imports == [], (
+            f"Functions with local 'import re': {local_re_imports}"
+        )

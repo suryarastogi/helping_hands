@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,11 +57,18 @@ _PR_BODY_MARKER = "PR_BODY:"
 _COMMIT_MSG_MARKER = "COMMIT_MSG:"
 """Marker prefix for the commit message line in CLI output."""
 
-_COMMIT_TYPE_PREFIX_RE = (
+_COMMIT_TYPE_PREFIX_RE = re.compile(
     r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)"
-    r"(\([^)]*\))?\s*:\s*"
+    r"(\([^)]*\))?\s*:\s*",
+    re.IGNORECASE,
 )
-"""Regex pattern matching a conventional commit type prefix with optional scope."""
+"""Compiled regex matching a conventional commit type prefix with optional scope."""
+
+_BRACKET_BANNER_RE = re.compile(r"^\[.+?\]\s")
+"""Compiled regex matching ``[label] ...`` CLI banner lines."""
+
+_NUMBERED_LIST_RE = re.compile(r"^\d+\.\s")
+"""Compiled regex matching numbered list items like ``1. ...``."""
 
 
 def _truncate_text(text: str, *, limit: int) -> str:
@@ -103,8 +111,6 @@ def _infer_commit_type(text: str) -> str:
     (e.g. ``"ci"`` should not match ``"dependencies"``).
     Defaults to ``"feat"`` when no keywords match.
     """
-    import re
-
     lower = text.lower()
     for commit_type, keywords in _COMMIT_TYPE_KEYWORDS.items():
         for kw in keywords:
@@ -507,15 +513,8 @@ _MIN_COMMIT_MSG_LENGTH = 8
 
 def _is_trivial_message(msg: str) -> bool:
     """Return True if *msg* is too short or contains only punctuation/filler."""
-    import re
-
     # Strip conventional-commit prefix for length check.
-    body = re.sub(
-        _COMMIT_TYPE_PREFIX_RE,
-        "",
-        msg,
-        flags=re.IGNORECASE,
-    )
+    body = _COMMIT_TYPE_PREFIX_RE.sub("", msg)
     # Reject if the body (after prefix) is empty or very short.
     if len(body) < 3:
         return True
@@ -561,13 +560,11 @@ _BOILERPLATE_PREFIXES = (
 
 def _is_boilerplate_line(line: str) -> bool:
     """Return True if *line* is CLI banner or hand system boilerplate."""
-    import re
-
     # [label] key=value ... banners
-    if re.match(r"^\[.+?\]\s", line):
+    if _BRACKET_BANNER_RE.match(line):
         return True
     # Numbered list items (e.g. "1. Read README.md") and bullet items
-    if re.match(r"^\d+\.\s", line) or line.startswith("- "):
+    if _NUMBERED_LIST_RE.match(line) or line.startswith("- "):
         return True
     # Known hand-system prompt prefixes echoed by the model
     lower = line.lower()
@@ -582,8 +579,6 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     non-boilerplate line is preferred (it describes what was actually done).
     Otherwise the *prompt* (a clean human-written task description) is used.
     """
-    import re
-
     # When the summary contains raw CLI output (boilerplate lines), try to
     # extract the first meaningful non-boilerplate line — it describes what
     # was actually done and is more informative than the short prompt.
@@ -618,12 +613,7 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
 
     # Strip leading conventional-commit prefix if already present
     # (with optional parenthetical scope, e.g. "feat(auth): ...").
-    stripped = re.sub(
-        _COMMIT_TYPE_PREFIX_RE,
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
+    stripped = _COMMIT_TYPE_PREFIX_RE.sub("", text)
     text = stripped if stripped else text
 
     # Lowercase first char, strip trailing period.

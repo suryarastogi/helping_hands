@@ -78,6 +78,20 @@ _DEFAULT_USER_AGENT = (
 _DUCKDUCKGO_API_URL = "https://api.duckduckgo.com/"
 """Base URL for the DuckDuckGo Instant Answer API."""
 
+_SCRIPT_STYLE_RE = re.compile(
+    r"<(script|style|noscript)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL
+)
+"""Compiled regex matching ``<script>``, ``<style>``, and ``<noscript>`` blocks."""
+
+_HTML_TAG_RE = re.compile(r"<[^>]+>", re.DOTALL)
+"""Compiled regex matching any HTML tag."""
+
+_HORIZONTAL_WHITESPACE_RE = re.compile(r"[ \t\r\f\v]+")
+"""Compiled regex matching runs of horizontal whitespace."""
+
+_BLANK_LINES_RE = re.compile(r"\n\s*\n+")
+"""Compiled regex matching multiple consecutive blank lines."""
+
 
 def _require_http_url(url: str) -> str:
     """Validate and normalise a URL to an HTTP/HTTPS scheme.
@@ -128,15 +142,11 @@ def _strip_html(raw_html: str) -> str:
     Returns:
         Cleaned plain-text content with collapsed whitespace.
     """
-    text = re.sub(
-        r"(?is)<(script|style|noscript)\b[^>]*>.*?</\1>",
-        " ",
-        raw_html,
-    )
-    text = re.sub(r"(?s)<[^>]+>", " ", text)
+    text = _SCRIPT_STYLE_RE.sub(" ", raw_html)
+    text = _HTML_TAG_RE.sub(" ", text)
     text = unescape(text)
-    text = re.sub(r"[ \t\r\f\v]+", " ", text)
-    text = re.sub(r"\n\s*\n+", "\n\n", text.replace("\r", "\n"))
+    text = _HORIZONTAL_WHITESPACE_RE.sub(" ", text)
+    text = _BLANK_LINES_RE.sub("\n\n", text.replace("\r", "\n"))
     return text.strip()
 
 
