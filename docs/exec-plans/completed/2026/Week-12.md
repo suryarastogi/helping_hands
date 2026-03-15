@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY auth error tokens, iterative docstrings, frontend a11y (v193)
+
+**DRY refactoring:** Extracted shared `_AUTH_ERROR_TOKENS` tuple constant to `cli/base.py` with `__all__` export, replacing 4× duplicated auth detection string literals across `claude.py`, `codex.py`, `gemini.py`, and `opencode.py`. Each CLI hand now imports the shared constant from `cli/base.py`; backend-specific tokens (e.g. `"anthropic_api_key"` in `claude.py`, `"gemini_api_key"` in `gemini.py`, `"missing bearer or basic authentication"` in `codex.py`) remain local. Added `ClaudeCodeHand._EXTRA_AUTH_TOKENS` class-level constant for Claude-specific tokens.
+
+**Docstrings:** Added Google-style docstrings with Args/Returns/Yields sections to 4 remaining undocumented public methods: `BasicLangGraphHand.run()` and `stream()`, `BasicAtomicHand.run()` and `stream()` in `iterative.py`.
+
+**Frontend accessibility:** Added `aria-label="Repository path"` and `aria-label="Task prompt"` to the inline submission form inputs in `App.tsx`. Added `.catch()` handlers to 3 unhandled `Notification.requestPermission()` and `fetchServerConfig()` promise chains.
+
+**4667 backend tests passed (+37 new: 9 constant value/type, 4 cross-module identity, 4 auth detection, 3 codex/gemini auth, 7+8 LangGraph/Atomic docstring presence/sections), 155 skipped. 180 frontend tests passed (+2 new: aria-label accessibility).**
+
+---
+
 ## Mar 13 — Per-task GitHub token, dead code cleanup, constant docstrings (v147)
 
 Added `github_token: str = ""` field to `Config` dataclass with `HELPING_HANDS_GITHUB_TOKEN` env var support in `Config.from_env()`. Wired `config.github_token` to `GitHubClient(token=...)` in all 3 call sites (`base.py`, `e2e.py`, `cli/base.py`). Added `--github-token` CLI argument in `cli/main.py` that overrides the env var, passed through Config overrides for both E2E and backend code paths. Added `github_token` field to server `BuildRequest` and `ScheduleRequest` models in `app.py`, wired through Celery `build_feature()` task parameter, and propagated via `ScheduledTask` in `schedules.py`. Removed dead `if cmd else "cli"` fallbacks in `generate_pr_description()` (line 333) and `generate_commit_message()` (line 635) in `pr_description.py` — `cmd` cannot be None at those points due to early returns. Added docstrings for `_COMMIT_MSG_DIFF_LIMIT` and `_COMMIT_MSG_TIMEOUT` constants in `pr_description.py`. **3563 passing tests (+21 new: 7 Config, 4 Hand passthrough, 4 CLI arg, 2 cli_label, 6 constant tests), 80 skipped.**

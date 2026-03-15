@@ -6,8 +6,14 @@ Index of execution plans for helping_hands development.
 
 (none)
 
-
 ## Completed plans
+
+- [2026-03-15 v193](exec-plans/completed/2026/Week-12.md) --
+  DRY `_AUTH_ERROR_TOKENS` to `cli/base.py` (shared constant across claude/codex/gemini/opencode,
+  eliminates 4× duplicated auth detection strings), Google-style docstrings for 4 iterative.py
+  public methods (`BasicLangGraphHand.run`/`stream`, `BasicAtomicHand.run`/`stream`),
+  frontend accessibility (aria-labels on inline form inputs, `.catch()` on 3 unhandled
+  Notification/config promises); 4822 tests (37 new backend, 2 new frontend, 155 skipped)
 
 - [2026-03-15 v192](exec-plans/completed/2026/Week-12.md) --
   `_render_monitor_page` test coverage (15 tests: pending/terminal rendering,

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
+    _AUTH_ERROR_TOKENS,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -52,9 +53,12 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         """
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
         lower_tail = tail.lower()
-        if (
-            "401 unauthorized" in lower_tail
-            or "missing bearer or basic authentication" in lower_tail
+        if any(
+            token in lower_tail
+            for token in (
+                *_AUTH_ERROR_TOKENS,
+                "missing bearer or basic authentication",
+            )
         ):
             return (
                 "Codex CLI authentication failed (401 Unauthorized). "

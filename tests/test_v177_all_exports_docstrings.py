@@ -72,6 +72,7 @@ class TestCLIBaseModuleAll:
 
     def test_all_contains_constants(self) -> None:
         expected = [
+            "_AUTH_ERROR_TOKENS",
             "_PROCESS_TERMINATE_TIMEOUT_S",
             "_CI_POLL_INTERVAL_S",
             "_PR_DESCRIPTION_TIMEOUT_S",

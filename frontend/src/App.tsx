@@ -1067,7 +1067,7 @@ export default function App() {
     if (typeof Notification === "undefined") return;
     Notification.requestPermission().then((perm) => {
       setNotifPerm(perm);
-    });
+    }).catch(() => { /* permission request failed or was dismissed */ });
   }, []);
 
   const handleMonitorScroll = useCallback(() => {
@@ -1835,7 +1835,7 @@ export default function App() {
           use_native_cli_auth: config.native_auth_default,
         }));
       }
-    });
+    }).catch(() => { /* server config fetch is best-effort */ });
   }, []);
 
   useEffect(() => {
@@ -2389,7 +2389,7 @@ export default function App() {
       Notification.requestPermission().then((perm) => {
         setNotifPerm(perm);
         if (perm === "granted") testNotification();
-      });
+      }).catch(() => { /* permission request failed or was dismissed */ });
       return;
     }
     const body = "If you see this, OS notifications are working!";
@@ -2452,6 +2452,7 @@ export default function App() {
             onChange={(event) => updateField("repo_path", event.target.value)}
             required
             placeholder="owner/repo"
+            aria-label="Repository path"
           />
           <input
             className="prompt-input"
@@ -2459,6 +2460,7 @@ export default function App() {
             onChange={(event) => updateField("prompt", event.target.value)}
             required
             placeholder="Prompt"
+            aria-label="Task prompt"
           />
           <button type="submit" className="submit-inline">Run</button>
         </div>

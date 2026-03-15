@@ -818,6 +818,21 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the LangGraph agent loop synchronously.
+
+        Iterates up to ``max_iterations`` times, building an iteration
+        prompt, invoking the LangGraph agent, applying inline edits,
+        executing tool and read requests, and checking for early
+        satisfaction.
+
+        Args:
+            prompt: The user task prompt.
+
+        Returns:
+            A ``HandResponse`` with concatenated iteration transcripts and
+            metadata including status (``satisfied``, ``max_iterations``,
+            or ``interrupted``), iteration count, and PR metadata.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -884,6 +899,18 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream LangGraph agent output as an async iterator.
+
+        Yields progress lines for each iteration including auth info,
+        iteration markers, file-change notifications, tool results,
+        and PR status. Supports interruption between iterations.
+
+        Args:
+            prompt: The user task prompt.
+
+        Yields:
+            Progress strings suitable for incremental display.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -1037,6 +1064,21 @@ class BasicAtomicHand(_BasicIterativeHand):
         return str(response)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the Atomic Agents loop synchronously.
+
+        Iterates up to ``max_iterations`` times, building an iteration
+        prompt, running the Atomic agent, applying inline edits,
+        executing tool and read requests, and checking for early
+        satisfaction.
+
+        Args:
+            prompt: The user task prompt.
+
+        Returns:
+            A ``HandResponse`` with concatenated iteration transcripts and
+            metadata including status (``satisfied``, ``max_iterations``,
+            or ``interrupted``), iteration count, and PR metadata.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -1101,6 +1143,19 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream Atomic Agents output as an async iterator.
+
+        Yields progress lines for each iteration including auth info,
+        iteration markers, file-change notifications, tool results,
+        and PR status. Falls back to synchronous execution via
+        ``asyncio.to_thread`` when the agent raises ``AssertionError``.
+
+        Args:
+            prompt: The user task prompt.
+
+        Yields:
+            Progress strings suitable for incremental display.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()

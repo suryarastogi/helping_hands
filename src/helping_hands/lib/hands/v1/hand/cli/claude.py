@@ -8,6 +8,7 @@ import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
+    _AUTH_ERROR_TOKENS,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -280,19 +281,16 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             return ["claude", "-p", "--output-format", "text"]
         return None
 
+    _EXTRA_AUTH_TOKENS: tuple[str, ...] = ("anthropic_api_key",)
+    """Backend-specific auth error tokens checked alongside shared ones."""
+
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
         lower_tail = tail.lower()
         if any(
             token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "unauthorized",
-                "authentication failed",
-                "invalid api key",
-                "anthropic_api_key",
-            )
+            for token in (*_AUTH_ERROR_TOKENS, *ClaudeCodeHand._EXTRA_AUTH_TOKENS)
         ):
             return (
                 "Claude Code CLI authentication failed. "

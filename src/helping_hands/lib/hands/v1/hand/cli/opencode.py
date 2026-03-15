@@ -3,20 +3,12 @@
 from __future__ import annotations
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
+    _AUTH_ERROR_TOKENS,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
 
 __all__ = ["OpenCodeCLIHand"]
-
-_AUTH_ERROR_TOKENS: tuple[str, ...] = (
-    "401 unauthorized",
-    "authentication failed",
-    "invalid api key",
-    "api key not valid",
-    "unauthorized",
-)
-"""Lowercase substrings in CLI output that indicate an authentication failure."""
 
 
 class OpenCodeCLIHand(_TwoPhaseCLIHand):

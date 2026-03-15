@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "_APPLY_CHANGES_TRUNCATION_LIMIT",
+    "_AUTH_ERROR_TOKENS",
     "_CI_POLL_INTERVAL_S",
     "_CLI_TRUTHY_VALUES",
     "_FAILURE_OUTPUT_TAIL_LENGTH",
@@ -66,6 +67,19 @@ _FAILURE_OUTPUT_TAIL_LENGTH = 2000
 
 _CLI_TRUTHY_VALUES = _TRUTHY_VALUES | {"on"}
 """Superset of config ``_TRUTHY_VALUES`` with ``"on"`` for CLI env var parsing."""
+
+_AUTH_ERROR_TOKENS: tuple[str, ...] = (
+    "401 unauthorized",
+    "authentication failed",
+    "invalid api key",
+    "api key not valid",
+    "unauthorized",
+)
+"""Lowercase substrings in CLI output that indicate an authentication failure.
+
+Shared across all CLI hand implementations. Individual backends may check
+additional backend-specific tokens alongside these common ones.
+"""
 
 
 class _TwoPhaseCLIHand(Hand):

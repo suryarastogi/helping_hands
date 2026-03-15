@@ -91,6 +91,20 @@ describe("App component", () => {
     );
   });
 
+  it("repo input has aria-label for accessibility", () => {
+    render(<App />);
+    const repoInput = screen.getByLabelText("Repository path");
+    expect(repoInput).toBeInTheDocument();
+    expect(repoInput).toHaveAttribute("placeholder", "owner/repo");
+  });
+
+  it("prompt input has aria-label for accessibility", () => {
+    render(<App />);
+    const promptInput = screen.getByLabelText("Task prompt");
+    expect(promptInput).toBeInTheDocument();
+    expect(promptInput).toHaveAttribute("placeholder", "Prompt");
+  });
+
   it("renders the empty task list message", () => {
     render(<App />);
     expect(screen.getByText("No tasks submitted yet.")).toBeInTheDocument();

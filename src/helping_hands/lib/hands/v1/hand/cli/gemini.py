@@ -6,6 +6,7 @@ import re
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
+    _AUTH_ERROR_TOKENS,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -159,14 +160,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
         lower_tail = tail.lower()
         if any(
-            token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "gemini_api_key",
-                "invalid api key",
-                "api key not valid",
-                "authentication failed",
-            )
+            token in lower_tail for token in (*_AUTH_ERROR_TOKENS, "gemini_api_key")
         ):
             return (
                 "Gemini CLI authentication failed. "

@@ -116,29 +116,29 @@ class TestAuthErrorTokensConstant:
     """Verify _AUTH_ERROR_TOKENS module-level constant."""
 
     def test_constant_exists_and_is_tuple(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.opencode import _AUTH_ERROR_TOKENS
+        from helping_hands.lib.hands.v1.hand.cli.base import _AUTH_ERROR_TOKENS
 
         assert isinstance(_AUTH_ERROR_TOKENS, tuple)
 
     def test_constant_has_expected_count(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.opencode import _AUTH_ERROR_TOKENS
+        from helping_hands.lib.hands.v1.hand.cli.base import _AUTH_ERROR_TOKENS
 
         assert len(_AUTH_ERROR_TOKENS) == 5
 
     def test_all_tokens_are_lowercase_strings(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.opencode import _AUTH_ERROR_TOKENS
+        from helping_hands.lib.hands.v1.hand.cli.base import _AUTH_ERROR_TOKENS
 
         for token in _AUTH_ERROR_TOKENS:
             assert isinstance(token, str)
             assert token == token.lower(), f"Token {token!r} is not lowercase"
 
     def test_unauthorized_in_tokens(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.opencode import _AUTH_ERROR_TOKENS
+        from helping_hands.lib.hands.v1.hand.cli.base import _AUTH_ERROR_TOKENS
 
         assert "unauthorized" in _AUTH_ERROR_TOKENS
 
     def test_invalid_api_key_in_tokens(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.opencode import _AUTH_ERROR_TOKENS
+        from helping_hands.lib.hands.v1.hand.cli.base import _AUTH_ERROR_TOKENS
 
         assert "invalid api key" in _AUTH_ERROR_TOKENS
 
