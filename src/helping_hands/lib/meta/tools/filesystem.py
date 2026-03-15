@@ -48,6 +48,11 @@ def resolve_repo_target(repo_root: Path, rel_path: str) -> Path:
     return target
 
 
+def _display_path(target: Path, root: Path) -> str:
+    """Return the repo-relative POSIX display path for *target*."""
+    return target.relative_to(root).as_posix()
+
+
 _BYTES_PER_MB = 1024 * 1024
 """Conversion factor from megabytes to bytes."""
 
@@ -77,7 +82,7 @@ def read_text_file(
 
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
-    display = target.relative_to(root).as_posix()
+    display = _display_path(target, root)
 
     if not target.exists():
         raise FileNotFoundError(f"file not found: {display}")
@@ -100,8 +105,7 @@ def read_text_file(
         text = text[:max_chars]
         truncated = True
 
-    display_path = target.relative_to(root).as_posix()
-    return text, truncated, display_path
+    return text, truncated, _display_path(target, root)
 
 
 def write_text_file(repo_root: Path, rel_path: str, content: str) -> str:
@@ -112,9 +116,10 @@ def write_text_file(repo_root: Path, rel_path: str, content: str) -> str:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
     except OSError as exc:
-        display = target.relative_to(root).as_posix()
-        raise RuntimeError(f"cannot write file {display}: {exc}") from exc
-    return target.relative_to(root).as_posix()
+        raise RuntimeError(
+            f"cannot write file {_display_path(target, root)}: {exc}"
+        ) from exc
+    return _display_path(target, root)
 
 
 def mkdir_path(repo_root: Path, rel_path: str) -> str:
@@ -124,9 +129,10 @@ def mkdir_path(repo_root: Path, rel_path: str) -> str:
     try:
         target.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        display = target.relative_to(root).as_posix()
-        raise RuntimeError(f"cannot create directory {display}: {exc}") from exc
-    return target.relative_to(root).as_posix()
+        raise RuntimeError(
+            f"cannot create directory {_display_path(target, root)}: {exc}"
+        ) from exc
+    return _display_path(target, root)
 
 
 def path_exists(repo_root: Path, rel_path: str) -> bool:

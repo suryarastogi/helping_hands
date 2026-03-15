@@ -37,7 +37,7 @@ class OllamaProvider(AIProvider):
             from openai import OpenAI
         except ImportError as exc:
             raise RuntimeError(
-                "OpenAI SDK is not installed. Install with: uv add openai"
+                f"OpenAI SDK is not installed. Install with: {self.install_hint}"
             ) from exc
 
         api_key = os.environ.get(self.api_key_env_var, "ollama").strip() or "ollama"

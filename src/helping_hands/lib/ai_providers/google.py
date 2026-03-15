@@ -35,7 +35,7 @@ class GoogleProvider(AIProvider):
             from google import genai
         except ImportError as exc:
             raise RuntimeError(
-                "Google GenAI SDK is not installed. Install with: uv add google-genai"
+                f"Google GenAI SDK is not installed. Install with: {self.install_hint}"
             ) from exc
 
         api_key = os.environ.get(self.api_key_env_var, "").strip()

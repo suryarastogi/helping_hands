@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v205](exec-plans/completed/2026/v205-dry-script-validation-display-path-install-hint-timeouts.md) --
+  DRY `_validate_script_path()` in command.py (shared helper replacing duplicated
+  5-line validation in `run_python_script`/`run_bash_script`), DRY `_display_path()`
+  in filesystem.py (replacing 4× inline `target.relative_to(root).as_posix()`),
+  DRY `self.install_hint` in 5 AI provider `_build_inner()` error messages, DRY
+  `KEYCHAIN_TIMEOUT_S`/`USAGE_API_TIMEOUT_S` to `server/constants.py`;
+  27 tests (23 new, 4 skipped without fastapi/celery)
+
 - [2026-03-15 v204](exec-plans/completed/2026/Week-12.md) --
   Fix form default mismatch (`"codexcli"` → `_DEFAULT_BACKEND`), DRY inline
   truthy set → `_TRUTHY_VALUES`, move inline `import time` to top-level, DRY

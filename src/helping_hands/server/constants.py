@@ -16,6 +16,7 @@ __all__ = [
     "KEYCHAIN_ACCESS_TOKEN_KEY",
     "KEYCHAIN_OAUTH_KEY",
     "KEYCHAIN_SERVICE_NAME",
+    "KEYCHAIN_TIMEOUT_S",
     "MAX_CI_WAIT_MINUTES",
     "MAX_GITHUB_TOKEN_LENGTH",
     "MAX_ITERATIONS_UPPER_BOUND",
@@ -24,6 +25,7 @@ __all__ = [
     "MAX_REFERENCE_REPOS",
     "MAX_REPO_PATH_LENGTH",
     "MIN_CI_WAIT_MINUTES",
+    "USAGE_API_TIMEOUT_S",
     "USAGE_CACHE_TTL_S",
     "USAGE_USER_AGENT",
 ]
@@ -39,6 +41,9 @@ ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
 USAGE_USER_AGENT = "claude-code/2.0.32"
 """User-Agent string sent with Anthropic usage API requests."""
 
+USAGE_API_TIMEOUT_S = 10
+"""Timeout in seconds for Anthropic usage API HTTP requests."""
+
 # --- macOS Keychain --------------------------------------------------------
 
 KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
@@ -49,6 +54,9 @@ KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
 
 KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
 """Nested JSON key for the OAuth access token."""
+
+KEYCHAIN_TIMEOUT_S = 5
+"""Timeout in seconds for macOS Keychain subprocess calls."""
 
 # --- Token heuristics ------------------------------------------------------
 

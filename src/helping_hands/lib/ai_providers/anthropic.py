@@ -38,7 +38,7 @@ class AnthropicProvider(AIProvider):
             from anthropic import Anthropic
         except ImportError as exc:
             raise RuntimeError(
-                "Anthropic SDK is not installed. Install with: uv add anthropic"
+                f"Anthropic SDK is not installed. Install with: {self.install_hint}"
             ) from exc
 
         api_key = os.environ.get(self.api_key_env_var, "").strip()

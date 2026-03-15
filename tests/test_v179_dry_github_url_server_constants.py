@@ -262,6 +262,8 @@ class TestServerConstants:
             "MAX_REFERENCE_REPOS",
             "MAX_REPO_PATH_LENGTH",
             "MIN_CI_WAIT_MINUTES",
+            "KEYCHAIN_TIMEOUT_S",
+            "USAGE_API_TIMEOUT_S",
             "USAGE_CACHE_TTL_S",
             "USAGE_USER_AGENT",
         }

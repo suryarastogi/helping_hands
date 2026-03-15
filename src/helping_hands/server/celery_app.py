@@ -52,6 +52,12 @@ from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
 )
 from helping_hands.server.constants import (
+    KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
+)
+from helping_hands.server.constants import (
+    USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
+)
+from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
 
@@ -100,11 +106,6 @@ celery_app.conf.update(
 
 _USAGE_LOG_INTERVAL_S = 3600.0
 """Interval in seconds between automatic Claude usage log entries."""
-
-_USAGE_API_TIMEOUT_S = 10
-
-_KEYCHAIN_TIMEOUT_S = 5
-"""Timeout in seconds for macOS Keychain subprocess calls."""
 
 _DB_CONNECT_TIMEOUT_S = 5
 """Timeout in seconds for PostgreSQL connection attempts."""

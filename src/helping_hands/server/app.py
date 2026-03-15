@@ -56,6 +56,9 @@ from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
 )
 from helping_hands.server.constants import (
+    KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
+)
+from helping_hands.server.constants import (
     MAX_CI_WAIT_MINUTES as _MAX_CI_WAIT_MINUTES,
 )
 from helping_hands.server.constants import (
@@ -78,6 +81,9 @@ from helping_hands.server.constants import (
 )
 from helping_hands.server.constants import (
     MIN_CI_WAIT_MINUTES as _MIN_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
 )
 from helping_hands.server.constants import (
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
@@ -119,9 +125,7 @@ _schedule_manager: ScheduleManager | None = None
 # Maximum number of tool or skill entries in a single request.
 _MAX_TOOL_SKILL_ITEMS = 50
 
-# --- Health-check & API timeout constants (seconds) ---
-_KEYCHAIN_TIMEOUT_S = 5
-_USAGE_API_TIMEOUT_S = 10
+# --- Health-check timeout constants (seconds) ---
 _REDIS_HEALTH_TIMEOUT_S = 2
 _DB_HEALTH_TIMEOUT_S = 3
 _CELERY_HEALTH_TIMEOUT_S = 2.0

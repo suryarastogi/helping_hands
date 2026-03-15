@@ -224,6 +224,30 @@ def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandRes
     )
 
 
+def _validate_script_path(root: Path, script_path: str) -> Path:
+    """Resolve and validate a repo-relative script path.
+
+    Args:
+        root: Resolved repository root directory.
+        script_path: Repo-relative path to the script file.
+
+    Returns:
+        The resolved absolute :class:`~pathlib.Path` to the script.
+
+    Raises:
+        FileNotFoundError: If the resolved path does not exist.
+        IsADirectoryError: If the resolved path is a directory.
+    """
+    script = resolve_repo_target(root, script_path)
+    if not script.exists():
+        msg = f"script not found: {script_path}"
+        raise FileNotFoundError(msg)
+    if script.is_dir():
+        msg = f"script path is a directory: {script_path}"
+        raise IsADirectoryError(msg)
+    return script
+
+
 def run_python_code(
     repo_root: Path,
     *,
@@ -258,13 +282,7 @@ def run_python_script(
 ) -> CommandResult:
     """Execute a repo-relative Python script with a version-constrained runner."""
     root = repo_root.resolve()
-    script = resolve_repo_target(root, script_path)
-    if not script.exists():
-        msg = f"script not found: {script_path}"
-        raise FileNotFoundError(msg)
-    if script.is_dir():
-        msg = f"script path is a directory: {script_path}"
-        raise IsADirectoryError(msg)
+    script = _validate_script_path(root, script_path)
 
     working_dir = _resolve_cwd(root, cwd)
     command = [
@@ -298,13 +316,7 @@ def run_bash_script(
     if has_script_path:
         if script_path is None:  # pragma: no cover - guarded by has_script_path
             raise RuntimeError("script_path is unexpectedly None")
-        script = resolve_repo_target(root, script_path)
-        if not script.exists():
-            msg = f"script not found: {script_path}"
-            raise FileNotFoundError(msg)
-        if script.is_dir():
-            msg = f"script path is a directory: {script_path}"
-            raise IsADirectoryError(msg)
+        script = _validate_script_path(root, script_path)
         command = ["bash", str(script), *normalized_args]
         return _run_command(command, cwd=working_dir, timeout_s=timeout_s)
 
