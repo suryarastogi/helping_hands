@@ -12,7 +12,7 @@ Tools:
   - write_file: Write a UTF-8 file in a repository.
   - mkdir: Create a directory in a repository.
   - path_exists: Check whether a repo-relative path exists.
-  - run_python_code: Execute inline Python code (default Python 3.13).
+  - run_python_code: Execute inline Python code (default ``_DEFAULT_PYTHON_VERSION``).
   - run_python_script: Execute a repo-relative Python script.
   - run_bash_script: Execute a repo-relative or inline bash script.
   - web_search: Search the web (DuckDuckGo endpoint wrapper).
@@ -39,6 +39,7 @@ from helping_hands.lib.meta.tools import command as exec_tools
 from helping_hands.lib.meta.tools import filesystem as fs_tools
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.meta.tools.command import _DEFAULT_PYTHON_VERSION
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.server.task_result import normalize_task_result
 
@@ -291,7 +292,7 @@ def path_exists(repo_path: str, path: str) -> bool:
 def run_python_code(
     repo_path: str,
     code: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | None = None,
     timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
@@ -313,7 +314,7 @@ def run_python_code(
 def run_python_script(
     repo_path: str,
     script_path: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | None = None,
     timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,

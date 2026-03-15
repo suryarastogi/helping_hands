@@ -5,7 +5,6 @@ from __future__ import annotations
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
     _DOCKER_ENV_HINT_TEMPLATE,
-    _DOCKER_REBUILD_HINT_TEMPLATE,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -68,21 +67,6 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         return self._build_opencode_failure_message(
             return_code=return_code,
             output=output,
-        )
-
-    def _command_not_found_message(self, command: str) -> str:
-        """Build a user-facing error message when the OpenCode binary is missing.
-
-        Args:
-            command: The command string that could not be found.
-
-        Returns:
-            Descriptive error message with remediation hints.
-        """
-        return (
-            f"OpenCode CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_OPENCODE_CLI_CMD to a valid command. "
-            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format('opencode')}"
         )
 
     async def _invoke_opencode(

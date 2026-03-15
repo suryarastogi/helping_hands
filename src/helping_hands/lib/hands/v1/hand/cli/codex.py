@@ -8,7 +8,6 @@ from pathlib import Path
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
     _DOCKER_ENV_HINT_TEMPLATE,
-    _DOCKER_REBUILD_HINT_TEMPLATE,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -176,21 +175,6 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return self._build_codex_failure_message(
             return_code=return_code,
             output=output,
-        )
-
-    def _command_not_found_message(self, command: str) -> str:
-        """Return guidance when the Codex CLI binary is missing.
-
-        Args:
-            command: The command name that was not found.
-
-        Returns:
-            User-facing error message with remediation steps.
-        """
-        return (
-            f"Codex CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_CODEX_CLI_CMD to a valid command. "
-            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format('codex')}"
         )
 
     async def _invoke_codex(

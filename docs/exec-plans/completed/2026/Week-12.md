@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY Python version default + command-not-found messages (v202)
+
+**DRY `_DEFAULT_PYTHON_VERSION` in MCP server:** Replaced 2× hardcoded `"3.13"` default values in `mcp_server.py` (`run_python_code`, `run_python_script`) with import of `_DEFAULT_PYTHON_VERSION` from `command.py`, establishing single source of truth.
+
+**DRY `_command_not_found_message`:** Enhanced the base class `_TwoPhaseCLIHand._command_not_found_message()` in `cli/base.py` to include the Docker rebuild hint (`_DOCKER_REBUILD_HINT_TEMPLATE.format(command)`) using the `command` parameter. Removed 5 redundant overrides from `claude.py`, `codex.py`, `gemini.py`, `goose.py`, and `opencode.py`. Removed 4 now-unused `_DOCKER_REBUILD_HINT_TEMPLATE` imports from subclass files. `docker_sandbox_claude.py` retains its own override (different sandbox-specific message).
+
+**39 new tests passed (5 MCP server constant import/identity/value, 7 base message content/source, 10 subclass no-override/inheritance, 15 subclass message content, 2 Docker sandbox override verification). Updated 4 existing v201 tests to reflect base-class consolidation.**
+
+---
+
 ## Mar 15 — DRY Docker hint message templates (v201)
 
 **DRY Docker env hint:** Extracted `_DOCKER_ENV_HINT_TEMPLATE` string template in `cli/base.py` for the auth failure Docker remediation message (`"If running app mode in Docker, set {} in .env and recreate server/worker containers."`). Replaced 4× duplicated strings across `claude.py`, `codex.py`, `gemini.py`, and `opencode.py` auth failure handlers.

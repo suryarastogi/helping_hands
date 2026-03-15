@@ -374,12 +374,6 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             output=output,
         )
 
-    def _command_not_found_message(self, command: str) -> str:
-        return (
-            f"Claude Code CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_CLAUDE_CLI_CMD to a valid command."
-        )
-
     def _no_change_error_after_retries(
         self,
         *,

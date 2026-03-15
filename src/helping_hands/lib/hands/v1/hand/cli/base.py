@@ -602,6 +602,9 @@ class _TwoPhaseCLIHand(Hand):
     def _command_not_found_message(self, command: str) -> str:
         """Build the error message shown when the CLI binary is not on PATH.
 
+        Includes a Docker rebuild hint using ``_DOCKER_REBUILD_HINT_TEMPLATE``
+        so that Docker app-mode users get actionable remediation advice.
+
         Args:
             command: The binary name that was not found.
 
@@ -610,7 +613,8 @@ class _TwoPhaseCLIHand(Hand):
         """
         return (
             f"{self._CLI_DISPLAY_NAME} command not found: {command!r}. "
-            f"Set {self._COMMAND_ENV_VAR} to a valid command."
+            f"Set {self._COMMAND_ENV_VAR} to a valid command. "
+            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format(command)}"
         )
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:

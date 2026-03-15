@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v202](exec-plans/completed/2026/Week-12.md) --
+  DRY `_DEFAULT_PYTHON_VERSION` in `mcp_server.py` (2× hardcoded `"3.13"` →
+  import from `command.py`), DRY `_command_not_found_message` (enhance base
+  class to include Docker rebuild hint via `command` parameter, remove 5
+  redundant overrides from claude/codex/gemini/goose/opencode);
+  39 tests (all new)
+
 - [2026-03-15 v201](exec-plans/completed/2026/Week-12.md) --
   DRY Docker hint message templates: `_DOCKER_ENV_HINT_TEMPLATE` (4× auth
   failure messages in claude/codex/gemini/opencode) and

@@ -6,7 +6,6 @@ import shutil
 from urllib.parse import urlparse
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _DOCKER_REBUILD_HINT_TEMPLATE,
     _TwoPhaseCLIHand,
 )
 
@@ -137,21 +136,6 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         if self._has_goose_builtin_flag(cmd):
             return cmd
         return [*cmd[:2], "--with-builtin", "developer", *cmd[2:]]
-
-    def _command_not_found_message(self, command: str) -> str:
-        """Build a user-facing error message when the Goose binary is missing.
-
-        Args:
-            command: The command string that could not be found.
-
-        Returns:
-            Descriptive error message with remediation hints.
-        """
-        return (
-            f"Goose CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_GOOSE_CLI_CMD to a valid command. "
-            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format('goose')}"
-        )
 
     @staticmethod
     def _normalize_goose_provider(provider: str) -> str:
