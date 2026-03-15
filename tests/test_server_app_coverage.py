@@ -2,7 +2,9 @@
 
 Covers: _validate_path_param, _redact_token, _build_form_redirect_query,
 _build_task_status, _cancel_task, _enqueue_build_task,
-_fetch_flower_current_tasks, _resolve_worker_capacity.
+_fetch_flower_current_tasks, _resolve_worker_capacity,
+_render_monitor_page, _extract_task_kwargs branches,
+_iter_worker_task_entries non-string keys.
 """
 
 from __future__ import annotations
@@ -652,3 +654,252 @@ class TestResolveWorkerCapacity:
         # Should not raise; falls back gracefully
         resp = _resolve_worker_capacity()
         assert isinstance(resp, WorkerCapacityResponse)
+
+
+# --- _render_monitor_page ---
+
+
+class TestRenderMonitorPage:
+    """Tests for _render_monitor_page HTML generation."""
+
+    def test_basic_pending_task(self) -> None:
+        """Renders page with task_id, status, and auto-refresh for non-terminal."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(task_id="abc-123", status="PENDING", result=None)
+        html = _render_monitor_page(ts)
+        assert "abc-123" in html
+        assert "PENDING" in html
+        assert '<meta http-equiv="refresh"' in html
+        assert "No updates yet." in html
+        # Cancel button should appear for non-terminal
+        assert "Cancel task" in html
+
+    def test_terminal_status_no_refresh(self) -> None:
+        """Terminal status omits auto-refresh and cancel button."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(task_id="task-done", status="SUCCESS", result=None)
+        html = _render_monitor_page(ts)
+        assert '<meta http-equiv="refresh"' not in html
+        assert "Cancel task" not in html
+        assert "off" in html  # polling label
+
+    def test_prompt_extracted_from_result(self) -> None:
+        """Prompt is extracted and displayed when present in result dict."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="t1",
+            status="STARTED",
+            result={"prompt": "Fix the bug"},
+        )
+        html = _render_monitor_page(ts)
+        assert "Fix the bug" in html
+        assert "Prompt" in html
+
+    def test_prompt_not_shown_when_empty(self) -> None:
+        """Empty or whitespace-only prompt is not displayed."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="t2",
+            status="STARTED",
+            result={"prompt": "   "},
+        )
+        html = _render_monitor_page(ts)
+        # Prompt meta-item should not appear
+        assert 'meta-label">Prompt' not in html
+
+    def test_prompt_not_shown_when_non_string(self) -> None:
+        """Non-string prompt value is ignored."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="t3",
+            status="STARTED",
+            result={"prompt": 42},
+        )
+        html = _render_monitor_page(ts)
+        assert 'meta-label">Prompt' not in html
+
+    def test_updates_rendered(self) -> None:
+        """Updates list items are rendered in the updates section."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="t4",
+            status="STARTED",
+            result={"updates": ["Step 1 done", "Step 2 in progress"]},
+        )
+        html = _render_monitor_page(ts)
+        assert "Step 1 done" in html
+        assert "Step 2 in progress" in html
+        assert "No updates yet." not in html
+
+    def test_updates_not_list_shows_default(self) -> None:
+        """Non-list updates value falls back to default message."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="t5",
+            status="STARTED",
+            result={"updates": "not a list"},
+        )
+        html = _render_monitor_page(ts)
+        assert "No updates yet." in html
+
+    def test_result_none_shows_defaults(self) -> None:
+        """None result shows no prompt and default updates."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(task_id="t6", status="PENDING", result=None)
+        html = _render_monitor_page(ts)
+        assert "No updates yet." in html
+        assert 'meta-label">Prompt' not in html
+
+    def test_html_escaping(self) -> None:
+        """Special characters in prompt and updates are HTML-escaped."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="<script>alert(1)</script>",
+            status="STARTED",
+            result={
+                "prompt": "<b>bold</b>",
+                "updates": ["<img src=x>"],
+            },
+        )
+        html = _render_monitor_page(ts)
+        assert "<script>alert(1)</script>" not in html
+        assert "&lt;script&gt;" in html
+        assert "&lt;b&gt;bold&lt;/b&gt;" in html
+        assert "&lt;img src=x&gt;" in html
+
+    def test_failure_status_no_refresh(self) -> None:
+        """FAILURE is terminal — no refresh, no cancel."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(task_id="t7", status="FAILURE", result=None)
+        html = _render_monitor_page(ts)
+        assert '<meta http-equiv="refresh"' not in html
+        assert "Cancel task" not in html
+
+    def test_revoked_status_no_refresh(self) -> None:
+        """REVOKED is terminal — no refresh, no cancel."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(task_id="t8", status="REVOKED", result=None)
+        html = _render_monitor_page(ts)
+        assert '<meta http-equiv="refresh"' not in html
+        assert "Cancel task" not in html
+
+    def test_prompt_stripped(self) -> None:
+        """Prompt with surrounding whitespace is stripped before display."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="t9",
+            status="STARTED",
+            result={"prompt": "  hello world  "},
+        )
+        html = _render_monitor_page(ts)
+        assert "hello world" in html
+
+    def test_updates_mixed_types_coerced(self) -> None:
+        """Non-string items in updates list are coerced via str()."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(
+            task_id="t10",
+            status="STARTED",
+            result={"updates": ["line1", 42, None]},
+        )
+        html = _render_monitor_page(ts)
+        assert "line1" in html
+        assert "42" in html
+        assert "None" in html
+
+    def test_cancel_button_has_task_id(self) -> None:
+        """Cancel button JS references the correct task_id."""
+        from helping_hands.server.app import TaskStatus, _render_monitor_page
+
+        ts = TaskStatus(task_id="my-task-id", status="STARTED", result=None)
+        html = _render_monitor_page(ts)
+        assert "cancelTask('my-task-id')" in html
+
+
+# --- _extract_task_kwargs branch coverage ---
+
+
+class TestExtractTaskKwargsRequestBranches:
+    """Cover the request.kwargs string-parsing path in _extract_task_kwargs."""
+
+    def test_request_kwargs_invalid_string_falls_through(self) -> None:
+        """When request.kwargs is an unparseable string, returns {}."""
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": "not-valid-json"}}
+        assert _extract_task_kwargs(entry) == {}
+
+    def test_request_kwargs_empty_string_falls_through(self) -> None:
+        """When request.kwargs is empty string, returns {}."""
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": ""}}
+        assert _extract_task_kwargs(entry) == {}
+
+    def test_kwargs_string_takes_priority_over_request(self) -> None:
+        """Top-level kwargs string is tried before request.kwargs."""
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {
+            "kwargs": '{"repo": "top"}',
+            "request": {"kwargs": {"repo": "nested"}},
+        }
+        assert _extract_task_kwargs(entry) == {"repo": "top"}
+
+    def test_kwargs_invalid_string_falls_to_request_dict(self) -> None:
+        """Invalid top-level kwargs string falls through to request dict."""
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {
+            "kwargs": "bad",
+            "request": {"kwargs": {"repo": "nested"}},
+        }
+        assert _extract_task_kwargs(entry) == {"repo": "nested"}
+
+    def test_request_kwargs_python_literal(self) -> None:
+        """Request kwargs as Python dict literal string is parsed."""
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": "{'backend': 'codexcli'}"}}
+        assert _extract_task_kwargs(entry) == {"backend": "codexcli"}
+
+
+# --- _iter_worker_task_entries non-string key ---
+
+
+class TestIterWorkerTaskEntriesNonStringKey:
+    """Cover the non-string worker key filter in _iter_worker_task_entries."""
+
+    def test_skips_non_string_worker_keys(self) -> None:
+        """Non-string dict keys (int, None) are filtered out."""
+        from helping_hands.server.app import _iter_worker_task_entries
+
+        payload = {
+            42: [{"id": "t1"}],
+            None: [{"id": "t2"}],
+            "valid-worker": [{"id": "t3"}],
+        }
+        entries = _iter_worker_task_entries(payload)
+        assert len(entries) == 1
+        assert entries[0][0] == "valid-worker"
+
+    def test_all_non_string_keys_returns_empty(self) -> None:
+        """Dict with only non-string keys returns empty list."""
+        from helping_hands.server.app import _iter_worker_task_entries
+
+        payload = {1: [{"id": "t1"}], 2: [{"id": "t2"}]}
+        entries = _iter_worker_task_entries(payload)
+        assert entries == []

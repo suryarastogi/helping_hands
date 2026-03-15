@@ -9,6 +9,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v192](exec-plans/completed/2026/Week-12.md) --
+  `_render_monitor_page` test coverage (15 tests: pending/terminal rendering,
+  prompt extraction, updates list, HTML escaping, cancel button), `_extract_task_kwargs`
+  request.kwargs branch coverage (5 tests), `_iter_worker_task_entries` non-string
+  key filtering (2 tests); server/app.py coverage 88% → 89%, branch partials 17 → 13;
+  5358 tests (21 new, 2 skipped)
+
 - [2026-03-15 v191](exec-plans/completed/2026/Week-12.md) --
   Server app.py test coverage: 41 new tests for 8 previously untested functions
   (`_validate_path_param`, `_redact_token`, `_build_form_redirect_query`,
