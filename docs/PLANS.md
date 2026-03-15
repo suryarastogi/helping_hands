@@ -8,6 +8,15 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v210](exec-plans/completed/2026/v210-hook-markers-validation-github-url-tests.md) —
+  Extract `_GIT_HOOK_FAILURE_MARKERS` constant in base.py, dedicated unit tests
+  for `validation.py` (21 tests) and `github_url.py` (33 tests), versioned
+  contract tests (16 tests); 5143 passed, 216 skipped
+
+- [2026-03-15 v209](exec-plans/completed/2026/v209-ci-enums-boilerplate-stream-event.md) —
+  `CIConclusion(StrEnum)`, `CIFixStatus(StrEnum)`, pre-lowercase boilerplate
+  prefixes, `_LANGCHAIN_STREAM_EVENT` constant; 36 tests (5073 passed, 216 skipped)
+
 - [2026-03-15 v208](exec-plans/completed/2026/v208-pr-status-enum-validation-cleanup.md) —
   `PRStatus(StrEnum)` with 12 members replacing 5 string constants + 7 ad-hoc
   strings, `_build_generic_pr_body` validation standardized to

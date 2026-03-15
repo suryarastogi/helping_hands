@@ -1,6 +1,20 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, and CI status enums.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, and test coverage.
+
+---
+
+## Mar 15 — Hook markers constant, validation + github_url test coverage (v210)
+
+**`_GIT_HOOK_FAILURE_MARKERS` constant:** Extracted inline `markers` tuple from `_is_git_hook_failure()` in `base.py` to a module-level constant with docstring.
+
+**`tests/test_validation.py`:** 21 dedicated unit tests for `require_non_empty_string` and `require_positive_int` — valid returns, empty/whitespace rejection, error message formatting, unicode, multiline, zero/negative values.
+
+**`tests/test_github_url.py`:** 33 dedicated unit tests for `validate_repo_spec`, `build_clone_url`, `redact_credentials`, `noninteractive_env`, and module constants.
+
+**`tests/test_v210_hook_markers_validation_github_url.py`:** 16 versioned tests verifying constant extraction, module contracts, and API surfaces.
+
+**70 new tests. 5143 passed, 216 skipped.**
 
 ---
 

@@ -87,6 +87,19 @@ _PRECOMMIT_UV_MISSING_MSG = (
 _DEFAULT_GIT_ERROR_MSG = "unknown git error"
 """Fallback message when a git subprocess returns non-zero with empty stderr."""
 
+_GIT_HOOK_FAILURE_MARKERS = (
+    "husky -",
+    "husky:",
+    "lint-staged",
+    "pre-commit hook",
+    "hook failed",
+    "eslint found",
+    "eslint:",
+    "prettier",
+)
+"""Lowercased substrings that indicate a git commit failure was caused by a
+pre-commit hook (Husky, lint-staged, ESLint, Prettier, etc.)."""
+
 _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 """Fallback commit message when ``generate_commit_message`` returns empty."""
 
@@ -550,17 +563,7 @@ class Hand(abc.ABC):
     def _is_git_hook_failure(error_msg: str) -> bool:
         """Return True if a git error looks like a pre-commit hook failure."""
         lowered = error_msg.lower()
-        markers = (
-            "husky -",
-            "husky:",
-            "lint-staged",
-            "pre-commit hook",
-            "hook failed",
-            "eslint found",
-            "eslint:",
-            "prettier",
-        )
-        return any(marker in lowered for marker in markers)
+        return any(marker in lowered for marker in _GIT_HOOK_FAILURE_MARKERS)
 
     def _try_fix_git_hook_errors(
         self,
