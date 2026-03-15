@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY auth failure detection + text truncation helper (v203)
+
+**DRY `_detect_auth_failure` helper:** Extracted `_detect_auth_failure(output, extra_tokens=())` → `(bool, str)` in `cli/base.py`, encapsulating the 3-line tail-extraction + lowercase + token-check pattern previously duplicated in `claude.py`, `codex.py`, `gemini.py`, and `opencode.py`. Removed direct `_AUTH_ERROR_TOKENS` and `_FAILURE_OUTPUT_TAIL_LENGTH` imports from all 4 subclass files.
+
+**DRY `_truncate_with_ellipsis` helper:** Extracted `_truncate_with_ellipsis(text, limit)` in `cli/base.py`, replacing 4× inline `text[:limit - 3] + "..."` patterns in `claude.py`'s `_StreamJsonEmitter`.
+
+**50 new tests, 4873 passed, 196 skipped. Updated 3 existing test files to reflect the new encapsulation.**
+
+---
+
 ## Mar 15 — DRY Python version default + command-not-found messages (v202)
 
 **DRY `_DEFAULT_PYTHON_VERSION` in MCP server:** Replaced 2× hardcoded `"3.13"` default values in `mcp_server.py` (`run_python_code`, `run_python_script`) with import of `_DEFAULT_PYTHON_VERSION` from `command.py`, establishing single source of truth.

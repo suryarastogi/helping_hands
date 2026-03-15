@@ -44,6 +44,8 @@ __all__ = [
     "_PR_DESCRIPTION_TIMEOUT_S",
     "_STREAM_READ_BUFFER_SIZE",
     "_TwoPhaseCLIHand",
+    "_detect_auth_failure",
+    "_truncate_with_ellipsis",
 ]
 
 # --- Module-level constants ---------------------------------------------------
@@ -107,6 +109,48 @@ _DOCKER_REBUILD_HINT_TEMPLATE = (
 Use with :meth:`str.format` passing the binary name, e.g.
 ``_DOCKER_REBUILD_HINT_TEMPLATE.format("gemini")``.
 """
+
+
+def _truncate_with_ellipsis(text: str, limit: int) -> str:
+    """Truncate *text* to *limit* characters, appending ``"..."`` if needed.
+
+    Args:
+        text: The string to truncate.
+        limit: Maximum allowed length (must be > 3).
+
+    Returns:
+        The original string if within *limit*, otherwise the first
+        ``limit - 3`` characters followed by ``"..."``.
+    """
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
+
+
+def _detect_auth_failure(
+    output: str,
+    extra_tokens: tuple[str, ...] = (),
+) -> tuple[bool, str]:
+    """Check CLI output tail for authentication error tokens.
+
+    Extracts the trailing :data:`_FAILURE_OUTPUT_TAIL_LENGTH` characters,
+    lowercases them, and checks for any of :data:`_AUTH_ERROR_TOKENS`
+    plus *extra_tokens*.
+
+    Args:
+        output: Raw CLI stdout/stderr text.
+        extra_tokens: Additional lowercase substrings to check alongside
+            the shared :data:`_AUTH_ERROR_TOKENS`.
+
+    Returns:
+        ``(is_auth_failure, tail)`` where *tail* is the extracted trailing
+        portion of *output* and *is_auth_failure* is ``True`` when any
+        token matched.
+    """
+    tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
+    lower_tail = tail.lower()
+    is_auth = any(token in lower_tail for token in (*_AUTH_ERROR_TOKENS, *extra_tokens))
+    return is_auth, tail
 
 
 class _TwoPhaseCLIHand(Hand):

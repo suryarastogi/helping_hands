@@ -64,59 +64,36 @@ class TestClaudeCLIPreviewConstants:
 
 
 class TestFailureOutputTailConstants:
-    """Tests for _FAILURE_OUTPUT_TAIL_LENGTH across CLI hands."""
+    """Tests for _FAILURE_OUTPUT_TAIL_LENGTH in cli/base.py.
 
-    def test_claude_failure_tail_value(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.claude import (
+    Since v203, subclasses no longer directly import this constant —
+    it is consumed internally by ``_detect_auth_failure`` in base.py.
+    """
+
+    def test_base_failure_tail_value(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import (
             _FAILURE_OUTPUT_TAIL_LENGTH,
         )
 
         assert _FAILURE_OUTPUT_TAIL_LENGTH == 2000
 
-    def test_claude_failure_tail_positive(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.claude import (
+    def test_base_failure_tail_positive(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import (
             _FAILURE_OUTPUT_TAIL_LENGTH,
         )
 
         assert _FAILURE_OUTPUT_TAIL_LENGTH > 0
 
-    def test_codex_failure_tail_value(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.codex import (
+    def test_detect_auth_failure_uses_tail_length(self) -> None:
+        """_detect_auth_failure respects _FAILURE_OUTPUT_TAIL_LENGTH."""
+        from helping_hands.lib.hands.v1.hand.cli.base import (
             _FAILURE_OUTPUT_TAIL_LENGTH,
+            _detect_auth_failure,
         )
 
-        assert _FAILURE_OUTPUT_TAIL_LENGTH == 2000
-
-    def test_gemini_failure_tail_value(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.gemini import (
-            _FAILURE_OUTPUT_TAIL_LENGTH,
-        )
-
-        assert _FAILURE_OUTPUT_TAIL_LENGTH == 2000
-
-    def test_opencode_failure_tail_value(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.opencode import (
-            _FAILURE_OUTPUT_TAIL_LENGTH,
-        )
-
-        assert _FAILURE_OUTPUT_TAIL_LENGTH == 2000
-
-    def test_all_cli_hands_share_same_tail_length(self) -> None:
-        """All CLI hands should use the same failure output tail length."""
-        from helping_hands.lib.hands.v1.hand.cli.claude import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _CLAUDE_TAIL,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.codex import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _CODEX_TAIL,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.gemini import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _GEMINI_TAIL,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.opencode import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _OPENCODE_TAIL,
-        )
-
-        assert _CLAUDE_TAIL == _CODEX_TAIL == _GEMINI_TAIL == _OPENCODE_TAIL
+        long_prefix = "x" * (_FAILURE_OUTPUT_TAIL_LENGTH + 500)
+        _, tail = _detect_auth_failure(long_prefix + "end")
+        assert len(tail) <= _FAILURE_OUTPUT_TAIL_LENGTH
 
 
 # ---------------------------------------------------------------------------

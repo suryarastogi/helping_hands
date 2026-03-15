@@ -6,9 +6,8 @@ import re
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _AUTH_ERROR_TOKENS,
     _DOCKER_ENV_HINT_TEMPLATE,
-    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
 
@@ -158,11 +157,8 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         Returns:
             Formatted error message with output tail and contextual hints.
         """
-        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail for token in (*_AUTH_ERROR_TOKENS, "gemini_api_key")
-        ):
+        is_auth, tail = _detect_auth_failure(output, extra_tokens=("gemini_api_key",))
+        if is_auth:
             return (
                 "Gemini CLI authentication failed. "
                 "Ensure GEMINI_API_KEY is set in this runtime. "

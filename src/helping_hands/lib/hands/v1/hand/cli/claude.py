@@ -8,9 +8,9 @@ import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _AUTH_ERROR_TOKENS,
     _DOCKER_ENV_HINT_TEMPLATE,
-    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _detect_auth_failure,
+    _truncate_with_ellipsis,
     _TwoPhaseCLIHand,
 )
 
@@ -123,8 +123,9 @@ class _StreamJsonEmitter:
                     if text:
                         self._text_parts.append(text)
                         preview = text.strip().replace("\n", " ")
-                        if len(preview) > _TEXT_PREVIEW_MAX_LENGTH:
-                            preview = preview[: _TEXT_PREVIEW_MAX_LENGTH - 3] + "..."
+                        preview = _truncate_with_ellipsis(
+                            preview, _TEXT_PREVIEW_MAX_LENGTH
+                        )
                         if preview:
                             await self._emit(f"[{self._label}] {preview}\n")
 
@@ -145,8 +146,9 @@ class _StreamJsonEmitter:
                     )
                 if isinstance(content, str) and content.strip():
                     preview = content.strip().replace("\n", " ")
-                    if len(preview) > _TOOL_RESULT_PREVIEW_MAX_LENGTH:
-                        preview = preview[: _TOOL_RESULT_PREVIEW_MAX_LENGTH - 3] + "..."
+                    preview = _truncate_with_ellipsis(
+                        preview, _TOOL_RESULT_PREVIEW_MAX_LENGTH
+                    )
                     await self._emit(f"[{self._label}] -> {preview}\n")
 
         elif event_type == _EVENT_TYPE_RESULT:
@@ -185,9 +187,7 @@ class _StreamJsonEmitter:
             return f"Write {path}"
         if name == "Bash":
             cmd = input_data.get("command", "")
-            if len(cmd) > _COMMAND_PREVIEW_MAX_LENGTH:
-                cmd = cmd[: _COMMAND_PREVIEW_MAX_LENGTH - 3] + "..."
-            return f"$ {cmd}"
+            return f"$ {_truncate_with_ellipsis(cmd, _COMMAND_PREVIEW_MAX_LENGTH)}"
         if name == "Glob":
             pattern = input_data.get("pattern", "")
             return f"Glob {pattern}"
@@ -216,9 +216,9 @@ class _StreamJsonEmitter:
             skill = input_data.get("skill", "")
             return f"Skill: {skill}" if skill else "Skill"
         if name == "CronCreate":
-            prompt = input_data.get("prompt", "")
-            if len(prompt) > _COMMAND_PREVIEW_MAX_LENGTH:
-                prompt = prompt[: _COMMAND_PREVIEW_MAX_LENGTH - 3] + "..."
+            prompt = _truncate_with_ellipsis(
+                input_data.get("prompt", ""), _COMMAND_PREVIEW_MAX_LENGTH
+            )
             return f"CronCreate {prompt!r}" if prompt else "CronCreate"
         if name == "CronDelete":
             cron_id = input_data.get("id", "")
@@ -287,12 +287,10 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
-        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail
-            for token in (*_AUTH_ERROR_TOKENS, *ClaudeCodeHand._EXTRA_AUTH_TOKENS)
-        ):
+        is_auth, tail = _detect_auth_failure(
+            output, extra_tokens=ClaudeCodeHand._EXTRA_AUTH_TOKENS
+        )
+        if is_auth:
             return (
                 "Claude Code CLI authentication failed. "
                 "Ensure ANTHROPIC_API_KEY is set in this runtime. "

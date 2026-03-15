@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v203](exec-plans/completed/2026/Week-12.md) --
+  DRY `_detect_auth_failure(output, extra_tokens)` helper in `cli/base.py`
+  (encapsulates 3-line tail-extraction + token-check pattern from 4 subclasses,
+  removes direct `_AUTH_ERROR_TOKENS`/`_FAILURE_OUTPUT_TAIL_LENGTH` imports),
+  DRY `_truncate_with_ellipsis(text, limit)` (replaces 4× inline slicing in
+  claude.py `_StreamJsonEmitter`); 50 tests (all new)
+
 - [2026-03-15 v202](exec-plans/completed/2026/Week-12.md) --
   DRY `_DEFAULT_PYTHON_VERSION` in `mcp_server.py` (2× hardcoded `"3.13"` →
   import from `command.py`), DRY `_command_not_found_message` (enhance base

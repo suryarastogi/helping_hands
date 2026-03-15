@@ -54,31 +54,31 @@ class TestAuthErrorTokensSharedConstant:
 
 
 class TestAuthErrorTokensCrossModuleSync:
-    """All CLI hands import _AUTH_ERROR_TOKENS from the same base module."""
+    """Since v203, CLI hands use _detect_auth_failure (which encapsulates
+    _AUTH_ERROR_TOKENS) instead of importing the constant directly."""
 
-    def test_opencode_uses_same_object(self) -> None:
-        """OpenCode imports _AUTH_ERROR_TOKENS from base (same object identity)."""
-        import helping_hands.lib.hands.v1.hand.cli.opencode as mod
+    def test_subclasses_use_detect_auth_failure(self) -> None:
+        """All 4 subclasses import _detect_auth_failure from base."""
+        from helping_hands.lib.hands.v1.hand.cli import (
+            claude,
+            codex,
+            gemini,
+            opencode,
+        )
 
-        assert mod._AUTH_ERROR_TOKENS is _AUTH_ERROR_TOKENS
+        for mod in (claude, codex, gemini, opencode):
+            src = inspect.getsource(mod)
+            assert "_detect_auth_failure" in src, (
+                f"{mod.__name__} should use _detect_auth_failure"
+            )
 
-    def test_claude_uses_same_object(self) -> None:
-        """Claude imports _AUTH_ERROR_TOKENS from base (same object identity)."""
-        import helping_hands.lib.hands.v1.hand.cli.claude as mod
+    def test_detect_auth_failure_uses_shared_tokens(self) -> None:
+        """_detect_auth_failure internally uses _AUTH_ERROR_TOKENS."""
+        from helping_hands.lib.hands.v1.hand.cli.base import _detect_auth_failure
 
-        assert mod._AUTH_ERROR_TOKENS is _AUTH_ERROR_TOKENS
-
-    def test_codex_uses_same_object(self) -> None:
-        """Codex imports _AUTH_ERROR_TOKENS from base (same object identity)."""
-        import helping_hands.lib.hands.v1.hand.cli.codex as mod
-
-        assert mod._AUTH_ERROR_TOKENS is _AUTH_ERROR_TOKENS
-
-    def test_gemini_uses_same_object(self) -> None:
-        """Gemini imports _AUTH_ERROR_TOKENS from base (same object identity)."""
-        import helping_hands.lib.hands.v1.hand.cli.gemini as mod
-
-        assert mod._AUTH_ERROR_TOKENS is _AUTH_ERROR_TOKENS
+        for token in _AUTH_ERROR_TOKENS:
+            is_auth, _ = _detect_auth_failure(token)
+            assert is_auth, f"_detect_auth_failure should detect {token!r}"
 
 
 # ---------------------------------------------------------------------------

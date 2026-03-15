@@ -25,62 +25,23 @@ class TestFailureOutputTailConsolidation:
 
         assert _FAILURE_OUTPUT_TAIL_LENGTH > 0
 
-    def test_claude_imports_from_base(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _BASE,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.claude import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _CLAUDE,
-        )
+    def test_subclasses_use_detect_auth_failure(self) -> None:
+        """Since v203, subclasses use _detect_auth_failure which
+        encapsulates _FAILURE_OUTPUT_TAIL_LENGTH internally."""
+        import inspect
 
-        assert _CLAUDE is _BASE
+        from helping_hands.lib.hands.v1.hand.cli import claude, codex, gemini, opencode
 
-    def test_codex_imports_from_base(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _BASE,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.codex import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _CODEX,
-        )
+        for mod in (claude, codex, gemini, opencode):
+            src = inspect.getsource(mod)
+            assert "_detect_auth_failure" in src, (
+                f"{mod.__name__} should use _detect_auth_failure"
+            )
 
-        assert _CODEX is _BASE
+    def test_constant_in_base_all(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.base import __all__
 
-    def test_gemini_imports_from_base(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _BASE,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.gemini import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _GEMINI,
-        )
-
-        assert _GEMINI is _BASE
-
-    def test_opencode_imports_from_base(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _BASE,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.opencode import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _OPENCODE,
-        )
-
-        assert _OPENCODE is _BASE
-
-    def test_all_hands_share_same_object(self) -> None:
-        """All CLI hands should reference the exact same constant object."""
-        from helping_hands.lib.hands.v1.hand.cli.claude import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _CLAUDE,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.codex import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _CODEX,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.gemini import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _GEMINI,
-        )
-        from helping_hands.lib.hands.v1.hand.cli.opencode import (
-            _FAILURE_OUTPUT_TAIL_LENGTH as _OPENCODE,
-        )
-
-        assert _CLAUDE is _CODEX is _GEMINI is _OPENCODE
+        assert "_FAILURE_OUTPUT_TAIL_LENGTH" in __all__
 
 
 # ---------------------------------------------------------------------------

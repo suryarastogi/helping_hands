@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _AUTH_ERROR_TOKENS,
     _DOCKER_ENV_HINT_TEMPLATE,
-    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
 
@@ -43,9 +42,8 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         Returns:
             Descriptive error message string.
         """
-        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(token in lower_tail for token in _AUTH_ERROR_TOKENS):
+        is_auth, tail = _detect_auth_failure(output)
+        if is_auth:
             return (
                 "OpenCode CLI authentication failed. "
                 "Ensure your provider API key is set or run 'opencode auth login'. "
