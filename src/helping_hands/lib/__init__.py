@@ -5,3 +5,5 @@ Primary namespaces:
 - ``helping_hands.lib.ai_providers`` for provider wrappers and defaults.
 - ``helping_hands.lib.meta`` for shared cross-cutting tooling.
 """
+
+__all__: list[str] = []

@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v178](exec-plans/completed/2026-03-15.md) --
+  Add PEP 561 `py.typed` marker, add `__all__` to 5 remaining `__init__.py` files (root, cli, lib, hands, server); 4434 tests (19 new)
+
 - [2026-03-15 v177](exec-plans/completed/2026-03-15.md) --
   Add `__all__` exports to langgraph.py/atomic.py/cli/base.py, add docstrings to AtomicHand.__init__/run/stream and LangGraphHand.stream; 4415 tests (28 new)
 
