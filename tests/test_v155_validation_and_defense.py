@@ -72,17 +72,13 @@ class TestGoogleProviderMissingContentKey:
     """Verify GoogleProvider._complete_impl handles missing 'content' key."""
 
     def test_missing_content_key_raises_value_error(self) -> None:
-        """Messages without 'content' key are skipped; all-empty raises ValueError."""
+        """Messages without 'content' key are caught by base complete() guard."""
         from helping_hands.lib.ai_providers.google import GoogleProvider
 
-        provider = GoogleProvider()
-        mock_inner = MagicMock()
+        provider = GoogleProvider(inner=MagicMock())
 
-        messages = [{"role": "user"}]  # Missing "content" key
         with pytest.raises(ValueError, match="all messages have empty content"):
-            provider._complete_impl(
-                inner=mock_inner, messages=messages, model="gemini-2.0-flash"
-            )
+            provider.complete([{"role": "user"}])  # Missing "content" key
 
     def test_mixed_missing_and_valid_content(self) -> None:
         """Messages with missing 'content' are skipped; valid ones are used."""
@@ -105,30 +101,22 @@ class TestGoogleProviderMissingContentKey:
         assert call_kwargs.kwargs["contents"] == ["hello"]
 
     def test_none_content_key_skipped(self) -> None:
-        """Messages with content=None are skipped gracefully."""
+        """Messages with content=None are caught by base complete() guard."""
         from helping_hands.lib.ai_providers.google import GoogleProvider
 
-        provider = GoogleProvider()
-        mock_inner = MagicMock()
+        provider = GoogleProvider(inner=MagicMock())
 
-        messages = [{"role": "user", "content": None}]
         with pytest.raises(ValueError, match="all messages have empty content"):
-            provider._complete_impl(
-                inner=mock_inner, messages=messages, model="gemini-2.0-flash"
-            )
+            provider.complete([{"role": "user", "content": None}])
 
     def test_empty_string_content_skipped(self) -> None:
-        """Messages with content='' are skipped gracefully."""
+        """Messages with content='' are caught by base complete() guard."""
         from helping_hands.lib.ai_providers.google import GoogleProvider
 
-        provider = GoogleProvider()
-        mock_inner = MagicMock()
+        provider = GoogleProvider(inner=MagicMock())
 
-        messages = [{"role": "user", "content": ""}]
         with pytest.raises(ValueError, match="all messages have empty content"):
-            provider._complete_impl(
-                inner=mock_inner, messages=messages, model="gemini-2.0-flash"
-            )
+            provider.complete([{"role": "user", "content": ""}])
 
 
 # ---------------------------------------------------------------------------

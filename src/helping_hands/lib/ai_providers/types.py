@@ -44,7 +44,13 @@ def normalize_messages(prompt_or_messages: PromptInput) -> list[dict[str, str]]:
                 f"got {type(msg).__name__}"
             )
         role = str(msg.get("role", "user"))
-        content = str(msg.get("content", ""))
+        raw_content = msg.get("content", "")
+        if raw_content is not None and not isinstance(raw_content, str):
+            raise TypeError(
+                f"Expected str or None for 'content' at message index {idx}, "
+                f"got {type(raw_content).__name__}"
+            )
+        content = raw_content or ""
         normalized.append({"role": role, "content": content})
     return normalized
 
@@ -99,6 +105,10 @@ class AIProvider(abc.ABC):
         if not resolved_model or not resolved_model.strip():
             raise ValueError(
                 "No model specified and no default_model configured on the provider."
+            )
+        if not any(m.get("content") for m in messages):
+            raise ValueError(
+                "all messages have empty content; cannot send empty request"
             )
         return self._complete_impl(
             inner=self.inner,

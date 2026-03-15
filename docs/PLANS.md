@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v184](exec-plans/completed/2026/Week-12.md) --
+  Lift empty-message validation from Google provider to `AIProvider.complete()` base
+  class, add OSError handling to `mkdir_path()`, add content type validation to
+  `normalize_messages()`; 4527 tests (17 new, 153 skipped)
+
 - [2026-03-15 v183](exec-plans/completed/2026/Week-12.md) --
   Extract `_DEFAULT_COMMIT_MSG_TEMPLATE` and `_DEFAULT_PR_TITLE_TEMPLATE`
   constants in base.py (DRY 4 duplicate f-strings), add `logger.debug` to 2

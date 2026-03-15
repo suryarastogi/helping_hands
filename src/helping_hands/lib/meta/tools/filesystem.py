@@ -117,7 +117,11 @@ def mkdir_path(repo_root: Path, rel_path: str) -> str:
     """Create a repo-relative directory and return normalized path."""
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
-    target.mkdir(parents=True, exist_ok=True)
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        display = target.relative_to(root).as_posix()
+        raise RuntimeError(f"cannot create directory {display}: {exc}") from exc
     return target.relative_to(root).as_posix()
 
 
