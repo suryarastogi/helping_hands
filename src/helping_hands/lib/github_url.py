@@ -11,12 +11,15 @@ import os
 import re
 
 __all__ = [
+    "DEFAULT_GIT_CLONE_ERROR_MSG",
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
     "GIT_CLONE_TIMEOUT_S",
+    "bool_str",
     "build_clone_url",
     "noninteractive_env",
     "redact_credentials",
+    "resolve_github_token",
     "validate_repo_spec",
 ]
 
@@ -28,6 +31,37 @@ GITHUB_HOSTNAME = "github.com"
 
 GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
+
+DEFAULT_GIT_CLONE_ERROR_MSG = "unknown git clone error"
+"""Fallback message when a git clone subprocess returns non-zero with empty stderr."""
+
+
+def bool_str(value: bool) -> str:
+    """Convert a boolean to its lowercase string representation.
+
+    Args:
+        value: The boolean value to convert.
+
+    Returns:
+        ``"true"`` or ``"false"``.
+    """
+    return str(value).lower()
+
+
+def resolve_github_token(token: str | None = None) -> str:
+    """Resolve a GitHub token from an explicit value or environment variables.
+
+    Checks *token* first, then ``GITHUB_TOKEN``, then ``GH_TOKEN``.
+
+    Args:
+        token: Optional explicit GitHub token (overrides env vars).
+
+    Returns:
+        The resolved token string, or ``""`` if none is found.
+    """
+    return (token or "").strip() or os.environ.get(
+        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
+    ).strip()
 
 
 def validate_repo_spec(repo: str) -> None:
@@ -63,9 +97,7 @@ def build_clone_url(repo: str, token: str | None = None) -> str:
         ValueError: If *repo* is not in valid ``owner/repo`` format.
     """
     validate_repo_spec(repo)
-    effective_token = (token or "").strip() or os.environ.get(
-        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-    ).strip()
+    effective_token = resolve_github_token(token)
     if effective_token:
         return (
             f"https://{GITHUB_TOKEN_USER}:{effective_token}"

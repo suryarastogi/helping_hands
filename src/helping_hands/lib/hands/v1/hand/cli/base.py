@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.github_url import bool_str as _bool_str
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
@@ -1181,7 +1182,7 @@ class _TwoPhaseCLIHand(Hand):
             empty PR fields.
         """
         return {
-            "auto_pr": str(self.auto_pr).lower(),
+            "auto_pr": _bool_str(self.auto_pr),
             "pr_status": "interrupted",
             "pr_url": "",
             "pr_number": "",

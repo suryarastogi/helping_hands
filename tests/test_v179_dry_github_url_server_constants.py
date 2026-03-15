@@ -33,12 +33,15 @@ class TestGitHubUrlConstants:
         from helping_hands.lib import github_url
 
         expected = {
+            "DEFAULT_GIT_CLONE_ERROR_MSG",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
+            "bool_str",
             "build_clone_url",
             "noninteractive_env",
             "redact_credentials",
+            "resolve_github_token",
             "validate_repo_spec",
         }
         assert set(github_url.__all__) == expected

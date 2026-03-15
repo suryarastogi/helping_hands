@@ -22,6 +22,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+from helping_hands.lib.github_url import bool_str as _bool_str
 from helping_hands.lib.hands.v1.hand.base import (
     _PR_STATUSES_SKIPPED,
     Hand,
@@ -402,7 +403,7 @@ class _BasicIterativeHand(Hand):
             f"@@TOOL_RESULT: {tool_name}\n"
             f"status: {status}\n"
             f"exit_code: {result.exit_code}\n"
-            f"timed_out: {str(result.timed_out).lower()}\n"
+            f"timed_out: {_bool_str(result.timed_out)}\n"
             f"cwd: {result.cwd}\n"
             f"command: {cls._format_command(result.command)}\n"
             f"stdout:\n```text\n{stdout}\n```{stdout_note}\n"
@@ -470,7 +471,7 @@ class _BasicIterativeHand(Hand):
             f"url: {result.url}\n"
             f"final_url: {result.final_url}\n"
             f"status_code: {result.status_code}\n"
-            f"source_truncated: {str(result.truncated).lower()}\n"
+            f"source_truncated: {_bool_str(result.truncated)}\n"
             f"content:\n```text\n{text}\n```{truncated_note}"
         )
 
@@ -820,7 +821,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 "provider": self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
-                "interrupted": str(interrupted).lower(),
+                "interrupted": _bool_str(interrupted),
                 **pr_metadata,
             },
         )
@@ -1064,7 +1065,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 "provider": self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
-                "interrupted": str(interrupted).lower(),
+                "interrupted": _bool_str(interrupted),
                 **pr_metadata,
             },
         )

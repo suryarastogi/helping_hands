@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v208](exec-plans/completed/2026/v208-dry-bool-str-clone-error-token-fallback.md) —
+  DRY `bool_str()` helper (13× `str(x).lower()` → shared function in
+  github_url.py, used by celery_app/base/e2e/iterative/cli-base),
+  `DEFAULT_GIT_CLONE_ERROR_MSG` constant (2× inline string → shared constant
+  in cli/main.py and celery_app.py), `resolve_github_token()` shared fallback
+  chain (2× duplicated env lookup → shared helper in github.py and
+  build_clone_url); 21 tests (20 passed, 1 skipped; 5003 total passed)
+
 - [2026-03-15 v207](exec-plans/completed/2026/v207-dry-payload-extraction-truthy-env.md) --
   DRY `_extract_str_field()` payload extraction helper (consolidates
   `_extract_task_id`/`_extract_task_name` identical patterns), truthy env var

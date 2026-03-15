@@ -16,6 +16,7 @@ from typing import Any
 from uuid import uuid4
 
 from helping_hands.lib.config import _is_truthy_env
+from helping_hands.lib.github_url import bool_str as _bool_str
 from helping_hands.lib.hands.v1.hand.base import (
     _DEFAULT_GIT_USER_EMAIL,
     _DEFAULT_GIT_USER_NAME,
@@ -325,8 +326,8 @@ class E2EHand(Hand):
                 "commit": commit_sha,
                 "pr_number": "" if final_pr_number is None else str(final_pr_number),
                 "pr_url": pr_url,
-                "resumed_pr": str(resumed_pr).lower(),
-                "dry_run": str(dry_run).lower(),
+                "resumed_pr": _bool_str(resumed_pr),
+                "dry_run": _bool_str(dry_run),
             },
         )
 

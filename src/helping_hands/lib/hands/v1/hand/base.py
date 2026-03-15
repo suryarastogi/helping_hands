@@ -31,6 +31,9 @@ from helping_hands.lib.github_url import (
 from helping_hands.lib.github_url import (
     GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
 )
+from helping_hands.lib.github_url import (
+    bool_str as _bool_str,
+)
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
 
@@ -880,7 +883,7 @@ class Hand(abc.ABC):
             ``auto_pr``.
         """
         metadata = {
-            "auto_pr": str(self.auto_pr).lower(),
+            "auto_pr": _bool_str(self.auto_pr),
             "pr_status": _PR_STATUS_NOT_ATTEMPTED,
             "pr_url": "",
             "pr_number": "",

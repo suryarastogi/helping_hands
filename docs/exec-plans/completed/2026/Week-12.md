@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY bool_str, git clone error constant, resolve_github_token (v208)
+
+**DRY `bool_str()`:** Extracted `bool_str(value: bool) -> str` helper in `github_url.py` replacing 13× inline `str(x).lower()` patterns across `celery_app.py` (5×), `base.py` (1×), `e2e.py` (2×), `iterative.py` (4×), and `cli/base.py` (1×).
+
+**DRY `DEFAULT_GIT_CLONE_ERROR_MSG`:** Extracted constant in `github_url.py` replacing 2× inline `"unknown git clone error"` strings in `cli/main.py` and `celery_app.py`.
+
+**DRY `resolve_github_token()`:** Extracted shared fallback chain helper in `github_url.py` replacing 2× duplicated `os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", ""))` patterns in `github.py` `_authenticate()` and `build_clone_url()`.
+
+**21 new tests (20 passed, 1 skipped without fastapi). Updated 1 existing test (__all__ exports). 5003 total passed, 234 skipped.**
+
+---
+
 ## Mar 15 — DRY payload extraction, truthy env var consistency (v207)
 
 **DRY `_extract_str_field`:** Extracted shared `_extract_str_field(entry, keys)` helper in `server/app.py` that consolidates the identical recursive lookup-by-candidate-keys pattern from `_extract_task_id()` and `_extract_task_name()`. Both functions now delegate to the shared helper with `_TASK_ID_KEYS` and `_TASK_NAME_KEYS` constant tuples.

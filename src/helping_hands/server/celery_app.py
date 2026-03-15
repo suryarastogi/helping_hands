@@ -19,7 +19,13 @@ from celery import Celery
 
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
+    DEFAULT_GIT_CLONE_ERROR_MSG as _DEFAULT_GIT_CLONE_ERROR_MSG,
+)
+from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
+)
+from helping_hands.lib.github_url import (
+    bool_str as _bool_str,
 )
 from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
@@ -192,7 +198,7 @@ def _resolve_repo_path(
             ) from exc
         if result.returncode != 0:
             shutil.rmtree(dest_root, ignore_errors=True)
-            stderr = result.stderr.strip() or "unknown git clone error"
+            stderr = result.stderr.strip() or _DEFAULT_GIT_CLONE_ERROR_MSG
             stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
@@ -874,11 +880,11 @@ def build_feature(
             "model": config.model,
             "started_at": task_started_at,
             "max_iterations": str(resolved_iterations),
-            "no_pr": str(no_pr).lower(),
-            "enable_execution": str(enable_execution).lower(),
-            "enable_web": str(enable_web).lower(),
-            "use_native_cli_auth": str(use_native_cli_auth).lower(),
-            "fix_ci": str(fix_ci).lower(),
+            "no_pr": _bool_str(no_pr),
+            "enable_execution": _bool_str(enable_execution),
+            "enable_web": _bool_str(enable_web),
+            "use_native_cli_auth": _bool_str(use_native_cli_auth),
+            "fix_ci": _bool_str(fix_ci),
             "ci_check_wait_minutes": str(ci_check_wait_minutes),
             "tools": list(selected_tools),
             "skills": list(selected_skills),

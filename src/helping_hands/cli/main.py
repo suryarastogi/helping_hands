@@ -19,6 +19,9 @@ from typing import cast
 from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
+    DEFAULT_GIT_CLONE_ERROR_MSG as _DEFAULT_GIT_CLONE_ERROR_MSG,
+)
+from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
 )
 from helping_hands.lib.github_url import (
@@ -446,7 +449,7 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
                 f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
             ) from exc
         if result.returncode != 0:
-            stderr = result.stderr.strip() or "unknown git clone error"
+            stderr = result.stderr.strip() or _DEFAULT_GIT_CLONE_ERROR_MSG
             stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
