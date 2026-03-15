@@ -1153,7 +1153,42 @@ export default function App() {
 
   const detectedPrefixes = useMemo(() => extractPrefixes(updates), [updates]);
 
-  const accUsage = useMemo(() => accumulateUsage(updates), [updates]);
+  const [accUsage, setAccUsage] = useState<AccumulatedUsage | null>(null);
+  const accUsageCursorRef = useRef(0);
+
+  useEffect(() => {
+    const payloadUpdates = extractUpdates(
+      (payload as Record<string, unknown> | null)?.result as Record<string, unknown> | null
+    );
+    const cursor = accUsageCursorRef.current;
+    if (payloadUpdates.length < cursor) {
+      // updates were reset (task switch, new submission) — start fresh
+      accUsageCursorRef.current = 0;
+      setAccUsage(null);
+      if (payloadUpdates.length > 0) {
+        const fresh = accumulateUsage(payloadUpdates);
+        accUsageCursorRef.current = payloadUpdates.length;
+        setAccUsage(fresh);
+      }
+      return;
+    }
+    if (payloadUpdates.length === cursor) return;
+    // scan only new entries
+    const newEntries = payloadUpdates.slice(cursor);
+    accUsageCursorRef.current = payloadUpdates.length;
+    const delta = accumulateUsage(newEntries);
+    if (!delta) return;
+    setAccUsage((prev) => {
+      if (!prev) return delta;
+      return {
+        totalCost: prev.totalCost + delta.totalCost,
+        totalSeconds: prev.totalSeconds + delta.totalSeconds,
+        totalIn: prev.totalIn + delta.totalIn,
+        totalOut: prev.totalOut + delta.totalOut,
+        count: prev.count + delta.count,
+      };
+    });
+  }, [payload]);
 
   const activeOutputText = useMemo(() => {
     let text: string;
