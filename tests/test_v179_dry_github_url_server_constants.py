@@ -105,9 +105,7 @@ class TestBuildCloneUrl:
         url = build_clone_url("owner/repo")
         assert url == "https://x-access-token:ghp_env@github.com/owner/repo.git"
 
-    def test_with_env_gh_token_fallback(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_with_env_gh_token_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from helping_hands.lib.github_url import build_clone_url
 
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
@@ -129,9 +127,7 @@ class TestBuildCloneUrl:
         with pytest.raises(ValueError):
             build_clone_url("invalid")
 
-    def test_whitespace_token_ignored(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_whitespace_token_ignored(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from helping_hands.lib.github_url import build_clone_url
 
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
