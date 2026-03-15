@@ -383,21 +383,41 @@ def available_tool_category_names() -> tuple[str, ...]:
     return tuple(_TOOL_CATEGORIES.keys())
 
 
-def normalize_tool_selection(
+def _normalize_and_deduplicate(
     values: str | list[str] | tuple[str, ...] | None,
+    *,
+    label: str,
 ) -> tuple[str, ...]:
-    """Normalize user-provided tool category names into a deduplicated tuple."""
+    """Normalize comma-separated selection values into a deduplicated tuple.
+
+    Shared logic for both tool and skill selection normalization. Splits on
+    commas, lowercases, replaces underscores with hyphens, strips whitespace,
+    and deduplicates while preserving order.
+
+    Args:
+        values: Raw user input — a comma-separated string, a list/tuple of
+            strings, or ``None``.
+        label: Human-readable label used in error messages (e.g. ``"tools"``
+            or ``"skills"``).
+
+    Returns:
+        Deduplicated tuple of normalized names.
+
+    Raises:
+        TypeError: If *values* is not a string, list, tuple, or ``None``.
+        ValueError: If any element in the sequence is not a string.
+    """
     if values is None:
         return ()
     if not isinstance(values, (str, list, tuple)):
-        raise TypeError("tools must be a string, list, or tuple")
+        raise TypeError(f"{label} must be a string, list, or tuple")
 
     tokens: list[str] = []
     candidates = values.split(",") if isinstance(values, str) else list(values)
 
     for raw in candidates:
         if not isinstance(raw, str):
-            raise ValueError("tools must contain only strings")
+            raise ValueError(f"{label} must contain only strings")
         for item in raw.split(","):
             normalized = item.strip().lower().replace("_", "-")
             if normalized:
@@ -411,6 +431,13 @@ def normalize_tool_selection(
         seen.add(token)
         ordered.append(token)
     return tuple(ordered)
+
+
+def normalize_tool_selection(
+    values: str | list[str] | tuple[str, ...] | None,
+) -> tuple[str, ...]:
+    """Normalize user-provided tool category names into a deduplicated tuple."""
+    return _normalize_and_deduplicate(values, label="tools")
 
 
 def validate_tool_category_names(tool_names: tuple[str, ...]) -> None:
@@ -533,6 +560,7 @@ def format_tool_instructions_for_cli(
 __all__ = [
     "ToolCategory",
     "ToolSpec",
+    "_normalize_and_deduplicate",
     "available_tool_category_names",
     "build_tool_runner_map",
     "category_name_for_tool",

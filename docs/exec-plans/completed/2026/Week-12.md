@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY payload validators, normalize selection, URL error handling (v206)
+
+**DRY payload validators:** Removed 3 duplicated `_parse_str_list`/`_parse_positive_int`/`_parse_optional_str` static methods from `_BasicIterativeHand` in `iterative.py`, replacing them with class-level `staticmethod()` assignments that delegate to the canonical implementations in `registry.py`.
+
+**DRY `_normalize_and_deduplicate`:** Extracted shared helper in `registry.py` that consolidates the identical normalize/deduplicate logic previously duplicated between `normalize_tool_selection()` and `normalize_skill_selection()`. Both functions now delegate to the shared helper with a `label` parameter for error messages.
+
+**DRY `_raise_url_error`:** Extracted shared helper in `web.py` that consolidates the duplicated `HTTPError`/`URLError` → `RuntimeError` conversion pattern (with debug logging) from both `search_web()` and `browse_url()`.
+
+**30 new tests. Updated `__all__` test for registry.py. 4967 passed, 212 skipped.**
+
+---
+
 ## Mar 15 — DRY form defaults, truthy values, inline import, tool dispatch (v204)
 
 **Fix form default mismatch:** `enqueue_build_form` used hardcoded `"codexcli"` as backend default instead of `_DEFAULT_BACKEND` (`"claudecodecli"`). Also replaced hardcoded `6` → `_DEFAULT_MAX_ITERATIONS` and `3.0` → `_DEFAULT_CI_WAIT_MINUTES` in both `enqueue_build_form` Form defaults and `_build_form_redirect_query` signature/comparison.

@@ -104,6 +104,30 @@ _BLANK_LINES_RE = re.compile(r"\n\s*\n+")
 """Compiled regex matching multiple consecutive blank lines."""
 
 
+def _raise_url_error(
+    exc: HTTPError | URLError,
+    *,
+    operation: str,
+) -> None:
+    """Convert a :class:`~urllib.error.HTTPError` or :class:`~urllib.error.URLError` to a :class:`RuntimeError`.
+
+    Args:
+        exc: The caught URL/HTTP exception.
+        operation: Short label for the failed operation (e.g. ``"search"``
+            or ``"browse"``), used in log and error messages.
+
+    Raises:
+        RuntimeError: Always raised with a human-readable message.
+    """
+    if isinstance(exc, HTTPError):
+        logger.debug("%s request HTTP error: %s", operation, exc, exc_info=True)
+        raise RuntimeError(
+            f"{operation} request failed with HTTP {exc.code}: {exc.reason}"
+        ) from exc
+    logger.debug("%s request URL error: %s", operation, exc, exc_info=True)
+    raise RuntimeError(f"{operation} request failed: {exc.reason}") from exc
+
+
 def _require_http_url(url: str) -> str:
     """Validate and normalise a URL to an HTTP/HTTPS scheme.
 
@@ -244,14 +268,8 @@ def search_web(
     try:
         with urlopen(request, timeout=timeout_s) as response:
             payload = response.read()
-    except HTTPError as exc:
-        logger.debug("search_web HTTP error: %s", exc, exc_info=True)
-        raise RuntimeError(
-            f"search request failed with HTTP {exc.code}: {exc.reason}"
-        ) from exc
-    except URLError as exc:
-        logger.debug("search_web URL error: %s", exc, exc_info=True)
-        raise RuntimeError(f"search request failed: {exc.reason}") from exc
+    except (HTTPError, URLError) as exc:
+        _raise_url_error(exc, operation="search")
     data = json.loads(_decode_bytes(payload))
     record = _as_string_keyed_dict(data)
     if record is None:
@@ -307,14 +325,8 @@ def browse_url(
             final_url = response.geturl()
             status = getattr(response, "status", None)
             content_type = str(response.headers.get("Content-Type", "")).lower()
-    except HTTPError as exc:
-        logger.debug("browse_url HTTP error: %s", exc, exc_info=True)
-        raise RuntimeError(
-            f"browse request failed with HTTP {exc.code}: {exc.reason}"
-        ) from exc
-    except URLError as exc:
-        logger.debug("browse_url URL error: %s", exc, exc_info=True)
-        raise RuntimeError(f"browse request failed: {exc.reason}") from exc
+    except (HTTPError, URLError) as exc:
+        _raise_url_error(exc, operation="browse")
 
     decoded = _decode_bytes(payload)
     if "html" in content_type or "<html" in decoded.lower():

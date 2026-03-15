@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v206](exec-plans/completed/2026/v206-dry-payload-validators-normalize-selection-url-errors.md) --
+  DRY payload validators (iterative.py `_parse_str_list`/`_parse_positive_int`/
+  `_parse_optional_str` → registry.py delegation), shared
+  `_normalize_and_deduplicate` helper for tool/skill selection normalization,
+  shared `_raise_url_error` helper in web.py;
+  30 tests (all new, 4967 passed, 212 skipped)
+
 - [2026-03-15 v205](exec-plans/completed/2026/v205-dry-script-validation-display-path-install-hint-timeouts.md) --
   DRY `_validate_script_path()` in command.py (shared helper replacing duplicated
   5-line validation in `run_python_script`/`run_bash_script`), DRY `_display_path()`

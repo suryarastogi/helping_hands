@@ -37,6 +37,11 @@ from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.meta.tools import web as system_web_tools
+from helping_hands.lib.meta.tools.registry import (
+    _parse_optional_str,
+    _parse_positive_int,
+    _parse_str_list,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -340,92 +345,10 @@ class _BasicIterativeHand(Hand):
             )
         return "\n\n".join(chunks).strip()
 
-    @staticmethod
-    def _parse_str_list(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> list[str]:
-        """Parse and validate a list of strings from a tool payload.
-
-        Args:
-            payload: JSON-decoded tool payload dictionary.
-            key: Key to extract from the payload.
-
-        Returns:
-            List of stripped, non-empty strings.
-
-        Raises:
-            ValueError: If the value is not a list, contains non-strings,
-                or contains empty/whitespace-only strings.
-        """
-        raw = payload.get(key, [])
-        if raw is None:
-            return []
-        if not isinstance(raw, list):
-            raise ValueError(f"{key} must be a list of strings")
-        values: list[str] = []
-        for value in raw:
-            if not isinstance(value, str):
-                raise ValueError(f"{key} must contain only strings")
-            stripped = value.strip()
-            if not stripped:
-                raise ValueError(f"{key} contains empty or whitespace-only strings")
-            values.append(stripped)
-        return values
-
-    @staticmethod
-    def _parse_positive_int(
-        payload: dict[str, Any],
-        *,
-        key: str,
-        default: int,
-    ) -> int:
-        """Parse and validate a positive integer from a tool payload.
-
-        Args:
-            payload: JSON-decoded tool payload dictionary.
-            key: Key to extract from the payload.
-            default: Value to use when the key is absent.
-
-        Returns:
-            Positive integer value.
-
-        Raises:
-            ValueError: If the value is not an integer or is ``<= 0``.
-        """
-        raw = payload.get(key, default)
-        if isinstance(raw, bool) or not isinstance(raw, int):
-            raise ValueError(f"{key} must be an integer")
-        if raw <= 0:
-            raise ValueError(f"{key} must be > 0")
-        return raw
-
-    @staticmethod
-    def _parse_optional_str(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> str | None:
-        """Parse an optional string value from a tool payload.
-
-        Args:
-            payload: JSON-decoded tool payload dictionary.
-            key: Key to extract from the payload.
-
-        Returns:
-            Stripped string if present and non-empty, ``None`` otherwise.
-
-        Raises:
-            ValueError: If the value is present but not a string.
-        """
-        raw = payload.get(key)
-        if raw is None:
-            return None
-        if not isinstance(raw, str):
-            raise ValueError(f"{key} must be a string")
-        text = raw.strip()
-        return text or None
+    # Payload validators delegated to registry module:
+    _parse_str_list = staticmethod(_parse_str_list)
+    _parse_positive_int = staticmethod(_parse_positive_int)
+    _parse_optional_str = staticmethod(_parse_optional_str)
 
     @staticmethod
     def _format_command(command: list[str]) -> str:
