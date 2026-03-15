@@ -36,7 +36,16 @@ _CATALOG_DIR = Path(__file__).parent / "catalog"
 
 
 def _discover_catalog() -> dict[str, SkillSpec]:
-    """Scan ``catalog/*.md`` and build a name → SkillSpec mapping."""
+    """Scan ``catalog/*.md`` and build a name → SkillSpec mapping.
+
+    Reads all Markdown files from the ``catalog/`` directory adjacent to
+    this module.  Each file's stem becomes the skill name and the first
+    ``# Heading`` line (if present) becomes the title.
+
+    Returns:
+        A dict mapping skill name strings to ``SkillSpec`` instances.
+        Returns an empty dict if the catalog directory does not exist.
+    """
     skills: dict[str, SkillSpec] = {}
     if not _CATALOG_DIR.is_dir():
         return skills

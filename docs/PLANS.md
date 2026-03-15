@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v172](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to docker_sandbox_claude.py (7), pr_description.py (2), config.py (1), skills/__init__.py (1); 4263 tests (30 new)
+
 - [2026-03-15 v171](exec-plans/completed/2026-03-15.md) --
   Add Attributes to Config dataclass (11 fields), add Google-style docstrings to 4 web.py and 8 registry.py private helpers; 4233 tests (36 new)
 

@@ -244,7 +244,22 @@ def _build_prompt(
     user_prompt: str,
     summary: str,
 ) -> str:
-    """Build the prompt that asks the CLI to generate a PR description."""
+    """Build the prompt that asks the CLI to generate a PR description.
+
+    Assembles a structured prompt containing the diff, backend context,
+    user prompt, and AI summary.  The summary and prompt are truncated
+    to bounded lengths to keep the overall prompt within model limits.
+
+    Args:
+        diff: Truncated git diff text to include in the prompt.
+        backend: Hand backend name (e.g. ``"claudecodecli"``).
+        user_prompt: Original user task prompt for context.
+        summary: AI-generated summary of changes from the hand run.
+
+    Returns:
+        A formatted prompt string with ``PR_TITLE:`` / ``PR_BODY:``
+        output markers.
+    """
     summary_section = ""
     if summary.strip():
         truncated = _truncate_text(summary, limit=_PR_SUMMARY_TRUNCATION_LENGTH)
@@ -453,7 +468,21 @@ def _build_commit_message_prompt(
     user_prompt: str,
     summary: str,
 ) -> str:
-    """Build the prompt that asks the CLI to generate a commit message."""
+    """Build the prompt that asks the CLI to generate a commit message.
+
+    Assembles a structured prompt containing the diff, backend context,
+    user prompt, and AI summary.  The summary and prompt are truncated
+    to bounded lengths to keep the overall prompt within model limits.
+
+    Args:
+        diff: Truncated git diff text to include in the prompt.
+        backend: Hand backend name (e.g. ``"claudecodecli"``).
+        user_prompt: Original user task prompt for context.
+        summary: AI-generated summary of changes from the hand run.
+
+    Returns:
+        A formatted prompt string with a ``COMMIT_MSG:`` output marker.
+    """
     summary_section = ""
     if summary.strip():
         truncated = _truncate_text(summary, limit=_COMMIT_SUMMARY_TRUNCATION_LENGTH)

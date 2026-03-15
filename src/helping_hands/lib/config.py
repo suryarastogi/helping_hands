@@ -36,7 +36,17 @@ def _is_truthy_env(name: str, default: str = "") -> bool:
 
 
 def _load_env_files(repo: str | None = None) -> None:
-    """Load dotenv files from cwd and target repo (if available)."""
+    """Load dotenv files from the current directory and optional target repo.
+
+    Reads ``.env`` files using ``python-dotenv`` without overriding
+    already-set environment variables (``override=False``).  If the
+    ``dotenv`` package is not installed, this is a silent no-op.
+
+    Args:
+        repo: Optional filesystem path to the target repository.  When
+            provided and the path is an existing directory, its ``.env``
+            file is also loaded (after ``~`` expansion).
+    """
     if load_dotenv is None:
         return
 
