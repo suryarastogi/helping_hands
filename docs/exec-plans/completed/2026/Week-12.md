@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — Extract PR status / CI conclusion constants, DRY model sentinels (v195)
+
+**PR status constants:** Extracted 13 `_PR_STATUS_*` module-level constants to `base.py` (`CREATED`, `UPDATED`, `DISABLED`, `NO_CHANGES`, `INTERRUPTED`, `NOT_ATTEMPTED`, `NO_REPO`, `NOT_GIT_REPO`, `NO_GITHUB_ORIGIN`, `PRECOMMIT_FAILED`, `MISSING_TOKEN`, `GIT_ERROR`, `ERROR`), replacing 14 bare string literal assignments in `_finalize_repo_pr()`, `_push_to_existing_pr()`, `_create_pr_for_diverged_branch()`, and `_interrupted_pr_metadata()`. These form a mini-protocol between `base.py` and `cli/base.py` — a typo in any string would cause silent bugs.
+
+**CI conclusion constants:** Extracted `_CI_CONCLUSION_SUCCESS`, `_CI_CONCLUSION_PENDING`, `_CI_CONCLUSION_NO_CHECKS` to `cli/base.py`, replacing 4 bare string comparisons in `_ci_fix_loop()`. Extracted `_CI_POLL_MAX_MULTIPLIER = 2` replacing the magic `* 2` multiplier for max poll duration.
+
+**Model sentinels:** Extracted `_MODEL_SENTINEL_VALUES = frozenset({"default", "None"})` to `cli/base.py`, replacing duplicated `("default", "None")` tuples in `_TwoPhaseCLIHand._resolve_cli_model()` and `OpenCodeCLIHand._resolve_cli_model()`.
+
+**Cross-module usage:** `cli/base.py` imports 5 PR status constants from `base.py` for `_format_pr_status_message()`, `_ci_fix_loop()`, and `run()`. `iterative.py` imports `_PR_STATUS_NO_CHANGES` and `_PR_STATUS_DISABLED` from `base.py` for 4 streaming status checks. `opencode.py` imports `_MODEL_SENTINEL_VALUES` from `cli/base.py`. Updated `__all__` exports with 5 new entries (isort-sorted).
+
+**4720 backend tests passed (+41 new: 13 PR status values, 4 type/uniqueness, 1 no-bare-strings guard, 5 CI conclusion, 4 CI poll multiplier, 5 model sentinels, 5 cross-module consistency, 2 iterative usage, 2 __all__ exports), 155 skipped.**
+
+---
+
 ## Mar 15 — Add _native_cli_auth_env_names() to GeminiCLIHand and GooseCLIHand (v194)
 
 **Auth env name overrides:** Added `_native_cli_auth_env_names()` to `GeminiCLIHand` (returns `("GEMINI_API_KEY",)`) and `GooseCLIHand` (returns `("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY")` via `_PROVIDER_AUTH_ENV_NAMES` class constant). Previously both inherited the base class empty tuple, preventing `_describe_auth()` from logging auth status and `_effective_container_env_names()` from filtering auth keys in container mode. `ClaudeCodeHand` and `CodexCLIHand` already had overrides; `OpenCodeCLIHand` correctly uses the empty-tuple default (session-based auth). Added Google-style docstrings to both methods. Goose's tuple excludes `OLLAMA_HOST` (a URL, not a secret).

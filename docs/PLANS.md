@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v195](exec-plans/completed/2026/Week-12.md) --
+  Extract `_PR_STATUS_*` constants (13 values) to `base.py`, `_CI_CONCLUSION_*`
+  constants and `_CI_POLL_MAX_MULTIPLIER` to `cli/base.py`, `_MODEL_SENTINEL_VALUES`
+  frozenset shared across CLI hands; replaces 20+ bare string literals with named
+  constants across `base.py`, `cli/base.py`, `iterative.py`, `opencode.py`;
+  4721 tests (42 new, 155 skipped)
+
 - [2026-03-15 v194](exec-plans/completed/2026/Week-12.md) --
   Add `_native_cli_auth_env_names()` to `GeminiCLIHand` (`("GEMINI_API_KEY",)`) and
   `GooseCLIHand` (`_PROVIDER_AUTH_ENV_NAMES` class constant with 3 provider API key

@@ -5,6 +5,7 @@ from __future__ import annotations
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
     _FAILURE_OUTPUT_TAIL_LENGTH,
+    _MODEL_SENTINEL_VALUES,
     _TwoPhaseCLIHand,
 )
 
@@ -24,7 +25,7 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
     def _resolve_cli_model(self) -> str:
         """Preserve provider/model format (e.g. anthropic/claude-sonnet-4-6)."""
         model = str(self.config.model).strip()
-        if not model or model in ("default", "None"):
+        if not model or model in _MODEL_SENTINEL_VALUES:
             return self._DEFAULT_MODEL
         return model
 

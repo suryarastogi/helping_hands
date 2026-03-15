@@ -91,6 +91,49 @@ _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 _DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
 """Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
 
+# --- PR status protocol constants ---------------------------------------------
+# These are the canonical values written into ``metadata["pr_status"]`` during
+# finalization and read back by ``cli/base.py`` for display and CI-fix gating.
+
+_PR_STATUS_CREATED = "created"
+"""PR was successfully created on GitHub."""
+
+_PR_STATUS_UPDATED = "updated"
+"""An existing PR was pushed to (follow-up commit)."""
+
+_PR_STATUS_DISABLED = "disabled"
+"""PR creation is turned off (``--no-pr``)."""
+
+_PR_STATUS_NO_CHANGES = "no_changes"
+"""No file changes detected after the hand run."""
+
+_PR_STATUS_INTERRUPTED = "interrupted"
+"""The hand was interrupted before finalization completed."""
+
+_PR_STATUS_NOT_ATTEMPTED = "not_attempted"
+"""Default initial value before finalization logic runs."""
+
+_PR_STATUS_NO_REPO = "no_repo"
+"""Repository directory does not exist."""
+
+_PR_STATUS_NOT_GIT_REPO = "not_git_repo"
+"""Directory is not inside a git work tree."""
+
+_PR_STATUS_NO_GITHUB_ORIGIN = "no_github_origin"
+"""Could not extract a GitHub ``owner/repo`` from the git remote."""
+
+_PR_STATUS_PRECOMMIT_FAILED = "precommit_failed"
+"""Pre-commit hooks failed and could not be auto-fixed."""
+
+_PR_STATUS_MISSING_TOKEN = "missing_token"
+"""``GITHUB_TOKEN`` is not set — cannot push or create PR."""
+
+_PR_STATUS_GIT_ERROR = "git_error"
+"""A git subprocess failed during push or branch creation."""
+
+_PR_STATUS_ERROR = "error"
+"""Catch-all for unexpected errors during finalization."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -688,7 +731,7 @@ class Hand(abc.ABC):
 
         metadata.update(
             {
-                "pr_status": "updated",
+                "pr_status": _PR_STATUS_UPDATED,
                 "pr_url": pr_url,
                 "pr_number": str(self.pr_number),
                 "pr_branch": branch,
@@ -812,7 +855,7 @@ class Hand(abc.ABC):
         )
         metadata.update(
             {
-                "pr_status": "created",
+                "pr_status": _PR_STATUS_CREATED,
                 "pr_url": pr.url,
                 "pr_number": str(pr.number),
                 "pr_branch": new_branch,
@@ -848,48 +891,48 @@ class Hand(abc.ABC):
         """
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": "not_attempted",
+            "pr_status": _PR_STATUS_NOT_ATTEMPTED,
             "pr_url": "",
             "pr_number": "",
             "pr_branch": "",
             "pr_commit": "",
         }
         if not self.auto_pr:
-            metadata["pr_status"] = "disabled"
+            metadata["pr_status"] = _PR_STATUS_DISABLED
             return metadata
 
         repo_dir = self.repo_index.root.resolve()
         if not repo_dir.is_dir():
-            metadata["pr_status"] = "no_repo"
+            metadata["pr_status"] = _PR_STATUS_NO_REPO
             return metadata
 
         inside_work_tree = self._run_git_read(
             repo_dir, "rev-parse", "--is-inside-work-tree"
         )
         if inside_work_tree != "true":
-            metadata["pr_status"] = "not_git_repo"
+            metadata["pr_status"] = _PR_STATUS_NOT_GIT_REPO
             return metadata
 
         has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
         if not has_changes:
-            metadata["pr_status"] = "no_changes"
+            metadata["pr_status"] = _PR_STATUS_NO_CHANGES
             return metadata
 
         repo = self._github_repo_from_origin(repo_dir)
         if not repo:
-            metadata["pr_status"] = "no_github_origin"
+            metadata["pr_status"] = _PR_STATUS_NO_GITHUB_ORIGIN
             return metadata
 
         if self._should_run_precommit_before_pr():
             try:
                 self._run_precommit_checks_and_fixes(repo_dir)
             except RuntimeError as exc:
-                metadata["pr_status"] = "precommit_failed"
+                metadata["pr_status"] = _PR_STATUS_PRECOMMIT_FAILED
                 metadata["pr_error"] = str(exc)
                 return metadata
             has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
             if not has_changes:
-                metadata["pr_status"] = "no_changes"
+                metadata["pr_status"] = _PR_STATUS_NO_CHANGES
                 return metadata
 
         from helping_hands.lib.github import GitHubClient
@@ -997,7 +1040,7 @@ class Hand(abc.ABC):
                 )
                 metadata.update(
                     {
-                        "pr_status": "created",
+                        "pr_status": _PR_STATUS_CREATED,
                         "pr_url": pr.url,
                         "pr_number": str(pr.number),
                         "pr_branch": branch,
@@ -1006,15 +1049,15 @@ class Hand(abc.ABC):
                 )
                 return metadata
         except ValueError as exc:
-            metadata["pr_status"] = "missing_token"
+            metadata["pr_status"] = _PR_STATUS_MISSING_TOKEN
             metadata["pr_error"] = str(exc)
             return metadata
         except RuntimeError as exc:
-            metadata["pr_status"] = "git_error"
+            metadata["pr_status"] = _PR_STATUS_GIT_ERROR
             metadata["pr_error"] = str(exc)
             return metadata
         except Exception as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
-            metadata["pr_status"] = "error"
+            metadata["pr_status"] = _PR_STATUS_ERROR
             metadata["pr_error"] = str(exc)
             return metadata

@@ -19,6 +19,11 @@ from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
+    _PR_STATUS_CREATED,
+    _PR_STATUS_DISABLED,
+    _PR_STATUS_INTERRUPTED,
+    _PR_STATUS_NO_CHANGES,
+    _PR_STATUS_UPDATED,
     Hand,
     HandResponse,
 )
@@ -28,11 +33,16 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "_APPLY_CHANGES_TRUNCATION_LIMIT",
     "_AUTH_ERROR_TOKENS",
+    "_CI_CONCLUSION_NO_CHECKS",
+    "_CI_CONCLUSION_PENDING",
+    "_CI_CONCLUSION_SUCCESS",
     "_CI_POLL_INTERVAL_S",
+    "_CI_POLL_MAX_MULTIPLIER",
     "_CLI_TRUTHY_VALUES",
     "_FAILURE_OUTPUT_TAIL_LENGTH",
     "_GIT_REF_DISPLAY_LENGTH",
     "_HOOK_ERROR_TRUNCATION_LIMIT",
+    "_MODEL_SENTINEL_VALUES",
     "_PROCESS_TERMINATE_TIMEOUT_S",
     "_PR_DESCRIPTION_TIMEOUT_S",
     "_STREAM_READ_BUFFER_SIZE",
@@ -80,6 +90,25 @@ _AUTH_ERROR_TOKENS: tuple[str, ...] = (
 Shared across all CLI hand implementations. Individual backends may check
 additional backend-specific tokens alongside these common ones.
 """
+
+# --- CI conclusion constants --------------------------------------------------
+
+_CI_CONCLUSION_SUCCESS = "success"
+"""CI check conclusion value indicating all checks passed."""
+
+_CI_CONCLUSION_PENDING = "pending"
+"""CI check conclusion value indicating checks are still running."""
+
+_CI_CONCLUSION_NO_CHECKS = "no_checks"
+"""CI check conclusion value indicating no checks were found."""
+
+_CI_POLL_MAX_MULTIPLIER = 2
+"""Multiplier applied to ``initial_wait`` to compute the maximum poll duration."""
+
+# --- Model resolution helpers -------------------------------------------------
+
+_MODEL_SENTINEL_VALUES: frozenset[str] = frozenset({"default", "None"})
+"""Model name values that should be treated as 'use the backend default'."""
 
 
 class _TwoPhaseCLIHand(Hand):
@@ -200,7 +229,7 @@ class _TwoPhaseCLIHand(Hand):
             The resolved model name string, or ``_DEFAULT_MODEL``.
         """
         model = str(self.config.model).strip()
-        if not model or model in ("default", "None"):
+        if not model or model in _MODEL_SENTINEL_VALUES:
             return self._DEFAULT_MODEL
         if "/" in model:
             _, _, provider_model = model.partition("/")
@@ -1107,7 +1136,7 @@ class _TwoPhaseCLIHand(Hand):
         """
         return {
             "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": "interrupted",
+            "pr_status": _PR_STATUS_INTERRUPTED,
             "pr_url": "",
             "pr_number": "",
             "pr_branch": "",
@@ -1149,17 +1178,17 @@ class _TwoPhaseCLIHand(Hand):
         status = metadata.get("pr_status", "")
         if not status:
             return None
-        if status == "created":
+        if status == _PR_STATUS_CREATED:
             pr_url = metadata.get("pr_url", "")
             return f"[{self._CLI_LABEL}] PR created: {pr_url}"
-        if status == "updated":
+        if status == _PR_STATUS_UPDATED:
             pr_url = metadata.get("pr_url", "")
             return f"[{self._CLI_LABEL}] PR updated: {pr_url}"
-        if status == "disabled":
+        if status == _PR_STATUS_DISABLED:
             return f"[{self._CLI_LABEL}] PR disabled (--no-pr)."
-        if status == "no_changes":
+        if status == _PR_STATUS_NO_CHANGES:
             return f"[{self._CLI_LABEL}] PR skipped: no file changes detected."
-        if status == "interrupted":
+        if status == _PR_STATUS_INTERRUPTED:
             return f"[{self._CLI_LABEL}] Interrupted."
         error = metadata.get("pr_error", "").strip()
         if error:
@@ -1251,7 +1280,7 @@ class _TwoPhaseCLIHand(Hand):
             return metadata
 
         pr_status = metadata.get("pr_status", "")
-        if pr_status not in ("created", "updated"):
+        if pr_status not in (_PR_STATUS_CREATED, _PR_STATUS_UPDATED):
             return metadata
 
         pr_commit = metadata.get("pr_commit", "")
@@ -1267,7 +1296,7 @@ class _TwoPhaseCLIHand(Hand):
         from helping_hands.lib.github import GitHubClient
 
         initial_wait = self.ci_check_wait_minutes * 60
-        max_poll = initial_wait * 2
+        max_poll = initial_wait * _CI_POLL_MAX_MULTIPLIER
 
         metadata["ci_fix_attempts"] = "0"
         metadata["ci_fix_status"] = "checking"
@@ -1290,10 +1319,10 @@ class _TwoPhaseCLIHand(Hand):
                         max_poll_seconds=max_poll,
                     )
 
-                    conclusion = check_result.get("conclusion", "pending")
+                    conclusion = check_result.get("conclusion", _CI_CONCLUSION_PENDING)
                     total = check_result.get("total_count", 0)
 
-                    if conclusion == "success":
+                    if conclusion == _CI_CONCLUSION_SUCCESS:
                         await emit(
                             f"[{self._CLI_LABEL}] CI passed "
                             f"({total} check{'s' if total != 1 else ''}). "
@@ -1302,7 +1331,7 @@ class _TwoPhaseCLIHand(Hand):
                         metadata["ci_fix_status"] = "success"
                         return metadata
 
-                    if conclusion == "no_checks":
+                    if conclusion == _CI_CONCLUSION_NO_CHECKS:
                         await emit(
                             f"[{self._CLI_LABEL}] No CI checks found. "
                             "Skipping CI fix loop.\n"
@@ -1310,7 +1339,7 @@ class _TwoPhaseCLIHand(Hand):
                         metadata["ci_fix_status"] = "no_checks"
                         return metadata
 
-                    if conclusion == "pending":
+                    if conclusion == _CI_CONCLUSION_PENDING:
                         await emit(
                             f"[{self._CLI_LABEL}] CI checks still pending "
                             f"after waiting. Skipping fix attempt.\n"
@@ -1520,7 +1549,10 @@ class _TwoPhaseCLIHand(Hand):
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
-        if self.fix_ci and pr_metadata.get("pr_status") in ("created", "updated"):
+        if self.fix_ci and pr_metadata.get("pr_status") in (
+            _PR_STATUS_CREATED,
+            _PR_STATUS_UPDATED,
+        ):
 
             async def _run_ci_fix() -> dict[str, str]:
                 async def _noop_emit(chunk: str) -> None:

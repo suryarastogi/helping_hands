@@ -22,7 +22,12 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _PR_STATUS_DISABLED,
+    _PR_STATUS_NO_CHANGES,
+    Hand,
+    HandResponse,
+)
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     build_langchain_chat_model,
@@ -975,7 +980,10 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 )
                 if pr_metadata.get("pr_url"):
                     yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+                elif pr_metadata.get("pr_status") not in {
+                    _PR_STATUS_NO_CHANGES,
+                    _PR_STATUS_DISABLED,
+                }:
                     yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
                 return
             yield "\n\nContinuing...\n"
@@ -987,7 +995,10 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
         if pr_metadata.get("pr_url"):
             yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+        elif pr_metadata.get("pr_status") not in {
+            _PR_STATUS_NO_CHANGES,
+            _PR_STATUS_DISABLED,
+        }:
             yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
         yield "\n\nMax iterations reached.\n"
 
@@ -1241,7 +1252,10 @@ class BasicAtomicHand(_BasicIterativeHand):
                 )
                 if pr_metadata.get("pr_url"):
                     yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+                elif pr_metadata.get("pr_status") not in {
+                    _PR_STATUS_NO_CHANGES,
+                    _PR_STATUS_DISABLED,
+                }:
                     yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
                 return
             yield "\n\nContinuing...\n"
@@ -1253,6 +1267,9 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
         if pr_metadata.get("pr_url"):
             yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+        elif pr_metadata.get("pr_status") not in {
+            _PR_STATUS_NO_CHANGES,
+            _PR_STATUS_DISABLED,
+        }:
             yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
         yield "\n\nMax iterations reached.\n"
