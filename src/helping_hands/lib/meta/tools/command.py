@@ -30,6 +30,9 @@ _EXIT_CODE_CANNOT_EXECUTE = 126
 _EXIT_CODE_NOT_FOUND = 127
 """Exit code returned when the command binary is not found (FileNotFoundError)."""
 
+_DEFAULT_SCRIPT_TIMEOUT_S = 60
+"""Default timeout in seconds for Python and bash script execution."""
+
 
 @dataclass(frozen=True)
 class CommandResult:
@@ -219,7 +222,7 @@ def run_python_code(
     code: str,
     python_version: str = "3.13",
     args: list[str] | tuple[str, ...] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
 ) -> CommandResult:
     """Execute inline Python code with a version-constrained runner."""
@@ -242,7 +245,7 @@ def run_python_script(
     script_path: str,
     python_version: str = "3.13",
     args: list[str] | tuple[str, ...] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
 ) -> CommandResult:
     """Execute a repo-relative Python script with a version-constrained runner."""
@@ -270,7 +273,7 @@ def run_bash_script(
     script_path: str | None = None,
     inline_script: str | None = None,
     args: list[str] | tuple[str, ...] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
 ) -> CommandResult:
     """Execute bash from either a repo-relative script path or inline script."""

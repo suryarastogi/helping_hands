@@ -78,6 +78,9 @@ _DEFAULT_USER_AGENT = (
 _DUCKDUCKGO_API_URL = "https://api.duckduckgo.com/"
 """Base URL for the DuckDuckGo Instant Answer API."""
 
+_DEFAULT_WEB_TIMEOUT_S = 20
+"""Default timeout in seconds for web search and browse requests."""
+
 _SCRIPT_STYLE_RE = re.compile(
     r"<(script|style|noscript)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL
 )
@@ -206,7 +209,7 @@ def search_web(
     query: str,
     *,
     max_results: int = 5,
-    timeout_s: int = 20,
+    timeout_s: int = _DEFAULT_WEB_TIMEOUT_S,
 ) -> WebSearchResult:
     """Run a lightweight web search using DuckDuckGo's JSON endpoint."""
     normalized_query = query.strip()
@@ -280,7 +283,7 @@ def browse_url(
     url: str,
     *,
     max_chars: int = 12000,
-    timeout_s: int = 20,
+    timeout_s: int = _DEFAULT_WEB_TIMEOUT_S,
 ) -> WebBrowseResult:
     """Fetch and text-extract a web page for tool consumption."""
     normalized_url = _require_http_url(url)

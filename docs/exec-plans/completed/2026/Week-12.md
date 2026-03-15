@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY timeout constants and PR status sentinels (v194)
+
+**DRY refactoring:** Extracted `_DEFAULT_SCRIPT_TIMEOUT_S = 60` module-level constant in `command.py`, replacing 3× hardcoded `timeout_s: int = 60` defaults across `run_python_code`, `run_python_script`, and `run_bash_script`. Extracted `_DEFAULT_WEB_TIMEOUT_S = 20` in `web.py`, replacing 2× hardcoded defaults across `search_web` and `browse_url`.
+
+**PR status sentinels:** Extracted 5 `_PR_STATUS_*` string constants (`_PR_STATUS_CREATED`, `_PR_STATUS_UPDATED`, `_PR_STATUS_NO_CHANGES`, `_PR_STATUS_DISABLED`, `_PR_STATUS_NOT_ATTEMPTED`) and 2 `_PR_STATUSES_*` frozensets (`_PR_STATUSES_WITH_URL`, `_PR_STATUSES_SKIPPED`) in `base.py`, replacing ~17 scattered string literals across `base.py`, `iterative.py`, and `cli/base.py`. Consumers import from `base.py` ensuring a single source of truth for PR lifecycle status values.
+
+**4700 backend tests passed (+33 new: 6 command timeout, 5 web timeout, 12 PR status sentinels, 4 frozenset, 6 cross-module identity), 155 skipped.**
+
+---
+
 ## Mar 15 — DRY auth error tokens, iterative docstrings, frontend a11y (v193)
 
 **DRY refactoring:** Extracted shared `_AUTH_ERROR_TOKENS` tuple constant to `cli/base.py` with `__all__` export, replacing 4× duplicated auth detection string literals across `claude.py`, `codex.py`, `gemini.py`, and `opencode.py`. Each CLI hand now imports the shared constant from `cli/base.py`; backend-specific tokens (e.g. `"anthropic_api_key"` in `claude.py`, `"gemini_api_key"` in `gemini.py`, `"missing bearer or basic authentication"` in `codex.py`) remain local. Added `ClaudeCodeHand._EXTRA_AUTH_TOKENS` class-level constant for Claude-specific tokens.

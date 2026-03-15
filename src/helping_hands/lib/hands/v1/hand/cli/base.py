@@ -19,6 +19,11 @@ from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
+    _PR_STATUS_CREATED,
+    _PR_STATUS_DISABLED,
+    _PR_STATUS_NO_CHANGES,
+    _PR_STATUS_UPDATED,
+    _PR_STATUSES_WITH_URL,
     Hand,
     HandResponse,
 )
@@ -1149,15 +1154,15 @@ class _TwoPhaseCLIHand(Hand):
         status = metadata.get("pr_status", "")
         if not status:
             return None
-        if status == "created":
+        if status == _PR_STATUS_CREATED:
             pr_url = metadata.get("pr_url", "")
             return f"[{self._CLI_LABEL}] PR created: {pr_url}"
-        if status == "updated":
+        if status == _PR_STATUS_UPDATED:
             pr_url = metadata.get("pr_url", "")
             return f"[{self._CLI_LABEL}] PR updated: {pr_url}"
-        if status == "disabled":
+        if status == _PR_STATUS_DISABLED:
             return f"[{self._CLI_LABEL}] PR disabled (--no-pr)."
-        if status == "no_changes":
+        if status == _PR_STATUS_NO_CHANGES:
             return f"[{self._CLI_LABEL}] PR skipped: no file changes detected."
         if status == "interrupted":
             return f"[{self._CLI_LABEL}] Interrupted."
@@ -1251,7 +1256,7 @@ class _TwoPhaseCLIHand(Hand):
             return metadata
 
         pr_status = metadata.get("pr_status", "")
-        if pr_status not in ("created", "updated"):
+        if pr_status not in _PR_STATUSES_WITH_URL:
             return metadata
 
         pr_commit = metadata.get("pr_commit", "")
@@ -1520,7 +1525,7 @@ class _TwoPhaseCLIHand(Hand):
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
-        if self.fix_ci and pr_metadata.get("pr_status") in ("created", "updated"):
+        if self.fix_ci and pr_metadata.get("pr_status") in _PR_STATUSES_WITH_URL:
 
             async def _run_ci_fix() -> dict[str, str]:
                 async def _noop_emit(chunk: str) -> None:

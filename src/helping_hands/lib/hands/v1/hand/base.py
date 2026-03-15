@@ -91,6 +91,29 @@ _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 _DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
 """Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
 
+# --- PR status sentinel values ------------------------------------------------
+
+_PR_STATUS_CREATED = "created"
+"""PR was successfully created in this run."""
+
+_PR_STATUS_UPDATED = "updated"
+"""An existing PR was updated (pushed new commits)."""
+
+_PR_STATUS_NO_CHANGES = "no_changes"
+"""No file changes were detected; PR creation was skipped."""
+
+_PR_STATUS_DISABLED = "disabled"
+"""PR creation was explicitly disabled (``--no-pr``)."""
+
+_PR_STATUS_NOT_ATTEMPTED = "not_attempted"
+"""PR creation was not attempted (e.g. no GitHub remote found)."""
+
+_PR_STATUSES_WITH_URL = frozenset({_PR_STATUS_CREATED, _PR_STATUS_UPDATED})
+"""PR status values that indicate a PR URL is available."""
+
+_PR_STATUSES_SKIPPED = frozenset({_PR_STATUS_NO_CHANGES, _PR_STATUS_DISABLED})
+"""PR status values that indicate finalization was intentionally skipped."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -688,7 +711,7 @@ class Hand(abc.ABC):
 
         metadata.update(
             {
-                "pr_status": "updated",
+                "pr_status": _PR_STATUS_UPDATED,
                 "pr_url": pr_url,
                 "pr_number": str(self.pr_number),
                 "pr_branch": branch,
@@ -812,7 +835,7 @@ class Hand(abc.ABC):
         )
         metadata.update(
             {
-                "pr_status": "created",
+                "pr_status": _PR_STATUS_CREATED,
                 "pr_url": pr.url,
                 "pr_number": str(pr.number),
                 "pr_branch": new_branch,
@@ -848,14 +871,14 @@ class Hand(abc.ABC):
         """
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": "not_attempted",
+            "pr_status": _PR_STATUS_NOT_ATTEMPTED,
             "pr_url": "",
             "pr_number": "",
             "pr_branch": "",
             "pr_commit": "",
         }
         if not self.auto_pr:
-            metadata["pr_status"] = "disabled"
+            metadata["pr_status"] = _PR_STATUS_DISABLED
             return metadata
 
         repo_dir = self.repo_index.root.resolve()
@@ -872,7 +895,7 @@ class Hand(abc.ABC):
 
         has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
         if not has_changes:
-            metadata["pr_status"] = "no_changes"
+            metadata["pr_status"] = _PR_STATUS_NO_CHANGES
             return metadata
 
         repo = self._github_repo_from_origin(repo_dir)
@@ -889,7 +912,7 @@ class Hand(abc.ABC):
                 return metadata
             has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
             if not has_changes:
-                metadata["pr_status"] = "no_changes"
+                metadata["pr_status"] = _PR_STATUS_NO_CHANGES
                 return metadata
 
         from helping_hands.lib.github import GitHubClient
@@ -997,7 +1020,7 @@ class Hand(abc.ABC):
                 )
                 metadata.update(
                     {
-                        "pr_status": "created",
+                        "pr_status": _PR_STATUS_CREATED,
                         "pr_url": pr.url,
                         "pr_number": str(pr.number),
                         "pr_branch": branch,

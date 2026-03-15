@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v194](exec-plans/completed/2026/Week-12.md) --
+  DRY timeout constants (`_DEFAULT_SCRIPT_TIMEOUT_S` in command.py replacing 3× `60`,
+  `_DEFAULT_WEB_TIMEOUT_S` in web.py replacing 2× `20`), PR status sentinel extraction
+  (5 `_PR_STATUS_*` constants + 2 `_PR_STATUSES_*` frozensets in base.py replacing ~17
+  scattered string literals across base.py/iterative.py/cli/base.py); 4700 tests (33 new,
+  155 skipped)
+
 - [2026-03-15 v193](exec-plans/completed/2026/Week-12.md) --
   DRY `_AUTH_ERROR_TOKENS` to `cli/base.py` (shared constant across claude/codex/gemini/opencode,
   eliminates 4× duplicated auth detection strings), Google-style docstrings for 4 iterative.py

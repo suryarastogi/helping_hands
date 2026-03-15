@@ -1,6 +1,6 @@
 # v193 — DRY auth error tokens, iterative docstrings, frontend a11y
 
-**Status:** active
+**Status:** completed
 **Created:** 2026-03-15
 **Branch:** helping-hands/claudecodecli-bfc17b62
 
@@ -23,18 +23,18 @@ Three self-contained improvements:
 
 ## Tasks
 
-- [ ] Extract `_AUTH_ERROR_TOKENS` to `cli/base.py` with `__all__` export
-- [ ] Refactor `claude.py` to import and use shared constant
-- [ ] Refactor `codex.py` to import and use shared constant
-- [ ] Refactor `gemini.py` to import and use shared constant
-- [ ] Remove local `_AUTH_ERROR_TOKENS` from `opencode.py`, import from base
-- [ ] Add docstrings to `BasicLangGraphHand.run()` and `.stream()`
-- [ ] Add docstrings to `BasicAtomicHand.run()` and `.stream()`
-- [ ] Add `aria-label` to inline form inputs in `App.tsx`
-- [ ] Add `.catch()` to `Notification.requestPermission()` promises
-- [ ] Write backend tests (constant value, imports, docstrings)
-- [ ] Write frontend tests (aria-labels)
-- [ ] Run all quality checks (ruff, ty, pytest, frontend lint/typecheck/test)
+- [x] Extract `_AUTH_ERROR_TOKENS` to `cli/base.py` with `__all__` export
+- [x] Refactor `claude.py` to import and use shared constant
+- [x] Refactor `codex.py` to import and use shared constant
+- [x] Refactor `gemini.py` to import and use shared constant
+- [x] Remove local `_AUTH_ERROR_TOKENS` from `opencode.py`, import from base
+- [x] Add docstrings to `BasicLangGraphHand.run()` and `.stream()`
+- [x] Add docstrings to `BasicAtomicHand.run()` and `.stream()`
+- [x] Add `aria-label` to inline form inputs in `App.tsx`
+- [x] Add `.catch()` to `Notification.requestPermission()` promises
+- [x] Write backend tests (constant value, imports, docstrings)
+- [x] Write frontend tests (aria-labels)
+- [x] Run all quality checks (ruff, ty, pytest, frontend lint/typecheck/test)
 
 ## Completion criteria
 
