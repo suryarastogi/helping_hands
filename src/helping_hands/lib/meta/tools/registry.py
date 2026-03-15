@@ -52,6 +52,19 @@ class ToolCategory:
 
 
 def _parse_str_list(payload: dict[str, Any], *, key: str) -> list[str]:
+    """Extract and validate a list of non-empty strings from a tool payload.
+
+    Args:
+        payload: Tool invocation payload dict.
+        key: Key whose value should be a list of strings.
+
+    Returns:
+        List of stripped, non-empty string values.
+
+    Raises:
+        ValueError: If the value is not a list, contains non-strings, or
+            contains empty/whitespace-only items.
+    """
     raw = payload.get(key, [])
     if raw is None:
         return []
@@ -74,6 +87,19 @@ def _parse_positive_int(
     key: str,
     default: int,
 ) -> int:
+    """Extract and validate a positive integer from a tool payload.
+
+    Args:
+        payload: Tool invocation payload dict.
+        key: Key whose value should be an integer.
+        default: Value to use when *key* is absent from *payload*.
+
+    Returns:
+        A positive integer (> 0).
+
+    Raises:
+        ValueError: If the value is not an integer, is a bool, or is <= 0.
+    """
     raw = payload.get(key, default)
     if isinstance(raw, bool) or not isinstance(raw, int):
         raise ValueError(f"{key} must be an integer")
@@ -83,6 +109,18 @@ def _parse_positive_int(
 
 
 def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
+    """Extract an optional string from a tool payload.
+
+    Args:
+        payload: Tool invocation payload dict.
+        key: Key whose value should be a string or absent.
+
+    Returns:
+        The stripped string if non-empty, otherwise ``None``.
+
+    Raises:
+        ValueError: If the value is present but not a string.
+    """
     raw = payload.get(key)
     if raw is None:
         return None
@@ -100,6 +138,19 @@ def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
 def _run_python_code(
     root: Path, payload: dict[str, Any]
 ) -> command_tools.CommandResult:
+    """Run inline Python code via :func:`command_tools.run_python_code`.
+
+    Args:
+        root: Repository root used for path resolution.
+        payload: Tool payload with ``code`` (required), plus optional
+            ``python_version``, ``args``, ``timeout_s``, and ``cwd``.
+
+    Returns:
+        Execution result containing stdout, stderr, and exit code.
+
+    Raises:
+        ValueError: If ``code`` is missing or empty.
+    """
     code = payload.get("code")
     if not isinstance(code, str) or not code.strip():
         raise ValueError("code must be a non-empty string")
@@ -118,6 +169,19 @@ def _run_python_script(
     root: Path,
     payload: dict[str, Any],
 ) -> command_tools.CommandResult:
+    """Run a Python script file via :func:`command_tools.run_python_script`.
+
+    Args:
+        root: Repository root used for path resolution.
+        payload: Tool payload with ``script_path`` (required), plus optional
+            ``python_version``, ``args``, ``timeout_s``, and ``cwd``.
+
+    Returns:
+        Execution result containing stdout, stderr, and exit code.
+
+    Raises:
+        ValueError: If ``script_path`` is missing or empty.
+    """
     script_path = payload.get("script_path")
     if not isinstance(script_path, str) or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
@@ -135,6 +199,23 @@ def _run_python_script(
 def _run_bash_script(
     root: Path, payload: dict[str, Any]
 ) -> command_tools.CommandResult:
+    """Run a Bash script via :func:`command_tools.run_bash_script`.
+
+    Exactly one of ``script_path`` or ``inline_script`` must be provided.
+
+    Args:
+        root: Repository root used for path resolution.
+        payload: Tool payload with exactly one of ``script_path`` or
+            ``inline_script``, plus optional ``args``, ``timeout_s``,
+            and ``cwd``.
+
+    Returns:
+        Execution result containing stdout, stderr, and exit code.
+
+    Raises:
+        ValueError: If neither or both of ``script_path``/``inline_script``
+            are provided, or if they have invalid types.
+    """
     script_path = payload.get("script_path")
     inline_script = payload.get("inline_script")
     if script_path is not None and not isinstance(script_path, str):
@@ -156,6 +237,20 @@ def _run_bash_script(
 
 
 def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchResult:
+    """Run a web search via :func:`web_tools.search_web`.
+
+    Args:
+        root: Repository root (unused; present for runner signature
+            compatibility).
+        payload: Tool payload with ``query`` (required), plus optional
+            ``max_results`` and ``timeout_s``.
+
+    Returns:
+        Structured search results with deduplicated hits.
+
+    Raises:
+        ValueError: If ``query`` is missing or empty.
+    """
     del root
     query = payload.get("query")
     if not isinstance(query, str) or not query.strip():
@@ -168,6 +263,20 @@ def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchR
 
 
 def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseResult:
+    """Fetch and extract text from a URL via :func:`web_tools.browse_url`.
+
+    Args:
+        root: Repository root (unused; present for runner signature
+            compatibility).
+        payload: Tool payload with ``url`` (required), plus optional
+            ``max_chars`` and ``timeout_s``.
+
+    Returns:
+        Fetched page content with metadata.
+
+    Raises:
+        ValueError: If ``url`` is missing or empty.
+    """
     del root
     url = payload.get("url")
     if not isinstance(url, str) or not url.strip():

@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v171](exec-plans/completed/2026-03-15.md) --
+  Add Attributes to Config dataclass (11 fields), add Google-style docstrings to 4 web.py and 8 registry.py private helpers; 4233 tests (36 new)
+
 - [2026-03-15 v170](exec-plans/completed/2026-03-15.md) --
   Add Google-style Attributes sections to 12 public dataclass docstrings across 10 modules; 4197 tests (24 new)
 

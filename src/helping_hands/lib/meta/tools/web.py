@@ -80,6 +80,18 @@ _DUCKDUCKGO_API_URL = "https://api.duckduckgo.com/"
 
 
 def _require_http_url(url: str) -> str:
+    """Validate and normalise a URL to an HTTP/HTTPS scheme.
+
+    Args:
+        url: Raw URL string (leading/trailing whitespace is stripped).
+
+    Returns:
+        The stripped URL if it uses ``http`` or ``https`` and includes a host.
+
+    Raises:
+        ValueError: If the URL is empty, uses a non-HTTP scheme, or lacks a
+            host component.
+    """
     candidate = url.strip()
     if not candidate:
         raise ValueError("url must be non-empty")
@@ -104,6 +116,18 @@ def _decode_bytes(payload: bytes) -> str:
 
 
 def _strip_html(raw_html: str) -> str:
+    """Remove HTML markup and collapse whitespace to produce plain text.
+
+    Strips ``<script>``, ``<style>``, and ``<noscript>`` blocks entirely,
+    removes remaining tags, unescapes HTML entities, and normalises
+    whitespace.
+
+    Args:
+        raw_html: Raw HTML source string.
+
+    Returns:
+        Cleaned plain-text content with collapsed whitespace.
+    """
     text = re.sub(
         r"(?is)<(script|style|noscript)\b[^>]*>.*?</\1>",
         " ",
@@ -117,6 +141,15 @@ def _strip_html(raw_html: str) -> str:
 
 
 def _as_string_keyed_dict(value: object) -> dict[str, object] | None:
+    """Narrow an arbitrary value to a string-keyed dict, or return None.
+
+    Args:
+        value: Any Python object to check.
+
+    Returns:
+        The same dict cast to ``dict[str, object]`` if *value* is a dict
+        with all-string keys, otherwise ``None``.
+    """
     if not isinstance(value, dict):
         return None
     if any(not isinstance(key, str) for key in value):
@@ -127,6 +160,17 @@ def _as_string_keyed_dict(value: object) -> dict[str, object] | None:
 def _extract_related_topics(
     items: Sequence[object], output: list[WebSearchItem]
 ) -> None:
+    """Recursively extract search hits from DuckDuckGo RelatedTopics.
+
+    DuckDuckGo nests topics in sub-lists (``Topics`` key); this function
+    flattens them into a single output list.
+
+    Args:
+        items: Sequence of topic dicts (or nested sub-topic lists) from the
+            DuckDuckGo API response.
+        output: Mutable list to which extracted ``WebSearchItem`` instances
+            are appended in-place.
+    """
     for item in items:
         record = _as_string_keyed_dict(item)
         if record is None:
