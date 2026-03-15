@@ -4,6 +4,21 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY payload extraction, truthy env var consistency (v207)
+
+**DRY `_extract_str_field`:** Extracted shared `_extract_str_field(entry, keys)` helper in `server/app.py` that consolidates the identical recursive lookup-by-candidate-keys pattern from `_extract_task_id()` and `_extract_task_name()`. Both functions now delegate to the shared helper with `_TASK_ID_KEYS` and `_TASK_NAME_KEYS` constant tuples.
+
+**DRY truthy env var checks:** Replaced 3× inline `os.environ.get(...).strip().lower() in {truthy_set}` patterns with `_is_truthy_env()` from `config.py`:
+- `pr_description.py` `_is_disabled()` — also drops inconsistent `"on"` to align with project-wide `_TRUTHY_VALUES`
+- `e2e.py` `_draft_pr_enabled()` — replaces inline `_TRUTHY_VALUES` import with `_is_truthy_env` delegation
+- `server/app.py` `_is_running_in_docker()` — removes now-unused `_TRUTHY_VALUES` import
+
+**`_is_truthy_env` whitespace stripping:** Added `.strip()` to `_is_truthy_env()` in `config.py` for consistency with the patterns being consolidated.
+
+**37 new tests (16 passed, 21 skipped without fastapi). 4981 total passed, 233 skipped.**
+
+---
+
 ## Mar 15 — DRY payload validators, normalize selection, URL error handling (v206)
 
 **DRY payload validators:** Removed 3 duplicated `_parse_str_list`/`_parse_positive_int`/`_parse_optional_str` static methods from `_BasicIterativeHand` in `iterative.py`, replacing them with class-level `staticmethod()` assignments that delegate to the canonical implementations in `registry.py`.

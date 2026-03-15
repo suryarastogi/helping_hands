@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.config import _is_truthy_env
 from helping_hands.lib.hands.v1.hand.base import (
     _DEFAULT_GIT_USER_EMAIL,
     _DEFAULT_GIT_USER_NAME,
@@ -158,10 +158,7 @@ class E2EHand(Hand):
     @staticmethod
     def _draft_pr_enabled() -> bool:
         """Check whether E2E PRs should be created as drafts."""
-        return (
-            os.environ.get("HELPING_HANDS_E2E_DRAFT_PR", "true").strip().lower()
-            in _TRUTHY_VALUES
-        )
+        return _is_truthy_env("HELPING_HANDS_E2E_DRAFT_PR", default="true")
 
     def run(
         self,

@@ -23,7 +23,7 @@ from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.config import _is_truthy_env
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
@@ -2734,8 +2734,7 @@ def _is_running_in_docker() -> bool:
     """Return True when the process is running inside a Docker container."""
     if Path("/.dockerenv").exists():
         return True
-    raw = os.environ.get("HELPING_HANDS_IN_DOCKER", "").strip().lower()
-    return raw in _TRUTHY_VALUES
+    return _is_truthy_env("HELPING_HANDS_IN_DOCKER")
 
 
 @app.get("/config", response_model=ServerConfig)
@@ -2827,28 +2826,45 @@ def _normalize_task_status(raw: Any, *, default: str) -> str:
     return text or default
 
 
-def _extract_task_id(entry: dict[str, Any]) -> str | None:
-    """Extract a task UUID from Celery/Flower payload shapes."""
-    for key in ("task_id", "uuid", "id"):
+def _extract_str_field(entry: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    """Extract the first non-empty string value for *keys* from a payload.
+
+    Searches *entry* for each key in order. If a non-blank string is found it
+    is returned (stripped). When no direct match exists, the function recurses
+    into a nested ``"request"`` sub-dict if present.
+
+    Args:
+        entry: Celery / Flower task payload dict.
+        keys: Candidate field names to probe, checked in order.
+
+    Returns:
+        The first non-blank string found, or ``None``.
+    """
+    for key in keys:
         value = entry.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     request_payload = entry.get("request")
     if isinstance(request_payload, dict):
-        return _extract_task_id(request_payload)
+        return _extract_str_field(request_payload, keys)
     return None
+
+
+_TASK_ID_KEYS: tuple[str, ...] = ("task_id", "uuid", "id")
+"""Candidate field names for extracting a Celery task UUID."""
+
+_TASK_NAME_KEYS: tuple[str, ...] = ("name", "task")
+"""Candidate field names for extracting a Celery task name."""
+
+
+def _extract_task_id(entry: dict[str, Any]) -> str | None:
+    """Extract a task UUID from Celery/Flower payload shapes."""
+    return _extract_str_field(entry, _TASK_ID_KEYS)
 
 
 def _extract_task_name(entry: dict[str, Any]) -> str | None:
     """Extract task name from Celery/Flower payload shapes."""
-    for key in ("name", "task"):
-        value = entry.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    request_payload = entry.get("request")
-    if isinstance(request_payload, dict):
-        return _extract_task_name(request_payload)
-    return None
+    return _extract_str_field(entry, _TASK_NAME_KEYS)
 
 
 def _extract_task_kwargs(entry: dict[str, Any]) -> dict[str, Any]:

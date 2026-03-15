@@ -105,19 +105,19 @@ class TestIsTruthyEnv:
 
 
 # ---------------------------------------------------------------------------
-# e2e.py — _TRUTHY_VALUES import
+# e2e.py — _is_truthy_env import (upgraded from _TRUTHY_VALUES in v207)
 # ---------------------------------------------------------------------------
 
 
 class TestE2ETruthyImport:
-    """Verify e2e.py uses _TRUTHY_VALUES from config."""
+    """Verify e2e.py uses _is_truthy_env from config."""
 
-    def test_e2e_imports_truthy_values(self):
+    def test_e2e_imports_is_truthy_env(self):
         from helping_hands.lib.hands.v1.hand import e2e
 
-        # The module should reference the same _TRUTHY_VALUES object
-        assert hasattr(e2e, "_TRUTHY_VALUES")
-        assert e2e._TRUTHY_VALUES is _TRUTHY_VALUES
+        # The module should reference the same _is_truthy_env function
+        assert hasattr(e2e, "_is_truthy_env")
+        assert e2e._is_truthy_env is _is_truthy_env
 
 
 # ---------------------------------------------------------------------------

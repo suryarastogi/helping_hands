@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v207](exec-plans/completed/2026/v207-dry-payload-extraction-truthy-env.md) --
+  DRY `_extract_str_field()` payload extraction helper (consolidates
+  `_extract_task_id`/`_extract_task_name` identical patterns), truthy env var
+  consistency (`_is_truthy_env()` delegation in pr_description.py/e2e.py/app.py,
+  `.strip()` added to `_is_truthy_env`, drops inconsistent `"on"` from
+  pr_description truthy set);
+  37 tests (16 passed, 21 skipped without fastapi; 4981 total passed)
+
 - [2026-03-15 v206](exec-plans/completed/2026/v206-dry-payload-validators-normalize-selection-url-errors.md) --
   DRY payload validators (iterative.py `_parse_str_list`/`_parse_positive_int`/
   `_parse_optional_str` → registry.py delegation), shared

@@ -53,7 +53,7 @@ class TestIsDisabled:
         monkeypatch.delenv("HELPING_HANDS_DISABLE_PR_DESCRIPTION", raising=False)
         assert _is_disabled() is False
 
-    @pytest.mark.parametrize("value", ["1", "true", "yes", "on", "TRUE", "Yes"])
+    @pytest.mark.parametrize("value", ["1", "true", "yes", "TRUE", "Yes"])
     def test_returns_true_when_set(
         self, monkeypatch: pytest.MonkeyPatch, value: str
     ) -> None:

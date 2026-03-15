@@ -32,7 +32,7 @@ def _is_truthy_env(name: str, default: str = "") -> bool:
     Returns:
         True if the lowercased value is in ``_TRUTHY_VALUES``.
     """
-    return os.environ.get(name, default).lower() in _TRUTHY_VALUES
+    return os.environ.get(name, default).strip().lower() in _TRUTHY_VALUES
 
 
 def _load_env_files(repo: str | None = None) -> None:

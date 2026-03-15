@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from subprocess import TimeoutExpired
 
+from helping_hands.lib.config import _is_truthy_env
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["PRDescription", "generate_commit_message", "generate_pr_description"]
@@ -147,8 +149,7 @@ class PRDescription:
 
 def _is_disabled() -> bool:
     """Check whether rich PR description generation is explicitly disabled."""
-    raw = os.environ.get(_DISABLE_ENV_VAR, "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    return _is_truthy_env(_DISABLE_ENV_VAR)
 
 
 def _timeout_seconds() -> float:
