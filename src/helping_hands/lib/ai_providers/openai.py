@@ -38,7 +38,7 @@ class OpenAIProvider(AIProvider):
                 "OpenAI SDK is not installed. Install with: uv add openai"
             ) from exc
 
-        api_key = os.environ.get(self.api_key_env_var)
+        api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:
             return OpenAI(api_key=api_key)
         return OpenAI()

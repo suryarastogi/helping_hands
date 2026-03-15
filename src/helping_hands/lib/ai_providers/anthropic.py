@@ -41,7 +41,7 @@ class AnthropicProvider(AIProvider):
                 "Anthropic SDK is not installed. Install with: uv add anthropic"
             ) from exc
 
-        api_key = os.environ.get(self.api_key_env_var)
+        api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:
             return Anthropic(api_key=api_key)
         return Anthropic()

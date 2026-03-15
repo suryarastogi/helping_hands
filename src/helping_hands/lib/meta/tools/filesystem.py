@@ -74,11 +74,12 @@ def read_text_file(
 
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
+    display = target.relative_to(root).as_posix()
 
     if not target.exists():
-        raise FileNotFoundError("file not found")
+        raise FileNotFoundError(f"file not found: {display}")
     if target.is_dir():
-        raise IsADirectoryError("path is a directory")
+        raise IsADirectoryError(f"path is a directory: {display}")
 
     file_size = target.stat().st_size
     if file_size > max_file_size:

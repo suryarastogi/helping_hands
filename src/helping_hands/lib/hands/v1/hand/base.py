@@ -338,12 +338,17 @@ class Hand(abc.ABC):
             Markdown string suitable for a GitHub PR body.
 
         Raises:
-            ValueError: If *backend* or *prompt* is empty/whitespace.
+            ValueError: If *backend*, *prompt*, *commit_sha*, or
+                *stamp_utc* is empty/whitespace.
         """
         if not backend or not backend.strip():
             raise ValueError("backend must not be empty")
         if not prompt or not prompt.strip():
             raise ValueError("prompt must not be empty")
+        if not isinstance(commit_sha, str) or not commit_sha.strip():
+            raise ValueError("commit_sha must be a non-empty string")
+        if not isinstance(stamp_utc, str) or not stamp_utc.strip():
+            raise ValueError("stamp_utc must be a non-empty string")
         return (
             f"Automated update from `{backend}`.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"

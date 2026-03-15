@@ -38,7 +38,7 @@ class GoogleProvider(AIProvider):
                 "Google GenAI SDK is not installed. Install with: uv add google-genai"
             ) from exc
 
-        api_key = os.environ.get(self.api_key_env_var)
+        api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:
             return genai.Client(api_key=api_key)
         return genai.Client()
