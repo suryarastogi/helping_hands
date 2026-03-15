@@ -350,6 +350,8 @@ button.submit-inline {
 
 .compact-monitor {
   padding: 12px 14px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .monitor-bar {
@@ -392,8 +394,78 @@ pre.monitor-output {
   font-family: var(--mono);
   font-size: 0.78rem;
   line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre;
+  max-width: 100%;
+}
+
+.prefix-filters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+.prefix-filters-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+button.prefix-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1px 8px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+button.prefix-chip:hover {
+  border-color: var(--accent);
+  color: var(--foreground);
+}
+
+button.prefix-chip.show {
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+button.prefix-chip.hide {
+  color: #6b7280;
+  border-color: #7f1d1d;
+  background: rgba(127, 29, 29, 0.15);
+  text-decoration: line-through;
+}
+
+button.prefix-chip.only {
+  color: #22c55e;
+  border-color: #166534;
+  background: rgba(22, 101, 52, 0.15);
+}
+
+button.prefix-chip.reset {
+  font-family: inherit;
+  color: var(--muted);
+  border-style: dashed;
+}
+
+button.prefix-chip.reset:hover {
+  color: var(--foreground);
+}
+
+.prefix-chip-icon {
+  font-size: 0.55rem;
+  line-height: 1;
 }
 
 .monitor-resize-handle {

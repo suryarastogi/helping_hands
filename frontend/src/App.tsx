@@ -164,6 +164,7 @@ type ClaudeUsageResponse = {
 };
 
 type OutputTab = "updates" | "raw" | "payload";
+type PrefixFilterMode = "show" | "hide" | "only";
 type MainView = "submission" | "monitor" | "schedules";
 type DashboardView = "classic" | "world";
 
@@ -694,6 +695,46 @@ export function checkDeskCollision(
   return false;
 }
 
+const PREFIX_RE = /^\[([^\]]+)\]/;
+
+export function extractPrefixes(rawUpdates: string[]): string[] {
+  const seen = new Set<string>();
+  for (const entry of rawUpdates) {
+    for (const line of String(entry).split(/\r?\n/)) {
+      const m = line.trim().match(PREFIX_RE);
+      if (m) {
+        seen.add(m[1]);
+      }
+    }
+  }
+  return Array.from(seen).sort();
+}
+
+export function filterLinesByPrefix(
+  text: string,
+  filters: Record<string, PrefixFilterMode>
+): string {
+  const entries = Object.entries(filters);
+  if (entries.length === 0) {
+    return text;
+  }
+  const hasOnly = entries.some(([, mode]) => mode === "only");
+  const lines = text.split("\n");
+  const result: string[] = [];
+  for (const line of lines) {
+    const m = line.match(PREFIX_RE);
+    const prefix = m ? m[1] : null;
+    if (hasOnly) {
+      if (!prefix || filters[prefix] !== "only") continue;
+      result.push(line.replace(PREFIX_RE, "").trimStart());
+    } else {
+      if (prefix && filters[prefix] === "hide") continue;
+      result.push(line);
+    }
+  }
+  return result.join("\n");
+}
+
 export function extractUpdates(result: Record<string, unknown> | null): string[] {
   if (!result || typeof result !== "object") {
     return [];
@@ -939,6 +980,7 @@ export default function App() {
   const [payload, setPayload] = useState<Record<string, unknown> | null>(null);
   const [updates, setUpdates] = useState<string[]>([]);
   const [outputTab, setOutputTab] = useState<OutputTab>("updates");
+  const [prefixFilters, setPrefixFilters] = useState<Record<string, PrefixFilterMode>>({});
   const [mainView, setMainView] = useState<MainView>("submission");
   const [isPolling, setIsPolling] = useState(false);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
@@ -1075,15 +1117,22 @@ export default function App() {
     return parsed.join("\n");
   }, [updates]);
 
+  const detectedPrefixes = useMemo(() => extractPrefixes(updates), [updates]);
+
   const activeOutputText = useMemo(() => {
+    let text: string;
     if (outputTab === "raw") {
-      return rawUpdatesText;
+      text = rawUpdatesText;
+    } else if (outputTab === "payload") {
+      text = payloadText;
+    } else {
+      text = optimisticUpdatesText;
     }
-    if (outputTab === "payload") {
-      return payloadText;
+    if (outputTab !== "payload") {
+      text = filterLinesByPrefix(text, prefixFilters);
     }
-    return optimisticUpdatesText;
-  }, [optimisticUpdatesText, outputTab, payloadText, rawUpdatesText]);
+    return text;
+  }, [optimisticUpdatesText, outputTab, payloadText, rawUpdatesText, prefixFilters]);
 
   useEffect(() => {
     const el = monitorOutputRef.current;
@@ -2628,6 +2677,51 @@ export default function App() {
           </span>
         </div>
       </div>
+      {detectedPrefixes.length > 0 && outputTab !== "payload" && (
+        <div className="prefix-filters">
+          <span className="prefix-filters-label">Filter:</span>
+          {detectedPrefixes.map((prefix) => {
+            const mode = prefixFilters[prefix] ?? "show";
+            return (
+              <button
+                key={prefix}
+                type="button"
+                className={`prefix-chip ${mode}`}
+                title={`[${prefix}] — ${mode === "show" ? "Showing (click to hide)" : mode === "hide" ? "Hidden (click for only)" : "Only (click to reset)"}`}
+                onClick={() => {
+                  setPrefixFilters((prev) => {
+                    const current = prev[prefix] ?? "show";
+                    const next: PrefixFilterMode =
+                      current === "show" ? "hide" : current === "hide" ? "only" : "show";
+                    const updated = { ...prev };
+                    if (next === "show") {
+                      delete updated[prefix];
+                    } else {
+                      updated[prefix] = next;
+                    }
+                    return updated;
+                  });
+                }}
+              >
+                <span className="prefix-chip-icon">
+                  {mode === "show" ? "●" : mode === "hide" ? "○" : "◉"}
+                </span>
+                [{prefix}]
+              </button>
+            );
+          })}
+          {Object.keys(prefixFilters).length > 0 && (
+            <button
+              type="button"
+              className="prefix-chip reset"
+              title="Reset all filters"
+              onClick={() => setPrefixFilters({})}
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      )}
       <pre
         ref={monitorOutputRef}
         className="monitor-output"

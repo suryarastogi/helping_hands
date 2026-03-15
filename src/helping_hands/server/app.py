@@ -921,9 +921,60 @@ _UI_HTML = """<!doctype html>
         font-family: var(--mono);
         font-size: 0.8rem;
         line-height: 1.45;
-        white-space: pre-wrap;
-        word-break: break-word;
+        white-space: pre;
       }
+      .prefix-filters {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        padding: 4px 0;
+        margin-bottom: 4px;
+      }
+      .prefix-filters-label {
+        font-size: 0.7rem;
+        color: var(--muted);
+        font-weight: 600;
+        margin-right: 2px;
+      }
+      .prefix-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1px 8px;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .prefix-chip:hover {
+        border-color: var(--accent);
+        color: var(--foreground);
+      }
+      .prefix-chip.show { color: var(--foreground); }
+      .prefix-chip.hide {
+        color: #6b7280;
+        border-color: #7f1d1d;
+        background: rgba(127,29,29,0.15);
+        text-decoration: line-through;
+      }
+      .prefix-chip.only {
+        color: #22c55e;
+        border-color: #166534;
+        background: rgba(22,101,52,0.15);
+      }
+      .prefix-chip.reset {
+        font-family: inherit;
+        color: var(--muted);
+        border-style: dashed;
+      }
+      .prefix-chip.reset:hover { color: var(--foreground); }
+      .prefix-chip-icon { font-size: 0.55rem; line-height: 1; }
       code {
         font-family: var(--mono);
         font-size: 0.84rem;
@@ -1256,6 +1307,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
               <button type="button" id="copy_output_btn" class="secondary"
                 style="font-size:0.7rem;padding:2px 8px;" title="Copy output to clipboard">Copy</button>
             </div>
+            <div id="prefix_filters" class="prefix-filters" style="display:none;"></div>
             <pre id="output_text">No updates yet.</pre>
           </article>
         </section>
@@ -1421,6 +1473,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       let isPolling = false;
       let pollHandle = null;
       let discoveryHandle = null;
+      const prefixFilters = {};
+      const prefixFiltersEl = document.getElementById("prefix_filters");
+      const PREFIX_RE = new RegExp("^\\\\[([^\\\\]]+)\\\\]");
       let runtimeHandle = null;
       let startedAtMs = null;
       let taskHistory = loadTaskHistory();
@@ -1614,6 +1669,79 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         return lines;
       }
 
+      function extractPrefixes(rawUpdates) {
+        const seen = new Set();
+        for (const entry of rawUpdates) {
+          for (const line of String(entry).split(/\r?\n/)) {
+            const m = line.trim().match(PREFIX_RE);
+            if (m) seen.add(m[1]);
+          }
+        }
+        return Array.from(seen).sort();
+      }
+
+      function filterLinesByPrefix(text, filters) {
+        const entries = Object.entries(filters);
+        if (entries.length === 0) return text;
+        const hasOnly = entries.some(([, mode]) => mode === "only");
+        const result = [];
+        for (const line of text.split("\n")) {
+          const m = line.match(PREFIX_RE);
+          const prefix = m ? m[1] : null;
+          if (hasOnly) {
+            if (!prefix || filters[prefix] !== "only") continue;
+            result.push(line.replace(PREFIX_RE, "").trimStart());
+          } else {
+            if (prefix && filters[prefix] === "hide") continue;
+            result.push(line);
+          }
+        }
+        return result.join("\n");
+      }
+
+      function renderPrefixFilters() {
+        const prefixes = extractPrefixes(updates);
+        if (prefixes.length === 0 || outputTab === "payload") {
+          prefixFiltersEl.style.display = "none";
+          return;
+        }
+        prefixFiltersEl.style.display = "flex";
+        let html = '<span class="prefix-filters-label">Filter:</span>';
+        for (const prefix of prefixes) {
+          const mode = prefixFilters[prefix] || "show";
+          const icons = { show: "\u25cf", hide: "\u25cb", only: "\u25c9" };
+          const titles = {
+            show: "Showing (click to hide)",
+            hide: "Hidden (click for only)",
+            only: "Only (click to reset)",
+          };
+          html += `<button type="button" class="prefix-chip ${mode}" data-prefix="${prefix}" title="[${prefix}] \u2014 ${titles[mode]}"><span class="prefix-chip-icon">${icons[mode]}</span>[${prefix}]</button>`;
+        }
+        if (Object.keys(prefixFilters).length > 0) {
+          html += '<button type="button" class="prefix-chip reset" data-prefix="__reset__" title="Reset all filters">Reset</button>';
+        }
+        prefixFiltersEl.innerHTML = html;
+      }
+
+      prefixFiltersEl.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-prefix]");
+        if (!btn) return;
+        const prefix = btn.getAttribute("data-prefix");
+        if (prefix === "__reset__") {
+          for (const key of Object.keys(prefixFilters)) delete prefixFilters[key];
+        } else {
+          const current = prefixFilters[prefix] || "show";
+          const next = current === "show" ? "hide" : current === "hide" ? "only" : "show";
+          if (next === "show") {
+            delete prefixFilters[prefix];
+          } else {
+            prefixFilters[prefix] = next;
+          }
+        }
+        renderPrefixFilters();
+        renderOutput();
+      });
+
       function renderOutput() {
         let text = "No updates yet.";
         if (outputTab === "payload") {
@@ -1624,7 +1752,11 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           const parsed = parseOptimisticUpdates(updates);
           text = parsed.length > 0 ? parsed.join("\n") : "No updates yet.";
         }
+        if (outputTab !== "payload") {
+          text = filterLinesByPrefix(text, prefixFilters);
+        }
         outputTextEl.textContent = text;
+        renderPrefixFilters();
       }
 
       function setOutputTab(nextTab) {
