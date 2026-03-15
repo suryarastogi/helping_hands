@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY truncation suffix, code fences, bool-lower helper (v211)
+
+**`_TRUNCATION_SUFFIX` constant + `_truncation_note()` helper:** Extracted the repeated `"\n[truncated]" if truncated else ""` pattern from 6 locations in `iterative.py` into a module-level `_TRUNCATION_SUFFIX` constant and a `_truncation_note()` staticmethod.
+
+**Code fence constants:** Extracted `_FENCE_TEXT` (`"```text"`), `_FENCE_JSON` (`"```json"`), `_FENCE_CLOSE` (`"```"`) constants replacing 7+ inline code-fence markers in tool result formatting methods.
+
+**`_bool_lower()` staticmethod:** Extracted the repeated `str(bool_val).lower()` pattern from 4 locations (`timed_out`, `source_truncated`, 2× `interrupted`) into a named `_bool_lower()` helper.
+
+**`tests/test_v211_dry_truncation_fences_bool_lower.py`:** 31 tests verifying constants exist with correct values, helpers return correct results, and formatting methods reference the new constants (no inline duplicates).
+
+**31 new tests. 5174 passed, 216 skipped.**
+
+---
+
 ## Mar 15 — Hook markers constant, validation + github_url test coverage (v210)
 
 **`_GIT_HOOK_FAILURE_MARKERS` constant:** Extracted inline `markers` tuple from `_is_git_hook_failure()` in `base.py` to a module-level constant with docstring.

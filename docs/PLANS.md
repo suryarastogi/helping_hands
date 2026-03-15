@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v211](exec-plans/completed/2026/v211-dry-truncation-fences-bool-lower.md) —
+  DRY `_TRUNCATION_SUFFIX` constant + `_truncation_note()` helper (6 sites),
+  `_FENCE_TEXT`/`_FENCE_JSON`/`_FENCE_CLOSE` constants (7+ sites),
+  `_bool_lower()` staticmethod (4 sites) in `iterative.py`;
+  31 tests (5174 passed, 216 skipped)
+
 - [2026-03-15 v210](exec-plans/completed/2026/v210-hook-markers-validation-github-url-tests.md) —
   Extract `_GIT_HOOK_FAILURE_MARKERS` constant in base.py, dedicated unit tests
   for `validation.py` (21 tests) and `github_url.py` (33 tests), versioned

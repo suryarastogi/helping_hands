@@ -54,6 +54,18 @@ _README_CANDIDATES: tuple[str, ...] = ("README.md", "readme.md")
 _AGENT_DOC_CANDIDATES: tuple[str, ...] = ("AGENT.md", "agent.md")
 """Candidate filenames for agent guidance doc, checked in order during bootstrap."""
 
+_TRUNCATION_SUFFIX: str = "\n[truncated]"
+"""Suffix appended to tool output when content exceeds the character limit."""
+
+_FENCE_TEXT: str = "```text"
+"""Opening code-fence marker for plain-text tool output blocks."""
+
+_FENCE_JSON: str = "```json"
+"""Opening code-fence marker for JSON tool output blocks."""
+
+_FENCE_CLOSE: str = "```"
+"""Closing code-fence marker for all tool output blocks."""
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
@@ -340,9 +352,9 @@ class _BasicIterativeHand(Hand):
                 chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: path is a directory")
                 continue
 
-            truncated_note = "\n[truncated]" if truncated else ""
+            note = self._truncation_note(truncated)
             chunks.append(
-                f"@@READ_RESULT: {display_path}\n```text\n{text}\n```{truncated_note}"
+                f"@@READ_RESULT: {display_path}\n{_FENCE_TEXT}\n{text}\n{_FENCE_CLOSE}{note}"
             )
         return "\n\n".join(chunks).strip()
 
@@ -377,6 +389,30 @@ class _BasicIterativeHand(Hand):
             return text, False
         return text[: cls._MAX_TOOL_OUTPUT_CHARS], True
 
+    @staticmethod
+    def _truncation_note(truncated: bool) -> str:
+        """Return the truncation suffix when *truncated* is ``True``.
+
+        Args:
+            truncated: Whether the content was truncated.
+
+        Returns:
+            ``_TRUNCATION_SUFFIX`` if truncated, otherwise empty string.
+        """
+        return _TRUNCATION_SUFFIX if truncated else ""
+
+    @staticmethod
+    def _bool_lower(value: bool) -> str:
+        """Convert a boolean to its lowercase string representation.
+
+        Args:
+            value: Boolean value to convert.
+
+        Returns:
+            ``"true"`` or ``"false"``.
+        """
+        return str(value).lower()
+
     @classmethod
     def _format_command_result(
         cls,
@@ -396,18 +432,18 @@ class _BasicIterativeHand(Hand):
         """
         stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
         stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
-        stdout_note = "\n[truncated]" if stdout_truncated else ""
-        stderr_note = "\n[truncated]" if stderr_truncated else ""
+        stdout_note = cls._truncation_note(stdout_truncated)
+        stderr_note = cls._truncation_note(stderr_truncated)
         status = "success" if result.success else "failure"
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
             f"status: {status}\n"
             f"exit_code: {result.exit_code}\n"
-            f"timed_out: {str(result.timed_out).lower()}\n"
+            f"timed_out: {cls._bool_lower(result.timed_out)}\n"
             f"cwd: {result.cwd}\n"
             f"command: {cls._format_command(result.command)}\n"
-            f"stdout:\n```text\n{stdout}\n```{stdout_note}\n"
-            f"stderr:\n```text\n{stderr}\n```{stderr_note}"
+            f"stdout:\n{_FENCE_TEXT}\n{stdout}\n{_FENCE_CLOSE}{stdout_note}\n"
+            f"stderr:\n{_FENCE_TEXT}\n{stderr}\n{_FENCE_CLOSE}{stderr_note}"
         )
 
     @classmethod
@@ -437,13 +473,13 @@ class _BasicIterativeHand(Hand):
         ]
         payload = json.dumps(items, ensure_ascii=False, indent=2)
         payload_text, truncated = cls._truncate_tool_output(payload)
-        truncated_note = "\n[truncated]" if truncated else ""
+        note = cls._truncation_note(truncated)
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
             "status: success\n"
             f"query: {result.query}\n"
             f"result_count: {len(result.results)}\n"
-            f"results:\n```json\n{payload_text}\n```{truncated_note}"
+            f"results:\n{_FENCE_JSON}\n{payload_text}\n{_FENCE_CLOSE}{note}"
         )
 
     @classmethod
@@ -464,15 +500,15 @@ class _BasicIterativeHand(Hand):
             page content.
         """
         text, output_truncated = cls._truncate_tool_output(result.content)
-        truncated_note = "\n[truncated]" if output_truncated else ""
+        note = cls._truncation_note(output_truncated)
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
             "status: success\n"
             f"url: {result.url}\n"
             f"final_url: {result.final_url}\n"
             f"status_code: {result.status_code}\n"
-            f"source_truncated: {str(result.truncated).lower()}\n"
-            f"content:\n```text\n{text}\n```{truncated_note}"
+            f"source_truncated: {cls._bool_lower(result.truncated)}\n"
+            f"content:\n{_FENCE_TEXT}\n{text}\n{_FENCE_CLOSE}{note}"
         )
 
     @staticmethod
@@ -625,8 +661,8 @@ class _BasicIterativeHand(Hand):
             except (FileNotFoundError, IsADirectoryError, UnicodeError, ValueError):
                 continue
 
-            truncated_note = "\n[truncated]" if truncated else ""
-            return f"{display_path}:\n```text\n{text}\n```{truncated_note}"
+            note = self._truncation_note(truncated)
+            return f"{display_path}:\n{_FENCE_TEXT}\n{text}\n{_FENCE_CLOSE}{note}"
         return ""
 
     def _build_tree_snapshot(self) -> str:
@@ -821,7 +857,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 "provider": self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
-                "interrupted": str(interrupted).lower(),
+                "interrupted": self._bool_lower(interrupted),
                 **pr_metadata,
             },
         )
@@ -1065,7 +1101,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 "provider": self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
-                "interrupted": str(interrupted).lower(),
+                "interrupted": self._bool_lower(interrupted),
                 **pr_metadata,
             },
         )
