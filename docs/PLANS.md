@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v173](exec-plans/completed/2026-03-15.md) --
+  Close 3 remaining non-server branch partials: iterative.py empty-delta (2 partials), e2e.py final_pr_number None guard; pr_description.py 581→583 confirmed unreachable; 4261 tests (10 new)
+
 - [2026-03-15 v172](exec-plans/completed/2026-03-15.md) --
   Close 7 uncovered lines across 4 non-server modules: _clone_reference_repos (invalid spec, timeout, success), Config reference_repos type fallback, Hand PermissionError in reference repo rglob, _run_bash_script both-None validation; 4251 tests (18 new)
 
