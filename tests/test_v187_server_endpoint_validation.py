@@ -53,7 +53,7 @@ class TestValidatePathParam:
             _validate_path_param("", "my_param")
 
     def test_error_message_non_empty(self) -> None:
-        with pytest.raises(ValueError, match="non-empty"):
+        with pytest.raises(ValueError, match="must not be empty"):
             _validate_path_param("", "x")
 
 
