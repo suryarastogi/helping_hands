@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __all__ = [
     "DEFAULT_BROWSE_MAX_CHARS",
+    "DEFAULT_SEARCH_MAX_RESULTS",
     "WebBrowseResult",
     "WebSearchItem",
     "WebSearchResult",
@@ -26,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BROWSE_MAX_CHARS = 12000
 """Default maximum characters returned when browsing a web page."""
+
+DEFAULT_SEARCH_MAX_RESULTS = 5
+"""Default maximum number of results returned by web search."""
 
 
 @dataclass(frozen=True)
@@ -212,7 +216,7 @@ def _extract_related_topics(
 def search_web(
     query: str,
     *,
-    max_results: int = 5,
+    max_results: int = DEFAULT_SEARCH_MAX_RESULTS,
     timeout_s: int = _DEFAULT_WEB_TIMEOUT_S,
 ) -> WebSearchResult:
     """Run a lightweight web search using DuckDuckGo's JSON endpoint."""

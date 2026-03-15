@@ -8,6 +8,15 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v199](exec-plans/completed/2026/Week-12.md) --
+  DRY registry.py default constants: extract `_DEFAULT_PYTHON_VERSION` in
+  command.py (replacing 2× hardcoded `"3.13"` in function defaults), extract
+  `DEFAULT_SEARCH_MAX_RESULTS = 5` in web.py (added to `__all__`), import
+  `_DEFAULT_SCRIPT_TIMEOUT_S` (3× `60`), `_DEFAULT_WEB_TIMEOUT_S` (2× `20`),
+  `DEFAULT_SEARCH_MAX_RESULTS` (1× `5`), `_DEFAULT_PYTHON_VERSION` (2× `"3.13"`)
+  in registry.py replacing 7 hardcoded literals in runner wrappers;
+  5541 tests (17 new, 2 skipped)
+
 - [2026-03-15 v198](exec-plans/completed/2026/Week-12.md) --
   DRY token redaction constants (`_REDACT_TOKEN_PREFIX_LEN`,
   `_REDACT_TOKEN_SUFFIX_LEN`, `_REDACT_TOKEN_MIN_PARTIAL_LEN` in app.py

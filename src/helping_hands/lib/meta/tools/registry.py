@@ -14,6 +14,14 @@ from typing import Any
 
 from helping_hands.lib.meta.tools import command as command_tools
 from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.meta.tools.command import (
+    _DEFAULT_PYTHON_VERSION,
+    _DEFAULT_SCRIPT_TIMEOUT_S,
+)
+from helping_hands.lib.meta.tools.web import (
+    _DEFAULT_WEB_TIMEOUT_S,
+    DEFAULT_SEARCH_MAX_RESULTS,
+)
 
 
 @dataclass(frozen=True)
@@ -154,13 +162,17 @@ def _run_python_code(
     code = payload.get("code")
     if not isinstance(code, str) or not code.strip():
         raise ValueError("code must be a non-empty string")
-    python_version = _parse_optional_str(payload, key="python_version") or "3.13"
+    python_version = (
+        _parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
+    )
     return command_tools.run_python_code(
         root,
         code=code,
         python_version=python_version,
         args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=60),
+        timeout_s=_parse_positive_int(
+            payload, key="timeout_s", default=_DEFAULT_SCRIPT_TIMEOUT_S
+        ),
         cwd=_parse_optional_str(payload, key="cwd"),
     )
 
@@ -185,13 +197,17 @@ def _run_python_script(
     script_path = payload.get("script_path")
     if not isinstance(script_path, str) or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
-    python_version = _parse_optional_str(payload, key="python_version") or "3.13"
+    python_version = (
+        _parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
+    )
     return command_tools.run_python_script(
         root,
         script_path=script_path,
         python_version=python_version,
         args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=60),
+        timeout_s=_parse_positive_int(
+            payload, key="timeout_s", default=_DEFAULT_SCRIPT_TIMEOUT_S
+        ),
         cwd=_parse_optional_str(payload, key="cwd"),
     )
 
@@ -231,7 +247,9 @@ def _run_bash_script(
         script_path=script_path,
         inline_script=inline_script,
         args=_parse_str_list(payload, key="args"),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=60),
+        timeout_s=_parse_positive_int(
+            payload, key="timeout_s", default=_DEFAULT_SCRIPT_TIMEOUT_S
+        ),
         cwd=_parse_optional_str(payload, key="cwd"),
     )
 
@@ -257,8 +275,12 @@ def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchR
         raise ValueError("query must be a non-empty string")
     return web_tools.search_web(
         query,
-        max_results=_parse_positive_int(payload, key="max_results", default=5),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=20),
+        max_results=_parse_positive_int(
+            payload, key="max_results", default=DEFAULT_SEARCH_MAX_RESULTS
+        ),
+        timeout_s=_parse_positive_int(
+            payload, key="timeout_s", default=_DEFAULT_WEB_TIMEOUT_S
+        ),
     )
 
 
@@ -286,7 +308,9 @@ def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseR
         max_chars=_parse_positive_int(
             payload, key="max_chars", default=web_tools.DEFAULT_BROWSE_MAX_CHARS
         ),
-        timeout_s=_parse_positive_int(payload, key="timeout_s", default=20),
+        timeout_s=_parse_positive_int(
+            payload, key="timeout_s", default=_DEFAULT_WEB_TIMEOUT_S
+        ),
     )
 
 

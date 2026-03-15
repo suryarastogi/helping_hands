@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY registry.py default constants (v199)
+
+**DRY Python version:** Extracted `_DEFAULT_PYTHON_VERSION = "3.13"` in `command.py`, replacing 2× hardcoded `"3.13"` in `run_python_code()` and `run_python_script()` function defaults.
+
+**DRY search max results:** Extracted `DEFAULT_SEARCH_MAX_RESULTS = 5` in `web.py` as a public constant (added to `__all__`). `search_web()` default now references the named constant.
+
+**DRY registry imports:** `registry.py` now imports `_DEFAULT_SCRIPT_TIMEOUT_S` and `_DEFAULT_PYTHON_VERSION` from `command.py`, and `_DEFAULT_WEB_TIMEOUT_S` and `DEFAULT_SEARCH_MAX_RESULTS` from `web.py`. All 7 hardcoded default literals in the 5 runner wrappers (`_run_python_code`, `_run_python_script`, `_run_bash_script`, `_run_web_search`, `_run_web_browse`) replaced with named constant references.
+
+**5541 backend tests passed (+17 new: 4 _DEFAULT_PYTHON_VERSION value/type/signature, 5 DEFAULT_SEARCH_MAX_RESULTS value/type/positive/__all__/signature, 4 registry import identity, 4 no-hardcoded-literal source checks), 2 skipped.**
+
+---
+
 ## Mar 15 — DRY token redaction, ci_wait constant fallback, root __all__, test stub fix (v198)
 
 **DRY token redaction:** Extracted 3 magic numbers from `_redact_token()` in `server/app.py` to named constants: `_REDACT_TOKEN_PREFIX_LEN = 4`, `_REDACT_TOKEN_SUFFIX_LEN = 4`, `_REDACT_TOKEN_MIN_PARTIAL_LEN = 12`. The function now uses these constants instead of hardcoded `4`, `4`, `12` values. Added Google-style docstring with Args/Returns to `_redact_token()`.

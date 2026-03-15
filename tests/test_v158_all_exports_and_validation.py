@@ -53,7 +53,7 @@ class TestWebAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.meta.tools.web import __all__
 
-        assert len(__all__) == 6
+        assert len(__all__) == 7
 
 
 # ---------------------------------------------------------------------------

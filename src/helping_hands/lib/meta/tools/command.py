@@ -1,7 +1,7 @@
 """Command execution tools for repo-aware runtime actions.
 
 These helpers provide a shared, path-confined execution surface for:
-- ``python.run_code`` (defaulting to Python 3.13 via ``uv run``)
+- ``python.run_code`` (defaulting to ``_DEFAULT_PYTHON_VERSION`` via ``uv run``)
 - ``python.run_script``
 - ``bash.run_script``
 """
@@ -17,7 +17,12 @@ from pathlib import Path
 
 from helping_hands.lib.meta.tools.filesystem import resolve_repo_target
 
-__all__ = ["CommandResult", "run_bash_script", "run_python_code", "run_python_script"]
+__all__ = [
+    "CommandResult",
+    "run_bash_script",
+    "run_python_code",
+    "run_python_script",
+]
 
 # --- Exit code constants (standard Unix conventions) --------------------------
 
@@ -32,6 +37,9 @@ _EXIT_CODE_NOT_FOUND = 127
 
 _DEFAULT_SCRIPT_TIMEOUT_S = 60
 """Default timeout in seconds for Python and bash script execution."""
+
+_DEFAULT_PYTHON_VERSION = "3.13"
+"""Default Python version used for code/script execution tools."""
 
 
 @dataclass(frozen=True)
@@ -220,7 +228,7 @@ def run_python_code(
     repo_root: Path,
     *,
     code: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | tuple[str, ...] | None = None,
     timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
@@ -243,7 +251,7 @@ def run_python_script(
     repo_root: Path,
     *,
     script_path: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | tuple[str, ...] | None = None,
     timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
