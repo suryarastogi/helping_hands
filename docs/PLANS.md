@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v215](exec-plans/completed/2026/v215-schedule-endpoint-tests.md) —
+  Server schedule endpoint 34 tests: `_get_schedule_manager`, all 8
+  schedule CRUD/trigger endpoints, `/notif-sw.js`, `/config`, `/build`,
+  `/build/form` ValidationError redirect, `_is_running_in_docker`;
+  server/app.py coverage 89% → 99%; 6112 passed, 2 skipped
+
 - [2026-03-15 v214](exec-plans/completed/2026/v214-schedule-manager-tests.md) —
   ScheduleManager unit tests with mocked Redis/Celery/RedBeat (50 tests),
   schedules.py coverage 0% → 97%; 6078 passed, 2 skipped
