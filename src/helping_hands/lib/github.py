@@ -98,7 +98,15 @@ def _redact_sensitive(text: str) -> str:
 
 @dataclass
 class PRResult:
-    """Result of creating a pull request."""
+    """Result of creating a pull request.
+
+    Attributes:
+        number: PR number on GitHub.
+        url: Full HTML URL of the pull request.
+        title: PR title as submitted.
+        head: Source branch name.
+        base: Target branch name.
+    """
 
     number: int
     url: str

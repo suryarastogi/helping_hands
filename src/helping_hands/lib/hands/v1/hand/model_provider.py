@@ -22,7 +22,13 @@ __all__ = [
 
 @dataclass(frozen=True)
 class HandModel:
-    """Resolved model selection for hand backends."""
+    """Resolved model selection for hand backends.
+
+    Attributes:
+        provider: Resolved AI provider instance for API calls.
+        model: Concrete model identifier passed to the provider.
+        raw: Original user-supplied model string before resolution.
+    """
 
     provider: AIProvider
     model: str

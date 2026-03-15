@@ -15,7 +15,13 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class SkillSpec:
-    """Declarative skill metadata loaded from the catalog."""
+    """Declarative skill metadata loaded from the catalog.
+
+    Attributes:
+        name: Slug identifier derived from the catalog filename (e.g. ``"execution"``).
+        title: Human-readable title extracted from the ``# Heading`` in the Markdown file.
+        content: Full Markdown text of the skill knowledge file.
+    """
 
     name: str
     title: str

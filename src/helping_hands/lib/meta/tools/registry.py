@@ -18,7 +18,13 @@ from helping_hands.lib.meta.tools import web as web_tools
 
 @dataclass(frozen=True)
 class ToolSpec:
-    """One callable tool exposed by a tool category."""
+    """One callable tool exposed by a tool category.
+
+    Attributes:
+        name: Dotted identifier such as ``"python.run_code"`` or ``"web.search"``.
+        payload_example: Example JSON payload used for prompt-ready documentation.
+        runner: Callable ``(root, payload) -> result`` that executes the tool.
+    """
 
     name: str
     payload_example: dict[str, Any]
@@ -27,7 +33,13 @@ class ToolSpec:
 
 @dataclass(frozen=True)
 class ToolCategory:
-    """Declarative tool category metadata and attached tool handlers."""
+    """Declarative tool category metadata and attached tool handlers.
+
+    Attributes:
+        name: Short slug identifying the category (e.g. ``"execution"``).
+        title: Human-readable one-line description shown in prompts.
+        tools: Ordered collection of tool specs belonging to this category.
+    """
 
     name: str
     title: str

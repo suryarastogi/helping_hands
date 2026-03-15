@@ -26,7 +26,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class WebSearchItem:
-    """One web search hit."""
+    """One web search hit.
+
+    Attributes:
+        title: Display title of the search result.
+        url: Canonical URL of the result page.
+        snippet: Short text excerpt describing the result.
+    """
 
     title: str
     url: str
@@ -35,7 +41,12 @@ class WebSearchItem:
 
 @dataclass(frozen=True)
 class WebSearchResult:
-    """Structured web search result collection."""
+    """Structured web search result collection.
+
+    Attributes:
+        query: Normalised search query that was executed.
+        results: Deduplicated search hits, up to ``max_results``.
+    """
 
     query: str
     results: list[WebSearchItem]
@@ -43,7 +54,15 @@ class WebSearchResult:
 
 @dataclass(frozen=True)
 class WebBrowseResult:
-    """Fetched web page content."""
+    """Fetched web page content.
+
+    Attributes:
+        url: Requested URL (after whitespace trimming and scheme validation).
+        final_url: URL after any redirects.
+        status_code: HTTP status code, or ``None`` if unavailable.
+        content: Extracted plain-text content (HTML tags stripped).
+        truncated: Whether the content was cut to ``max_chars``.
+    """
 
     url: str
     final_url: str

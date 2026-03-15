@@ -77,7 +77,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class HandResponse:
-    """Standardised response from any Hand backend."""
+    """Standardised response from any Hand backend.
+
+    Attributes:
+        message: Human-readable summary of what the hand accomplished.
+        metadata: Arbitrary key-value pairs (e.g. PR URL, commit SHA).
+    """
 
     message: str
     metadata: dict[str, Any] = field(default_factory=dict)

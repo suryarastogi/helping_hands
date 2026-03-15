@@ -33,7 +33,16 @@ _EXIT_CODE_NOT_FOUND = 127
 
 @dataclass(frozen=True)
 class CommandResult:
-    """Captured result of a command execution."""
+    """Captured result of a command execution.
+
+    Attributes:
+        command: Argv list that was executed.
+        cwd: Working directory the command ran in.
+        exit_code: Process exit code (0 = success).
+        stdout: Captured standard output.
+        stderr: Captured standard error.
+        timed_out: Whether the command was killed due to timeout.
+    """
 
     command: list[str]
     cwd: str

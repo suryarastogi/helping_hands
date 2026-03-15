@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v170](exec-plans/completed/2026-03-15.md) --
+  Add Google-style Attributes sections to 12 public dataclass docstrings across 10 modules; 4197 tests (24 new)
+
 - [2026-03-15 v169](exec-plans/completed/2026-03-15.md) --
   Add Google-style docstrings to iterative.py: _BasicIterativeHand (18), BasicLangGraphHand (1), BasicAtomicHand (2); 4173 tests (60 new)
 

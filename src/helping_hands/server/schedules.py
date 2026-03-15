@@ -66,7 +66,34 @@ def _check_croniter() -> None:
 
 @dataclass
 class ScheduledTask:
-    """A scheduled build task definition."""
+    """A scheduled build task definition.
+
+    Attributes:
+        schedule_id: Unique identifier (e.g. ``"sched_a1b2c3d4e5f6"``).
+        name: Human-readable schedule name.
+        cron_expression: Standard five-field cron expression or preset name.
+        repo_path: Local path or ``owner/repo`` specifier for the target repository.
+        prompt: Task prompt passed to the hand backend.
+        backend: Hand backend slug (default ``"claudecodecli"``).
+        model: AI model identifier, or ``None`` for the backend default.
+        max_iterations: Maximum iterative hand loop iterations.
+        pr_number: Existing PR number to update, or ``None`` for new PRs.
+        no_pr: If ``True``, skip PR creation after changes.
+        enable_execution: Enable runtime execution tools.
+        enable_web: Enable web search/browse tools.
+        use_native_cli_auth: Use native CLI auth instead of token-based.
+        fix_ci: Attempt automated CI fix retries after PR creation.
+        ci_check_wait_minutes: Minutes to wait between CI check polls.
+        github_token: Per-task GitHub token override, or ``None``.
+        reference_repos: Additional repos cloned as read-only context.
+        tools: Selected tool category names.
+        skills: Selected skill names.
+        enabled: Whether the schedule is active in RedBeat.
+        created_at: ISO 8601 creation timestamp (auto-set on init).
+        last_run_at: ISO 8601 timestamp of the most recent run, or ``None``.
+        last_run_task_id: Celery task ID of the most recent run, or ``None``.
+        run_count: Total number of times this schedule has been triggered.
+    """
 
     schedule_id: str
     name: str

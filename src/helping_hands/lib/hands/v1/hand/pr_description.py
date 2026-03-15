@@ -113,7 +113,12 @@ def _infer_commit_type(text: str) -> str:
 
 @dataclass(frozen=True)
 class PRDescription:
-    """Parsed PR title and body from CLI output."""
+    """Parsed PR title and body from CLI output.
+
+    Attributes:
+        title: One-line PR title extracted from the AI response.
+        body: Markdown PR body with summary and change details.
+    """
 
     title: str
     body: str
