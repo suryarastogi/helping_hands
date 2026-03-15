@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-
-import pytest
-
 # ---------------------------------------------------------------------------
 # _GITHUB_TOKEN_USER constant tests
 # ---------------------------------------------------------------------------
@@ -34,14 +30,10 @@ class TestGitHubTokenUserConstant:
 
         assert GITHUB_TOKEN_USER == "x-access-token"
 
-    @pytest.mark.skipif(
-        not importlib.util.find_spec("celery"),
-        reason="celery not installed",
-    )
-    def test_celery_app_py_value(self) -> None:
-        from helping_hands.server.celery_app import _GITHUB_TOKEN_USER
+    def test_github_url_module_value(self) -> None:
+        from helping_hands.lib.github_url import GITHUB_TOKEN_USER
 
-        assert _GITHUB_TOKEN_USER == "x-access-token"
+        assert GITHUB_TOKEN_USER == "x-access-token"
 
     def test_cross_module_sync_github_base(self) -> None:
         """github.py and base.py constants must be identical."""
@@ -65,20 +57,16 @@ class TestGitHubTokenUserConstant:
 
         assert _GITHUB_VAL is _URL_VAL
 
-    @pytest.mark.skipif(
-        not importlib.util.find_spec("celery"),
-        reason="celery not installed",
-    )
-    def test_cross_module_sync_github_celery(self) -> None:
-        """github.py and celery_app.py constants must be identical."""
+    def test_cross_module_sync_github_url(self) -> None:
+        """github.py and github_url.py constants must be the same object."""
         from helping_hands.lib.github import (
             _GITHUB_TOKEN_USER as _GITHUB_VAL,
         )
-        from helping_hands.server.celery_app import (
-            _GITHUB_TOKEN_USER as _CELERY_VAL,
+        from helping_hands.lib.github_url import (
+            GITHUB_TOKEN_USER as _URL_VAL,
         )
 
-        assert _GITHUB_VAL == _CELERY_VAL
+        assert _GITHUB_VAL is _URL_VAL
 
 
 # ---------------------------------------------------------------------------
