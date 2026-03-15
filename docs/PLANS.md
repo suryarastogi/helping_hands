@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v180](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to 4 undocumented functions (`_trim_updates`,
+  `_append_update`, `_update_progress`, `_setup_periodic_tasks`) and 3
+  `_UpdateCollector` methods in celery_app.py; 4476 tests (14 new, skipped
+  without celery)
+
 - [2026-03-15 v179](exec-plans/completed/2026-03-15.md) --
   DRY GitHub URL helpers (`lib/github_url.py`) and server constants
   (`server/constants.py`): eliminate duplicated `_github_clone_url()`,

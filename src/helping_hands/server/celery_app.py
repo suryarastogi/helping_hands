@@ -225,11 +225,31 @@ def _has_gemini_auth() -> bool:
 
 
 def _trim_updates(updates: list[str]) -> None:
+    """Trim the update list in-place to at most ``_MAX_STORED_UPDATES`` entries.
+
+    Removes the oldest entries (from the front) when the list exceeds the
+    configured maximum length, keeping only the most recent updates.
+
+    Args:
+        updates: Mutable list of progress update strings to trim.
+    """
     if len(updates) > _MAX_STORED_UPDATES:
         del updates[: len(updates) - _MAX_STORED_UPDATES]
 
 
 def _append_update(updates: list[str], text: str) -> None:
+    """Append a progress update line after stripping and truncating.
+
+    Strips leading/trailing whitespace from *text*.  Empty or
+    whitespace-only strings are silently ignored.  Lines longer than
+    ``_MAX_UPDATE_LINE_CHARS`` are truncated with a ``...[truncated]``
+    suffix.  After appending, the list is trimmed via
+    :func:`_trim_updates`.
+
+    Args:
+        updates: Mutable list of progress update strings.
+        text: Raw update text to clean and append.
+    """
     clean = text.strip()
     if not clean:
         return
@@ -243,10 +263,26 @@ class _UpdateCollector:
     """Collect and compact stream chunks into line-like update entries."""
 
     def __init__(self, updates: list[str]) -> None:
+        """Initialise the collector with a shared update list.
+
+        Args:
+            updates: Mutable list that receives compacted update lines.
+        """
         self._updates = updates
         self._buffer = ""
 
     def feed(self, chunk: str) -> None:
+        """Ingest a raw stream chunk, splitting on newlines.
+
+        Complete lines (terminated by ``\\n``) are immediately appended
+        via :func:`_append_update`.  Partial lines are buffered until
+        the next newline arrives or the buffer reaches
+        ``_BUFFER_FLUSH_CHARS``, at which point it is flushed as a
+        standalone update.  Empty chunks are silently ignored.
+
+        Args:
+            chunk: Raw text fragment from the AI stream.
+        """
         if not chunk:
             return
         self._buffer += chunk
@@ -258,6 +294,11 @@ class _UpdateCollector:
             self._buffer = ""
 
     def flush(self) -> None:
+        """Flush any remaining buffered text as a final update line.
+
+        Should be called when the stream ends to ensure the last
+        partial line is not lost.
+        """
         if self._buffer:
             _append_update(self._updates, self._buffer)
             self._buffer = ""
@@ -288,6 +329,39 @@ def _update_progress(
     workspace: str | None = None,
     started_at: str | None = None,
 ) -> None:
+    """Push a PROGRESS state update to Celery for the running task.
+
+    Builds a metadata dict from all keyword arguments and calls
+    ``task.update_state(state="PROGRESS", meta=...)``.  If *task* does
+    not expose a callable ``update_state`` attribute (e.g. when running
+    outside a Celery worker), the call is silently skipped.
+
+    Args:
+        task: The Celery task instance (or any object with an
+            ``update_state`` method).
+        task_id: Celery task identifier.
+        stage: Human-readable stage label (e.g. ``"running"``,
+            ``"finalizing"``).
+        updates: List of progress update strings collected so far.
+        prompt: Original user prompt for this build.
+        pr_number: GitHub PR number if resuming an existing PR.
+        backend: Requested backend name from the user.
+        runtime_backend: Resolved runtime backend actually in use.
+        repo_path: Local path to the repository being modified.
+        model: AI model identifier, or ``None`` for default.
+        max_iterations: Maximum number of agent iterations.
+        no_pr: Whether PR creation is disabled.
+        enable_execution: Whether command execution tools are enabled.
+        enable_web: Whether web search/browse tools are enabled.
+        use_native_cli_auth: Whether to use native CLI authentication.
+        tools: Tuple of enabled tool category names.
+        skills: Tuple of enabled skill names.
+        fix_ci: Whether to attempt CI fix after PR creation.
+        ci_check_wait_minutes: Minutes to wait for CI checks.
+        reference_repos: Optional list of reference repo specs.
+        workspace: Optional workspace identifier.
+        started_at: ISO-format timestamp when the task started.
+    """
     update_state = getattr(task, "update_state", None)
     if not callable(update_state):
         return
@@ -1040,4 +1114,13 @@ def ensure_usage_schedule() -> None:
 
 @celery_app.on_after_finalize.connect  # type: ignore[union-attr]
 def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
+    """Register periodic tasks after Celery app finalization.
+
+    Connected to ``celery_app.on_after_finalize`` signal.  Delegates to
+    :func:`ensure_usage_schedule` to idempotently register the hourly
+    Claude usage logging schedule in RedBeat.
+
+    Args:
+        sender: The Celery app instance that emitted the signal.
+    """
     ensure_usage_schedule()
