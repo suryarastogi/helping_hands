@@ -24,8 +24,10 @@ from helping_hands.lib.hands.v1.hand.base import (
     _PR_STATUS_NO_CHANGES,
     _PR_STATUS_UPDATED,
     _PR_STATUSES_WITH_URL,
+    _TRUNCATION_MARKER,
     Hand,
     HandResponse,
+    _default_pr_metadata,
 )
 
 logger = logging.getLogger(__name__)
@@ -163,7 +165,7 @@ class _TwoPhaseCLIHand(Hand):
         clean = text.strip()
         if len(clean) <= limit:
             return clean
-        return f"{clean[:limit]}\n...[truncated]"
+        return f"{clean[:limit]}\n{_TRUNCATION_MARKER}"
 
     @staticmethod
     def _is_truthy(value: str | None) -> bool:
@@ -1132,14 +1134,7 @@ class _TwoPhaseCLIHand(Hand):
             A dict with ``pr_status`` set to ``"interrupted"`` and
             empty PR fields.
         """
-        return {
-            "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": "interrupted",
-            "pr_url": "",
-            "pr_number": "",
-            "pr_branch": "",
-            "pr_commit": "",
-        }
+        return _default_pr_metadata(auto_pr=self.auto_pr, pr_status="interrupted")
 
     def _finalize_after_run(self, *, prompt: str, message: str) -> dict[str, str]:
         """Finalize the run by committing, pushing, and creating the PR.
@@ -1439,7 +1434,9 @@ class _TwoPhaseCLIHand(Hand):
         """Build a prompt asking the AI backend to fix git hook errors."""
         truncated = error_output.strip()
         if len(truncated) > _HOOK_ERROR_TRUNCATION_LIMIT:
-            truncated = f"{truncated[:_HOOK_ERROR_TRUNCATION_LIMIT]}\n...[truncated]"
+            truncated = (
+                f"{truncated[:_HOOK_ERROR_TRUNCATION_LIMIT]}\n{_TRUNCATION_MARKER}"
+            )
 
         return (
             "Git pre-commit hook fix.\n\n"

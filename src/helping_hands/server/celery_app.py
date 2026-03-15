@@ -33,6 +33,9 @@ from helping_hands.lib.github_url import (
 from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
 )
+from helping_hands.lib.hands.v1.hand.base import (
+    _TRUNCATION_MARKER,
+)
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
 )
@@ -255,7 +258,7 @@ def _append_update(updates: list[str], text: str) -> None:
     if not clean:
         return
     if len(clean) > _MAX_UPDATE_LINE_CHARS:
-        clean = clean[:_MAX_UPDATE_LINE_CHARS] + " ...[truncated]"
+        clean = clean[:_MAX_UPDATE_LINE_CHARS] + " " + _TRUNCATION_MARKER
     updates.append(clean)
     _trim_updates(updates)
 

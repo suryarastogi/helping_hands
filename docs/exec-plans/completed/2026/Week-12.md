@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY truncation marker and PR metadata factory (v202)
+
+**DRY truncation marker:** Extracted `_TRUNCATION_MARKER = "...[truncated]"` constant in `base.py`. Replaced 5× duplicated string literals across `base.py` (pre-commit output), `cli/base.py` (`_truncate_summary`, `_build_hook_fix_prompt`), `pr_description.py` (`_truncate_text`), and `celery_app.py` (`_append_update`).
+
+**DRY PR metadata factory:** Extracted `_default_pr_metadata(*, auto_pr, pr_status)` factory function in `base.py`. Replaced 2× duplicated 6-key dict constructions in `base.py` (`_finalize_repo_pr`) and `cli/base.py` (`_interrupted_pr_metadata`).
+
+**24 tests (23 passed, 1 skipped without celery): 5 marker value/type, 3 cross-module import identity, 4 usage-site output verification, 11 factory output shape/values, 1 factory cross-module import.**
+
+---
+
 ## Mar 15 — DRY Docker hint message templates (v201)
 
 **DRY Docker env hint:** Extracted `_DOCKER_ENV_HINT_TEMPLATE` string template in `cli/base.py` for the auth failure Docker remediation message (`"If running app mode in Docker, set {} in .env and recreate server/worker containers."`). Replaced 4× duplicated strings across `claude.py`, `codex.py`, `gemini.py`, and `opencode.py` auth failure handlers.

@@ -17,6 +17,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from subprocess import TimeoutExpired
 
+from helping_hands.lib.hands.v1.hand.base import (
+    _TRUNCATION_MARKER,
+)
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["PRDescription", "generate_commit_message", "generate_pr_description"]
@@ -83,7 +87,7 @@ def _truncate_text(text: str, *, limit: int) -> str:
     stripped = text.strip()
     if len(stripped) <= limit:
         return stripped
-    return f"{stripped[:limit]}...[truncated]"
+    return f"{stripped[:limit]}{_TRUNCATION_MARKER}"
 
 
 _COMMIT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {

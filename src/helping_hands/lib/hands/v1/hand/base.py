@@ -91,6 +91,30 @@ _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 _DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
 """Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
 
+_TRUNCATION_MARKER = "...[truncated]"
+"""Suffix appended to text that has been truncated to a character limit."""
+
+
+def _default_pr_metadata(*, auto_pr: bool, pr_status: str) -> dict[str, str]:
+    """Return a fresh PR metadata dict with empty PR fields.
+
+    Args:
+        auto_pr: Whether automatic PR creation is enabled.
+        pr_status: Initial PR status value (e.g. a ``_PR_STATUS_*`` sentinel).
+
+    Returns:
+        Dict with keys ``auto_pr``, ``pr_status``, ``pr_url``,
+        ``pr_number``, ``pr_branch``, and ``pr_commit``.
+    """
+    return {
+        "auto_pr": str(auto_pr).lower(),
+        "pr_status": pr_status,
+        "pr_url": "",
+        "pr_number": "",
+        "pr_branch": "",
+        "pr_commit": "",
+    }
+
 
 def _utc_stamp() -> str:
     """Return the current UTC time as an ISO-8601 string without microseconds.
@@ -587,7 +611,7 @@ class Hand(abc.ABC):
         combined_output = "\n\n".join(output_parts) or "no output captured"
         if len(combined_output) > _MAX_OUTPUT_DISPLAY_LENGTH:
             combined_output = (
-                f"{combined_output[:_MAX_OUTPUT_DISPLAY_LENGTH]}\n...[truncated]"
+                f"{combined_output[:_MAX_OUTPUT_DISPLAY_LENGTH]}\n{_TRUNCATION_MARKER}"
             )
         msg = (
             "pre-commit checks failed after an auto-fix retry. "
@@ -879,14 +903,9 @@ class Hand(abc.ABC):
             ``pr_number``, ``pr_branch``, ``pr_commit``, and
             ``auto_pr``.
         """
-        metadata = {
-            "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": _PR_STATUS_NOT_ATTEMPTED,
-            "pr_url": "",
-            "pr_number": "",
-            "pr_branch": "",
-            "pr_commit": "",
-        }
+        metadata = _default_pr_metadata(
+            auto_pr=self.auto_pr, pr_status=_PR_STATUS_NOT_ATTEMPTED
+        )
         if not self.auto_pr:
             metadata["pr_status"] = _PR_STATUS_DISABLED
             return metadata

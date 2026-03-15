@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v202](exec-plans/completed/2026/Week-12.md) --
+  DRY truncation marker (`_TRUNCATION_MARKER` in base.py replacing 5× `"...[truncated]"`
+  across base.py/cli/base.py/pr_description.py/celery_app.py) and PR metadata factory
+  (`_default_pr_metadata()` replacing 2× duplicated dict constructions in
+  base.py/cli/base.py); 4818 tests (24 new: 23 passed, 1 skipped without celery)
+
 - [2026-03-15 v201](exec-plans/completed/2026/Week-12.md) --
   DRY Docker hint message templates: `_DOCKER_ENV_HINT_TEMPLATE` (4× auth
   failure messages in claude/codex/gemini/opencode) and
