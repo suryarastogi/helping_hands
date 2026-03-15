@@ -23,6 +23,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
+from helping_hands.lib.validation import require_positive_int
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_BROWSE_MAX_CHARS = 12000
@@ -247,10 +249,8 @@ def search_web(
     normalized_query = query.strip()
     if not normalized_query:
         raise ValueError("query must be non-empty")
-    if max_results <= 0:
-        raise ValueError("max_results must be > 0")
-    if timeout_s <= 0:
-        raise ValueError("timeout_s must be > 0")
+    require_positive_int(max_results, "max_results")
+    require_positive_int(timeout_s, "timeout_s")
 
     params = urlencode(
         {
@@ -313,10 +313,8 @@ def browse_url(
 ) -> WebBrowseResult:
     """Fetch and text-extract a web page for tool consumption."""
     normalized_url = _require_http_url(url)
-    if max_chars <= 0:
-        raise ValueError("max_chars must be > 0")
-    if timeout_s <= 0:
-        raise ValueError("timeout_s must be > 0")
+    require_positive_int(max_chars, "max_chars")
+    require_positive_int(timeout_s, "timeout_s")
 
     request = Request(normalized_url, headers={"User-Agent": _DEFAULT_USER_AGENT})
     try:

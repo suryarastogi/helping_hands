@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY shared validation helpers (v207)
+
+**Shared `validation.py` module:** Created `src/helping_hands/lib/validation.py` with two helpers: `require_non_empty_string(value, name)` and `require_positive_int(value, name)`. These consolidate the two most duplicated validation patterns in the codebase.
+
+**`require_non_empty_string`:** Replaced 23 inline `if not X or not X.strip(): raise ValueError(...)` guards across 7 files: `github.py` (8 sites), `mcp_server.py` (6 sites), `base.py` (4 sites), `pr_description.py` (3 sites), `github_url.py` (1 site), `app.py` (`_validate_path_param` delegation, 1 site).
+
+**`require_positive_int`:** Replaced 14 inline `if value <= 0: raise ValueError(...)` guards across 5 files: `github.py` (5 sites), `web.py` (4 sites), `filesystem.py` (2 sites), `pr_description.py` (2 sites), `command.py` (1 site).
+
+**36 new tests. 4999 passed, 216 skipped.**
+
+---
+
 ## Mar 15 — DRY payload validators, normalize selection, URL error handling (v206)
 
 **DRY payload validators:** Removed 3 duplicated `_parse_str_list`/`_parse_positive_int`/`_parse_optional_str` static methods from `_BasicIterativeHand` in `iterative.py`, replacing them with class-level `staticmethod()` assignments that delegate to the canonical implementations in `registry.py`.

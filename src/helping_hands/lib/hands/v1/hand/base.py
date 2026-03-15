@@ -33,6 +33,7 @@ from helping_hands.lib.github_url import (
 )
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
+from helping_hands.lib.validation import require_non_empty_string
 
 logger = logging.getLogger(__name__)
 
@@ -374,10 +375,8 @@ class Hand(abc.ABC):
             ValueError: If *backend*, *prompt*, *commit_sha*, or
                 *stamp_utc* is empty/whitespace.
         """
-        if not backend or not backend.strip():
-            raise ValueError("backend must not be empty")
-        if not prompt or not prompt.strip():
-            raise ValueError("prompt must not be empty")
+        require_non_empty_string(backend, "backend")
+        require_non_empty_string(prompt, "prompt")
         if not isinstance(commit_sha, str) or not commit_sha.strip():
             raise ValueError("commit_sha must be a non-empty string")
         if not isinstance(stamp_utc, str) or not stamp_utc.strip():
@@ -411,10 +410,8 @@ class Hand(abc.ABC):
             RuntimeError: If the ``git remote set-url`` command fails or
                 times out.
         """
-        if not repo or not repo.strip():
-            raise ValueError("repo must not be empty")
-        if not token or not token.strip():
-            raise ValueError("token must not be empty")
+        require_non_empty_string(repo, "repo")
+        require_non_empty_string(token, "token")
         push_url = f"https://{_GITHUB_TOKEN_USER}:{token}@{_GITHUB_HOSTNAME}/{repo}.git"
         try:
             result = subprocess.run(

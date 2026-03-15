@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from helping_hands.lib.meta.tools.filesystem import resolve_repo_target
+from helping_hands.lib.validation import require_positive_int
 
 __all__ = [
     "CommandResult",
@@ -172,8 +173,7 @@ def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandRes
     Raises:
         ValueError: If *timeout_s* is not positive.
     """
-    if timeout_s <= 0:
-        raise ValueError("timeout_s must be > 0")
+    require_positive_int(timeout_s, "timeout_s")
 
     try:
         completed = subprocess.run(

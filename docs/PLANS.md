@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v207](exec-plans/completed/2026/v207-dry-shared-validators.md) —
+  DRY shared validation helpers (`require_non_empty_string`,
+  `require_positive_int`) extracted to `validation.py`, applied across 9 files;
+  36 tests (4999 passed, 216 skipped)
+
 - [2026-03-15 v206](exec-plans/completed/2026/v206-dry-payload-validators-normalize-selection-url-errors.md) --
   DRY payload validators (iterative.py `_parse_str_list`/`_parse_positive_int`/
   `_parse_optional_str` → registry.py delegation), shared

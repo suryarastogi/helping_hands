@@ -41,6 +41,7 @@ from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.meta.tools import web as web_tools
 from helping_hands.lib.meta.tools.command import _DEFAULT_PYTHON_VERSION
 from helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.validation import require_non_empty_string
 from helping_hands.server.task_result import normalize_task_result
 
 __all__ = ["main", "mcp"]
@@ -140,10 +141,8 @@ def build_feature(
     Returns:
         Dict with task_id and status.
     """
-    if not repo_path or not repo_path.strip():
-        raise ValueError("repo_path must be a non-empty string")
-    if not prompt or not prompt.strip():
-        raise ValueError("prompt must be a non-empty string")
+    require_non_empty_string(repo_path, "repo_path")
+    require_non_empty_string(prompt, "prompt")
 
     from helping_hands.server.celery_app import (
         build_feature as celery_build,
@@ -180,8 +179,7 @@ def get_task_status(task_id: str) -> dict:
     Returns:
         Dict with task_id, status, and result (if complete).
     """
-    if not task_id or not task_id.strip():
-        raise ValueError("task_id must be a non-empty string")
+    require_non_empty_string(task_id, "task_id")
 
     from helping_hands.server.celery_app import (
         build_feature as celery_build,
@@ -282,8 +280,7 @@ def path_exists(repo_path: str, path: str) -> bool:
     Raises:
         ValueError: If *path* is empty or whitespace-only.
     """
-    if not path or not path.strip():
-        raise ValueError("path must be a non-empty string")
+    require_non_empty_string(path, "path")
     root = _repo_root(repo_path)
     return fs_tools.path_exists(root, path)
 
@@ -381,8 +378,7 @@ def web_search(
     timeout_s: int = 20,
 ) -> dict:
     """Search the web and return lightweight result entries."""
-    if not query or not query.strip():
-        raise ValueError("query must be a non-empty string")
+    require_non_empty_string(query, "query")
     result = web_tools.search_web(query, max_results=max_results, timeout_s=timeout_s)
     return {
         "query": result.query,
@@ -404,8 +400,7 @@ def web_browse(
     timeout_s: int = 20,
 ) -> dict:
     """Browse a URL and return extracted text content."""
-    if not url or not url.strip():
-        raise ValueError("url must be a non-empty string")
+    require_non_empty_string(url, "url")
     result = web_tools.browse_url(url, max_chars=max_chars, timeout_s=timeout_s)
     return {
         "url": result.url,

@@ -19,6 +19,7 @@ from github.Repository import Repository
 
 from helping_hands.lib.github_url import GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER
 from helping_hands.lib.github_url import redact_credentials as _redact_credentials
+from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
 __all__ = ["GitHubClient", "PRResult"]
 
@@ -68,8 +69,7 @@ def _validate_full_name(full_name: str) -> None:
         ValueError: If the string is empty, missing a ``/``, has empty segments,
             or contains whitespace.
     """
-    if not full_name or not full_name.strip():
-        raise ValueError("full_name must not be empty")
+    require_non_empty_string(full_name, "full_name")
     if " " in full_name or "\t" in full_name:
         raise ValueError(f"full_name must not contain whitespace: {full_name!r}")
     parts = full_name.split("/")
@@ -85,8 +85,7 @@ def _validate_branch_name(branch_name: str) -> None:
     Raises:
         ValueError: If the string is empty or whitespace-only.
     """
-    if not branch_name or not branch_name.strip():
-        raise ValueError("branch_name must not be empty")
+    require_non_empty_string(branch_name, "branch_name")
 
 
 def _redact_sensitive(text: str) -> str:
@@ -194,8 +193,8 @@ class GitHubClient:
         """
         _validate_full_name(full_name)
         dest = Path(dest)
-        if depth is not None and depth <= 0:
-            raise ValueError(f"depth must be positive, got {depth}")
+        if depth is not None:
+            require_positive_int(depth, "depth")
         url = f"https://{_GITHUB_TOKEN_USER}:{self.token}@github.com/{full_name}.git"
         cmd: list[str] = ["git", "clone"]
         if depth is not None:
@@ -282,8 +281,7 @@ class GitHubClient:
         Returns:
             The short SHA of the new commit.
         """
-        if not message or not message.strip():
-            raise ValueError("commit message must not be empty")
+        require_non_empty_string(message, "commit message")
         targets = paths or ["."]
         _run_git(["git", "add", *targets], cwd=repo_path)
         _run_git(["git", "commit", "-m", message], cwd=repo_path)
@@ -298,10 +296,8 @@ class GitHubClient:
         email: str,
     ) -> None:
         """Set git author identity in local repo config."""
-        if not name or not name.strip():
-            raise ValueError("name must not be empty")
-        if not email or not email.strip():
-            raise ValueError("email must not be empty")
+        require_non_empty_string(name, "name")
+        require_non_empty_string(email, "email")
         _run_git(["git", "config", "user.name", name], cwd=repo_path)
         _run_git(["git", "config", "user.email", email], cwd=repo_path)
 
@@ -364,8 +360,7 @@ class GitHubClient:
             ValueError: If *title* is empty/whitespace, or *head*/*base* are
                 invalid branch names.
         """
-        if not title or not title.strip():
-            raise ValueError("title must not be empty")
+        require_non_empty_string(title, "title")
         _validate_branch_name(head)
         _validate_branch_name(base)
         repo = self.get_repo(full_name)
@@ -399,8 +394,7 @@ class GitHubClient:
             state: ``"open"``, ``"closed"``, or ``"all"``.
             limit: Maximum number of PRs to return.
         """
-        if limit <= 0:
-            raise ValueError(f"limit must be positive, got {limit}")
+        require_positive_int(limit, "limit")
         if state not in _VALID_PR_STATES:
             raise ValueError(
                 f"state must be one of {sorted(_VALID_PR_STATES)}, got {state!r}"
@@ -436,8 +430,7 @@ class GitHubClient:
         Raises:
             ValueError: If *number* is not positive.
         """
-        if number <= 0:
-            raise ValueError(f"PR number must be positive, got {number}")
+        require_positive_int(number, "PR number")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         return {
@@ -476,8 +469,7 @@ class GitHubClient:
         Raises:
             ValueError: If *number* is not positive.
         """
-        if number <= 0:
-            raise ValueError(f"PR number must be positive, got {number}")
+        require_positive_int(number, "PR number")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         pr.edit(body=body)
@@ -500,8 +492,7 @@ class GitHubClient:
         Raises:
             ValueError: If *ref* is empty or whitespace-only.
         """
-        if not ref or not ref.strip():
-            raise ValueError("ref must not be empty")
+        require_non_empty_string(ref, "ref")
         repo = self.get_repo(full_name)
         commit = repo.get_commit(ref)
         runs = commit.get_check_runs()
@@ -557,10 +548,8 @@ class GitHubClient:
         Raises:
             ValueError: If *number* is not positive or *body* is empty/whitespace.
         """
-        if number <= 0:
-            raise ValueError(f"PR number must be positive, got {number}")
-        if not body or not body.strip():
-            raise ValueError("comment body must not be empty")
+        require_positive_int(number, "PR number")
+        require_non_empty_string(body, "comment body")
         repo = self.get_repo(full_name)
         issue = repo.get_issue(number=number)
         comment_body = body.rstrip()

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from helping_hands.lib.validation import require_positive_int
+
 __all__ = [
     "mkdir_path",
     "normalize_relative_path",
@@ -75,10 +77,9 @@ def read_text_file(
         max_file_size: Maximum file size in bytes (default 10 MB).
             Files exceeding this limit raise ``ValueError``.
     """
-    if max_file_size <= 0:
-        raise ValueError(f"max_file_size must be positive, got {max_file_size}")
-    if max_chars is not None and max_chars <= 0:
-        raise ValueError(f"max_chars must be positive, got {max_chars}")
+    require_positive_int(max_file_size, "max_file_size")
+    if max_chars is not None:
+        require_positive_int(max_chars, "max_chars")
 
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)

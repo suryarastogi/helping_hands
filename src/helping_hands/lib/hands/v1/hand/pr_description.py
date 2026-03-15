@@ -17,6 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from subprocess import TimeoutExpired
 
+from helping_hands.lib.validation import (
+    require_non_empty_string,
+    require_positive_int,
+)
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["PRDescription", "generate_commit_message", "generate_pr_description"]
@@ -78,8 +83,7 @@ def _truncate_text(text: str, *, limit: int) -> str:
     where the AI needs to know context was cut off (to avoid generating
     generic or meaningless output from incomplete input).
     """
-    if limit <= 0:
-        raise ValueError(f"limit must be positive, got {limit}")
+    require_positive_int(limit, "limit")
     stripped = text.strip()
     if len(stripped) <= limit:
         return stripped
@@ -251,8 +255,7 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
 
 def _truncate_diff(diff: str, *, limit: int) -> str:
     """Truncate *diff* to stay within *limit* characters."""
-    if limit <= 0:
-        raise ValueError(f"limit must be positive, got {limit}")
+    require_positive_int(limit, "limit")
     if len(diff) <= limit:
         return diff
     return f"{diff[:limit]}\n...[truncated — {len(diff) - limit} chars omitted]"
@@ -351,11 +354,8 @@ def generate_pr_description(
     if cmd is None:
         return None
 
-    if not base_branch or not base_branch.strip():
-        raise ValueError("base_branch must be a non-empty string")
-
-    if not backend or not backend.strip():
-        raise ValueError("backend must be a non-empty string")
+    require_non_empty_string(base_branch, "base_branch")
+    require_non_empty_string(backend, "backend")
 
     if _is_disabled():
         logger.debug("Rich PR description generation is disabled.")
@@ -650,8 +650,7 @@ def generate_commit_message(
     includes new files.  The subsequent ``git commit`` will use the staged
     changes.
     """
-    if not backend or not backend.strip():
-        raise ValueError("backend must be a non-empty string")
+    require_non_empty_string(backend, "backend")
 
     if _is_disabled():
         return None

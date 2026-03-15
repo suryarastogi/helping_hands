@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 import re
 
+from helping_hands.lib.validation import require_non_empty_string
+
 __all__ = [
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
@@ -39,8 +41,7 @@ def validate_repo_spec(repo: str) -> None:
     Raises:
         ValueError: If *repo* is empty or not in ``owner/repo`` format.
     """
-    if not repo or not repo.strip():
-        raise ValueError("repo spec must not be empty")
+    require_non_empty_string(repo, "repo spec")
     parts = repo.strip().split("/")
     if len(parts) != 2 or not parts[0] or not parts[1]:
         raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")

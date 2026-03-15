@@ -27,6 +27,7 @@ from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
+from helping_hands.lib.validation import require_non_empty_string
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
@@ -2782,6 +2783,8 @@ def _parse_backend(value: str) -> BackendName:
 def _validate_path_param(value: str, name: str) -> str:
     """Validate and strip a URL path parameter.
 
+    Delegates to :func:`~helping_hands.lib.validation.require_non_empty_string`.
+
     Args:
         value: The raw path parameter value.
         name: The parameter name, used in error messages.
@@ -2792,9 +2795,7 @@ def _validate_path_param(value: str, name: str) -> str:
     Raises:
         ValueError: If *value* is empty or whitespace-only.
     """
-    if not value or not value.strip():
-        raise ValueError(f"{name} must be a non-empty string")
-    return value.strip()
+    return require_non_empty_string(value, name)
 
 
 def _build_task_status(task_id: str) -> TaskStatus:
