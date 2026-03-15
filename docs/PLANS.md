@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v176](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to 10 AI provider methods (5 providers), 4 github.py public methods, 7 Hand base.py methods; 4387 tests (61 new)
+
 - [2026-03-15 v175](exec-plans/completed/2026-03-15.md) --
   Add Google-style docstrings to 4 command.py private helpers, 4 docker_sandbox_claude.py methods, 3 github.py dunders; 4326 tests (20 new)
 

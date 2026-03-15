@@ -21,6 +21,18 @@ class OllamaProvider(AIProvider):
     default_base_url = "http://localhost:11434/v1"
 
     def _build_inner(self) -> Any:
+        """Construct an OpenAI-compatible client pointing at a local Ollama server.
+
+        Reads the API key from ``OLLAMA_API_KEY`` (defaults to ``"ollama"``)
+        and the base URL from ``OLLAMA_BASE_URL`` (defaults to
+        ``http://localhost:11434/v1``).
+
+        Returns:
+            An ``openai.OpenAI`` client configured for the Ollama endpoint.
+
+        Raises:
+            RuntimeError: If the ``openai`` package is not installed.
+        """
         try:
             from openai import OpenAI
         except ImportError as exc:
@@ -40,6 +52,18 @@ class OllamaProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Send a completion request via the OpenAI-compatible chat completions API.
+
+        Args:
+            inner: The ``openai.OpenAI`` client pointing at the Ollama server.
+            messages: Chat-style ``[{role, content}]`` message list.
+            model: Ollama model identifier (e.g. ``"llama3.2:latest"``).
+            **kwargs: Additional keyword arguments forwarded to
+                ``inner.chat.completions.create()``.
+
+        Returns:
+            The raw chat completion response object.
+        """
         return inner.chat.completions.create(
             model=model,
             messages=messages,

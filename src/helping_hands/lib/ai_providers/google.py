@@ -19,6 +19,18 @@ class GoogleProvider(AIProvider):
     install_hint = "uv add google-genai"
 
     def _build_inner(self) -> Any:
+        """Construct the Google GenAI SDK client.
+
+        Reads the API key from the ``GOOGLE_API_KEY`` environment variable.
+        If the variable is not set, the client is created without an explicit
+        key (relying on SDK-level defaults such as ADC).
+
+        Returns:
+            A ``google.genai.Client`` instance.
+
+        Raises:
+            RuntimeError: If the ``google-genai`` package is not installed.
+        """
         try:
             from google import genai
         except ImportError as exc:
@@ -39,6 +51,24 @@ class GoogleProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Send a completion request via the Google GenAI content generation API.
+
+        Extracts non-empty ``content`` values from *messages* and passes them
+        as the ``contents`` parameter.
+
+        Args:
+            inner: The ``google.genai.Client`` instance.
+            messages: Chat-style ``[{role, content}]`` message list.
+            model: Google model identifier (e.g. ``"gemini-2.0-flash"``).
+            **kwargs: Additional keyword arguments forwarded to
+                ``inner.models.generate_content()``.
+
+        Returns:
+            The raw Google GenAI response object.
+
+        Raises:
+            ValueError: If all messages have empty content.
+        """
         contents = [m.get("content") for m in messages if m.get("content")]
         if not contents:
             raise ValueError(

@@ -19,6 +19,17 @@ class LiteLLMProvider(AIProvider):
     install_hint = "uv add litellm"
 
     def _build_inner(self) -> Any:
+        """Import and configure the LiteLLM module.
+
+        Reads the API key from the ``LITELLM_API_KEY`` environment variable
+        and sets it on the ``litellm`` module if present.
+
+        Returns:
+            The ``litellm`` module itself (used as a callable namespace).
+
+        Raises:
+            RuntimeError: If the ``litellm`` package is not installed.
+        """
         try:
             import litellm
         except ImportError as exc:
@@ -39,6 +50,18 @@ class LiteLLMProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Send a completion request via LiteLLM's unified completion interface.
+
+        Args:
+            inner: The ``litellm`` module.
+            messages: Chat-style ``[{role, content}]`` message list.
+            model: Model identifier in LiteLLM format (e.g. ``"gpt-5.2"``).
+            **kwargs: Additional keyword arguments forwarded to
+                ``inner.completion()``.
+
+        Returns:
+            The raw LiteLLM response object.
+        """
         return inner.completion(
             model=model,
             messages=messages,

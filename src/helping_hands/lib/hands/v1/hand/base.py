@@ -92,6 +92,15 @@ class Hand(abc.ABC):
     """Abstract base for all Hand backends."""
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        """Initialise the hand with configuration and repository context.
+
+        Resolves the tool categories and skill catalog based on the config,
+        and sets default values for PR-related flags.
+
+        Args:
+            config: Runtime configuration (model, flags, tokens, etc.).
+            repo_index: Pre-built index of the target repository.
+        """
         self.config = config
         self.repo_index = repo_index
         self._interrupt_event = Event()
@@ -121,7 +130,15 @@ class Hand(abc.ABC):
         self._selected_skills = system_skills.resolve_skills(skill_names)
 
     def _build_system_prompt(self) -> str:
-        """Build a system prompt that includes repo context."""
+        """Build a system prompt that includes repo context.
+
+        Assembles a prompt containing the repo root path, a bounded file
+        listing (up to :data:`_FILE_LIST_PREVIEW_LIMIT` entries), and an
+        optional reference-repositories section.
+
+        Returns:
+            Markdown-formatted system prompt string.
+        """
         file_list = "\n".join(
             f"  - {f}" for f in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
         )
@@ -136,7 +153,15 @@ class Hand(abc.ABC):
         )
 
     def _build_reference_repos_prompt_section(self) -> str:
-        """Build a prompt section describing read-only reference repos."""
+        """Build a prompt section describing read-only reference repos.
+
+        Iterates over ``self.repo_index.reference_repos`` and lists each
+        repo's files (up to :data:`_FILE_LIST_PREVIEW_LIMIT`).  Returns an
+        empty string when no reference repos are configured.
+
+        Returns:
+            Newline-delimited prompt section, or ``""`` if none.
+        """
         if not self.repo_index.reference_repos:
             return ""
         parts: list[str] = ["\n\nReference repositories (read-only, do not modify):"]
@@ -163,11 +188,19 @@ class Hand(abc.ABC):
         """Send a prompt and yield response chunks as they arrive."""
 
     def interrupt(self) -> None:
-        """Request cooperative interruption for long-running runs/streams."""
+        """Request cooperative interruption for long-running runs/streams.
+
+        Sets the internal event flag so that implementations checking
+        ``_is_interrupted()`` can break out of their processing loop.
+        """
         self._interrupt_event.set()
 
     def reset_interrupt(self) -> None:
-        """Clear any pending interruption request."""
+        """Clear any pending interruption request.
+
+        Resets the internal event flag so that ``_is_interrupted()`` returns
+        False, allowing a new ``run()`` or ``stream()`` cycle.
+        """
         self._interrupt_event.clear()
 
     def _is_interrupted(self) -> bool:
@@ -347,7 +380,19 @@ class Hand(abc.ABC):
             raise RuntimeError(msg)
 
     def _use_native_git_auth_for_push(self, *, github_token: str) -> bool:
-        """Whether PR push should use the repo's existing git auth setup."""
+        """Whether PR push should use the repo's existing git auth setup.
+
+        Returns True only when no explicit GitHub token was provided *and*
+        the config's ``use_native_cli_auth`` flag is set, allowing the push
+        to use whatever credential helper is already configured in git.
+
+        Args:
+            github_token: The resolved GitHub token string.
+
+        Returns:
+            True if native git auth should be used instead of token-based
+            push URL rewriting.
+        """
         if github_token.strip():
             return False
         return bool(getattr(self.config, "use_native_cli_auth", False))
@@ -507,7 +552,17 @@ class Hand(abc.ABC):
         repo_dir: Path,
         branch: str,
     ) -> None:
-        """Push with git credential prompts suppressed."""
+        """Push a branch with git credential prompts suppressed.
+
+        Temporarily sets ``GIT_TERMINAL_PROMPT=0`` and
+        ``GCM_INTERACTIVE=never`` to prevent interactive auth prompts,
+        then restores the original environment values after the push.
+
+        Args:
+            gh: A :class:`~helping_hands.lib.github.GitHubClient` instance.
+            repo_dir: Path to the local git repository.
+            branch: Branch name to push with ``--set-upstream``.
+        """
         prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
         prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
         os.environ["GIT_TERMINAL_PROMPT"] = "0"

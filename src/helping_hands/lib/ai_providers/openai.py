@@ -19,6 +19,18 @@ class OpenAIProvider(AIProvider):
     install_hint = "uv add openai"
 
     def _build_inner(self) -> Any:
+        """Construct the OpenAI SDK client.
+
+        Reads the API key from the ``OPENAI_API_KEY`` environment variable.
+        If the variable is not set, the client is created without an explicit
+        key (relying on SDK-level defaults).
+
+        Returns:
+            An ``openai.OpenAI`` client instance.
+
+        Raises:
+            RuntimeError: If the ``openai`` package is not installed.
+        """
         try:
             from openai import OpenAI
         except ImportError as exc:
@@ -39,6 +51,18 @@ class OpenAIProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Send a completion request via the OpenAI Responses API.
+
+        Args:
+            inner: The ``openai.OpenAI`` client instance.
+            messages: Chat-style ``[{role, content}]`` message list.
+            model: OpenAI model identifier (e.g. ``"gpt-5.2"``).
+            **kwargs: Additional keyword arguments forwarded to
+                ``inner.responses.create()``.
+
+        Returns:
+            The raw OpenAI API response object.
+        """
         return inner.responses.create(
             model=model,
             input=messages,

@@ -22,6 +22,18 @@ class AnthropicProvider(AIProvider):
     install_hint = "uv add anthropic"
 
     def _build_inner(self) -> Any:
+        """Construct the Anthropic SDK client.
+
+        Reads the API key from the ``ANTHROPIC_API_KEY`` environment variable.
+        If the variable is not set, the client is created without an explicit
+        key (relying on SDK-level defaults).
+
+        Returns:
+            An ``anthropic.Anthropic`` client instance.
+
+        Raises:
+            RuntimeError: If the ``anthropic`` package is not installed.
+        """
         try:
             from anthropic import Anthropic
         except ImportError as exc:
@@ -42,6 +54,19 @@ class AnthropicProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Send a completion request via the Anthropic Messages API.
+
+        Args:
+            inner: The ``anthropic.Anthropic`` client instance.
+            messages: Chat-style ``[{role, content}]`` message list.
+            model: Anthropic model identifier (e.g. ``"claude-3-5-sonnet-latest"``).
+            **kwargs: Additional keyword arguments forwarded to
+                ``inner.messages.create()``.  ``max_tokens`` defaults to
+                :data:`_DEFAULT_MAX_TOKENS` if not provided.
+
+        Returns:
+            The raw Anthropic API response object.
+        """
         max_tokens = kwargs.pop("max_tokens", _DEFAULT_MAX_TOKENS)
         return inner.messages.create(
             model=model,

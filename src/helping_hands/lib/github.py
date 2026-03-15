@@ -153,7 +153,12 @@ class GitHubClient:
     # ------------------------------------------------------------------
 
     def whoami(self) -> dict[str, Any]:
-        """Return the authenticated user's login and name."""
+        """Return identity information for the authenticated GitHub user.
+
+        Returns:
+            A dict with keys ``login`` (str), ``name`` (str or None),
+            and ``url`` (str) pointing to the user's GitHub profile.
+        """
         user = self._gh.get_user()
         return {"login": user.login, "name": user.name, "url": user.html_url}
 
@@ -419,7 +424,20 @@ class GitHubClient:
         ]
 
     def get_pr(self, full_name: str, number: int) -> dict[str, Any]:
-        """Get details of a single pull request."""
+        """Get details of a single pull request.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: PR number (must be positive).
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, ``head``, ``base``, ``mergeable``, ``merged``,
+            and ``user``.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
         if number <= 0:
             raise ValueError(f"PR number must be positive, got {number}")
         repo = self.get_repo(full_name)
@@ -438,12 +456,28 @@ class GitHubClient:
         }
 
     def default_branch(self, full_name: str) -> str:
-        """Return the repository's default branch."""
+        """Return the repository's default branch name.
+
+        Args:
+            full_name: ``owner/repo`` string.
+
+        Returns:
+            The default branch name (e.g. ``"main"`` or ``"master"``).
+        """
         repo = self.get_repo(full_name)
         return str(repo.default_branch)
 
     def update_pr_body(self, full_name: str, number: int, *, body: str) -> None:
-        """Update the body/description of an existing pull request."""
+        """Update the body/description of an existing pull request.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: PR number (must be positive).
+            body: New Markdown body text for the pull request.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
         if number <= 0:
             raise ValueError(f"PR number must be positive, got {number}")
         repo = self.get_repo(full_name)
