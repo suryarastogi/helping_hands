@@ -4,6 +4,22 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — ScheduledTask.from_dict validation, coverage threshold, package exports (v213)
+
+**`ScheduledTask.from_dict` empty/whitespace rejection:** Added a second validation pass after the missing-key check that rejects empty or whitespace-only values for all five required fields (`schedule_id`, `name`, `cron_expression`, `repo_path`, `prompt`). Error message reports all offending fields in one `ValueError`.
+
+**`validate_cron_expression` whitespace stripping:** Added `.strip()` to the input before preset lookup and croniter validation, so that `"  0 0 * * *  "` or `"  daily  "` are accepted cleanly.
+
+**Coverage `fail_under = 75` threshold:** Added to `[tool.coverage.report]` in `pyproject.toml` to prevent silent coverage regressions in CI.
+
+**Package-level `__all__` exports:** Populated `__all__` in `lib/__init__.py` (9 sub-modules), `server/__init__.py` (6 sub-modules), and `cli/__init__.py` (1 sub-module) — was previously empty lists in all three.
+
+**`tests/test_v213_from_dict_validation_coverage_exports.py`:** 28 tests covering empty/whitespace field rejection (11 tests), cron whitespace stripping (6 tests), package `__all__` exports (11 tests).
+
+**28 new tests. 5189 passed, 217 skipped.**
+
+---
+
 ## Mar 15 — DRY run-status strings, truncation marker, auth-presence labels (v212)
 
 **`_RUN_STATUS_INTERRUPTED` / `_RUN_STATUS_SATISFIED` / `_RUN_STATUS_MAX_ITERATIONS` constants:** Extracted the three run-status strings from identical inline assignments in both `BasicLangGraphHand.run()` and `BasicAtomicHand.run()` to module-level constants with docstrings.

@@ -90,6 +90,7 @@ source = ["src/helping_hands"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+fail_under = 75
 
 [dependency-groups]
 dev = [

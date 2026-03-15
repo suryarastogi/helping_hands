@@ -176,11 +176,19 @@ class ScheduledTask:
         """Create from dictionary.
 
         Raises:
-            ValueError: If any required field is missing.
+            ValueError: If any required field is missing or empty/whitespace.
         """
         missing = [f for f in cls._REQUIRED_FIELDS if f not in data]
         if missing:
             msg = f"Missing required fields: {', '.join(missing)}"
+            raise ValueError(msg)
+        empty = [
+            f
+            for f in cls._REQUIRED_FIELDS
+            if isinstance(data[f], str) and not data[f].strip()
+        ]
+        if empty:
+            msg = f"Required fields must not be empty: {', '.join(empty)}"
             raise ValueError(msg)
         return cls(
             schedule_id=data["schedule_id"],
@@ -246,6 +254,8 @@ def validate_cron_expression(cron_expr: str) -> str:
         ValueError: If the cron expression is invalid.
     """
     _check_croniter()
+
+    cron_expr = cron_expr.strip()
 
     # Check if it's a preset
     if cron_expr in CRON_PRESETS:
