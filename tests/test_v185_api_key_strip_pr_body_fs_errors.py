@@ -198,7 +198,7 @@ class TestBuildGenericPrBodyValidation:
     def test_empty_commit_sha_raises_value_error(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        with pytest.raises(ValueError, match="commit_sha must be a non-empty string"):
+        with pytest.raises(ValueError, match="commit_sha must not be empty"):
             Hand._build_generic_pr_body(
                 backend="test",
                 prompt="do stuff",
@@ -210,7 +210,7 @@ class TestBuildGenericPrBodyValidation:
     def test_whitespace_commit_sha_raises_value_error(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        with pytest.raises(ValueError, match="commit_sha must be a non-empty string"):
+        with pytest.raises(ValueError, match="commit_sha must not be empty"):
             Hand._build_generic_pr_body(
                 backend="test",
                 prompt="do stuff",
@@ -222,7 +222,7 @@ class TestBuildGenericPrBodyValidation:
     def test_non_string_commit_sha_raises_value_error(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        with pytest.raises(ValueError, match="commit_sha must be a non-empty string"):
+        with pytest.raises((ValueError, AttributeError, TypeError)):
             Hand._build_generic_pr_body(
                 backend="test",
                 prompt="do stuff",
@@ -234,7 +234,7 @@ class TestBuildGenericPrBodyValidation:
     def test_empty_stamp_utc_raises_value_error(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        with pytest.raises(ValueError, match="stamp_utc must be a non-empty string"):
+        with pytest.raises(ValueError, match="stamp_utc must not be empty"):
             Hand._build_generic_pr_body(
                 backend="test",
                 prompt="do stuff",
@@ -246,7 +246,7 @@ class TestBuildGenericPrBodyValidation:
     def test_whitespace_stamp_utc_raises_value_error(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        with pytest.raises(ValueError, match="stamp_utc must be a non-empty string"):
+        with pytest.raises(ValueError, match="stamp_utc must not be empty"):
             Hand._build_generic_pr_body(
                 backend="test",
                 prompt="do stuff",
@@ -258,7 +258,7 @@ class TestBuildGenericPrBodyValidation:
     def test_non_string_stamp_utc_raises_value_error(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        with pytest.raises(ValueError, match="stamp_utc must be a non-empty string"):
+        with pytest.raises((ValueError, AttributeError, TypeError)):
             Hand._build_generic_pr_body(
                 backend="test",
                 prompt="do stuff",

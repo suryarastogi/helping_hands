@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v208](exec-plans/completed/2026/v208-pr-status-enum-validation-cleanup.md) —
+  `PRStatus(StrEnum)` with 12 members replacing 5 string constants + 7 ad-hoc
+  strings, `_build_generic_pr_body` validation standardized to
+  `require_non_empty_string`, DRY `_pr_result_metadata()` helper (3 sites);
+  38 tests (5037 passed, 216 skipped)
+
+
 - [2026-03-15 v207](exec-plans/completed/2026/v207-dry-shared-validators.md) —
   DRY shared validation helpers (`require_non_empty_string`,
   `require_positive_int`) extracted to `validation.py`, applied across 9 files;

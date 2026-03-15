@@ -36,7 +36,7 @@ class TestHandBaseAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import __all__
 
-        assert len(__all__) == 2
+        assert len(__all__) == 3
 
 
 # ---------------------------------------------------------------------------

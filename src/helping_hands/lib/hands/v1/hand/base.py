@@ -19,6 +19,7 @@ import subprocess
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any
@@ -37,7 +38,7 @@ from helping_hands.lib.validation import require_non_empty_string
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["Hand", "HandResponse"]
+__all__ = ["Hand", "HandResponse", "PRStatus"]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -102,28 +103,68 @@ def _utc_stamp() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
-# --- PR status sentinel values ------------------------------------------------
+# --- PR status enum -----------------------------------------------------------
 
-_PR_STATUS_CREATED = "created"
-"""PR was successfully created in this run."""
 
-_PR_STATUS_UPDATED = "updated"
-"""An existing PR was updated (pushed new commits)."""
+class PRStatus(StrEnum):
+    """All possible outcomes of the PR finalization step.
 
-_PR_STATUS_NO_CHANGES = "no_changes"
-"""No file changes were detected; PR creation was skipped."""
+    Being a :class:`StrEnum`, each member compares equal to its string value
+    (e.g. ``PRStatus.CREATED == "created"``), so serialised metadata dicts
+    remain human-readable and backward-compatible.
+    """
 
-_PR_STATUS_DISABLED = "disabled"
-"""PR creation was explicitly disabled (``--no-pr``)."""
+    CREATED = "created"
+    """PR was successfully created in this run."""
 
-_PR_STATUS_NOT_ATTEMPTED = "not_attempted"
-"""PR creation was not attempted (e.g. no GitHub remote found)."""
+    UPDATED = "updated"
+    """An existing PR was updated (pushed new commits)."""
 
-_PR_STATUSES_WITH_URL = frozenset({_PR_STATUS_CREATED, _PR_STATUS_UPDATED})
+    NO_CHANGES = "no_changes"
+    """No file changes were detected; PR creation was skipped."""
+
+    DISABLED = "disabled"
+    """PR creation was explicitly disabled (``--no-pr``)."""
+
+    NOT_ATTEMPTED = "not_attempted"
+    """PR creation was not attempted (e.g. no GitHub remote found)."""
+
+    NO_REPO = "no_repo"
+    """Repository directory does not exist."""
+
+    NOT_GIT_REPO = "not_git_repo"
+    """Directory is not inside a git work tree."""
+
+    NO_GITHUB_ORIGIN = "no_github_origin"
+    """No GitHub remote origin was detected."""
+
+    PRECOMMIT_FAILED = "precommit_failed"
+    """Pre-commit hooks failed and could not be auto-fixed."""
+
+    MISSING_TOKEN = "missing_token"
+    """GitHub token was missing or invalid."""
+
+    GIT_ERROR = "git_error"
+    """A git subprocess returned a non-zero exit code."""
+
+    ERROR = "error"
+    """An unexpected error occurred during finalization."""
+
+
+PR_STATUSES_WITH_URL = frozenset({PRStatus.CREATED, PRStatus.UPDATED})
 """PR status values that indicate a PR URL is available."""
 
-_PR_STATUSES_SKIPPED = frozenset({_PR_STATUS_NO_CHANGES, _PR_STATUS_DISABLED})
+PR_STATUSES_SKIPPED = frozenset({PRStatus.NO_CHANGES, PRStatus.DISABLED})
 """PR status values that indicate finalization was intentionally skipped."""
+
+# Backward-compatible aliases so existing imports keep working.
+_PR_STATUS_CREATED = PRStatus.CREATED
+_PR_STATUS_UPDATED = PRStatus.UPDATED
+_PR_STATUS_NO_CHANGES = PRStatus.NO_CHANGES
+_PR_STATUS_DISABLED = PRStatus.DISABLED
+_PR_STATUS_NOT_ATTEMPTED = PRStatus.NOT_ATTEMPTED
+_PR_STATUSES_WITH_URL = PR_STATUSES_WITH_URL
+_PR_STATUSES_SKIPPED = PR_STATUSES_SKIPPED
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
@@ -377,10 +418,8 @@ class Hand(abc.ABC):
         """
         require_non_empty_string(backend, "backend")
         require_non_empty_string(prompt, "prompt")
-        if not isinstance(commit_sha, str) or not commit_sha.strip():
-            raise ValueError("commit_sha must be a non-empty string")
-        if not isinstance(stamp_utc, str) or not stamp_utc.strip():
-            raise ValueError("stamp_utc must be a non-empty string")
+        require_non_empty_string(commit_sha, "commit_sha")
+        require_non_empty_string(stamp_utc, "stamp_utc")
         return (
             f"Automated update from `{backend}`.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -389,6 +428,40 @@ class Hand(abc.ABC):
             "## Summary\n\n"
             f"{summary.strip() or 'No summary provided.'}\n"
         )
+
+    @staticmethod
+    def _pr_result_metadata(
+        metadata: dict[str, str],
+        *,
+        status: PRStatus,
+        pr_url: str,
+        pr_number: str,
+        pr_branch: str,
+        pr_commit: str,
+    ) -> dict[str, str]:
+        """Update *metadata* with the standard PR result fields and return it.
+
+        Args:
+            metadata: Mutable metadata dict to update.
+            status: PR finalization outcome.
+            pr_url: URL of the created/updated PR.
+            pr_number: PR number as a string.
+            pr_branch: Name of the PR head branch.
+            pr_commit: Latest commit SHA on the PR branch.
+
+        Returns:
+            The same *metadata* dict, updated in-place.
+        """
+        metadata.update(
+            {
+                "pr_status": status,
+                "pr_url": pr_url,
+                "pr_number": pr_number,
+                "pr_branch": pr_branch,
+                "pr_commit": pr_commit,
+            }
+        )
+        return metadata
 
     @staticmethod
     def _configure_authenticated_push_remote(
@@ -716,16 +789,14 @@ class Hand(abc.ABC):
                 commit_sha=commit_sha,
             )
 
-        metadata.update(
-            {
-                "pr_status": _PR_STATUS_UPDATED,
-                "pr_url": pr_url,
-                "pr_number": str(self.pr_number),
-                "pr_branch": branch,
-                "pr_commit": commit_sha,
-            }
+        return self._pr_result_metadata(
+            metadata,
+            status=PRStatus.UPDATED,
+            pr_url=pr_url,
+            pr_number=str(self.pr_number),
+            pr_branch=branch,
+            pr_commit=commit_sha,
         )
-        return metadata
 
     def _update_pr_description(
         self,
@@ -840,16 +911,14 @@ class Hand(abc.ABC):
             head=new_branch,
             base=pr_branch,
         )
-        metadata.update(
-            {
-                "pr_status": _PR_STATUS_CREATED,
-                "pr_url": pr.url,
-                "pr_number": str(pr.number),
-                "pr_branch": new_branch,
-                "pr_commit": commit_sha,
-            }
+        return self._pr_result_metadata(
+            metadata,
+            status=PRStatus.CREATED,
+            pr_url=pr.url,
+            pr_number=str(pr.number),
+            pr_branch=new_branch,
+            pr_commit=commit_sha,
         )
-        return metadata
 
     def _finalize_repo_pr(
         self,
@@ -890,14 +959,14 @@ class Hand(abc.ABC):
 
         repo_dir = self.repo_index.root.resolve()
         if not repo_dir.is_dir():
-            metadata["pr_status"] = "no_repo"
+            metadata["pr_status"] = PRStatus.NO_REPO
             return metadata
 
         inside_work_tree = self._run_git_read(
             repo_dir, "rev-parse", "--is-inside-work-tree"
         )
         if inside_work_tree != "true":
-            metadata["pr_status"] = "not_git_repo"
+            metadata["pr_status"] = PRStatus.NOT_GIT_REPO
             return metadata
 
         has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
@@ -907,14 +976,14 @@ class Hand(abc.ABC):
 
         repo = self._github_repo_from_origin(repo_dir)
         if not repo:
-            metadata["pr_status"] = "no_github_origin"
+            metadata["pr_status"] = PRStatus.NO_GITHUB_ORIGIN
             return metadata
 
         if self._should_run_precommit_before_pr():
             try:
                 self._run_precommit_checks_and_fixes(repo_dir)
             except RuntimeError as exc:
-                metadata["pr_status"] = "precommit_failed"
+                metadata["pr_status"] = PRStatus.PRECOMMIT_FAILED
                 metadata["pr_error"] = str(exc)
                 return metadata
             has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
@@ -1025,26 +1094,24 @@ class Hand(abc.ABC):
                     head=branch,
                     base=base_branch,
                 )
-                metadata.update(
-                    {
-                        "pr_status": _PR_STATUS_CREATED,
-                        "pr_url": pr.url,
-                        "pr_number": str(pr.number),
-                        "pr_branch": branch,
-                        "pr_commit": commit_sha,
-                    }
+                return self._pr_result_metadata(
+                    metadata,
+                    status=PRStatus.CREATED,
+                    pr_url=pr.url,
+                    pr_number=str(pr.number),
+                    pr_branch=branch,
+                    pr_commit=commit_sha,
                 )
-                return metadata
         except ValueError as exc:
-            metadata["pr_status"] = "missing_token"
+            metadata["pr_status"] = PRStatus.MISSING_TOKEN
             metadata["pr_error"] = str(exc)
             return metadata
         except RuntimeError as exc:
-            metadata["pr_status"] = "git_error"
+            metadata["pr_status"] = PRStatus.GIT_ERROR
             metadata["pr_error"] = str(exc)
             return metadata
         except Exception as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
-            metadata["pr_status"] = "error"
+            metadata["pr_status"] = PRStatus.ERROR
             metadata["pr_error"] = str(exc)
             return metadata

@@ -184,9 +184,7 @@ try:
 except ModuleNotFoundError:
     _has_fastapi = False
 
-_skip_no_fastapi = pytest.mark.skipif(
-    not _has_fastapi, reason="fastapi not installed"
-)
+_skip_no_fastapi = pytest.mark.skipif(not _has_fastapi, reason="fastapi not installed")
 
 
 @_skip_no_fastapi

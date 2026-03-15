@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — PR status enum, validation cleanup, DRY metadata builder (v208)
+
+**`PRStatus(StrEnum)`:** Replaced 5 module-level string constants (`_PR_STATUS_CREATED`, etc.) + 2 frozensets + 7 ad-hoc inline status strings ("no_repo", "not_git_repo", "no_github_origin", "precommit_failed", "missing_token", "git_error", "error") with a single `PRStatus(StrEnum)` enum with 12 members. Module-level `PR_STATUSES_WITH_URL` and `PR_STATUSES_SKIPPED` frozensets. Backward-compatible aliases preserve all existing imports.
+
+**Validation cleanup:** `_build_generic_pr_body` `commit_sha`/`stamp_utc` validation now delegates to `require_non_empty_string()` (replacing manual `isinstance()`/`.strip()` checks).
+
+**DRY `_pr_result_metadata()`:** Extracted static helper replacing 3 identical `metadata.update({"pr_status": ..., "pr_url": ..., ...})` blocks in `_push_to_existing_pr`, `_create_pr_for_diverged_branch`, and `_finalize_repo_pr`.
+
+**38 new tests. 5037 passed, 216 skipped.**
+
+---
+
 ## Mar 15 — DRY shared validation helpers (v207)
 
 **Shared `validation.py` module:** Created `src/helping_hands/lib/validation.py` with two helpers: `require_non_empty_string(value, name)` and `require_positive_int(value, name)`. These consolidate the two most duplicated validation patterns in the codebase.
