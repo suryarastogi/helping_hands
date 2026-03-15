@@ -17,6 +17,8 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     resolve_hand_model,
 )
 
+__all__ = ["LangGraphHand"]
+
 
 class LangGraphHand(Hand):
     """Hand backed by LangChain / LangGraph ``create_react_agent``.
@@ -97,6 +99,19 @@ class LangGraphHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the LangGraph agent response token-by-token.
+
+        Invokes the agent asynchronously via ``astream_events`` (v2) and
+        yields each ``on_chat_model_stream`` chunk as it arrives. After
+        streaming completes, finalizes the repo PR and yields the PR URL
+        if one was created.
+
+        Args:
+            prompt: The user task prompt.
+
+        Yields:
+            Response text chunks, followed by the PR URL line if applicable.
+        """
         parts: list[str] = []
         async for event in self._agent.astream_events(
             {"messages": [{"role": "user", "content": prompt}]},
