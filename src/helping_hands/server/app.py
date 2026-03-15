@@ -2714,8 +2714,33 @@ def _parse_backend(value: str) -> BackendName:
     return backend
 
 
+def _validate_path_param(value: str, name: str) -> str:
+    """Validate and strip a URL path parameter.
+
+    Args:
+        value: The raw path parameter value.
+        name: The parameter name, used in error messages.
+
+    Returns:
+        The stripped parameter value.
+
+    Raises:
+        ValueError: If *value* is empty or whitespace-only.
+    """
+    if not value or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    return value.strip()
+
+
 def _build_task_status(task_id: str) -> TaskStatus:
-    """Fetch and normalize current Celery task status."""
+    """Fetch and normalize current Celery task status.
+
+    Args:
+        task_id: The Celery task UUID to look up.
+
+    Returns:
+        A ``TaskStatus`` with the current state and normalised result.
+    """
     result = build_feature.AsyncResult(task_id)
     raw_result = result.result if result.ready() else result.info
     normalized_result = normalize_task_result(result.status, raw_result)
@@ -3467,6 +3492,7 @@ def enqueue_build_form(
 @app.get("/monitor/{task_id}", response_class=HTMLResponse)
 def monitor(task_id: str) -> HTMLResponse:
     """No-JS monitor page with auto-refresh for task status/updates."""
+    task_id = _validate_path_param(task_id, "task_id")
     task_status = _build_task_status(task_id)
     return HTMLResponse(_render_monitor_page(task_status))
 
@@ -3534,6 +3560,7 @@ def get_current_tasks() -> CurrentTasksResponse:
 @app.get("/tasks/{task_id}", response_model=TaskStatus)
 def get_task(task_id: str) -> TaskStatus:
     """Check the status of an enqueued task."""
+    task_id = _validate_path_param(task_id, "task_id")
     return _build_task_status(task_id)
 
 
@@ -3545,10 +3572,7 @@ def cancel_task(task_id: str) -> TaskCancelResponse:
 
 def _cancel_task(task_id: str) -> TaskCancelResponse:
     """Revoke a Celery task, sending SIGTERM to terminate it if running."""
-    if not task_id or not task_id.strip():
-        raise ValueError("task_id must be a non-empty string")
-
-    task_id = task_id.strip()
+    task_id = _validate_path_param(task_id, "task_id")
     result = build_feature.AsyncResult(task_id)
     current_status = result.status
 
@@ -3601,7 +3625,14 @@ def _redact_token(token: str | None) -> str | None:
 
 
 def _schedule_to_response(task) -> ScheduleResponse:
-    """Convert a ScheduledTask to a ScheduleResponse."""
+    """Convert a ScheduledTask to a ScheduleResponse.
+
+    Args:
+        task: A ``ScheduledTask`` instance to convert.
+
+    Returns:
+        A ``ScheduleResponse`` with computed ``next_run`` and redacted token.
+    """
     from helping_hands.server.schedules import next_run_time
 
     next_run = None
@@ -3708,6 +3739,7 @@ def get_schedule(schedule_id: str) -> ScheduleResponse:
     """Get a scheduled task by ID."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task = manager.get_schedule(schedule_id)
     if task is None:
@@ -3722,6 +3754,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
 
     from helping_hands.server.schedules import ScheduledTask
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
 
     # If the token looks redacted (contains ***), preserve the existing one.
@@ -3766,6 +3799,7 @@ def delete_schedule(schedule_id: str) -> None:
     """Delete a scheduled task."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     if not manager.delete_schedule(schedule_id):
         raise HTTPException(status_code=404, detail="Schedule not found")
@@ -3776,6 +3810,7 @@ def enable_schedule(schedule_id: str) -> ScheduleResponse:
     """Enable a scheduled task."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task = manager.enable_schedule(schedule_id)
     if task is None:
@@ -3788,6 +3823,7 @@ def disable_schedule(schedule_id: str) -> ScheduleResponse:
     """Disable a scheduled task."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task = manager.disable_schedule(schedule_id)
     if task is None:
@@ -3800,6 +3836,7 @@ def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
     """Manually trigger a scheduled task to run immediately."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task_id = manager.trigger_now(schedule_id)
     if task_id is None:

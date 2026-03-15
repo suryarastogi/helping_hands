@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v187](exec-plans/completed/2026-03-15.md) --
+  Server endpoint path parameter validation: extract `_validate_path_param()` helper,
+  add empty/whitespace validation to 8 FastAPI endpoints (`monitor`, `get_task`,
+  6 schedule endpoints), refactor `_cancel_task()` to use shared helper, Google-style
+  docstrings for `_build_task_status()` and `_schedule_to_response()`; 4615 tests
+  (38 new, 2 skipped)
+
 - [2026-03-15 v186](exec-plans/completed/2026-03-15.md) --
   Add Google-style docstrings to 5 claude.py methods (`__call__`, `_process_line`,
   `result_text`, `_resolve_cli_model`, `_skip_permissions_enabled`), add empty-path
