@@ -245,7 +245,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
-    pr_number: int | None = None
+    pr_number: int | None = Field(default=None, ge=1)
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(
         default=_DEFAULT_CI_WAIT_MINUTES,
@@ -256,6 +256,42 @@ class BuildRequest(_ToolSkillValidatorMixin):
     reference_repos: list[str] = Field(
         default_factory=list, max_length=_MAX_REFERENCE_REPOS
     )
+
+    @field_validator("github_token", mode="before")
+    @classmethod
+    def _normalize_github_token(cls, value: str | None) -> str | None:
+        """Convert whitespace-only github_token strings to None.
+
+        Args:
+            value: Raw token value from the request body.
+
+        Returns:
+            The stripped token string, or ``None`` if the value is
+            ``None`` or contains only whitespace.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("reference_repos")
+    @classmethod
+    def _validate_reference_repos(cls, value: list[str]) -> list[str]:
+        """Reject empty or whitespace-only entries in reference_repos.
+
+        Args:
+            value: List of repo spec strings.
+
+        Returns:
+            The unchanged list if all entries are non-empty.
+
+        Raises:
+            ValueError: If any entry is empty or whitespace-only.
+        """
+        for i, repo in enumerate(value):
+            if not repo.strip():
+                msg = f"reference_repos[{i}] must not be empty or whitespace-only"
+                raise ValueError(msg)
+        return value
 
 
 class BuildResponse(BaseModel):
@@ -336,7 +372,7 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
         ge=1,
         le=_MAX_ITERATIONS_UPPER_BOUND,
     )
-    pr_number: int | None = None
+    pr_number: int | None = Field(default=None, ge=1)
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
@@ -351,6 +387,43 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     reference_repos: list[str] = Field(
         default_factory=list, max_length=_MAX_REFERENCE_REPOS
     )
+
+    @field_validator("github_token", mode="before")
+    @classmethod
+    def _normalize_github_token(cls, value: str | None) -> str | None:
+        """Convert whitespace-only github_token strings to None.
+
+        Args:
+            value: Raw token value from the request body.
+
+        Returns:
+            The stripped token string, or ``None`` if the value is
+            ``None`` or contains only whitespace.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("reference_repos")
+    @classmethod
+    def _validate_reference_repos(cls, value: list[str]) -> list[str]:
+        """Reject empty or whitespace-only entries in reference_repos.
+
+        Args:
+            value: List of repo spec strings.
+
+        Returns:
+            The unchanged list if all entries are non-empty.
+
+        Raises:
+            ValueError: If any entry is empty or whitespace-only.
+        """
+        for i, repo in enumerate(value):
+            if not repo.strip():
+                msg = f"reference_repos[{i}] must not be empty or whitespace-only"
+                raise ValueError(msg)
+        return value
+
     enabled: bool = True
 
 
@@ -3374,7 +3447,7 @@ def _build_form_redirect_query(
     enable_web: bool = False,
     use_native_cli_auth: bool = False,
     fix_ci: bool = False,
-    ci_check_wait_minutes: float = 3.0,
+    ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES,
     pr_number: int | None = None,
     tools: str | None = None,
     skills: str | None = None,
@@ -3399,7 +3472,7 @@ def _build_form_redirect_query(
         query["use_native_cli_auth"] = "1"
     if fix_ci:
         query["fix_ci"] = "1"
-    if ci_check_wait_minutes != 3.0:
+    if ci_check_wait_minutes != _DEFAULT_CI_WAIT_MINUTES:
         query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
     if pr_number is not None:
         query["pr_number"] = str(pr_number)

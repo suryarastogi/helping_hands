@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __all__ = [
     "DEFAULT_BROWSE_MAX_CHARS",
+    "MAX_SEARCH_QUERY_LENGTH",
     "WebBrowseResult",
     "WebSearchItem",
     "WebSearchResult",
@@ -26,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BROWSE_MAX_CHARS = 12000
 """Default maximum characters returned when browsing a web page."""
+
+MAX_SEARCH_QUERY_LENGTH = 500
+"""Maximum character length for a ``search_web`` query string."""
 
 
 @dataclass(frozen=True)
@@ -219,6 +223,11 @@ def search_web(
     normalized_query = query.strip()
     if not normalized_query:
         raise ValueError("query must be non-empty")
+    if len(normalized_query) > MAX_SEARCH_QUERY_LENGTH:
+        raise ValueError(
+            f"query length {len(normalized_query)} exceeds maximum"
+            f" {MAX_SEARCH_QUERY_LENGTH}"
+        )
     if max_results <= 0:
         raise ValueError("max_results must be > 0")
     if timeout_s <= 0:

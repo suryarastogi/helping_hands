@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v198](exec-plans/completed/2026/Week-12.md) --
+  Request validation hardening: `pr_number` `Field(ge=1)` on BuildRequest and
+  ScheduleRequest, `github_token` whitespace-to-None `@field_validator`,
+  `reference_repos` item-level empty/whitespace rejection, DRY
+  `_build_form_redirect_query` CI wait default (uses `_DEFAULT_CI_WAIT_MINUTES`),
+  `search_web` `MAX_SEARCH_QUERY_LENGTH = 500` query length validation;
+  4743 tests (31 new, 218 skipped)
+
 - [2026-03-15 v197](exec-plans/completed/2026/Week-12.md) --
   DRY field validation bound constants (`MAX_ITERATIONS_UPPER_BOUND`,
   `MIN_CI_WAIT_MINUTES`, `MAX_CI_WAIT_MINUTES`, `MAX_REPO_PATH_LENGTH`,

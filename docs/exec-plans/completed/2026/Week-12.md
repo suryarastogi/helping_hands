@@ -4,6 +4,22 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — Request validation hardening, DRY form CI wait default (v198)
+
+**`pr_number` positive validation:** Added `Field(default=None, ge=1)` to `BuildRequest.pr_number` and `ScheduleRequest.pr_number` in `app.py`, rejecting zero and negative PR numbers at the Pydantic layer.
+
+**`github_token` whitespace normalization:** Added `@field_validator("github_token", mode="before")` to both `BuildRequest` and `ScheduleRequest` that converts empty/whitespace-only strings to `None`, preventing downstream auth attempts with blank tokens.
+
+**`reference_repos` item validation:** Added `@field_validator("reference_repos")` to both `BuildRequest` and `ScheduleRequest` that rejects empty/whitespace-only entries with an index-aware error message (e.g. "reference_repos[1] must not be empty").
+
+**DRY form CI wait default:** Replaced hardcoded `3.0` in `_build_form_redirect_query()` param default and comparison with `_DEFAULT_CI_WAIT_MINUTES` from `server/constants.py`.
+
+**`search_web` query length validation:** Added `MAX_SEARCH_QUERY_LENGTH = 500` constant to `web.py` (with `__all__` export). `search_web()` now rejects queries exceeding this limit after stripping whitespace.
+
+**4743 backend tests passed (+31 new: 5 pr_number BuildRequest, 4 pr_number ScheduleRequest, 5 github_token BuildRequest, 2 github_token ScheduleRequest, 5 reference_repos BuildRequest, 2 reference_repos ScheduleRequest, 3 form redirect CI default, 5 search_web query length), 218 skipped.**
+
+---
+
 ## Mar 15 — DRY field validation bounds, BackendName dedup, bytes-per-MB (v197)
 
 **DRY field validation bounds:** Extracted 7 shared constants to `server/constants.py`: `MAX_ITERATIONS_UPPER_BOUND = 100`, `MIN_CI_WAIT_MINUTES = 0.5`, `MAX_CI_WAIT_MINUTES = 30.0`, `MAX_REPO_PATH_LENGTH = 500`, `MAX_PROMPT_LENGTH = 50_000`, `MAX_MODEL_LENGTH = 200`, `MAX_GITHUB_TOKEN_LENGTH = 500`. `BuildRequest` and `ScheduleRequest` in `app.py` now reference these shared constants instead of duplicated inline literals in `Field()` definitions.
