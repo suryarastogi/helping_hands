@@ -40,6 +40,9 @@ from helping_hands.lib.meta.tools import filesystem as fs_tools
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.meta.tools import web as web_tools
 from helping_hands.lib.repo import RepoIndex
+from helping_hands.server.constants import (
+    SUPPORTED_BACKENDS as _SUPPORTED_BACKENDS,
+)
 from helping_hands.server.task_result import normalize_task_result
 
 __all__ = ["main", "mcp"]
@@ -143,6 +146,14 @@ def build_feature(
         raise ValueError("repo_path must be a non-empty string")
     if not prompt or not prompt.strip():
         raise ValueError("prompt must be a non-empty string")
+    if max_iterations < 1:
+        raise ValueError(f"max_iterations must be >= 1, got {max_iterations}")
+
+    normalized_backend = (backend or "").strip().lower()
+    if normalized_backend not in _SUPPORTED_BACKENDS:
+        choices = ", ".join(sorted(_SUPPORTED_BACKENDS))
+        msg = f"unsupported backend {backend!r}; expected one of: {choices}"
+        raise ValueError(msg)
 
     from helping_hands.server.celery_app import (
         build_feature as celery_build,

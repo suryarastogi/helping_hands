@@ -237,20 +237,27 @@ class TestCompletedPlanStructure:
         completed = DOCS_DIR / "exec-plans" / "completed"
         if not completed.exists():
             return []
-        return sorted(completed.glob("*.md"))
+        return sorted(completed.rglob("*.md"))
 
     def test_completed_plans_exist(self, completed_plan_paths: list[Path]) -> None:
         assert len(completed_plan_paths) > 0, (
             "exec-plans/completed/ should have at least one plan"
         )
 
+    @staticmethod
+    def _is_consolidated(name: str) -> bool:
+        """Return True for date-consolidated or weekly summary files."""
+        return bool(
+            re.match(r"\d{4}-\d{2}-\d{2}\.md$", name)
+            or re.match(r"Week-\d+\.md$", name)
+        )
+
     def test_versioned_plans_have_status(
         self, completed_plan_paths: list[Path]
     ) -> None:
-        """Versioned plans (not date-consolidated) must have a Status field."""
+        """Versioned plans (not date/week-consolidated) must have a Status field."""
         for plan_path in completed_plan_paths:
-            # Date-consolidated files (2026-03-04.md) are summaries, skip them
-            if re.match(r"\d{4}-\d{2}-\d{2}\.md$", plan_path.name):
+            if self._is_consolidated(plan_path.name):
                 continue
             content = plan_path.read_text()
             assert "**Status:**" in content, (
@@ -262,7 +269,7 @@ class TestCompletedPlanStructure:
     ) -> None:
         """Versioned plans must have a Tasks section."""
         for plan_path in completed_plan_paths:
-            if re.match(r"\d{4}-\d{2}-\d{2}\.md$", plan_path.name):
+            if self._is_consolidated(plan_path.name):
                 continue
             content = plan_path.read_text()
             assert "## Tasks" in content, (

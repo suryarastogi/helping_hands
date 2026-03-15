@@ -250,6 +250,7 @@ class TestServerConstants:
             "KEYCHAIN_ACCESS_TOKEN_KEY",
             "KEYCHAIN_OAUTH_KEY",
             "KEYCHAIN_SERVICE_NAME",
+            "SUPPORTED_BACKENDS",
             "USAGE_USER_AGENT",
         }
         assert set(constants.__all__) == expected

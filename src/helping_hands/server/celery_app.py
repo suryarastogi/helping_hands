@@ -48,6 +48,9 @@ from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
 )
 from helping_hands.server.constants import (
+    SUPPORTED_BACKENDS,
+)
+from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
 
@@ -108,18 +111,7 @@ _DB_CONNECT_TIMEOUT_S = 5
 _GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
 
-_SUPPORTED_BACKENDS = {
-    "e2e",
-    "basic-langgraph",
-    "basic-atomic",
-    "basic-agent",
-    "codexcli",
-    "claudecodecli",
-    "docker-sandbox-claude",
-    "goose",
-    "geminicli",
-    "opencodecli",
-}
+_SUPPORTED_BACKENDS = SUPPORTED_BACKENDS
 _VERBOSE = os.environ.get("HELPING_HANDS_VERBOSE", "").lower() in ("1", "true", "yes")
 _MAX_STORED_UPDATES = 2000 if _VERBOSE else 200
 _MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800

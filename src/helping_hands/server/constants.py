@@ -13,6 +13,7 @@ __all__ = [
     "KEYCHAIN_ACCESS_TOKEN_KEY",
     "KEYCHAIN_OAUTH_KEY",
     "KEYCHAIN_SERVICE_NAME",
+    "SUPPORTED_BACKENDS",
     "USAGE_USER_AGENT",
 ]
 
@@ -42,3 +43,21 @@ KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
 
 JWT_TOKEN_PREFIX = "ey"
 """Base64-encoded JWT header prefix used for raw token heuristic detection."""
+
+# --- Backend registry -------------------------------------------------------
+
+SUPPORTED_BACKENDS: frozenset[str] = frozenset(
+    {
+        "e2e",
+        "basic-langgraph",
+        "basic-atomic",
+        "basic-agent",
+        "codexcli",
+        "claudecodecli",
+        "docker-sandbox-claude",
+        "goose",
+        "geminicli",
+        "opencodecli",
+    }
+)
+"""Canonical set of backend names accepted by build_feature endpoints."""
