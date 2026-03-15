@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v198](exec-plans/completed/2026/Week-12.md) --
+  DRY token redaction constants (`_REDACT_TOKEN_PREFIX_LEN`,
+  `_REDACT_TOKEN_SUFFIX_LEN`, `_REDACT_TOKEN_MIN_PARTIAL_LEN` in app.py
+  replacing 3× magic numbers in `_redact_token()`), use `_DEFAULT_CI_WAIT_MINUTES`
+  constant in `_schedule_to_response` getattr fallback, root package `__all__`
+  declaration, fix `_FakeScheduledTask` missing `github_token`/`reference_repos`
+  fields with forwarding tests; 5524 tests (22 new, 2 skipped)
+
 - [2026-03-15 v197](exec-plans/completed/2026/Week-12.md) --
   DRY field validation bound constants (`MAX_ITERATIONS_UPPER_BOUND`,
   `MIN_CI_WAIT_MINUTES`, `MAX_CI_WAIT_MINUTES`, `MAX_REPO_PATH_LENGTH`,

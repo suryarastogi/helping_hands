@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY token redaction, ci_wait constant fallback, root __all__, test stub fix (v198)
+
+**DRY token redaction:** Extracted 3 magic numbers from `_redact_token()` in `server/app.py` to named constants: `_REDACT_TOKEN_PREFIX_LEN = 4`, `_REDACT_TOKEN_SUFFIX_LEN = 4`, `_REDACT_TOKEN_MIN_PARTIAL_LEN = 12`. The function now uses these constants instead of hardcoded `4`, `4`, `12` values. Added Google-style docstring with Args/Returns to `_redact_token()`.
+
+**ci_wait constant fallback:** Replaced hardcoded `3.0` in the `getattr(task, "ci_check_wait_minutes", 3.0)` backward-compatibility fallback in `_schedule_to_response()` with `_DEFAULT_CI_WAIT_MINUTES` imported from `server/constants.py`, ensuring the fallback stays in sync with the declared default.
+
+**Root package `__all__`:** Added `__all__ = ["__version__"]` to `src/helping_hands/__init__.py`, completing project-wide explicit `__all__` coverage (all 31 modules now declare `__all__`).
+
+**Test stub fix:** Added missing `github_token` and `reference_repos` fields to `_FakeScheduledTask` in `test_server_app_schedule_response.py`, aligning the test stub with the production `ScheduledTask` dataclass. Updated `test_all_fields_forwarded` to verify `github_token` redaction and `reference_repos` passthrough. Updated `test_task_missing_optional_attrs_uses_defaults` to cover `github_token` and `reference_repos` getattr fallbacks.
+
+**5524 backend tests passed (+22 new: 5 root __all__, 9 redact token constants, 7 redact token behaviour, 1 ci_wait fallback), 2 skipped.**
+
+---
+
 ## Mar 15 — DRY field validation bounds, BackendName dedup, bytes-per-MB (v197)
 
 **DRY field validation bounds:** Extracted 7 shared constants to `server/constants.py`: `MAX_ITERATIONS_UPPER_BOUND = 100`, `MIN_CI_WAIT_MINUTES = 0.5`, `MAX_CI_WAIT_MINUTES = 30.0`, `MAX_REPO_PATH_LENGTH = 500`, `MAX_PROMPT_LENGTH = 50_000`, `MAX_MODEL_LENGTH = 200`, `MAX_GITHUB_TOKEN_LENGTH = 500`. `BuildRequest` and `ScheduleRequest` in `app.py` now reference these shared constants instead of duplicated inline literals in `Field()` definitions.

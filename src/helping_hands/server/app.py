@@ -129,6 +129,22 @@ _CELERY_INSPECT_TIMEOUT_S = 1.0
 _HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
 _USAGE_DATA_PREVIEW_LENGTH = 300
 
+# --- Token redaction parameters ---
+_REDACT_TOKEN_PREFIX_LEN = 4
+"""Number of leading characters to keep when redacting a token."""
+
+_REDACT_TOKEN_SUFFIX_LEN = 4
+"""Number of trailing characters to keep when redacting a token."""
+
+_REDACT_TOKEN_MIN_PARTIAL_LEN = 12
+"""Minimum token length for partial redaction (show prefix/suffix).
+
+Tokens at or below this length are fully masked to ``"***"`` to avoid
+leaking a disproportionate fraction of the secret.  At the default values
+(prefix=4, suffix=4), a 12-character token would expose 8 of 12 characters
+(67%), which is too much for meaningful redaction.
+"""
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
@@ -3661,12 +3677,23 @@ def _get_schedule_manager() -> ScheduleManager:
 
 
 def _redact_token(token: str | None) -> str | None:
-    """Redact a token, keeping only the first 4 and last 4 characters."""
+    """Redact a token, keeping only the first and last few characters.
+
+    Tokens at or below :data:`_REDACT_TOKEN_MIN_PARTIAL_LEN` are fully
+    masked to avoid leaking a meaningful portion of the secret.
+
+    Args:
+        token: Raw token string, or ``None``.
+
+    Returns:
+        Redacted string with prefix/suffix visible, ``"***"`` for short
+        tokens, or ``None`` when *token* is falsy.
+    """
     if not token:
         return None
-    if len(token) <= 12:
+    if len(token) <= _REDACT_TOKEN_MIN_PARTIAL_LEN:
         return "***"
-    return f"{token[:4]}***{token[-4:]}"
+    return f"{token[:_REDACT_TOKEN_PREFIX_LEN]}***{token[-_REDACT_TOKEN_SUFFIX_LEN:]}"
 
 
 def _schedule_to_response(task) -> ScheduleResponse:
@@ -3706,7 +3733,9 @@ def _schedule_to_response(task) -> ScheduleResponse:
         enable_web=task.enable_web,
         use_native_cli_auth=task.use_native_cli_auth,
         fix_ci=getattr(task, "fix_ci", False),
-        ci_check_wait_minutes=getattr(task, "ci_check_wait_minutes", 3.0),
+        ci_check_wait_minutes=getattr(
+            task, "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
+        ),
         github_token=_redact_token(getattr(task, "github_token", None)),
         reference_repos=getattr(task, "reference_repos", []),
         tools=getattr(task, "tools", []),
