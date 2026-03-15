@@ -206,6 +206,14 @@ def main(argv: list[str] | None = None) -> None:
         )
         sys.exit(1)
 
+    if args.max_iterations is not None and args.max_iterations <= 0:
+        print(
+            f"Error: --max-iterations must be a positive integer"
+            f" (got {args.max_iterations})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if args.e2e:
         config = Config.from_env(
             overrides={

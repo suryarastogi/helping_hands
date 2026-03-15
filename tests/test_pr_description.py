@@ -1781,3 +1781,118 @@ class TestCommitTypePrefixRe:
         assert '_PR_TITLE_MARKER = "PR_TITLE:"\n"""' in src
         assert '_PR_BODY_MARKER = "PR_BODY:"\n"""' in src
         assert '_COMMIT_MSG_MARKER = "COMMIT_MSG:"\n"""' in src
+
+
+# ---------------------------------------------------------------------------
+# v189 — generate_pr_description input validation
+# ---------------------------------------------------------------------------
+
+
+class TestGeneratePRDescriptionInputValidation:
+    """Verify generate_pr_description rejects empty/whitespace params."""
+
+    def _common_kwargs(self, tmp_path: Path) -> dict:
+        return {
+            "cmd": ["claude", "-p"],
+            "repo_dir": tmp_path,
+            "base_branch": "main",
+            "backend": "claudecodecli",
+            "prompt": "add feature",
+            "summary": "done",
+        }
+
+    def test_empty_base_branch_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["base_branch"] = ""
+        with pytest.raises(ValueError, match="base_branch"):
+            generate_pr_description(**kwargs)
+
+    def test_whitespace_base_branch_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["base_branch"] = "   "
+        with pytest.raises(ValueError, match="base_branch"):
+            generate_pr_description(**kwargs)
+
+    def test_tab_base_branch_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["base_branch"] = "\t"
+        with pytest.raises(ValueError, match="base_branch"):
+            generate_pr_description(**kwargs)
+
+    def test_empty_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = ""
+        with pytest.raises(ValueError, match="backend"):
+            generate_pr_description(**kwargs)
+
+    def test_whitespace_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = "  \n  "
+        with pytest.raises(ValueError, match="backend"):
+            generate_pr_description(**kwargs)
+
+    def test_cmd_none_skips_validation(self, tmp_path: Path) -> None:
+        """When cmd is None, validation is skipped (early return)."""
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["cmd"] = None
+        kwargs["base_branch"] = ""
+        kwargs["backend"] = ""
+        assert generate_pr_description(**kwargs) is None
+
+    @patch(
+        "helping_hands.lib.hands.v1.hand.pr_description._is_disabled",
+        return_value=True,
+    )
+    def test_valid_params_reach_disabled_check(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
+        """Valid base_branch and backend pass validation."""
+        result = generate_pr_description(**self._common_kwargs(tmp_path))
+        assert result is None  # disabled, but no ValueError
+
+
+# ---------------------------------------------------------------------------
+# v189 — generate_commit_message backend validation
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateCommitMessageBackendValidation:
+    """Verify generate_commit_message rejects empty/whitespace backend."""
+
+    def _common_kwargs(self, tmp_path: Path) -> dict:
+        return {
+            "cmd": ["claude", "-p"],
+            "repo_dir": tmp_path,
+            "backend": "claudecodecli",
+            "prompt": "fix bug",
+            "summary": "fixed",
+        }
+
+    def test_empty_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = ""
+        with pytest.raises(ValueError, match="backend"):
+            generate_commit_message(**kwargs)
+
+    def test_whitespace_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = "   "
+        with pytest.raises(ValueError, match="backend"):
+            generate_commit_message(**kwargs)
+
+    def test_tab_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = "\t\n"
+        with pytest.raises(ValueError, match="backend"):
+            generate_commit_message(**kwargs)
+
+    @patch(
+        "helping_hands.lib.hands.v1.hand.pr_description._is_disabled",
+        return_value=True,
+    )
+    def test_valid_backend_passes_validation(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
+        """Valid backend passes validation (returns None because disabled)."""
+        result = generate_commit_message(**self._common_kwargs(tmp_path))
+        assert result is None

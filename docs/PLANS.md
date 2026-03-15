@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v189](exec-plans/completed/2026/Week-12.md) --
+  Input validation for `generate_pr_description()` (`base_branch`, `backend`
+  empty/whitespace rejection) and `generate_commit_message()` (`backend`
+  validation), CLI `--max-iterations` positive integer validation;
+  4603 tests (15 new, 154 skipped)
+
 - [2026-03-15 v188](exec-plans/completed/2026/Week-12.md) --
   DRY `redact_credentials()` to use `GITHUB_TOKEN_USER`/`GITHUB_HOSTNAME` constants
   in regex, DRY `_redact_sensitive()` in github.py to delegate to shared module

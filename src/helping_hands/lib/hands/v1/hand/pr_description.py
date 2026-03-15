@@ -345,6 +345,12 @@ def generate_pr_description(
     if cmd is None:
         return None
 
+    if not base_branch or not base_branch.strip():
+        raise ValueError("base_branch must be a non-empty string")
+
+    if not backend or not backend.strip():
+        raise ValueError("backend must be a non-empty string")
+
     if _is_disabled():
         logger.debug("Rich PR description generation is disabled.")
         return None
@@ -654,6 +660,9 @@ def generate_commit_message(
     includes new files.  The subsequent ``git commit`` will use the staged
     changes.
     """
+    if not backend or not backend.strip():
+        raise ValueError("backend must be a non-empty string")
+
     if _is_disabled():
         return None
 
