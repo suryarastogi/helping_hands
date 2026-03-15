@@ -22,6 +22,9 @@ from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
 )
 from helping_hands.lib.github_url import (
+    UNKNOWN_CLONE_ERROR as _UNKNOWN_CLONE_ERROR,
+)
+from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
 )
 from helping_hands.lib.github_url import (
@@ -29,6 +32,9 @@ from helping_hands.lib.github_url import (
 )
 from helping_hands.lib.github_url import (
     redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    ref_repo_tmp_prefix as _ref_repo_tmp_prefix,
 )
 from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
@@ -194,7 +200,7 @@ def _resolve_repo_path(
             ) from exc
         if result.returncode != 0:
             shutil.rmtree(dest_root, ignore_errors=True)
-            stderr = result.stderr.strip() or "unknown git clone error"
+            stderr = result.stderr.strip() or _UNKNOWN_CLONE_ERROR
             stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
@@ -674,9 +680,8 @@ def build_feature(
             except ValueError:
                 _append_update(updates, f"Skipping invalid reference repo: {ref_spec}")
                 continue
-            safe_name = ref_spec.replace("/", "_")
             ref_root = Path(
-                mkdtemp(prefix=f"helping_hands_ref_{safe_name}_", dir=_repo_tmp_dir())
+                mkdtemp(prefix=_ref_repo_tmp_prefix(ref_spec), dir=_repo_tmp_dir())
             )
             ref_tmp_roots.append(ref_root)
             ref_dest = ref_root / "repo"
@@ -697,7 +702,9 @@ def build_feature(
                 )
                 continue
             if ref_result.returncode != 0:
-                stderr = _redact_sensitive(ref_result.stderr.strip() or "unknown error")
+                stderr = _redact_sensitive(
+                    ref_result.stderr.strip() or _UNKNOWN_CLONE_ERROR
+                )
                 _append_update(
                     updates,
                     f"Failed to clone reference repo {ref_spec}: {stderr}",

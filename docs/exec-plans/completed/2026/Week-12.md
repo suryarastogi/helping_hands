@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY clone error fallback and reference repo prefix (v203)
+
+**DRY clone error fallback:** Extracted `UNKNOWN_CLONE_ERROR = "unknown git clone error"` constant in `github_url.py`. Replaced 3× duplicated string literals across `cli/main.py` (`_resolve_repo_path`, `_clone_reference_repos`) and `celery_app.py` (`_resolve_repo_path`, reference repo clone loop).
+
+**DRY reference repo prefix:** Extracted `ref_repo_tmp_prefix(spec)` helper in `github_url.py` that converts `owner/repo` → `helping_hands_ref_owner_repo_`. Replaced 2× duplicated `f"helping_hands_ref_{spec.replace('/', '_')}_"` patterns in `cli/main.py` and `celery_app.py`.
+
+**16 tests (14 passed, 2 skipped without celery): 3 constant value/type/export, 6 helper format/output, 1 updated __all__ set, 4 cross-module import identity, 1 usage-site clone error, 1 usage-site mkdtemp prefix.**
+
+---
+
 ## Mar 15 — DRY truncation marker and PR metadata factory (v202)
 
 **DRY truncation marker:** Extracted `_TRUNCATION_MARKER = "...[truncated]"` constant in `base.py`. Replaced 5× duplicated string literals across `base.py` (pre-commit output), `cli/base.py` (`_truncate_summary`, `_build_hook_fix_prompt`), `pr_description.py` (`_truncate_text`), and `celery_app.py` (`_append_update`).

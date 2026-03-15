@@ -36,9 +36,11 @@ class TestGitHubUrlConstants:
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
+            "UNKNOWN_CLONE_ERROR",
             "build_clone_url",
             "noninteractive_env",
             "redact_credentials",
+            "ref_repo_tmp_prefix",
             "validate_repo_spec",
         }
         assert set(github_url.__all__) == expected

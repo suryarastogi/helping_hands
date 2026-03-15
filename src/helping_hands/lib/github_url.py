@@ -14,9 +14,11 @@ __all__ = [
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
     "GIT_CLONE_TIMEOUT_S",
+    "UNKNOWN_CLONE_ERROR",
     "build_clone_url",
     "noninteractive_env",
     "redact_credentials",
+    "ref_repo_tmp_prefix",
     "validate_repo_spec",
 ]
 
@@ -28,6 +30,9 @@ GITHUB_HOSTNAME = "github.com"
 
 GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
+
+UNKNOWN_CLONE_ERROR = "unknown git clone error"
+"""Fallback error message when git clone fails without stderr output."""
 
 
 def validate_repo_spec(repo: str) -> None:
@@ -88,6 +93,22 @@ def redact_credentials(text: str) -> str:
         r"\1***\2",
         text,
     )
+
+
+def ref_repo_tmp_prefix(spec: str) -> str:
+    """Build a temp-directory prefix for a reference repo clone.
+
+    Converts ``owner/repo`` to ``helping_hands_ref_owner_repo_`` so that
+    temp directories are identifiable and safe for the filesystem.
+
+    Args:
+        spec: Repository specification in ``owner/repo`` format.
+
+    Returns:
+        A string suitable for use as a ``mkdtemp`` *prefix*.
+    """
+    safe_name = spec.replace("/", "_")
+    return f"helping_hands_ref_{safe_name}_"
 
 
 def noninteractive_env() -> dict[str, str]:

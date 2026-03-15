@@ -22,6 +22,9 @@ from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
 )
 from helping_hands.lib.github_url import (
+    UNKNOWN_CLONE_ERROR as _UNKNOWN_CLONE_ERROR,
+)
+from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
 )
 from helping_hands.lib.github_url import (
@@ -29,6 +32,9 @@ from helping_hands.lib.github_url import (
 )
 from helping_hands.lib.github_url import (
     redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    ref_repo_tmp_prefix as _ref_repo_tmp_prefix,
 )
 from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
@@ -446,7 +452,7 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
                 f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
             ) from exc
         if result.returncode != 0:
-            stderr = result.stderr.strip() or "unknown git clone error"
+            stderr = result.stderr.strip() or _UNKNOWN_CLONE_ERROR
             stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
@@ -468,9 +474,8 @@ def _clone_reference_repos(
         except ValueError as exc:
             print(f"Warning: skipping invalid reference repo {spec!r}: {exc}")
             continue
-        safe_name = spec.replace("/", "_")
         dest_root = Path(
-            mkdtemp(prefix=f"helping_hands_ref_{safe_name}_", dir=_repo_tmp_dir())
+            mkdtemp(prefix=_ref_repo_tmp_prefix(spec), dir=_repo_tmp_dir())
         )
         atexit.register(shutil.rmtree, dest_root, True)
         dest = dest_root / "repo"
@@ -495,7 +500,7 @@ def _clone_reference_repos(
             print(f"Warning: git clone timed out for reference repo {spec}")
             continue
         if result.returncode != 0:
-            stderr = _redact_sensitive(result.stderr.strip() or "unknown error")
+            stderr = _redact_sensitive(result.stderr.strip() or _UNKNOWN_CLONE_ERROR)
             print(f"Warning: failed to clone reference repo {spec}: {stderr}")
             continue
         resolved = dest.resolve()

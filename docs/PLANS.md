@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v203](exec-plans/completed/2026/Week-12.md) --
+  DRY clone error fallback (`UNKNOWN_CLONE_ERROR` in github_url.py replacing
+  3× duplicated `"unknown git clone error"` / `"unknown error"` across
+  cli/main.py and celery_app.py) and reference repo temp prefix helper
+  (`ref_repo_tmp_prefix()` replacing 2× duplicated
+  `f"helping_hands_ref_{spec.replace('/', '_')}_"` in cli/main.py and
+  celery_app.py); 4847 tests (16 new: 14 passed, 2 skipped without celery)
+
 - [2026-03-15 v202](exec-plans/completed/2026/Week-12.md) --
   DRY truncation marker (`_TRUNCATION_MARKER` in base.py replacing 5× `"...[truncated]"`
   across base.py/cli/base.py/pr_description.py/celery_app.py) and PR metadata factory
