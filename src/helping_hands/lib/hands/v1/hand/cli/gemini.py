@@ -7,6 +7,8 @@ import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
+    _DOCKER_ENV_HINT_TEMPLATE,
+    _DOCKER_REBUILD_HINT_TEMPLATE,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -165,8 +167,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
             return (
                 "Gemini CLI authentication failed. "
                 "Ensure GEMINI_API_KEY is set in this runtime. "
-                "If running app mode in Docker, set GEMINI_API_KEY in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('GEMINI_API_KEY')}\n"
                 f"Output:\n{tail}"
             )
         if GeminiCLIHand._looks_like_model_not_found(tail):
@@ -226,8 +227,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         return (
             f"Gemini CLI command not found: {command!r}. "
             "Set HELPING_HANDS_GEMINI_CLI_CMD to a valid command. "
-            "If running app mode in Docker, rebuild worker images so "
-            "the gemini binary is installed."
+            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format('gemini')}"
         )
 
     def _retry_command_after_failure(

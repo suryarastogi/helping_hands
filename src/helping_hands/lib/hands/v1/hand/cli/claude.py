@@ -9,6 +9,7 @@ import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
+    _DOCKER_ENV_HINT_TEMPLATE,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -295,8 +296,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             return (
                 "Claude Code CLI authentication failed. "
                 "Ensure ANTHROPIC_API_KEY is set in this runtime. "
-                "If running app mode in Docker, set ANTHROPIC_API_KEY in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('ANTHROPIC_API_KEY')}\n"
                 f"Output:\n{tail}"
             )
         return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"

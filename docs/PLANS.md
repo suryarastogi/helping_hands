@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v201](exec-plans/completed/2026/Week-12.md) --
+  DRY Docker hint message templates: `_DOCKER_ENV_HINT_TEMPLATE` (4× auth
+  failure messages in claude/codex/gemini/opencode) and
+  `_DOCKER_REBUILD_HINT_TEMPLATE` (4× command-not-found messages in
+  codex/gemini/goose/opencode) extracted to `cli/base.py`;
+  24 tests (all new)
+
 - [2026-03-15 v200](exec-plans/completed/2026/Week-12.md) --
   DRY timestamp helper (`_utc_stamp()` in base.py replacing 4× inline
   `datetime.now(UTC).replace(microsecond=0).isoformat()` in base.py/e2e.py),

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
+    _DOCKER_ENV_HINT_TEMPLATE,
+    _DOCKER_REBUILD_HINT_TEMPLATE,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -48,8 +50,7 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
             return (
                 "OpenCode CLI authentication failed. "
                 "Ensure your provider API key is set or run 'opencode auth login'. "
-                "If running app mode in Docker, set the appropriate API key in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('the appropriate API key')}\n"
                 f"Output:\n{tail}"
             )
         return f"OpenCode CLI failed (exit={return_code}). Output:\n{tail}"
@@ -81,8 +82,7 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         return (
             f"OpenCode CLI command not found: {command!r}. "
             "Set HELPING_HANDS_OPENCODE_CLI_CMD to a valid command. "
-            "If running app mode in Docker, rebuild worker images so "
-            "the opencode binary is installed."
+            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format('opencode')}"
         )
 
     async def _invoke_opencode(

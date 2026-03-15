@@ -7,6 +7,8 @@ from pathlib import Path
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
+    _DOCKER_ENV_HINT_TEMPLATE,
+    _DOCKER_REBUILD_HINT_TEMPLATE,
     _FAILURE_OUTPUT_TAIL_LENGTH,
     _TwoPhaseCLIHand,
 )
@@ -63,8 +65,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
             return (
                 "Codex CLI authentication failed (401 Unauthorized). "
                 "Ensure OPENAI_API_KEY is set in this runtime. "
-                "If running app mode in Docker, set OPENAI_API_KEY in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('OPENAI_API_KEY')}\n"
                 f"Output:\n{tail}"
             )
         return f"Codex CLI failed (exit={return_code}). Output:\n{tail}"
@@ -189,8 +190,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return (
             f"Codex CLI command not found: {command!r}. "
             "Set HELPING_HANDS_CODEX_CLI_CMD to a valid command. "
-            "If running app mode in Docker, rebuild worker images so "
-            "the codex binary is installed."
+            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format('codex')}"
         )
 
     async def _invoke_codex(

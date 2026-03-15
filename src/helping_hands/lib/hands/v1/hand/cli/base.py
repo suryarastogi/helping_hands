@@ -35,6 +35,8 @@ __all__ = [
     "_AUTH_ERROR_TOKENS",
     "_CI_POLL_INTERVAL_S",
     "_CLI_TRUTHY_VALUES",
+    "_DOCKER_ENV_HINT_TEMPLATE",
+    "_DOCKER_REBUILD_HINT_TEMPLATE",
     "_FAILURE_OUTPUT_TAIL_LENGTH",
     "_GIT_REF_DISPLAY_LENGTH",
     "_HOOK_ERROR_TRUNCATION_LIMIT",
@@ -84,6 +86,26 @@ _AUTH_ERROR_TOKENS: tuple[str, ...] = (
 
 Shared across all CLI hand implementations. Individual backends may check
 additional backend-specific tokens alongside these common ones.
+"""
+
+_DOCKER_ENV_HINT_TEMPLATE = (
+    "If running app mode in Docker, set {} in .env "
+    "and recreate server/worker containers."
+)
+"""Template for the Docker env-var remediation hint in auth failure messages.
+
+Use with :meth:`str.format` passing the environment variable name, e.g.
+``_DOCKER_ENV_HINT_TEMPLATE.format("ANTHROPIC_API_KEY")``.
+"""
+
+_DOCKER_REBUILD_HINT_TEMPLATE = (
+    "If running app mode in Docker, rebuild worker images so "
+    "the {} binary is installed."
+)
+"""Template for the Docker rebuild hint in command-not-found messages.
+
+Use with :meth:`str.format` passing the binary name, e.g.
+``_DOCKER_REBUILD_HINT_TEMPLATE.format("gemini")``.
 """
 
 

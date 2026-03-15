@@ -5,7 +5,10 @@ from __future__ import annotations
 import shutil
 from urllib.parse import urlparse
 
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+from helping_hands.lib.hands.v1.hand.cli.base import (
+    _DOCKER_REBUILD_HINT_TEMPLATE,
+    _TwoPhaseCLIHand,
+)
 
 __all__ = ["GooseCLIHand"]
 
@@ -147,8 +150,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         return (
             f"Goose CLI command not found: {command!r}. "
             "Set HELPING_HANDS_GOOSE_CLI_CMD to a valid command. "
-            "If running app mode in Docker, rebuild worker images so "
-            "the goose binary is installed."
+            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format('goose')}"
         )
 
     @staticmethod

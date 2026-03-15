@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY Docker hint message templates (v201)
+
+**DRY Docker env hint:** Extracted `_DOCKER_ENV_HINT_TEMPLATE` string template in `cli/base.py` for the auth failure Docker remediation message (`"If running app mode in Docker, set {} in .env and recreate server/worker containers."`). Replaced 4× duplicated strings across `claude.py`, `codex.py`, `gemini.py`, and `opencode.py` auth failure handlers.
+
+**DRY Docker rebuild hint:** Extracted `_DOCKER_REBUILD_HINT_TEMPLATE` string template in `cli/base.py` for the command-not-found Docker remediation message (`"If running app mode in Docker, rebuild worker images so the {} binary is installed."`). Replaced 4× duplicated strings across `codex.py`, `gemini.py`, `goose.py`, and `opencode.py` command-not-found handlers.
+
+**24 new tests passed (7 env hint value/format, 7 rebuild hint value/format, 4 env hint cross-module import, 4 rebuild hint cross-module import, 2 __all__ export checks).**
+
+---
+
 ## Mar 15 — DRY timestamp helper, truthy env check, UUID hex length (v200)
 
 **DRY timestamp helper:** Extracted `_utc_stamp()` helper function in `base.py` that returns `datetime.now(UTC).replace(microsecond=0).isoformat()`. Replaced 3× inline usages in `base.py` methods (`_update_pr_description`, `_create_pr_for_diverged_branch`, `_finalize_repo_pr`) and 1× in `e2e.py` (`run`). Removed unused `datetime`/`UTC` imports from `e2e.py`.
