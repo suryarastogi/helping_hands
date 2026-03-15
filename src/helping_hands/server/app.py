@@ -1600,6 +1600,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       let updates = [];
       let outputTab = "updates";
       let isPolling = false;
+      let accUsage = null;
+      let accUsageCursor = 0;
       let pollHandle = null;
       let discoveryHandle = null;
       const prefixFilters = {};
@@ -1687,6 +1689,33 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
 
       function setOutput(value) {
         payloadData = value;
+        // incremental usage accumulation from payload
+        const payloadUpdates = (value && value.result && Array.isArray(value.result.updates))
+          ? value.result.updates.map((item) => String(item)) : [];
+        if (payloadUpdates.length < accUsageCursor) {
+          // reset (task switch)
+          accUsageCursor = 0;
+          accUsage = null;
+          if (payloadUpdates.length > 0) {
+            accUsage = accumulateUsage(payloadUpdates);
+            accUsageCursor = payloadUpdates.length;
+          }
+        } else if (payloadUpdates.length > accUsageCursor) {
+          const delta = accumulateUsage(payloadUpdates.slice(accUsageCursor));
+          accUsageCursor = payloadUpdates.length;
+          if (delta) {
+            if (!accUsage) { accUsage = delta; }
+            else {
+              accUsage = {
+                totalCost: accUsage.totalCost + delta.totalCost,
+                totalSeconds: accUsage.totalSeconds + delta.totalSeconds,
+                totalIn: accUsage.totalIn + delta.totalIn,
+                totalOut: accUsage.totalOut + delta.totalOut,
+                count: accUsage.count + delta.count,
+              };
+            }
+          }
+        }
         renderOutput();
       }
 
@@ -1851,7 +1880,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
 
       function renderPrefixFilters() {
         const prefixes = extractPrefixes(updates);
-        const usage = accumulateUsage(updates);
+        const usage = accUsage;
         if (prefixes.length === 0 && !usage) {
           prefixFiltersEl.style.display = "none";
           return;

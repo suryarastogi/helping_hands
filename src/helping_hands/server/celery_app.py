@@ -122,9 +122,18 @@ _SUPPORTED_BACKENDS = {
     "geminicli",
     "opencodecli",
 }
-_VERBOSE = os.environ.get("HELPING_HANDS_VERBOSE", "").lower() in _TRUTHY_VALUES
-_MAX_STORED_UPDATES = 2000 if _VERBOSE else 200
-_MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800
+_VERBOSE_RAW = os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
+_VERBOSE_FULL = _VERBOSE_RAW == "full"
+_VERBOSE = _VERBOSE_FULL or _VERBOSE_RAW in _TRUTHY_VALUES
+_MAX_STORED_UPDATES = (
+    0
+    if _VERBOSE_FULL
+    else (
+        int(os.environ.get("HELPING_HANDS_MAX_UPDATES", "0"))
+        or (2000 if _VERBOSE else 200)
+    )
+)
+_MAX_UPDATE_LINE_CHARS = 0 if _VERBOSE_FULL else (4000 if _VERBOSE else 800)
 _BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
 
 
@@ -231,11 +240,12 @@ def _trim_updates(updates: list[str]) -> None:
 
     Removes the oldest entries (from the front) when the list exceeds the
     configured maximum length, keeping only the most recent updates.
+    When ``_MAX_STORED_UPDATES`` is 0 (verbose-full mode), no trimming occurs.
 
     Args:
         updates: Mutable list of progress update strings to trim.
     """
-    if len(updates) > _MAX_STORED_UPDATES:
+    if _MAX_STORED_UPDATES and len(updates) > _MAX_STORED_UPDATES:
         del updates[: len(updates) - _MAX_STORED_UPDATES]
 
 
@@ -255,7 +265,7 @@ def _append_update(updates: list[str], text: str) -> None:
     clean = text.strip()
     if not clean:
         return
-    if len(clean) > _MAX_UPDATE_LINE_CHARS:
+    if _MAX_UPDATE_LINE_CHARS and len(clean) > _MAX_UPDATE_LINE_CHARS:
         clean = clean[:_MAX_UPDATE_LINE_CHARS] + " ...[truncated]"
     updates.append(clean)
     _trim_updates(updates)
