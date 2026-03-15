@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v169](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to iterative.py: _BasicIterativeHand (18), BasicLangGraphHand (1), BasicAtomicHand (2); 4173 tests (60 new)
+
 - [2026-03-15 v168](exec-plans/completed/2026-03-15.md) --
   Add Google-style docstrings to langgraph.py (3), app.py validators (4), cli/base.py (22); 4113 tests (83 new)
 
