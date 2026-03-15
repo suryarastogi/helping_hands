@@ -47,11 +47,11 @@ class TestCancelTaskHelper:
     """Tests for _cancel_task() logic."""
 
     def test_empty_task_id_raises(self) -> None:
-        with pytest.raises(ValueError, match="non-empty"):
+        with pytest.raises(ValueError, match="must not be empty"):
             _cancel_task("")
 
     def test_whitespace_task_id_raises(self) -> None:
-        with pytest.raises(ValueError, match="non-empty"):
+        with pytest.raises(ValueError, match="must not be empty"):
             _cancel_task("   ")
 
     @pytest.mark.parametrize("terminal_state", sorted(_TERMINAL_TASK_STATES))

@@ -11,10 +11,16 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from subprocess import TimeoutExpired
+
+from helping_hands.lib.validation import (
+    require_non_empty_string,
+    require_positive_int,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +53,28 @@ _COMMIT_ERROR_TAIL_LENGTH = 300
 _COMMIT_MSG_MAX_LENGTH = 72
 """Maximum length for generated commit messages (conventional commit standard)."""
 
+_PR_TITLE_MARKER = "PR_TITLE:"
+"""Marker prefix for the PR title line in CLI output."""
+
+_PR_BODY_MARKER = "PR_BODY:"
+"""Marker prefix for the PR body section in CLI output."""
+
+_COMMIT_MSG_MARKER = "COMMIT_MSG:"
+"""Marker prefix for the commit message line in CLI output."""
+
+_COMMIT_TYPE_PREFIX_RE = re.compile(
+    r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)"
+    r"(\([^)]*\))?\s*:\s*",
+    re.IGNORECASE,
+)
+"""Compiled regex matching a conventional commit type prefix with optional scope."""
+
+_BRACKET_BANNER_RE = re.compile(r"^\[.+?\]\s")
+"""Compiled regex matching ``[label] ...`` CLI banner lines."""
+
+_NUMBERED_LIST_RE = re.compile(r"^\d+\.\s")
+"""Compiled regex matching numbered list items like ``1. ...``."""
+
 
 def _truncate_text(text: str, *, limit: int) -> str:
     """Truncate *text* to *limit* characters with a truncation indicator.
@@ -55,8 +83,7 @@ def _truncate_text(text: str, *, limit: int) -> str:
     where the AI needs to know context was cut off (to avoid generating
     generic or meaningless output from incomplete input).
     """
-    if limit <= 0:
-        raise ValueError(f"limit must be positive, got {limit}")
+    require_positive_int(limit, "limit")
     stripped = text.strip()
     if len(stripped) <= limit:
         return stripped
@@ -88,8 +115,6 @@ def _infer_commit_type(text: str) -> str:
     (e.g. ``"ci"`` should not match ``"dependencies"``).
     Defaults to ``"feat"`` when no keywords match.
     """
-    import re
-
     lower = text.lower()
     for commit_type, keywords in _COMMIT_TYPE_KEYWORDS.items():
         for kw in keywords:
@@ -113,7 +138,12 @@ def _infer_commit_type(text: str) -> str:
 
 @dataclass(frozen=True)
 class PRDescription:
-    """Parsed PR title and body from CLI output."""
+    """Parsed PR title and body from CLI output.
+
+    Attributes:
+        title: One-line PR title extracted from the AI response.
+        body: Markdown PR body with summary and change details.
+    """
 
     title: str
     body: str
@@ -225,8 +255,7 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
 
 def _truncate_diff(diff: str, *, limit: int) -> str:
     """Truncate *diff* to stay within *limit* characters."""
-    if limit <= 0:
-        raise ValueError(f"limit must be positive, got {limit}")
+    require_positive_int(limit, "limit")
     if len(diff) <= limit:
         return diff
     return f"{diff[:limit]}\n...[truncated — {len(diff) - limit} chars omitted]"
@@ -258,8 +287,8 @@ def _build_prompt(
         "- Use conventional commit style for the title "
         "(e.g., feat:, fix:, refactor:, docs:).\n\n"
         "Output format — use EXACTLY these markers:\n"
-        "PR_TITLE: <your title here>\n"
-        "PR_BODY:\n"
+        f"{_PR_TITLE_MARKER} <your title here>\n"
+        f"{_PR_BODY_MARKER}\n"
         "<your markdown body here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
@@ -280,9 +309,9 @@ def _parse_output(output: str) -> PRDescription | None:
 
     lines = output.split("\n")
     for idx, line in enumerate(lines):
-        if line.startswith("PR_TITLE:"):
-            title = line[len("PR_TITLE:") :].strip()
-        elif line.strip() == "PR_BODY:":
+        if line.startswith(_PR_TITLE_MARKER):
+            title = line[len(_PR_TITLE_MARKER) :].strip()
+        elif line.strip() == _PR_BODY_MARKER:
             body_start_idx = idx + 1
             break
 
@@ -324,6 +353,9 @@ def generate_pr_description(
     """
     if cmd is None:
         return None
+
+    require_non_empty_string(base_branch, "base_branch")
+    require_non_empty_string(backend, "backend")
 
     if _is_disabled():
         logger.debug("Rich PR description generation is disabled.")
@@ -466,7 +498,7 @@ def _build_commit_message_prompt(
         "- Focus on the purpose/effect of the change, not the mechanism.\n"
         "- Do NOT include a scope in parentheses.\n\n"
         "Output format — reply with ONLY this line, nothing else:\n"
-        "COMMIT_MSG: <your message here>\n\n"
+        f"{_COMMIT_MSG_MARKER} <your message here>\n\n"
         f"## Context\n"
         f"- Backend: {backend}\n"
         f"- Original task prompt: {prompt_context}\n"
@@ -481,16 +513,8 @@ _MIN_COMMIT_MSG_LENGTH = 8
 
 def _is_trivial_message(msg: str) -> bool:
     """Return True if *msg* is too short or contains only punctuation/filler."""
-    import re
-
     # Strip conventional-commit prefix for length check.
-    body = re.sub(
-        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)"
-        r"(\([^)]*\))?\s*:\s*",
-        "",
-        msg,
-        flags=re.IGNORECASE,
-    )
+    body = _COMMIT_TYPE_PREFIX_RE.sub("", msg)
     # Reject if the body (after prefix) is empty or very short.
     if len(body) < 3:
         return True
@@ -505,8 +529,8 @@ def _parse_commit_message(output: str) -> str | None:
     trivially short / meaningless.
     """
     for line in output.split("\n"):
-        if line.startswith("COMMIT_MSG:"):
-            msg = line[len("COMMIT_MSG:") :].strip()
+        if line.startswith(_COMMIT_MSG_MARKER):
+            msg = line[len(_COMMIT_MSG_MARKER) :].strip()
             if msg and not _is_trivial_message(msg):
                 return msg[:_COMMIT_MSG_MAX_LENGTH]
     return None
@@ -533,20 +557,22 @@ _BOILERPLATE_PREFIXES = (
     "Skill knowledge catalog:",
 )
 
+_BOILERPLATE_PREFIXES_LOWER = tuple(p.lower() for p in _BOILERPLATE_PREFIXES)
+"""Pre-lowercased version of :data:`_BOILERPLATE_PREFIXES` to avoid
+repeated ``.lower()`` calls inside the hot loop."""
+
 
 def _is_boilerplate_line(line: str) -> bool:
     """Return True if *line* is CLI banner or hand system boilerplate."""
-    import re
-
     # [label] key=value ... banners
-    if re.match(r"^\[.+?\]\s", line):
+    if _BRACKET_BANNER_RE.match(line):
         return True
     # Numbered list items (e.g. "1. Read README.md") and bullet items
-    if re.match(r"^\d+\.\s", line) or line.startswith("- "):
+    if _NUMBERED_LIST_RE.match(line) or line.startswith("- "):
         return True
     # Known hand-system prompt prefixes echoed by the model
     lower = line.lower()
-    return any(lower.startswith(prefix.lower()) for prefix in _BOILERPLATE_PREFIXES)
+    return any(lower.startswith(prefix) for prefix in _BOILERPLATE_PREFIXES_LOWER)
 
 
 def _commit_message_from_prompt(prompt: str, summary: str) -> str:
@@ -557,8 +583,6 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
     non-boilerplate line is preferred (it describes what was actually done).
     Otherwise the *prompt* (a clean human-written task description) is used.
     """
-    import re
-
     # When the summary contains raw CLI output (boilerplate lines), try to
     # extract the first meaningful non-boilerplate line — it describes what
     # was actually done and is more informative than the short prompt.
@@ -593,12 +617,7 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
 
     # Strip leading conventional-commit prefix if already present
     # (with optional parenthetical scope, e.g. "feat(auth): ...").
-    stripped = re.sub(
-        r"^(feat|fix|refactor|docs|chore|test|style|ci|perf|build)(\([^)]*\))?\s*:\s*",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
+    stripped = _COMMIT_TYPE_PREFIX_RE.sub("", text)
     text = stripped if stripped else text
 
     # Lowercase first char, strip trailing period.
@@ -635,6 +654,8 @@ def generate_commit_message(
     includes new files.  The subsequent ``git commit`` will use the staged
     changes.
     """
+    require_non_empty_string(backend, "backend")
+
     if _is_disabled():
         return None
 

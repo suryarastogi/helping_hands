@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _DOCKER_ENV_HINT_TEMPLATE,
+    _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
 
@@ -29,39 +30,41 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_opencode_failure_message(*, return_code: int, output: str) -> str:
-        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "authentication failed",
-                "invalid api key",
-                "api key not valid",
-                "unauthorized",
-            )
-        ):
+        """Build a user-facing error message from OpenCode CLI failure output.
+
+        Checks the tail of the output for authentication error tokens
+        and returns a specialised auth-failure message when detected.
+
+        Args:
+            return_code: Process exit code.
+            output: Raw stdout/stderr from the CLI process.
+
+        Returns:
+            Descriptive error message string.
+        """
+        is_auth, tail = _detect_auth_failure(output)
+        if is_auth:
             return (
                 "OpenCode CLI authentication failed. "
                 "Ensure your provider API key is set or run 'opencode auth login'. "
-                "If running app mode in Docker, set the appropriate API key in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('the appropriate API key')}\n"
                 f"Output:\n{tail}"
             )
         return f"OpenCode CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Delegate to :meth:`_build_opencode_failure_message`.
+
+        Args:
+            return_code: Process exit code.
+            output: Raw stdout/stderr from the CLI process.
+
+        Returns:
+            Descriptive error message string.
+        """
         return self._build_opencode_failure_message(
             return_code=return_code,
             output=output,
-        )
-
-    def _command_not_found_message(self, command: str) -> str:
-        return (
-            f"OpenCode CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_OPENCODE_CLI_CMD to a valid command. "
-            "If running app mode in Docker, rebuild worker images so "
-            "the opencode binary is installed."
         )
 
     async def _invoke_opencode(
@@ -70,6 +73,15 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke the OpenCode CLI with the given prompt.
+
+        Args:
+            prompt: User prompt to pass to the CLI.
+            emit: Streaming emitter callback.
+
+        Returns:
+            Raw CLI output string.
+        """
         return await self._invoke_cli(prompt, emit=emit)
 
     async def _invoke_backend(
@@ -78,4 +90,13 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Run the backend invocation by delegating to :meth:`_invoke_opencode`.
+
+        Args:
+            prompt: User prompt to pass to the CLI.
+            emit: Streaming emitter callback.
+
+        Returns:
+            Raw CLI output string.
+        """
         return await self._invoke_opencode(prompt, emit=emit)

@@ -21,15 +21,30 @@ class OllamaProvider(AIProvider):
     default_base_url = "http://localhost:11434/v1"
 
     def _build_inner(self) -> Any:
+        """Construct an OpenAI-compatible client pointing at a local Ollama server.
+
+        Reads the API key from ``OLLAMA_API_KEY`` (defaults to ``"ollama"``)
+        and the base URL from ``OLLAMA_BASE_URL`` (defaults to
+        ``http://localhost:11434/v1``).
+
+        Returns:
+            An ``openai.OpenAI`` client configured for the Ollama endpoint.
+
+        Raises:
+            RuntimeError: If the ``openai`` package is not installed.
+        """
         try:
             from openai import OpenAI
         except ImportError as exc:
             raise RuntimeError(
-                "OpenAI SDK is not installed. Install with: uv add openai"
+                f"OpenAI SDK is not installed. Install with: {self.install_hint}"
             ) from exc
 
-        api_key = os.environ.get(self.api_key_env_var, "ollama")
-        base_url = os.environ.get(self.base_url_env_var, self.default_base_url)
+        api_key = os.environ.get(self.api_key_env_var, "ollama").strip() or "ollama"
+        base_url = (
+            os.environ.get(self.base_url_env_var, self.default_base_url).strip()
+            or self.default_base_url
+        )
         return OpenAI(api_key=api_key, base_url=base_url)
 
     def _complete_impl(
@@ -40,6 +55,18 @@ class OllamaProvider(AIProvider):
         model: str,
         **kwargs: Any,
     ) -> Any:
+        """Send a completion request via the OpenAI-compatible chat completions API.
+
+        Args:
+            inner: The ``openai.OpenAI`` client pointing at the Ollama server.
+            messages: Chat-style ``[{role, content}]`` message list.
+            model: Ollama model identifier (e.g. ``"llama3.2:latest"``).
+            **kwargs: Additional keyword arguments forwarded to
+                ``inner.chat.completions.create()``.
+
+        Returns:
+            The raw chat completion response object.
+        """
         return inner.chat.completions.create(
             model=model,
             messages=messages,

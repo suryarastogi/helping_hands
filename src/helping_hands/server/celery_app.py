@@ -17,6 +17,50 @@ from typing import Any
 
 from celery import Celery
 
+from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.github_url import (
+    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
+)
+from helping_hands.lib.github_url import (
+    build_clone_url as _build_clone_url,
+)
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.github_url import (
+    redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    validate_repo_spec as _validate_repo_spec,
+)
+from helping_hands.server.constants import (
+    ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
+)
+from helping_hands.server.constants import (
+    ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
+)
+from helping_hands.server.constants import (
+    JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
+)
+from helping_hands.server.constants import (
+    USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
+)
+from helping_hands.server.constants import (
+    USAGE_USER_AGENT as _USAGE_USER_AGENT,
+)
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["build_feature", "celery_app"]
@@ -63,33 +107,8 @@ celery_app.conf.update(
 _USAGE_LOG_INTERVAL_S = 3600.0
 """Interval in seconds between automatic Claude usage log entries."""
 
-# --- Anthropic usage API constants ---
-_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
-_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
-_USAGE_USER_AGENT = "claude-code/2.0.32"
-_USAGE_API_TIMEOUT_S = 10
-
-_KEYCHAIN_TIMEOUT_S = 5
-"""Timeout in seconds for macOS Keychain subprocess calls."""
-
 _DB_CONNECT_TIMEOUT_S = 5
 """Timeout in seconds for PostgreSQL connection attempts."""
-
-_JWT_TOKEN_PREFIX = "ey"
-"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
-
-# --- Keychain constants ---
-_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
-"""macOS Keychain service name for Claude Code OAuth credentials."""
-
-_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
-"""Top-level JSON key in the Keychain credential payload."""
-
-_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
-"""Nested JSON key for the OAuth access token."""
-
-_GIT_CLONE_TIMEOUT_S = 120
-"""Timeout in seconds for git clone subprocess calls."""
 
 _SUPPORTED_BACKENDS = {
     "e2e",
@@ -103,44 +122,19 @@ _SUPPORTED_BACKENDS = {
     "geminicli",
     "opencodecli",
 }
-_VERBOSE = os.environ.get("HELPING_HANDS_VERBOSE", "").lower() in ("1", "true", "yes")
+_VERBOSE = os.environ.get("HELPING_HANDS_VERBOSE", "").lower() in _TRUTHY_VALUES
 _MAX_STORED_UPDATES = 2000 if _VERBOSE else 200
 _MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800
 _BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
 
 
-def _validate_repo_spec(repo: str) -> None:
-    """Validate that *repo* looks like ``owner/repo`` before embedding in a URL."""
-    if not repo or not repo.strip():
-        raise ValueError("repo spec must not be empty")
-    parts = repo.strip().split("/")
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
-
-
 def _github_clone_url(repo: str, token: str | None = None) -> str:
-    _validate_repo_spec(repo)
-    effective_token = (token or "").strip() or os.environ.get(
-        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-    ).strip()
-    if effective_token:
-        return f"https://x-access-token:{effective_token}@github.com/{repo}.git"
-    return f"https://github.com/{repo}.git"
+    """Build the HTTPS clone URL for a GitHub repository.
 
-
-def _git_noninteractive_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    return env
-
-
-def _redact_sensitive(text: str) -> str:
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
+    Delegates to :func:`helping_hands.lib.github_url.build_clone_url`.
+    Kept as a module-level alias for backward compatibility with tests.
+    """
+    return _build_clone_url(repo, token=token)
 
 
 def _repo_tmp_dir() -> Path | None:
@@ -233,11 +227,31 @@ def _has_gemini_auth() -> bool:
 
 
 def _trim_updates(updates: list[str]) -> None:
+    """Trim the update list in-place to at most ``_MAX_STORED_UPDATES`` entries.
+
+    Removes the oldest entries (from the front) when the list exceeds the
+    configured maximum length, keeping only the most recent updates.
+
+    Args:
+        updates: Mutable list of progress update strings to trim.
+    """
     if len(updates) > _MAX_STORED_UPDATES:
         del updates[: len(updates) - _MAX_STORED_UPDATES]
 
 
 def _append_update(updates: list[str], text: str) -> None:
+    """Append a progress update line after stripping and truncating.
+
+    Strips leading/trailing whitespace from *text*.  Empty or
+    whitespace-only strings are silently ignored.  Lines longer than
+    ``_MAX_UPDATE_LINE_CHARS`` are truncated with a ``...[truncated]``
+    suffix.  After appending, the list is trimmed via
+    :func:`_trim_updates`.
+
+    Args:
+        updates: Mutable list of progress update strings.
+        text: Raw update text to clean and append.
+    """
     clean = text.strip()
     if not clean:
         return
@@ -251,10 +265,26 @@ class _UpdateCollector:
     """Collect and compact stream chunks into line-like update entries."""
 
     def __init__(self, updates: list[str]) -> None:
+        """Initialise the collector with a shared update list.
+
+        Args:
+            updates: Mutable list that receives compacted update lines.
+        """
         self._updates = updates
         self._buffer = ""
 
     def feed(self, chunk: str) -> None:
+        """Ingest a raw stream chunk, splitting on newlines.
+
+        Complete lines (terminated by ``\\n``) are immediately appended
+        via :func:`_append_update`.  Partial lines are buffered until
+        the next newline arrives or the buffer reaches
+        ``_BUFFER_FLUSH_CHARS``, at which point it is flushed as a
+        standalone update.  Empty chunks are silently ignored.
+
+        Args:
+            chunk: Raw text fragment from the AI stream.
+        """
         if not chunk:
             return
         self._buffer += chunk
@@ -266,6 +296,11 @@ class _UpdateCollector:
             self._buffer = ""
 
     def flush(self) -> None:
+        """Flush any remaining buffered text as a final update line.
+
+        Should be called when the stream ends to ensure the last
+        partial line is not lost.
+        """
         if self._buffer:
             _append_update(self._updates, self._buffer)
             self._buffer = ""
@@ -296,6 +331,39 @@ def _update_progress(
     workspace: str | None = None,
     started_at: str | None = None,
 ) -> None:
+    """Push a PROGRESS state update to Celery for the running task.
+
+    Builds a metadata dict from all keyword arguments and calls
+    ``task.update_state(state="PROGRESS", meta=...)``.  If *task* does
+    not expose a callable ``update_state`` attribute (e.g. when running
+    outside a Celery worker), the call is silently skipped.
+
+    Args:
+        task: The Celery task instance (or any object with an
+            ``update_state`` method).
+        task_id: Celery task identifier.
+        stage: Human-readable stage label (e.g. ``"running"``,
+            ``"finalizing"``).
+        updates: List of progress update strings collected so far.
+        prompt: Original user prompt for this build.
+        pr_number: GitHub PR number if resuming an existing PR.
+        backend: Requested backend name from the user.
+        runtime_backend: Resolved runtime backend actually in use.
+        repo_path: Local path to the repository being modified.
+        model: AI model identifier, or ``None`` for default.
+        max_iterations: Maximum number of agent iterations.
+        no_pr: Whether PR creation is disabled.
+        enable_execution: Whether command execution tools are enabled.
+        enable_web: Whether web search/browse tools are enabled.
+        use_native_cli_auth: Whether to use native CLI authentication.
+        tools: Tuple of enabled tool category names.
+        skills: Tuple of enabled skill names.
+        fix_ci: Whether to attempt CI fix after PR creation.
+        ci_check_wait_minutes: Minutes to wait for CI checks.
+        reference_repos: Optional list of reference repo specs.
+        workspace: Optional workspace identifier.
+        started_at: ISO-format timestamp when the task started.
+    """
     update_state = getattr(task, "update_state", None)
     if not callable(update_state):
         return
@@ -1048,4 +1116,13 @@ def ensure_usage_schedule() -> None:
 
 @celery_app.on_after_finalize.connect  # type: ignore[union-attr]
 def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
+    """Register periodic tasks after Celery app finalization.
+
+    Connected to ``celery_app.on_after_finalize`` signal.  Delegates to
+    :func:`ensure_usage_schedule` to idempotently register the hourly
+    Claude usage logging schedule in RedBeat.
+
+    Args:
+        sender: The Celery app instance that emitted the signal.
+    """
     ensure_usage_schedule()

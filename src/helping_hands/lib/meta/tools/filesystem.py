@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from helping_hands.lib.validation import require_positive_int
+
 __all__ = [
     "mkdir_path",
     "normalize_relative_path",
@@ -48,7 +50,15 @@ def resolve_repo_target(repo_root: Path, rel_path: str) -> Path:
     return target
 
 
-_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+def _display_path(target: Path, root: Path) -> str:
+    """Return the repo-relative POSIX display path for *target*."""
+    return target.relative_to(root).as_posix()
+
+
+_BYTES_PER_MB = 1024 * 1024
+"""Conversion factor from megabytes to bytes."""
+
+_MAX_FILE_SIZE_BYTES = 10 * _BYTES_PER_MB  # 10 MB
 
 
 def read_text_file(
@@ -67,23 +77,23 @@ def read_text_file(
         max_file_size: Maximum file size in bytes (default 10 MB).
             Files exceeding this limit raise ``ValueError``.
     """
-    if max_file_size <= 0:
-        raise ValueError(f"max_file_size must be positive, got {max_file_size}")
-    if max_chars is not None and max_chars <= 0:
-        raise ValueError(f"max_chars must be positive, got {max_chars}")
+    require_positive_int(max_file_size, "max_file_size")
+    if max_chars is not None:
+        require_positive_int(max_chars, "max_chars")
 
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
+    display = _display_path(target, root)
 
     if not target.exists():
-        raise FileNotFoundError("file not found")
+        raise FileNotFoundError(f"file not found: {display}")
     if target.is_dir():
-        raise IsADirectoryError("path is a directory")
+        raise IsADirectoryError(f"path is a directory: {display}")
 
     file_size = target.stat().st_size
     if file_size > max_file_size:
-        mb = file_size / (1024 * 1024)
-        limit_mb = max_file_size / (1024 * 1024)
+        mb = file_size / _BYTES_PER_MB
+        limit_mb = max_file_size / _BYTES_PER_MB
         raise ValueError(f"file is too large ({mb:.1f} MB, limit {limit_mb:.1f} MB)")
 
     try:
@@ -96,8 +106,7 @@ def read_text_file(
         text = text[:max_chars]
         truncated = True
 
-    display_path = target.relative_to(root).as_posix()
-    return text, truncated, display_path
+    return text, truncated, _display_path(target, root)
 
 
 def write_text_file(repo_root: Path, rel_path: str, content: str) -> str:
@@ -108,17 +117,23 @@ def write_text_file(repo_root: Path, rel_path: str, content: str) -> str:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
     except OSError as exc:
-        display = target.relative_to(root).as_posix()
-        raise RuntimeError(f"cannot write file {display}: {exc}") from exc
-    return target.relative_to(root).as_posix()
+        raise RuntimeError(
+            f"cannot write file {_display_path(target, root)}: {exc}"
+        ) from exc
+    return _display_path(target, root)
 
 
 def mkdir_path(repo_root: Path, rel_path: str) -> str:
     """Create a repo-relative directory and return normalized path."""
     root = repo_root.resolve()
     target = resolve_repo_target(root, rel_path)
-    target.mkdir(parents=True, exist_ok=True)
-    return target.relative_to(root).as_posix()
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise RuntimeError(
+            f"cannot create directory {_display_path(target, root)}: {exc}"
+        ) from exc
+    return _display_path(target, root)
 
 
 def path_exists(repo_root: Path, rel_path: str) -> bool:

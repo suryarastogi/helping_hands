@@ -12,18 +12,48 @@ import tempfile
 import time
 from collections.abc import AsyncIterator
 from contextlib import suppress
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
 from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.github import (
+    _CI_RUN_FAILURE_CONCLUSIONS,
+    CI_CONCLUSIONS_IN_PROGRESS,
+    CIConclusion,
+)
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
+    _PR_STATUS_CREATED,
+    _PR_STATUS_DISABLED,
+    _PR_STATUS_NO_CHANGES,
+    _PR_STATUS_UPDATED,
+    _PR_STATUSES_WITH_URL,
     Hand,
     HandResponse,
 )
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "_APPLY_CHANGES_TRUNCATION_LIMIT",
+    "_AUTH_ERROR_TOKENS",
+    "_CI_POLL_INTERVAL_S",
+    "_CLI_TRUTHY_VALUES",
+    "_DOCKER_ENV_HINT_TEMPLATE",
+    "_DOCKER_REBUILD_HINT_TEMPLATE",
+    "_FAILURE_OUTPUT_TAIL_LENGTH",
+    "_GIT_REF_DISPLAY_LENGTH",
+    "_HOOK_ERROR_TRUNCATION_LIMIT",
+    "_PROCESS_TERMINATE_TIMEOUT_S",
+    "_PR_DESCRIPTION_TIMEOUT_S",
+    "_STREAM_READ_BUFFER_SIZE",
+    "CIFixStatus",
+    "_TwoPhaseCLIHand",
+    "_detect_auth_failure",
+    "_truncate_with_ellipsis",
+]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -54,6 +84,114 @@ _FAILURE_OUTPUT_TAIL_LENGTH = 2000
 _CLI_TRUTHY_VALUES = _TRUTHY_VALUES | {"on"}
 """Superset of config ``_TRUTHY_VALUES`` with ``"on"`` for CLI env var parsing."""
 
+_AUTH_ERROR_TOKENS: tuple[str, ...] = (
+    "401 unauthorized",
+    "authentication failed",
+    "invalid api key",
+    "api key not valid",
+    "unauthorized",
+)
+"""Lowercase substrings in CLI output that indicate an authentication failure.
+
+Shared across all CLI hand implementations. Individual backends may check
+additional backend-specific tokens alongside these common ones.
+"""
+
+_DOCKER_ENV_HINT_TEMPLATE = (
+    "If running app mode in Docker, set {} in .env "
+    "and recreate server/worker containers."
+)
+"""Template for the Docker env-var remediation hint in auth failure messages.
+
+Use with :meth:`str.format` passing the environment variable name, e.g.
+``_DOCKER_ENV_HINT_TEMPLATE.format("ANTHROPIC_API_KEY")``.
+"""
+
+_DOCKER_REBUILD_HINT_TEMPLATE = (
+    "If running app mode in Docker, rebuild worker images so "
+    "the {} binary is installed."
+)
+"""Template for the Docker rebuild hint in command-not-found messages.
+
+Use with :meth:`str.format` passing the binary name, e.g.
+``_DOCKER_REBUILD_HINT_TEMPLATE.format("gemini")``.
+"""
+
+
+# --- CI fix status enum -------------------------------------------------------
+
+
+class CIFixStatus(StrEnum):
+    """State-machine values for the CI-fix loop in :meth:`_ci_fix_loop`.
+
+    Being a :class:`StrEnum`, each member compares equal to its string value
+    (e.g. ``CIFixStatus.SUCCESS == "success"``), so serialised metadata dicts
+    remain human-readable and backward-compatible.
+    """
+
+    CHECKING = "checking"
+    """CI checks are being polled (initial state)."""
+
+    SUCCESS = "success"
+    """All CI checks passed; no fix was needed."""
+
+    NO_CHECKS = "no_checks"
+    """No CI check runs were found for the ref."""
+
+    PENDING_TIMEOUT = "pending_timeout"
+    """CI checks were still pending after the maximum wait time."""
+
+    INTERRUPTED = "interrupted"
+    """The hand was interrupted (cancelled) during the CI fix loop."""
+
+    EXHAUSTED = "exhausted"
+    """All retry attempts were used without achieving CI success."""
+
+    ERROR = "error"
+    """An unexpected error occurred during the CI fix loop."""
+
+
+def _truncate_with_ellipsis(text: str, limit: int) -> str:
+    """Truncate *text* to *limit* characters, appending ``"..."`` if needed.
+
+    Args:
+        text: The string to truncate.
+        limit: Maximum allowed length (must be > 3).
+
+    Returns:
+        The original string if within *limit*, otherwise the first
+        ``limit - 3`` characters followed by ``"..."``.
+    """
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
+
+
+def _detect_auth_failure(
+    output: str,
+    extra_tokens: tuple[str, ...] = (),
+) -> tuple[bool, str]:
+    """Check CLI output tail for authentication error tokens.
+
+    Extracts the trailing :data:`_FAILURE_OUTPUT_TAIL_LENGTH` characters,
+    lowercases them, and checks for any of :data:`_AUTH_ERROR_TOKENS`
+    plus *extra_tokens*.
+
+    Args:
+        output: Raw CLI stdout/stderr text.
+        extra_tokens: Additional lowercase substrings to check alongside
+            the shared :data:`_AUTH_ERROR_TOKENS`.
+
+    Returns:
+        ``(is_auth_failure, tail)`` where *tail* is the extracted trailing
+        portion of *output* and *is_auth_failure* is ``True`` when any
+        token matched.
+    """
+    tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
+    lower_tail = tail.lower()
+    is_auth = any(token in lower_tail for token in (*_AUTH_ERROR_TOKENS, *extra_tokens))
+    return is_auth, tail
+
 
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
@@ -79,12 +217,31 @@ class _TwoPhaseCLIHand(Hand):
         async def __call__(self, chunk: str) -> None: ...
 
     def __init__(self, config: Any, repo_index: Any) -> None:
+        """Initialize the two-phase CLI hand.
+
+        Args:
+            config: Application configuration (model, verbose, tools, etc.).
+            repo_index: Repository index providing the file tree and root path.
+        """
         super().__init__(config, repo_index)
         self._active_process: asyncio.subprocess.Process | None = None
         self._skill_catalog_dir: Path | None = None
 
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
+        """Truncate text to *limit* characters with a ``[truncated]`` marker.
+
+        Args:
+            text: The text to truncate (leading/trailing whitespace stripped).
+            limit: Maximum character count; must be a positive integer.
+
+        Returns:
+            The stripped text if within *limit*, otherwise the first *limit*
+            characters followed by ``...[truncated]``.
+
+        Raises:
+            ValueError: If *limit* is less than 1.
+        """
         if limit < 1:
             raise ValueError("limit must be a positive integer")
         clean = text.strip()
@@ -107,11 +264,31 @@ class _TwoPhaseCLIHand(Hand):
         return value.strip().lower() in _CLI_TRUTHY_VALUES
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
+        """Append default args when the command is a bare binary name.
+
+        Args:
+            tokens: Shell-split command tokens.
+
+        Returns:
+            The tokens list, with ``_DEFAULT_APPEND_ARGS`` appended when
+            only a single token (the binary) was provided.
+        """
         if len(tokens) == 1 and self._DEFAULT_APPEND_ARGS:
             return [*tokens, *self._DEFAULT_APPEND_ARGS]
         return tokens
 
     def _base_command(self) -> list[str]:
+        """Resolve the CLI command from the environment variable or default.
+
+        Reads ``self._COMMAND_ENV_VAR`` (falling back to
+        ``self._DEFAULT_CLI_CMD``), shell-splits the value, and normalizes.
+
+        Returns:
+            A list of command tokens ready for subprocess execution.
+
+        Raises:
+            RuntimeError: If the value is an invalid shell expression or empty.
+        """
         raw = os.environ.get(self._COMMAND_ENV_VAR, self._DEFAULT_CLI_CMD)
         try:
             tokens = shlex.split(raw)
@@ -124,6 +301,15 @@ class _TwoPhaseCLIHand(Hand):
         return self._normalize_base_command(tokens)
 
     def _resolve_cli_model(self) -> str:
+        """Resolve the model name for the CLI backend.
+
+        Strips the provider prefix (e.g. ``anthropic/claude-sonnet-4-5``
+        becomes ``claude-sonnet-4-5``) and falls back to ``_DEFAULT_MODEL``
+        for blank, ``"default"``, or ``"None"`` values.
+
+        Returns:
+            The resolved model name string, or ``_DEFAULT_MODEL``.
+        """
         model = str(self.config.model).strip()
         if not model or model in ("default", "None"):
             return self._DEFAULT_MODEL
@@ -134,6 +320,17 @@ class _TwoPhaseCLIHand(Hand):
         return model
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Apply backend-specific default flags to the command.
+
+        Subclasses override this to inject default arguments (e.g. sandbox
+        mode, output format).  The base implementation is a no-op.
+
+        Args:
+            cmd: The current command token list.
+
+        Returns:
+            The command list, possibly with additional flags.
+        """
         return cmd
 
     def _apply_verbose_flags(self, cmd: list[str]) -> list[str]:
@@ -173,6 +370,19 @@ class _TwoPhaseCLIHand(Hand):
         return False
 
     def _render_command(self, prompt: str) -> list[str]:
+        """Build the full CLI command with prompt, model, and container wrapping.
+
+        Substitutes ``{prompt}``, ``{repo}``, and ``{model}`` placeholders in
+        the base command, appends ``--model`` when needed, injects prompt
+        arguments, applies backend defaults and verbose flags, and wraps in
+        a Docker command when container execution is enabled.
+
+        Args:
+            prompt: The prompt text to inject into the command.
+
+        Returns:
+            A ready-to-execute command token list.
+        """
         resolved_model = self._resolve_cli_model()
         placeholders = {
             "{prompt}": prompt,
@@ -212,6 +422,11 @@ class _TwoPhaseCLIHand(Hand):
         return self._wrap_container_if_enabled(rendered)
 
     def _container_enabled(self) -> bool:
+        """Check whether container-based execution is enabled.
+
+        Returns:
+            True if the backend's container env var is set to a truthy value.
+        """
         if not self._CONTAINER_ENABLED_ENV_VAR:
             return False
         raw = os.environ.get(self._CONTAINER_ENABLED_ENV_VAR, "")
@@ -220,6 +435,15 @@ class _TwoPhaseCLIHand(Hand):
         return self._is_truthy(raw)
 
     def _container_image(self) -> str:
+        """Return the Docker image name for container execution.
+
+        Returns:
+            The Docker image string from the environment.
+
+        Raises:
+            RuntimeError: If the backend has no container image env var
+                configured, or if the env var is empty.
+        """
         if not self._CONTAINER_IMAGE_ENV_VAR:
             msg = "Container execution is not configured for this backend."
             raise RuntimeError(msg)
@@ -233,6 +457,11 @@ class _TwoPhaseCLIHand(Hand):
         return image
 
     def _container_env_names(self) -> tuple[str, ...]:
+        """Return env var names to forward into the Docker container.
+
+        Returns:
+            A tuple of environment variable names (API keys, model config).
+        """
         return (
             "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY",
@@ -241,9 +470,22 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _use_native_cli_auth(self) -> bool:
+        """Check whether the backend should use its native CLI auth session.
+
+        Returns:
+            True if ``config.use_native_cli_auth`` is set.
+        """
         return bool(getattr(self.config, "use_native_cli_auth", False))
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return env var names that carry API keys for this CLI backend.
+
+        Subclasses override this to declare which env vars should be
+        stripped when ``_use_native_cli_auth`` is True.
+
+        Returns:
+            A tuple of environment variable names (empty by default).
+        """
         return ()
 
     def _describe_auth(self) -> str:
@@ -260,6 +502,11 @@ class _TwoPhaseCLIHand(Hand):
         return f"auth=native-cli (no {env_label} set, using CLI session)"
 
     def _effective_container_env_names(self) -> tuple[str, ...]:
+        """Return container env vars minus any blocked by native CLI auth.
+
+        Returns:
+            The filtered tuple of env var names to forward into Docker.
+        """
         env_names = self._container_env_names()
         if not self._use_native_cli_auth():
             return env_names
@@ -269,6 +516,24 @@ class _TwoPhaseCLIHand(Hand):
         return tuple(name for name in env_names if name not in blocked)
 
     def _wrap_container_if_enabled(self, cmd: list[str]) -> list[str]:
+        """Wrap a CLI command with Docker execution if container mode is enabled.
+
+        When container mode is disabled, returns the command unchanged. When
+        enabled, builds a ``docker run`` invocation that mounts the repo root
+        at ``/workspace``, forwards relevant environment variables, and
+        delegates to the specified container image.
+
+        Args:
+            cmd: The CLI command tokens to wrap.
+
+        Returns:
+            The original *cmd* if container mode is off, or a new list
+            prefixed with ``docker run …`` otherwise.
+
+        Raises:
+            RuntimeError: If container mode is enabled but the ``docker``
+                binary is not found on ``PATH``.
+        """
         if not self._container_enabled():
             return cmd
         image = self._container_image()
@@ -298,12 +563,30 @@ class _TwoPhaseCLIHand(Hand):
         return docker_cmd
 
     def _execution_mode(self) -> str:
+        """Return a short label describing the current execution mode.
+
+        Returns:
+            ``"container+workspace-write"`` when Docker is enabled,
+            otherwise ``"workspace-write"``.
+        """
         if self._container_enabled():
             return "container+workspace-write"
         return "workspace-write"
 
     @staticmethod
     def _float_env(name: str, *, default: float) -> float:
+        """Read a positive float from an environment variable.
+
+        Logs a warning and returns *default* when the value is missing,
+        non-numeric, or non-positive.
+
+        Args:
+            name: Environment variable name.
+            default: Fallback value.
+
+        Returns:
+            The parsed float, or *default*.
+        """
         raw = os.environ.get(name)
         if raw is None:
             return default
@@ -328,12 +611,24 @@ class _TwoPhaseCLIHand(Hand):
         return value
 
     def _io_poll_seconds(self) -> float:
+        """Return the IO poll interval for subprocess stdout reads.
+
+        Returns:
+            Seconds between read attempts (from env or class default).
+        """
         return self._float_env(
             "HELPING_HANDS_CLI_IO_POLL_SECONDS",
             default=self._DEFAULT_IO_POLL_SECONDS,
         )
 
     def _heartbeat_seconds(self) -> float:
+        """Return the heartbeat interval for idle-progress messages.
+
+        Uses a shorter default when verbose mode is enabled.
+
+        Returns:
+            Seconds between heartbeat messages (from env or class default).
+        """
         default = (
             self._DEFAULT_HEARTBEAT_SECONDS_VERBOSE
             if self.config.verbose
@@ -345,12 +640,26 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _idle_timeout_seconds(self) -> float:
+        """Return the idle timeout before the subprocess is terminated.
+
+        Returns:
+            Seconds of silence before termination (from env or class default).
+        """
         return self._float_env(
             "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS",
             default=self._DEFAULT_IDLE_TIMEOUT_SECONDS,
         )
 
     def _build_subprocess_env(self) -> dict[str, str]:
+        """Build the environment dict for CLI subprocess execution.
+
+        Copies the current process environment and strips native CLI auth
+        keys when ``_use_native_cli_auth`` is True, so the subprocess relies
+        on its own session auth instead of forwarded API keys.
+
+        Returns:
+            A dict of environment variables for the subprocess.
+        """
         env = dict(os.environ)
         if not self._use_native_cli_auth():
             return env
@@ -359,11 +668,26 @@ class _TwoPhaseCLIHand(Hand):
         return env
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Build the error message for a non-zero CLI exit.
+
+        Includes the exit code and the trailing portion of the output,
+        truncated to ``_SUMMARY_CHAR_LIMIT`` characters.
+
+        Args:
+            return_code: The subprocess exit code.
+            output: Combined stdout/stderr from the CLI run.
+
+        Returns:
+            A human-readable failure message string.
+        """
         tail = output.strip()[-self._SUMMARY_CHAR_LIMIT :]
         return f"{self._CLI_DISPLAY_NAME} failed (exit={return_code}). Output:\n{tail}"
 
     def _command_not_found_message(self, command: str) -> str:
         """Build the error message shown when the CLI binary is not on PATH.
+
+        Includes a Docker rebuild hint using ``_DOCKER_REBUILD_HINT_TEMPLATE``
+        so that Docker app-mode users get actionable remediation advice.
 
         Args:
             command: The binary name that was not found.
@@ -373,7 +697,8 @@ class _TwoPhaseCLIHand(Hand):
         """
         return (
             f"{self._CLI_DISPLAY_NAME} command not found: {command!r}. "
-            f"Set {self._COMMAND_ENV_VAR} to a valid command."
+            f"Set {self._COMMAND_ENV_VAR} to a valid command. "
+            f"{_DOCKER_REBUILD_HINT_TEMPLATE.format(command)}"
         )
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
@@ -412,6 +737,14 @@ class _TwoPhaseCLIHand(Hand):
         return None
 
     def _build_init_prompt(self) -> str:
+        """Build the phase-1 initialization prompt for repository learning.
+
+        Includes the repo root path, a capped file tree, and instructions
+        for the AI to read docs and produce an implementation summary.
+
+        Returns:
+            The initialization prompt string.
+        """
         file_list = "\n".join(
             f"- {path}" for path in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
         )
@@ -454,6 +787,18 @@ class _TwoPhaseCLIHand(Hand):
             self._skill_catalog_dir = None
 
     def _build_task_prompt(self, *, prompt: str, learned_summary: str) -> str:
+        """Build the phase-2 task execution prompt.
+
+        Combines the truncated initialization summary, user prompt, tool
+        and skill catalog sections, and reference repo context.
+
+        Args:
+            prompt: The original user task prompt.
+            learned_summary: Output from the phase-1 initialization run.
+
+        Returns:
+            The task execution prompt string.
+        """
         from helping_hands.lib.meta import skills as system_skills
         from helping_hands.lib.meta.tools import registry as tool_reg
 
@@ -498,6 +843,14 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _repo_has_changes(self) -> bool:
+        """Check whether the working tree has uncommitted changes.
+
+        Runs ``git status --porcelain`` with a timeout.  Returns False
+        on timeout or non-zero exit (with a warning/debug log).
+
+        Returns:
+            True if the working tree has staged or unstaged changes.
+        """
         repo_root = self.repo_index.root.resolve()
         try:
             result = subprocess.run(
@@ -524,6 +877,17 @@ class _TwoPhaseCLIHand(Hand):
 
     @staticmethod
     def _looks_like_edit_request(prompt: str) -> bool:
+        """Heuristic check for whether the prompt requests file edits.
+
+        Looks for common action verbs (update, fix, add, etc.) in the
+        lowercased prompt text.
+
+        Args:
+            prompt: The user prompt string.
+
+        Returns:
+            True if any action marker is found in the prompt.
+        """
         lowered = prompt.lower()
         action_markers = (
             "update",
@@ -542,6 +906,18 @@ class _TwoPhaseCLIHand(Hand):
         return any(marker in lowered for marker in action_markers)
 
     def _should_retry_without_changes(self, prompt: str) -> bool:
+        """Decide whether to retry when the task produced no file changes.
+
+        Returns True only when ``_RETRY_ON_NO_CHANGES`` is enabled, the
+        hand is not interrupted, the prompt looks like an edit request,
+        and the working tree has no changes.
+
+        Args:
+            prompt: The user prompt string.
+
+        Returns:
+            True if a retry (apply-changes enforcement) should be attempted.
+        """
         if not self._RETRY_ON_NO_CHANGES:
             return False
         if self._is_interrupted():
@@ -551,6 +927,17 @@ class _TwoPhaseCLIHand(Hand):
         return not self._repo_has_changes()
 
     def _build_apply_changes_prompt(self, *, prompt: str, task_output: str) -> str:
+        """Build the enforcement prompt asking the AI to apply file edits.
+
+        Used when the task phase responded without modifying files.
+
+        Args:
+            prompt: The original user task prompt.
+            task_output: The AI's prior response (truncated for context).
+
+        Returns:
+            The apply-changes enforcement prompt string.
+        """
         summarized_output = self._truncate_summary(
             task_output, limit=_APPLY_CHANGES_TRUNCATION_LIMIT
         )
@@ -827,6 +1214,12 @@ class _TwoPhaseCLIHand(Hand):
         return "".join(chunks)
 
     def _interrupted_pr_metadata(self) -> dict[str, str]:
+        """Return PR metadata indicating the run was interrupted.
+
+        Returns:
+            A dict with ``pr_status`` set to ``"interrupted"`` and
+            empty PR fields.
+        """
         return {
             "auto_pr": str(self.auto_pr).lower(),
             "pr_status": "interrupted",
@@ -837,6 +1230,18 @@ class _TwoPhaseCLIHand(Hand):
         }
 
     def _finalize_after_run(self, *, prompt: str, message: str) -> dict[str, str]:
+        """Finalize the run by committing, pushing, and creating the PR.
+
+        Returns interrupted metadata without finalizing when the hand was
+        interrupted.  Otherwise delegates to ``_finalize_repo_pr``.
+
+        Args:
+            prompt: The original user task prompt.
+            message: Combined CLI output from the run.
+
+        Returns:
+            A dict of PR metadata (status, url, branch, commit, etc.).
+        """
         if self._is_interrupted():
             return self._interrupted_pr_metadata()
 
@@ -848,18 +1253,26 @@ class _TwoPhaseCLIHand(Hand):
         )
 
     def _format_pr_status_message(self, metadata: dict[str, str]) -> str | None:
+        """Format a human-readable PR status message for streaming output.
+
+        Args:
+            metadata: PR metadata dict from ``_finalize_after_run``.
+
+        Returns:
+            A formatted status string, or ``None`` if no status to report.
+        """
         status = metadata.get("pr_status", "")
         if not status:
             return None
-        if status == "created":
+        if status == _PR_STATUS_CREATED:
             pr_url = metadata.get("pr_url", "")
             return f"[{self._CLI_LABEL}] PR created: {pr_url}"
-        if status == "updated":
+        if status == _PR_STATUS_UPDATED:
             pr_url = metadata.get("pr_url", "")
             return f"[{self._CLI_LABEL}] PR updated: {pr_url}"
-        if status == "disabled":
+        if status == _PR_STATUS_DISABLED:
             return f"[{self._CLI_LABEL}] PR disabled (--no-pr)."
-        if status == "no_changes":
+        if status == _PR_STATUS_NO_CHANGES:
             return f"[{self._CLI_LABEL}] PR skipped: no file changes detected."
         if status == "interrupted":
             return f"[{self._CLI_LABEL}] Interrupted."
@@ -893,8 +1306,8 @@ class _TwoPhaseCLIHand(Hand):
         deadline = time.monotonic() + max_poll_seconds
         while time.monotonic() < deadline:
             result = gh.get_check_runs(repo, ref)
-            conclusion = result.get("conclusion", "pending")
-            if conclusion not in ("pending", "no_checks"):
+            conclusion = result.get("conclusion", CIConclusion.PENDING)
+            if conclusion not in CI_CONCLUSIONS_IN_PROGRESS:
                 return result
             await emit(
                 f"[{self._CLI_LABEL}] CI still {conclusion}, "
@@ -915,7 +1328,7 @@ class _TwoPhaseCLIHand(Hand):
         failed = [
             r
             for r in check_result.get("check_runs", [])
-            if r.get("conclusion") in ("failure", "cancelled", "timed_out")
+            if r.get("conclusion") in _CI_RUN_FAILURE_CONCLUSIONS
         ]
         failure_lines = []
         for r in failed:
@@ -953,7 +1366,7 @@ class _TwoPhaseCLIHand(Hand):
             return metadata
 
         pr_status = metadata.get("pr_status", "")
-        if pr_status not in ("created", "updated"):
+        if pr_status not in _PR_STATUSES_WITH_URL:
             return metadata
 
         pr_commit = metadata.get("pr_commit", "")
@@ -972,7 +1385,7 @@ class _TwoPhaseCLIHand(Hand):
         max_poll = initial_wait * 2
 
         metadata["ci_fix_attempts"] = "0"
-        metadata["ci_fix_status"] = "checking"
+        metadata["ci_fix_status"] = CIFixStatus.CHECKING
 
         try:
             gh_token = getattr(self.config, "github_token", "")
@@ -980,7 +1393,7 @@ class _TwoPhaseCLIHand(Hand):
                 current_ref = pr_commit
                 for attempt in range(1, self.ci_max_retries + 1):
                     if self._is_interrupted():
-                        metadata["ci_fix_status"] = "interrupted"
+                        metadata["ci_fix_status"] = CIFixStatus.INTERRUPTED
                         return metadata
 
                     check_result = await self._poll_ci_checks(
@@ -992,32 +1405,32 @@ class _TwoPhaseCLIHand(Hand):
                         max_poll_seconds=max_poll,
                     )
 
-                    conclusion = check_result.get("conclusion", "pending")
+                    conclusion = check_result.get("conclusion", CIConclusion.PENDING)
                     total = check_result.get("total_count", 0)
 
-                    if conclusion == "success":
+                    if conclusion == CIConclusion.SUCCESS:
                         await emit(
                             f"[{self._CLI_LABEL}] CI passed "
                             f"({total} check{'s' if total != 1 else ''}). "
                             f"No fixes needed.\n"
                         )
-                        metadata["ci_fix_status"] = "success"
+                        metadata["ci_fix_status"] = CIFixStatus.SUCCESS
                         return metadata
 
-                    if conclusion == "no_checks":
+                    if conclusion == CIConclusion.NO_CHECKS:
                         await emit(
                             f"[{self._CLI_LABEL}] No CI checks found. "
                             "Skipping CI fix loop.\n"
                         )
-                        metadata["ci_fix_status"] = "no_checks"
+                        metadata["ci_fix_status"] = CIFixStatus.NO_CHECKS
                         return metadata
 
-                    if conclusion == "pending":
+                    if conclusion == CIConclusion.PENDING:
                         await emit(
                             f"[{self._CLI_LABEL}] CI checks still pending "
                             f"after waiting. Skipping fix attempt.\n"
                         )
-                        metadata["ci_fix_status"] = "pending_timeout"
+                        metadata["ci_fix_status"] = CIFixStatus.PENDING_TIMEOUT
                         return metadata
 
                     # CI failed — attempt fix
@@ -1036,7 +1449,7 @@ class _TwoPhaseCLIHand(Hand):
                     await self._invoke_backend(fix_prompt, emit=emit)
 
                     if self._is_interrupted():
-                        metadata["ci_fix_status"] = "interrupted"
+                        metadata["ci_fix_status"] = CIFixStatus.INTERRUPTED
                         return metadata
 
                     metadata["ci_fix_attempts"] = str(attempt)
@@ -1067,31 +1480,40 @@ class _TwoPhaseCLIHand(Hand):
                     current_ref = new_sha
 
                 # Exhausted all retries
-                metadata["ci_fix_status"] = "exhausted"
+                metadata["ci_fix_status"] = CIFixStatus.EXHAUSTED
                 await emit(
                     f"[{self._CLI_LABEL}] CI fix retries exhausted "
                     f"after {self.ci_max_retries} attempts.\n"
                 )
 
         except Exception as exc:
-            metadata["ci_fix_status"] = "error"
+            logger.debug("_ci_fix_loop unexpected error", exc_info=True)
+            metadata["ci_fix_status"] = CIFixStatus.ERROR
             metadata["ci_fix_error"] = str(exc)
             await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")
 
         return metadata
 
     def _format_ci_fix_message(self, metadata: dict[str, str]) -> str | None:
+        """Format a human-readable CI fix status message.
+
+        Args:
+            metadata: PR metadata dict containing ``ci_fix_status``.
+
+        Returns:
+            A status string, or ``None`` if no CI fix was attempted.
+        """
         ci_status = metadata.get("ci_fix_status", "")
         if not ci_status:
             return None
         attempts = metadata.get("ci_fix_attempts", "0")
-        if ci_status == "success":
+        if ci_status == CIFixStatus.SUCCESS:
             return f"[{self._CLI_LABEL}] CI checks passed."
-        if ci_status == "exhausted":
+        if ci_status == CIFixStatus.EXHAUSTED:
             return f"[{self._CLI_LABEL}] CI fix failed after {attempts} attempt(s)."
-        if ci_status == "pending_timeout":
+        if ci_status == CIFixStatus.PENDING_TIMEOUT:
             return f"[{self._CLI_LABEL}] CI checks still pending after max wait time."
-        if ci_status == "error":
+        if ci_status == CIFixStatus.ERROR:
             error = metadata.get("ci_fix_error", "")
             return f"[{self._CLI_LABEL}] CI fix error: {error}"
         return None
@@ -1213,7 +1635,7 @@ class _TwoPhaseCLIHand(Hand):
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
-        if self.fix_ci and pr_metadata.get("pr_status") in ("created", "updated"):
+        if self.fix_ci and pr_metadata.get("pr_status") in _PR_STATUSES_WITH_URL:
 
             async def _run_ci_fix() -> dict[str, str]:
                 async def _noop_emit(chunk: str) -> None:

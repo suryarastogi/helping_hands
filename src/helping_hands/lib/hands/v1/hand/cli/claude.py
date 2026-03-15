@@ -8,13 +8,19 @@ import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _DOCKER_ENV_HINT_TEMPLATE,
+    _detect_auth_failure,
+    _truncate_with_ellipsis,
     _TwoPhaseCLIHand,
 )
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ClaudeCodeHand"]
+__all__ = [
+    "_TOOL_SUMMARY_KEY_MAP",
+    "_TOOL_SUMMARY_STATIC",
+    "ClaudeCodeHand",
+]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -49,6 +55,21 @@ _BLOCK_TYPE_TOOL_RESULT = "tool_result"
 _BLOCK_TYPE_TEXT = "text"
 """Block type for assistant text output."""
 
+# Dispatch table for _summarize_tool: maps tool name → input_data key.
+# Tools listed here use the simple pattern ``"ToolName {input_data[key]}"``.
+_TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
+    "Read": "file_path",
+    "Edit": "file_path",
+    "Write": "file_path",
+    "Glob": "pattern",
+    "NotebookEdit": "notebook_path",
+}
+"""Simple tool-name → input key mapping for ``_summarize_tool``."""
+
+# Tools that need no input key — just return the tool name.
+_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
+"""Tools whose summary is simply their name with no parameters."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -65,6 +86,11 @@ class _StreamJsonEmitter:
         self._text_parts: list[str] = []
 
     async def __call__(self, chunk: str) -> None:
+        """Buffer incoming text and process complete lines.
+
+        Args:
+            chunk: Raw text chunk from the Claude Code CLI subprocess.
+        """
         self._buffer += chunk
         while "\n" in self._buffer:
             line, self._buffer = self._buffer.split("\n", 1)
@@ -80,6 +106,15 @@ class _StreamJsonEmitter:
             self._buffer = ""
 
     async def _process_line(self, line: str) -> None:
+        """Parse a single JSON event line and emit progress.
+
+        Handles three event types: ``assistant`` (tool use and text blocks),
+        ``user`` (tool result blocks), and ``result`` (cost/duration summary).
+        Non-JSON lines are passed through verbatim.
+
+        Args:
+            line: A stripped, non-empty line from the Claude Code stream.
+        """
         try:
             event = json.loads(line)
         except (json.JSONDecodeError, TypeError):
@@ -107,8 +142,9 @@ class _StreamJsonEmitter:
                     if text:
                         self._text_parts.append(text)
                         preview = text.strip().replace("\n", " ")
-                        if len(preview) > _TEXT_PREVIEW_MAX_LENGTH:
-                            preview = preview[: _TEXT_PREVIEW_MAX_LENGTH - 3] + "..."
+                        preview = _truncate_with_ellipsis(
+                            preview, _TEXT_PREVIEW_MAX_LENGTH
+                        )
                         if preview:
                             await self._emit(f"[{self._label}] {preview}\n")
 
@@ -129,8 +165,9 @@ class _StreamJsonEmitter:
                     )
                 if isinstance(content, str) and content.strip():
                     preview = content.strip().replace("\n", " ")
-                    if len(preview) > _TOOL_RESULT_PREVIEW_MAX_LENGTH:
-                        preview = preview[: _TOOL_RESULT_PREVIEW_MAX_LENGTH - 3] + "..."
+                    preview = _truncate_with_ellipsis(
+                        preview, _TOOL_RESULT_PREVIEW_MAX_LENGTH
+                    )
                     await self._emit(f"[{self._label}] -> {preview}\n")
 
         elif event_type == _EVENT_TYPE_RESULT:
@@ -158,40 +195,45 @@ class _StreamJsonEmitter:
 
     @staticmethod
     def _summarize_tool(name: str, input_data: dict) -> str:
-        if name == "Read":
-            path = input_data.get("file_path", "")
-            return f"Read {path}"
-        if name == "Edit":
-            path = input_data.get("file_path", "")
-            return f"Edit {path}"
-        if name == "Write":
-            path = input_data.get("file_path", "")
-            return f"Write {path}"
+        """Return a one-line human-readable summary of a tool invocation.
+
+        Uses ``_TOOL_SUMMARY_KEY_MAP`` for tools that follow the simple
+        ``"ToolName {value}"`` pattern, ``_TOOL_SUMMARY_STATIC`` for
+        tools with no parameters, and explicit branches for tools with
+        custom formatting.
+
+        Args:
+            name: The tool name (e.g. ``"Read"``, ``"Bash"``).
+            input_data: The tool's input parameters dict.
+
+        Returns:
+            A compact summary string for progress logging.
+        """
+        # Simple key-lookup tools: "ToolName {value}"
+        key = _TOOL_SUMMARY_KEY_MAP.get(name)
+        if key is not None:
+            return f"{name} {input_data.get(key, '')}"
+
+        # Static tools: just the tool name
+        if name in _TOOL_SUMMARY_STATIC:
+            return name
+
+        # Custom-format tools
         if name == "Bash":
             cmd = input_data.get("command", "")
-            if len(cmd) > _COMMAND_PREVIEW_MAX_LENGTH:
-                cmd = cmd[: _COMMAND_PREVIEW_MAX_LENGTH - 3] + "..."
-            return f"$ {cmd}"
-        if name == "Glob":
-            pattern = input_data.get("pattern", "")
-            return f"Glob {pattern}"
+            return f"$ {_truncate_with_ellipsis(cmd, _COMMAND_PREVIEW_MAX_LENGTH)}"
         if name == "Grep":
             pattern = input_data.get("pattern", "")
             return f"Grep /{pattern}/"
-        if name == "Agent":
-            desc = input_data.get("description", "")
-            return f"Agent: {desc}" if desc else "Agent"
         if name == "WebFetch":
             url = input_data.get("url", "")
             return f"WebFetch {url}"
         if name == "WebSearch":
             query = input_data.get("query", "")
             return f"WebSearch {query!r}" if query else "WebSearch"
-        if name == "NotebookEdit":
-            path = input_data.get("notebook_path", "")
-            return f"NotebookEdit {path}"
-        if name == "TodoWrite":
-            return "TodoWrite"
+        if name == "Agent":
+            desc = input_data.get("description", "")
+            return f"Agent: {desc}" if desc else "Agent"
         if name == "MultiTool":
             tool_uses = input_data.get("tool_uses", [])
             count = len(tool_uses) if isinstance(tool_uses, list) else 0
@@ -200,15 +242,13 @@ class _StreamJsonEmitter:
             skill = input_data.get("skill", "")
             return f"Skill: {skill}" if skill else "Skill"
         if name == "CronCreate":
-            prompt = input_data.get("prompt", "")
-            if len(prompt) > _COMMAND_PREVIEW_MAX_LENGTH:
-                prompt = prompt[: _COMMAND_PREVIEW_MAX_LENGTH - 3] + "..."
+            prompt = _truncate_with_ellipsis(
+                input_data.get("prompt", ""), _COMMAND_PREVIEW_MAX_LENGTH
+            )
             return f"CronCreate {prompt!r}" if prompt else "CronCreate"
         if name == "CronDelete":
             cron_id = input_data.get("id", "")
             return f"CronDelete {cron_id}" if cron_id else "CronDelete"
-        if name == "CronList":
-            return "CronList"
         if name == "EnterWorktree":
             wt_name = input_data.get("name", "")
             return f"EnterWorktree {wt_name}" if wt_name else "EnterWorktree"
@@ -218,6 +258,14 @@ class _StreamJsonEmitter:
         return f"tool: {name}"
 
     def result_text(self) -> str:
+        """Return the final result text from the parsed stream.
+
+        Prefers the explicit ``result`` event payload. Falls back to
+        concatenated assistant text blocks if no result event was received.
+
+        Returns:
+            The result text, or an empty string if no output was captured.
+        """
         if self._result:
             return self._result
         if self._text_parts:
@@ -258,30 +306,30 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             return ["claude", "-p", "--output-format", "text"]
         return None
 
+    _EXTRA_AUTH_TOKENS: tuple[str, ...] = ("anthropic_api_key",)
+    """Backend-specific auth error tokens checked alongside shared ones."""
+
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
-        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "unauthorized",
-                "authentication failed",
-                "invalid api key",
-                "anthropic_api_key",
-            )
-        ):
+        is_auth, tail = _detect_auth_failure(
+            output, extra_tokens=ClaudeCodeHand._EXTRA_AUTH_TOKENS
+        )
+        if is_auth:
             return (
                 "Claude Code CLI authentication failed. "
                 "Ensure ANTHROPIC_API_KEY is set in this runtime. "
-                "If running app mode in Docker, set ANTHROPIC_API_KEY in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('ANTHROPIC_API_KEY')}\n"
                 f"Output:\n{tail}"
             )
         return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _resolve_cli_model(self) -> str:
+        """Resolve the CLI model, filtering out incompatible GPT models.
+
+        Returns:
+            The resolved model name, or an empty string if the model is
+            missing or is a GPT-family model incompatible with Claude Code.
+        """
         model = super()._resolve_cli_model()
         if not model:
             return ""
@@ -291,6 +339,16 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return model
 
     def _skip_permissions_enabled(self) -> bool:
+        """Check whether ``--dangerously-skip-permissions`` should be added.
+
+        Reads the ``HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS`` env var
+        (default ``"1"``). Even when enabled, returns ``False`` if the process
+        is running as root (UID 0), because Claude Code rejects the flag
+        under root privileges.
+
+        Returns:
+            ``True`` if the flag should be injected into the command.
+        """
         raw = os.environ.get(
             "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS",
             self._DEFAULT_SKIP_PERMISSIONS,
@@ -336,12 +394,6 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return self._build_claude_failure_message(
             return_code=return_code,
             output=output,
-        )
-
-    def _command_not_found_message(self, command: str) -> str:
-        return (
-            f"Claude Code CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_CLAUDE_CLI_CMD to a valid command."
         )
 
     def _no_change_error_after_retries(

@@ -18,6 +18,9 @@ import shutil
 import uuid
 from typing import Any
 
+from helping_hands.lib.hands.v1.hand.base import (
+    _UUID_HEX_LENGTH,
+)
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _STREAM_READ_BUFFER_SIZE,
     _TwoPhaseCLIHand,
@@ -32,8 +35,15 @@ __all__ = ["DockerSandboxClaudeCodeHand"]
 _SANDBOX_NAME_MAX_LENGTH = 30
 """Maximum character length for the sanitised repo-name portion of a sandbox name."""
 
-_SANDBOX_UUID_HEX_LENGTH = 8
-"""Number of hex characters from a UUID4 appended to sandbox names."""
+_SANDBOX_UUID_HEX_LENGTH = _UUID_HEX_LENGTH
+"""Number of hex characters from a UUID4 appended to sandbox names.
+
+Delegates to :data:`helping_hands.lib.hands.v1.hand.base._UUID_HEX_LENGTH`
+so the branch-name and sandbox-name UUID truncation stays consistent.
+"""
+
+_AUTH_FAILURE_SUBSTRINGS = ("not logged in", "authentication_failed")
+"""Lowercase substrings in CLI output that indicate an authentication failure."""
 
 
 class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
@@ -64,6 +74,12 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
     _CONTAINER_IMAGE_ENV_VAR = ""
 
     def __init__(self, config: Any, repo_index: Any) -> None:
+        """Initialise the Docker sandbox Claude Code hand.
+
+        Args:
+            config: Hand configuration object.
+            repo_index: Repository index with file metadata and root path.
+        """
         super().__init__(config, repo_index)
         self._sandbox_name: str | None = None
         self._sandbox_created: bool = False
@@ -200,6 +216,14 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         self._sandbox_created = False
 
     def _should_cleanup(self) -> bool:
+        """Return whether the sandbox should be removed after the run.
+
+        Reads ``HELPING_HANDS_DOCKER_SANDBOX_CLEANUP`` from the environment
+        (default ``"1"``).  Any truthy value means cleanup is enabled.
+
+        Returns:
+            ``True`` if the sandbox should be auto-removed, ``False`` otherwise.
+        """
         raw = os.environ.get("HELPING_HANDS_DOCKER_SANDBOX_CLEANUP", "1")
         return self._is_truthy(raw)
 
@@ -232,6 +256,11 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
     # ------------------------------------------------------------------
 
     def _execution_mode(self) -> str:
+        """Return the execution mode identifier for this hand.
+
+        Returns:
+            The string ``"docker-sandbox"``.
+        """
         return "docker-sandbox"
 
     async def _invoke_claude(
@@ -240,6 +269,19 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Invoke Claude Code inside the Docker sandbox.
+
+        Builds the raw claude command, wraps it with ``docker sandbox exec``,
+        and streams the output through :class:`_StreamJsonEmitter`.
+
+        Args:
+            prompt: The task prompt to pass to Claude Code.
+            emit: Callback for streaming progress messages.
+
+        Returns:
+            The parsed result text from the stream-json output, or the raw
+            CLI output if no result event was emitted.
+        """
         # Build the raw claude command (no container wrapping since
         # _CONTAINER_ENABLED_ENV_VAR is empty).
         cmd = self._render_command(prompt)
@@ -257,6 +299,18 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         *,
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
+        """Run the two-phase flow inside a Docker sandbox.
+
+        Creates the sandbox before the run and removes it afterwards (unless
+        cleanup is disabled via ``HELPING_HANDS_DOCKER_SANDBOX_CLEANUP=0``).
+
+        Args:
+            prompt: The task prompt to execute.
+            emit: Callback for streaming progress messages.
+
+        Returns:
+            The raw output from the two-phase execution.
+        """
         await self._ensure_sandbox(emit)
         try:
             return await super()._run_two_phase(prompt, emit=emit)
@@ -265,8 +319,22 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
                 await self._remove_sandbox(emit)
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
+        """Build a human-readable error message for sandbox failures.
+
+        Detects authentication failures (OAuth tokens unavailable inside the
+        sandbox) and suggests ``ANTHROPIC_API_KEY`` as a workaround.  For
+        other failures, delegates to the base Claude failure message and
+        appends a sandbox context note if not already mentioned.
+
+        Args:
+            return_code: The CLI process exit code.
+            output: The raw CLI stderr/stdout output.
+
+        Returns:
+            A descriptive error message string.
+        """
         lowered = output.lower()
-        if "not logged in" in lowered or "authentication_failed" in lowered:
+        if any(s in lowered for s in _AUTH_FAILURE_SUBSTRINGS):
             return (
                 "Claude Code inside the Docker sandbox is not authenticated.\n"
                 "The sandbox cannot access the host macOS Keychain, so OAuth "
@@ -287,12 +355,30 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         return base
 
     def _command_not_found_message(self, command: str) -> str:
+        """Return the error message when a command is not found inside the sandbox.
+
+        Args:
+            command: The command name that was not found.
+
+        Returns:
+            A user-facing error message suggesting the sandbox template image
+            needs Claude Code installed.
+        """
         return (
             f"Command not found inside Docker sandbox: {command!r}. "
             "Ensure Claude Code is installed in the sandbox template image."
         )
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
-        # Inside the sandbox, the fallback to npx doesn't apply since the
-        # sandbox template should have claude installed.
+        """Return a fallback command when the primary is not found.
+
+        Inside the sandbox the ``npx`` fallback does not apply — the sandbox
+        template image is expected to have Claude Code installed.
+
+        Args:
+            cmd: The original command argv that was not found.
+
+        Returns:
+            Always ``None`` (no fallback).
+        """
         return None

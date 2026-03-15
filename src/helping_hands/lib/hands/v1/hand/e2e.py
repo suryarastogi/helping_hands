@@ -11,13 +11,19 @@ import logging
 import os
 import re
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from helping_hands.lib.config import _TRUTHY_VALUES
-from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH, Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _DEFAULT_GIT_USER_EMAIL,
+    _DEFAULT_GIT_USER_NAME,
+    _UUID_HEX_LENGTH,
+    Hand,
+    HandResponse,
+    _utc_stamp,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,24 +34,71 @@ __all__ = ["E2EHand"]
 _E2E_MARKER_FILE = "HELPING_HANDS_E2E.md"
 """Filename for the E2E marker file written into cloned repositories."""
 
+_E2E_GIT_USER_NAME = _DEFAULT_GIT_USER_NAME
+"""Default git user name for E2E commits (shared with Hand base)."""
+
+_E2E_GIT_USER_EMAIL = _DEFAULT_GIT_USER_EMAIL
+"""Default git user email for E2E commits (shared with Hand base)."""
+
+_E2E_COMMIT_MESSAGE = "test(e2e): minimal change from E2EHand"
+"""Commit message used by E2E hand for marker file changes."""
+
+_E2E_PR_TITLE = "test(e2e): minimal edit by helping_hands"
+"""Default PR title for new E2E validation PRs."""
+
+_E2E_STATUS_MARKER = "<!-- helping_hands:e2e-status -->"
+"""HTML comment marker used to upsert the E2E status comment on PRs."""
+
 
 class E2EHand(Hand):
     """Minimal end-to-end hand for validating clone/edit/PR workflow."""
 
     def __init__(self, config: Any, repo_index: Any) -> None:
+        """Initialise the E2E hand.
+
+        Args:
+            config: Hand configuration (must include ``repo``).
+            repo_index: Repository index instance.
+        """
         super().__init__(config, repo_index)
 
     @staticmethod
     def _safe_repo_dir(repo: str) -> str:
+        """Sanitize a repo name for use as a filesystem directory name.
+
+        Replaces non-alphanumeric characters (excluding ``_``, ``.``,
+        ``-``) with underscores and strips leading/trailing slashes.
+
+        Args:
+            repo: Repository identifier (e.g. ``"owner/repo"``).
+
+        Returns:
+            Filesystem-safe directory name string.
+        """
         return re.sub(r"[^A-Za-z0-9_.-]+", "_", repo.strip("/"))
 
     @staticmethod
     def _work_base() -> Path:
+        """Return the base working directory for E2E hand workspaces.
+
+        Reads ``HELPING_HANDS_WORK_ROOT`` from the environment, falling
+        back to the current directory.
+
+        Returns:
+            Expanded :class:`Path` for the work root.
+        """
         root = os.environ.get("HELPING_HANDS_WORK_ROOT", ".")
         return Path(root).expanduser()
 
     @staticmethod
     def _configured_base_branch() -> str:
+        """Return the explicitly configured base branch, if any.
+
+        Reads ``HELPING_HANDS_BASE_BRANCH`` from the environment.
+
+        Returns:
+            Stripped branch name string, or empty string if not set.
+        """
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", "").strip()
 
     @staticmethod
@@ -56,8 +109,17 @@ class E2EHand(Hand):
         stamp_utc: str,
         commit_sha: str,
     ) -> str:
-        # E2E is deterministic; production hands should provide AI-authored
-        # PR summaries/comments when they own the PR workflow.
+        """Build the markdown body for the E2E status PR comment.
+
+        Args:
+            hand_uuid: Unique identifier for this hand invocation.
+            prompt: User-supplied task prompt.
+            stamp_utc: ISO-8601 UTC timestamp string.
+            commit_sha: Git commit SHA of the E2E change.
+
+        Returns:
+            Formatted markdown string for the upserted PR comment.
+        """
         return (
             "## helping_hands E2E update\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -74,6 +136,17 @@ class E2EHand(Hand):
         stamp_utc: str,
         commit_sha: str,
     ) -> str:
+        """Build the markdown body for a new E2E validation PR.
+
+        Args:
+            hand_uuid: Unique identifier for this hand invocation.
+            prompt: User-supplied task prompt.
+            stamp_utc: ISO-8601 UTC timestamp string.
+            commit_sha: Git commit SHA of the E2E change.
+
+        Returns:
+            Formatted markdown string for the PR body.
+        """
         return (
             "Automated E2E validation PR.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -97,6 +170,28 @@ class E2EHand(Hand):
         pr_number: int | None = None,
         dry_run: bool = False,
     ) -> HandResponse:
+        """Execute the full E2E clone/edit/commit/push/PR workflow.
+
+        Clones the target repo, writes a marker file, commits and pushes,
+        then creates or updates a PR.  When ``dry_run`` is ``True``,
+        skips push and PR creation.
+
+        Args:
+            prompt: User-supplied task prompt.
+            hand_uuid: Optional hand invocation UUID (auto-generated if
+                not provided).
+            pr_number: Existing PR number to update, or ``None`` to
+                create a new PR.
+            dry_run: If ``True``, skip push/PR operations.
+
+        Returns:
+            :class:`HandResponse` with metadata about the E2E run.
+
+        Raises:
+            ValueError: If ``config.repo`` is empty.
+            RuntimeError: If PR number is unexpectedly ``None`` after
+                PR creation.
+        """
         from helping_hands.lib.github import GitHubClient
 
         repo = self.config.repo.strip()
@@ -152,7 +247,7 @@ class E2EHand(Hand):
             else:
                 gh.create_branch(repo_dir, branch)
 
-            stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+            stamp = _utc_stamp()
             e2e_path.write_text(
                 (
                     "# helping_hands E2E marker\n\n"
@@ -166,16 +261,16 @@ class E2EHand(Hand):
             final_pr_number = pr_number
             if not dry_run:
                 git_name = os.environ.get(
-                    "HELPING_HANDS_GIT_USER_NAME", "helping-hands[bot]"
+                    "HELPING_HANDS_GIT_USER_NAME", _E2E_GIT_USER_NAME
                 )
                 git_email = os.environ.get(
                     "HELPING_HANDS_GIT_USER_EMAIL",
-                    "helping-hands-bot@users.noreply.github.com",
+                    _E2E_GIT_USER_EMAIL,
                 )
                 gh.set_local_identity(repo_dir, name=git_name, email=git_email)
                 commit_sha = gh.add_and_commit(
                     repo_dir,
-                    "test(e2e): minimal change from E2EHand",
+                    _E2E_COMMIT_MESSAGE,
                     paths=[e2e_file],
                 )
                 gh.push(repo_dir, branch=branch, set_upstream=True)
@@ -190,7 +285,7 @@ class E2EHand(Hand):
                 else:
                     pr = gh.create_pr(
                         repo,
-                        title="test(e2e): minimal edit by helping_hands",
+                        title=_E2E_PR_TITLE,
                         body=pr_body,
                         head=branch,
                         base=base_branch,
@@ -212,7 +307,7 @@ class E2EHand(Hand):
                         stamp_utc=stamp,
                         commit_sha=commit_sha,
                     ),
-                    marker="<!-- helping_hands:e2e-status -->",
+                    marker=_E2E_STATUS_MARKER,
                 )
 
         if dry_run:
@@ -239,4 +334,14 @@ class E2EHand(Hand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream the E2E hand result as a single message.
+
+        Delegates to :meth:`run` and yields the response message.
+
+        Args:
+            prompt: User-supplied task prompt.
+
+        Yields:
+            Single string with the E2E run result message.
+        """
         yield self.run(prompt).message

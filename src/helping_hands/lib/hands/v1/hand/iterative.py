@@ -22,7 +22,12 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _PR_STATUSES_SKIPPED,
+    Hand,
+    HandResponse,
+)
+from helping_hands.lib.hands.v1.hand.langgraph import _LANGCHAIN_STREAM_EVENT
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     build_langchain_chat_model,
@@ -33,6 +38,11 @@ from helping_hands.lib.meta.tools import command as system_exec_tools
 from helping_hands.lib.meta.tools import filesystem as system_tools
 from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.meta.tools import web as system_web_tools
+from helping_hands.lib.meta.tools.registry import (
+    _parse_optional_str,
+    _parse_positive_int,
+    _parse_str_list,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +89,14 @@ class _BasicIterativeHand(Hand):
         *,
         max_iterations: int = 6,
     ) -> None:
+        """Initialize the iterative hand with iteration cap and tool dispatch.
+
+        Args:
+            config: Hand configuration object (model, tools, skills, etc.).
+            repo_index: Repository index providing file listing and root path.
+            max_iterations: Maximum number of AI loop iterations (clamped to
+                ``[1, _MAX_ITERATIONS]``).
+        """
         super().__init__(config, repo_index)
         clamped = max(1, max_iterations)
         if clamped > self._MAX_ITERATIONS:
@@ -127,6 +145,22 @@ class _BasicIterativeHand(Hand):
         previous_summary: str,
         bootstrap_context: str,
     ) -> str:
+        """Build the full prompt string for a single iteration step.
+
+        Combines the task request, iteration counter, previous summary,
+        optional bootstrap context (first iteration only), and inline
+        tool/read/file instructions.
+
+        Args:
+            prompt: Original user task description.
+            iteration: Current iteration number (1-based).
+            max_iterations: Total allowed iterations.
+            previous_summary: Summary text from the prior iteration.
+            bootstrap_context: Repo bootstrap context (README, AGENT, tree).
+
+        Returns:
+            Formatted prompt string ready for the AI model.
+        """
         previous = previous_summary.strip() or "none"
         bootstrap = (
             f"Bootstrap repository context:\n{bootstrap_context}\n\n"
@@ -158,6 +192,15 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _is_satisfied(content: str) -> bool:
+        """Check whether the AI response contains a ``SATISFIED: yes`` marker.
+
+        Args:
+            content: Raw AI response text.
+
+        Returns:
+            ``True`` if the response contains ``SATISFIED: yes`` (case-insensitive),
+            ``False`` otherwise.
+        """
         match = re.search(r"SATISFIED:\s*(yes|no)", content, flags=re.IGNORECASE)
         if match:
             return match.group(1).lower() == "yes"
@@ -165,6 +208,15 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_inline_edits(cls, content: str) -> list[tuple[str, str]]:
+        """Extract ``@@FILE`` inline edit blocks from the AI response.
+
+        Args:
+            content: Raw AI response text.
+
+        Returns:
+            List of ``(relative_path, file_content)`` tuples parsed from
+            ``@@FILE:`` fenced code blocks.
+        """
         return [
             (m.group("path").strip(), m.group("content"))
             for m in cls._EDIT_PATTERN.finditer(content)
@@ -172,6 +224,17 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _extract_read_requests(cls, content: str) -> list[str]:
+        """Extract ``@@READ`` file-read requests from the AI response.
+
+        Falls back to a natural-language pattern (e.g. ``read the file "x"``)
+        when no explicit ``@@READ:`` directives are found.
+
+        Args:
+            content: Raw AI response text.
+
+        Returns:
+            Deduplicated list of relative file paths requested for reading.
+        """
         explicit = [
             m.group("path").strip() for m in cls._READ_PATTERN.finditer(content)
         ]
@@ -187,6 +250,18 @@ class _BasicIterativeHand(Hand):
         cls,
         content: str,
     ) -> list[tuple[str, dict[str, Any], str | None]]:
+        """Extract ``@@TOOL`` invocation requests from the AI response.
+
+        Each match is parsed as a tool name plus a JSON payload. Invalid
+        JSON or non-dict payloads are returned with an error string in the
+        third tuple element.
+
+        Args:
+            content: Raw AI response text.
+
+        Returns:
+            List of ``(tool_name, payload_dict, error_or_none)`` tuples.
+        """
         requests: list[tuple[str, dict[str, Any], str | None]] = []
         for match in cls._TOOL_PATTERN.finditer(content):
             tool_name = match.group("name").strip()
@@ -210,11 +285,33 @@ class _BasicIterativeHand(Hand):
 
     @staticmethod
     def _merge_iteration_summary(content: str, tool_feedback: str) -> str:
+        """Merge AI response content with tool feedback for the next iteration.
+
+        Args:
+            content: AI response text from the current iteration.
+            tool_feedback: Concatenated tool/read result blocks (may be empty).
+
+        Returns:
+            Combined summary string; returns *content* unchanged when
+            *tool_feedback* is empty.
+        """
         if not tool_feedback:
             return content
         return f"{content}\n\nTool results:\n{tool_feedback}"
 
     def _execute_read_requests(self, content: str) -> str:
+        """Execute all ``@@READ`` requests found in the AI response.
+
+        Reads each requested file from the repo root (deduplicated, capped at
+        ``_MAX_READ_CHARS``), returning formatted ``@@READ_RESULT`` blocks.
+
+        Args:
+            content: Raw AI response text containing ``@@READ:`` directives.
+
+        Returns:
+            Concatenated ``@@READ_RESULT`` blocks, or empty string if no
+            read requests were found.
+        """
         root = self.repo_index.root.resolve()
         requests = list(dict.fromkeys(self._extract_read_requests(content)))
         if not requests:
@@ -249,54 +346,10 @@ class _BasicIterativeHand(Hand):
             )
         return "\n\n".join(chunks).strip()
 
-    @staticmethod
-    def _parse_str_list(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> list[str]:
-        raw = payload.get(key, [])
-        if raw is None:
-            return []
-        if not isinstance(raw, list):
-            raise ValueError(f"{key} must be a list of strings")
-        values: list[str] = []
-        for value in raw:
-            if not isinstance(value, str):
-                raise ValueError(f"{key} must contain only strings")
-            stripped = value.strip()
-            if not stripped:
-                raise ValueError(f"{key} contains empty or whitespace-only strings")
-            values.append(stripped)
-        return values
-
-    @staticmethod
-    def _parse_positive_int(
-        payload: dict[str, Any],
-        *,
-        key: str,
-        default: int,
-    ) -> int:
-        raw = payload.get(key, default)
-        if isinstance(raw, bool) or not isinstance(raw, int):
-            raise ValueError(f"{key} must be an integer")
-        if raw <= 0:
-            raise ValueError(f"{key} must be > 0")
-        return raw
-
-    @staticmethod
-    def _parse_optional_str(
-        payload: dict[str, Any],
-        *,
-        key: str,
-    ) -> str | None:
-        raw = payload.get(key)
-        if raw is None:
-            return None
-        if not isinstance(raw, str):
-            raise ValueError(f"{key} must be a string")
-        text = raw.strip()
-        return text or None
+    # Payload validators delegated to registry module:
+    _parse_str_list = staticmethod(_parse_str_list)
+    _parse_positive_int = staticmethod(_parse_positive_int)
+    _parse_optional_str = staticmethod(_parse_optional_str)
 
     @staticmethod
     def _format_command(command: list[str]) -> str:
@@ -312,6 +365,14 @@ class _BasicIterativeHand(Hand):
 
     @classmethod
     def _truncate_tool_output(cls, text: str) -> tuple[str, bool]:
+        """Truncate tool output text to ``_MAX_TOOL_OUTPUT_CHARS``.
+
+        Args:
+            text: Raw tool output string.
+
+        Returns:
+            Tuple of ``(possibly_truncated_text, was_truncated)``.
+        """
         if len(text) <= cls._MAX_TOOL_OUTPUT_CHARS:
             return text, False
         return text[: cls._MAX_TOOL_OUTPUT_CHARS], True
@@ -323,6 +384,16 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_exec_tools.CommandResult,
     ) -> str:
+        """Format a ``CommandResult`` as a ``@@TOOL_RESULT`` block.
+
+        Args:
+            tool_name: Name of the invoked tool.
+            result: Command execution result to format.
+
+        Returns:
+            Formatted multi-line string with status, exit code, stdout,
+            and stderr sections.
+        """
         stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
         stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
         stdout_note = "\n[truncated]" if stdout_truncated else ""
@@ -346,6 +417,16 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebSearchResult,
     ) -> str:
+        """Format a ``WebSearchResult`` as a ``@@TOOL_RESULT`` block.
+
+        Args:
+            tool_name: Name of the invoked tool.
+            result: Web search result containing query and result items.
+
+        Returns:
+            Formatted multi-line string with query, result count, and
+            JSON-serialized search results.
+        """
         items = [
             {
                 "title": item.title,
@@ -372,6 +453,16 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         result: system_web_tools.WebBrowseResult,
     ) -> str:
+        """Format a ``WebBrowseResult`` as a ``@@TOOL_RESULT`` block.
+
+        Args:
+            tool_name: Name of the invoked tool.
+            result: Web browse result containing URL, status, and content.
+
+        Returns:
+            Formatted multi-line string with URL, status code, and
+            page content.
+        """
         text, output_truncated = cls._truncate_tool_output(result.content)
         truncated_note = "\n[truncated]" if output_truncated else ""
         return (
@@ -409,6 +500,20 @@ class _BasicIterativeHand(Hand):
         tool_name: str,
         payload: dict[str, Any],
     ) -> str:
+        """Dispatch a single tool request and return its formatted result.
+
+        Args:
+            root: Resolved repo root path.
+            tool_name: Name of the tool to invoke.
+            payload: JSON-decoded arguments for the tool.
+
+        Returns:
+            Formatted ``@@TOOL_RESULT`` block string.
+
+        Raises:
+            ValueError: If the tool is not enabled or unsupported.
+            TypeError: If the tool returns an unrecognized result type.
+        """
         runner = self._tool_runners.get(tool_name)
         if runner is None:
             raise self._tool_disabled_error(tool_name)
@@ -423,6 +528,19 @@ class _BasicIterativeHand(Hand):
         raise TypeError(f"unsupported tool result type: {type(result)!r}")
 
     def _execute_tool_requests(self, content: str) -> str:
+        """Execute all ``@@TOOL`` requests found in the AI response.
+
+        Parses tool invocations, dispatches each through
+        ``_run_tool_request``, and collects formatted ``@@TOOL_RESULT``
+        blocks. Errors are caught and reported inline.
+
+        Args:
+            content: Raw AI response text containing ``@@TOOL:`` directives.
+
+        Returns:
+            Concatenated ``@@TOOL_RESULT`` blocks, or empty string if no
+            tool requests were found.
+        """
         root = self.repo_index.root.resolve()
         requests = self._extract_tool_requests(content)
         if not requests:
@@ -454,6 +572,17 @@ class _BasicIterativeHand(Hand):
         return "\n\n".join(chunks).strip()
 
     def _apply_inline_edits(self, content: str) -> list[str]:
+        """Apply ``@@FILE`` inline edits from the AI response to disk.
+
+        Writes each extracted file block to the repo and refreshes the
+        repo index when any files were changed.
+
+        Args:
+            content: Raw AI response text containing ``@@FILE:`` blocks.
+
+        Returns:
+            List of display paths for files that were successfully written.
+        """
         root = self.repo_index.root.resolve()
         changed: list[str] = []
         for rel_path, body in self._extract_inline_edits(content):
@@ -600,6 +729,16 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
     @staticmethod
     def _result_content(result: dict[str, Any]) -> str:
+        """Extract the text content from a LangGraph agent result dict.
+
+        Args:
+            result: LangGraph ``invoke`` return value containing a
+                ``messages`` list.
+
+        Returns:
+            Content string from the last message, or empty string if
+            no messages are present.
+        """
         messages = result.get("messages") or []
         if not messages:
             return ""
@@ -607,6 +746,21 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the LangGraph agent loop synchronously.
+
+        Iterates up to ``max_iterations`` times, building an iteration
+        prompt, invoking the LangGraph agent, applying inline edits,
+        executing tool and read requests, and checking for early
+        satisfaction.
+
+        Args:
+            prompt: The user task prompt.
+
+        Returns:
+            A ``HandResponse`` with concatenated iteration transcripts and
+            metadata including status (``satisfied``, ``max_iterations``,
+            or ``interrupted``), iteration count, and PR metadata.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -673,6 +827,18 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream LangGraph agent output as an async iterator.
+
+        Yields progress lines for each iteration including auth info,
+        iteration markers, file-change notifications, tool results,
+        and PR status. Supports interruption between iterations.
+
+        Args:
+            prompt: The user task prompt.
+
+        Yields:
+            Progress strings suitable for incremental display.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -704,7 +870,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             ):
                 if self._is_interrupted():
                     break
-                if event["event"] == "on_chat_model_stream" and event["data"].get(
+                if event["event"] == _LANGCHAIN_STREAM_EVENT and event["data"].get(
                     "chunk"
                 ):
                     chunk = event["data"]["chunk"]
@@ -737,7 +903,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 )
                 if pr_metadata.get("pr_url"):
                     yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+                elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
                     yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
                 return
             yield "\n\nContinuing...\n"
@@ -749,7 +915,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         )
         if pr_metadata.get("pr_url"):
             yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+        elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
             yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
         yield "\n\nMax iterations reached.\n"
 
@@ -799,15 +965,48 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     def _make_input(self, prompt: str) -> Any:
+        """Wrap a prompt string into the Atomic Agents input schema.
+
+        Args:
+            prompt: Text prompt for the current iteration step.
+
+        Returns:
+            ``BasicChatInputSchema`` instance with the prompt as
+            ``chat_message``.
+        """
         return self._input_schema(chat_message=prompt)
 
     @staticmethod
     def _extract_message(response: Any) -> str:
+        """Extract the text message from an Atomic Agents response.
+
+        Args:
+            response: Atomic Agents agent response object.
+
+        Returns:
+            String content from ``chat_message`` attribute if present,
+            otherwise ``str(response)``.
+        """
         if hasattr(response, "chat_message") and response.chat_message:
             return str(response.chat_message)
         return str(response)
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the Atomic Agents loop synchronously.
+
+        Iterates up to ``max_iterations`` times, building an iteration
+        prompt, running the Atomic agent, applying inline edits,
+        executing tool and read requests, and checking for early
+        satisfaction.
+
+        Args:
+            prompt: The user task prompt.
+
+        Returns:
+            A ``HandResponse`` with concatenated iteration transcripts and
+            metadata including status (``satisfied``, ``max_iterations``,
+            or ``interrupted``), iteration count, and PR metadata.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -872,6 +1071,19 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
+        """Stream Atomic Agents output as an async iterator.
+
+        Yields progress lines for each iteration including auth info,
+        iteration markers, file-change notifications, tool results,
+        and PR status. Falls back to synchronous execution via
+        ``asyncio.to_thread`` when the agent raises ``AssertionError``.
+
+        Args:
+            prompt: The user task prompt.
+
+        Yields:
+            Progress strings suitable for incremental display.
+        """
         self.reset_interrupt()
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
@@ -957,7 +1169,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 )
                 if pr_metadata.get("pr_url"):
                     yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+                elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
                     yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
                 return
             yield "\n\nContinuing...\n"
@@ -969,6 +1181,6 @@ class BasicAtomicHand(_BasicIterativeHand):
         )
         if pr_metadata.get("pr_url"):
             yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
+        elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
             yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
         yield "\n\nMax iterations reached.\n"

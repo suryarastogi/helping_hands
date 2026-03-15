@@ -90,3 +90,75 @@ class TestBrowseUrl:
 
         assert result.truncated is True
         assert len(result.content) == 10
+
+
+# ---------------------------------------------------------------------------
+# Pre-compiled HTML strip regex constants (v190)
+# ---------------------------------------------------------------------------
+
+
+class TestHtmlStripRegexConstants:
+    """Tests for pre-compiled regex constants used in _strip_html."""
+
+    def test_script_style_re_is_compiled(self) -> None:
+        import re
+
+        assert isinstance(web_tools._SCRIPT_STYLE_RE, re.Pattern)
+
+    def test_script_style_re_case_insensitive(self) -> None:
+        import re
+
+        assert web_tools._SCRIPT_STYLE_RE.flags & re.IGNORECASE
+
+    def test_script_style_re_dotall(self) -> None:
+        import re
+
+        assert web_tools._SCRIPT_STYLE_RE.flags & re.DOTALL
+
+    def test_script_style_re_matches_script(self) -> None:
+        text = '<script type="text/javascript">alert("hi")</script>'
+        assert web_tools._SCRIPT_STYLE_RE.search(text)
+
+    def test_script_style_re_matches_style(self) -> None:
+        text = "<style>body { color: red; }</style>"
+        assert web_tools._SCRIPT_STYLE_RE.search(text)
+
+    def test_html_tag_re_is_compiled(self) -> None:
+        import re
+
+        assert isinstance(web_tools._HTML_TAG_RE, re.Pattern)
+
+    def test_html_tag_re_matches_tag(self) -> None:
+        assert web_tools._HTML_TAG_RE.search("<div>")
+
+    def test_html_tag_re_no_match_plain(self) -> None:
+        assert web_tools._HTML_TAG_RE.search("plain text") is None
+
+    def test_horizontal_whitespace_re_is_compiled(self) -> None:
+        import re
+
+        assert isinstance(web_tools._HORIZONTAL_WHITESPACE_RE, re.Pattern)
+
+    def test_horizontal_whitespace_re_collapses_spaces(self) -> None:
+        assert web_tools._HORIZONTAL_WHITESPACE_RE.sub(" ", "a   b") == "a b"
+
+    def test_blank_lines_re_is_compiled(self) -> None:
+        import re
+
+        assert isinstance(web_tools._BLANK_LINES_RE, re.Pattern)
+
+    def test_blank_lines_re_collapses(self) -> None:
+        result = web_tools._BLANK_LINES_RE.sub("\n\n", "a\n\n\n\nb")
+        assert result == "a\n\nb"
+
+    def test_strip_html_uses_compiled_constants(self) -> None:
+        """_strip_html uses pre-compiled regex constants, not inline patterns."""
+        import inspect
+
+        src = inspect.getsource(web_tools._strip_html)
+        assert "_SCRIPT_STYLE_RE" in src
+        assert "_HTML_TAG_RE" in src
+        assert "_HORIZONTAL_WHITESPACE_RE" in src
+        assert "_BLANK_LINES_RE" in src
+        # Should NOT contain inline re.sub with raw string patterns
+        assert "re.sub(" not in src

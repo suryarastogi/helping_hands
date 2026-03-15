@@ -15,6 +15,16 @@ from typing import Any
 
 from celery import Celery
 
+from helping_hands.server.constants import (
+    DEFAULT_BACKEND as _DEFAULT_BACKEND,
+)
+from helping_hands.server.constants import (
+    DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
+)
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -66,23 +76,50 @@ def _check_croniter() -> None:
 
 @dataclass
 class ScheduledTask:
-    """A scheduled build task definition."""
+    """A scheduled build task definition.
+
+    Attributes:
+        schedule_id: Unique identifier (e.g. ``"sched_a1b2c3d4e5f6"``).
+        name: Human-readable schedule name.
+        cron_expression: Standard five-field cron expression or preset name.
+        repo_path: Local path or ``owner/repo`` specifier for the target repository.
+        prompt: Task prompt passed to the hand backend.
+        backend: Hand backend slug (default ``"claudecodecli"``).
+        model: AI model identifier, or ``None`` for the backend default.
+        max_iterations: Maximum iterative hand loop iterations.
+        pr_number: Existing PR number to update, or ``None`` for new PRs.
+        no_pr: If ``True``, skip PR creation after changes.
+        enable_execution: Enable runtime execution tools.
+        enable_web: Enable web search/browse tools.
+        use_native_cli_auth: Use native CLI auth instead of token-based.
+        fix_ci: Attempt automated CI fix retries after PR creation.
+        ci_check_wait_minutes: Minutes to wait between CI check polls.
+        github_token: Per-task GitHub token override, or ``None``.
+        reference_repos: Additional repos cloned as read-only context.
+        tools: Selected tool category names.
+        skills: Selected skill names.
+        enabled: Whether the schedule is active in RedBeat.
+        created_at: ISO 8601 creation timestamp (auto-set on init).
+        last_run_at: ISO 8601 timestamp of the most recent run, or ``None``.
+        last_run_task_id: Celery task ID of the most recent run, or ``None``.
+        run_count: Total number of times this schedule has been triggered.
+    """
 
     schedule_id: str
     name: str
     cron_expression: str
     repo_path: str
     prompt: str
-    backend: str = "claudecodecli"
+    backend: str = _DEFAULT_BACKEND
     model: str | None = None
-    max_iterations: int = 6
+    max_iterations: int = _DEFAULT_MAX_ITERATIONS
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
-    ci_check_wait_minutes: float = 3.0
+    ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
     github_token: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
@@ -151,16 +188,18 @@ class ScheduledTask:
             cron_expression=data["cron_expression"],
             repo_path=data["repo_path"],
             prompt=data["prompt"],
-            backend=data.get("backend", "claudecodecli"),
+            backend=data.get("backend", _DEFAULT_BACKEND),
             model=data.get("model"),
-            max_iterations=data.get("max_iterations", 6),
+            max_iterations=data.get("max_iterations", _DEFAULT_MAX_ITERATIONS),
             pr_number=data.get("pr_number"),
             no_pr=data.get("no_pr", False),
             enable_execution=data.get("enable_execution", False),
             enable_web=data.get("enable_web", False),
             use_native_cli_auth=data.get("use_native_cli_auth", False),
             fix_ci=data.get("fix_ci", False),
-            ci_check_wait_minutes=data.get("ci_check_wait_minutes", 3.0),
+            ci_check_wait_minutes=data.get(
+                "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
+            ),
             github_token=data.get("github_token"),
             reference_repos=data.get("reference_repos", []),
             tools=data.get("tools", []),

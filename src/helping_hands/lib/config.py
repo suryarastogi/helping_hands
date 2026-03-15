@@ -49,7 +49,31 @@ def _load_env_files(repo: str | None = None) -> None:
 
 @dataclass(frozen=True)
 class Config:
-    """Immutable application configuration."""
+    """Immutable application configuration.
+
+    Attributes:
+        repo: Local filesystem path or ``owner/repo`` slug for the target
+            repository.
+        model: Model identifier passed to the AI provider (e.g.
+            ``"gpt-5.2"``, ``"anthropic/claude-sonnet-4-5"``).
+        verbose: Whether to emit detailed progress output during hand
+            execution.
+        enable_execution: Allow execution tools (Python/Bash) in iterative
+            hands.
+        enable_web: Allow web search and browsing tools in iterative hands.
+        use_native_cli_auth: Prefer the CLI backend's built-in authentication
+            instead of token-based auth.
+        enabled_tools: Normalised tool category names selected via
+            ``--tools`` or ``HELPING_HANDS_TOOLS``.
+        enabled_skills: Normalised skill names selected via ``--skills`` or
+            ``HELPING_HANDS_SKILLS``.
+        github_token: Per-task GitHub personal access token; overrides the
+            default ``GITHUB_TOKEN`` when non-empty.
+        reference_repos: Additional ``owner/repo`` slugs cloned as read-only
+            shallow references for context.
+        config_path: Optional path to a TOML configuration file (reserved for
+            future use).
+    """
 
     repo: str = ""
     model: str = "default"

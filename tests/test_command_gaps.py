@@ -84,11 +84,11 @@ class TestRunCommandTimeout:
         assert "timed out after 10s" in result.stderr
 
     def test_raises_on_zero_timeout(self) -> None:
-        with pytest.raises(ValueError, match="timeout_s must be > 0"):
+        with pytest.raises(ValueError, match="timeout_s must be positive"):
             _run_command(["echo"], cwd=Path("/tmp"), timeout_s=0)
 
     def test_raises_on_negative_timeout(self) -> None:
-        with pytest.raises(ValueError, match="timeout_s must be > 0"):
+        with pytest.raises(ValueError, match="timeout_s must be positive"):
             _run_command(["echo"], cwd=Path("/tmp"), timeout_s=-1)
 
 

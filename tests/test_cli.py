@@ -14,6 +14,7 @@ from helping_hands.cli.main import (
     _github_clone_url,
     _redact_sensitive,
     _repo_tmp_dir,
+    _resolve_repo_path,
     _stream_hand,
     _validate_repo_spec,
     build_parser,
@@ -1105,3 +1106,48 @@ class TestGithubCloneUrlValidation:
         monkeypatch.delenv("GH_TOKEN", raising=False)
         with pytest.raises(ValueError, match="owner/repo"):
             _github_clone_url("just-a-name")
+
+
+# ---------------------------------------------------------------------------
+# Docstring presence tests (v174)
+# ---------------------------------------------------------------------------
+
+
+class TestCliMainDocstrings:
+    """Verify Google-style docstrings on 4 newly-documented private methods."""
+
+    def test_stream_hand_has_docstring(self) -> None:
+        doc = _stream_hand.__doc__
+        assert doc is not None
+        assert "Args:" in doc
+
+    def test_github_clone_url_has_docstring(self) -> None:
+        doc = _github_clone_url.__doc__
+        assert doc is not None
+        assert "Args:" in doc
+
+    def test_github_clone_url_has_returns(self) -> None:
+        doc = _github_clone_url.__doc__
+        assert "Returns:" in doc
+
+    def test_github_clone_url_has_raises(self) -> None:
+        doc = _github_clone_url.__doc__
+        assert "Raises:" in doc
+
+    def test_git_noninteractive_env_has_docstring(self) -> None:
+        doc = _git_noninteractive_env.__doc__
+        assert doc is not None
+        assert "Returns:" in doc
+
+    def test_resolve_repo_path_has_docstring(self) -> None:
+        doc = _resolve_repo_path.__doc__
+        assert doc is not None
+        assert "Args:" in doc
+
+    def test_resolve_repo_path_has_returns(self) -> None:
+        doc = _resolve_repo_path.__doc__
+        assert "Returns:" in doc
+
+    def test_resolve_repo_path_has_raises(self) -> None:
+        doc = _resolve_repo_path.__doc__
+        assert "Raises:" in doc

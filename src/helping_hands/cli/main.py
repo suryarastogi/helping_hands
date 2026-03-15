@@ -18,6 +18,21 @@ from typing import cast
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.github_url import (
+    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
+)
+from helping_hands.lib.github_url import (
+    build_clone_url as _build_clone_url,
+)
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.github_url import (
+    redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    validate_repo_spec as _validate_repo_spec,
+)
 from helping_hands.lib.hands.v1.hand import (
     BasicAtomicHand,
     BasicLangGraphHand,
@@ -43,9 +58,6 @@ _DEFAULT_CLONE_DEPTH = 1
 
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
-
-_GIT_CLONE_TIMEOUT_S = 120
-"""Timeout in seconds for git clone subprocess calls."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -194,6 +206,14 @@ def main(argv: list[str] | None = None) -> None:
         )
         sys.exit(1)
 
+    if args.max_iterations is not None and args.max_iterations <= 0:
+        print(
+            f"Error: --max-iterations must be a positive integer"
+            f" (got {args.max_iterations})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if args.e2e:
         config = Config.from_env(
             overrides={
@@ -338,44 +358,34 @@ def main(argv: list[str] | None = None) -> None:
 
 
 async def _stream_hand(hand: Hand, prompt: str) -> None:
+    """Stream hand output to stdout, printing each chunk as it arrives.
+
+    Args:
+        hand: The hand instance to stream from.
+        prompt: The task prompt to pass to the hand.
+    """
     stream = cast(AsyncIterator[str], hand.stream(prompt))
     async for chunk in stream:
         print(chunk, end="", flush=True)
     print()
 
 
-def _validate_repo_spec(repo: str) -> None:
-    """Validate that *repo* looks like ``owner/repo`` before embedding in a URL."""
-    if not repo or not repo.strip():
-        raise ValueError("repo spec must not be empty")
-    parts = repo.strip().split("/")
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"repo spec must be in 'owner/repo' format, got {repo!r}")
-
-
 def _github_clone_url(repo: str, token: str | None = None) -> str:
-    _validate_repo_spec(repo)
-    effective_token = (token or "").strip() or os.environ.get(
-        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-    ).strip()
-    if effective_token:
-        return f"https://x-access-token:{effective_token}@github.com/{repo}.git"
-    return f"https://github.com/{repo}.git"
+    """Build the HTTPS clone URL for a GitHub repository.
 
+    Delegates to :func:`helping_hands.lib.github_url.build_clone_url`.
 
-def _git_noninteractive_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    return env
+    Args:
+        repo: GitHub repository in ``owner/repo`` format.
+        token: Optional explicit GitHub token (overrides env vars).
 
+    Returns:
+        The HTTPS clone URL string.
 
-def _redact_sensitive(text: str) -> str:
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
+    Raises:
+        ValueError: If *repo* is not in valid ``owner/repo`` format.
+    """
+    return _build_clone_url(repo, token=token)
 
 
 def _repo_tmp_dir() -> Path | None:
@@ -394,6 +404,24 @@ def _repo_tmp_dir() -> Path | None:
 
 
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
+    """Resolve a repo argument to a local directory path.
+
+    If *repo* is an existing local directory, returns it directly.
+    If *repo* matches ``owner/repo`` format, clones it to a temporary
+    directory (registered for cleanup via ``atexit``).
+
+    Args:
+        repo: Local directory path or GitHub ``owner/repo`` reference.
+
+    Returns:
+        A tuple of ``(resolved_path, cloned_from)`` where *cloned_from*
+        is the original ``owner/repo`` string if a clone was performed,
+        or ``None`` for local directories.
+
+    Raises:
+        ValueError: If *repo* is not a directory and not a valid
+            ``owner/repo`` reference, or if cloning fails.
+    """
     path = Path(repo).expanduser().resolve()
     if path.is_dir():
         return path, None

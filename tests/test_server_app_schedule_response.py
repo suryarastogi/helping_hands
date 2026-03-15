@@ -32,6 +32,8 @@ class _FakeScheduledTask:
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = 3.0
+    github_token: str | None = None
+    reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     enabled: bool = True
@@ -83,6 +85,8 @@ class TestScheduleToResponse:
             use_native_cli_auth=True,
             fix_ci=True,
             ci_check_wait_minutes=5.0,
+            github_token="ghp_longtoken1234567890abcdef",
+            reference_repos=["owner/ref-repo"],
             tools=["bash", "python"],
             skills=["prd"],
             enabled=False,
@@ -109,6 +113,11 @@ class TestScheduleToResponse:
         assert resp.use_native_cli_auth is True
         assert resp.fix_ci is True
         assert resp.ci_check_wait_minutes == 5.0
+        assert resp.github_token is not None
+        assert resp.github_token.startswith("ghp_")
+        assert resp.github_token.endswith("cdef")
+        assert "***" in resp.github_token
+        assert resp.reference_repos == ["owner/ref-repo"]
         assert resp.tools == ["bash", "python"]
         assert resp.skills == ["prd"]
         assert resp.enabled is False
@@ -130,17 +139,21 @@ class TestScheduleToResponse:
         assert resp.schedule_id == "sched-1"
 
     def test_task_missing_optional_attrs_uses_defaults(self) -> None:
-        """Tasks without fix_ci/ci_check_wait_minutes/tools use getattr defaults."""
+        """Tasks without fix_ci/ci_check_wait_minutes/tools/etc use getattr defaults."""
         task = _FakeScheduledTask(enabled=False)
         # Remove optional attrs to simulate older ScheduledTask versions
         delattr(task, "fix_ci")
         delattr(task, "ci_check_wait_minutes")
+        delattr(task, "github_token")
+        delattr(task, "reference_repos")
         delattr(task, "tools")
 
         resp = _schedule_to_response(task)
 
         assert resp.fix_ci is False
         assert resp.ci_check_wait_minutes == 3.0
+        assert resp.github_token is None
+        assert resp.reference_repos == []
         assert resp.tools == []
 
     def test_run_count_and_last_run_forwarded(self) -> None:

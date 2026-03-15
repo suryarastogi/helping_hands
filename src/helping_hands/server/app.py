@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -22,10 +23,75 @@ from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
+from helping_hands.lib.validation import require_non_empty_string
 from helping_hands.server.celery_app import build_feature, celery_app
+from helping_hands.server.constants import (
+    ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
+)
+from helping_hands.server.constants import (
+    ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
+)
+from helping_hands.server.constants import (
+    DEFAULT_BACKEND as _DEFAULT_BACKEND,
+)
+from helping_hands.server.constants import (
+    DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
+)
+from helping_hands.server.constants import (
+    JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
+)
+from helping_hands.server.constants import (
+    KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
+)
+from helping_hands.server.constants import (
+    MAX_CI_WAIT_MINUTES as _MAX_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    MAX_GITHUB_TOKEN_LENGTH as _MAX_GITHUB_TOKEN_LENGTH,
+)
+from helping_hands.server.constants import (
+    MAX_ITERATIONS_UPPER_BOUND as _MAX_ITERATIONS_UPPER_BOUND,
+)
+from helping_hands.server.constants import (
+    MAX_MODEL_LENGTH as _MAX_MODEL_LENGTH,
+)
+from helping_hands.server.constants import (
+    MAX_PROMPT_LENGTH as _MAX_PROMPT_LENGTH,
+)
+from helping_hands.server.constants import (
+    MAX_REFERENCE_REPOS as _MAX_REFERENCE_REPOS,
+)
+from helping_hands.server.constants import (
+    MAX_REPO_PATH_LENGTH as _MAX_REPO_PATH_LENGTH,
+)
+from helping_hands.server.constants import (
+    MIN_CI_WAIT_MINUTES as _MIN_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
+)
+from helping_hands.server.constants import (
+    USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
+)
+from helping_hands.server.constants import (
+    USAGE_USER_AGENT as _USAGE_USER_AGENT,
+)
 from helping_hands.server.task_result import normalize_task_result
 
 if TYPE_CHECKING:
@@ -34,6 +100,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "BackendName",
     "BuildRequest",
     "BuildResponse",
     "ClaudeUsageLevel",
@@ -59,35 +126,31 @@ _schedule_manager: ScheduleManager | None = None
 # Maximum number of tool or skill entries in a single request.
 _MAX_TOOL_SKILL_ITEMS = 50
 
-# --- Health-check & API timeout constants (seconds) ---
-_KEYCHAIN_TIMEOUT_S = 5
-_USAGE_API_TIMEOUT_S = 10
+# --- Health-check timeout constants (seconds) ---
 _REDIS_HEALTH_TIMEOUT_S = 2
 _DB_HEALTH_TIMEOUT_S = 3
 _CELERY_HEALTH_TIMEOUT_S = 2.0
 _CELERY_INSPECT_TIMEOUT_S = 1.0
 
-# --- Anthropic usage API constants ---
-_ANTHROPIC_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
-_ANTHROPIC_BETA_HEADER = "oauth-2025-04-20"
-_USAGE_USER_AGENT = "claude-code/2.0.32"
-
 # --- Preview truncation limits for error/debug messages ---
-_JWT_TOKEN_PREFIX = "ey"
-"""Base64-encoded JWT header prefix used for raw token heuristic detection."""
-
 _HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
 _USAGE_DATA_PREVIEW_LENGTH = 300
 
-# --- Keychain constants ---
-_KEYCHAIN_SERVICE_NAME = "Claude Code-credentials"
-"""macOS Keychain service name for Claude Code OAuth credentials."""
+# --- Token redaction parameters ---
+_REDACT_TOKEN_PREFIX_LEN = 4
+"""Number of leading characters to keep when redacting a token."""
 
-_KEYCHAIN_OAUTH_KEY = "claudeAiOauth"
-"""Top-level JSON key in the Keychain credential payload."""
+_REDACT_TOKEN_SUFFIX_LEN = 4
+"""Number of trailing characters to keep when redacting a token."""
 
-_KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
-"""Nested JSON key for the OAuth access token."""
+_REDACT_TOKEN_MIN_PARTIAL_LEN = 12
+"""Minimum token length for partial redaction (show prefix/suffix).
+
+Tokens at or below this length are fully masked to ``"***"`` to avoid
+leaking a disproportionate fraction of the secret.  At the default values
+(prefix=4, suffix=4), a 12-character token would expose 8 of 12 characters
+(67%), which is too much for meaningful redaction.
+"""
 
 app = FastAPI(
     title="helping_hands",
@@ -107,12 +170,34 @@ class _ToolSkillValidatorMixin(BaseModel):
     def _coerce_tools(
         cls, value: str | list[str] | tuple[str, ...] | None
     ) -> list[str]:
+        """Normalize raw tool input into a list of tool category names.
+
+        Accepts comma-separated strings, sequences, or ``None`` and
+        delegates to ``normalize_tool_selection``.
+
+        Args:
+            value: Raw tool selection from the request body.
+
+        Returns:
+            A normalized list of tool category name strings.
+        """
         normalized = meta_tools.normalize_tool_selection(value)
         return list(normalized)
 
     @field_validator("tools")
     @classmethod
     def _validate_tools(cls, value: list[str]) -> list[str]:
+        """Validate that all tool names are recognized category names.
+
+        Args:
+            value: List of tool category names to validate.
+
+        Returns:
+            The unchanged list if all names are valid.
+
+        Raises:
+            ValueError: If any name is not a known tool category.
+        """
         meta_tools.validate_tool_category_names(tuple(value))
         return value
 
@@ -121,44 +206,36 @@ class _ToolSkillValidatorMixin(BaseModel):
     def _coerce_skills(
         cls, value: str | list[str] | tuple[str, ...] | None
     ) -> list[str]:
+        """Normalize raw skill input into a list of skill names.
+
+        Accepts comma-separated strings, sequences, or ``None`` and
+        delegates to ``normalize_skill_selection``.
+
+        Args:
+            value: Raw skill selection from the request body.
+
+        Returns:
+            A normalized list of skill name strings.
+        """
         normalized = meta_skills.normalize_skill_selection(value)
         return list(normalized)
 
     @field_validator("skills")
     @classmethod
     def _validate_skills(cls, value: list[str]) -> list[str]:
+        """Validate that all skill names are recognized.
+
+        Args:
+            value: List of skill names to validate.
+
+        Returns:
+            The unchanged list if all names are valid.
+
+        Raises:
+            ValueError: If any name is not a known skill.
+        """
         meta_skills.validate_skill_names(tuple(value))
         return value
-
-
-class BuildRequest(_ToolSkillValidatorMixin):
-    """Request body for the /build endpoint."""
-
-    repo_path: str = Field(min_length=1, max_length=500)
-    prompt: str = Field(min_length=1, max_length=50_000)
-    backend: Literal[
-        "e2e",
-        "basic-langgraph",
-        "basic-atomic",
-        "basic-agent",
-        "codexcli",
-        "claudecodecli",
-        "docker-sandbox-claude",
-        "goose",
-        "geminicli",
-        "opencodecli",
-    ] = "claudecodecli"
-    model: str | None = Field(default=None, max_length=200)
-    max_iterations: int = Field(default=6, ge=1, le=100)
-    no_pr: bool = False
-    enable_execution: bool = False
-    enable_web: bool = False
-    use_native_cli_auth: bool = False
-    pr_number: int | None = None
-    fix_ci: bool = False
-    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
-    github_token: str | None = Field(default=None, max_length=500)
-    reference_repos: list[str] = Field(default_factory=list)
 
 
 BackendName = Literal[
@@ -173,6 +250,35 @@ BackendName = Literal[
     "geminicli",
     "opencodecli",
 ]
+
+
+class BuildRequest(_ToolSkillValidatorMixin):
+    """Request body for the /build endpoint."""
+
+    repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
+    prompt: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
+    backend: BackendName = _DEFAULT_BACKEND
+    model: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    max_iterations: int = Field(
+        default=_DEFAULT_MAX_ITERATIONS,
+        ge=1,
+        le=_MAX_ITERATIONS_UPPER_BOUND,
+    )
+    no_pr: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
+    use_native_cli_auth: bool = False
+    pr_number: int | None = None
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = Field(
+        default=_DEFAULT_CI_WAIT_MINUTES,
+        ge=_MIN_CI_WAIT_MINUTES,
+        le=_MAX_CI_WAIT_MINUTES,
+    )
+    github_token: str | None = Field(default=None, max_length=_MAX_GITHUB_TOKEN_LENGTH)
+    reference_repos: list[str] = Field(
+        default_factory=list, max_length=_MAX_REFERENCE_REPOS
+    )
 
 
 class BuildResponse(BaseModel):
@@ -244,20 +350,30 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
         max_length=100,
         description="Cron expression (e.g., '0 0 * * *') or preset name",
     )
-    repo_path: str = Field(min_length=1, max_length=500)
-    prompt: str = Field(min_length=1, max_length=50_000)
-    backend: BackendName = "claudecodecli"
-    model: str | None = Field(default=None, max_length=200)
-    max_iterations: int = Field(default=6, ge=1, le=100)
+    repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
+    prompt: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
+    backend: BackendName = _DEFAULT_BACKEND
+    model: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    max_iterations: int = Field(
+        default=_DEFAULT_MAX_ITERATIONS,
+        ge=1,
+        le=_MAX_ITERATIONS_UPPER_BOUND,
+    )
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
-    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
-    github_token: str | None = Field(default=None, max_length=500)
-    reference_repos: list[str] = Field(default_factory=list)
+    ci_check_wait_minutes: float = Field(
+        default=_DEFAULT_CI_WAIT_MINUTES,
+        ge=_MIN_CI_WAIT_MINUTES,
+        le=_MAX_CI_WAIT_MINUTES,
+    )
+    github_token: str | None = Field(default=None, max_length=_MAX_GITHUB_TOKEN_LENGTH)
+    reference_repos: list[str] = Field(
+        default_factory=list, max_length=_MAX_REFERENCE_REPOS
+    )
     enabled: bool = True
 
 
@@ -271,14 +387,14 @@ class ScheduleResponse(BaseModel):
     prompt: str
     backend: str
     model: str | None = None
-    max_iterations: int = 6
+    max_iterations: int = _DEFAULT_MAX_ITERATIONS
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
-    ci_check_wait_minutes: float = 3.0
+    ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
     github_token: str | None = None
     reference_repos: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
@@ -360,7 +476,6 @@ def _get_claude_oauth_token() -> str | None:
 
 _usage_cache: ClaudeUsageResponse | None = None
 _usage_cache_ts: float = 0.0
-_USAGE_CACHE_TTL = 300  # 5 minutes
 
 
 def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
@@ -371,12 +486,10 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
     """
     global _usage_cache, _usage_cache_ts
 
-    import time as _time
-
     if (
         not force
         and _usage_cache is not None
-        and (_time.monotonic() - _usage_cache_ts) < _USAGE_CACHE_TTL
+        and (time.monotonic() - _usage_cache_ts) < _USAGE_CACHE_TTL_S
     ):
         return _usage_cache
 
@@ -454,7 +567,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     result = ClaudeUsageResponse(levels=levels, fetched_at=now)
     _usage_cache = result
-    _usage_cache_ts = _time.monotonic()
+    _usage_cache_ts = time.monotonic()
     return result
 
 
@@ -495,6 +608,14 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     "geminicli": "geminicli",
     "opencodecli": "opencodecli",
 }
+assert _TERMINAL_TASK_STATES.isdisjoint(_CURRENT_TASK_STATES), (
+    "_TERMINAL_TASK_STATES and _CURRENT_TASK_STATES must be disjoint"
+)
+
+assert set(_TASK_STATE_PRIORITY.keys()) <= _CURRENT_TASK_STATES, (
+    "_TASK_STATE_PRIORITY keys must be a subset of _CURRENT_TASK_STATES"
+)
+
 _FLOWER_API_URL_ENV = "HELPING_HANDS_FLOWER_API_URL"
 _FLOWER_API_TIMEOUT_SECONDS_ENV = "HELPING_HANDS_FLOWER_API_TIMEOUT_SECONDS"
 _DEFAULT_FLOWER_API_TIMEOUT_SECONDS = 0.75
@@ -2571,6 +2692,15 @@ class ServiceHealthResponse(BaseModel):
 
 
 def _check_redis_health() -> Literal["ok", "error"]:
+    """Ping the Redis broker and return a health status string.
+
+    Uses the Celery broker URL to connect with a short timeout. Failures
+    (connection refused, timeout, missing ``redis`` package) are logged at
+    debug level and reported as ``"error"``.
+
+    Returns:
+        ``"ok"`` if the ping succeeds, ``"error"`` otherwise.
+    """
     try:
         import redis as redis_lib  # bundled with celery[redis]
 
@@ -2588,6 +2718,16 @@ def _check_redis_health() -> Literal["ok", "error"]:
 
 
 def _check_db_health() -> Literal["ok", "error", "na"]:
+    """Open a test connection to the PostgreSQL database.
+
+    Reads ``DATABASE_URL`` from the environment. When the variable is unset
+    or empty, returns ``"na"`` (not applicable). Otherwise attempts a
+    short-lived ``psycopg2`` connection and reports the result.
+
+    Returns:
+        ``"ok"`` if the connection succeeds, ``"error"`` on failure, or
+        ``"na"`` when no database URL is configured.
+    """
     db_url = os.environ.get("DATABASE_URL", "").strip()
     if not db_url:
         return "na"
@@ -2603,6 +2743,15 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
 
 
 def _check_workers_health() -> Literal["ok", "error"]:
+    """Ping Celery workers via the control inspector.
+
+    Sends a ping with a short timeout and checks whether any worker
+    responds. Failures (no workers, timeout, broker unreachable) are
+    logged at debug level and reported as ``"error"``.
+
+    Returns:
+        ``"ok"`` if at least one worker responds, ``"error"`` otherwise.
+    """
     try:
         inspector = celery_app.control.inspect(timeout=_CELERY_HEALTH_TIMEOUT_S)
         ping = inspector.ping()
@@ -2627,7 +2776,7 @@ def _is_running_in_docker() -> bool:
     if Path("/.dockerenv").exists():
         return True
     raw = os.environ.get("HELPING_HANDS_IN_DOCKER", "").strip().lower()
-    return raw in {"1", "true", "yes"}
+    return raw in _TRUTHY_VALUES
 
 
 @app.get("/config", response_model=ServerConfig)
@@ -2671,8 +2820,33 @@ def _parse_backend(value: str) -> BackendName:
     return backend
 
 
+def _validate_path_param(value: str, name: str) -> str:
+    """Validate and strip a URL path parameter.
+
+    Delegates to :func:`~helping_hands.lib.validation.require_non_empty_string`.
+
+    Args:
+        value: The raw path parameter value.
+        name: The parameter name, used in error messages.
+
+    Returns:
+        The stripped parameter value.
+
+    Raises:
+        ValueError: If *value* is empty or whitespace-only.
+    """
+    return require_non_empty_string(value, name)
+
+
 def _build_task_status(task_id: str) -> TaskStatus:
-    """Fetch and normalize current Celery task status."""
+    """Fetch and normalize current Celery task status.
+
+    Args:
+        task_id: The Celery task UUID to look up.
+
+    Returns:
+        A ``TaskStatus`` with the current state and normalised result.
+    """
     result = build_feature.AsyncResult(task_id)
     raw_result = result.result if result.ready() else result.info
     normalized_result = normalize_task_result(result.status, raw_result)
@@ -2932,6 +3106,11 @@ def _safe_inspect_call(inspector: Any, method_name: str) -> Any:
     try:
         return method()
     except Exception:  # pragma: no cover - defensive runtime guard
+        logger.debug(
+            "inspect.%s() failed",
+            method_name,
+            exc_info=True,
+        )
         return None
 
 
@@ -2940,6 +3119,7 @@ def _collect_celery_current_tasks() -> list[dict[str, Any]]:
     try:
         inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
     except Exception:  # pragma: no cover - defensive runtime guard
+        logger.debug("celery inspect init failed", exc_info=True)
         return []
     if inspector is None:
         return []
@@ -3255,7 +3435,7 @@ def _build_form_redirect_query(
     enable_web: bool = False,
     use_native_cli_auth: bool = False,
     fix_ci: bool = False,
-    ci_check_wait_minutes: float = 3.0,
+    ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES,
     pr_number: int | None = None,
     tools: str | None = None,
     skills: str | None = None,
@@ -3280,7 +3460,7 @@ def _build_form_redirect_query(
         query["use_native_cli_auth"] = "1"
     if fix_ci:
         query["fix_ci"] = "1"
-    if ci_check_wait_minutes != 3.0:
+    if ci_check_wait_minutes != _DEFAULT_CI_WAIT_MINUTES:
         query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
     if pr_number is not None:
         query["pr_number"] = str(pr_number)
@@ -3295,9 +3475,9 @@ def _build_form_redirect_query(
 def enqueue_build_form(
     repo_path: str = Form(...),
     prompt: str = Form(...),
-    backend: str = Form("codexcli"),
+    backend: str = Form(_DEFAULT_BACKEND),
     model: str | None = Form(None),
-    max_iterations: int = Form(6),
+    max_iterations: int = Form(_DEFAULT_MAX_ITERATIONS),
     no_pr: bool = Form(False),
     enable_execution: bool = Form(False),
     enable_web: bool = Form(False),
@@ -3306,7 +3486,7 @@ def enqueue_build_form(
     tools: str | None = Form(None),
     skills: str | None = Form(None),
     fix_ci: bool = Form(False),
-    ci_check_wait_minutes: float = Form(3.0),
+    ci_check_wait_minutes: float = Form(_DEFAULT_CI_WAIT_MINUTES),
     github_token: str | None = Form(None),
     reference_repos: str | None = Form(None),
 ) -> RedirectResponse:
@@ -3418,6 +3598,7 @@ def enqueue_build_form(
 @app.get("/monitor/{task_id}", response_class=HTMLResponse)
 def monitor(task_id: str) -> HTMLResponse:
     """No-JS monitor page with auto-refresh for task status/updates."""
+    task_id = _validate_path_param(task_id, "task_id")
     task_status = _build_task_status(task_id)
     return HTMLResponse(_render_monitor_page(task_status))
 
@@ -3485,6 +3666,7 @@ def get_current_tasks() -> CurrentTasksResponse:
 @app.get("/tasks/{task_id}", response_model=TaskStatus)
 def get_task(task_id: str) -> TaskStatus:
     """Check the status of an enqueued task."""
+    task_id = _validate_path_param(task_id, "task_id")
     return _build_task_status(task_id)
 
 
@@ -3496,10 +3678,7 @@ def cancel_task(task_id: str) -> TaskCancelResponse:
 
 def _cancel_task(task_id: str) -> TaskCancelResponse:
     """Revoke a Celery task, sending SIGTERM to terminate it if running."""
-    if not task_id or not task_id.strip():
-        raise ValueError("task_id must be a non-empty string")
-
-    task_id = task_id.strip()
+    task_id = _validate_path_param(task_id, "task_id")
     result = build_feature.AsyncResult(task_id)
     current_status = result.status
 
@@ -3543,16 +3722,34 @@ def _get_schedule_manager() -> ScheduleManager:
 
 
 def _redact_token(token: str | None) -> str | None:
-    """Redact a token, keeping only the first 4 and last 4 characters."""
+    """Redact a token, keeping only the first and last few characters.
+
+    Tokens at or below :data:`_REDACT_TOKEN_MIN_PARTIAL_LEN` are fully
+    masked to avoid leaking a meaningful portion of the secret.
+
+    Args:
+        token: Raw token string, or ``None``.
+
+    Returns:
+        Redacted string with prefix/suffix visible, ``"***"`` for short
+        tokens, or ``None`` when *token* is falsy.
+    """
     if not token:
         return None
-    if len(token) <= 12:
+    if len(token) <= _REDACT_TOKEN_MIN_PARTIAL_LEN:
         return "***"
-    return f"{token[:4]}***{token[-4:]}"
+    return f"{token[:_REDACT_TOKEN_PREFIX_LEN]}***{token[-_REDACT_TOKEN_SUFFIX_LEN:]}"
 
 
 def _schedule_to_response(task) -> ScheduleResponse:
-    """Convert a ScheduledTask to a ScheduleResponse."""
+    """Convert a ScheduledTask to a ScheduleResponse.
+
+    Args:
+        task: A ``ScheduledTask`` instance to convert.
+
+    Returns:
+        A ``ScheduleResponse`` with computed ``next_run`` and redacted token.
+    """
     from helping_hands.server.schedules import next_run_time
 
     next_run = None
@@ -3581,7 +3778,9 @@ def _schedule_to_response(task) -> ScheduleResponse:
         enable_web=task.enable_web,
         use_native_cli_auth=task.use_native_cli_auth,
         fix_ci=getattr(task, "fix_ci", False),
-        ci_check_wait_minutes=getattr(task, "ci_check_wait_minutes", 3.0),
+        ci_check_wait_minutes=getattr(
+            task, "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
+        ),
         github_token=_redact_token(getattr(task, "github_token", None)),
         reference_repos=getattr(task, "reference_repos", []),
         tools=getattr(task, "tools", []),
@@ -3659,6 +3858,7 @@ def get_schedule(schedule_id: str) -> ScheduleResponse:
     """Get a scheduled task by ID."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task = manager.get_schedule(schedule_id)
     if task is None:
@@ -3673,6 +3873,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
 
     from helping_hands.server.schedules import ScheduledTask
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
 
     # If the token looks redacted (contains ***), preserve the existing one.
@@ -3717,6 +3918,7 @@ def delete_schedule(schedule_id: str) -> None:
     """Delete a scheduled task."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     if not manager.delete_schedule(schedule_id):
         raise HTTPException(status_code=404, detail="Schedule not found")
@@ -3727,6 +3929,7 @@ def enable_schedule(schedule_id: str) -> ScheduleResponse:
     """Enable a scheduled task."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task = manager.enable_schedule(schedule_id)
     if task is None:
@@ -3739,6 +3942,7 @@ def disable_schedule(schedule_id: str) -> ScheduleResponse:
     """Disable a scheduled task."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task = manager.disable_schedule(schedule_id)
     if task is None:
@@ -3751,6 +3955,7 @@ def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
     """Manually trigger a scheduled task to run immediately."""
     from fastapi import HTTPException
 
+    schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     task_id = manager.trigger_now(schedule_id)
     if task_id is None:

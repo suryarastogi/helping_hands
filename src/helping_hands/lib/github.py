@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import subprocess
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -18,13 +18,51 @@ from github import Auth, Github
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
-__all__ = ["GitHubClient", "PRResult"]
+from helping_hands.lib.github_url import GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER
+from helping_hands.lib.github_url import redact_credentials as _redact_credentials
+from helping_hands.lib.validation import require_non_empty_string, require_positive_int
+
+__all__ = ["CIConclusion", "GitHubClient", "PRResult"]
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_GIT_TIMEOUT = 300  # seconds
 _MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
 _VALID_PR_STATES = frozenset({"open", "closed", "all"})
+
+
+# --- CI conclusion enum -------------------------------------------------------
+
+
+class CIConclusion(StrEnum):
+    """Overall CI check-run conclusion returned by :meth:`GitHubClient.get_check_runs`.
+
+    Being a :class:`StrEnum`, each member compares equal to its string value
+    (e.g. ``CIConclusion.SUCCESS == "success"``), so serialised dicts remain
+    human-readable and backward-compatible.
+    """
+
+    NO_CHECKS = "no_checks"
+    """No CI check runs were found for the ref."""
+
+    PENDING = "pending"
+    """At least one check run has not completed yet."""
+
+    SUCCESS = "success"
+    """All check runs completed successfully."""
+
+    FAILURE = "failure"
+    """At least one check run failed."""
+
+    MIXED = "mixed"
+    """Check runs completed with a mix of conclusions (none failed)."""
+
+
+CI_CONCLUSIONS_IN_PROGRESS = frozenset({CIConclusion.PENDING, CIConclusion.NO_CHECKS})
+"""CI conclusion values indicating checks are not yet decisive."""
+
+_CI_RUN_FAILURE_CONCLUSIONS = frozenset({"failure", "cancelled", "timed_out"})
+"""Individual check-run ``conclusion`` values considered failures."""
 
 
 def _git_timeout() -> int:
@@ -66,8 +104,7 @@ def _validate_full_name(full_name: str) -> None:
         ValueError: If the string is empty, missing a ``/``, has empty segments,
             or contains whitespace.
     """
-    if not full_name or not full_name.strip():
-        raise ValueError("full_name must not be empty")
+    require_non_empty_string(full_name, "full_name")
     if " " in full_name or "\t" in full_name:
         raise ValueError(f"full_name must not contain whitespace: {full_name!r}")
     parts = full_name.split("/")
@@ -83,22 +120,25 @@ def _validate_branch_name(branch_name: str) -> None:
     Raises:
         ValueError: If the string is empty or whitespace-only.
     """
-    if not branch_name or not branch_name.strip():
-        raise ValueError("branch_name must not be empty")
+    require_non_empty_string(branch_name, "branch_name")
 
 
 def _redact_sensitive(text: str) -> str:
     """Redact token-bearing GitHub URLs in logs/errors."""
-    return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
+    return _redact_credentials(text)
 
 
 @dataclass
 class PRResult:
-    """Result of creating a pull request."""
+    """Result of creating a pull request.
+
+    Attributes:
+        number: PR number on GitHub.
+        url: Full HTML URL of the pull request.
+        title: PR title as submitted.
+        head: Source branch name.
+        base: Target branch name.
+    """
 
     number: int
     url: str
@@ -120,6 +160,14 @@ class GitHubClient:
     _gh: Github = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        """Resolve the GitHub token and initialise the PyGithub client.
+
+        The token is resolved from the ``token`` field, then
+        ``GITHUB_TOKEN``, then ``GH_TOKEN`` environment variable.
+
+        Raises:
+            ValueError: If no token is available from any source.
+        """
         resolved = self.token or os.environ.get(
             "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
         )
@@ -137,7 +185,12 @@ class GitHubClient:
     # ------------------------------------------------------------------
 
     def whoami(self) -> dict[str, Any]:
-        """Return the authenticated user's login and name."""
+        """Return identity information for the authenticated GitHub user.
+
+        Returns:
+            A dict with keys ``login`` (str), ``name`` (str or None),
+            and ``url`` (str) pointing to the user's GitHub profile.
+        """
         user = self._gh.get_user()
         return {"login": user.login, "name": user.name, "url": user.html_url}
 
@@ -175,9 +228,9 @@ class GitHubClient:
         """
         _validate_full_name(full_name)
         dest = Path(dest)
-        if depth is not None and depth <= 0:
-            raise ValueError(f"depth must be positive, got {depth}")
-        url = f"https://x-access-token:{self.token}@github.com/{full_name}.git"
+        if depth is not None:
+            require_positive_int(depth, "depth")
+        url = f"https://{_GITHUB_TOKEN_USER}:{self.token}@github.com/{full_name}.git"
         cmd: list[str] = ["git", "clone"]
         if depth is not None:
             cmd += ["--depth", str(depth)]
@@ -263,8 +316,7 @@ class GitHubClient:
         Returns:
             The short SHA of the new commit.
         """
-        if not message or not message.strip():
-            raise ValueError("commit message must not be empty")
+        require_non_empty_string(message, "commit message")
         targets = paths or ["."]
         _run_git(["git", "add", *targets], cwd=repo_path)
         _run_git(["git", "commit", "-m", message], cwd=repo_path)
@@ -279,10 +331,8 @@ class GitHubClient:
         email: str,
     ) -> None:
         """Set git author identity in local repo config."""
-        if not name or not name.strip():
-            raise ValueError("name must not be empty")
-        if not email or not email.strip():
-            raise ValueError("email must not be empty")
+        require_non_empty_string(name, "name")
+        require_non_empty_string(email, "email")
         _run_git(["git", "config", "user.name", name], cwd=repo_path)
         _run_git(["git", "config", "user.email", email], cwd=repo_path)
 
@@ -345,8 +395,7 @@ class GitHubClient:
             ValueError: If *title* is empty/whitespace, or *head*/*base* are
                 invalid branch names.
         """
-        if not title or not title.strip():
-            raise ValueError("title must not be empty")
+        require_non_empty_string(title, "title")
         _validate_branch_name(head)
         _validate_branch_name(base)
         repo = self.get_repo(full_name)
@@ -380,8 +429,7 @@ class GitHubClient:
             state: ``"open"``, ``"closed"``, or ``"all"``.
             limit: Maximum number of PRs to return.
         """
-        if limit <= 0:
-            raise ValueError(f"limit must be positive, got {limit}")
+        require_positive_int(limit, "limit")
         if state not in _VALID_PR_STATES:
             raise ValueError(
                 f"state must be one of {sorted(_VALID_PR_STATES)}, got {state!r}"
@@ -403,9 +451,21 @@ class GitHubClient:
         ]
 
     def get_pr(self, full_name: str, number: int) -> dict[str, Any]:
-        """Get details of a single pull request."""
-        if number <= 0:
-            raise ValueError(f"PR number must be positive, got {number}")
+        """Get details of a single pull request.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: PR number (must be positive).
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, ``head``, ``base``, ``mergeable``, ``merged``,
+            and ``user``.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
+        require_positive_int(number, "PR number")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         return {
@@ -422,14 +482,29 @@ class GitHubClient:
         }
 
     def default_branch(self, full_name: str) -> str:
-        """Return the repository's default branch."""
+        """Return the repository's default branch name.
+
+        Args:
+            full_name: ``owner/repo`` string.
+
+        Returns:
+            The default branch name (e.g. ``"main"`` or ``"master"``).
+        """
         repo = self.get_repo(full_name)
         return str(repo.default_branch)
 
     def update_pr_body(self, full_name: str, number: int, *, body: str) -> None:
-        """Update the body/description of an existing pull request."""
-        if number <= 0:
-            raise ValueError(f"PR number must be positive, got {number}")
+        """Update the body/description of an existing pull request.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: PR number (must be positive).
+            body: New Markdown body text for the pull request.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
+        require_positive_int(number, "PR number")
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
         pr.edit(body=body)
@@ -452,8 +527,7 @@ class GitHubClient:
         Raises:
             ValueError: If *ref* is empty or whitespace-only.
         """
-        if not ref or not ref.strip():
-            raise ValueError("ref must not be empty")
+        require_non_empty_string(ref, "ref")
         repo = self.get_repo(full_name)
         commit = repo.get_commit(ref)
         runs = commit.get_check_runs()
@@ -476,15 +550,15 @@ class GitHubClient:
             )
 
         if not check_list:
-            overall = "no_checks"
+            overall: str = CIConclusion.NO_CHECKS
         elif any(r["status"] != "completed" for r in check_list):
-            overall = "pending"
+            overall = CIConclusion.PENDING
         elif all(r["conclusion"] == "success" for r in check_list):
-            overall = "success"
+            overall = CIConclusion.SUCCESS
         elif any(r["conclusion"] == "failure" for r in check_list):
-            overall = "failure"
+            overall = CIConclusion.FAILURE
         else:
-            overall = "mixed"
+            overall = CIConclusion.MIXED
 
         return {
             "ref": ref,
@@ -509,10 +583,8 @@ class GitHubClient:
         Raises:
             ValueError: If *number* is not positive or *body* is empty/whitespace.
         """
-        if number <= 0:
-            raise ValueError(f"PR number must be positive, got {number}")
-        if not body or not body.strip():
-            raise ValueError("comment body must not be empty")
+        require_positive_int(number, "PR number")
+        require_non_empty_string(body, "comment body")
         repo = self.get_repo(full_name)
         issue = repo.get_issue(number=number)
         comment_body = body.rstrip()
@@ -537,9 +609,11 @@ class GitHubClient:
         self._gh.close()
 
     def __enter__(self) -> GitHubClient:
+        """Enter the context manager, returning ``self``."""
         return self
 
     def __exit__(self, *_: Any) -> None:
+        """Exit the context manager, closing the underlying connection."""
         self.close()
 
 

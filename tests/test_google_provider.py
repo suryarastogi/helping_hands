@@ -129,32 +129,24 @@ class TestGoogleCompleteImpl:
             contents=["hello", "world"],
         )
 
-    def test_rejects_all_empty_content(self) -> None:
-        provider = GoogleProvider()
-        mock_inner = MagicMock()
+    def test_rejects_all_empty_content_via_complete(self) -> None:
+        """Empty content rejection now happens in AIProvider.complete() base class."""
+        provider = GoogleProvider(inner=MagicMock())
 
-        messages = [
-            {"role": "user", "content": ""},
-            {"role": "assistant", "content": ""},
-        ]
         with pytest.raises(ValueError, match="empty content"):
-            provider._complete_impl(
-                inner=mock_inner,
-                messages=messages,
-                model="gemini-2.0-flash",
+            provider.complete(
+                [
+                    {"role": "user", "content": ""},
+                    {"role": "assistant", "content": ""},
+                ]
             )
 
-    def test_rejects_single_empty_message(self) -> None:
-        provider = GoogleProvider()
-        mock_inner = MagicMock()
+    def test_rejects_single_empty_message_via_complete(self) -> None:
+        """Single empty message rejection happens in AIProvider.complete() base class."""
+        provider = GoogleProvider(inner=MagicMock())
 
-        messages = [{"role": "user", "content": ""}]
         with pytest.raises(ValueError, match="empty content"):
-            provider._complete_impl(
-                inner=mock_inner,
-                messages=messages,
-                model="gemini-2.0-flash",
-            )
+            provider.complete([{"role": "user", "content": ""}])
 
     def test_passes_extra_kwargs(self) -> None:
         provider = GoogleProvider()

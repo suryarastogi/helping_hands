@@ -9,6 +9,7 @@ import pytest
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
+    _AUTH_FAILURE_SUBSTRINGS,
     DockerSandboxClaudeCodeHand,
 )
 from helping_hands.lib.repo import RepoIndex
@@ -741,3 +742,82 @@ class TestBuildFailureMessageSandboxInBase:
         # Should NOT have the extra "Note:" appended
         assert "Note:" not in msg
         assert msg == "CLI failed inside sandbox environment"
+
+
+# ---------------------------------------------------------------------------
+# _AUTH_FAILURE_SUBSTRINGS constant (v174)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthFailureSubstrings:
+    """Tests for the _AUTH_FAILURE_SUBSTRINGS constant."""
+
+    def test_is_tuple(self) -> None:
+        assert isinstance(_AUTH_FAILURE_SUBSTRINGS, tuple)
+
+    def test_not_empty(self) -> None:
+        assert len(_AUTH_FAILURE_SUBSTRINGS) > 0
+
+    def test_all_strings(self) -> None:
+        assert all(isinstance(s, str) for s in _AUTH_FAILURE_SUBSTRINGS)
+
+    def test_all_lowercase(self) -> None:
+        assert all(s == s.lower() for s in _AUTH_FAILURE_SUBSTRINGS)
+
+    def test_contains_not_logged_in(self) -> None:
+        assert "not logged in" in _AUTH_FAILURE_SUBSTRINGS
+
+    def test_contains_authentication_failed(self) -> None:
+        assert "authentication_failed" in _AUTH_FAILURE_SUBSTRINGS
+
+    def test_build_failure_message_uses_constant(self) -> None:
+        """_build_failure_message uses _AUTH_FAILURE_SUBSTRINGS."""
+        import inspect
+
+        src = inspect.getsource(DockerSandboxClaudeCodeHand._build_failure_message)
+        assert "_AUTH_FAILURE_SUBSTRINGS" in src
+
+
+# ---------------------------------------------------------------------------
+# Docstring presence tests (v174)
+# ---------------------------------------------------------------------------
+
+
+class TestDockerSandboxDocstrings:
+    """Verify Google-style docstrings on 4 newly-documented methods."""
+
+    def test_invoke_claude_has_docstring(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._invoke_claude.__doc__
+        assert doc is not None
+        assert "Args:" in doc
+
+    def test_invoke_claude_has_returns(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._invoke_claude.__doc__
+        assert "Returns:" in doc
+
+    def test_run_two_phase_has_docstring(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._run_two_phase.__doc__
+        assert doc is not None
+        assert "Args:" in doc
+
+    def test_run_two_phase_has_returns(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._run_two_phase.__doc__
+        assert "Returns:" in doc
+
+    def test_build_failure_message_has_docstring(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._build_failure_message.__doc__
+        assert doc is not None
+        assert "Args:" in doc
+
+    def test_build_failure_message_has_returns(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._build_failure_message.__doc__
+        assert "Returns:" in doc
+
+    def test_command_not_found_message_has_docstring(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._command_not_found_message.__doc__
+        assert doc is not None
+        assert "Args:" in doc
+
+    def test_command_not_found_message_has_returns(self) -> None:
+        doc = DockerSandboxClaudeCodeHand._command_not_found_message.__doc__
+        assert "Returns:" in doc

@@ -6,7 +6,8 @@ import re
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _DOCKER_ENV_HINT_TEMPLATE,
+    _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
 
@@ -156,23 +157,12 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         Returns:
             Formatted error message with output tail and contextual hints.
         """
-        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if any(
-            token in lower_tail
-            for token in (
-                "401 unauthorized",
-                "gemini_api_key",
-                "invalid api key",
-                "api key not valid",
-                "authentication failed",
-            )
-        ):
+        is_auth, tail = _detect_auth_failure(output, extra_tokens=("gemini_api_key",))
+        if is_auth:
             return (
                 "Gemini CLI authentication failed. "
                 "Ensure GEMINI_API_KEY is set in this runtime. "
-                "If running app mode in Docker, set GEMINI_API_KEY in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('GEMINI_API_KEY')}\n"
                 f"Output:\n{tail}"
             )
         if GeminiCLIHand._looks_like_model_not_found(tail):
@@ -218,22 +208,6 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         return self._build_gemini_failure_message(
             return_code=return_code,
             output=output,
-        )
-
-    def _command_not_found_message(self, command: str) -> str:
-        """Return guidance when the Gemini CLI binary is missing.
-
-        Args:
-            command: The command name that was not found.
-
-        Returns:
-            User-facing error message with remediation steps.
-        """
-        return (
-            f"Gemini CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_GEMINI_CLI_CMD to a valid command. "
-            "If running app mode in Docker, rebuild worker images so "
-            "the gemini binary is installed."
         )
 
     def _retry_command_after_failure(

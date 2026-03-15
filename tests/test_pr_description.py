@@ -9,12 +9,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.hands.v1.hand.pr_description import (
+    _BRACKET_BANNER_RE,
     _COMMIT_MSG_DIFF_LIMIT,
+    _COMMIT_MSG_MARKER,
     _COMMIT_MSG_TIMEOUT,
     _COMMIT_SUMMARY_TRUNCATION_LENGTH,
     _COMMIT_TYPE_KEYWORDS,
+    _COMMIT_TYPE_PREFIX_RE,
     _MIN_COMMIT_MSG_LENGTH,
+    _NUMBERED_LIST_RE,
+    _PR_BODY_MARKER,
     _PR_SUMMARY_TRUNCATION_LENGTH,
+    _PR_TITLE_MARKER,
     _PROMPT_CONTEXT_LENGTH,
     PRDescription,
     _build_commit_message_prompt,
@@ -1649,3 +1655,340 @@ class TestCliLabelSimplification:
                 summary="summary",
             )
             assert result is None  # fails due to returncode=1
+
+
+# ---------------------------------------------------------------------------
+# Parser marker constants (v174)
+# ---------------------------------------------------------------------------
+
+
+class TestParserMarkerConstants:
+    """Tests for PR/commit message parser marker constants."""
+
+    def test_pr_title_marker_value(self) -> None:
+        assert _PR_TITLE_MARKER == "PR_TITLE:"
+
+    def test_pr_title_marker_is_str(self) -> None:
+        assert isinstance(_PR_TITLE_MARKER, str)
+
+    def test_pr_body_marker_value(self) -> None:
+        assert _PR_BODY_MARKER == "PR_BODY:"
+
+    def test_pr_body_marker_is_str(self) -> None:
+        assert isinstance(_PR_BODY_MARKER, str)
+
+    def test_commit_msg_marker_value(self) -> None:
+        assert _COMMIT_MSG_MARKER == "COMMIT_MSG:"
+
+    def test_commit_msg_marker_is_str(self) -> None:
+        assert isinstance(_COMMIT_MSG_MARKER, str)
+
+    def test_pr_title_marker_ends_with_colon(self) -> None:
+        assert _PR_TITLE_MARKER.endswith(":")
+
+    def test_pr_body_marker_ends_with_colon(self) -> None:
+        assert _PR_BODY_MARKER.endswith(":")
+
+    def test_commit_msg_marker_ends_with_colon(self) -> None:
+        assert _COMMIT_MSG_MARKER.endswith(":")
+
+    def test_build_prompt_uses_pr_title_marker(self) -> None:
+        """_build_prompt output contains the _PR_TITLE_MARKER constant."""
+        prompt = _build_prompt(diff="x", backend="b", user_prompt="p", summary="")
+        assert _PR_TITLE_MARKER in prompt
+
+    def test_build_prompt_uses_pr_body_marker(self) -> None:
+        """_build_prompt output contains the _PR_BODY_MARKER constant."""
+        prompt = _build_prompt(diff="x", backend="b", user_prompt="p", summary="")
+        assert _PR_BODY_MARKER in prompt
+
+    def test_build_commit_message_prompt_uses_commit_msg_marker(self) -> None:
+        """_build_commit_message_prompt output contains _COMMIT_MSG_MARKER."""
+        prompt = _build_commit_message_prompt(
+            diff="x", backend="b", user_prompt="p", summary=""
+        )
+        assert _COMMIT_MSG_MARKER in prompt
+
+    def test_parse_output_uses_pr_title_marker(self) -> None:
+        """_parse_output correctly parses output using the marker constants."""
+        output = f"{_PR_TITLE_MARKER} My Title\n{_PR_BODY_MARKER}\nBody text"
+        result = _parse_output(output)
+        assert result is not None
+        assert result.title == "My Title"
+        assert result.body == "Body text"
+
+    def test_parse_commit_message_uses_commit_msg_marker(self) -> None:
+        """_parse_commit_message correctly parses using the marker constant."""
+        output = f"{_COMMIT_MSG_MARKER} feat: add new feature"
+        result = _parse_commit_message(output)
+        assert result == "feat: add new feature"
+
+
+# ---------------------------------------------------------------------------
+# _COMMIT_TYPE_PREFIX_RE constant (v174)
+# ---------------------------------------------------------------------------
+
+
+class TestCommitTypePrefixRe:
+    """Tests for the DRYed commit type prefix regex constant."""
+
+    def test_is_compiled_pattern(self) -> None:
+        import re
+
+        assert isinstance(_COMMIT_TYPE_PREFIX_RE, re.Pattern)
+
+    def test_case_insensitive_flag(self) -> None:
+        import re
+
+        assert _COMMIT_TYPE_PREFIX_RE.flags & re.IGNORECASE
+
+    def test_matches_feat_prefix(self) -> None:
+        assert _COMMIT_TYPE_PREFIX_RE.match("feat: add feature")
+
+    def test_matches_fix_prefix(self) -> None:
+        assert _COMMIT_TYPE_PREFIX_RE.match("fix: repair bug")
+
+    def test_matches_prefix_with_scope(self) -> None:
+        assert _COMMIT_TYPE_PREFIX_RE.match("feat(auth): add login")
+
+    def test_no_match_plain_text(self) -> None:
+        assert _COMMIT_TYPE_PREFIX_RE.match("plain text") is None
+
+    def test_is_trivial_uses_constant(self) -> None:
+        """_is_trivial_message uses _COMMIT_TYPE_PREFIX_RE to strip prefix."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._is_trivial_message)
+        assert "_COMMIT_TYPE_PREFIX_RE" in src
+
+    def test_commit_message_from_prompt_uses_constant(self) -> None:
+        """_commit_message_from_prompt uses _COMMIT_TYPE_PREFIX_RE."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._commit_message_from_prompt)
+        assert "_COMMIT_TYPE_PREFIX_RE" in src
+
+    def test_marker_constants_have_docstrings(self) -> None:
+        """All new constants have module-level docstring annotations."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod)
+        assert '_PR_TITLE_MARKER = "PR_TITLE:"\n"""' in src
+        assert '_PR_BODY_MARKER = "PR_BODY:"\n"""' in src
+        assert '_COMMIT_MSG_MARKER = "COMMIT_MSG:"\n"""' in src
+
+
+# ---------------------------------------------------------------------------
+# v189 — generate_pr_description input validation
+# ---------------------------------------------------------------------------
+
+
+class TestGeneratePRDescriptionInputValidation:
+    """Verify generate_pr_description rejects empty/whitespace params."""
+
+    def _common_kwargs(self, tmp_path: Path) -> dict:
+        return {
+            "cmd": ["claude", "-p"],
+            "repo_dir": tmp_path,
+            "base_branch": "main",
+            "backend": "claudecodecli",
+            "prompt": "add feature",
+            "summary": "done",
+        }
+
+    def test_empty_base_branch_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["base_branch"] = ""
+        with pytest.raises(ValueError, match="base_branch"):
+            generate_pr_description(**kwargs)
+
+    def test_whitespace_base_branch_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["base_branch"] = "   "
+        with pytest.raises(ValueError, match="base_branch"):
+            generate_pr_description(**kwargs)
+
+    def test_tab_base_branch_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["base_branch"] = "\t"
+        with pytest.raises(ValueError, match="base_branch"):
+            generate_pr_description(**kwargs)
+
+    def test_empty_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = ""
+        with pytest.raises(ValueError, match="backend"):
+            generate_pr_description(**kwargs)
+
+    def test_whitespace_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = "  \n  "
+        with pytest.raises(ValueError, match="backend"):
+            generate_pr_description(**kwargs)
+
+    def test_cmd_none_skips_validation(self, tmp_path: Path) -> None:
+        """When cmd is None, validation is skipped (early return)."""
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["cmd"] = None
+        kwargs["base_branch"] = ""
+        kwargs["backend"] = ""
+        assert generate_pr_description(**kwargs) is None
+
+    @patch(
+        "helping_hands.lib.hands.v1.hand.pr_description._is_disabled",
+        return_value=True,
+    )
+    def test_valid_params_reach_disabled_check(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
+        """Valid base_branch and backend pass validation."""
+        result = generate_pr_description(**self._common_kwargs(tmp_path))
+        assert result is None  # disabled, but no ValueError
+
+
+# ---------------------------------------------------------------------------
+# v189 — generate_commit_message backend validation
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateCommitMessageBackendValidation:
+    """Verify generate_commit_message rejects empty/whitespace backend."""
+
+    def _common_kwargs(self, tmp_path: Path) -> dict:
+        return {
+            "cmd": ["claude", "-p"],
+            "repo_dir": tmp_path,
+            "backend": "claudecodecli",
+            "prompt": "fix bug",
+            "summary": "fixed",
+        }
+
+    def test_empty_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = ""
+        with pytest.raises(ValueError, match="backend"):
+            generate_commit_message(**kwargs)
+
+    def test_whitespace_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = "   "
+        with pytest.raises(ValueError, match="backend"):
+            generate_commit_message(**kwargs)
+
+    def test_tab_backend_raises(self, tmp_path: Path) -> None:
+        kwargs = self._common_kwargs(tmp_path)
+        kwargs["backend"] = "\t\n"
+        with pytest.raises(ValueError, match="backend"):
+            generate_commit_message(**kwargs)
+
+    @patch(
+        "helping_hands.lib.hands.v1.hand.pr_description._is_disabled",
+        return_value=True,
+    )
+    def test_valid_backend_passes_validation(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
+        """Valid backend passes validation (returns None because disabled)."""
+        result = generate_commit_message(**self._common_kwargs(tmp_path))
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Pre-compiled boilerplate regex constants (v190)
+# ---------------------------------------------------------------------------
+
+
+class TestBracketBannerRe:
+    """Tests for the pre-compiled _BRACKET_BANNER_RE constant."""
+
+    def test_is_compiled_pattern(self) -> None:
+        import re
+
+        assert isinstance(_BRACKET_BANNER_RE, re.Pattern)
+
+    def test_matches_label_banner(self) -> None:
+        assert _BRACKET_BANNER_RE.match("[INFO] key=value")
+
+    def test_matches_nested_brackets(self) -> None:
+        assert _BRACKET_BANNER_RE.match("[some.label] data here")
+
+    def test_no_match_plain_text(self) -> None:
+        assert _BRACKET_BANNER_RE.match("plain text") is None
+
+    def test_no_match_bracket_no_space(self) -> None:
+        assert _BRACKET_BANNER_RE.match("[label]nospace") is None
+
+    def test_boilerplate_uses_constant(self) -> None:
+        """_is_boilerplate_line uses _BRACKET_BANNER_RE."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._is_boilerplate_line)
+        assert "_BRACKET_BANNER_RE" in src
+
+
+class TestNumberedListRe:
+    """Tests for the pre-compiled _NUMBERED_LIST_RE constant."""
+
+    def test_is_compiled_pattern(self) -> None:
+        import re
+
+        assert isinstance(_NUMBERED_LIST_RE, re.Pattern)
+
+    def test_matches_numbered_item(self) -> None:
+        assert _NUMBERED_LIST_RE.match("1. Read README.md")
+
+    def test_matches_two_digit(self) -> None:
+        assert _NUMBERED_LIST_RE.match("12. Step twelve")
+
+    def test_no_match_plain_text(self) -> None:
+        assert _NUMBERED_LIST_RE.match("plain text") is None
+
+    def test_no_match_no_space(self) -> None:
+        assert _NUMBERED_LIST_RE.match("1.nospace") is None
+
+    def test_boilerplate_uses_constant(self) -> None:
+        """_is_boilerplate_line uses _NUMBERED_LIST_RE."""
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        src = inspect.getsource(mod._is_boilerplate_line)
+        assert "_NUMBERED_LIST_RE" in src
+
+
+class TestModuleLevelReImport:
+    """Verify re is imported at module level (v190 DRY improvement)."""
+
+    def test_re_in_module_globals(self) -> None:
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        assert hasattr(mod, "re")
+
+    def test_no_function_local_re_imports(self) -> None:
+        """No function should have a local ``import re`` statement."""
+        import ast
+        import inspect
+
+        import helping_hands.lib.hands.v1.hand.pr_description as mod
+
+        source = inspect.getsource(mod)
+        tree = ast.parse(source)
+        local_re_imports = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Import):
+                        for alias in child.names:
+                            if alias.name == "re":
+                                local_re_imports.append(node.name)
+        assert local_re_imports == [], (
+            f"Functions with local 'import re': {local_re_imports}"
+        )

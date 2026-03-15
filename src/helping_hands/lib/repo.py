@@ -13,12 +13,17 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RepoIndex:
-    """Structural map of a repository."""
+    """Structural map of a repository.
+
+    Attributes:
+        root: Absolute path to the repository root directory.
+        files: Sorted list of relative file paths (excludes ``.git``).
+        reference_repos: Read-only reference repos as ``(name, local_path)`` pairs.
+    """
 
     root: Path
     files: list[str] = field(default_factory=list)
     reference_repos: list[tuple[str, Path]] = field(default_factory=list)
-    """Each entry is ``(name, local_path)`` for a read-only reference repo."""
 
     @classmethod
     def from_path(cls, path: Path) -> RepoIndex:

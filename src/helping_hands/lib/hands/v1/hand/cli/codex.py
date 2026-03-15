@@ -6,7 +6,8 @@ import os
 from pathlib import Path
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _FAILURE_OUTPUT_TAIL_LENGTH,
+    _DOCKER_ENV_HINT_TEMPLATE,
+    _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
 
@@ -50,17 +51,15 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         Returns:
             Formatted error message with output tail and optional auth hint.
         """
-        tail = output.strip()[-_FAILURE_OUTPUT_TAIL_LENGTH:]
-        lower_tail = tail.lower()
-        if (
-            "401 unauthorized" in lower_tail
-            or "missing bearer or basic authentication" in lower_tail
-        ):
+        is_auth, tail = _detect_auth_failure(
+            output,
+            extra_tokens=("missing bearer or basic authentication",),
+        )
+        if is_auth:
             return (
                 "Codex CLI authentication failed (401 Unauthorized). "
                 "Ensure OPENAI_API_KEY is set in this runtime. "
-                "If running app mode in Docker, set OPENAI_API_KEY in .env "
-                "and recreate server/worker containers.\n"
+                f"{_DOCKER_ENV_HINT_TEMPLATE.format('OPENAI_API_KEY')}\n"
                 f"Output:\n{tail}"
             )
         return f"Codex CLI failed (exit={return_code}). Output:\n{tail}"
@@ -171,22 +170,6 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         return self._build_codex_failure_message(
             return_code=return_code,
             output=output,
-        )
-
-    def _command_not_found_message(self, command: str) -> str:
-        """Return guidance when the Codex CLI binary is missing.
-
-        Args:
-            command: The command name that was not found.
-
-        Returns:
-            User-facing error message with remediation steps.
-        """
-        return (
-            f"Codex CLI command not found: {command!r}. "
-            "Set HELPING_HANDS_CODEX_CLI_CMD to a valid command. "
-            "If running app mode in Docker, rebuild worker images so "
-            "the codex binary is installed."
         )
 
     async def _invoke_codex(

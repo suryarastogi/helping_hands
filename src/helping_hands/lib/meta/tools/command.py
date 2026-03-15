@@ -1,7 +1,7 @@
 """Command execution tools for repo-aware runtime actions.
 
 These helpers provide a shared, path-confined execution surface for:
-- ``python.run_code`` (defaulting to Python 3.13 via ``uv run``)
+- ``python.run_code`` (defaulting to ``_DEFAULT_PYTHON_VERSION`` via ``uv run``)
 - ``python.run_script``
 - ``bash.run_script``
 """
@@ -16,8 +16,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from helping_hands.lib.meta.tools.filesystem import resolve_repo_target
+from helping_hands.lib.validation import require_positive_int
 
-__all__ = ["CommandResult", "run_bash_script", "run_python_code", "run_python_script"]
+__all__ = [
+    "CommandResult",
+    "run_bash_script",
+    "run_python_code",
+    "run_python_script",
+]
 
 # --- Exit code constants (standard Unix conventions) --------------------------
 
@@ -30,10 +36,25 @@ _EXIT_CODE_CANNOT_EXECUTE = 126
 _EXIT_CODE_NOT_FOUND = 127
 """Exit code returned when the command binary is not found (FileNotFoundError)."""
 
+_DEFAULT_SCRIPT_TIMEOUT_S = 60
+"""Default timeout in seconds for Python and bash script execution."""
+
+_DEFAULT_PYTHON_VERSION = "3.13"
+"""Default Python version used for code/script execution tools."""
+
 
 @dataclass(frozen=True)
 class CommandResult:
-    """Captured result of a command execution."""
+    """Captured result of a command execution.
+
+    Attributes:
+        command: Argv list that was executed.
+        cwd: Working directory the command ran in.
+        exit_code: Process exit code (0 = success).
+        stdout: Captured standard output.
+        stderr: Captured standard error.
+        timed_out: Whether the command was killed due to timeout.
+    """
 
     command: list[str]
     cwd: str
@@ -49,6 +70,18 @@ class CommandResult:
 
 
 def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
+    """Validate and normalise a command argument sequence.
+
+    Args:
+        args: Optional sequence of argument strings.  ``None`` or an empty
+            sequence produces an empty list.
+
+    Returns:
+        A new list of validated string arguments.
+
+    Raises:
+        TypeError: If any element in *args* is not a string.
+    """
     if not args:
         return []
     normalized: list[str] = []
@@ -61,6 +94,22 @@ def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
 
 
 def _resolve_cwd(repo_root: Path, cwd: str | None) -> Path:
+    """Resolve the working directory for a command execution.
+
+    If *cwd* is ``None`` or whitespace-only the resolved *repo_root* is
+    returned.  Otherwise the path is resolved relative to *repo_root*
+    using :func:`resolve_repo_target` and verified to be a directory.
+
+    Args:
+        repo_root: Absolute path to the repository root.
+        cwd: Optional repo-relative working directory.
+
+    Returns:
+        The resolved working directory as an absolute :class:`~pathlib.Path`.
+
+    Raises:
+        NotADirectoryError: If *cwd* resolves to a non-directory path.
+    """
     root = repo_root.resolve()
     if cwd is None or not cwd.strip():
         return root
@@ -72,6 +121,22 @@ def _resolve_cwd(repo_root: Path, cwd: str | None) -> Path:
 
 
 def _resolve_python_command(python_version: str) -> list[str]:
+    """Build the argv prefix for running Python at a specific version.
+
+    Prefers ``uv run --python <version> python`` when *uv* is available,
+    falling back to a bare ``python<version>`` binary on ``PATH``.
+
+    Args:
+        python_version: Desired Python version string (e.g. ``"3.13"``).
+
+    Returns:
+        Argv list suitable for prepending to a Python command.
+
+    Raises:
+        ValueError: If *python_version* is empty or whitespace-only.
+        RuntimeError: If neither *uv* nor the versioned Python binary is
+            found on ``PATH``.
+    """
     version = python_version.strip()
     if not version:
         raise ValueError("python_version is required")
@@ -91,8 +156,24 @@ def _resolve_python_command(python_version: str) -> list[str]:
 
 
 def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandResult:
-    if timeout_s <= 0:
-        raise ValueError("timeout_s must be > 0")
+    """Execute a subprocess and capture its result.
+
+    Handles timeout (exit code 124), missing binary (exit code 127), and
+    general OS errors (exit code 126) without raising — the caller
+    inspects the returned :class:`CommandResult` instead.
+
+    Args:
+        command: Argv list to execute.
+        cwd: Working directory for the subprocess.
+        timeout_s: Maximum execution time in seconds.
+
+    Returns:
+        A :class:`CommandResult` with captured stdout/stderr and exit code.
+
+    Raises:
+        ValueError: If *timeout_s* is not positive.
+    """
+    require_positive_int(timeout_s, "timeout_s")
 
     try:
         completed = subprocess.run(
@@ -143,13 +224,37 @@ def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandRes
     )
 
 
+def _validate_script_path(root: Path, script_path: str) -> Path:
+    """Resolve and validate a repo-relative script path.
+
+    Args:
+        root: Resolved repository root directory.
+        script_path: Repo-relative path to the script file.
+
+    Returns:
+        The resolved absolute :class:`~pathlib.Path` to the script.
+
+    Raises:
+        FileNotFoundError: If the resolved path does not exist.
+        IsADirectoryError: If the resolved path is a directory.
+    """
+    script = resolve_repo_target(root, script_path)
+    if not script.exists():
+        msg = f"script not found: {script_path}"
+        raise FileNotFoundError(msg)
+    if script.is_dir():
+        msg = f"script path is a directory: {script_path}"
+        raise IsADirectoryError(msg)
+    return script
+
+
 def run_python_code(
     repo_root: Path,
     *,
     code: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | tuple[str, ...] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
 ) -> CommandResult:
     """Execute inline Python code with a version-constrained runner."""
@@ -170,20 +275,14 @@ def run_python_script(
     repo_root: Path,
     *,
     script_path: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | tuple[str, ...] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
 ) -> CommandResult:
     """Execute a repo-relative Python script with a version-constrained runner."""
     root = repo_root.resolve()
-    script = resolve_repo_target(root, script_path)
-    if not script.exists():
-        msg = f"script not found: {script_path}"
-        raise FileNotFoundError(msg)
-    if script.is_dir():
-        msg = f"script path is a directory: {script_path}"
-        raise IsADirectoryError(msg)
+    script = _validate_script_path(root, script_path)
 
     working_dir = _resolve_cwd(root, cwd)
     command = [
@@ -200,7 +299,7 @@ def run_bash_script(
     script_path: str | None = None,
     inline_script: str | None = None,
     args: list[str] | tuple[str, ...] | None = None,
-    timeout_s: int = 60,
+    timeout_s: int = _DEFAULT_SCRIPT_TIMEOUT_S,
     cwd: str | None = None,
 ) -> CommandResult:
     """Execute bash from either a repo-relative script path or inline script."""
@@ -217,13 +316,7 @@ def run_bash_script(
     if has_script_path:
         if script_path is None:  # pragma: no cover - guarded by has_script_path
             raise RuntimeError("script_path is unexpectedly None")
-        script = resolve_repo_target(root, script_path)
-        if not script.exists():
-            msg = f"script not found: {script_path}"
-            raise FileNotFoundError(msg)
-        if script.is_dir():
-            msg = f"script path is a directory: {script_path}"
-            raise IsADirectoryError(msg)
+        script = _validate_script_path(root, script_path)
         command = ["bash", str(script), *normalized_args]
         return _run_command(command, cwd=working_dir, timeout_s=timeout_s)
 

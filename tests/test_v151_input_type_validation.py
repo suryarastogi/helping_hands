@@ -92,9 +92,9 @@ class TestNormalizeToolSelectionTypeValidation:
         assert "execution" in result
 
     def test_guard_in_source(self) -> None:
-        from helping_hands.lib.meta.tools.registry import normalize_tool_selection
+        from helping_hands.lib.meta.tools.registry import _normalize_and_deduplicate
 
-        source = inspect.getsource(normalize_tool_selection)
+        source = inspect.getsource(_normalize_and_deduplicate)
         assert "isinstance(values, (str, list, tuple))" in source
 
 
@@ -148,9 +148,9 @@ class TestNormalizeSkillSelectionTypeValidation:
         assert "prd" in result
 
     def test_guard_in_source(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
+        from helping_hands.lib.meta.tools.registry import _normalize_and_deduplicate
 
-        source = inspect.getsource(normalize_skill_selection)
+        source = inspect.getsource(_normalize_and_deduplicate)
         assert "isinstance(values, (str, list, tuple))" in source
 
 

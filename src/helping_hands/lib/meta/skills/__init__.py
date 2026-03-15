@@ -12,10 +12,18 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from helping_hands.lib.meta.tools.registry import _normalize_and_deduplicate
+
 
 @dataclass(frozen=True)
 class SkillSpec:
-    """Declarative skill metadata loaded from the catalog."""
+    """Declarative skill metadata loaded from the catalog.
+
+    Attributes:
+        name: Slug identifier derived from the catalog filename (e.g. ``"execution"``).
+        title: Human-readable title extracted from the ``# Heading`` in the Markdown file.
+        content: Full Markdown text of the skill knowledge file.
+    """
 
     name: str
     title: str
@@ -65,30 +73,7 @@ def normalize_skill_selection(
     values: str | list[str] | tuple[str, ...] | None,
 ) -> tuple[str, ...]:
     """Normalize user-provided skill names into a deduplicated tuple."""
-    if values is None:
-        return ()
-    if not isinstance(values, (str, list, tuple)):
-        raise TypeError("skills must be a string, list, or tuple")
-
-    tokens: list[str] = []
-    candidates = values.split(",") if isinstance(values, str) else list(values)
-
-    for raw in candidates:
-        if not isinstance(raw, str):
-            raise ValueError("skills must contain only strings")
-        for item in raw.split(","):
-            normalized = item.strip().lower().replace("_", "-")
-            if normalized:
-                tokens.append(normalized)
-
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for token in tokens:
-        if token in seen:
-            continue
-        seen.add(token)
-        ordered.append(token)
-    return tuple(ordered)
+    return _normalize_and_deduplicate(values, label="skills")
 
 
 def validate_skill_names(skill_names: tuple[str, ...]) -> None:

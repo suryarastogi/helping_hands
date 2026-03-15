@@ -19,18 +19,26 @@ import subprocess
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from helping_hands.lib.github_url import (
+    GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
+)
+from helping_hands.lib.github_url import (
+    GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
+)
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
+from helping_hands.lib.validation import require_non_empty_string
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["Hand", "HandResponse"]
+__all__ = ["Hand", "HandResponse", "PRStatus"]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -70,6 +78,94 @@ _GIT_READ_TIMEOUT_S = 30
 _PRECOMMIT_TIMEOUT_S = 300
 """Seconds timeout for ``uv run pre-commit run --all-files`` subprocesses."""
 
+_PRECOMMIT_UV_MISSING_MSG = (
+    "failed to run pre-commit before PR finalization: uv is not available. "
+    "Install uv/pre-commit or disable execution tools."
+)
+"""Error message when ``uv`` is not found during pre-commit execution."""
+
+_DEFAULT_GIT_ERROR_MSG = "unknown git error"
+"""Fallback message when a git subprocess returns non-zero with empty stderr."""
+
+_DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
+"""Fallback commit message when ``generate_commit_message`` returns empty."""
+
+_DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
+"""Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
+
+
+def _utc_stamp() -> str:
+    """Return the current UTC time as an ISO-8601 string without microseconds.
+
+    Returns:
+        ISO-8601 formatted UTC timestamp, e.g. ``"2026-03-15T12:00:00+00:00"``.
+    """
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+# --- PR status enum -----------------------------------------------------------
+
+
+class PRStatus(StrEnum):
+    """All possible outcomes of the PR finalization step.
+
+    Being a :class:`StrEnum`, each member compares equal to its string value
+    (e.g. ``PRStatus.CREATED == "created"``), so serialised metadata dicts
+    remain human-readable and backward-compatible.
+    """
+
+    CREATED = "created"
+    """PR was successfully created in this run."""
+
+    UPDATED = "updated"
+    """An existing PR was updated (pushed new commits)."""
+
+    NO_CHANGES = "no_changes"
+    """No file changes were detected; PR creation was skipped."""
+
+    DISABLED = "disabled"
+    """PR creation was explicitly disabled (``--no-pr``)."""
+
+    NOT_ATTEMPTED = "not_attempted"
+    """PR creation was not attempted (e.g. no GitHub remote found)."""
+
+    NO_REPO = "no_repo"
+    """Repository directory does not exist."""
+
+    NOT_GIT_REPO = "not_git_repo"
+    """Directory is not inside a git work tree."""
+
+    NO_GITHUB_ORIGIN = "no_github_origin"
+    """No GitHub remote origin was detected."""
+
+    PRECOMMIT_FAILED = "precommit_failed"
+    """Pre-commit hooks failed and could not be auto-fixed."""
+
+    MISSING_TOKEN = "missing_token"
+    """GitHub token was missing or invalid."""
+
+    GIT_ERROR = "git_error"
+    """A git subprocess returned a non-zero exit code."""
+
+    ERROR = "error"
+    """An unexpected error occurred during finalization."""
+
+
+PR_STATUSES_WITH_URL = frozenset({PRStatus.CREATED, PRStatus.UPDATED})
+"""PR status values that indicate a PR URL is available."""
+
+PR_STATUSES_SKIPPED = frozenset({PRStatus.NO_CHANGES, PRStatus.DISABLED})
+"""PR status values that indicate finalization was intentionally skipped."""
+
+# Backward-compatible aliases so existing imports keep working.
+_PR_STATUS_CREATED = PRStatus.CREATED
+_PR_STATUS_UPDATED = PRStatus.UPDATED
+_PR_STATUS_NO_CHANGES = PRStatus.NO_CHANGES
+_PR_STATUS_DISABLED = PRStatus.DISABLED
+_PR_STATUS_NOT_ATTEMPTED = PRStatus.NOT_ATTEMPTED
+_PR_STATUSES_WITH_URL = PR_STATUSES_WITH_URL
+_PR_STATUSES_SKIPPED = PR_STATUSES_SKIPPED
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -77,7 +173,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class HandResponse:
-    """Standardised response from any Hand backend."""
+    """Standardised response from any Hand backend.
+
+    Attributes:
+        message: Human-readable summary of what the hand accomplished.
+        metadata: Arbitrary key-value pairs (e.g. PR URL, commit SHA).
+    """
 
     message: str
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -87,6 +188,15 @@ class Hand(abc.ABC):
     """Abstract base for all Hand backends."""
 
     def __init__(self, config: Config, repo_index: RepoIndex) -> None:
+        """Initialise the hand with configuration and repository context.
+
+        Resolves the tool categories and skill catalog based on the config,
+        and sets default values for PR-related flags.
+
+        Args:
+            config: Runtime configuration (model, flags, tokens, etc.).
+            repo_index: Pre-built index of the target repository.
+        """
         self.config = config
         self.repo_index = repo_index
         self._interrupt_event = Event()
@@ -116,7 +226,15 @@ class Hand(abc.ABC):
         self._selected_skills = system_skills.resolve_skills(skill_names)
 
     def _build_system_prompt(self) -> str:
-        """Build a system prompt that includes repo context."""
+        """Build a system prompt that includes repo context.
+
+        Assembles a prompt containing the repo root path, a bounded file
+        listing (up to :data:`_FILE_LIST_PREVIEW_LIMIT` entries), and an
+        optional reference-repositories section.
+
+        Returns:
+            Markdown-formatted system prompt string.
+        """
         file_list = "\n".join(
             f"  - {f}" for f in self.repo_index.files[:_FILE_LIST_PREVIEW_LIMIT]
         )
@@ -131,7 +249,15 @@ class Hand(abc.ABC):
         )
 
     def _build_reference_repos_prompt_section(self) -> str:
-        """Build a prompt section describing read-only reference repos."""
+        """Build a prompt section describing read-only reference repos.
+
+        Iterates over ``self.repo_index.reference_repos`` and lists each
+        repo's files (up to :data:`_FILE_LIST_PREVIEW_LIMIT`).  Returns an
+        empty string when no reference repos are configured.
+
+        Returns:
+            Newline-delimited prompt section, or ``""`` if none.
+        """
         if not self.repo_index.reference_repos:
             return ""
         parts: list[str] = ["\n\nReference repositories (read-only, do not modify):"]
@@ -158,11 +284,19 @@ class Hand(abc.ABC):
         """Send a prompt and yield response chunks as they arrive."""
 
     def interrupt(self) -> None:
-        """Request cooperative interruption for long-running runs/streams."""
+        """Request cooperative interruption for long-running runs/streams.
+
+        Sets the internal event flag so that implementations checking
+        ``_is_interrupted()`` can break out of their processing loop.
+        """
         self._interrupt_event.set()
 
     def reset_interrupt(self) -> None:
-        """Clear any pending interruption request."""
+        """Clear any pending interruption request.
+
+        Resets the internal event flag so that ``_is_interrupted()`` returns
+        False, allowing a new ``run()`` or ``stream()`` cycle.
+        """
         self._interrupt_event.clear()
 
     def _is_interrupted(self) -> bool:
@@ -242,7 +376,7 @@ class Hand(abc.ABC):
 
         parsed = urlparse(remote)
         hostname = (parsed.hostname or "").lower()
-        if parsed.scheme in {"http", "https", "ssh"} and hostname == "github.com":
+        if parsed.scheme in {"http", "https", "ssh"} and hostname == _GITHUB_HOSTNAME:
             repo = parsed.path.lstrip("/")
             if repo.endswith(".git"):
                 repo = repo[:-4]
@@ -250,7 +384,7 @@ class Hand(abc.ABC):
                 return repo
 
         scp_like = re.match(
-            r"^git@github\.com:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+            rf"^git@{re.escape(_GITHUB_HOSTNAME)}:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
             remote,
         )
         if scp_like:
@@ -279,12 +413,13 @@ class Hand(abc.ABC):
             Markdown string suitable for a GitHub PR body.
 
         Raises:
-            ValueError: If *backend* or *prompt* is empty/whitespace.
+            ValueError: If *backend*, *prompt*, *commit_sha*, or
+                *stamp_utc* is empty/whitespace.
         """
-        if not backend or not backend.strip():
-            raise ValueError("backend must not be empty")
-        if not prompt or not prompt.strip():
-            raise ValueError("prompt must not be empty")
+        require_non_empty_string(backend, "backend")
+        require_non_empty_string(prompt, "prompt")
+        require_non_empty_string(commit_sha, "commit_sha")
+        require_non_empty_string(stamp_utc, "stamp_utc")
         return (
             f"Automated update from `{backend}`.\n\n"
             f"- latest_updated_utc: `{stamp_utc}`\n"
@@ -293,6 +428,40 @@ class Hand(abc.ABC):
             "## Summary\n\n"
             f"{summary.strip() or 'No summary provided.'}\n"
         )
+
+    @staticmethod
+    def _pr_result_metadata(
+        metadata: dict[str, str],
+        *,
+        status: PRStatus,
+        pr_url: str,
+        pr_number: str,
+        pr_branch: str,
+        pr_commit: str,
+    ) -> dict[str, str]:
+        """Update *metadata* with the standard PR result fields and return it.
+
+        Args:
+            metadata: Mutable metadata dict to update.
+            status: PR finalization outcome.
+            pr_url: URL of the created/updated PR.
+            pr_number: PR number as a string.
+            pr_branch: Name of the PR head branch.
+            pr_commit: Latest commit SHA on the PR branch.
+
+        Returns:
+            The same *metadata* dict, updated in-place.
+        """
+        metadata.update(
+            {
+                "pr_status": status,
+                "pr_url": pr_url,
+                "pr_number": pr_number,
+                "pr_branch": pr_branch,
+                "pr_commit": pr_commit,
+            }
+        )
+        return metadata
 
     @staticmethod
     def _configure_authenticated_push_remote(
@@ -314,11 +483,9 @@ class Hand(abc.ABC):
             RuntimeError: If the ``git remote set-url`` command fails or
                 times out.
         """
-        if not repo or not repo.strip():
-            raise ValueError("repo must not be empty")
-        if not token or not token.strip():
-            raise ValueError("token must not be empty")
-        push_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+        require_non_empty_string(repo, "repo")
+        require_non_empty_string(token, "token")
+        push_url = f"https://{_GITHUB_TOKEN_USER}:{token}@{_GITHUB_HOSTNAME}/{repo}.git"
         try:
             result = subprocess.run(
                 ["git", "remote", "set-url", "--push", "origin", push_url],
@@ -337,12 +504,24 @@ class Hand(abc.ABC):
                 f"git remote set-url timed out after {_GIT_READ_TIMEOUT_S}s"
             ) from None
         if result.returncode != 0:
-            stderr = result.stderr.strip() or "unknown git error"
+            stderr = result.stderr.strip() or _DEFAULT_GIT_ERROR_MSG
             msg = f"failed to configure authenticated push remote: {stderr}"
             raise RuntimeError(msg)
 
     def _use_native_git_auth_for_push(self, *, github_token: str) -> bool:
-        """Whether PR push should use the repo's existing git auth setup."""
+        """Whether PR push should use the repo's existing git auth setup.
+
+        Returns True only when no explicit GitHub token was provided *and*
+        the config's ``use_native_cli_auth`` flag is set, allowing the push
+        to use whatever credential helper is already configured in git.
+
+        Args:
+            github_token: The resolved GitHub token string.
+
+        Returns:
+            True if native git auth should be used instead of token-based
+            push URL rewriting.
+        """
         if github_token.strip():
             return False
         return bool(getattr(self.config, "use_native_cli_auth", False))
@@ -456,11 +635,7 @@ class Hand(abc.ABC):
         try:
             first_pass = _run_once()
         except FileNotFoundError as exc:
-            msg = (
-                "failed to run pre-commit before PR finalization: uv is not available. "
-                "Install uv/pre-commit or disable execution tools."
-            )
-            raise RuntimeError(msg) from exc
+            raise RuntimeError(_PRECOMMIT_UV_MISSING_MSG) from exc
 
         if first_pass.returncode == 0:
             return
@@ -468,11 +643,7 @@ class Hand(abc.ABC):
         try:
             second_pass = _run_once()
         except FileNotFoundError as exc:
-            msg = (
-                "failed to run pre-commit before PR finalization: uv is not available. "
-                "Install uv/pre-commit or disable execution tools."
-            )
-            raise RuntimeError(msg) from exc
+            raise RuntimeError(_PRECOMMIT_UV_MISSING_MSG) from exc
         if second_pass.returncode == 0:
             return
 
@@ -502,7 +673,17 @@ class Hand(abc.ABC):
         repo_dir: Path,
         branch: str,
     ) -> None:
-        """Push with git credential prompts suppressed."""
+        """Push a branch with git credential prompts suppressed.
+
+        Temporarily sets ``GIT_TERMINAL_PROMPT=0`` and
+        ``GCM_INTERACTIVE=never`` to prevent interactive auth prompts,
+        then restores the original environment values after the push.
+
+        Args:
+            gh: A :class:`~helping_hands.lib.github.GitHubClient` instance.
+            repo_dir: Path to the local git repository.
+            branch: Branch name to push with ``--set-upstream``.
+        """
         prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
         prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
         os.environ["GIT_TERMINAL_PROMPT"] = "0"
@@ -549,16 +730,13 @@ class Hand(abc.ABC):
             generate_commit_message,
         )
 
-        commit_msg = (
-            generate_commit_message(
-                cmd=self._pr_description_cmd(),
-                repo_dir=repo_dir,
-                backend=backend,
-                prompt=prompt,
-                summary=summary,
-            )
-            or f"feat({backend}): apply hand updates"
-        )
+        commit_msg = generate_commit_message(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
         commit_sha = self._add_and_commit_with_hook_retry(
             gh,
@@ -611,16 +789,14 @@ class Hand(abc.ABC):
                 commit_sha=commit_sha,
             )
 
-        metadata.update(
-            {
-                "pr_status": "updated",
-                "pr_url": pr_url,
-                "pr_number": str(self.pr_number),
-                "pr_branch": branch,
-                "pr_commit": commit_sha,
-            }
+        return self._pr_result_metadata(
+            metadata,
+            status=PRStatus.UPDATED,
+            pr_url=pr_url,
+            pr_number=str(self.pr_number),
+            pr_branch=branch,
+            pr_commit=commit_sha,
         )
-        return metadata
 
     def _update_pr_description(
         self,
@@ -639,7 +815,7 @@ class Hand(abc.ABC):
             raise ValueError(
                 "pr_number must be set before calling _update_pr_description"
             )
-        stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+        stamp = _utc_stamp()
         from helping_hands.lib.hands.v1.hand.pr_description import (
             generate_pr_description,
         )
@@ -695,7 +871,7 @@ class Hand(abc.ABC):
         gh.create_branch(repo_dir, new_branch)
         self._push_noninteractive(gh, repo_dir, new_branch)
 
-        stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+        stamp = _utc_stamp()
         from helping_hands.lib.hands.v1.hand.pr_description import (
             generate_pr_description,
         )
@@ -716,10 +892,9 @@ class Hand(abc.ABC):
                 _commit_message_from_prompt,
             )
 
-            pr_title = (
-                _commit_message_from_prompt(prompt, summary)
-                or f"feat({backend}): automated hand update"
-            )
+            pr_title = _commit_message_from_prompt(
+                prompt, summary
+            ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
             pr_body = self._build_generic_pr_body(
                 backend=backend,
                 prompt=prompt,
@@ -736,16 +911,14 @@ class Hand(abc.ABC):
             head=new_branch,
             base=pr_branch,
         )
-        metadata.update(
-            {
-                "pr_status": "created",
-                "pr_url": pr.url,
-                "pr_number": str(pr.number),
-                "pr_branch": new_branch,
-                "pr_commit": commit_sha,
-            }
+        return self._pr_result_metadata(
+            metadata,
+            status=PRStatus.CREATED,
+            pr_url=pr.url,
+            pr_number=str(pr.number),
+            pr_branch=new_branch,
+            pr_commit=commit_sha,
         )
-        return metadata
 
     def _finalize_repo_pr(
         self,
@@ -774,48 +947,48 @@ class Hand(abc.ABC):
         """
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": "not_attempted",
+            "pr_status": _PR_STATUS_NOT_ATTEMPTED,
             "pr_url": "",
             "pr_number": "",
             "pr_branch": "",
             "pr_commit": "",
         }
         if not self.auto_pr:
-            metadata["pr_status"] = "disabled"
+            metadata["pr_status"] = _PR_STATUS_DISABLED
             return metadata
 
         repo_dir = self.repo_index.root.resolve()
         if not repo_dir.is_dir():
-            metadata["pr_status"] = "no_repo"
+            metadata["pr_status"] = PRStatus.NO_REPO
             return metadata
 
         inside_work_tree = self._run_git_read(
             repo_dir, "rev-parse", "--is-inside-work-tree"
         )
         if inside_work_tree != "true":
-            metadata["pr_status"] = "not_git_repo"
+            metadata["pr_status"] = PRStatus.NOT_GIT_REPO
             return metadata
 
         has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
         if not has_changes:
-            metadata["pr_status"] = "no_changes"
+            metadata["pr_status"] = _PR_STATUS_NO_CHANGES
             return metadata
 
         repo = self._github_repo_from_origin(repo_dir)
         if not repo:
-            metadata["pr_status"] = "no_github_origin"
+            metadata["pr_status"] = PRStatus.NO_GITHUB_ORIGIN
             return metadata
 
         if self._should_run_precommit_before_pr():
             try:
                 self._run_precommit_checks_and_fixes(repo_dir)
             except RuntimeError as exc:
-                metadata["pr_status"] = "precommit_failed"
+                metadata["pr_status"] = PRStatus.PRECOMMIT_FAILED
                 metadata["pr_error"] = str(exc)
                 return metadata
             has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
             if not has_changes:
-                metadata["pr_status"] = "no_changes"
+                metadata["pr_status"] = _PR_STATUS_NO_CHANGES
                 return metadata
 
         from helping_hands.lib.github import GitHubClient
@@ -853,16 +1026,13 @@ class Hand(abc.ABC):
                     generate_commit_message,
                 )
 
-                commit_msg = (
-                    generate_commit_message(
-                        cmd=self._pr_description_cmd(),
-                        repo_dir=repo_dir,
-                        backend=backend,
-                        prompt=prompt,
-                        summary=summary,
-                    )
-                    or f"feat({backend}): apply hand updates"
-                )
+                commit_msg = generate_commit_message(
+                    cmd=self._pr_description_cmd(),
+                    repo_dir=repo_dir,
+                    backend=backend,
+                    prompt=prompt,
+                    summary=summary,
+                ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
                 commit_sha = self._add_and_commit_with_hook_retry(
                     gh,
@@ -884,7 +1054,7 @@ class Hand(abc.ABC):
                         exc_info=True,
                     )
 
-                stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+                stamp = _utc_stamp()
 
                 from helping_hands.lib.hands.v1.hand.pr_description import (
                     generate_pr_description,
@@ -906,10 +1076,9 @@ class Hand(abc.ABC):
                         _commit_message_from_prompt,
                     )
 
-                    pr_title = (
-                        _commit_message_from_prompt(prompt, summary)
-                        or f"feat({backend}): automated hand update"
-                    )
+                    pr_title = _commit_message_from_prompt(
+                        prompt, summary
+                    ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
                     pr_body = self._build_generic_pr_body(
                         backend=backend,
                         prompt=prompt,
@@ -925,25 +1094,24 @@ class Hand(abc.ABC):
                     head=branch,
                     base=base_branch,
                 )
-                metadata.update(
-                    {
-                        "pr_status": "created",
-                        "pr_url": pr.url,
-                        "pr_number": str(pr.number),
-                        "pr_branch": branch,
-                        "pr_commit": commit_sha,
-                    }
+                return self._pr_result_metadata(
+                    metadata,
+                    status=PRStatus.CREATED,
+                    pr_url=pr.url,
+                    pr_number=str(pr.number),
+                    pr_branch=branch,
+                    pr_commit=commit_sha,
                 )
-                return metadata
         except ValueError as exc:
-            metadata["pr_status"] = "missing_token"
+            metadata["pr_status"] = PRStatus.MISSING_TOKEN
             metadata["pr_error"] = str(exc)
             return metadata
         except RuntimeError as exc:
-            metadata["pr_status"] = "git_error"
+            metadata["pr_status"] = PRStatus.GIT_ERROR
             metadata["pr_error"] = str(exc)
             return metadata
         except Exception as exc:
-            metadata["pr_status"] = "error"
+            logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
+            metadata["pr_status"] = PRStatus.ERROR
             metadata["pr_error"] = str(exc)
             return metadata

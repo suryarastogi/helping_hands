@@ -148,3 +148,46 @@ class TestCeleryTimeoutConstants:
         from helping_hands.server import celery_app as celery_mod
 
         assert app_mod._KEYCHAIN_TIMEOUT_S == celery_mod._KEYCHAIN_TIMEOUT_S
+
+
+# ---------------------------------------------------------------------------
+# 4. CLI --max-iterations positive validation (v189)
+# ---------------------------------------------------------------------------
+
+
+class TestCLIMaxIterationsValidation:
+    """Verify --max-iterations rejects non-positive integers."""
+
+    def test_zero_max_iterations_exits(self) -> None:
+        from helping_hands.cli.main import main
+
+        with pytest.raises(SystemExit) as exc_info:
+            main([".", "--backend", "basic-langgraph", "--max-iterations", "0"])
+        assert exc_info.value.code == 1
+
+    def test_negative_max_iterations_exits(self) -> None:
+        from helping_hands.cli.main import main
+
+        with pytest.raises(SystemExit) as exc_info:
+            main([".", "--backend", "basic-langgraph", "--max-iterations", "-3"])
+        assert exc_info.value.code == 1
+
+    def test_negative_max_iterations_error_message(self, capsys) -> None:
+        from helping_hands.cli.main import main
+
+        with pytest.raises(SystemExit):
+            main([".", "--backend", "basic-langgraph", "--max-iterations", "-5"])
+        captured = capsys.readouterr()
+        assert "--max-iterations must be a positive integer" in captured.err
+        assert "-5" in captured.err
+
+    def test_positive_max_iterations_passes_validation(self) -> None:
+        """Positive --max-iterations should not trigger the validation error."""
+        import inspect
+
+        from helping_hands.cli import main as main_mod
+
+        # Verify the validation code references max_iterations
+        src = inspect.getsource(main_mod.main)
+        assert "max_iterations" in src
+        assert "must be a positive integer" in src

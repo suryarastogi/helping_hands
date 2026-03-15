@@ -12,7 +12,7 @@ Tools:
   - write_file: Write a UTF-8 file in a repository.
   - mkdir: Create a directory in a repository.
   - path_exists: Check whether a repo-relative path exists.
-  - run_python_code: Execute inline Python code (default Python 3.13).
+  - run_python_code: Execute inline Python code (default ``_DEFAULT_PYTHON_VERSION``).
   - run_python_script: Execute a repo-relative Python script.
   - run_bash_script: Execute a repo-relative or inline bash script.
   - web_search: Search the web (DuckDuckGo endpoint wrapper).
@@ -39,7 +39,9 @@ from helping_hands.lib.meta.tools import command as exec_tools
 from helping_hands.lib.meta.tools import filesystem as fs_tools
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.meta.tools.command import _DEFAULT_PYTHON_VERSION
 from helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.validation import require_non_empty_string
 from helping_hands.server.task_result import normalize_task_result
 
 __all__ = ["main", "mcp"]
@@ -57,7 +59,7 @@ _indexed_repos: dict[str, RepoIndex] = {}
 _DEFAULT_EXEC_TIMEOUT_S = 60
 """Default timeout in seconds for code/script execution MCP tools."""
 
-_DEFAULT_BROWSE_MAX_CHARS = 12000
+_DEFAULT_BROWSE_MAX_CHARS = web_tools.DEFAULT_BROWSE_MAX_CHARS
 """Default maximum characters returned by the web_browse MCP tool."""
 
 _INDEX_FILES_LIMIT = 200
@@ -139,10 +141,8 @@ def build_feature(
     Returns:
         Dict with task_id and status.
     """
-    if not repo_path or not repo_path.strip():
-        raise ValueError("repo_path must be a non-empty string")
-    if not prompt or not prompt.strip():
-        raise ValueError("prompt must be a non-empty string")
+    require_non_empty_string(repo_path, "repo_path")
+    require_non_empty_string(prompt, "prompt")
 
     from helping_hands.server.celery_app import (
         build_feature as celery_build,
@@ -179,8 +179,7 @@ def get_task_status(task_id: str) -> dict:
     Returns:
         Dict with task_id, status, and result (if complete).
     """
-    if not task_id or not task_id.strip():
-        raise ValueError("task_id must be a non-empty string")
+    require_non_empty_string(task_id, "task_id")
 
     from helping_hands.server.celery_app import (
         build_feature as celery_build,
@@ -269,7 +268,19 @@ def mkdir(repo_path: str, dir_path: str) -> dict:
 
 @mcp.tool()
 def path_exists(repo_path: str, path: str) -> bool:
-    """Check whether a repo-relative path exists."""
+    """Check whether a repo-relative path exists.
+
+    Args:
+        repo_path: Absolute path to the repository root.
+        path: Path relative to the repo root.
+
+    Returns:
+        ``True`` if the path exists, ``False`` otherwise.
+
+    Raises:
+        ValueError: If *path* is empty or whitespace-only.
+    """
+    require_non_empty_string(path, "path")
     root = _repo_root(repo_path)
     return fs_tools.path_exists(root, path)
 
@@ -278,7 +289,7 @@ def path_exists(repo_path: str, path: str) -> bool:
 def run_python_code(
     repo_path: str,
     code: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | None = None,
     timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
@@ -300,7 +311,7 @@ def run_python_code(
 def run_python_script(
     repo_path: str,
     script_path: str,
-    python_version: str = "3.13",
+    python_version: str = _DEFAULT_PYTHON_VERSION,
     args: list[str] | None = None,
     timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
@@ -327,7 +338,27 @@ def run_bash_script(
     timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
 ) -> dict:
-    """Execute a repo-relative or inline bash script from repo context."""
+    """Execute a repo-relative or inline bash script from repo context.
+
+    Args:
+        repo_path: Absolute path to the repository root.
+        script_path: Path to a bash script relative to the repo root.
+        inline_script: Inline bash code to execute.
+        args: Optional arguments passed to the script.
+        timeout_s: Execution timeout in seconds.
+        cwd: Optional working directory relative to the repo root.
+
+    Returns:
+        Dict with success, command, cwd, exit_code, timed_out, stdout, stderr.
+
+    Raises:
+        ValueError: If neither *script_path* nor *inline_script* is provided,
+            or if both are provided simultaneously.
+    """
+    if not script_path and not inline_script:
+        raise ValueError("Either script_path or inline_script must be provided")
+    if script_path and inline_script:
+        raise ValueError("Cannot provide both script_path and inline_script")
     root = _repo_root(repo_path)
     result = exec_tools.run_bash_script(
         root,
@@ -347,8 +378,7 @@ def web_search(
     timeout_s: int = 20,
 ) -> dict:
     """Search the web and return lightweight result entries."""
-    if not query or not query.strip():
-        raise ValueError("query must be a non-empty string")
+    require_non_empty_string(query, "query")
     result = web_tools.search_web(query, max_results=max_results, timeout_s=timeout_s)
     return {
         "query": result.query,
@@ -370,8 +400,7 @@ def web_browse(
     timeout_s: int = 20,
 ) -> dict:
     """Browse a URL and return extracted text content."""
-    if not url or not url.strip():
-        raise ValueError("url must be a non-empty string")
+    require_non_empty_string(url, "url")
     result = web_tools.browse_url(url, max_chars=max_chars, timeout_s=timeout_s)
     return {
         "url": result.url,
