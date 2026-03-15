@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import inspect
 
-
 # ---------------------------------------------------------------------------
 # 1. DRY git identity: e2e.py re-exports from base.py
 # ---------------------------------------------------------------------------
