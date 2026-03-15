@@ -58,6 +58,18 @@ class CommandResult:
 
 
 def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
+    """Validate and normalise a command argument sequence.
+
+    Args:
+        args: Optional sequence of argument strings.  ``None`` or an empty
+            sequence produces an empty list.
+
+    Returns:
+        A new list of validated string arguments.
+
+    Raises:
+        TypeError: If any element in *args* is not a string.
+    """
     if not args:
         return []
     normalized: list[str] = []
@@ -70,6 +82,22 @@ def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
 
 
 def _resolve_cwd(repo_root: Path, cwd: str | None) -> Path:
+    """Resolve the working directory for a command execution.
+
+    If *cwd* is ``None`` or whitespace-only the resolved *repo_root* is
+    returned.  Otherwise the path is resolved relative to *repo_root*
+    using :func:`resolve_repo_target` and verified to be a directory.
+
+    Args:
+        repo_root: Absolute path to the repository root.
+        cwd: Optional repo-relative working directory.
+
+    Returns:
+        The resolved working directory as an absolute :class:`~pathlib.Path`.
+
+    Raises:
+        NotADirectoryError: If *cwd* resolves to a non-directory path.
+    """
     root = repo_root.resolve()
     if cwd is None or not cwd.strip():
         return root
@@ -81,6 +109,22 @@ def _resolve_cwd(repo_root: Path, cwd: str | None) -> Path:
 
 
 def _resolve_python_command(python_version: str) -> list[str]:
+    """Build the argv prefix for running Python at a specific version.
+
+    Prefers ``uv run --python <version> python`` when *uv* is available,
+    falling back to a bare ``python<version>`` binary on ``PATH``.
+
+    Args:
+        python_version: Desired Python version string (e.g. ``"3.13"``).
+
+    Returns:
+        Argv list suitable for prepending to a Python command.
+
+    Raises:
+        ValueError: If *python_version* is empty or whitespace-only.
+        RuntimeError: If neither *uv* nor the versioned Python binary is
+            found on ``PATH``.
+    """
     version = python_version.strip()
     if not version:
         raise ValueError("python_version is required")
@@ -100,6 +144,23 @@ def _resolve_python_command(python_version: str) -> list[str]:
 
 
 def _run_command(command: list[str], *, cwd: Path, timeout_s: int) -> CommandResult:
+    """Execute a subprocess and capture its result.
+
+    Handles timeout (exit code 124), missing binary (exit code 127), and
+    general OS errors (exit code 126) without raising — the caller
+    inspects the returned :class:`CommandResult` instead.
+
+    Args:
+        command: Argv list to execute.
+        cwd: Working directory for the subprocess.
+        timeout_s: Maximum execution time in seconds.
+
+    Returns:
+        A :class:`CommandResult` with captured stdout/stderr and exit code.
+
+    Raises:
+        ValueError: If *timeout_s* is not positive.
+    """
     if timeout_s <= 0:
         raise ValueError("timeout_s must be > 0")
 

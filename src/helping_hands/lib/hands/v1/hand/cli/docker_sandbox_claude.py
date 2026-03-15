@@ -67,6 +67,12 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
     _CONTAINER_IMAGE_ENV_VAR = ""
 
     def __init__(self, config: Any, repo_index: Any) -> None:
+        """Initialise the Docker sandbox Claude Code hand.
+
+        Args:
+            config: Hand configuration object.
+            repo_index: Repository index with file metadata and root path.
+        """
         super().__init__(config, repo_index)
         self._sandbox_name: str | None = None
         self._sandbox_created: bool = False
@@ -203,6 +209,14 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         self._sandbox_created = False
 
     def _should_cleanup(self) -> bool:
+        """Return whether the sandbox should be removed after the run.
+
+        Reads ``HELPING_HANDS_DOCKER_SANDBOX_CLEANUP`` from the environment
+        (default ``"1"``).  Any truthy value means cleanup is enabled.
+
+        Returns:
+            ``True`` if the sandbox should be auto-removed, ``False`` otherwise.
+        """
         raw = os.environ.get("HELPING_HANDS_DOCKER_SANDBOX_CLEANUP", "1")
         return self._is_truthy(raw)
 
@@ -235,6 +249,11 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
     # ------------------------------------------------------------------
 
     def _execution_mode(self) -> str:
+        """Return the execution mode identifier for this hand.
+
+        Returns:
+            The string ``"docker-sandbox"``.
+        """
         return "docker-sandbox"
 
     async def _invoke_claude(
@@ -344,6 +363,15 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         )
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
-        # Inside the sandbox, the fallback to npx doesn't apply since the
-        # sandbox template should have claude installed.
+        """Return a fallback command when the primary is not found.
+
+        Inside the sandbox the ``npx`` fallback does not apply — the sandbox
+        template image is expected to have Claude Code installed.
+
+        Args:
+            cmd: The original command argv that was not found.
+
+        Returns:
+            Always ``None`` (no fallback).
+        """
         return None

@@ -128,6 +128,14 @@ class GitHubClient:
     _gh: Github = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        """Resolve the GitHub token and initialise the PyGithub client.
+
+        The token is resolved from the ``token`` field, then
+        ``GITHUB_TOKEN``, then ``GH_TOKEN`` environment variable.
+
+        Raises:
+            ValueError: If no token is available from any source.
+        """
         resolved = self.token or os.environ.get(
             "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
         )
@@ -545,9 +553,11 @@ class GitHubClient:
         self._gh.close()
 
     def __enter__(self) -> GitHubClient:
+        """Enter the context manager, returning ``self``."""
         return self
 
     def __exit__(self, *_: Any) -> None:
+        """Exit the context manager, closing the underlying connection."""
         self.close()
 
 

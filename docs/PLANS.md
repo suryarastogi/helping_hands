@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v175](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to 4 command.py private helpers, 4 docker_sandbox_claude.py methods, 3 github.py dunders; 4326 tests (20 new)
+
 - [2026-03-15 v174](exec-plans/completed/2026-03-15.md) --
   Extract parser marker constants (`_PR_TITLE_MARKER`, `_PR_BODY_MARKER`, `_COMMIT_MSG_MARKER`), DRY `_COMMIT_TYPE_PREFIX_RE` regex, extract `_AUTH_FAILURE_SUBSTRINGS` in docker_sandbox_claude.py, add docstrings to 8 methods across 3 modules; 4306 tests (45 new)
 
