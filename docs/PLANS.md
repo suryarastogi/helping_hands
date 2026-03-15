@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v167](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to goose.py (13), opencode.py (5), e2e.py (8); extract `_AUTH_ERROR_TOKENS` in opencode.py, 5 E2E constants; 4030 tests (29 new)
+
 - [2026-03-14 v166](exec-plans/completed/2026-03-14.md) --
   Consolidate `_FAILURE_OUTPUT_TAIL_LENGTH` to cli/base.py (DRY 4 copies), harmonize `_is_truthy` with config `_TRUTHY_VALUES` via `_CLI_TRUTHY_VALUES`, add Google-style docstrings to codex.py (12) and gemini.py (14); 3986 tests (42 new)
 
