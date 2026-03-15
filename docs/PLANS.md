@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v214](exec-plans/completed/2026/v214-schedule-manager-tests.md) —
+  ScheduleManager unit tests with mocked Redis/Celery/RedBeat (50 tests),
+  schedules.py coverage 0% → 97%; 6078 passed, 2 skipped
+
 - [2026-03-15 v213](exec-plans/completed/2026/v213-from-dict-validation-coverage-threshold-package-exports.md) —
   `ScheduledTask.from_dict` empty/whitespace required-field rejection,
   `validate_cron_expression` whitespace stripping, `fail_under = 75` coverage

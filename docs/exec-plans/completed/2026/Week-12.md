@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — ScheduleManager unit tests (v214)
+
+**ScheduleManager CRUD test coverage:** Added 50 unit tests covering all ScheduleManager methods with mocked Redis and Celery: `create_schedule` (5 tests: save+return, auto-generate ID, duplicate rejection, RedBeat skip when disabled, RedBeat create when enabled), `update_schedule` (4 tests: metadata preservation, not-found error, RedBeat recreation, RedBeat skip), `delete_schedule` (2 tests: existing returns True, missing returns False), `enable_schedule` (3 tests: creates RedBeat entry, noop when already enabled, None when missing), `disable_schedule` (3 tests: deletes RedBeat entry, noop when already disabled, None when missing), `record_run` (2 tests: metadata update, noop when missing), `trigger_now` (2 tests: dispatch via Celery, None when missing), `get_schedule` (2 tests), `list_schedules` (3 tests: sorted desc, corrupt entry skip, empty list), internal helpers `_save_meta`/`_load_meta`/`_delete_meta`/`_list_meta_keys` (11 tests), `_create_redbeat_entry`/`_delete_redbeat_entry` (4 tests), dependency guards (4 tests), init (2 tests), `_meta_key` (2 tests), `get_schedule_manager` factory (1 test).
+
+**`tests/test_v214_schedule_manager.py`:** 50 tests covering all ScheduleManager code paths. `schedules.py` coverage: 0% → 97%.
+
+**50 new tests. 6078 passed, 2 skipped.**
+
+---
+
 ## Mar 15 — ScheduledTask.from_dict validation, coverage threshold, package exports (v213)
 
 **`ScheduledTask.from_dict` empty/whitespace rejection:** Added a second validation pass after the missing-key check that rejects empty or whitespace-only values for all five required fields (`schedule_id`, `name`, `cron_expression`, `repo_path`, `prompt`). Error message reports all offending fields in one `ValueError`.
