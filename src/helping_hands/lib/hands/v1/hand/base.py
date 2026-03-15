@@ -85,6 +85,12 @@ _PRECOMMIT_UV_MISSING_MSG = (
 _DEFAULT_GIT_ERROR_MSG = "unknown git error"
 """Fallback message when a git subprocess returns non-zero with empty stderr."""
 
+_DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
+"""Fallback commit message when ``generate_commit_message`` returns empty."""
+
+_DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
+"""Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -616,16 +622,13 @@ class Hand(abc.ABC):
             generate_commit_message,
         )
 
-        commit_msg = (
-            generate_commit_message(
-                cmd=self._pr_description_cmd(),
-                repo_dir=repo_dir,
-                backend=backend,
-                prompt=prompt,
-                summary=summary,
-            )
-            or f"feat({backend}): apply hand updates"
-        )
+        commit_msg = generate_commit_message(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
         commit_sha = self._add_and_commit_with_hook_retry(
             gh,
@@ -783,10 +786,9 @@ class Hand(abc.ABC):
                 _commit_message_from_prompt,
             )
 
-            pr_title = (
-                _commit_message_from_prompt(prompt, summary)
-                or f"feat({backend}): automated hand update"
-            )
+            pr_title = _commit_message_from_prompt(
+                prompt, summary
+            ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
             pr_body = self._build_generic_pr_body(
                 backend=backend,
                 prompt=prompt,
@@ -920,16 +922,13 @@ class Hand(abc.ABC):
                     generate_commit_message,
                 )
 
-                commit_msg = (
-                    generate_commit_message(
-                        cmd=self._pr_description_cmd(),
-                        repo_dir=repo_dir,
-                        backend=backend,
-                        prompt=prompt,
-                        summary=summary,
-                    )
-                    or f"feat({backend}): apply hand updates"
-                )
+                commit_msg = generate_commit_message(
+                    cmd=self._pr_description_cmd(),
+                    repo_dir=repo_dir,
+                    backend=backend,
+                    prompt=prompt,
+                    summary=summary,
+                ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
                 commit_sha = self._add_and_commit_with_hook_retry(
                     gh,
@@ -973,10 +972,9 @@ class Hand(abc.ABC):
                         _commit_message_from_prompt,
                     )
 
-                    pr_title = (
-                        _commit_message_from_prompt(prompt, summary)
-                        or f"feat({backend}): automated hand update"
-                    )
+                    pr_title = _commit_message_from_prompt(
+                        prompt, summary
+                    ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
                     pr_body = self._build_generic_pr_body(
                         backend=backend,
                         prompt=prompt,

@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v183](exec-plans/completed/2026/Week-12.md) --
+  Extract `_DEFAULT_COMMIT_MSG_TEMPLATE` and `_DEFAULT_PR_TITLE_TEMPLATE`
+  constants in base.py (DRY 4 duplicate f-strings), add `logger.debug` to 2
+  silent exception handlers in server/app.py; 4510 tests (17 new, 5 skipped
+  without fastapi)
+
 - [2026-03-15 v182](exec-plans/completed/2026/Week-12.md) --
   Extract `_PRECOMMIT_UV_MISSING_MSG` and `_DEFAULT_GIT_ERROR_MSG` constants in
   base.py (DRY 2 duplicate error messages), add task state set
