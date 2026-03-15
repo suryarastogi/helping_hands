@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY encoding fallback chain, git ref prefix, check-run status (v211)
+
+**`_ENCODING_FALLBACK_CHAIN` constant:** Extracted inline `("utf-8", "utf-16", "latin-1")` tuple from `_decode_bytes()` in `web.py` to a module-level constant with docstring.
+
+**`_GIT_REF_PREFIX` constant:** Extracted inline `"refs/heads/"` string from `fetch_branch()` in `github.py` to a module-level constant with docstring.
+
+**`_CHECK_RUN_STATUS_COMPLETED` constant:** Extracted inline `"completed"` string from `get_check_runs()` in `github.py` to a module-level constant with docstring.
+
+**`tests/test_v211_dry_encoding_ref_prefix_check_status.py`:** 21 versioned tests verifying constant values, types, usage in functions, and encoding codec validity.
+
+**21 new tests. 5164 passed, 216 skipped.**
+
+---
+
 ## Mar 15 — Hook markers constant, validation + github_url test coverage (v210)
 
 **`_GIT_HOOK_FAILURE_MARKERS` constant:** Extracted inline `markers` tuple from `_is_git_hook_failure()` in `base.py` to a module-level constant with docstring.

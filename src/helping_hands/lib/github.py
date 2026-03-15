@@ -30,6 +30,12 @@ _DEFAULT_GIT_TIMEOUT = 300  # seconds
 _MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
 _VALID_PR_STATES = frozenset({"open", "closed", "all"})
 
+_GIT_REF_PREFIX = "refs/heads/"
+"""Git refspec prefix for branch references (e.g. ``refs/heads/main``)."""
+
+_CHECK_RUN_STATUS_COMPLETED = "completed"
+"""GitHub check-run ``status`` value indicating the run has finished."""
+
 
 # --- CI conclusion enum -------------------------------------------------------
 
@@ -271,7 +277,7 @@ class GitHubClient:
                 "git",
                 "fetch",
                 remote,
-                f"refs/heads/{branch_name}:refs/heads/{branch_name}",
+                f"{_GIT_REF_PREFIX}{branch_name}:{_GIT_REF_PREFIX}{branch_name}",
             ],
             cwd=repo_path,
         )
@@ -551,7 +557,7 @@ class GitHubClient:
 
         if not check_list:
             overall: str = CIConclusion.NO_CHECKS
-        elif any(r["status"] != "completed" for r in check_list):
+        elif any(r["status"] != _CHECK_RUN_STATUS_COMPLETED for r in check_list):
             overall = CIConclusion.PENDING
         elif all(r["conclusion"] == "success" for r in check_list):
             overall = CIConclusion.SUCCESS

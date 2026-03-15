@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v211](exec-plans/completed/2026/v211-dry-encoding-chain-git-ref-prefix-check-status.md) —
+  DRY `_ENCODING_FALLBACK_CHAIN` in web.py, `_GIT_REF_PREFIX` and
+  `_CHECK_RUN_STATUS_COMPLETED` in github.py; 21 tests (5164 passed, 216 skipped)
+
 - [2026-03-15 v210](exec-plans/completed/2026/v210-hook-markers-validation-github-url-tests.md) —
   Extract `_GIT_HOOK_FAILURE_MARKERS` constant in base.py, dedicated unit tests
   for `validation.py` (21 tests) and `github_url.py` (33 tests), versioned

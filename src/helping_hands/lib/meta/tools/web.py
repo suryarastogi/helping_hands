@@ -105,6 +105,13 @@ _HORIZONTAL_WHITESPACE_RE = re.compile(r"[ \t\r\f\v]+")
 _BLANK_LINES_RE = re.compile(r"\n\s*\n+")
 """Compiled regex matching multiple consecutive blank lines."""
 
+_ENCODING_FALLBACK_CHAIN = ("utf-8", "utf-16", "latin-1")
+"""Ordered encodings tried when decoding web response bytes.
+
+UTF-8 is tried first (most common), then UTF-16, then latin-1 which accepts
+all byte values and therefore always succeeds.
+"""
+
 
 def _raise_url_error(
     exc: HTTPError | URLError,
@@ -156,7 +163,7 @@ def _require_http_url(url: str) -> str:
 
 def _decode_bytes(payload: bytes) -> str:
     """Decode bytes trying UTF-8, UTF-16, then latin-1 (which accepts all byte values)."""
-    for encoding in ("utf-8", "utf-16", "latin-1"):
+    for encoding in _ENCODING_FALLBACK_CHAIN:
         try:
             return payload.decode(encoding)
         except UnicodeDecodeError:
