@@ -54,7 +54,28 @@ from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
 )
 from helping_hands.server.constants import (
+    MAX_CI_WAIT_MINUTES as _MAX_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    MAX_GITHUB_TOKEN_LENGTH as _MAX_GITHUB_TOKEN_LENGTH,
+)
+from helping_hands.server.constants import (
+    MAX_ITERATIONS_UPPER_BOUND as _MAX_ITERATIONS_UPPER_BOUND,
+)
+from helping_hands.server.constants import (
+    MAX_MODEL_LENGTH as _MAX_MODEL_LENGTH,
+)
+from helping_hands.server.constants import (
+    MAX_PROMPT_LENGTH as _MAX_PROMPT_LENGTH,
+)
+from helping_hands.server.constants import (
     MAX_REFERENCE_REPOS as _MAX_REFERENCE_REPOS,
+)
+from helping_hands.server.constants import (
+    MAX_REPO_PATH_LENGTH as _MAX_REPO_PATH_LENGTH,
+)
+from helping_hands.server.constants import (
+    MIN_CI_WAIT_MINUTES as _MIN_CI_WAIT_MINUTES,
 )
 from helping_hands.server.constants import (
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
@@ -70,6 +91,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "BackendName",
     "BuildRequest",
     "BuildResponse",
     "ClaudeUsageLevel",
@@ -193,40 +215,6 @@ class _ToolSkillValidatorMixin(BaseModel):
         return value
 
 
-class BuildRequest(_ToolSkillValidatorMixin):
-    """Request body for the /build endpoint."""
-
-    repo_path: str = Field(min_length=1, max_length=500)
-    prompt: str = Field(min_length=1, max_length=50_000)
-    backend: Literal[
-        "e2e",
-        "basic-langgraph",
-        "basic-atomic",
-        "basic-agent",
-        "codexcli",
-        "claudecodecli",
-        "docker-sandbox-claude",
-        "goose",
-        "geminicli",
-        "opencodecli",
-    ] = _DEFAULT_BACKEND
-    model: str | None = Field(default=None, max_length=200)
-    max_iterations: int = Field(default=_DEFAULT_MAX_ITERATIONS, ge=1, le=100)
-    no_pr: bool = False
-    enable_execution: bool = False
-    enable_web: bool = False
-    use_native_cli_auth: bool = False
-    pr_number: int | None = None
-    fix_ci: bool = False
-    ci_check_wait_minutes: float = Field(
-        default=_DEFAULT_CI_WAIT_MINUTES, ge=0.5, le=30.0
-    )
-    github_token: str | None = Field(default=None, max_length=500)
-    reference_repos: list[str] = Field(
-        default_factory=list, max_length=_MAX_REFERENCE_REPOS
-    )
-
-
 BackendName = Literal[
     "e2e",
     "basic-langgraph",
@@ -239,6 +227,35 @@ BackendName = Literal[
     "geminicli",
     "opencodecli",
 ]
+
+
+class BuildRequest(_ToolSkillValidatorMixin):
+    """Request body for the /build endpoint."""
+
+    repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
+    prompt: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
+    backend: BackendName = _DEFAULT_BACKEND
+    model: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    max_iterations: int = Field(
+        default=_DEFAULT_MAX_ITERATIONS,
+        ge=1,
+        le=_MAX_ITERATIONS_UPPER_BOUND,
+    )
+    no_pr: bool = False
+    enable_execution: bool = False
+    enable_web: bool = False
+    use_native_cli_auth: bool = False
+    pr_number: int | None = None
+    fix_ci: bool = False
+    ci_check_wait_minutes: float = Field(
+        default=_DEFAULT_CI_WAIT_MINUTES,
+        ge=_MIN_CI_WAIT_MINUTES,
+        le=_MAX_CI_WAIT_MINUTES,
+    )
+    github_token: str | None = Field(default=None, max_length=_MAX_GITHUB_TOKEN_LENGTH)
+    reference_repos: list[str] = Field(
+        default_factory=list, max_length=_MAX_REFERENCE_REPOS
+    )
 
 
 class BuildResponse(BaseModel):
@@ -310,11 +327,15 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
         max_length=100,
         description="Cron expression (e.g., '0 0 * * *') or preset name",
     )
-    repo_path: str = Field(min_length=1, max_length=500)
-    prompt: str = Field(min_length=1, max_length=50_000)
+    repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
+    prompt: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
     backend: BackendName = _DEFAULT_BACKEND
-    model: str | None = Field(default=None, max_length=200)
-    max_iterations: int = Field(default=_DEFAULT_MAX_ITERATIONS, ge=1, le=100)
+    model: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    max_iterations: int = Field(
+        default=_DEFAULT_MAX_ITERATIONS,
+        ge=1,
+        le=_MAX_ITERATIONS_UPPER_BOUND,
+    )
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
@@ -322,9 +343,11 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     use_native_cli_auth: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(
-        default=_DEFAULT_CI_WAIT_MINUTES, ge=0.5, le=30.0
+        default=_DEFAULT_CI_WAIT_MINUTES,
+        ge=_MIN_CI_WAIT_MINUTES,
+        le=_MAX_CI_WAIT_MINUTES,
     )
-    github_token: str | None = Field(default=None, max_length=500)
+    github_token: str | None = Field(default=None, max_length=_MAX_GITHUB_TOKEN_LENGTH)
     reference_repos: list[str] = Field(
         default_factory=list, max_length=_MAX_REFERENCE_REPOS
     )

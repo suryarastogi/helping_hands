@@ -16,7 +16,14 @@ __all__ = [
     "KEYCHAIN_ACCESS_TOKEN_KEY",
     "KEYCHAIN_OAUTH_KEY",
     "KEYCHAIN_SERVICE_NAME",
+    "MAX_CI_WAIT_MINUTES",
+    "MAX_GITHUB_TOKEN_LENGTH",
+    "MAX_ITERATIONS_UPPER_BOUND",
+    "MAX_MODEL_LENGTH",
+    "MAX_PROMPT_LENGTH",
     "MAX_REFERENCE_REPOS",
+    "MAX_REPO_PATH_LENGTH",
+    "MIN_CI_WAIT_MINUTES",
     "USAGE_CACHE_TTL_S",
     "USAGE_USER_AGENT",
 ]
@@ -66,3 +73,26 @@ MAX_REFERENCE_REPOS = 10
 
 USAGE_CACHE_TTL_S = 300
 """Seconds to cache Claude usage API responses (5 minutes)."""
+
+# --- Field validation bounds --------------------------------------------------
+
+MAX_ITERATIONS_UPPER_BOUND = 100
+"""Upper bound for ``max_iterations`` in build/schedule requests."""
+
+MIN_CI_WAIT_MINUTES = 0.5
+"""Minimum ``ci_check_wait_minutes`` for build/schedule requests."""
+
+MAX_CI_WAIT_MINUTES = 30.0
+"""Maximum ``ci_check_wait_minutes`` for build/schedule requests."""
+
+MAX_REPO_PATH_LENGTH = 500
+"""Maximum character length for ``repo_path`` fields."""
+
+MAX_PROMPT_LENGTH = 50_000
+"""Maximum character length for ``prompt`` fields."""
+
+MAX_MODEL_LENGTH = 200
+"""Maximum character length for ``model`` fields."""
+
+MAX_GITHUB_TOKEN_LENGTH = 500
+"""Maximum character length for ``github_token`` fields."""

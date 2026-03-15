@@ -48,7 +48,10 @@ def resolve_repo_target(repo_root: Path, rel_path: str) -> Path:
     return target
 
 
-_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+_BYTES_PER_MB = 1024 * 1024
+"""Conversion factor from megabytes to bytes."""
+
+_MAX_FILE_SIZE_BYTES = 10 * _BYTES_PER_MB  # 10 MB
 
 
 def read_text_file(
@@ -83,8 +86,8 @@ def read_text_file(
 
     file_size = target.stat().st_size
     if file_size > max_file_size:
-        mb = file_size / (1024 * 1024)
-        limit_mb = max_file_size / (1024 * 1024)
+        mb = file_size / _BYTES_PER_MB
+        limit_mb = max_file_size / _BYTES_PER_MB
         raise ValueError(f"file is too large ({mb:.1f} MB, limit {limit_mb:.1f} MB)")
 
     try:

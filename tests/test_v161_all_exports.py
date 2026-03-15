@@ -330,7 +330,7 @@ class TestServerAppAllExport:
         pytest.importorskip("fastapi")
         from helping_hands.server.app import __all__
 
-        assert len(__all__) == 17
+        assert len(__all__) == 18
 
 
 # ---------------------------------------------------------------------------

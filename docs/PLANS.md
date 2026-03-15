@@ -8,6 +8,16 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v197](exec-plans/completed/2026/Week-12.md) --
+  DRY field validation bound constants (`MAX_ITERATIONS_UPPER_BOUND`,
+  `MIN_CI_WAIT_MINUTES`, `MAX_CI_WAIT_MINUTES`, `MAX_REPO_PATH_LENGTH`,
+  `MAX_PROMPT_LENGTH`, `MAX_MODEL_LENGTH`, `MAX_GITHUB_TOKEN_LENGTH` in
+  `server/constants.py` replacing 2× duplicated literals in BuildRequest and
+  ScheduleRequest), `BackendName` type alias deduplication (moved above
+  BuildRequest, added to `__all__`), `_BYTES_PER_MB` constant in filesystem.py;
+  4736 tests (33 new, 192 skipped)
+
+
 - [2026-03-15 v196](exec-plans/completed/2026/Week-12.md) --
   DRY shared defaults (`DEFAULT_BACKEND`, `DEFAULT_MAX_ITERATIONS`,
   `DEFAULT_CI_WAIT_MINUTES` in server/constants.py replacing 3× duplicated

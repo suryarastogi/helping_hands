@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY field validation bounds, BackendName dedup, bytes-per-MB (v197)
+
+**DRY field validation bounds:** Extracted 7 shared constants to `server/constants.py`: `MAX_ITERATIONS_UPPER_BOUND = 100`, `MIN_CI_WAIT_MINUTES = 0.5`, `MAX_CI_WAIT_MINUTES = 30.0`, `MAX_REPO_PATH_LENGTH = 500`, `MAX_PROMPT_LENGTH = 50_000`, `MAX_MODEL_LENGTH = 200`, `MAX_GITHUB_TOKEN_LENGTH = 500`. `BuildRequest` and `ScheduleRequest` in `app.py` now reference these shared constants instead of duplicated inline literals in `Field()` definitions.
+
+**BackendName deduplication:** Moved `BackendName` type alias above `BuildRequest` class definition. `BuildRequest.backend` now references `BackendName` instead of a duplicated inline `Literal[...]` with the same 10 backend strings. Added `BackendName` to `app.py` `__all__`.
+
+**bytes-per-MB constant:** Extracted `_BYTES_PER_MB = 1024 * 1024` in `filesystem.py`. `_MAX_FILE_SIZE_BYTES` now expressed as `10 * _BYTES_PER_MB` and file size error formatting uses the named constant.
+
+**4736 backend tests passed (+33 new: 10 constant value/type, 1 __all__, 7 BuildRequest bounds, 7 ScheduleRequest bounds, 4 BackendName, 4 _BYTES_PER_MB), 192 skipped.**
+
+---
+
 ## Mar 15 — DRY shared defaults, reference_repos validation, usage cache TTL (v196)
 
 **DRY shared defaults:** Extracted `DEFAULT_BACKEND = "claudecodecli"`, `DEFAULT_MAX_ITERATIONS = 6`, `DEFAULT_CI_WAIT_MINUTES = 3.0` to `server/constants.py` as the single source of truth. `BuildRequest`, `ScheduleRequest`, and `ScheduleResponse` in `app.py` now reference the shared constants instead of duplicated literals. `ScheduledTask` dataclass defaults and `from_dict()` fallbacks in `schedules.py` likewise import from the shared source.
