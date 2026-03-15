@@ -3,25 +3,32 @@
 from __future__ import annotations
 
 import asyncio
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from helping_hands.cli.main import (
-    _git_noninteractive_env,
-    _github_clone_url,
-    _redact_sensitive,
     _repo_tmp_dir,
     _resolve_repo_path,
     _stream_hand,
-    _validate_repo_spec,
     build_parser,
     main,
 )
 from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.github_url import (
+    build_clone_url as _github_clone_url,
+)
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.github_url import (
+    redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    validate_repo_spec as _validate_repo_spec,
+)
 from helping_hands.lib.hands.v1.hand import HandResponse
 
 
@@ -70,26 +77,20 @@ class TestCli:
         with pytest.raises(SystemExit):
             main([str(tmp_path / "nope")])
 
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch("helping_hands.cli.main._run_git_clone")
     @patch("helping_hands.cli.main.RepoIndex.from_path")
     @patch("helping_hands.cli.main.Path.is_dir")
     def test_cli_clones_owner_repo_for_basic_mode(
         self,
         mock_is_dir: MagicMock,
         mock_from_path: MagicMock,
-        mock_run: MagicMock,
+        mock_clone: MagicMock,
         monkeypatch,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         monkeypatch.setenv("GITHUB_TOKEN", "gh-test-token")
         mock_is_dir.side_effect = [False, True]
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[],
-            returncode=0,
-            stdout="",
-            stderr="",
-        )
         mock_from_path.return_value = MagicMock(
             root=tmp_path / "repo",
             files=["main.py"],
@@ -99,34 +100,23 @@ class TestCli:
         captured = capsys.readouterr()
         assert "Cloned suryarastogi/helping_hands" in captured.out
         assert "Ready. Indexed" in captured.out
-        clone_cmd = mock_run.call_args.args[0]
-        clone_env = mock_run.call_args.kwargs["env"]
-        assert clone_cmd[0:4] == ["git", "clone", "--depth", "1"]
-        assert (
-            clone_cmd[4]
-            == "https://x-access-token:gh-test-token@github.com/suryarastogi/helping_hands.git"
-        )
-        assert clone_env["GIT_TERMINAL_PROMPT"] == "0"
-        assert clone_env["GCM_INTERACTIVE"] == "never"
+        mock_clone.assert_called_once()
 
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch(
+        "helping_hands.cli.main._run_git_clone",
+        side_effect=ValueError("clone failed: fatal: repository not found"),
+    )
     @patch("helping_hands.cli.main.Path.is_dir", return_value=False)
     def test_cli_exits_when_clone_fails(
         self,
         _mock_is_dir: MagicMock,
-        mock_run: MagicMock,
+        _mock_clone: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[],
-            returncode=1,
-            stdout="",
-            stderr="fatal: repository not found",
-        )
         with pytest.raises(SystemExit):
             main(["owner/missing"])
         captured = capsys.readouterr()
-        assert "failed to clone owner/missing" in captured.err
+        assert "clone failed" in captured.err
 
     @patch("helping_hands.cli.main.E2EHand")
     def test_cli_runs_e2e_mode(

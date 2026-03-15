@@ -9,16 +9,21 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
+from pathlib import Path
+from subprocess import TimeoutExpired
 
 from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
+    "DEFAULT_CLONE_DEPTH",
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
     "GIT_CLONE_TIMEOUT_S",
     "build_clone_url",
     "noninteractive_env",
     "redact_credentials",
+    "run_git_clone",
     "validate_repo_spec",
 ]
 
@@ -30,6 +35,12 @@ GITHUB_HOSTNAME = "github.com"
 
 GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
+
+DEFAULT_CLONE_DEPTH = 1
+"""Shallow clone depth used when cloning ``owner/repo`` inputs."""
+
+_UNKNOWN_CLONE_ERROR = "unknown git clone error"
+"""Fallback error message when git clone produces no stderr output."""
 
 
 def validate_repo_spec(repo: str) -> None:
@@ -105,3 +116,49 @@ def noninteractive_env() -> dict[str, str]:
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
     return env
+
+
+def run_git_clone(
+    url: str,
+    dest: Path,
+    *,
+    depth: int = DEFAULT_CLONE_DEPTH,
+    extra_args: list[str] | None = None,
+    timeout: int = GIT_CLONE_TIMEOUT_S,
+) -> None:
+    """Clone a git repository via subprocess, raising on failure.
+
+    Centralises the repeated git-clone-subprocess pattern used in CLI and
+    server entry points.  On timeout or non-zero exit the function raises
+    ``ValueError`` with a redacted error message.
+
+    Args:
+        url: The HTTPS clone URL (may contain credentials).
+        dest: Destination directory for the clone.
+        depth: Shallow clone depth (default ``DEFAULT_CLONE_DEPTH``).
+        extra_args: Additional arguments inserted before the URL
+            (e.g. ``["--no-single-branch"]``).
+        timeout: Subprocess timeout in seconds.
+
+    Raises:
+        ValueError: If the clone times out or exits with a non-zero code.
+    """
+    cmd: list[str] = ["git", "clone", "--depth", str(depth)]
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd += [url, str(dest)]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=noninteractive_env(),
+            timeout=timeout,
+        )
+    except TimeoutExpired as exc:
+        raise ValueError(f"git clone timed out after {timeout}s") from exc
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or _UNKNOWN_CLONE_ERROR
+        stderr = redact_credentials(stderr)
+        raise ValueError(f"clone failed: {stderr}")

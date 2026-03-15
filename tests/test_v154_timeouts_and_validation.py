@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from helping_hands.cli.main import _GIT_CLONE_TIMEOUT_S as CLI_GIT_CLONE_TIMEOUT_S
 from helping_hands.cli.main import _resolve_repo_path as cli_resolve_repo_path
+from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S as CLI_GIT_CLONE_TIMEOUT_S
 from helping_hands.lib.hands.v1.hand.pr_description import (
     _GIT_DIFF_TIMEOUT_S,
     _get_diff,
@@ -152,45 +152,40 @@ class TestCliGitCloneTimeoutConstant:
 class TestCliResolveRepoPathCloneTimeout:
     """Verify cli/main.py _resolve_repo_path handles clone timeout."""
 
-    @patch("helping_hands.cli.main.subprocess.run")
     @patch(
-        "helping_hands.cli.main._github_clone_url",
+        "helping_hands.cli.main._run_git_clone",
+        side_effect=ValueError("git clone timed out after 120s"),
+    )
+    @patch(
+        "helping_hands.cli.main._build_clone_url",
         return_value="https://example.com/owner/repo.git",
     )
-    @patch("helping_hands.cli.main._git_noninteractive_env", return_value={})
     def test_raises_value_error_on_clone_timeout(
         self,
-        _mock_env: MagicMock,
         _mock_url: MagicMock,
-        mock_run: MagicMock,
+        _mock_clone: MagicMock,
     ) -> None:
         """Clone timeout raises ValueError with descriptive message."""
-        mock_run.side_effect = TimeoutExpired(cmd=["git", "clone"], timeout=120)
         with pytest.raises(ValueError, match="timed out"):
             cli_resolve_repo_path("owner/repo")
 
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch("helping_hands.cli.main._run_git_clone")
     @patch(
-        "helping_hands.cli.main._github_clone_url",
+        "helping_hands.cli.main._build_clone_url",
         return_value="https://example.com/owner/repo.git",
     )
-    @patch("helping_hands.cli.main._git_noninteractive_env", return_value={})
-    def test_clone_passes_timeout_param(
+    def test_clone_delegates_to_run_git_clone(
         self,
-        _mock_env: MagicMock,
         _mock_url: MagicMock,
-        mock_run: MagicMock,
+        mock_clone: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """Subprocess clone call includes timeout=_GIT_CLONE_TIMEOUT_S."""
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr=""
-        )
+        """_resolve_repo_path delegates to run_git_clone."""
         with patch("helping_hands.cli.main.mkdtemp", return_value=str(tmp_path)):
             (tmp_path / "repo").mkdir(exist_ok=True)
             with contextlib.suppress(Exception):
                 cli_resolve_repo_path("owner/repo")
-        assert mock_run.call_args.kwargs.get("timeout") == CLI_GIT_CLONE_TIMEOUT_S
+        mock_clone.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -199,32 +194,28 @@ class TestCliResolveRepoPathCloneTimeout:
 
 
 class TestCeleryGitCloneTimeoutConstant:
-    """Verify celery_app.py _GIT_CLONE_TIMEOUT_S constant properties."""
+    """Verify GIT_CLONE_TIMEOUT_S constant properties (now in github_url)."""
 
     def test_value(self) -> None:
-        pytest.importorskip("celery")
-        from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
+        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
 
-        assert _GIT_CLONE_TIMEOUT_S == 120
+        assert GIT_CLONE_TIMEOUT_S == 120
 
     def test_type(self) -> None:
-        pytest.importorskip("celery")
-        from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
+        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
 
-        assert isinstance(_GIT_CLONE_TIMEOUT_S, int)
+        assert isinstance(GIT_CLONE_TIMEOUT_S, int)
 
     def test_positive(self) -> None:
-        pytest.importorskip("celery")
-        from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
+        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
 
-        assert _GIT_CLONE_TIMEOUT_S > 0
+        assert GIT_CLONE_TIMEOUT_S > 0
 
     def test_matches_cli_value(self) -> None:
-        """Clone timeout is consistent across cli/main.py and celery_app.py."""
-        pytest.importorskip("celery")
-        from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
+        """Clone timeout is consistent (single source in github_url.py)."""
+        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
 
-        assert _GIT_CLONE_TIMEOUT_S == CLI_GIT_CLONE_TIMEOUT_S
+        assert GIT_CLONE_TIMEOUT_S == CLI_GIT_CLONE_TIMEOUT_S
 
 
 class TestCeleryResolveRepoPathCloneTimeout:
@@ -237,40 +228,28 @@ class TestCeleryResolveRepoPathCloneTimeout:
 
         with (
             patch(
-                "helping_hands.server.celery_app.subprocess.run",
-                side_effect=TimeoutExpired(cmd=["git", "clone"], timeout=120),
+                "helping_hands.server.celery_app._run_git_clone",
+                side_effect=ValueError("git clone timed out after 120s"),
             ),
             patch(
-                "helping_hands.server.celery_app._github_clone_url",
+                "helping_hands.server.celery_app._build_clone_url",
                 return_value="https://example.com/owner/repo.git",
-            ),
-            patch(
-                "helping_hands.server.celery_app._git_noninteractive_env",
-                return_value={},
             ),
             pytest.raises(ValueError, match="timed out"),
         ):
             celery_app._resolve_repo_path("owner/repo")
 
-    def test_clone_passes_timeout_param(self, tmp_path: Path) -> None:
-        """Subprocess clone call includes timeout=_GIT_CLONE_TIMEOUT_S."""
+    def test_clone_delegates_to_run_git_clone(self, tmp_path: Path) -> None:
+        """_resolve_repo_path delegates to run_git_clone."""
         pytest.importorskip("celery")
         from helping_hands.server import celery_app
 
-        mock_run = MagicMock(
-            return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
-        )
+        mock_clone = MagicMock()
         with (
-            patch("helping_hands.server.celery_app.subprocess.run", mock_run),
+            patch("helping_hands.server.celery_app._run_git_clone", mock_clone),
             patch(
-                "helping_hands.server.celery_app._github_clone_url",
+                "helping_hands.server.celery_app._build_clone_url",
                 return_value="https://example.com/owner/repo.git",
-            ),
-            patch(
-                "helping_hands.server.celery_app._git_noninteractive_env",
-                return_value={},
             ),
             patch(
                 "helping_hands.server.celery_app.mkdtemp",
@@ -280,10 +259,7 @@ class TestCeleryResolveRepoPathCloneTimeout:
             (tmp_path / "repo").mkdir(exist_ok=True)
             with contextlib.suppress(Exception):
                 celery_app._resolve_repo_path("owner/repo")
-            assert (
-                mock_run.call_args.kwargs.get("timeout")
-                == celery_app._GIT_CLONE_TIMEOUT_S
-            )
+            mock_clone.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

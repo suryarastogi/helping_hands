@@ -9,6 +9,8 @@ Validates:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -33,12 +35,14 @@ class TestGitHubUrlConstants:
         from helping_hands.lib import github_url
 
         expected = {
+            "DEFAULT_CLONE_DEPTH",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
             "build_clone_url",
             "noninteractive_env",
             "redact_credentials",
+            "run_git_clone",
             "validate_repo_spec",
         }
         assert set(github_url.__all__) == expected
@@ -296,23 +300,13 @@ class TestConsumerImportConsistency:
 
         assert _GITHUB_HOSTNAME is GITHUB_HOSTNAME
 
-    def test_cli_delegates_to_shared_clone_url(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        from helping_hands.cli.main import _github_clone_url
-        from helping_hands.lib.github_url import build_clone_url
+    def test_cli_uses_shared_run_git_clone(self) -> None:
+        """cli/main.py imports run_git_clone from github_url (v212)."""
+        src = Path("src/helping_hands/cli/main.py").read_text()
+        assert "run_git_clone" in src
 
-        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
-        monkeypatch.delenv("GH_TOKEN", raising=False)
-        assert _github_clone_url("owner/repo") == build_clone_url("owner/repo")
-
-    def test_celery_delegates_to_shared_clone_url(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_celery_uses_shared_run_git_clone(self) -> None:
+        """celery_app.py imports run_git_clone from github_url (v212)."""
         pytest.importorskip("celery")
-        from helping_hands.lib.github_url import build_clone_url
-        from helping_hands.server.celery_app import _github_clone_url
-
-        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
-        monkeypatch.delenv("GH_TOKEN", raising=False)
-        assert _github_clone_url("owner/repo") == build_clone_url("owner/repo")
+        src = Path("src/helping_hands/server/celery_app.py").read_text()
+        assert "run_git_clone" in src

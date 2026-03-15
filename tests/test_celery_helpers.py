@@ -6,18 +6,26 @@ import pytest
 
 pytest.importorskip("celery")
 
+from helping_hands.lib.github_url import (
+    build_clone_url as _github_clone_url,
+)
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+)
+from helping_hands.lib.github_url import (
+    redact_credentials as _redact_sensitive,
+)
+from helping_hands.lib.github_url import (
+    validate_repo_spec as _validate_repo_spec,
+)
 from helping_hands.server.celery_app import (
     _append_update,
     _format_runtime,
-    _git_noninteractive_env,
-    _github_clone_url,
     _has_codex_auth,
     _has_gemini_auth,
-    _redact_sensitive,
     _repo_tmp_dir,
     _trim_updates,
     _UpdateCollector,
-    _validate_repo_spec,
 )
 
 

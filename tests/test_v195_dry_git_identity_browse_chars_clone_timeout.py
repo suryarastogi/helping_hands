@@ -114,19 +114,22 @@ class TestDryCloneTimeout:
 
         assert "GIT_CLONE_TIMEOUT_S" in __all__
 
-    def test_cli_main_imports_from_github_url(self) -> None:
-        from helping_hands.cli.main import _GIT_CLONE_TIMEOUT_S
-        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
+    def test_cli_main_uses_run_git_clone(self) -> None:
+        """cli/main.py uses run_git_clone (v212 consolidated clone logic)."""
+        from pathlib import Path
 
-        assert _GIT_CLONE_TIMEOUT_S == GIT_CLONE_TIMEOUT_S
+        src = Path("src/helping_hands/cli/main.py").read_text()
+        assert "run_git_clone" in src
 
-    def test_celery_imports_from_github_url(self) -> None:
-        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
+    def test_celery_uses_run_git_clone(self) -> None:
+        """celery_app.py uses run_git_clone (v212 consolidated clone logic)."""
+        from pathlib import Path
 
         try:
-            from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
+            import celery  # noqa: F401
 
-            assert _GIT_CLONE_TIMEOUT_S == GIT_CLONE_TIMEOUT_S
+            src = Path("src/helping_hands/server/celery_app.py").read_text()
+            assert "run_git_clone" in src
         except ImportError:
             import pytest
 

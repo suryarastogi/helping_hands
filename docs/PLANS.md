@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v212](exec-plans/completed/2026/v212-dry-run-git-clone-helper.md) —
+  Extract `run_git_clone()` helper to `github_url.py`, consolidating 4 duplicated
+  git-clone subprocess patterns from cli/main.py and celery_app.py;
+  `DEFAULT_CLONE_DEPTH` constant, `_UNKNOWN_CLONE_ERROR` sentinel,
+  removed `_github_clone_url()` wrappers and `subprocess`/`TimeoutExpired` imports;
+  27 tests (5205 passed, 212 skipped)
+
+
 - [2026-03-15 v211](exec-plans/completed/2026/v211-dry-truncation-fences-bool-lower.md) —
   DRY `_TRUNCATION_SUFFIX` constant + `_truncation_note()` helper (6 sites),
   `_FENCE_TEXT`/`_FENCE_JSON`/`_FENCE_CLOSE` constants (7+ sites),

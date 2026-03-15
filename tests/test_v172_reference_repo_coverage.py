@@ -10,9 +10,7 @@ Covers:
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
-from subprocess import TimeoutExpired
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -51,11 +49,8 @@ class TestCloneReferenceReposInvalidSpec:
         """An invalid spec does not prevent later valid specs from cloning."""
         dest = tmp_path / "cloned" / "repo"
         dest.mkdir(parents=True)
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr=""
-        )
         with (
-            patch("helping_hands.cli.main.subprocess.run", return_value=mock_result),
+            patch("helping_hands.cli.main._run_git_clone"),
             patch(
                 "helping_hands.cli.main.mkdtemp", return_value=str(tmp_path / "cloned")
             ),
@@ -75,10 +70,10 @@ class TestCloneReferenceReposTimeout:
 
     @patch("helping_hands.cli.main.atexit.register")
     @patch("helping_hands.cli.main.mkdtemp")
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch("helping_hands.cli.main._run_git_clone")
     def test_timeout_skipped_with_warning(
         self,
-        mock_run: MagicMock,
+        mock_clone: MagicMock,
         mock_mkdtemp: MagicMock,
         _mock_atexit: MagicMock,
         tmp_path: Path,
@@ -86,21 +81,19 @@ class TestCloneReferenceReposTimeout:
     ) -> None:
         mock_mkdtemp.return_value = str(tmp_path / "ref_dir")
         (tmp_path / "ref_dir").mkdir()
-        mock_run.side_effect = TimeoutExpired(cmd="git clone", timeout=120)
+        mock_clone.side_effect = ValueError("git clone timed out after 120s")
         repo_index = RepoIndex(root=tmp_path, files=[])
         _clone_reference_repos(("owner/repo",), repo_index)
         captured = capsys.readouterr()
-        assert (
-            "Warning: git clone timed out for reference repo owner/repo" in captured.out
-        )
+        assert "timed out" in captured.out
         assert len(repo_index.reference_repos) == 0
 
     @patch("helping_hands.cli.main.atexit.register")
     @patch("helping_hands.cli.main.mkdtemp")
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch("helping_hands.cli.main._run_git_clone")
     def test_timeout_does_not_stop_later_repos(
         self,
-        mock_run: MagicMock,
+        mock_clone: MagicMock,
         mock_mkdtemp: MagicMock,
         _mock_atexit: MagicMock,
         tmp_path: Path,
@@ -113,9 +106,9 @@ class TestCloneReferenceReposTimeout:
         ref2.mkdir()
         (ref2 / "repo").mkdir()
         mock_mkdtemp.side_effect = [str(ref1), str(ref2)]
-        mock_run.side_effect = [
-            TimeoutExpired(cmd="git clone", timeout=120),
-            subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""),
+        mock_clone.side_effect = [
+            ValueError("git clone timed out after 120s"),
+            None,  # success
         ]
         repo_index = RepoIndex(root=tmp_path, files=[])
         _clone_reference_repos(("owner/repo1", "owner/repo2"), repo_index)
@@ -129,10 +122,10 @@ class TestCloneReferenceReposSuccess:
 
     @patch("helping_hands.cli.main.atexit.register")
     @patch("helping_hands.cli.main.mkdtemp")
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch("helping_hands.cli.main._run_git_clone")
     def test_successful_clone_appends(
         self,
-        mock_run: MagicMock,
+        _mock_clone: MagicMock,
         mock_mkdtemp: MagicMock,
         _mock_atexit: MagicMock,
         tmp_path: Path,
@@ -142,9 +135,6 @@ class TestCloneReferenceReposSuccess:
         dest_root.mkdir()
         (dest_root / "repo").mkdir()
         mock_mkdtemp.return_value = str(dest_root)
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr=""
-        )
         repo_index = RepoIndex(root=tmp_path, files=[])
         _clone_reference_repos(("owner/repo",), repo_index, github_token="tok")
         assert len(repo_index.reference_repos) == 1
@@ -156,10 +146,10 @@ class TestCloneReferenceReposSuccess:
 
     @patch("helping_hands.cli.main.atexit.register")
     @patch("helping_hands.cli.main.mkdtemp")
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch("helping_hands.cli.main._run_git_clone")
     def test_clone_failure_skipped_with_warning(
         self,
-        mock_run: MagicMock,
+        mock_clone: MagicMock,
         mock_mkdtemp: MagicMock,
         _mock_atexit: MagicMock,
         tmp_path: Path,
@@ -169,9 +159,7 @@ class TestCloneReferenceReposSuccess:
         dest_root = tmp_path / "ref"
         dest_root.mkdir()
         mock_mkdtemp.return_value = str(dest_root)
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=128, stdout="", stderr="fatal: repo not found"
-        )
+        mock_clone.side_effect = ValueError("clone failed: fatal: repo not found")
         repo_index = RepoIndex(root=tmp_path, files=[])
         _clone_reference_repos(("owner/repo",), repo_index)
         assert len(repo_index.reference_repos) == 0
@@ -180,10 +168,10 @@ class TestCloneReferenceReposSuccess:
 
     @patch("helping_hands.cli.main.atexit.register")
     @patch("helping_hands.cli.main.mkdtemp")
-    @patch("helping_hands.cli.main.subprocess.run")
+    @patch("helping_hands.cli.main._run_git_clone")
     def test_multiple_successful_clones(
         self,
-        mock_run: MagicMock,
+        _mock_clone: MagicMock,
         mock_mkdtemp: MagicMock,
         _mock_atexit: MagicMock,
         tmp_path: Path,
@@ -195,9 +183,6 @@ class TestCloneReferenceReposSuccess:
         ref2.mkdir()
         (ref2 / "repo").mkdir()
         mock_mkdtemp.side_effect = [str(ref1), str(ref2)]
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr=""
-        )
         repo_index = RepoIndex(root=tmp_path, files=[])
         _clone_reference_repos(("a/b", "c/d"), repo_index)
         assert len(repo_index.reference_repos) == 2

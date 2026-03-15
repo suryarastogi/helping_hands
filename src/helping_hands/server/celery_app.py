@@ -11,7 +11,6 @@ import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import Any
 
@@ -19,16 +18,10 @@ from celery import Celery
 
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
-    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
-)
-from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
 )
 from helping_hands.lib.github_url import (
-    noninteractive_env as _git_noninteractive_env,
-)
-from helping_hands.lib.github_url import (
-    redact_credentials as _redact_sensitive,
+    run_git_clone as _run_git_clone,
 )
 from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
@@ -128,15 +121,6 @@ _MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800
 _BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
 
 
-def _github_clone_url(repo: str, token: str | None = None) -> str:
-    """Build the HTTPS clone URL for a GitHub repository.
-
-    Delegates to :func:`helping_hands.lib.github_url.build_clone_url`.
-    Kept as a module-level alias for backward compatibility with tests.
-    """
-    return _build_clone_url(repo, token=token)
-
-
 def _repo_tmp_dir() -> Path | None:
     """Return the directory to use for temporary repo clones.
 
@@ -171,31 +155,13 @@ def _resolve_repo_path(
     if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
         dest = dest_root / "repo"
-        url = _github_clone_url(repo, token=token)
-        clone_cmd = ["git", "clone", "--depth", "1"]
-        if pr_number is not None:
-            clone_cmd.append("--no-single-branch")
-        clone_cmd += [url, str(dest)]
+        url = _build_clone_url(repo, token=token)
+        extra_args = ["--no-single-branch"] if pr_number is not None else None
         try:
-            result = subprocess.run(
-                clone_cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                env=_git_noninteractive_env(),
-                timeout=_GIT_CLONE_TIMEOUT_S,
-            )
-        except TimeoutExpired as exc:
+            _run_git_clone(url, dest, extra_args=extra_args)
+        except ValueError:
             shutil.rmtree(dest_root, ignore_errors=True)
-            raise ValueError(
-                f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
-            ) from exc
-        if result.returncode != 0:
-            shutil.rmtree(dest_root, ignore_errors=True)
-            stderr = result.stderr.strip() or "unknown git clone error"
-            stderr = _redact_sensitive(stderr)
-            msg = f"failed to clone {repo}: {stderr}"
-            raise ValueError(msg)
+            raise
         return dest.resolve(), repo, dest_root
 
     raise ValueError(f"{repo} is not a directory or owner/repo reference")
@@ -678,27 +644,13 @@ def build_feature(
             )
             ref_tmp_roots.append(ref_root)
             ref_dest = ref_root / "repo"
-            ref_url = _github_clone_url(ref_spec, token=config.github_token)
+            ref_url = _build_clone_url(ref_spec, token=config.github_token)
             try:
-                ref_result = subprocess.run(
-                    ["git", "clone", "--depth", "1", ref_url, str(ref_dest)],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    env=_git_noninteractive_env(),
-                    timeout=_GIT_CLONE_TIMEOUT_S,
-                )
-            except TimeoutExpired:
+                _run_git_clone(ref_url, ref_dest)
+            except ValueError as exc:
                 _append_update(
                     updates,
-                    f"Reference repo clone timed out: {ref_spec}",
-                )
-                continue
-            if ref_result.returncode != 0:
-                stderr = _redact_sensitive(ref_result.stderr.strip() or "unknown error")
-                _append_update(
-                    updates,
-                    f"Failed to clone reference repo {ref_spec}: {stderr}",
+                    f"Failed to clone reference repo {ref_spec}: {exc}",
                 )
                 continue
             repo_index.reference_repos.append((ref_spec, ref_dest.resolve()))

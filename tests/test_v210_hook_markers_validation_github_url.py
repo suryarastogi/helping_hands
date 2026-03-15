@@ -103,12 +103,14 @@ class TestGithubUrlModuleContract:
 
     def test_all_exports(self) -> None:
         assert set(github_url_module.__all__) == {
+            "DEFAULT_CLONE_DEPTH",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
             "build_clone_url",
             "noninteractive_env",
             "redact_credentials",
+            "run_git_clone",
             "validate_repo_spec",
         }
 
