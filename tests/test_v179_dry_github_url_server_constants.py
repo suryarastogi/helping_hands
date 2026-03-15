@@ -35,6 +35,7 @@ class TestGitHubUrlConstants:
         expected = {
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
+            "GIT_CLONE_TIMEOUT_S",
             "build_clone_url",
             "noninteractive_env",
             "redact_credentials",

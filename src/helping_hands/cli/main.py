@@ -19,6 +19,9 @@ from typing import cast
 from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
+    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
+)
+from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
 )
 from helping_hands.lib.github_url import (
@@ -55,9 +58,6 @@ _DEFAULT_CLONE_DEPTH = 1
 
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
-
-_GIT_CLONE_TIMEOUT_S = 120
-"""Timeout in seconds for git clone subprocess calls."""
 
 
 def build_parser() -> argparse.ArgumentParser:

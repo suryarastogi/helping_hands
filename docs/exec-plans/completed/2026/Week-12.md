@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY git identity, browse max chars, clone timeout (v195)
+
+**DRY git identity:** `_E2E_GIT_USER_NAME` and `_E2E_GIT_USER_EMAIL` in `e2e.py` now reference `_DEFAULT_GIT_USER_NAME`/`_DEFAULT_GIT_USER_EMAIL` from `base.py` instead of duplicating the string literals.
+
+**DRY browse max chars:** Extracted `DEFAULT_BROWSE_MAX_CHARS = 12000` in `web.py` as the single source, replacing 3× hardcoded `12000` across `web.py` (`browse_url` default), `registry.py` (browse_url call), and `mcp_server.py` (`_DEFAULT_BROWSE_MAX_CHARS`). Added to `web.py` `__all__` exports.
+
+**DRY clone timeout:** Extracted `GIT_CLONE_TIMEOUT_S = 120` to `github_url.py`, replacing 2× duplicated `_GIT_CLONE_TIMEOUT_S = 120` constants in `cli/main.py` and `celery_app.py`. Both modules now import from the shared source.
+
+**4715 backend tests passed (+15 new: 4 git identity, 6 browse max chars, 5 clone timeout), 156 skipped.**
+
+---
+
 ## Mar 15 — DRY timeout constants and PR status sentinels (v194)
 
 **DRY refactoring:** Extracted `_DEFAULT_SCRIPT_TIMEOUT_S = 60` module-level constant in `command.py`, replacing 3× hardcoded `timeout_s: int = 60` defaults across `run_python_code`, `run_python_script`, and `run_bash_script`. Extracted `_DEFAULT_WEB_TIMEOUT_S = 20` in `web.py`, replacing 2× hardcoded defaults across `search_web` and `browse_url`.

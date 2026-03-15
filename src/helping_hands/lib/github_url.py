@@ -13,6 +13,7 @@ import re
 __all__ = [
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
+    "GIT_CLONE_TIMEOUT_S",
     "build_clone_url",
     "noninteractive_env",
     "redact_credentials",
@@ -24,6 +25,9 @@ GITHUB_TOKEN_USER = "x-access-token"
 
 GITHUB_HOSTNAME = "github.com"
 """Hostname matched when extracting ``owner/repo`` from git remote URLs."""
+
+GIT_CLONE_TIMEOUT_S = 120
+"""Timeout in seconds for git clone subprocess calls."""
 
 
 def validate_repo_spec(repo: str) -> None:

@@ -17,7 +17,13 @@ from typing import Any
 from uuid import uuid4
 
 from helping_hands.lib.config import _TRUTHY_VALUES
-from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH, Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _DEFAULT_GIT_USER_EMAIL,
+    _DEFAULT_GIT_USER_NAME,
+    _UUID_HEX_LENGTH,
+    Hand,
+    HandResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +34,11 @@ __all__ = ["E2EHand"]
 _E2E_MARKER_FILE = "HELPING_HANDS_E2E.md"
 """Filename for the E2E marker file written into cloned repositories."""
 
-_E2E_GIT_USER_NAME = "helping-hands[bot]"
-"""Default git user name for E2E commits."""
+_E2E_GIT_USER_NAME = _DEFAULT_GIT_USER_NAME
+"""Default git user name for E2E commits (shared with Hand base)."""
 
-_E2E_GIT_USER_EMAIL = "helping-hands-bot@users.noreply.github.com"
-"""Default git user email for E2E commits."""
+_E2E_GIT_USER_EMAIL = _DEFAULT_GIT_USER_EMAIL
+"""Default git user email for E2E commits (shared with Hand base)."""
 
 _E2E_COMMIT_MESSAGE = "test(e2e): minimal change from E2EHand"
 """Commit message used by E2E hand for marker file changes."""

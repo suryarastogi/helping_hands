@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v195](exec-plans/completed/2026/Week-12.md) --
+  DRY git identity (`_E2E_GIT_USER_NAME`/`_E2E_GIT_USER_EMAIL` in e2e.py now
+  reference base.py shared constants), DRY browse max chars
+  (`DEFAULT_BROWSE_MAX_CHARS = 12000` in web.py replacing 3× hardcoded `12000`
+  across web.py/registry.py/mcp_server.py), DRY clone timeout
+  (`GIT_CLONE_TIMEOUT_S = 120` in github_url.py replacing 2× duplicated constants
+  in cli/main.py and celery_app.py); 4715 tests (15 new, 156 skipped)
+
 - [2026-03-15 v194](exec-plans/completed/2026/Week-12.md) --
   DRY timeout constants (`_DEFAULT_SCRIPT_TIMEOUT_S` in command.py replacing 3× `60`,
   `_DEFAULT_WEB_TIMEOUT_S` in web.py replacing 2× `20`), PR status sentinel extraction

@@ -283,7 +283,9 @@ def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseR
         raise ValueError("url must be a non-empty string")
     return web_tools.browse_url(
         url,
-        max_chars=_parse_positive_int(payload, key="max_chars", default=12000),
+        max_chars=_parse_positive_int(
+            payload, key="max_chars", default=web_tools.DEFAULT_BROWSE_MAX_CHARS
+        ),
         timeout_s=_parse_positive_int(payload, key="timeout_s", default=20),
     )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "DEFAULT_BROWSE_MAX_CHARS",
     "WebBrowseResult",
     "WebSearchItem",
     "WebSearchResult",
@@ -22,6 +23,9 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_BROWSE_MAX_CHARS = 12000
+"""Default maximum characters returned when browsing a web page."""
 
 
 @dataclass(frozen=True)
@@ -282,7 +286,7 @@ def search_web(
 def browse_url(
     url: str,
     *,
-    max_chars: int = 12000,
+    max_chars: int = DEFAULT_BROWSE_MAX_CHARS,
     timeout_s: int = _DEFAULT_WEB_TIMEOUT_S,
 ) -> WebBrowseResult:
     """Fetch and text-extract a web page for tool consumption."""

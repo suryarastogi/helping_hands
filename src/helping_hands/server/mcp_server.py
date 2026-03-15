@@ -57,7 +57,7 @@ _indexed_repos: dict[str, RepoIndex] = {}
 _DEFAULT_EXEC_TIMEOUT_S = 60
 """Default timeout in seconds for code/script execution MCP tools."""
 
-_DEFAULT_BROWSE_MAX_CHARS = 12000
+_DEFAULT_BROWSE_MAX_CHARS = web_tools.DEFAULT_BROWSE_MAX_CHARS
 """Default maximum characters returned by the web_browse MCP tool."""
 
 _INDEX_FILES_LIMIT = 200

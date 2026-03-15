@@ -18,6 +18,9 @@ from typing import Any
 from celery import Celery
 
 from helping_hands.lib.github_url import (
+    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
+)
+from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
 )
 from helping_hands.lib.github_url import (
@@ -104,9 +107,6 @@ _KEYCHAIN_TIMEOUT_S = 5
 
 _DB_CONNECT_TIMEOUT_S = 5
 """Timeout in seconds for PostgreSQL connection attempts."""
-
-_GIT_CLONE_TIMEOUT_S = 120
-"""Timeout in seconds for git clone subprocess calls."""
 
 _SUPPORTED_BACKENDS = {
     "e2e",
