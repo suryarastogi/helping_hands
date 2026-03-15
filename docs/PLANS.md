@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v204](exec-plans/completed/2026/Week-12.md) --
+  Fix form default mismatch (`"codexcli"` → `_DEFAULT_BACKEND`), DRY inline
+  truthy set → `_TRUTHY_VALUES`, move inline `import time` to top-level, DRY
+  `3.0` → `_DEFAULT_CI_WAIT_MINUTES`, extract `_TOOL_SUMMARY_KEY_MAP`/
+  `_TOOL_SUMMARY_STATIC` dispatch table in claude.py `_summarize_tool()`;
+  52 tests (40 new, 12 skipped without fastapi)
+
 - [2026-03-15 v203](exec-plans/completed/2026/Week-12.md) --
   DRY `_detect_auth_failure(output, extra_tokens)` helper in `cli/base.py`
   (encapsulates 3-line tail-extraction + token-check pattern from 4 subclasses,

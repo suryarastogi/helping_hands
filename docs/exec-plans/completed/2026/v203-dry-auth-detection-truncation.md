@@ -1,6 +1,15 @@
 # v203 — DRY auth failure detection + text truncation helper
 
-**Date:** 2026-03-15
+**Status:** Completed
+**Created:** 2026-03-15
+
+## Tasks
+
+- [x] Extract `_detect_auth_failure` helper in `cli/base.py`
+- [x] Extract `_truncate_with_ellipsis` helper in `cli/base.py`
+- [x] Refactor 4 CLI subclasses to use new helpers
+- [x] Update 3 existing test files
+- [x] Add 50 new tests
 
 ## Changes
 

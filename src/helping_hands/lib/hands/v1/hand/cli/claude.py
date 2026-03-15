@@ -16,7 +16,11 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ClaudeCodeHand"]
+__all__ = [
+    "_TOOL_SUMMARY_KEY_MAP",
+    "_TOOL_SUMMARY_STATIC",
+    "ClaudeCodeHand",
+]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -50,6 +54,21 @@ _BLOCK_TYPE_TOOL_RESULT = "tool_result"
 
 _BLOCK_TYPE_TEXT = "text"
 """Block type for assistant text output."""
+
+# Dispatch table for _summarize_tool: maps tool name → input_data key.
+# Tools listed here use the simple pattern ``"ToolName {input_data[key]}"``.
+_TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
+    "Read": "file_path",
+    "Edit": "file_path",
+    "Write": "file_path",
+    "Glob": "pattern",
+    "NotebookEdit": "notebook_path",
+}
+"""Simple tool-name → input key mapping for ``_summarize_tool``."""
+
+# Tools that need no input key — just return the tool name.
+_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
+"""Tools whose summary is simply their name with no parameters."""
 
 
 class _StreamJsonEmitter:
@@ -176,38 +195,45 @@ class _StreamJsonEmitter:
 
     @staticmethod
     def _summarize_tool(name: str, input_data: dict) -> str:
-        if name == "Read":
-            path = input_data.get("file_path", "")
-            return f"Read {path}"
-        if name == "Edit":
-            path = input_data.get("file_path", "")
-            return f"Edit {path}"
-        if name == "Write":
-            path = input_data.get("file_path", "")
-            return f"Write {path}"
+        """Return a one-line human-readable summary of a tool invocation.
+
+        Uses ``_TOOL_SUMMARY_KEY_MAP`` for tools that follow the simple
+        ``"ToolName {value}"`` pattern, ``_TOOL_SUMMARY_STATIC`` for
+        tools with no parameters, and explicit branches for tools with
+        custom formatting.
+
+        Args:
+            name: The tool name (e.g. ``"Read"``, ``"Bash"``).
+            input_data: The tool's input parameters dict.
+
+        Returns:
+            A compact summary string for progress logging.
+        """
+        # Simple key-lookup tools: "ToolName {value}"
+        key = _TOOL_SUMMARY_KEY_MAP.get(name)
+        if key is not None:
+            return f"{name} {input_data.get(key, '')}"
+
+        # Static tools: just the tool name
+        if name in _TOOL_SUMMARY_STATIC:
+            return name
+
+        # Custom-format tools
         if name == "Bash":
             cmd = input_data.get("command", "")
             return f"$ {_truncate_with_ellipsis(cmd, _COMMAND_PREVIEW_MAX_LENGTH)}"
-        if name == "Glob":
-            pattern = input_data.get("pattern", "")
-            return f"Glob {pattern}"
         if name == "Grep":
             pattern = input_data.get("pattern", "")
             return f"Grep /{pattern}/"
-        if name == "Agent":
-            desc = input_data.get("description", "")
-            return f"Agent: {desc}" if desc else "Agent"
         if name == "WebFetch":
             url = input_data.get("url", "")
             return f"WebFetch {url}"
         if name == "WebSearch":
             query = input_data.get("query", "")
             return f"WebSearch {query!r}" if query else "WebSearch"
-        if name == "NotebookEdit":
-            path = input_data.get("notebook_path", "")
-            return f"NotebookEdit {path}"
-        if name == "TodoWrite":
-            return "TodoWrite"
+        if name == "Agent":
+            desc = input_data.get("description", "")
+            return f"Agent: {desc}" if desc else "Agent"
         if name == "MultiTool":
             tool_uses = input_data.get("tool_uses", [])
             count = len(tool_uses) if isinstance(tool_uses, list) else 0
@@ -223,8 +249,6 @@ class _StreamJsonEmitter:
         if name == "CronDelete":
             cron_id = input_data.get("id", "")
             return f"CronDelete {cron_id}" if cron_id else "CronDelete"
-        if name == "CronList":
-            return "CronList"
         if name == "EnterWorktree":
             wt_name = input_data.get("name", "")
             return f"EnterWorktree {wt_name}" if wt_name else "EnterWorktree"

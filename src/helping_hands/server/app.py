@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -22,6 +23,7 @@ from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
@@ -479,12 +481,10 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
     """
     global _usage_cache, _usage_cache_ts
 
-    import time as _time
-
     if (
         not force
         and _usage_cache is not None
-        and (_time.monotonic() - _usage_cache_ts) < _USAGE_CACHE_TTL_S
+        and (time.monotonic() - _usage_cache_ts) < _USAGE_CACHE_TTL_S
     ):
         return _usage_cache
 
@@ -562,7 +562,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
 
     result = ClaudeUsageResponse(levels=levels, fetched_at=now)
     _usage_cache = result
-    _usage_cache_ts = _time.monotonic()
+    _usage_cache_ts = time.monotonic()
     return result
 
 
@@ -2731,7 +2731,7 @@ def _is_running_in_docker() -> bool:
     if Path("/.dockerenv").exists():
         return True
     raw = os.environ.get("HELPING_HANDS_IN_DOCKER", "").strip().lower()
-    return raw in {"1", "true", "yes"}
+    return raw in _TRUTHY_VALUES
 
 
 @app.get("/config", response_model=ServerConfig)
@@ -3390,7 +3390,7 @@ def _build_form_redirect_query(
     enable_web: bool = False,
     use_native_cli_auth: bool = False,
     fix_ci: bool = False,
-    ci_check_wait_minutes: float = 3.0,
+    ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES,
     pr_number: int | None = None,
     tools: str | None = None,
     skills: str | None = None,
@@ -3415,7 +3415,7 @@ def _build_form_redirect_query(
         query["use_native_cli_auth"] = "1"
     if fix_ci:
         query["fix_ci"] = "1"
-    if ci_check_wait_minutes != 3.0:
+    if ci_check_wait_minutes != _DEFAULT_CI_WAIT_MINUTES:
         query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
     if pr_number is not None:
         query["pr_number"] = str(pr_number)
@@ -3430,9 +3430,9 @@ def _build_form_redirect_query(
 def enqueue_build_form(
     repo_path: str = Form(...),
     prompt: str = Form(...),
-    backend: str = Form("codexcli"),
+    backend: str = Form(_DEFAULT_BACKEND),
     model: str | None = Form(None),
-    max_iterations: int = Form(6),
+    max_iterations: int = Form(_DEFAULT_MAX_ITERATIONS),
     no_pr: bool = Form(False),
     enable_execution: bool = Form(False),
     enable_web: bool = Form(False),
@@ -3441,7 +3441,7 @@ def enqueue_build_form(
     tools: str | None = Form(None),
     skills: str | None = Form(None),
     fix_ci: bool = Form(False),
-    ci_check_wait_minutes: float = Form(3.0),
+    ci_check_wait_minutes: float = Form(_DEFAULT_CI_WAIT_MINUTES),
     github_token: str | None = Form(None),
     reference_repos: str | None = Form(None),
 ) -> RedirectResponse:

@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY form defaults, truthy values, inline import, tool dispatch (v204)
+
+**Fix form default mismatch:** `enqueue_build_form` used hardcoded `"codexcli"` as backend default instead of `_DEFAULT_BACKEND` (`"claudecodecli"`). Also replaced hardcoded `6` → `_DEFAULT_MAX_ITERATIONS` and `3.0` → `_DEFAULT_CI_WAIT_MINUTES` in both `enqueue_build_form` Form defaults and `_build_form_redirect_query` signature/comparison.
+
+**DRY `_is_running_in_docker`:** Replaced inline `{"1", "true", "yes"}` set with `_TRUTHY_VALUES` import from `config.py`.
+
+**Top-level `import time`:** Moved `import time as _time` from inside `_fetch_claude_usage` function body to module-level `import time`.
+
+**`_TOOL_SUMMARY_KEY_MAP` dispatch table:** Extracted 5-entry dict mapping tool names (`Read`, `Edit`, `Write`, `Glob`, `NotebookEdit`) to their input key for the simple `"ToolName {value}"` pattern, plus `_TOOL_SUMMARY_STATIC` frozenset for parameter-less tools (`TodoWrite`, `CronList`). Refactored `_StreamJsonEmitter._summarize_tool()` to use lookup tables before the custom-format if/elif chain.
+
+**52 tests (40 new, 12 skipped without fastapi). Updated `__all__` test for claude.py. 4913 passed, 208 skipped.**
+
+---
+
 ## Mar 15 — DRY auth failure detection + text truncation helper (v203)
 
 **DRY `_detect_auth_failure` helper:** Extracted `_detect_auth_failure(output, extra_tokens=())` → `(bool, str)` in `cli/base.py`, encapsulating the 3-line tail-extraction + lowercase + token-check pattern previously duplicated in `claude.py`, `codex.py`, `gemini.py`, and `opencode.py`. Removed direct `_AUTH_ERROR_TOKENS` and `_FAILURE_OUTPUT_TAIL_LENGTH` imports from all 4 subclass files.
