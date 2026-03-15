@@ -15,6 +15,16 @@ from typing import Any
 
 from celery import Celery
 
+from helping_hands.server.constants import (
+    DEFAULT_BACKEND as _DEFAULT_BACKEND,
+)
+from helping_hands.server.constants import (
+    DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
+)
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -100,16 +110,16 @@ class ScheduledTask:
     cron_expression: str
     repo_path: str
     prompt: str
-    backend: str = "claudecodecli"
+    backend: str = _DEFAULT_BACKEND
     model: str | None = None
-    max_iterations: int = 6
+    max_iterations: int = _DEFAULT_MAX_ITERATIONS
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
-    ci_check_wait_minutes: float = 3.0
+    ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
     github_token: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
@@ -178,16 +188,18 @@ class ScheduledTask:
             cron_expression=data["cron_expression"],
             repo_path=data["repo_path"],
             prompt=data["prompt"],
-            backend=data.get("backend", "claudecodecli"),
+            backend=data.get("backend", _DEFAULT_BACKEND),
             model=data.get("model"),
-            max_iterations=data.get("max_iterations", 6),
+            max_iterations=data.get("max_iterations", _DEFAULT_MAX_ITERATIONS),
             pr_number=data.get("pr_number"),
             no_pr=data.get("no_pr", False),
             enable_execution=data.get("enable_execution", False),
             enable_web=data.get("enable_web", False),
             use_native_cli_auth=data.get("use_native_cli_auth", False),
             fix_ci=data.get("fix_ci", False),
-            ci_check_wait_minutes=data.get("ci_check_wait_minutes", 3.0),
+            ci_check_wait_minutes=data.get(
+                "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
+            ),
             github_token=data.get("github_token"),
             reference_repos=data.get("reference_repos", []),
             tools=data.get("tools", []),

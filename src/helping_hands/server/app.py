@@ -33,6 +33,15 @@ from helping_hands.server.constants import (
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
 )
 from helping_hands.server.constants import (
+    DEFAULT_BACKEND as _DEFAULT_BACKEND,
+)
+from helping_hands.server.constants import (
+    DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
+)
+from helping_hands.server.constants import (
+    DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
+)
+from helping_hands.server.constants import (
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
 )
 from helping_hands.server.constants import (
@@ -43,6 +52,12 @@ from helping_hands.server.constants import (
 )
 from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
+)
+from helping_hands.server.constants import (
+    MAX_REFERENCE_REPOS as _MAX_REFERENCE_REPOS,
+)
+from helping_hands.server.constants import (
+    USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
 )
 from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
@@ -194,18 +209,22 @@ class BuildRequest(_ToolSkillValidatorMixin):
         "goose",
         "geminicli",
         "opencodecli",
-    ] = "claudecodecli"
+    ] = _DEFAULT_BACKEND
     model: str | None = Field(default=None, max_length=200)
-    max_iterations: int = Field(default=6, ge=1, le=100)
+    max_iterations: int = Field(default=_DEFAULT_MAX_ITERATIONS, ge=1, le=100)
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     pr_number: int | None = None
     fix_ci: bool = False
-    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
+    ci_check_wait_minutes: float = Field(
+        default=_DEFAULT_CI_WAIT_MINUTES, ge=0.5, le=30.0
+    )
     github_token: str | None = Field(default=None, max_length=500)
-    reference_repos: list[str] = Field(default_factory=list)
+    reference_repos: list[str] = Field(
+        default_factory=list, max_length=_MAX_REFERENCE_REPOS
+    )
 
 
 BackendName = Literal[
@@ -293,18 +312,22 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     )
     repo_path: str = Field(min_length=1, max_length=500)
     prompt: str = Field(min_length=1, max_length=50_000)
-    backend: BackendName = "claudecodecli"
+    backend: BackendName = _DEFAULT_BACKEND
     model: str | None = Field(default=None, max_length=200)
-    max_iterations: int = Field(default=6, ge=1, le=100)
+    max_iterations: int = Field(default=_DEFAULT_MAX_ITERATIONS, ge=1, le=100)
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
-    ci_check_wait_minutes: float = Field(default=3.0, ge=0.5, le=30.0)
+    ci_check_wait_minutes: float = Field(
+        default=_DEFAULT_CI_WAIT_MINUTES, ge=0.5, le=30.0
+    )
     github_token: str | None = Field(default=None, max_length=500)
-    reference_repos: list[str] = Field(default_factory=list)
+    reference_repos: list[str] = Field(
+        default_factory=list, max_length=_MAX_REFERENCE_REPOS
+    )
     enabled: bool = True
 
 
@@ -318,14 +341,14 @@ class ScheduleResponse(BaseModel):
     prompt: str
     backend: str
     model: str | None = None
-    max_iterations: int = 6
+    max_iterations: int = _DEFAULT_MAX_ITERATIONS
     pr_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
-    ci_check_wait_minutes: float = 3.0
+    ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
     github_token: str | None = None
     reference_repos: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
@@ -407,7 +430,6 @@ def _get_claude_oauth_token() -> str | None:
 
 _usage_cache: ClaudeUsageResponse | None = None
 _usage_cache_ts: float = 0.0
-_USAGE_CACHE_TTL = 300  # 5 minutes
 
 
 def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
@@ -423,7 +445,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
     if (
         not force
         and _usage_cache is not None
-        and (_time.monotonic() - _usage_cache_ts) < _USAGE_CACHE_TTL
+        and (_time.monotonic() - _usage_cache_ts) < _USAGE_CACHE_TTL_S
     ):
         return _usage_cache
 

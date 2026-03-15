@@ -9,10 +9,15 @@ from __future__ import annotations
 __all__ = [
     "ANTHROPIC_BETA_HEADER",
     "ANTHROPIC_USAGE_URL",
+    "DEFAULT_BACKEND",
+    "DEFAULT_CI_WAIT_MINUTES",
+    "DEFAULT_MAX_ITERATIONS",
     "JWT_TOKEN_PREFIX",
     "KEYCHAIN_ACCESS_TOKEN_KEY",
     "KEYCHAIN_OAUTH_KEY",
     "KEYCHAIN_SERVICE_NAME",
+    "MAX_REFERENCE_REPOS",
+    "USAGE_CACHE_TTL_S",
     "USAGE_USER_AGENT",
 ]
 
@@ -42,3 +47,22 @@ KEYCHAIN_ACCESS_TOKEN_KEY = "accessToken"
 
 JWT_TOKEN_PREFIX = "ey"
 """Base64-encoded JWT header prefix used for raw token heuristic detection."""
+
+# --- Build / schedule defaults ------------------------------------------------
+
+DEFAULT_BACKEND = "claudecodecli"
+"""Default hand backend slug for build and schedule requests."""
+
+DEFAULT_MAX_ITERATIONS = 6
+"""Default maximum iterative hand loop iterations."""
+
+DEFAULT_CI_WAIT_MINUTES = 3.0
+"""Default minutes to wait between CI check polls."""
+
+MAX_REFERENCE_REPOS = 10
+"""Maximum number of reference repos allowed in a single request."""
+
+# --- Usage cache --------------------------------------------------------------
+
+USAGE_CACHE_TTL_S = 300
+"""Seconds to cache Claude usage API responses (5 minutes)."""

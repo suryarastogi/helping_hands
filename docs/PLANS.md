@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v196](exec-plans/completed/2026/Week-12.md) --
+  DRY shared defaults (`DEFAULT_BACKEND`, `DEFAULT_MAX_ITERATIONS`,
+  `DEFAULT_CI_WAIT_MINUTES` in server/constants.py replacing 3× duplicated
+  literals across app.py/schedules.py), `reference_repos` `max_length=10`
+  validation in BuildRequest/ScheduleRequest, `USAGE_CACHE_TTL_S = 300` named
+  constant replacing local `_USAGE_CACHE_TTL`; 4723 tests (27 new, 174 skipped)
+
 - [2026-03-15 v195](exec-plans/completed/2026/Week-12.md) --
   DRY git identity (`_E2E_GIT_USER_NAME`/`_E2E_GIT_USER_EMAIL` in e2e.py now
   reference base.py shared constants), DRY browse max chars

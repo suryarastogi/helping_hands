@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY shared defaults, reference_repos validation, usage cache TTL (v196)
+
+**DRY shared defaults:** Extracted `DEFAULT_BACKEND = "claudecodecli"`, `DEFAULT_MAX_ITERATIONS = 6`, `DEFAULT_CI_WAIT_MINUTES = 3.0` to `server/constants.py` as the single source of truth. `BuildRequest`, `ScheduleRequest`, and `ScheduleResponse` in `app.py` now reference the shared constants instead of duplicated literals. `ScheduledTask` dataclass defaults and `from_dict()` fallbacks in `schedules.py` likewise import from the shared source.
+
+**reference_repos validation:** Added `MAX_REFERENCE_REPOS = 10` to `server/constants.py`. `BuildRequest.reference_repos` and `ScheduleRequest.reference_repos` now enforce `max_length=_MAX_REFERENCE_REPOS` via Pydantic `Field()`, preventing unbounded lists from being submitted.
+
+**Usage cache TTL:** Extracted `USAGE_CACHE_TTL_S = 300` with docstring to `server/constants.py`, replacing the local `_USAGE_CACHE_TTL = 300` in `app.py`.
+
+**4723 backend tests passed (+27 new: 7 constant values, 6 app defaults, 6 schedules defaults, 5 reference_repos validation, 2 usage cache TTL, 1 __all__ update), 174 skipped.**
+
+---
+
 ## Mar 15 — DRY git identity, browse max chars, clone timeout (v195)
 
 **DRY git identity:** `_E2E_GIT_USER_NAME` and `_E2E_GIT_USER_EMAIL` in `e2e.py` now reference `_DEFAULT_GIT_USER_NAME`/`_DEFAULT_GIT_USER_EMAIL` from `base.py` instead of duplicating the string literals.

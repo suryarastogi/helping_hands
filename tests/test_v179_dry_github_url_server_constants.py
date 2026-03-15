@@ -247,10 +247,15 @@ class TestServerConstants:
         expected = {
             "ANTHROPIC_BETA_HEADER",
             "ANTHROPIC_USAGE_URL",
+            "DEFAULT_BACKEND",
+            "DEFAULT_CI_WAIT_MINUTES",
+            "DEFAULT_MAX_ITERATIONS",
             "JWT_TOKEN_PREFIX",
             "KEYCHAIN_ACCESS_TOKEN_KEY",
             "KEYCHAIN_OAUTH_KEY",
             "KEYCHAIN_SERVICE_NAME",
+            "MAX_REFERENCE_REPOS",
+            "USAGE_CACHE_TTL_S",
             "USAGE_USER_AGENT",
         }
         assert set(constants.__all__) == expected
