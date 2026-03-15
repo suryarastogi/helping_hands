@@ -8,14 +8,21 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-15 v187](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v188](exec-plans/completed/2026/Week-12.md) --
+  DRY `redact_credentials()` to use `GITHUB_TOKEN_USER`/`GITHUB_HOSTNAME` constants
+  in regex, DRY `_redact_sensitive()` in github.py to delegate to shared module
+  (removing unused `import re`), add `logger.debug(exc_info=True)` to 2 remaining
+  catch-all exception handlers (`_finalize_repo_pr`, `_ci_fix_loop`); consolidate
+  daily plan file; 4588 tests (11 new, 154 skipped)
+
+- [2026-03-15 v187](exec-plans/completed/2026/Week-12.md) --
   Server endpoint path parameter validation: extract `_validate_path_param()` helper,
   add empty/whitespace validation to 8 FastAPI endpoints (`monitor`, `get_task`,
   6 schedule endpoints), refactor `_cancel_task()` to use shared helper, Google-style
   docstrings for `_build_task_status()` and `_schedule_to_response()`; 4615 tests
   (38 new, 2 skipped)
 
-- [2026-03-15 v186](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v186](exec-plans/completed/2026/Week-12.md) --
   Add Google-style docstrings to 5 claude.py methods (`__call__`, `_process_line`,
   `result_text`, `_resolve_cli_model`, `_skip_permissions_enabled`), add empty-path
   validation to MCP `path_exists`, add mutual-exclusivity validation to MCP

@@ -1358,6 +1358,7 @@ class _TwoPhaseCLIHand(Hand):
                 )
 
         except Exception as exc:
+            logger.debug("_ci_fix_loop unexpected error", exc_info=True)
             metadata["ci_fix_status"] = "error"
             metadata["ci_fix_error"] = str(exc)
             await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")

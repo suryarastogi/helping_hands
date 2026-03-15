@@ -1014,6 +1014,7 @@ class Hand(abc.ABC):
             metadata["pr_error"] = str(exc)
             return metadata
         except Exception as exc:
+            logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
             metadata["pr_status"] = "error"
             metadata["pr_error"] = str(exc)
             return metadata

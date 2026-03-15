@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +18,7 @@ from github.PullRequest import PullRequest
 from github.Repository import Repository
 
 from helping_hands.lib.github_url import GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER
+from helping_hands.lib.github_url import redact_credentials as _redact_credentials
 
 __all__ = ["GitHubClient", "PRResult"]
 
@@ -91,11 +91,7 @@ def _validate_branch_name(branch_name: str) -> None:
 
 def _redact_sensitive(text: str) -> str:
     """Redact token-bearing GitHub URLs in logs/errors."""
-    return re.sub(
-        rf"(https://{re.escape(_GITHUB_TOKEN_USER)}:)[^@]+(@github\.com/)",
-        r"\1***\2",
-        text,
-    )
+    return _redact_credentials(text)
 
 
 @dataclass

@@ -80,7 +80,7 @@ def redact_credentials(text: str) -> str:
         The text with credentials replaced by ``***``.
     """
     return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
+        rf"(https://{re.escape(GITHUB_TOKEN_USER)}:)[^@]+(@{re.escape(GITHUB_HOSTNAME)}/)",
         r"\1***\2",
         text,
     )
