@@ -25,6 +25,25 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _GOOSE_DEFAULT_PROVIDER = "ollama"
     _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
 
+    _PROVIDER_AUTH_ENV_NAMES: tuple[str, ...] = (
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_API_KEY",
+        "OPENAI_API_KEY",
+    )
+    """API-key env vars for all known Goose providers (sorted)."""
+
+    def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return env var names that carry API keys for Goose providers.
+
+        Goose is multi-provider (openai, anthropic, google, ollama) so all
+        known API-key env vars are returned.  ``OLLAMA_HOST`` is excluded
+        because it is a host URL, not a secret.
+
+        Returns:
+            Tuple of API-key env var names for openai, anthropic, and google.
+        """
+        return self._PROVIDER_AUTH_ENV_NAMES
+
     def _pr_description_cmd(self) -> list[str] | None:
         """Return the CLI command used to generate PR descriptions.
 

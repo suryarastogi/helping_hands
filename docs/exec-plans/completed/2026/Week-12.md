@@ -4,6 +4,14 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — Add _native_cli_auth_env_names() to GeminiCLIHand and GooseCLIHand (v194)
+
+**Auth env name overrides:** Added `_native_cli_auth_env_names()` to `GeminiCLIHand` (returns `("GEMINI_API_KEY",)`) and `GooseCLIHand` (returns `("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY")` via `_PROVIDER_AUTH_ENV_NAMES` class constant). Previously both inherited the base class empty tuple, preventing `_describe_auth()` from logging auth status and `_effective_container_env_names()` from filtering auth keys in container mode. `ClaudeCodeHand` and `CodexCLIHand` already had overrides; `OpenCodeCLIHand` correctly uses the empty-tuple default (session-based auth). Added Google-style docstrings to both methods. Goose's tuple excludes `OLLAMA_HOST` (a URL, not a secret).
+
+**4679 backend tests passed (+12 new: 5 GeminiCLIHand auth env names, 7 GooseCLIHand auth env names), 155 skipped.**
+
+---
+
 ## Mar 15 — DRY auth error tokens, iterative docstrings, frontend a11y (v193)
 
 **DRY refactoring:** Extracted shared `_AUTH_ERROR_TOKENS` tuple constant to `cli/base.py` with `__all__` export, replacing 4× duplicated auth detection string literals across `claude.py`, `codex.py`, `gemini.py`, and `opencode.py`. Each CLI hand now imports the shared constant from `cli/base.py`; backend-specific tokens (e.g. `"anthropic_api_key"` in `claude.py`, `"gemini_api_key"` in `gemini.py`, `"missing bearer or basic authentication"` in `codex.py`) remain local. Added `ClaudeCodeHand._EXTRA_AUTH_TOKENS` class-level constant for Claude-specific tokens.

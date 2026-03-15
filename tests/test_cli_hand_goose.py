@@ -494,3 +494,46 @@ class TestOllamaDefaultHostConstant:
         monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
         env = hand._build_subprocess_env()
         assert env["OLLAMA_HOST"] == _OLLAMA_DEFAULT_HOST
+
+
+# ---------------------------------------------------------------------------
+# _native_cli_auth_env_names
+# ---------------------------------------------------------------------------
+
+
+class TestNativeCliAuthEnvNames:
+    def test_returns_expected_keys(self, goose_hand) -> None:
+        result = goose_hand._native_cli_auth_env_names()
+        assert "OPENAI_API_KEY" in result
+        assert "ANTHROPIC_API_KEY" in result
+        assert "GOOGLE_API_KEY" in result
+
+    def test_excludes_ollama_host(self, goose_hand) -> None:
+        """OLLAMA_HOST is a URL, not a secret — should not be in auth env names."""
+        result = goose_hand._native_cli_auth_env_names()
+        assert "OLLAMA_HOST" not in result
+
+    def test_returns_tuple(self, goose_hand) -> None:
+        result = goose_hand._native_cli_auth_env_names()
+        assert isinstance(result, tuple)
+
+    def test_all_strings(self, goose_hand) -> None:
+        result = goose_hand._native_cli_auth_env_names()
+        assert all(isinstance(name, str) for name in result)
+
+    def test_sorted_order(self, goose_hand) -> None:
+        """Class constant should be sorted for consistency."""
+        result = goose_hand._native_cli_auth_env_names()
+        assert list(result) == sorted(result)
+
+    def test_matches_class_constant(self) -> None:
+        assert GooseCLIHand._PROVIDER_AUTH_ENV_NAMES == (
+            "ANTHROPIC_API_KEY",
+            "GOOGLE_API_KEY",
+            "OPENAI_API_KEY",
+        )
+
+    def test_docstring_present(self) -> None:
+        doc = GooseCLIHand._native_cli_auth_env_names.__doc__
+        assert doc
+        assert "API" in doc

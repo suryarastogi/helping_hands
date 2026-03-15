@@ -27,6 +27,14 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
     _VERBOSE_CLI_FLAGS = ("--verbose",)
     _DEFAULT_APPROVAL_MODE = "auto_edit"
 
+    def _native_cli_auth_env_names(self) -> tuple[str, ...]:
+        """Return env var names used for native Gemini CLI authentication.
+
+        Returns:
+            Tuple containing ``"GEMINI_API_KEY"``.
+        """
+        return ("GEMINI_API_KEY",)
+
     def _pr_description_cmd(self) -> list[str] | None:
         """Return the command for generating PR descriptions via Gemini CLI.
 

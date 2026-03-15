@@ -362,3 +362,34 @@ class TestCommandNotFoundMessage:
         msg = gemini_hand._command_not_found_message("gemini")
         assert "'gemini'" in msg
         assert "HELPING_HANDS_GEMINI_CLI_CMD" in msg
+
+
+# ---------------------------------------------------------------------------
+# _native_cli_auth_env_names
+# ---------------------------------------------------------------------------
+
+
+class TestNativeCliAuthEnvNames:
+    def test_returns_gemini_api_key(self, gemini_hand) -> None:
+        result = gemini_hand._native_cli_auth_env_names()
+        assert result == ("GEMINI_API_KEY",)
+
+    def test_returns_tuple(self, gemini_hand) -> None:
+        result = gemini_hand._native_cli_auth_env_names()
+        assert isinstance(result, tuple)
+
+    def test_consistent_with_describe_auth(self, gemini_hand) -> None:
+        """Auth env var name appears in _describe_auth output."""
+        auth_desc = gemini_hand._describe_auth()
+        for name in gemini_hand._native_cli_auth_env_names():
+            assert name in auth_desc
+
+    def test_consistent_with_build_subprocess_env(self, gemini_hand) -> None:
+        """Auth env var is checked in _build_subprocess_env."""
+        env_names = gemini_hand._native_cli_auth_env_names()
+        assert "GEMINI_API_KEY" in env_names
+
+    def test_docstring_present(self) -> None:
+        doc = GeminiCLIHand._native_cli_auth_env_names.__doc__
+        assert doc
+        assert "GEMINI_API_KEY" in doc

@@ -1,6 +1,6 @@
 # v193 — DRY auth error tokens, iterative docstrings, frontend a11y
 
-**Status:** active
+**Status:** completed
 **Created:** 2026-03-15
 **Branch:** helping-hands/claudecodecli-bfc17b62
 
