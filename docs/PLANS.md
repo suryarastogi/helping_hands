@@ -6,7 +6,15 @@ Index of execution plans for helping_hands development.
 
 (none)
 
+
 ## Completed plans
+
+- [2026-03-15 v191](exec-plans/completed/2026/Week-12.md) --
+  Server app.py test coverage: 41 new tests for 8 previously untested functions
+  (`_validate_path_param`, `_redact_token`, `_build_form_redirect_query`,
+  `_build_task_status`, `_cancel_task`, `_enqueue_build_task`,
+  `_fetch_flower_current_tasks`, `_resolve_worker_capacity`); server/app.py
+  coverage 51% → 88%; 5336 tests (41 new, 2 skipped)
 
 - [2026-03-15 v190](exec-plans/completed/2026/Week-12.md) --
   Pre-compile regex constants: move `import re` to module-level in
