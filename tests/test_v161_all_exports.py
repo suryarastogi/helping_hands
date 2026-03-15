@@ -21,11 +21,15 @@ class TestHandBaseAllExport:
 
         assert "HandResponse" in __all__
 
-    def test_all_has_no_private_names(self) -> None:
+    def test_all_private_names_are_constants(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import __all__
 
         private = [name for name in __all__ if name.startswith("_")]
-        assert private == [], f"Private names in __all__: {private}"
+        # Private names are module-level constants (e.g. _PR_META_*, _PR_STATUS_*)
+        for name in private:
+            assert name.startswith("_PR_"), (
+                f"Unexpected private name in __all__: {name}"
+            )
 
     def test_all_symbols_importable(self) -> None:
         import helping_hands.lib.hands.v1.hand.base as mod
@@ -36,7 +40,7 @@ class TestHandBaseAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import __all__
 
-        assert len(__all__) == 2
+        assert len(__all__) == 21
 
 
 # ---------------------------------------------------------------------------

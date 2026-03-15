@@ -22,7 +22,14 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _PR_META_STATUS,
+    _PR_META_URL,
+    _PR_STATUS_DISABLED,
+    _PR_STATUS_NO_CHANGES,
+    Hand,
+    HandResponse,
+)
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     build_langchain_chat_model,
@@ -946,10 +953,13 @@ class BasicLangGraphHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=content,
                 )
-                if pr_metadata.get("pr_url"):
-                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
-                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                if pr_metadata.get(_PR_META_URL):
+                    yield f"\nPR created: {pr_metadata[_PR_META_URL]}\n"
+                elif pr_metadata.get(_PR_META_STATUS) not in {
+                    _PR_STATUS_NO_CHANGES,
+                    _PR_STATUS_DISABLED,
+                }:
+                    yield f"\nPR status: {pr_metadata.get(_PR_META_STATUS)}\n"
                 return
             yield "\n\nContinuing...\n"
 
@@ -958,10 +968,13 @@ class BasicLangGraphHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get("pr_url"):
-            yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
-            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        if pr_metadata.get(_PR_META_URL):
+            yield f"\nPR created: {pr_metadata[_PR_META_URL]}\n"
+        elif pr_metadata.get(_PR_META_STATUS) not in {
+            _PR_STATUS_NO_CHANGES,
+            _PR_STATUS_DISABLED,
+        }:
+            yield f"\nPR status: {pr_metadata.get(_PR_META_STATUS)}\n"
         yield "\n\nMax iterations reached.\n"
 
 
@@ -1184,10 +1197,13 @@ class BasicAtomicHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=stream_text,
                 )
-                if pr_metadata.get("pr_url"):
-                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
-                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                if pr_metadata.get(_PR_META_URL):
+                    yield f"\nPR created: {pr_metadata[_PR_META_URL]}\n"
+                elif pr_metadata.get(_PR_META_STATUS) not in {
+                    _PR_STATUS_NO_CHANGES,
+                    _PR_STATUS_DISABLED,
+                }:
+                    yield f"\nPR status: {pr_metadata.get(_PR_META_STATUS)}\n"
                 return
             yield "\n\nContinuing...\n"
 
@@ -1196,8 +1212,11 @@ class BasicAtomicHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get("pr_url"):
-            yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in {"no_changes", "disabled"}:
-            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        if pr_metadata.get(_PR_META_URL):
+            yield f"\nPR created: {pr_metadata[_PR_META_URL]}\n"
+        elif pr_metadata.get(_PR_META_STATUS) not in {
+            _PR_STATUS_NO_CHANGES,
+            _PR_STATUS_DISABLED,
+        }:
+            yield f"\nPR status: {pr_metadata.get(_PR_META_STATUS)}\n"
         yield "\n\nMax iterations reached.\n"

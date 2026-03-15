@@ -61,7 +61,7 @@ class TestPlansTracking:
         completed = DOCS_DIR / "exec-plans" / "completed"
         if not completed.exists():
             return []
-        return sorted(f.name for f in completed.glob("*.md"))
+        return sorted(f.name for f in completed.rglob("*.md"))
 
     def test_all_completed_plans_referenced(
         self, plans_text: str, completed_plan_files: list[str]
@@ -237,7 +237,7 @@ class TestCompletedPlanStructure:
         completed = DOCS_DIR / "exec-plans" / "completed"
         if not completed.exists():
             return []
-        return sorted(completed.glob("*.md"))
+        return sorted(completed.rglob("*.md"))
 
     def test_completed_plans_exist(self, completed_plan_paths: list[Path]) -> None:
         assert len(completed_plan_paths) > 0, (
@@ -247,10 +247,12 @@ class TestCompletedPlanStructure:
     def test_versioned_plans_have_status(
         self, completed_plan_paths: list[Path]
     ) -> None:
-        """Versioned plans (not date-consolidated) must have a Status field."""
+        """Versioned plans (not date/week-consolidated) must have a Status field."""
         for plan_path in completed_plan_paths:
-            # Date-consolidated files (2026-03-04.md) are summaries, skip them
+            # Date-consolidated (2026-03-04.md) and weekly (Week-8.md) are summaries
             if re.match(r"\d{4}-\d{2}-\d{2}\.md$", plan_path.name):
+                continue
+            if re.match(r"Week-\d+\.md$", plan_path.name):
                 continue
             content = plan_path.read_text()
             assert "**Status:**" in content, (
@@ -263,6 +265,8 @@ class TestCompletedPlanStructure:
         """Versioned plans must have a Tasks section."""
         for plan_path in completed_plan_paths:
             if re.match(r"\d{4}-\d{2}-\d{2}\.md$", plan_path.name):
+                continue
+            if re.match(r"Week-\d+\.md$", plan_path.name):
                 continue
             content = plan_path.read_text()
             assert "## Tasks" in content, (
@@ -878,7 +882,7 @@ class TestCompletedPlansMinimumContent:
         completed = DOCS_DIR / "exec-plans" / "completed"
         if not completed.exists():
             return []
-        return sorted(completed.glob("*.md"))
+        return sorted(completed.rglob("*.md"))
 
     def test_completed_plans_non_trivial(
         self, completed_plan_paths: list[Path]
@@ -2328,7 +2332,7 @@ class TestCompletedPlanChronologicalOrder:
         completed = DOCS_DIR / "exec-plans" / "completed"
         if not completed.exists():
             return []
-        files = sorted(f.stem for f in completed.glob("*.md"))
+        files = sorted(f.stem for f in completed.rglob("*.md"))
         return [f for f in files if re.match(r"\d{4}-\d{2}-\d{2}", f)]
 
     def test_dates_are_chronological(self, completed_dates: list[str]) -> None:

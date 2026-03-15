@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v184](exec-plans/completed/2026/Week-12.md) --
+  Extract PR metadata status constants (`_PR_STATUS_*`, `_PR_META_*` — 19
+  constants) in base.py and CI fix status constants (`_CI_FIX_STATUS_*`,
+  `_CI_FIX_META_*` — 10 constants) in cli/base.py; replace 63 raw string
+  occurrences across base.py, cli/base.py, iterative.py; 4550 tests (40 new,
+  153 skipped)
+
 - [2026-03-15 v183](exec-plans/completed/2026/Week-12.md) --
   Extract `_DEFAULT_COMMIT_MSG_TEMPLATE` and `_DEFAULT_PR_TITLE_TEMPLATE`
   constants in base.py (DRY 4 duplicate f-strings), add `logger.debug` to 2
