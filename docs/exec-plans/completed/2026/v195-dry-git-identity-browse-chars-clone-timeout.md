@@ -3,6 +3,14 @@
 **Status:** Completed
 **Date:** 2026-03-15
 
+## Tasks
+
+- [x] DRY git identity constants — `e2e.py` re-exports from `base.py`
+- [x] DRY browse max chars — extract `DEFAULT_BROWSE_MAX_CHARS` in `web.py`
+- [x] DRY clone timeout — extract `GIT_CLONE_TIMEOUT_S` in `github_url.py`
+- [x] Add 15 new tests covering all three extractions
+- [x] Update `__all__` export counts in existing tests
+
 ## Changes
 
 ### 1. DRY git identity constants (e2e.py → base.py)
