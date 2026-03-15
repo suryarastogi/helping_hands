@@ -269,7 +269,20 @@ def mkdir(repo_path: str, dir_path: str) -> dict:
 
 @mcp.tool()
 def path_exists(repo_path: str, path: str) -> bool:
-    """Check whether a repo-relative path exists."""
+    """Check whether a repo-relative path exists.
+
+    Args:
+        repo_path: Absolute path to the repository root.
+        path: Path relative to the repo root.
+
+    Returns:
+        ``True`` if the path exists, ``False`` otherwise.
+
+    Raises:
+        ValueError: If *path* is empty or whitespace-only.
+    """
+    if not path or not path.strip():
+        raise ValueError("path must be a non-empty string")
     root = _repo_root(repo_path)
     return fs_tools.path_exists(root, path)
 
@@ -327,7 +340,27 @@ def run_bash_script(
     timeout_s: int = _DEFAULT_EXEC_TIMEOUT_S,
     cwd: str | None = None,
 ) -> dict:
-    """Execute a repo-relative or inline bash script from repo context."""
+    """Execute a repo-relative or inline bash script from repo context.
+
+    Args:
+        repo_path: Absolute path to the repository root.
+        script_path: Path to a bash script relative to the repo root.
+        inline_script: Inline bash code to execute.
+        args: Optional arguments passed to the script.
+        timeout_s: Execution timeout in seconds.
+        cwd: Optional working directory relative to the repo root.
+
+    Returns:
+        Dict with success, command, cwd, exit_code, timed_out, stdout, stderr.
+
+    Raises:
+        ValueError: If neither *script_path* nor *inline_script* is provided,
+            or if both are provided simultaneously.
+    """
+    if not script_path and not inline_script:
+        raise ValueError("Either script_path or inline_script must be provided")
+    if script_path and inline_script:
+        raise ValueError("Cannot provide both script_path and inline_script")
     root = _repo_root(repo_path)
     result = exec_tools.run_bash_script(
         root,

@@ -65,6 +65,11 @@ class _StreamJsonEmitter:
         self._text_parts: list[str] = []
 
     async def __call__(self, chunk: str) -> None:
+        """Buffer incoming text and process complete lines.
+
+        Args:
+            chunk: Raw text chunk from the Claude Code CLI subprocess.
+        """
         self._buffer += chunk
         while "\n" in self._buffer:
             line, self._buffer = self._buffer.split("\n", 1)
@@ -80,6 +85,15 @@ class _StreamJsonEmitter:
             self._buffer = ""
 
     async def _process_line(self, line: str) -> None:
+        """Parse a single JSON event line and emit progress.
+
+        Handles three event types: ``assistant`` (tool use and text blocks),
+        ``user`` (tool result blocks), and ``result`` (cost/duration summary).
+        Non-JSON lines are passed through verbatim.
+
+        Args:
+            line: A stripped, non-empty line from the Claude Code stream.
+        """
         try:
             event = json.loads(line)
         except (json.JSONDecodeError, TypeError):
@@ -218,6 +232,14 @@ class _StreamJsonEmitter:
         return f"tool: {name}"
 
     def result_text(self) -> str:
+        """Return the final result text from the parsed stream.
+
+        Prefers the explicit ``result`` event payload. Falls back to
+        concatenated assistant text blocks if no result event was received.
+
+        Returns:
+            The result text, or an empty string if no output was captured.
+        """
         if self._result:
             return self._result
         if self._text_parts:
@@ -282,6 +304,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _resolve_cli_model(self) -> str:
+        """Resolve the CLI model, filtering out incompatible GPT models.
+
+        Returns:
+            The resolved model name, or an empty string if the model is
+            missing or is a GPT-family model incompatible with Claude Code.
+        """
         model = super()._resolve_cli_model()
         if not model:
             return ""
@@ -291,6 +319,16 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return model
 
     def _skip_permissions_enabled(self) -> bool:
+        """Check whether ``--dangerously-skip-permissions`` should be added.
+
+        Reads the ``HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS`` env var
+        (default ``"1"``). Even when enabled, returns ``False`` if the process
+        is running as root (UID 0), because Claude Code rejects the flag
+        under root privileges.
+
+        Returns:
+            ``True`` if the flag should be injected into the command.
+        """
         raw = os.environ.get(
             "HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS",
             self._DEFAULT_SKIP_PERMISSIONS,

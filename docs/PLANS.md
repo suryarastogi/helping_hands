@@ -8,7 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-15 v185](exec-plans/completed/2026-03-15.md) --
+- [2026-03-15 v186](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to 5 claude.py methods (`__call__`, `_process_line`,
+  `result_text`, `_resolve_cli_model`, `_skip_permissions_enabled`), add empty-path
+  validation to MCP `path_exists`, add mutual-exclusivity validation to MCP
+  `run_bash_script`; 4577 tests (30 new, 153 skipped)
+
+- [2026-03-15 v185](exec-plans/completed/2026/Week-12.md) --
   Strip whitespace from API key env vars across all 5 AI providers (prevents silent
   auth failures), add `commit_sha`/`stamp_utc` validation to `_build_generic_pr_body()`,
   include path context in `read_text_file()` error messages; 4547 tests (20 new, 153 skipped)
