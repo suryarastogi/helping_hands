@@ -12,6 +12,17 @@ from __future__ import annotations
 
 import pytest
 
+
+def _get_max_length(field):
+    """Extract max_length from FieldInfo metadata (works across Pydantic/Python versions)."""
+    if hasattr(field, "max_length") and field.max_length is not None:
+        return field.max_length
+    for m in field.metadata:
+        if hasattr(m, "max_length") and m.max_length is not None:
+            return m.max_length
+    return None
+
+
 # ---------------------------------------------------------------------------
 # server/constants — field validation bound constants
 # ---------------------------------------------------------------------------
@@ -191,7 +202,7 @@ class TestBuildRequestFieldBounds:
         from helping_hands.server.constants import MAX_REPO_PATH_LENGTH
 
         field = BuildRequest.model_fields["repo_path"]
-        assert field.max_length == MAX_REPO_PATH_LENGTH
+        assert _get_max_length(field) == MAX_REPO_PATH_LENGTH
 
     def test_prompt_max_length_matches_constant(self) -> None:
         pytest.importorskip("fastapi")
@@ -199,7 +210,7 @@ class TestBuildRequestFieldBounds:
         from helping_hands.server.constants import MAX_PROMPT_LENGTH
 
         field = BuildRequest.model_fields["prompt"]
-        assert field.max_length == MAX_PROMPT_LENGTH
+        assert _get_max_length(field) == MAX_PROMPT_LENGTH
 
     def test_model_max_length_matches_constant(self) -> None:
         pytest.importorskip("fastapi")
@@ -207,7 +218,7 @@ class TestBuildRequestFieldBounds:
         from helping_hands.server.constants import MAX_MODEL_LENGTH
 
         field = BuildRequest.model_fields["model"]
-        assert field.max_length == MAX_MODEL_LENGTH
+        assert _get_max_length(field) == MAX_MODEL_LENGTH
 
     def test_github_token_max_length_matches_constant(self) -> None:
         pytest.importorskip("fastapi")
@@ -215,7 +226,7 @@ class TestBuildRequestFieldBounds:
         from helping_hands.server.constants import MAX_GITHUB_TOKEN_LENGTH
 
         field = BuildRequest.model_fields["github_token"]
-        assert field.max_length == MAX_GITHUB_TOKEN_LENGTH
+        assert _get_max_length(field) == MAX_GITHUB_TOKEN_LENGTH
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +294,7 @@ class TestScheduleRequestFieldBounds:
         from helping_hands.server.constants import MAX_REPO_PATH_LENGTH
 
         field = ScheduleRequest.model_fields["repo_path"]
-        assert field.max_length == MAX_REPO_PATH_LENGTH
+        assert _get_max_length(field) == MAX_REPO_PATH_LENGTH
 
     def test_prompt_max_length_matches_constant(self) -> None:
         pytest.importorskip("fastapi")
@@ -291,7 +302,7 @@ class TestScheduleRequestFieldBounds:
         from helping_hands.server.constants import MAX_PROMPT_LENGTH
 
         field = ScheduleRequest.model_fields["prompt"]
-        assert field.max_length == MAX_PROMPT_LENGTH
+        assert _get_max_length(field) == MAX_PROMPT_LENGTH
 
     def test_model_max_length_matches_constant(self) -> None:
         pytest.importorskip("fastapi")
@@ -299,7 +310,7 @@ class TestScheduleRequestFieldBounds:
         from helping_hands.server.constants import MAX_MODEL_LENGTH
 
         field = ScheduleRequest.model_fields["model"]
-        assert field.max_length == MAX_MODEL_LENGTH
+        assert _get_max_length(field) == MAX_MODEL_LENGTH
 
     def test_github_token_max_length_matches_constant(self) -> None:
         pytest.importorskip("fastapi")
@@ -307,7 +318,7 @@ class TestScheduleRequestFieldBounds:
         from helping_hands.server.constants import MAX_GITHUB_TOKEN_LENGTH
 
         field = ScheduleRequest.model_fields["github_token"]
-        assert field.max_length == MAX_GITHUB_TOKEN_LENGTH
+        assert _get_max_length(field) == MAX_GITHUB_TOKEN_LENGTH
 
 
 # ---------------------------------------------------------------------------
