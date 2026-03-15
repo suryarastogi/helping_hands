@@ -87,11 +87,11 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
 
         base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
         api_key = os.environ.get("OLLAMA_API_KEY", "ollama")
+        extra: dict[str, Any] = {"base_url": base_url, "api_key": api_key}
         return ChatOpenAI(
             model_name=hand_model.model,
             streaming=streaming,
-            base_url=base_url,
-            api_key=api_key,
+            **extra,
         )
     if provider == "anthropic":
         try:
