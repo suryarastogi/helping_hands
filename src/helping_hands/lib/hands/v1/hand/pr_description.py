@@ -557,6 +557,10 @@ _BOILERPLATE_PREFIXES = (
     "Skill knowledge catalog:",
 )
 
+_BOILERPLATE_PREFIXES_LOWER = tuple(p.lower() for p in _BOILERPLATE_PREFIXES)
+"""Pre-lowercased version of :data:`_BOILERPLATE_PREFIXES` to avoid
+repeated ``.lower()`` calls inside the hot loop."""
+
 
 def _is_boilerplate_line(line: str) -> bool:
     """Return True if *line* is CLI banner or hand system boilerplate."""
@@ -568,7 +572,7 @@ def _is_boilerplate_line(line: str) -> bool:
         return True
     # Known hand-system prompt prefixes echoed by the model
     lower = line.lower()
-    return any(lower.startswith(prefix.lower()) for prefix in _BOILERPLATE_PREFIXES)
+    return any(lower.startswith(prefix) for prefix in _BOILERPLATE_PREFIXES_LOWER)
 
 
 def _commit_message_from_prompt(prompt: str, summary: str) -> str:

@@ -24,7 +24,13 @@ class TestLangGraphModuleAll:
         assert "LangGraphHand" in langgraph.__all__
 
     def test_all_does_not_contain_private_names(self) -> None:
+        # Module-level constants (e.g. _LANGCHAIN_STREAM_EVENT) are exported
+        # by convention in this codebase, matching the pattern in base.py,
+        # cli/base.py, etc.
+        _ALLOWED_PRIVATE_EXPORTS = {"_LANGCHAIN_STREAM_EVENT"}
         for name in langgraph.__all__:
+            if name in _ALLOWED_PRIVATE_EXPORTS:
+                continue
             assert not name.startswith("_"), f"private name {name!r} in __all__"
 
     def test_all_symbols_are_importable(self) -> None:

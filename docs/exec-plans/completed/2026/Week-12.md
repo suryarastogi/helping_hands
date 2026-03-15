@@ -1,6 +1,20 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, and input validation.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, and CI status enums.
+
+---
+
+## Mar 15 — CI status enums, boilerplate optimization, stream event constant (v209)
+
+**`CIConclusion(StrEnum)`:** Replaced 5 hardcoded CI conclusion strings in `github.py` `get_check_runs()` with `CIConclusion` enum (5 members). Added `CI_CONCLUSIONS_IN_PROGRESS` frozenset and `_CI_RUN_FAILURE_CONCLUSIONS` frozenset for check-run failure conclusions.
+
+**`CIFixStatus(StrEnum)`:** Replaced 7 hardcoded CI fix loop status strings in `cli/base.py` with `CIFixStatus` enum (7 members). Used across `_ci_fix_loop`, `_poll_ci_checks`, `_build_ci_fix_prompt`, and `_format_ci_fix_message`.
+
+**Boilerplate prefix optimization:** Added `_BOILERPLATE_PREFIXES_LOWER` pre-computed tuple in `pr_description.py` to avoid repeated `.lower()` calls inside `_is_boilerplate_line()`.
+
+**`_LANGCHAIN_STREAM_EVENT` constant:** Extracted duplicated `"on_chat_model_stream"` string from `langgraph.py` and `iterative.py` into a shared module-level constant.
+
+**36 new tests. 5073 passed, 216 skipped.**
 
 ---
 

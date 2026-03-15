@@ -12,10 +12,16 @@ import tempfile
 import time
 from collections.abc import AsyncIterator
 from contextlib import suppress
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
 from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.github import (
+    _CI_RUN_FAILURE_CONCLUSIONS,
+    CI_CONCLUSIONS_IN_PROGRESS,
+    CIConclusion,
+)
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
@@ -43,6 +49,7 @@ __all__ = [
     "_PROCESS_TERMINATE_TIMEOUT_S",
     "_PR_DESCRIPTION_TIMEOUT_S",
     "_STREAM_READ_BUFFER_SIZE",
+    "CIFixStatus",
     "_TwoPhaseCLIHand",
     "_detect_auth_failure",
     "_truncate_with_ellipsis",
@@ -109,6 +116,39 @@ _DOCKER_REBUILD_HINT_TEMPLATE = (
 Use with :meth:`str.format` passing the binary name, e.g.
 ``_DOCKER_REBUILD_HINT_TEMPLATE.format("gemini")``.
 """
+
+
+# --- CI fix status enum -------------------------------------------------------
+
+
+class CIFixStatus(StrEnum):
+    """State-machine values for the CI-fix loop in :meth:`_ci_fix_loop`.
+
+    Being a :class:`StrEnum`, each member compares equal to its string value
+    (e.g. ``CIFixStatus.SUCCESS == "success"``), so serialised metadata dicts
+    remain human-readable and backward-compatible.
+    """
+
+    CHECKING = "checking"
+    """CI checks are being polled (initial state)."""
+
+    SUCCESS = "success"
+    """All CI checks passed; no fix was needed."""
+
+    NO_CHECKS = "no_checks"
+    """No CI check runs were found for the ref."""
+
+    PENDING_TIMEOUT = "pending_timeout"
+    """CI checks were still pending after the maximum wait time."""
+
+    INTERRUPTED = "interrupted"
+    """The hand was interrupted (cancelled) during the CI fix loop."""
+
+    EXHAUSTED = "exhausted"
+    """All retry attempts were used without achieving CI success."""
+
+    ERROR = "error"
+    """An unexpected error occurred during the CI fix loop."""
 
 
 def _truncate_with_ellipsis(text: str, limit: int) -> str:
@@ -1266,8 +1306,8 @@ class _TwoPhaseCLIHand(Hand):
         deadline = time.monotonic() + max_poll_seconds
         while time.monotonic() < deadline:
             result = gh.get_check_runs(repo, ref)
-            conclusion = result.get("conclusion", "pending")
-            if conclusion not in ("pending", "no_checks"):
+            conclusion = result.get("conclusion", CIConclusion.PENDING)
+            if conclusion not in CI_CONCLUSIONS_IN_PROGRESS:
                 return result
             await emit(
                 f"[{self._CLI_LABEL}] CI still {conclusion}, "
@@ -1288,7 +1328,7 @@ class _TwoPhaseCLIHand(Hand):
         failed = [
             r
             for r in check_result.get("check_runs", [])
-            if r.get("conclusion") in ("failure", "cancelled", "timed_out")
+            if r.get("conclusion") in _CI_RUN_FAILURE_CONCLUSIONS
         ]
         failure_lines = []
         for r in failed:
@@ -1345,7 +1385,7 @@ class _TwoPhaseCLIHand(Hand):
         max_poll = initial_wait * 2
 
         metadata["ci_fix_attempts"] = "0"
-        metadata["ci_fix_status"] = "checking"
+        metadata["ci_fix_status"] = CIFixStatus.CHECKING
 
         try:
             gh_token = getattr(self.config, "github_token", "")
@@ -1353,7 +1393,7 @@ class _TwoPhaseCLIHand(Hand):
                 current_ref = pr_commit
                 for attempt in range(1, self.ci_max_retries + 1):
                     if self._is_interrupted():
-                        metadata["ci_fix_status"] = "interrupted"
+                        metadata["ci_fix_status"] = CIFixStatus.INTERRUPTED
                         return metadata
 
                     check_result = await self._poll_ci_checks(
@@ -1365,32 +1405,32 @@ class _TwoPhaseCLIHand(Hand):
                         max_poll_seconds=max_poll,
                     )
 
-                    conclusion = check_result.get("conclusion", "pending")
+                    conclusion = check_result.get("conclusion", CIConclusion.PENDING)
                     total = check_result.get("total_count", 0)
 
-                    if conclusion == "success":
+                    if conclusion == CIConclusion.SUCCESS:
                         await emit(
                             f"[{self._CLI_LABEL}] CI passed "
                             f"({total} check{'s' if total != 1 else ''}). "
                             f"No fixes needed.\n"
                         )
-                        metadata["ci_fix_status"] = "success"
+                        metadata["ci_fix_status"] = CIFixStatus.SUCCESS
                         return metadata
 
-                    if conclusion == "no_checks":
+                    if conclusion == CIConclusion.NO_CHECKS:
                         await emit(
                             f"[{self._CLI_LABEL}] No CI checks found. "
                             "Skipping CI fix loop.\n"
                         )
-                        metadata["ci_fix_status"] = "no_checks"
+                        metadata["ci_fix_status"] = CIFixStatus.NO_CHECKS
                         return metadata
 
-                    if conclusion == "pending":
+                    if conclusion == CIConclusion.PENDING:
                         await emit(
                             f"[{self._CLI_LABEL}] CI checks still pending "
                             f"after waiting. Skipping fix attempt.\n"
                         )
-                        metadata["ci_fix_status"] = "pending_timeout"
+                        metadata["ci_fix_status"] = CIFixStatus.PENDING_TIMEOUT
                         return metadata
 
                     # CI failed — attempt fix
@@ -1409,7 +1449,7 @@ class _TwoPhaseCLIHand(Hand):
                     await self._invoke_backend(fix_prompt, emit=emit)
 
                     if self._is_interrupted():
-                        metadata["ci_fix_status"] = "interrupted"
+                        metadata["ci_fix_status"] = CIFixStatus.INTERRUPTED
                         return metadata
 
                     metadata["ci_fix_attempts"] = str(attempt)
@@ -1440,7 +1480,7 @@ class _TwoPhaseCLIHand(Hand):
                     current_ref = new_sha
 
                 # Exhausted all retries
-                metadata["ci_fix_status"] = "exhausted"
+                metadata["ci_fix_status"] = CIFixStatus.EXHAUSTED
                 await emit(
                     f"[{self._CLI_LABEL}] CI fix retries exhausted "
                     f"after {self.ci_max_retries} attempts.\n"
@@ -1448,7 +1488,7 @@ class _TwoPhaseCLIHand(Hand):
 
         except Exception as exc:
             logger.debug("_ci_fix_loop unexpected error", exc_info=True)
-            metadata["ci_fix_status"] = "error"
+            metadata["ci_fix_status"] = CIFixStatus.ERROR
             metadata["ci_fix_error"] = str(exc)
             await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")
 
@@ -1467,13 +1507,13 @@ class _TwoPhaseCLIHand(Hand):
         if not ci_status:
             return None
         attempts = metadata.get("ci_fix_attempts", "0")
-        if ci_status == "success":
+        if ci_status == CIFixStatus.SUCCESS:
             return f"[{self._CLI_LABEL}] CI checks passed."
-        if ci_status == "exhausted":
+        if ci_status == CIFixStatus.EXHAUSTED:
             return f"[{self._CLI_LABEL}] CI fix failed after {attempts} attempt(s)."
-        if ci_status == "pending_timeout":
+        if ci_status == CIFixStatus.PENDING_TIMEOUT:
             return f"[{self._CLI_LABEL}] CI checks still pending after max wait time."
-        if ci_status == "error":
+        if ci_status == CIFixStatus.ERROR:
             error = metadata.get("ci_fix_error", "")
             return f"[{self._CLI_LABEL}] CI fix error: {error}"
         return None

@@ -10,6 +10,7 @@ import logging
 import os
 import subprocess
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -21,13 +22,47 @@ from helping_hands.lib.github_url import GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER
 from helping_hands.lib.github_url import redact_credentials as _redact_credentials
 from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
-__all__ = ["GitHubClient", "PRResult"]
+__all__ = ["CIConclusion", "GitHubClient", "PRResult"]
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_GIT_TIMEOUT = 300  # seconds
 _MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
 _VALID_PR_STATES = frozenset({"open", "closed", "all"})
+
+
+# --- CI conclusion enum -------------------------------------------------------
+
+
+class CIConclusion(StrEnum):
+    """Overall CI check-run conclusion returned by :meth:`GitHubClient.get_check_runs`.
+
+    Being a :class:`StrEnum`, each member compares equal to its string value
+    (e.g. ``CIConclusion.SUCCESS == "success"``), so serialised dicts remain
+    human-readable and backward-compatible.
+    """
+
+    NO_CHECKS = "no_checks"
+    """No CI check runs were found for the ref."""
+
+    PENDING = "pending"
+    """At least one check run has not completed yet."""
+
+    SUCCESS = "success"
+    """All check runs completed successfully."""
+
+    FAILURE = "failure"
+    """At least one check run failed."""
+
+    MIXED = "mixed"
+    """Check runs completed with a mix of conclusions (none failed)."""
+
+
+CI_CONCLUSIONS_IN_PROGRESS = frozenset({CIConclusion.PENDING, CIConclusion.NO_CHECKS})
+"""CI conclusion values indicating checks are not yet decisive."""
+
+_CI_RUN_FAILURE_CONCLUSIONS = frozenset({"failure", "cancelled", "timed_out"})
+"""Individual check-run ``conclusion`` values considered failures."""
 
 
 def _git_timeout() -> int:
@@ -515,15 +550,15 @@ class GitHubClient:
             )
 
         if not check_list:
-            overall = "no_checks"
+            overall: str = CIConclusion.NO_CHECKS
         elif any(r["status"] != "completed" for r in check_list):
-            overall = "pending"
+            overall = CIConclusion.PENDING
         elif all(r["conclusion"] == "success" for r in check_list):
-            overall = "success"
+            overall = CIConclusion.SUCCESS
         elif any(r["conclusion"] == "failure" for r in check_list):
-            overall = "failure"
+            overall = CIConclusion.FAILURE
         else:
-            overall = "mixed"
+            overall = CIConclusion.MIXED
 
         return {
             "ref": ref,

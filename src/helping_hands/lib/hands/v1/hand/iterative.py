@@ -27,6 +27,7 @@ from helping_hands.lib.hands.v1.hand.base import (
     Hand,
     HandResponse,
 )
+from helping_hands.lib.hands.v1.hand.langgraph import _LANGCHAIN_STREAM_EVENT
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     build_langchain_chat_model,
@@ -869,7 +870,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             ):
                 if self._is_interrupted():
                     break
-                if event["event"] == "on_chat_model_stream" and event["data"].get(
+                if event["event"] == _LANGCHAIN_STREAM_EVENT and event["data"].get(
                     "chunk"
                 ):
                     chunk = event["data"]["chunk"]

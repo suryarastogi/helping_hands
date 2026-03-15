@@ -17,7 +17,10 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     resolve_hand_model,
 )
 
-__all__ = ["LangGraphHand"]
+__all__ = ["_LANGCHAIN_STREAM_EVENT", "LangGraphHand"]
+
+_LANGCHAIN_STREAM_EVENT = "on_chat_model_stream"
+"""LangChain ``astream_events`` event name for chat model token chunks."""
 
 
 class LangGraphHand(Hand):
@@ -117,7 +120,7 @@ class LangGraphHand(Hand):
             {"messages": [{"role": "user", "content": prompt}]},
             version="v2",
         ):
-            if event["event"] == "on_chat_model_stream" and event["data"].get("chunk"):
+            if event["event"] == _LANGCHAIN_STREAM_EVENT and event["data"].get("chunk"):
                 chunk = event["data"]["chunk"]
                 if hasattr(chunk, "content") and chunk.content:
                     text = str(chunk.content)
