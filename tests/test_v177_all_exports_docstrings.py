@@ -27,9 +27,9 @@ class TestLangGraphModuleAll:
         # Module-level constants (e.g. _LANGCHAIN_STREAM_EVENT) are exported
         # by convention in this codebase, matching the pattern in base.py,
         # cli/base.py, etc.
-        _ALLOWED_PRIVATE_EXPORTS = {"_LANGCHAIN_STREAM_EVENT"}
+        allowed_private_exports = {"_LANGCHAIN_STREAM_EVENT"}
         for name in langgraph.__all__:
-            if name in _ALLOWED_PRIVATE_EXPORTS:
+            if name in allowed_private_exports:
                 continue
             assert not name.startswith("_"), f"private name {name!r} in __all__"
 
