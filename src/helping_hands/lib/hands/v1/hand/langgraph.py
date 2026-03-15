@@ -25,11 +25,27 @@ class LangGraphHand(Hand):
     """
 
     def __init__(self, config: Any, repo_index: Any) -> None:
+        """Initialize the LangGraph hand with a resolved model and agent.
+
+        Args:
+            config: Application configuration (must include ``model``).
+            repo_index: Repository index providing the file tree and root path.
+        """
         super().__init__(config, repo_index)
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
     def _build_agent(self) -> Any:
+        """Create the LangGraph ``create_react_agent`` instance.
+
+        Requires the ``langchain`` extra.  Builds a LangChain chat model
+        from ``self._hand_model`` with streaming enabled, then wraps it in
+        a zero-tool react agent with the shared system prompt.
+
+        Returns:
+            A LangGraph agent object supporting ``invoke`` and
+            ``astream_events``.
+        """
         from langgraph.prebuilt import create_react_agent
 
         llm = build_langchain_chat_model(
@@ -44,6 +60,17 @@ class LangGraphHand(Hand):
         )
 
     def run(self, prompt: str) -> HandResponse:
+        """Execute the prompt synchronously via the LangGraph agent.
+
+        Invokes the agent, extracts the last assistant message content,
+        finalizes the repo PR, and returns a ``HandResponse``.
+
+        Args:
+            prompt: The user task prompt.
+
+        Returns:
+            A ``HandResponse`` with the agent output and PR metadata.
+        """
         result = self._agent.invoke({"messages": [{"role": "user", "content": prompt}]})
         messages = result.get("messages") or []
         last_msg = messages[-1] if messages else None

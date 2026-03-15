@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v168](exec-plans/completed/2026-03-15.md) --
+  Add Google-style docstrings to langgraph.py (3), app.py validators (4), cli/base.py (22); 4113 tests (83 new)
+
 - [2026-03-15 v167](exec-plans/completed/2026-03-15.md) --
   Add Google-style docstrings to goose.py (13), opencode.py (5), e2e.py (8); extract `_AUTH_ERROR_TOKENS` in opencode.py, 5 E2E constants; 4030 tests (29 new)
 

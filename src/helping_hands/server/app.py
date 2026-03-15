@@ -107,12 +107,34 @@ class _ToolSkillValidatorMixin(BaseModel):
     def _coerce_tools(
         cls, value: str | list[str] | tuple[str, ...] | None
     ) -> list[str]:
+        """Normalize raw tool input into a list of tool category names.
+
+        Accepts comma-separated strings, sequences, or ``None`` and
+        delegates to ``normalize_tool_selection``.
+
+        Args:
+            value: Raw tool selection from the request body.
+
+        Returns:
+            A normalized list of tool category name strings.
+        """
         normalized = meta_tools.normalize_tool_selection(value)
         return list(normalized)
 
     @field_validator("tools")
     @classmethod
     def _validate_tools(cls, value: list[str]) -> list[str]:
+        """Validate that all tool names are recognized category names.
+
+        Args:
+            value: List of tool category names to validate.
+
+        Returns:
+            The unchanged list if all names are valid.
+
+        Raises:
+            ValueError: If any name is not a known tool category.
+        """
         meta_tools.validate_tool_category_names(tuple(value))
         return value
 
@@ -121,12 +143,34 @@ class _ToolSkillValidatorMixin(BaseModel):
     def _coerce_skills(
         cls, value: str | list[str] | tuple[str, ...] | None
     ) -> list[str]:
+        """Normalize raw skill input into a list of skill names.
+
+        Accepts comma-separated strings, sequences, or ``None`` and
+        delegates to ``normalize_skill_selection``.
+
+        Args:
+            value: Raw skill selection from the request body.
+
+        Returns:
+            A normalized list of skill name strings.
+        """
         normalized = meta_skills.normalize_skill_selection(value)
         return list(normalized)
 
     @field_validator("skills")
     @classmethod
     def _validate_skills(cls, value: list[str]) -> list[str]:
+        """Validate that all skill names are recognized.
+
+        Args:
+            value: List of skill names to validate.
+
+        Returns:
+            The unchanged list if all names are valid.
+
+        Raises:
+            ValueError: If any name is not a known skill.
+        """
         meta_skills.validate_skill_names(tuple(value))
         return value
 
