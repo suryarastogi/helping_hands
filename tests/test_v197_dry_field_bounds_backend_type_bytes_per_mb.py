@@ -14,12 +14,15 @@ import pytest
 
 
 def _get_max_length(field):
-    """Extract max_length from FieldInfo metadata (works across Pydantic/Python versions)."""
-    if hasattr(field, "max_length") and field.max_length is not None:
-        return field.max_length
+    """Extract max_length from FieldInfo metadata (works across Pydantic/Python versions).
+
+    Always reads from ``field.metadata`` rather than the direct attribute
+    because ``FieldInfo.max_length`` is not reliably accessible on Python 3.14.
+    """
     for m in field.metadata:
-        if hasattr(m, "max_length") and m.max_length is not None:
-            return m.max_length
+        ml = getattr(m, "max_length", None)
+        if ml is not None:
+            return ml
     return None
 
 
