@@ -17,6 +17,7 @@ from typing import Any
 
 from celery import Celery
 
+from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
 )
@@ -120,7 +121,7 @@ _SUPPORTED_BACKENDS = {
     "geminicli",
     "opencodecli",
 }
-_VERBOSE = os.environ.get("HELPING_HANDS_VERBOSE", "").lower() in ("1", "true", "yes")
+_VERBOSE = os.environ.get("HELPING_HANDS_VERBOSE", "").lower() in _TRUTHY_VALUES
 _MAX_STORED_UPDATES = 2000 if _VERBOSE else 200
 _MAX_UPDATE_LINE_CHARS = 4000 if _VERBOSE else 800
 _BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180

@@ -91,6 +91,16 @@ _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 _DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
 """Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
 
+
+def _utc_stamp() -> str:
+    """Return the current UTC time as an ISO-8601 string without microseconds.
+
+    Returns:
+        ISO-8601 formatted UTC timestamp, e.g. ``"2026-03-15T12:00:00+00:00"``.
+    """
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
 # --- PR status sentinel values ------------------------------------------------
 
 _PR_STATUS_CREATED = "created"
@@ -737,7 +747,7 @@ class Hand(abc.ABC):
             raise ValueError(
                 "pr_number must be set before calling _update_pr_description"
             )
-        stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+        stamp = _utc_stamp()
         from helping_hands.lib.hands.v1.hand.pr_description import (
             generate_pr_description,
         )
@@ -793,7 +803,7 @@ class Hand(abc.ABC):
         gh.create_branch(repo_dir, new_branch)
         self._push_noninteractive(gh, repo_dir, new_branch)
 
-        stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+        stamp = _utc_stamp()
         from helping_hands.lib.hands.v1.hand.pr_description import (
             generate_pr_description,
         )
@@ -978,7 +988,7 @@ class Hand(abc.ABC):
                         exc_info=True,
                     )
 
-                stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+                stamp = _utc_stamp()
 
                 from helping_hands.lib.hands.v1.hand.pr_description import (
                     generate_pr_description,

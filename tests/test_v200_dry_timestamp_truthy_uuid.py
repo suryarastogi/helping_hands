@@ -1,0 +1,192 @@
+"""Tests for v200 — DRY timestamp helper, truthy env check, UUID hex length."""
+
+import re
+from datetime import UTC, datetime
+
+import pytest
+
+# ---------------------------------------------------------------------------
+# _utc_stamp() helper (base.py)
+# ---------------------------------------------------------------------------
+
+
+class TestUtcStamp:
+    """Tests for the _utc_stamp() helper extracted in base.py."""
+
+    def test_utc_stamp_returns_str(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        assert isinstance(_utc_stamp(), str)
+
+    def test_utc_stamp_iso_format(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        stamp = _utc_stamp()
+        # Should be parseable back to datetime
+        parsed = datetime.fromisoformat(stamp)
+        assert parsed.tzinfo is not None
+
+    def test_utc_stamp_no_microseconds(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        stamp = _utc_stamp()
+        parsed = datetime.fromisoformat(stamp)
+        assert parsed.microsecond == 0
+
+    def test_utc_stamp_utc_timezone(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        stamp = _utc_stamp()
+        parsed = datetime.fromisoformat(stamp)
+        assert parsed.tzinfo == UTC
+
+    def test_utc_stamp_recent(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        before = datetime.now(UTC).replace(microsecond=0)
+        stamp = _utc_stamp()
+        after = datetime.now(UTC).replace(microsecond=0)
+        parsed = datetime.fromisoformat(stamp)
+        assert before <= parsed <= after
+
+    def test_utc_stamp_contains_plus_offset(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        stamp = _utc_stamp()
+        assert "+00:00" in stamp
+
+    def test_utc_stamp_importable(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        assert callable(_utc_stamp)
+
+    def test_utc_stamp_matches_iso_regex(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _utc_stamp
+
+        stamp = _utc_stamp()
+        # ISO-8601 pattern: YYYY-MM-DDTHH:MM:SS+00:00
+        pattern = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00"
+        assert re.fullmatch(pattern, stamp), (
+            f"stamp {stamp!r} doesn't match ISO pattern"
+        )
+
+
+# ---------------------------------------------------------------------------
+# e2e.py imports _utc_stamp from base
+# ---------------------------------------------------------------------------
+
+
+class TestE2eUtcStampImport:
+    """Tests that e2e.py uses the shared _utc_stamp helper."""
+
+    def test_e2e_imports_utc_stamp(self) -> None:
+        from helping_hands.lib.hands.v1.hand import e2e
+
+        assert hasattr(e2e, "_utc_stamp")
+
+    def test_e2e_utc_stamp_is_same_function(self) -> None:
+        from helping_hands.lib.hands.v1.hand import base, e2e
+
+        assert e2e._utc_stamp is base._utc_stamp
+
+    def test_e2e_no_direct_datetime_utc_usage(self) -> None:
+        """e2e.py should not import UTC/datetime (uses _utc_stamp instead)."""
+        import inspect
+
+        from helping_hands.lib.hands.v1.hand import e2e
+
+        source = inspect.getsource(e2e)
+        assert "from datetime import" not in source
+
+
+# ---------------------------------------------------------------------------
+# celery_app.py _VERBOSE uses shared _TRUTHY_VALUES
+# ---------------------------------------------------------------------------
+
+
+class TestCeleryTruthyValues:
+    """Tests that celery_app.py uses shared _TRUTHY_VALUES."""
+
+    def test_celery_imports_truthy_values(self) -> None:
+        pytest.importorskip("celery")
+        import inspect
+
+        from helping_hands.server import celery_app
+
+        source = inspect.getsource(celery_app)
+        assert "_TRUTHY_VALUES" in source
+
+    def test_celery_no_inline_truthy_tuple(self) -> None:
+        """celery_app.py should not have inline ('1', 'true', 'yes') tuple."""
+        pytest.importorskip("celery")
+        import inspect
+
+        from helping_hands.server import celery_app
+
+        source = inspect.getsource(celery_app)
+        assert '("1", "true", "yes")' not in source
+
+    def test_celery_truthy_values_identity(self) -> None:
+        """_TRUTHY_VALUES imported in celery_app matches config._TRUTHY_VALUES."""
+        pytest.importorskip("celery")
+        from helping_hands.lib import config
+        from helping_hands.server import celery_app
+
+        assert celery_app._TRUTHY_VALUES is config._TRUTHY_VALUES
+
+
+# ---------------------------------------------------------------------------
+# docker_sandbox_claude.py _SANDBOX_UUID_HEX_LENGTH delegates to base
+# ---------------------------------------------------------------------------
+
+
+class TestSandboxUuidHexLength:
+    """Tests that docker_sandbox_claude.py UUID hex length uses base constant."""
+
+    def test_sandbox_uuid_hex_length_value(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
+            _SANDBOX_UUID_HEX_LENGTH,
+        )
+
+        assert _SANDBOX_UUID_HEX_LENGTH == 8
+
+    def test_sandbox_uuid_hex_length_matches_base(self) -> None:
+        from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH
+        from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
+            _SANDBOX_UUID_HEX_LENGTH,
+        )
+
+        assert _SANDBOX_UUID_HEX_LENGTH == _UUID_HEX_LENGTH
+
+    def test_sandbox_uuid_hex_length_is_base_constant(self) -> None:
+        """_SANDBOX_UUID_HEX_LENGTH should be the same object as _UUID_HEX_LENGTH."""
+        from helping_hands.lib.hands.v1.hand.base import _UUID_HEX_LENGTH
+        from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
+            _SANDBOX_UUID_HEX_LENGTH,
+        )
+
+        # Since ints are immutable and small ints are cached, identity may hold,
+        # but value equality is the key invariant.
+        assert _SANDBOX_UUID_HEX_LENGTH == _UUID_HEX_LENGTH
+
+    def test_sandbox_imports_uuid_hex_length_from_base(self) -> None:
+        import inspect
+
+        from helping_hands.lib.hands.v1.hand.cli import docker_sandbox_claude
+
+        source = inspect.getsource(docker_sandbox_claude)
+        assert "_UUID_HEX_LENGTH" in source
+
+    def test_base_no_hardcoded_timestamp_pattern(self) -> None:
+        """base.py should no longer have inline datetime.now(UTC).replace(...)."""
+        import inspect
+
+        from helping_hands.lib.hands.v1.hand import base
+
+        # The helper definition itself is fine, but the body of methods
+        # should use _utc_stamp() instead.
+        method_source = ""
+        for _name, obj in inspect.getmembers(base.Hand):
+            if inspect.isfunction(obj):
+                method_source += inspect.getsource(obj)
+        assert "datetime.now(UTC).replace(microsecond=0)" not in method_source

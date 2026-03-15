@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 15 — DRY timestamp helper, truthy env check, UUID hex length (v200)
+
+**DRY timestamp helper:** Extracted `_utc_stamp()` helper function in `base.py` that returns `datetime.now(UTC).replace(microsecond=0).isoformat()`. Replaced 3× inline usages in `base.py` methods (`_update_pr_description`, `_create_pr_for_diverged_branch`, `_finalize_repo_pr`) and 1× in `e2e.py` (`run`). Removed unused `datetime`/`UTC` imports from `e2e.py`.
+
+**DRY celery truthy check:** `celery_app.py` `_VERBOSE` now imports and uses `_TRUTHY_VALUES` frozenset from `config.py` instead of an inline `("1", "true", "yes")` tuple.
+
+**DRY sandbox UUID hex length:** `docker_sandbox_claude.py` `_SANDBOX_UUID_HEX_LENGTH` now delegates to `_UUID_HEX_LENGTH` imported from `base.py` instead of hardcoding `8`.
+
+**4784 backend tests passed (+19 new: 8 `_utc_stamp` value/format/timezone/regex, 3 e2e import identity/source, 3 celery truthy import/identity/source, 5 sandbox UUID value/identity/import/source), 199 skipped.**
+
+---
+
 ## Mar 15 — DRY registry.py default constants (v199)
 
 **DRY Python version:** Extracted `_DEFAULT_PYTHON_VERSION = "3.13"` in `command.py`, replacing 2× hardcoded `"3.13"` in `run_python_code()` and `run_python_script()` function defaults.

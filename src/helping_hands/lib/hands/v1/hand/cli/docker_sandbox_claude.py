@@ -18,6 +18,9 @@ import shutil
 import uuid
 from typing import Any
 
+from helping_hands.lib.hands.v1.hand.base import (
+    _UUID_HEX_LENGTH,
+)
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _STREAM_READ_BUFFER_SIZE,
     _TwoPhaseCLIHand,
@@ -32,8 +35,12 @@ __all__ = ["DockerSandboxClaudeCodeHand"]
 _SANDBOX_NAME_MAX_LENGTH = 30
 """Maximum character length for the sanitised repo-name portion of a sandbox name."""
 
-_SANDBOX_UUID_HEX_LENGTH = 8
-"""Number of hex characters from a UUID4 appended to sandbox names."""
+_SANDBOX_UUID_HEX_LENGTH = _UUID_HEX_LENGTH
+"""Number of hex characters from a UUID4 appended to sandbox names.
+
+Delegates to :data:`helping_hands.lib.hands.v1.hand.base._UUID_HEX_LENGTH`
+so the branch-name and sandbox-name UUID truncation stays consistent.
+"""
 
 _AUTH_FAILURE_SUBSTRINGS = ("not logged in", "authentication_failed")
 """Lowercase substrings in CLI output that indicate an authentication failure."""

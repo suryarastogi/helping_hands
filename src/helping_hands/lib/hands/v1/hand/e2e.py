@@ -11,7 +11,6 @@ import logging
 import os
 import re
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -23,6 +22,7 @@ from helping_hands.lib.hands.v1.hand.base import (
     _UUID_HEX_LENGTH,
     Hand,
     HandResponse,
+    _utc_stamp,
 )
 
 logger = logging.getLogger(__name__)
@@ -247,7 +247,7 @@ class E2EHand(Hand):
             else:
                 gh.create_branch(repo_dir, branch)
 
-            stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+            stamp = _utc_stamp()
             e2e_path.write_text(
                 (
                     "# helping_hands E2E marker\n\n"

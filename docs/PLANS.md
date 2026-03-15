@@ -8,6 +8,15 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v200](exec-plans/completed/2026/Week-12.md) --
+  DRY timestamp helper (`_utc_stamp()` in base.py replacing 4× inline
+  `datetime.now(UTC).replace(microsecond=0).isoformat()` in base.py/e2e.py),
+  DRY celery truthy check (import `_TRUTHY_VALUES` from config.py in
+  celery_app.py replacing inline tuple), DRY sandbox UUID hex length
+  (`_SANDBOX_UUID_HEX_LENGTH` in docker_sandbox_claude.py now delegates to
+  `_UUID_HEX_LENGTH` from base.py);
+  4784 tests (19 new, 199 skipped)
+
 - [2026-03-15 v199](exec-plans/completed/2026/Week-12.md) --
   DRY registry.py default constants: extract `_DEFAULT_PYTHON_VERSION` in
   command.py (replacing 2× hardcoded `"3.13"` in function defaults), extract
