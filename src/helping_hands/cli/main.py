@@ -47,6 +47,9 @@ _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 _GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
 
+_GITHUB_TOKEN_USER = "x-access-token"
+"""Username used in token-authenticated GitHub HTTPS clone URLs."""
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for CLI mode."""
@@ -380,7 +383,7 @@ def _github_clone_url(repo: str, token: str | None = None) -> str:
         "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
     ).strip()
     if effective_token:
-        return f"https://x-access-token:{effective_token}@github.com/{repo}.git"
+        return f"https://{_GITHUB_TOKEN_USER}:{effective_token}@github.com/{repo}.git"
     return f"https://github.com/{repo}.git"
 
 

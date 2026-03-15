@@ -58,6 +58,12 @@ _UUID_HEX_LENGTH = 8
 _MAX_OUTPUT_DISPLAY_LENGTH = 4000
 """Maximum character length for combined pre-commit output before truncation."""
 
+_GITHUB_TOKEN_USER = "x-access-token"
+"""Username used in token-authenticated GitHub HTTPS clone URLs."""
+
+_GITHUB_HOSTNAME = "github.com"
+"""Hostname matched when extracting ``owner/repo`` from git remote URLs."""
+
 _FILE_LIST_PREVIEW_LIMIT = 200
 """Maximum number of files shown in the system prompt file list."""
 
@@ -280,7 +286,7 @@ class Hand(abc.ABC):
 
         parsed = urlparse(remote)
         hostname = (parsed.hostname or "").lower()
-        if parsed.scheme in {"http", "https", "ssh"} and hostname == "github.com":
+        if parsed.scheme in {"http", "https", "ssh"} and hostname == _GITHUB_HOSTNAME:
             repo = parsed.path.lstrip("/")
             if repo.endswith(".git"):
                 repo = repo[:-4]
@@ -288,7 +294,7 @@ class Hand(abc.ABC):
                 return repo
 
         scp_like = re.match(
-            r"^git@github\.com:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+            rf"^git@{re.escape(_GITHUB_HOSTNAME)}:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
             remote,
         )
         if scp_like:
@@ -356,7 +362,7 @@ class Hand(abc.ABC):
             raise ValueError("repo must not be empty")
         if not token or not token.strip():
             raise ValueError("token must not be empty")
-        push_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+        push_url = f"https://{_GITHUB_TOKEN_USER}:{token}@{_GITHUB_HOSTNAME}/{repo}.git"
         try:
             result = subprocess.run(
                 ["git", "remote", "set-url", "--push", "origin", push_url],

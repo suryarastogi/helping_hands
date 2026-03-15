@@ -26,6 +26,9 @@ _DEFAULT_GIT_TIMEOUT = 300  # seconds
 _MAX_GIT_TIMEOUT = 3600  # 1 hour hard cap
 _VALID_PR_STATES = frozenset({"open", "closed", "all"})
 
+_GITHUB_TOKEN_USER = "x-access-token"
+"""Username used in token-authenticated GitHub HTTPS clone URLs."""
+
 
 def _git_timeout() -> int:
     """Return the git operation timeout in seconds.
@@ -90,7 +93,7 @@ def _validate_branch_name(branch_name: str) -> None:
 def _redact_sensitive(text: str) -> str:
     """Redact token-bearing GitHub URLs in logs/errors."""
     return re.sub(
-        r"(https://x-access-token:)[^@]+(@github\.com/)",
+        rf"(https://{re.escape(_GITHUB_TOKEN_USER)}:)[^@]+(@github\.com/)",
         r"\1***\2",
         text,
     )
@@ -198,7 +201,7 @@ class GitHubClient:
         dest = Path(dest)
         if depth is not None and depth <= 0:
             raise ValueError(f"depth must be positive, got {depth}")
-        url = f"https://x-access-token:{self.token}@github.com/{full_name}.git"
+        url = f"https://{_GITHUB_TOKEN_USER}:{self.token}@github.com/{full_name}.git"
         cmd: list[str] = ["git", "clone"]
         if depth is not None:
             cmd += ["--depth", str(depth)]

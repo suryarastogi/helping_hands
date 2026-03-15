@@ -19,6 +19,12 @@ __all__ = [
     "resolve_hand_model",
 ]
 
+_DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
+"""Default base URL for the Ollama OpenAI-compatible API endpoint."""
+
+_DEFAULT_OLLAMA_API_KEY = "ollama"
+"""Default API key used for Ollama (the server doesn't require real auth)."""
+
 
 @dataclass(frozen=True)
 class HandModel:
@@ -91,8 +97,8 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
     if provider == "ollama":
         from langchain_openai import ChatOpenAI
 
-        base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-        api_key = os.environ.get("OLLAMA_API_KEY", "ollama")
+        base_url = os.environ.get("OLLAMA_BASE_URL", _DEFAULT_OLLAMA_BASE_URL)
+        api_key = os.environ.get("OLLAMA_API_KEY", _DEFAULT_OLLAMA_API_KEY)
         extra: dict[str, Any] = {"base_url": base_url, "api_key": api_key}
         return ChatOpenAI(
             model_name=hand_model.model,

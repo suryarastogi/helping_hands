@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-15 v178](exec-plans/completed/2026-03-15.md) --
+  Extract `_GITHUB_TOKEN_USER` constant in 4 modules (github.py, base.py, cli/main.py, celery_app.py), `_GITHUB_HOSTNAME` in base.py, `_DEFAULT_OLLAMA_BASE_URL`/`_DEFAULT_OLLAMA_API_KEY` in model_provider.py, add `__all__` to 4 namespace `__init__.py` files; 4443 tests (27 new, 2 skipped)
+
 - [2026-03-15 v177](exec-plans/completed/2026-03-15.md) --
   Add `__all__` exports to langgraph.py/atomic.py/cli/base.py, add docstrings to AtomicHand.__init__/run/stream and LangGraphHand.stream; 4415 tests (28 new)
 
