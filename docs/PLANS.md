@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v227](exec-plans/completed/2026/v227-backend-name-consistency-metadata-helper.md) —
+  Fix backend name inconsistency in langgraph.py/atomic.py (hardcoded strings →
+  `_BACKEND_NAME` class constants), DRY `langchain_user_message()` helper for
+  LangChain message dict construction (4 inline dicts → 1 shared function);
+  19 tests (5481 passed, 219 skipped)
+
+
 - [2026-03-16 v226](exec-plans/completed/2026/v226-bash-runner-dry-prompt-builder-type-guards.md) —
   DRY `_run_bash_script()` via `_parse_optional_str()` (replacing manual isinstance),
   `require_non_empty_string()` type guards for `_build_prompt()`/`_build_commit_message_prompt()`

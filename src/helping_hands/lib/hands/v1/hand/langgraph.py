@@ -17,10 +17,23 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     resolve_hand_model,
 )
 
-__all__ = ["_LANGCHAIN_STREAM_EVENT", "LangGraphHand"]
+__all__ = ["_LANGCHAIN_STREAM_EVENT", "LangGraphHand", "langchain_user_message"]
 
 _LANGCHAIN_STREAM_EVENT = "on_chat_model_stream"
 """LangChain ``astream_events`` event name for chat model token chunks."""
+
+
+def langchain_user_message(prompt: str) -> dict[str, list[dict[str, str]]]:
+    """Build a LangChain-style message dict for a user prompt.
+
+    Args:
+        prompt: The user message content.
+
+    Returns:
+        A dict suitable for passing to ``agent.invoke()`` or
+        ``agent.astream_events()``.
+    """
+    return {"messages": [{"role": "user", "content": prompt}]}
 
 
 class LangGraphHand(Hand):
@@ -28,6 +41,9 @@ class LangGraphHand(Hand):
 
     Requires the ``langchain`` extra to be installed.
     """
+
+    _BACKEND_NAME = "langgraph"
+    """Backend identifier used in PR metadata and response dicts."""
 
     def __init__(self, config: Any, repo_index: Any) -> None:
         """Initialize the LangGraph hand with a resolved model and agent.
@@ -76,7 +92,7 @@ class LangGraphHand(Hand):
         Returns:
             A ``HandResponse`` with the agent output and PR metadata.
         """
-        result = self._agent.invoke({"messages": [{"role": "user", "content": prompt}]})
+        result = self._agent.invoke(langchain_user_message(prompt))
         messages = result.get("messages") or []
         last_msg = messages[-1] if messages else None
         content = (
@@ -87,14 +103,14 @@ class LangGraphHand(Hand):
             else ""
         )
         pr_metadata = self._finalize_repo_pr(
-            backend="langgraph",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary=content,
         )
         return HandResponse(
             message=content,
             metadata={
-                "backend": "langgraph",
+                "backend": self._BACKEND_NAME,
                 "model": self._hand_model.model,
                 "provider": self._hand_model.provider.name,
                 **pr_metadata,
@@ -117,7 +133,7 @@ class LangGraphHand(Hand):
         """
         parts: list[str] = []
         async for event in self._agent.astream_events(
-            {"messages": [{"role": "user", "content": prompt}]},
+            langchain_user_message(prompt),
             version="v2",
         ):
             if event["event"] == _LANGCHAIN_STREAM_EVENT and event["data"].get("chunk"):
@@ -127,7 +143,7 @@ class LangGraphHand(Hand):
                     parts.append(text)
                     yield text
         pr_metadata = self._finalize_repo_pr(
-            backend="langgraph",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary="".join(parts),
         )

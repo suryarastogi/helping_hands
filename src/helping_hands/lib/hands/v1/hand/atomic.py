@@ -30,6 +30,9 @@ class AtomicHand(Hand):
     Requires the ``atomic`` extra to be installed.
     """
 
+    _BACKEND_NAME = "atomic"
+    """Backend identifier used in PR metadata and response dicts."""
+
     def __init__(self, config: Any, repo_index: Any) -> None:
         """Initialize the Atomic hand with a resolved model and agent.
 
@@ -84,14 +87,14 @@ class AtomicHand(Hand):
         response = self._agent.run(self._make_input(prompt))
         message = response.chat_message
         pr_metadata = self._finalize_repo_pr(
-            backend="atomic",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary=message,
         )
         return HandResponse(
             message=message,
             metadata={
-                "backend": "atomic",
+                "backend": self._BACKEND_NAME,
                 "model": self._hand_model.model,
                 "provider": self._hand_model.provider.name,
                 **pr_metadata,
@@ -144,7 +147,7 @@ class AtomicHand(Hand):
                 parts.append(text)
                 yield text
         pr_metadata = self._finalize_repo_pr(
-            backend="atomic",
+            backend=self._BACKEND_NAME,
             prompt=prompt,
             summary="".join(parts),
         )

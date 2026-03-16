@@ -29,7 +29,10 @@ from helping_hands.lib.hands.v1.hand.base import (
     Hand,
     HandResponse,
 )
-from helping_hands.lib.hands.v1.hand.langgraph import _LANGCHAIN_STREAM_EVENT
+from helping_hands.lib.hands.v1.hand.langgraph import (
+    _LANGCHAIN_STREAM_EVENT,
+    langchain_user_message,
+)
 from helping_hands.lib.hands.v1.hand.model_provider import (
     HandModel,
     build_atomic_client,
@@ -843,9 +846,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 previous_summary=prior,
                 bootstrap_context=bootstrap_context if iteration == 1 else "",
             )
-            result = self._agent.invoke(
-                {"messages": [{"role": "user", "content": step_prompt}]}
-            )
+            result = self._agent.invoke(langchain_user_message(step_prompt))
             content = self._result_content(result)
             changed = self._apply_inline_edits(content)
             read_feedback = self._execute_read_requests(content)
@@ -924,7 +925,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             )
             parts: list[str] = []
             async for event in self._agent.astream_events(
-                {"messages": [{"role": "user", "content": step_prompt}]},
+                langchain_user_message(step_prompt),
                 version="v2",
             ):
                 if self._is_interrupted():
