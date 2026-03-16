@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v228](exec-plans/completed/2026/v228-dry-error-format-dict-access-skip-logging.md) —
+  DRY `_format_error_result()` helper (6 inline error strings → 1 method),
+  consistent `.get()` dict access in `_pr_status_line`, debug logging for
+  skipped paths in `_build_tree_snapshot`; 17 tests (5498 passed, 219 skipped)
+
 - [2026-03-16 v227](exec-plans/completed/2026/v227-backend-name-consistency-metadata-helper.md) —
   Fix backend name inconsistency in langgraph.py/atomic.py (hardcoded strings →
   `_BACKEND_NAME` class constants), DRY `langchain_user_message()` helper for

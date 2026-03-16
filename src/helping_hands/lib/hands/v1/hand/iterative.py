@@ -354,17 +354,21 @@ class _BasicIterativeHand(Hand):
                 )
             except UnicodeError:
                 chunks.append(
-                    f"@@READ_RESULT: {rel_path}\nERROR: file is not UTF-8 text"
+                    self._format_error_result("READ", rel_path, "file is not UTF-8 text")
                 )
                 continue
             except ValueError as exc:
-                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: {exc}")
+                chunks.append(self._format_error_result("READ", rel_path, str(exc)))
                 continue
             except FileNotFoundError:
-                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: file not found")
+                chunks.append(
+                    self._format_error_result("READ", rel_path, "file not found")
+                )
                 continue
             except IsADirectoryError:
-                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: path is a directory")
+                chunks.append(
+                    self._format_error_result("READ", rel_path, "path is a directory")
+                )
                 continue
 
             truncated_note = _TRUNCATION_MARKER if truncated else ""
@@ -377,6 +381,20 @@ class _BasicIterativeHand(Hand):
     _parse_str_list = staticmethod(_parse_str_list)
     _parse_positive_int = staticmethod(_parse_positive_int)
     _parse_optional_str = staticmethod(_parse_optional_str)
+
+    @staticmethod
+    def _format_error_result(tag: str, name: str, message: str) -> str:
+        """Format an error as a ``@@<TAG>_RESULT`` block.
+
+        Args:
+            tag: Result tag prefix (e.g. ``"READ"`` or ``"TOOL"``).
+            name: Identifier for the request that failed (path or tool name).
+            message: Human-readable error description.
+
+        Returns:
+            Formatted error string like ``@@READ_RESULT: foo\\nERROR: msg``.
+        """
+        return f"@@{tag}_RESULT: {name}\nERROR: {message}"
 
     @staticmethod
     def _format_command(command: list[str]) -> str:
@@ -531,8 +549,9 @@ class _BasicIterativeHand(Hand):
             A newline-wrapped status string, or empty string if the PR was
             skipped or no meaningful status is available.
         """
-        if pr_metadata.get(_META_PR_URL):
-            return f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
+        pr_url = pr_metadata.get(_META_PR_URL)
+        if pr_url:
+            return f"\nPR created: {pr_url}\n"
         status = pr_metadata.get(_META_PR_STATUS)
         if status and status not in _PR_STATUSES_SKIPPED:
             return f"\nPR status: {status}\n"
@@ -616,7 +635,9 @@ class _BasicIterativeHand(Hand):
         chunks: list[str] = []
         for tool_name, payload, error in requests:
             if error:
-                chunks.append(f"@@TOOL_RESULT: {tool_name}\nERROR: {error}")
+                chunks.append(
+                    self._format_error_result("TOOL", tool_name, error)
+                )
                 continue
             try:
                 result = self._run_tool_request(
@@ -633,7 +654,9 @@ class _BasicIterativeHand(Hand):
                 TypeError,
                 ValueError,
             ) as exc:
-                chunks.append(f"@@TOOL_RESULT: {tool_name}\nERROR: {exc}")
+                chunks.append(
+                    self._format_error_result("TOOL", tool_name, str(exc))
+                )
                 continue
             chunks.append(result)
         return "\n\n".join(chunks).strip()
@@ -708,6 +731,7 @@ class _BasicIterativeHand(Hand):
             try:
                 normalized = system_tools.normalize_relative_path(rel_path)
             except ValueError:
+                logger.debug("skipping invalid path in tree snapshot: %s", rel_path)
                 continue
             parts = [part for part in normalized.split("/") if part]
             if not parts:
