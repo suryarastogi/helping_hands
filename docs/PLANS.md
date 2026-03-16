@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v244](exec-plans/completed/2026/v244-cli-error-constants-health-exception-narrowing.md) —
+  Extract `_MODEL_NOT_FOUND_MARKERS`, `_MODEL_NOT_AVAILABLE_MSG`, and
+  `_CLI_ERROR_EXIT_BACKENDS` constants in cli/main.py; narrow `except Exception`
+  in `_check_workers_health()` and `_resolve_worker_capacity()` to
+  `(ConnectionError, OSError, TimeoutError)`;
+  21 tests (5792 passed, 246 skipped)
+
 - [2026-03-16 v243](exec-plans/completed/2026/v243-dry-progress-emitter-clone-error-constant.md) —
   DRY `_ProgressEmitter` class (replacing 5× `_update_progress` calls with ~20
   identical kwargs each in `celery_app.py`), refactor `_collect_stream` to

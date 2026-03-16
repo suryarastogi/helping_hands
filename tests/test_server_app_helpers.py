@@ -523,7 +523,7 @@ class TestCheckWorkersHealth:
         monkeypatch.setattr(
             celery_app.control,
             "inspect",
-            MagicMock(side_effect=Exception("no broker")),
+            MagicMock(side_effect=ConnectionError("no broker")),
         )
 
         assert _check_workers_health() == "error"

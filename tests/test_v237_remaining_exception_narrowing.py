@@ -4,7 +4,7 @@ Covers:
 - ``base.py`` update_pr_body handler → ``(GithubException, OSError)``
 - ``base.py`` _finalize_repo_pr catch-all → ``(GithubException, OSError)``
 - ``cli/base.py`` _ci_fix_loop handler → specific exceptions
-- ``app.py`` _resolve_worker_capacity → ``(KeyError, TypeError, ValueError, OSError)``
+- ``app.py`` _resolve_worker_capacity → ``(ConnectionError, OSError, TimeoutError)`` (narrowed further in v244)
 - ``app.py`` _schedule_to_response next_run → ``(ValueError, TypeError)``
 """
 
@@ -228,21 +228,22 @@ class TestCLIBaseCiFixLoopHandler:
 
 
 class TestAppResolveWorkerCapacityHandler:
-    """Verify _resolve_worker_capacity uses broad Exception handler.
+    """Verify _resolve_worker_capacity catches specific connection exceptions.
 
-    This is a graceful degradation handler — Celery can raise many exception
-    types (ConnectionError, TimeoutError, RuntimeError, kombu errors, etc.)
-    and we must always fall back to env/default rather than crash.
+    Narrowed in v244 from broad ``except Exception`` to
+    ``(ConnectionError, OSError, TimeoutError)`` — the exception types
+    Celery inspector calls can raise for broker/network failures.
     """
 
-    def test_catches_exception(self) -> None:
+    def test_catches_specific_exceptions(self) -> None:
         handlers = _find_handlers_near_keyword(
             _server_root() / "app.py", "Failed to resolve worker capacity"
         )
         assert handlers, "No handler found for _resolve_worker_capacity"
-        assert _handler_catches_bare_exception(handlers[0]), (
-            "_resolve_worker_capacity should use broad except Exception"
-        )
+        names = _handler_type_names(handlers[0])
+        assert "ConnectionError" in names
+        assert "OSError" in names
+        assert "TimeoutError" in names
 
 
 # ---------------------------------------------------------------------------

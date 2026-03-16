@@ -66,6 +66,27 @@ _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 _REPO_SPEC_PATTERN = r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
 """Regex pattern matching a GitHub ``owner/repo`` specifier."""
 
+_MODEL_NOT_FOUND_MARKERS: tuple[str, ...] = ("model_not_found", "does not exist")
+"""Substrings in exception messages that indicate a model-not-found error."""
+
+_MODEL_NOT_AVAILABLE_MSG = (
+    "Error: model {model!r} is not available. "
+    "Pass a valid model via --model (or HELPING_HANDS_MODEL), "
+    "for example: --model gpt-5.2"
+)
+"""User-facing message template when the requested model is not found."""
+
+_CLI_ERROR_EXIT_BACKENDS: frozenset[str] = frozenset(
+    {
+        "codexcli",
+        "claudecodecli",
+        "docker-sandbox-claude",
+        "goose",
+        "geminicli",
+    }
+)
+"""Backends that print the error and ``sys.exit(1)`` instead of re-raising."""
+
 
 def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
     """Call *fn* and exit on ``ValueError``.
@@ -382,23 +403,13 @@ def main(argv: list[str] | None = None) -> None:
             print("\nInterrupted by user.")
         except Exception as exc:
             msg = str(exc)
-            if "model_not_found" in msg or "does not exist" in msg:
+            if any(marker in msg for marker in _MODEL_NOT_FOUND_MARKERS):
                 print(
-                    (
-                        f"Error: model {config.model!r} is not available. "
-                        "Pass a valid model via --model (or HELPING_HANDS_MODEL), "
-                        "for example: --model gpt-5.2"
-                    ),
+                    _MODEL_NOT_AVAILABLE_MSG.format(model=config.model),
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            if args.backend in {
-                "codexcli",
-                "claudecodecli",
-                "docker-sandbox-claude",
-                "goose",
-                "geminicli",
-            }:
+            if args.backend in _CLI_ERROR_EXIT_BACKENDS:
                 print(f"Error: {msg}", file=sys.stderr)
                 sys.exit(1)
             raise

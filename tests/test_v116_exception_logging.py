@@ -110,7 +110,7 @@ class TestResolveWorkerCapacityLogging:
         # incompatibility with kombu's cached_property descriptor on
         # celery_app.control.
         with patch("helping_hands.server.app.celery_app") as mock_celery:
-            mock_celery.control.inspect.side_effect = RuntimeError("broker down")
+            mock_celery.control.inspect.side_effect = ConnectionError("broker down")
             with caplog.at_level(logging.DEBUG):
                 resp = _resolve_worker_capacity()
 

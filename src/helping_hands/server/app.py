@@ -2810,7 +2810,7 @@ def _check_workers_health() -> Literal["ok", "error"]:
         inspector = celery_app.control.inspect(timeout=_CELERY_HEALTH_TIMEOUT_S)
         ping = inspector.ping()
         return _RESPONSE_STATUS_OK if ping else _RESPONSE_STATUS_ERROR
-    except Exception:
+    except (ConnectionError, OSError, TimeoutError):
         logger.debug("Workers health check failed", exc_info=True)
         return _RESPONSE_STATUS_ERROR
 
@@ -3718,7 +3718,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
                         concurrency = pool.get("max-concurrency")
                         if isinstance(concurrency, int) and concurrency > 0:
                             per_worker[worker_name] = concurrency
-    except Exception:
+    except (ConnectionError, OSError, TimeoutError):
         logger.debug("Failed to resolve worker capacity", exc_info=True)
 
     if per_worker:
