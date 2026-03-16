@@ -481,9 +481,38 @@ def _get_claude_oauth_token() -> str | None:
         except (json.JSONDecodeError, AttributeError):
             # Maybe stored as plain token
             return raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         logger.debug("Failed to read Claude OAuth token from Keychain", exc_info=True)
         return None
+
+
+def _extract_usage_level(
+    data: dict[str, Any],
+    key: str,
+    name: str,
+) -> ClaudeUsageLevel | None:
+    """Extract a single usage level from the API response.
+
+    Args:
+        data: Top-level usage API response dict.
+        key: Key for the usage window (e.g. ``"five_hour"``).
+        name: Human-readable label (e.g. ``"Session"``).
+
+    Returns:
+        A ``ClaudeUsageLevel`` if the window contains a numeric utilization
+        value, otherwise ``None``.
+    """
+    window = data.get(key, {})
+    utilization = window.get("utilization")
+    if not isinstance(utilization, int | float):
+        return None
+    pct = round(utilization, 1)
+    resets = window.get("resets_at", "")
+    return ClaudeUsageLevel(
+        name=name,
+        percent_used=pct,
+        detail=f"Resets {resets}" if resets else "",
+    )
 
 
 _usage_cache: ClaudeUsageResponse | None = None
@@ -529,47 +558,23 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
         body = ""
         try:
             body = exc.read().decode(errors="replace")[:_HTTP_ERROR_BODY_PREVIEW_LENGTH]
-        except Exception:
+        except (OSError, UnicodeDecodeError):
             logger.debug("Failed to read HTTP error body", exc_info=True)
         return ClaudeUsageResponse(
             error=f"Usage API returned {exc.code}: {body}",
             fetched_at=now,
         )
-    except Exception as exc:
+    except (urllib_error.URLError, OSError, json.JSONDecodeError) as exc:
         return ClaudeUsageResponse(
             error=f"Usage API request failed: {exc}",
             fetched_at=now,
         )
 
     levels: list[ClaudeUsageLevel] = []
-
-    # Session (5-hour window)
-    five_hour = data.get("five_hour", {})
-    five_hour_util = five_hour.get("utilization")
-    if isinstance(five_hour_util, int | float):
-        pct = round(five_hour_util, 1)
-        resets = five_hour.get("resets_at", "")
-        levels.append(
-            ClaudeUsageLevel(
-                name="Session",
-                percent_used=pct,
-                detail=f"Resets {resets}" if resets else "",
-            )
-        )
-
-    # Weekly (7-day window)
-    seven_day = data.get("seven_day", {})
-    seven_day_util = seven_day.get("utilization")
-    if isinstance(seven_day_util, int | float):
-        pct = round(seven_day_util, 1)
-        resets = seven_day.get("resets_at", "")
-        levels.append(
-            ClaudeUsageLevel(
-                name="Weekly",
-                percent_used=pct,
-                detail=f"Resets {resets}" if resets else "",
-            )
-        )
+    for key, name in (("five_hour", "Session"), ("seven_day", "Weekly")):
+        level = _extract_usage_level(data, key, name)
+        if level is not None:
+            levels.append(level)
 
     if not levels:
         return ClaudeUsageResponse(

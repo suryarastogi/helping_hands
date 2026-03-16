@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v242](exec-plans/completed/2026/v242-dry-usage-level-narrow-exceptions.md) —
+  DRY `_extract_usage_level()` helper (replacing 2× 12-line inline blocks in
+  `_fetch_claude_usage()`), narrow `except Exception` in `_get_claude_oauth_token()`
+  to `(subprocess.SubprocessError, OSError)` and in `_fetch_claude_usage()` to
+  `(urllib_error.URLError, OSError, json.JSONDecodeError)`;
+  23 tests (6754 passed, 2 skipped)
+
 - [2026-03-16 v241](exec-plans/completed/2026/v241-metadata-envvar-constants.md) —
   Extract `_META_BACKEND`/`_META_MODEL`/`_META_PROVIDER` metadata key constants
   and `_ENV_GIT_TERMINAL_PROMPT`/`_ENV_GCM_INTERACTIVE` env var constants;
