@@ -164,6 +164,10 @@ leaking a disproportionate fraction of the secret.  At the default values
 (67%), which is too much for meaningful redaction.
 """
 
+# --- Schedule endpoint constants ---
+_SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
+"""HTTP 404 detail message for missing schedule resources."""
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
@@ -3961,7 +3965,7 @@ def get_schedule(schedule_id: str) -> ScheduleResponse:
     manager = _get_schedule_manager()
     task = manager.get_schedule(schedule_id)
     if task is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
     return _schedule_to_response(task)
 
 
@@ -4020,7 +4024,7 @@ def delete_schedule(schedule_id: str) -> None:
     schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     if not manager.delete_schedule(schedule_id):
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
 
 
 @app.post("/schedules/{schedule_id}/enable", response_model=ScheduleResponse)
@@ -4032,7 +4036,7 @@ def enable_schedule(schedule_id: str) -> ScheduleResponse:
     manager = _get_schedule_manager()
     task = manager.enable_schedule(schedule_id)
     if task is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
     return _schedule_to_response(task)
 
 
@@ -4045,7 +4049,7 @@ def disable_schedule(schedule_id: str) -> ScheduleResponse:
     manager = _get_schedule_manager()
     task = manager.disable_schedule(schedule_id)
     if task is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
     return _schedule_to_response(task)
 
 
@@ -4058,7 +4062,7 @@ def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
     manager = _get_schedule_manager()
     task_id = manager.trigger_now(schedule_id)
     if task_id is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
 
     return ScheduleTriggerResponse(
         schedule_id=schedule_id,

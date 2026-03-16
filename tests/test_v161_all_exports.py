@@ -117,7 +117,11 @@ class TestClaudeCodeHandAllExport:
         from helping_hands.lib.hands.v1.hand.cli.claude import __all__
 
         private = sorted(name for name in __all__ if name.startswith("_"))
-        assert private == ["_TOOL_SUMMARY_KEY_MAP", "_TOOL_SUMMARY_STATIC"]
+        assert private == [
+            "_SKIP_PERMISSIONS_FLAG",
+            "_TOOL_SUMMARY_KEY_MAP",
+            "_TOOL_SUMMARY_STATIC",
+        ]
 
     def test_all_symbols_importable(self) -> None:
         import helping_hands.lib.hands.v1.hand.cli.claude as mod
@@ -128,7 +132,7 @@ class TestClaudeCodeHandAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.claude import __all__
 
-        assert len(__all__) == 3
+        assert len(__all__) == 4
 
 
 # ---------------------------------------------------------------------------

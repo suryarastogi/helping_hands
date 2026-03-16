@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v245](exec-plans/completed/2026/v245-schedule-detail-skip-permissions-constants.md) —
+  Extract `_SCHEDULE_NOT_FOUND_DETAIL` constant in app.py (5 bare strings → 1),
+  extract `_SKIP_PERMISSIONS_FLAG` constant in claude.py (4 bare strings → 1);
+  17 tests (5810 passed, 249 skipped)
+
 - [2026-03-16 v244](exec-plans/completed/2026/v244-cli-error-constants-health-exception-narrowing.md) —
   Extract `_MODEL_NOT_FOUND_MARKERS`, `_MODEL_NOT_AVAILABLE_MSG`, and
   `_CLI_ERROR_EXIT_BACKENDS` constants in cli/main.py; narrow `except Exception`

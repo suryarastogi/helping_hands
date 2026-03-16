@@ -17,6 +17,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
     "_TOOL_SUMMARY_STATIC",
     "ClaudeCodeHand",
@@ -69,6 +70,9 @@ _TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
 # Tools that need no input key — just return the tool name.
 _TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
 """Tools whose summary is simply their name with no parameters."""
+
+_SKIP_PERMISSIONS_FLAG = "--dangerously-skip-permissions"
+"""Claude CLI flag to bypass the interactive permission prompt."""
 
 
 class _StreamJsonEmitter:
@@ -389,9 +393,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             cmd
             and cmd[0] == "claude"
             and self._skip_permissions_enabled()
-            and "--dangerously-skip-permissions" not in cmd
+            and _SKIP_PERMISSIONS_FLAG not in cmd
         ):
-            return [cmd[0], "--dangerously-skip-permissions", *cmd[1:]]
+            return [cmd[0], _SKIP_PERMISSIONS_FLAG, *cmd[1:]]
         return cmd
 
     def _retry_command_after_failure(
@@ -403,12 +407,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     ) -> list[str] | None:
         if return_code == 0:
             return None
-        if "--dangerously-skip-permissions" not in cmd:
+        if _SKIP_PERMISSIONS_FLAG not in cmd:
             return None
         lowered = output.lower()
         if self._ROOT_PERMISSION_ERROR.lower() not in lowered:
             return None
-        return [token for token in cmd if token != "--dangerously-skip-permissions"]
+        return [token for token in cmd if token != _SKIP_PERMISSIONS_FLAG]
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         return self._build_claude_failure_message(
