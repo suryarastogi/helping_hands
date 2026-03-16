@@ -346,6 +346,75 @@ class _BasicIterativeHand(Hand):
             part for part in (read_feedback, tool_feedback) if part
         ).strip()
 
+    def _process_stream_iteration(
+        self, content: str, prompt: str
+    ) -> tuple[list[str], str, bool]:
+        """Apply edits, collect feedback, and check satisfaction for a stream iteration.
+
+        Encapsulates the post-response processing shared by
+        ``BasicLangGraphHand.stream()`` and ``BasicAtomicHand.stream()``:
+        apply inline edits, collect tool feedback, merge iteration summary,
+        and check whether the task is satisfied.
+
+        Args:
+            content: AI response text for the current iteration.
+            prompt: Original user prompt (passed to ``_finalize_repo_pr`` on
+                satisfaction).
+
+        Returns:
+            Tuple of ``(messages, prior, satisfied)`` where *messages* is a
+            list of strings to yield, *prior* is the merged iteration summary,
+            and *satisfied* is ``True`` when the task should stop.
+        """
+        messages: list[str] = []
+        changed = self._apply_inline_edits(content)
+        if changed:
+            messages.append(f"\n[files updated] {', '.join(changed)}\n")
+        combined_feedback = self._collect_tool_feedback(content)
+        if combined_feedback:
+            messages.append(f"\n[tool results]\n{combined_feedback}\n")
+        prior = self._merge_iteration_summary(content, combined_feedback)
+        if self._is_satisfied(content):
+            messages.append("\n\nTask marked satisfied.\n")
+            pr_metadata = self._finalize_repo_pr(
+                backend=self._BACKEND_NAME,
+                prompt=prompt,
+                summary=content,
+            )
+            status_line = self._pr_status_line(pr_metadata)
+            if status_line:
+                messages.append(status_line)
+            return messages, prior, True
+        messages.append("\n\nContinuing...\n")
+        return messages, prior, False
+
+    def _stream_max_iterations_tail(self, prompt: str, prior: str) -> list[str]:
+        """Finalize stream when max iterations are reached.
+
+        Called at the end of both ``BasicLangGraphHand.stream()`` and
+        ``BasicAtomicHand.stream()`` when the iteration loop exhausts
+        without satisfaction.
+
+        Args:
+            prompt: Original user prompt for PR finalization.
+            prior: Last merged iteration summary.
+
+        Returns:
+            List of strings to yield (PR status line + max-iterations
+            message).
+        """
+        messages: list[str] = []
+        pr_metadata = self._finalize_repo_pr(
+            backend=self._BACKEND_NAME,
+            prompt=prompt,
+            summary=prior,
+        )
+        status_line = self._pr_status_line(pr_metadata)
+        if status_line:
+            messages.append(status_line)
+        messages.append("\n\nMax iterations reached.\n")
+        return messages
+
     @staticmethod
     def _append_iteration_transcript(
         transcripts: list[str],
@@ -1009,35 +1078,14 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 return
 
             content = "".join(parts)
-            changed = self._apply_inline_edits(content)
-            if changed:
-                yield f"\n[files updated] {', '.join(changed)}\n"
-            combined_feedback = self._collect_tool_feedback(content)
-            if combined_feedback:
-                yield f"\n[tool results]\n{combined_feedback}\n"
-            prior = self._merge_iteration_summary(content, combined_feedback)
-            if self._is_satisfied(content):
-                yield "\n\nTask marked satisfied.\n"
-                pr_metadata = self._finalize_repo_pr(
-                    backend=self._BACKEND_NAME,
-                    prompt=prompt,
-                    summary=content,
-                )
-                status_line = self._pr_status_line(pr_metadata)
-                if status_line:
-                    yield status_line
+            messages, prior, satisfied = self._process_stream_iteration(content, prompt)
+            for msg in messages:
+                yield msg
+            if satisfied:
                 return
-            yield "\n\nContinuing...\n"
 
-        pr_metadata = self._finalize_repo_pr(
-            backend=self._BACKEND_NAME,
-            prompt=prompt,
-            summary=prior,
-        )
-        status_line = self._pr_status_line(pr_metadata)
-        if status_line:
-            yield status_line
-        yield "\n\nMax iterations reached.\n"
+        for msg in self._stream_max_iterations_tail(prompt, prior):
+            yield msg
 
 
 class BasicAtomicHand(_BasicIterativeHand):
@@ -1264,32 +1312,13 @@ class BasicAtomicHand(_BasicIterativeHand):
                 yield "\n[interrupted]\n"
                 return
 
-            changed = self._apply_inline_edits(stream_text)
-            if changed:
-                yield f"\n[files updated] {', '.join(changed)}\n"
-            combined_feedback = self._collect_tool_feedback(stream_text)
-            if combined_feedback:
-                yield f"\n[tool results]\n{combined_feedback}\n"
-            prior = self._merge_iteration_summary(stream_text, combined_feedback)
-            if self._is_satisfied(stream_text):
-                yield "\n\nTask marked satisfied.\n"
-                pr_metadata = self._finalize_repo_pr(
-                    backend=self._BACKEND_NAME,
-                    prompt=prompt,
-                    summary=stream_text,
-                )
-                status_line = self._pr_status_line(pr_metadata)
-                if status_line:
-                    yield status_line
+            messages, prior, satisfied = self._process_stream_iteration(
+                stream_text, prompt
+            )
+            for msg in messages:
+                yield msg
+            if satisfied:
                 return
-            yield "\n\nContinuing...\n"
 
-        pr_metadata = self._finalize_repo_pr(
-            backend=self._BACKEND_NAME,
-            prompt=prompt,
-            summary=prior,
-        )
-        status_line = self._pr_status_line(pr_metadata)
-        if status_line:
-            yield status_line
-        yield "\n\nMax iterations reached.\n"
+        for msg in self._stream_max_iterations_tail(prompt, prior):
+            yield msg

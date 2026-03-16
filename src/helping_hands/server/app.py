@@ -2917,28 +2917,39 @@ def _normalize_task_status(raw: Any, *, default: str) -> str:
     return text or default
 
 
-def _extract_task_id(entry: dict[str, Any]) -> str | None:
-    """Extract a task UUID from Celery/Flower payload shapes."""
-    for key in ("task_id", "uuid", "id"):
+def _extract_nested_str_field(
+    entry: dict[str, Any], keys: tuple[str, ...]
+) -> str | None:
+    """Extract a stripped string value from nested Celery/Flower payloads.
+
+    Searches *entry* for the first key in *keys* whose value is a non-empty
+    string.  Falls back to recursing into ``entry["request"]`` when present.
+
+    Args:
+        entry: Celery/Flower task payload dict.
+        keys: Candidate key names to search, in priority order.
+
+    Returns:
+        Stripped string value, or ``None`` if not found.
+    """
+    for key in keys:
         value = entry.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     request_payload = entry.get("request")
     if isinstance(request_payload, dict):
-        return _extract_task_id(request_payload)
+        return _extract_nested_str_field(request_payload, keys)
     return None
+
+
+def _extract_task_id(entry: dict[str, Any]) -> str | None:
+    """Extract a task UUID from Celery/Flower payload shapes."""
+    return _extract_nested_str_field(entry, ("task_id", "uuid", "id"))
 
 
 def _extract_task_name(entry: dict[str, Any]) -> str | None:
     """Extract task name from Celery/Flower payload shapes."""
-    for key in ("name", "task"):
-        value = entry.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    request_payload = entry.get("request")
-    if isinstance(request_payload, dict):
-        return _extract_task_name(request_payload)
-    return None
+    return _extract_nested_str_field(entry, ("name", "task"))
 
 
 def _extract_task_kwargs(entry: dict[str, Any]) -> dict[str, Any]:

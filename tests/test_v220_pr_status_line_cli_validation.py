@@ -119,24 +119,24 @@ class TestPrStatusLineSourceConsistency:
                     ):
                         source = ast.get_source_segment(src_path.read_text(), node)
                         assert source is not None
-                        # Should use _pr_status_line, not inline check
-                        assert "_pr_status_line" in source
+                        # Should use DRY stream helpers, not inline check
+                        assert "_process_stream_iteration" in source
                         assert source.count("_META_PR_URL") == 0, (
-                            f"{parent.name}.stream() should use _pr_status_line"
+                            f"{parent.name}.stream() should use _process_stream_iteration"
                         )
 
-    def test_iterative_stream_methods_call_pr_status_line(self) -> None:
-        """Both stream() methods in iterative.py reference _pr_status_line."""
+    def test_iterative_stream_methods_call_process_stream_iteration(self) -> None:
+        """Both stream() methods in iterative.py use _process_stream_iteration."""
         src = Path(inspect.getfile(_BasicIterativeHand)).read_text()
         tree = ast.parse(src)
         found = 0
         for node in ast.walk(tree):
             if isinstance(node, ast.AsyncFunctionDef) and node.name == "stream":
                 segment = ast.get_source_segment(src, node)
-                if segment and "_pr_status_line" in segment:
+                if segment and "_process_stream_iteration" in segment:
                     found += 1
         assert found == 2, (
-            f"Expected 2 stream() methods using _pr_status_line, got {found}"
+            f"Expected 2 stream() methods using _process_stream_iteration, got {found}"
         )
 
 

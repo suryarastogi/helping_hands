@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v240](exec-plans/completed/2026/v240-stream-iteration-dry-nested-field.md) —
+  DRY `_process_stream_iteration()` (2× 18-line inline → 1 method) and
+  `_stream_max_iterations_tail()` (2× 9-line inline → 1 method) in
+  iterative.py; DRY `_extract_nested_str_field()` in app.py (2 functions → 1
+  shared helper); 32 tests (5738 passed, 239 skipped)
+
 - [2026-03-16 v239](exec-plans/completed/2026/v239-dry-feedback-github-tests.md) —
   DRY `_collect_tool_feedback()` (4× inline → 1 method) and
   `_append_iteration_transcript()` (2× inline → 1 static method) in
