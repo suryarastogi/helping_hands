@@ -4,6 +4,22 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — DRY test helper, model_provider validation, task_result hardening (v222)
+
+**DRY `_close_coroutine()`:** Extracted 8 identical inline definitions in `test_cli.py` to a single module-level helper function. Added `pytestmark` `filterwarnings` to suppress `RuntimeWarning: coroutine ... was never awaited` from coverage.py tracer holding frame references after mocked `asyncio.run` closes the coroutine.
+
+**`build_langchain_chat_model()` validation:** Added `require_non_empty_string(hand_model.model)` entry validation to `model_provider.py`, rejecting empty or whitespace-only model strings before reaching provider-specific import logic.
+
+**`build_atomic_client()` validation:** Same `require_non_empty_string` validation added at function entry.
+
+**`normalize_task_result()` hardening:** Added `require_non_empty_string(status)` validation. Changed non-dict/non-exception fallback to try `json.dumps()` before `str()`, preserving native JSON-serializable types (int, list, bool, float) instead of converting everything to strings.
+
+**`tests/test_v222_dry_coroutine_validation_task_result.py`:** 28 tests across 7 classes covering extraction verification, model validation, status validation, JSON-safe serialization, and source consistency checks. 3 existing `test_task_result.py` assertions updated for JSON-safe behavior.
+
+**28 new tests. 5359 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — DRY git clone helper, auth status line & validation wrapper (v221)
 
 **`_run_git_clone()` helper:** New function in `cli/main.py` encapsulating `subprocess.run` with `--depth`, timeout handling, non-zero exit handling, and stderr redaction. Replaces duplicate git clone subprocess logic in `_resolve_repo_path()` and `_clone_reference_repos()`.

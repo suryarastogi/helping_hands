@@ -4,7 +4,10 @@ from __future__ import annotations
 
 __all__ = ["normalize_task_result"]
 
+import json
 from typing import Any
+
+from helping_hands.lib.validation import require_non_empty_string
 
 
 def normalize_task_result(status: str, raw_result: Any) -> dict[str, Any] | None:
@@ -14,6 +17,7 @@ def normalize_task_result(status: str, raw_result: Any) -> dict[str, Any] | None
     failed tasks. API surfaces should return structured JSON payloads instead
     of leaking non-serializable objects.
     """
+    require_non_empty_string(status, "status")
     if raw_result is None:
         return None
     if isinstance(raw_result, dict):
@@ -24,8 +28,14 @@ def normalize_task_result(status: str, raw_result: Any) -> dict[str, Any] | None
             "error_type": type(raw_result).__name__,
             "status": status,
         }
+    # Try JSON serialization first to preserve structure for lists, ints, etc.
+    try:
+        json.dumps(raw_result)
+        value = raw_result
+    except (TypeError, ValueError, OverflowError):
+        value = str(raw_result)
     return {
-        "value": str(raw_result),
+        "value": value,
         "value_type": type(raw_result).__name__,
         "status": status,
     }

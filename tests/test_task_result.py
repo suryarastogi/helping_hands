@@ -24,7 +24,7 @@ def test_normalize_task_result_exception() -> None:
 def test_normalize_task_result_other_value() -> None:
     result = normalize_task_result("SUCCESS", 123)
     assert result == {
-        "value": "123",
+        "value": 123,
         "value_type": "int",
         "status": "SUCCESS",
     }
@@ -42,7 +42,7 @@ def test_normalize_task_result_string_value() -> None:
 def test_normalize_task_result_list_value() -> None:
     result = normalize_task_result("SUCCESS", [1, 2, 3])
     assert result == {
-        "value": "[1, 2, 3]",
+        "value": [1, 2, 3],
         "value_type": "list",
         "status": "SUCCESS",
     }
@@ -84,7 +84,7 @@ def test_normalize_task_result_custom_exception() -> None:
 def test_normalize_task_result_bool_value() -> None:
     result = normalize_task_result("SUCCESS", True)
     assert result == {
-        "value": "True",
+        "value": True,
         "value_type": "bool",
         "status": "SUCCESS",
     }

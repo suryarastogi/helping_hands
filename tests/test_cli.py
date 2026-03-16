@@ -24,6 +24,24 @@ from helping_hands.lib.config import Config
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand import HandResponse
 
+# Suppress coroutine warnings from coverage.py tracer holding frame references
+# after mocked asyncio.run closes the coroutine.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:coroutine.*was never awaited:RuntimeWarning"
+)
+
+
+def _close_coroutine(coro: object) -> None:
+    """Close an unawaited coroutine created by mocked ``asyncio.run`` calls.
+
+    Calling ``.close()`` on the coroutine ensures Python marks it as finalized.
+    Coverage.py's tracer may still hold frame references that trigger a
+    ``RuntimeWarning`` during garbage collection; the module-level
+    ``pytestmark`` suppresses those.
+    """
+    if hasattr(coro, "close"):
+        coro.close()
+
 
 class TestCli:
     def test_cli_uses_smoke_test_default_prompt(self) -> None:
@@ -196,11 +214,6 @@ class TestCli:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()
@@ -230,11 +243,6 @@ class TestCli:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()
@@ -262,11 +270,6 @@ class TestCli:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()
@@ -326,11 +329,6 @@ class TestCli:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()
@@ -390,11 +388,6 @@ class TestCli:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()
@@ -454,11 +447,6 @@ class TestCli:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()
@@ -713,11 +701,6 @@ class TestCliAdditionalPaths:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()
@@ -787,11 +770,6 @@ class TestCliAdditionalPaths:
         mock_asyncio_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        def _close_coroutine(coro: object) -> None:
-            if hasattr(coro, "close"):
-                coro.close()
-            return None
-
         mock_asyncio_run.side_effect = _close_coroutine
         (tmp_path / "hello.py").write_text("")
         mock_hand = MagicMock()

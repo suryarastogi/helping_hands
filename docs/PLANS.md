@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v222](exec-plans/completed/2026/v222-dry-close-coroutine-model-validation-task-result.md) —
+  DRY `_close_coroutine` in test_cli.py (8 copies -> 1 module-level helper),
+  `pytestmark` filterwarnings for coroutine RuntimeWarning,
+  `require_non_empty_string` validation in `build_langchain_chat_model`/
+  `build_atomic_client`/`normalize_task_result`, JSON-safe serialization
+  fallback in task_result.py; 28 tests (5359 passed, 219 skipped)
+
 - [2026-03-16 v221](exec-plans/completed/2026/v221-cli-clone-auth-validate-helpers.md) —
   DRY `_run_git_clone()` helper (replacing duplicate subprocess logic in
   `_resolve_repo_path`/`_clone_reference_repos`), `_auth_status_line()` method
