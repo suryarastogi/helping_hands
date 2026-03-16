@@ -147,7 +147,7 @@ class TestClaudeCliGptModelWarning:
         with caplog.at_level(logging.WARNING):
             result = hand._resolve_cli_model()
         assert result == ""
-        assert "GPT model" in caplog.text
+        assert "Model" in caplog.text
         assert "gpt-5.2" in caplog.text
         assert "falling back" in caplog.text
 

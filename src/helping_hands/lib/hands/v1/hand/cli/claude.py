@@ -301,6 +301,18 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         return ("ANTHROPIC_API_KEY",)
 
+    def _describe_auth(self) -> str:
+        """Describe the current Anthropic authentication state.
+
+        Returns:
+            Human-readable string indicating whether ``ANTHROPIC_API_KEY``
+            is set.
+        """
+        present = (
+            "set" if os.environ.get("ANTHROPIC_API_KEY", "").strip() else "not set"
+        )
+        return f"auth=ANTHROPIC_API_KEY ({present})"
+
     def _pr_description_cmd(self) -> list[str] | None:
         if shutil.which("claude") is not None:
             return ["claude", "-p", "--output-format", "text"]
@@ -324,19 +336,22 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _resolve_cli_model(self) -> str:
-        """Resolve the CLI model, filtering out incompatible GPT models.
+        """Resolve the CLI model, filtering out incompatible non-Anthropic models.
+
+        Rejects GPT-family models (``gpt-*``) and explicitly OpenAI-prefixed
+        models (``openai/*``) that survive the base-class provider strip.
 
         Returns:
             The resolved model name, or an empty string if the model is
-            missing or is a GPT-family model incompatible with Claude Code.
+            missing or incompatible with Claude Code.
         """
         model = super()._resolve_cli_model()
         if not model:
             return ""
         lowered = model.lower()
-        if lowered.startswith("gpt-"):
+        if lowered.startswith(("gpt-", "openai/")):
             logger.warning(
-                "GPT model %r is incompatible with Claude Code CLI — "
+                "Model %r is incompatible with Claude Code CLI — "
                 "falling back to CLI default model",
                 model,
             )
@@ -365,7 +380,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             try:
                 if int(geteuid()) == 0:
                     return False
-            except Exception:
+            except (ValueError, OSError):
                 logger.debug("geteuid() check failed", exc_info=True)
         return True
 

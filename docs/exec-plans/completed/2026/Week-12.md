@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Claude CLI model filter, auth description, exception narrowing (v230)
+
+**`_resolve_cli_model()` expanded filter:** Now rejects both `gpt-*` and `openai/`-prefixed models. Previously `openai/o1` would survive the base-class provider strip and pass through as `o1`.
+
+**`_describe_auth()` override:** Added for consistency with `GeminiCLIHand` and `GooseCLIHand`. Reports whether `ANTHROPIC_API_KEY` is set/not set, including whitespace-only detection.
+
+**`_skip_permissions_enabled()` exception narrowing:** Changed bare `except Exception` to `except (ValueError, OSError)`. Unexpected exception types (TypeError, RuntimeError) now propagate instead of being silently swallowed.
+
+**`tests/test_v230_claude_cli_model_auth_exceptions.py`:** 14 tests across 3 classes covering model filter expansion, auth description states, and narrowed exception propagation.
+
+**14 new tests. 5528 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — DRY _run_bash_script, prompt builder type guards (v226)
 
 **`_run_bash_script()` DRY:** Replaced 4-line manual `isinstance` checks for `script_path` and `inline_script` with `_parse_optional_str(payload, key=...)`. Gets whitespace stripping for free — whitespace-only values now normalize to `None` and hit the mutual-exclusion guard early.

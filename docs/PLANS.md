@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v230](exec-plans/completed/2026/v230-claude-cli-model-filter-auth-exceptions.md) —
+  Expand Claude CLI model filter (reject `openai/` prefix), add `_describe_auth()`
+  for consistency with Gemini/Goose, narrow `_skip_permissions_enabled()` exception
+  handling from bare `Exception` to `(ValueError, OSError)`;
+  14 tests (5528 passed, 219 skipped)
+
+
 - [2026-03-16 v229](exec-plans/completed/2026/v229-validation-helpers-source-merge-error-extract.md) —
   `require_positive_float` validation helper, `_first_validation_error_msg()` Pydantic
   error extraction, `_merge_source_tags()` source string set helper;
