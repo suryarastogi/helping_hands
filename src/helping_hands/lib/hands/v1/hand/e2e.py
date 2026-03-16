@@ -21,6 +21,8 @@ from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.hands.v1.hand.base import (
     _DEFAULT_GIT_USER_EMAIL,
     _DEFAULT_GIT_USER_NAME,
+    _META_BACKEND,
+    _META_MODEL,
     _META_PR_NUMBER,
     _META_PR_URL,
     _UUID_HEX_LENGTH,
@@ -321,8 +323,8 @@ class E2EHand(Hand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": "e2e",
-                "model": self.config.model,
+                _META_BACKEND: "e2e",
+                _META_MODEL: self.config.model,
                 "hand_uuid": hand_uuid,
                 "hand_root": str(hand_root),
                 "repo": repo,

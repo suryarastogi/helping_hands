@@ -28,6 +28,12 @@ GITHUB_TOKEN_USER = "x-access-token"
 GITHUB_HOSTNAME = "github.com"
 """Hostname matched when extracting ``owner/repo`` from git remote URLs."""
 
+_ENV_GIT_TERMINAL_PROMPT = "GIT_TERMINAL_PROMPT"
+"""Env var that git checks before opening a terminal prompt (``0`` = suppress)."""
+
+_ENV_GCM_INTERACTIVE = "GCM_INTERACTIVE"
+"""Env var that Git Credential Manager checks (``never`` = suppress)."""
+
 GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
 
@@ -102,6 +108,6 @@ def noninteractive_env() -> dict[str, str]:
         A copy of the current environment with non-interactive git settings.
     """
     env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
+    env[_ENV_GIT_TERMINAL_PROMPT] = "0"
+    env[_ENV_GCM_INTERACTIVE] = "never"
     return env

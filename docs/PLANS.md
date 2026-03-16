@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v241](exec-plans/completed/2026/v241-metadata-envvar-constants.md) —
+  Extract `_META_BACKEND`/`_META_MODEL`/`_META_PROVIDER` metadata key constants
+  and `_ENV_GIT_TERMINAL_PROMPT`/`_ENV_GCM_INTERACTIVE` env var constants;
+  replace 21 bare strings across 7 files; 35 tests (5773 passed, 239 skipped)
+
+
 - [2026-03-16 v240](exec-plans/completed/2026/v240-stream-iteration-dry-nested-field.md) —
   DRY `_process_stream_iteration()` (2× 18-line inline → 1 method) and
   `_stream_max_iterations_tail()` (2× 9-line inline → 1 method) in

@@ -212,6 +212,24 @@ _META_CI_FIX_ERROR = "ci_fix_error"
 _META_PR_ERROR = "pr_error"
 """Metadata key for the error message from a failed PR operation."""
 
+_META_BACKEND = "backend"
+"""Metadata key for the execution backend name."""
+
+_META_MODEL = "model"
+"""Metadata key for the AI model identifier."""
+
+_META_PROVIDER = "provider"
+"""Metadata key for the AI provider name."""
+
+# --- Environment variable name constants -------------------------------------
+# Used in ``_push_branch`` to temporarily suppress interactive git prompts.
+
+_ENV_GIT_TERMINAL_PROMPT = "GIT_TERMINAL_PROMPT"
+"""Env var that git checks before opening a terminal prompt (``0`` = suppress)."""
+
+_ENV_GCM_INTERACTIVE = "GCM_INTERACTIVE"
+"""Env var that Git Credential Manager checks (``never`` = suppress)."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -731,21 +749,21 @@ class Hand(abc.ABC):
             repo_dir: Path to the local git repository.
             branch: Branch name to push with ``--set-upstream``.
         """
-        prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
-        prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
-        os.environ["GIT_TERMINAL_PROMPT"] = "0"
-        os.environ["GCM_INTERACTIVE"] = "never"
+        prior_prompt = os.environ.get(_ENV_GIT_TERMINAL_PROMPT)
+        prior_gcm_interactive = os.environ.get(_ENV_GCM_INTERACTIVE)
+        os.environ[_ENV_GIT_TERMINAL_PROMPT] = "0"
+        os.environ[_ENV_GCM_INTERACTIVE] = "never"
         try:
             gh.push(repo_dir, branch=branch, set_upstream=True)
         finally:
             if prior_prompt is None:
-                os.environ.pop("GIT_TERMINAL_PROMPT", None)
+                os.environ.pop(_ENV_GIT_TERMINAL_PROMPT, None)
             else:
-                os.environ["GIT_TERMINAL_PROMPT"] = prior_prompt
+                os.environ[_ENV_GIT_TERMINAL_PROMPT] = prior_prompt
             if prior_gcm_interactive is None:
-                os.environ.pop("GCM_INTERACTIVE", None)
+                os.environ.pop(_ENV_GCM_INTERACTIVE, None)
             else:
-                os.environ["GCM_INTERACTIVE"] = prior_gcm_interactive
+                os.environ[_ENV_GCM_INTERACTIVE] = prior_gcm_interactive
 
     def _push_to_existing_pr(
         self,

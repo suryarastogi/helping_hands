@@ -27,9 +27,11 @@ from helping_hands.lib.github import (
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
+    _META_BACKEND,
     _META_CI_FIX_ATTEMPTS,
     _META_CI_FIX_ERROR,
     _META_CI_FIX_STATUS,
+    _META_MODEL,
     _META_PR_BRANCH,
     _META_PR_COMMIT,
     _META_PR_ERROR,
@@ -1713,8 +1715,8 @@ class _TwoPhaseCLIHand(Hand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self.config.model,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self.config.model,
                 **pr_metadata,
             },
         )

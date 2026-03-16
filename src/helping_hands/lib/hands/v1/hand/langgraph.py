@@ -11,7 +11,14 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from helping_hands.lib.hands.v1.hand.base import _META_PR_URL, Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _META_BACKEND,
+    _META_MODEL,
+    _META_PR_URL,
+    _META_PROVIDER,
+    Hand,
+    HandResponse,
+)
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_langchain_chat_model,
     resolve_hand_model,
@@ -110,9 +117,9 @@ class LangGraphHand(Hand):
         return HandResponse(
             message=content,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self._hand_model.model,
-                "provider": self._hand_model.provider.name,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self._hand_model.model,
+                _META_PROVIDER: self._hand_model.provider.name,
                 **pr_metadata,
             },
         )

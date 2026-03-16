@@ -23,8 +23,11 @@ from pathlib import Path
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import (
+    _META_BACKEND,
+    _META_MODEL,
     _META_PR_STATUS,
     _META_PR_URL,
+    _META_PROVIDER,
     _PR_STATUSES_SKIPPED,
     Hand,
     HandResponse,
@@ -1016,9 +1019,9 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self._hand_model.model,
-                "provider": self._hand_model.provider.name,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self._hand_model.model,
+                _META_PROVIDER: self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
                 "interrupted": str(interrupted).lower(),
@@ -1228,9 +1231,9 @@ class BasicAtomicHand(_BasicIterativeHand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self._hand_model.model,
-                "provider": self._hand_model.provider.name,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self._hand_model.model,
+                _META_PROVIDER: self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
                 "interrupted": str(interrupted).lower(),
