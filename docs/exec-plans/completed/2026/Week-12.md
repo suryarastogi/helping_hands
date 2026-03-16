@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — DRY PR status line helper & CLI validation cleanup (v220)
+
+**DRY `_pr_status_line()` static method:** New static method on `_BasicIterativeHand` in `iterative.py` replaces 4 identical inline PR metadata yield blocks (2 in `BasicLangGraphHand.stream()`, 2 in `BasicAtomicHand.stream()`). Returns `"\nPR created: {url}\n"` when URL present, `"\nPR status: {status}\n"` for non-skipped statuses, or empty string otherwise. Adds truthy guard on status to prevent `"PR status: None"` from empty metadata.
+
+**CLI validation via `require_positive_int()`:** `cli/main.py` now imports and uses `require_positive_int()` from `validation.py` for `--pr-number` and `--max-iterations` validation, replacing 14 lines of inline if/print/exit boilerplate with 6 lines. Existing v141 tests updated for new error message format.
+
+**`tests/test_v220_pr_status_line_cli_validation.py`:** 18 tests: `_pr_status_line` behaviour (10 tests: URL present, status fallback, skipped statuses, empty metadata, URL precedence, all-skipped exhaustive, non-skipped, static method check, docstring), source consistency (2 tests: stream methods use helper, no bare `_META_PR_URL` checks), CLI validation (6 tests: zero/negative pr-number/max-iterations exits, import check, source pattern check).
+
+**18 new tests. 5294 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — Finalization precondition extraction & status dispatch (v219)
 
 **Extract `_validate_finalization_preconditions()` from `_finalize_repo_pr()`:** New method in `base.py` encapsulates the 6-check early-return validation block (auto_pr, repo dir, git work tree, porcelain changes, GitHub origin, precommit). Returns `(repo_dir, repo_name)` tuple on success or `None` on failure. Reduces `_finalize_repo_pr()` from ~120 → ~85 lines.

@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v220](exec-plans/completed/2026/v220-pr-status-line-helper-cli-validation.md) —
+  DRY `_pr_status_line()` static method on `_BasicIterativeHand` (replacing
+  4 inline PR status yield blocks in `iterative.py`), CLI validation cleanup
+  using `require_positive_int()` for `--pr-number` and `--max-iterations`;
+  18 tests (5294 passed, 219 skipped)
+
 - [2026-03-16 v219](exec-plans/completed/2026/v219-finalize-pr-validation-extraction-status-dispatch.md) —
   Extract `_validate_finalization_preconditions()` from `_finalize_repo_pr()`
   (reducing it by ~30 lines), convert `_format_pr_status_message()` and

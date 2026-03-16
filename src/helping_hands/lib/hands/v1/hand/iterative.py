@@ -513,6 +513,24 @@ class _BasicIterativeHand(Hand):
             )
         return ValueError(f"unsupported tool: {tool_name}")
 
+    @staticmethod
+    def _pr_status_line(pr_metadata: dict[str, Any]) -> str:
+        """Return a human-readable PR status line from finalization metadata.
+
+        Args:
+            pr_metadata: Dict returned by ``_finalize_repo_pr()``.
+
+        Returns:
+            A newline-wrapped status string, or empty string if the PR was
+            skipped or no meaningful status is available.
+        """
+        if pr_metadata.get(_META_PR_URL):
+            return f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
+        status = pr_metadata.get(_META_PR_STATUS)
+        if status and status not in _PR_STATUSES_SKIPPED:
+            return f"\nPR status: {status}\n"
+        return ""
+
     def _run_tool_request(
         self,
         *,
@@ -925,10 +943,9 @@ class BasicLangGraphHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=content,
                 )
-                if pr_metadata.get(_META_PR_URL):
-                    yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
-                elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
-                    yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
+                status_line = self._pr_status_line(pr_metadata)
+                if status_line:
+                    yield status_line
                 return
             yield "\n\nContinuing...\n"
 
@@ -937,10 +954,9 @@ class BasicLangGraphHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get(_META_PR_URL):
-            yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
-        elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
-            yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
+        status_line = self._pr_status_line(pr_metadata)
+        if status_line:
+            yield status_line
         yield "\n\nMax iterations reached.\n"
 
 
@@ -1195,10 +1211,9 @@ class BasicAtomicHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=stream_text,
                 )
-                if pr_metadata.get(_META_PR_URL):
-                    yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
-                elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
-                    yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
+                status_line = self._pr_status_line(pr_metadata)
+                if status_line:
+                    yield status_line
                 return
             yield "\n\nContinuing...\n"
 
@@ -1207,8 +1222,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get(_META_PR_URL):
-            yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
-        elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
-            yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
+        status_line = self._pr_status_line(pr_metadata)
+        if status_line:
+            yield status_line
         yield "\n\nMax iterations reached.\n"

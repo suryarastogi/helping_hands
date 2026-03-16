@@ -48,6 +48,7 @@ from helping_hands.lib.hands.v1.hand import (
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
+from helping_hands.lib.validation import require_positive_int
 
 __all__ = ["build_parser", "main"]
 
@@ -199,19 +200,13 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    if args.pr_number is not None and args.pr_number <= 0:
-        print(
-            f"Error: --pr-number must be a positive integer (got {args.pr_number})",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if args.max_iterations is not None and args.max_iterations <= 0:
-        print(
-            f"Error: --max-iterations must be a positive integer"
-            f" (got {args.max_iterations})",
-            file=sys.stderr,
-        )
+    try:
+        if args.pr_number is not None:
+            require_positive_int(args.pr_number, "--pr-number")
+        if args.max_iterations is not None:
+            require_positive_int(args.max_iterations, "--max-iterations")
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     if args.e2e:
