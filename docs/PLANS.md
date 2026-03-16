@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v238](exec-plans/completed/2026/v238-atomic-dry-extract-message-make-input-guard.md) —
+  DRY `_extract_message()` static method on `AtomicHand` (replacing 3 inline
+  `hasattr(partial, "chat_message")` checks + 1 direct `.chat_message` access),
+  `_make_input` `_input_schema is None` guard tests on both Atomic hand classes;
+  17 tests (5678 passed, 225 skipped)
+
 - [2026-03-16 v237](exec-plans/completed/2026/v237-remaining-exception-narrowing.md) —
   Narrow remaining `except Exception` in base.py (2 sites), cli/base.py (1 site),
   and app.py (2 sites) to specific exception types;
