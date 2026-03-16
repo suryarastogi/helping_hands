@@ -13,6 +13,7 @@ import re
 from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
+    "DEFAULT_CLONE_ERROR_MSG",
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
     "GIT_CLONE_TIMEOUT_S",
@@ -21,6 +22,9 @@ __all__ = [
     "redact_credentials",
     "validate_repo_spec",
 ]
+
+DEFAULT_CLONE_ERROR_MSG = "unknown git clone error"
+"""Fallback error message when ``git clone`` fails with empty stderr."""
 
 GITHUB_TOKEN_USER = "x-access-token"
 """Username used in token-authenticated GitHub HTTPS clone URLs."""

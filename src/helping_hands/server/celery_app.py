@@ -19,6 +19,9 @@ from celery import Celery
 
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
+    DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
+)
+from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
 )
 from helping_hands.lib.github_url import (
@@ -220,7 +223,7 @@ def _resolve_repo_path(
             ) from exc
         if result.returncode != 0:
             shutil.rmtree(dest_root, ignore_errors=True)
-            stderr = result.stderr.strip() or "unknown git clone error"
+            stderr = result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG
             stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
@@ -335,6 +338,124 @@ class _UpdateCollector:
             self._buffer = ""
 
 
+class _ProgressEmitter:
+    """Captures common ``_update_progress`` kwargs for repeated emission.
+
+    ``build_feature`` and ``_collect_stream`` call ``_update_progress`` with
+    ~20 identical keyword arguments.  This class stores those arguments once
+    and exposes a lightweight :meth:`emit` method so each call site passes
+    only the fields that actually vary (typically just *stage*).
+
+    Args:
+        task: Celery task instance (or any object with ``update_state``).
+        task_id: Celery task identifier.
+        updates: Shared mutable list of progress update strings.
+        prompt: Original user prompt.
+        pr_number: GitHub PR number, or ``None``.
+        backend: Requested backend name.
+        runtime_backend: Resolved runtime backend in use.
+        repo_path: Local repository path.
+        model: AI model identifier.
+        max_iterations: Maximum agent iterations.
+        no_pr: Whether PR creation is disabled.
+        enable_execution: Whether execution tools are enabled.
+        enable_web: Whether web tools are enabled.
+        use_native_cli_auth: Whether native CLI auth is used.
+        tools: Enabled tool category names.
+        skills: Enabled skill names.
+        fix_ci: Whether to attempt CI fix.
+        ci_check_wait_minutes: Minutes to wait for CI checks.
+        reference_repos: Optional reference repo specs.
+        workspace: Optional workspace identifier.
+        started_at: ISO-format start timestamp.
+    """
+
+    def __init__(
+        self,
+        task: object,
+        *,
+        task_id: str | None,
+        updates: list[str],
+        prompt: str,
+        pr_number: int | None,
+        backend: str,
+        runtime_backend: str,
+        repo_path: str,
+        model: str | None,
+        max_iterations: int,
+        no_pr: bool,
+        enable_execution: bool,
+        enable_web: bool,
+        use_native_cli_auth: bool,
+        tools: tuple[str, ...],
+        skills: tuple[str, ...],
+        fix_ci: bool = False,
+        ci_check_wait_minutes: float = 3.0,
+        reference_repos: list[str] | None = None,
+        workspace: str | None = None,
+        started_at: str | None = None,
+    ) -> None:
+        self._task = task
+        self._task_id = task_id
+        self._updates = updates
+        self._prompt = prompt
+        self._pr_number = pr_number
+        self._backend = backend
+        self._runtime_backend = runtime_backend
+        self._repo_path = repo_path
+        self._model = model
+        self._max_iterations = max_iterations
+        self._no_pr = no_pr
+        self._enable_execution = enable_execution
+        self._enable_web = enable_web
+        self._use_native_cli_auth = use_native_cli_auth
+        self._tools = tools
+        self._skills = skills
+        self._fix_ci = fix_ci
+        self._ci_check_wait_minutes = ci_check_wait_minutes
+        self._reference_repos = reference_repos
+        self._workspace = workspace
+        self._started_at = started_at
+
+    def emit(self, stage: str, **overrides: Any) -> None:
+        """Emit a progress update for *stage*, optionally overriding fields.
+
+        Args:
+            stage: Human-readable stage label (e.g. ``"starting"``,
+                ``"running"``).
+            **overrides: Any keyword accepted by ``_update_progress`` whose
+                value should differ from the stored default for this call.
+        """
+        _update_progress(
+            self._task,
+            task_id=overrides.get("task_id", self._task_id),
+            stage=stage,
+            updates=overrides.get("updates", self._updates),
+            prompt=overrides.get("prompt", self._prompt),
+            pr_number=overrides.get("pr_number", self._pr_number),
+            backend=overrides.get("backend", self._backend),
+            runtime_backend=overrides.get("runtime_backend", self._runtime_backend),
+            repo_path=overrides.get("repo_path", self._repo_path),
+            model=overrides.get("model", self._model),
+            max_iterations=overrides.get("max_iterations", self._max_iterations),
+            no_pr=overrides.get("no_pr", self._no_pr),
+            enable_execution=overrides.get("enable_execution", self._enable_execution),
+            enable_web=overrides.get("enable_web", self._enable_web),
+            use_native_cli_auth=overrides.get(
+                "use_native_cli_auth", self._use_native_cli_auth
+            ),
+            tools=overrides.get("tools", self._tools),
+            skills=overrides.get("skills", self._skills),
+            fix_ci=overrides.get("fix_ci", self._fix_ci),
+            ci_check_wait_minutes=overrides.get(
+                "ci_check_wait_minutes", self._ci_check_wait_minutes
+            ),
+            reference_repos=overrides.get("reference_repos", self._reference_repos),
+            workspace=overrides.get("workspace", self._workspace),
+            started_at=overrides.get("started_at", self._started_at),
+        )
+
+
 def _update_progress(
     task: object,
     *,
@@ -440,27 +561,20 @@ async def _collect_stream(
     hand: Any,
     prompt: str,
     *,
-    task: object,
-    task_id: str | None,
-    pr_number: int | None,
+    emitter: _ProgressEmitter,
     updates: list[str],
-    backend: str,
-    runtime_backend: str,
-    repo_path: str,
-    model: str | None,
-    max_iterations: int,
-    no_pr: bool,
-    enable_execution: bool,
-    enable_web: bool,
-    use_native_cli_auth: bool,
-    tools: tuple[str, ...],
-    skills: tuple[str, ...],
-    fix_ci: bool = False,
-    ci_check_wait_minutes: float = 3.0,
-    reference_repos: list[str] | None = None,
-    workspace: str | None = None,
-    started_at: str | None = None,
 ) -> str:
+    """Consume the hand's async stream, collecting text and emitting progress.
+
+    Args:
+        hand: The hand instance whose ``stream()`` method to consume.
+        prompt: The user prompt forwarded to ``hand.stream()``.
+        emitter: Pre-configured :class:`_ProgressEmitter` for progress updates.
+        updates: Shared mutable list of progress update strings.
+
+    Returns:
+        The concatenated full response text.
+    """
     parts: list[str] = []
     collector = _UpdateCollector(updates)
     chunk_count = 0
@@ -471,56 +585,10 @@ async def _collect_stream(
         collector.feed(text)
         chunk_count += 1
         if chunk_count % (2 if _VERBOSE else 8) == 0:
-            _update_progress(
-                task,
-                task_id=task_id,
-                stage="running",
-                updates=updates,
-                prompt=prompt,
-                pr_number=pr_number,
-                backend=backend,
-                runtime_backend=runtime_backend,
-                repo_path=repo_path,
-                model=model,
-                max_iterations=max_iterations,
-                no_pr=no_pr,
-                enable_execution=enable_execution,
-                enable_web=enable_web,
-                use_native_cli_auth=use_native_cli_auth,
-                tools=tools,
-                skills=skills,
-                fix_ci=fix_ci,
-                ci_check_wait_minutes=ci_check_wait_minutes,
-                reference_repos=reference_repos,
-                workspace=workspace,
-                started_at=started_at,
-            )
+            emitter.emit("running")
 
     collector.flush()
-    _update_progress(
-        task,
-        task_id=task_id,
-        stage="running",
-        updates=updates,
-        prompt=prompt,
-        pr_number=pr_number,
-        backend=backend,
-        runtime_backend=runtime_backend,
-        repo_path=repo_path,
-        model=model,
-        max_iterations=max_iterations,
-        no_pr=no_pr,
-        enable_execution=enable_execution,
-        enable_web=enable_web,
-        use_native_cli_auth=use_native_cli_auth,
-        tools=tools,
-        skills=skills,
-        fix_ci=fix_ci,
-        ci_check_wait_minutes=ci_check_wait_minutes,
-        reference_repos=reference_repos,
-        workspace=workspace,
-        started_at=started_at,
-    )
+    emitter.emit("running")
     return "".join(parts)
 
 
@@ -587,10 +655,9 @@ def build_feature(
             f"reference_repos={','.join(reference_repos) if reference_repos else 'none'}"
         ),
     )
-    _update_progress(
+    emitter = _ProgressEmitter(
         self,
         task_id=task_id,
-        stage="starting",
         updates=updates,
         prompt=prompt,
         pr_number=pr_number,
@@ -610,6 +677,7 @@ def build_feature(
         reference_repos=list(reference_repos or []),
         started_at=task_started_at,
     )
+    emitter.emit("starting")
 
     if runtime_backend == "e2e":
         config = Config.from_env(
@@ -628,29 +696,7 @@ def build_feature(
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         hand = E2EHand(config, repo_index)
         _append_update(updates, "Running E2E hand.")
-        _update_progress(
-            self,
-            task_id=task_id,
-            stage="running",
-            updates=updates,
-            prompt=prompt,
-            pr_number=pr_number,
-            backend=requested_backend,
-            runtime_backend=runtime_backend,
-            repo_path=repo_path,
-            model=config.model,
-            max_iterations=resolved_iterations,
-            no_pr=no_pr,
-            enable_execution=enable_execution,
-            enable_web=enable_web,
-            use_native_cli_auth=use_native_cli_auth,
-            tools=selected_tools,
-            skills=selected_skills,
-            fix_ci=fix_ci,
-            ci_check_wait_minutes=ci_check_wait_minutes,
-            reference_repos=list(reference_repos or []),
-            started_at=task_started_at,
-        )
+        emitter.emit("running", model=config.model)
         response = hand.run(
             prompt,
             hand_uuid=task_id,
@@ -724,7 +770,9 @@ def build_feature(
                 )
                 continue
             if ref_result.returncode != 0:
-                stderr = _redact_sensitive(ref_result.stderr.strip() or "unknown error")
+                stderr = _redact_sensitive(
+                    ref_result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG
+                )
                 _append_update(
                     updates,
                     f"Failed to clone reference repo {ref_spec}: {stderr}",
@@ -772,30 +820,7 @@ def build_feature(
                 f"(runtime={runtime_backend}), model={config.model}"
             ),
         )
-        _update_progress(
-            self,
-            task_id=task_id,
-            stage="running",
-            updates=updates,
-            prompt=prompt,
-            pr_number=pr_number,
-            backend=requested_backend,
-            runtime_backend=runtime_backend,
-            repo_path=repo_path,
-            model=config.model,
-            max_iterations=resolved_iterations,
-            no_pr=no_pr,
-            enable_execution=enable_execution,
-            enable_web=enable_web,
-            use_native_cli_auth=use_native_cli_auth,
-            tools=selected_tools,
-            skills=selected_skills,
-            fix_ci=fix_ci,
-            ci_check_wait_minutes=ci_check_wait_minutes,
-            reference_repos=list(reference_repos or []),
-            workspace=str(resolved_repo_path),
-            started_at=task_started_at,
-        )
+        emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
 
         try:
             if runtime_backend == "basic-langgraph":
@@ -863,30 +888,13 @@ def build_feature(
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
         hand_start = time.monotonic()
+        emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
         message = asyncio.run(
             _collect_stream(
                 hand,
                 prompt,
-                task=self,
-                task_id=task_id,
-                pr_number=pr_number,
+                emitter=emitter,
                 updates=updates,
-                backend=requested_backend,
-                runtime_backend=runtime_backend,
-                repo_path=repo_path,
-                model=config.model,
-                max_iterations=resolved_iterations,
-                no_pr=no_pr,
-                enable_execution=enable_execution,
-                enable_web=enable_web,
-                use_native_cli_auth=use_native_cli_auth,
-                tools=selected_tools,
-                skills=selected_skills,
-                fix_ci=fix_ci,
-                ci_check_wait_minutes=ci_check_wait_minutes,
-                reference_repos=list(reference_repos or []),
-                workspace=str(resolved_repo_path),
-                started_at=task_started_at,
             )
         )
         hand_elapsed = time.monotonic() - hand_start

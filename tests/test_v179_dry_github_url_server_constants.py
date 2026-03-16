@@ -33,6 +33,7 @@ class TestGitHubUrlConstants:
         from helping_hands.lib import github_url
 
         expected = {
+            "DEFAULT_CLONE_ERROR_MSG",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",

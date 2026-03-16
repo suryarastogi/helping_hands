@@ -33,6 +33,7 @@ class TestModuleAll:
 
     def test_all_contains_expected_names(self) -> None:
         assert set(github_url_all) == {
+            "DEFAULT_CLONE_ERROR_MSG",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",

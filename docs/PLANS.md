@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v243](exec-plans/completed/2026/v243-dry-progress-emitter-clone-error-constant.md) —
+  DRY `_ProgressEmitter` class (replacing 5× `_update_progress` calls with ~20
+  identical kwargs each in `celery_app.py`), refactor `_collect_stream` to
+  accept emitter, extract `DEFAULT_CLONE_ERROR_MSG` constant to `github_url.py`;
+  22 tests (5773 passed, 241 skipped)
+
 - [2026-03-16 v242](exec-plans/completed/2026/v242-dry-usage-level-narrow-exceptions.md) —
   DRY `_extract_usage_level()` helper (replacing 2× 12-line inline blocks in
   `_fetch_claude_usage()`), narrow `except Exception` in `_get_claude_oauth_token()`
