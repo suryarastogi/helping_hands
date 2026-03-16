@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import (
+    _META_PR_STATUS,
+    _META_PR_URL,
     _PR_STATUSES_SKIPPED,
     Hand,
     HandResponse,
@@ -923,10 +925,10 @@ class BasicLangGraphHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=content,
                 )
-                if pr_metadata.get("pr_url"):
-                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                if pr_metadata.get(_META_PR_URL):
+                    yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
+                elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
+                    yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
                 return
             yield "\n\nContinuing...\n"
 
@@ -935,10 +937,10 @@ class BasicLangGraphHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get("pr_url"):
-            yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        if pr_metadata.get(_META_PR_URL):
+            yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
+        elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
+            yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
         yield "\n\nMax iterations reached.\n"
 
 
@@ -1193,10 +1195,10 @@ class BasicAtomicHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=stream_text,
                 )
-                if pr_metadata.get("pr_url"):
-                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                if pr_metadata.get(_META_PR_URL):
+                    yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
+                elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
+                    yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
                 return
             yield "\n\nContinuing...\n"
 
@@ -1205,8 +1207,8 @@ class BasicAtomicHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get("pr_url"):
-            yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        if pr_metadata.get(_META_PR_URL):
+            yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"
+        elif pr_metadata.get(_META_PR_STATUS) not in _PR_STATUSES_SKIPPED:
+            yield f"\nPR status: {pr_metadata.get(_META_PR_STATUS)}\n"
         yield "\n\nMax iterations reached.\n"

@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Metadata key constants (v216)
+
+**DRY metadata protocol keys:** Extracted 8 module-level constants (`_META_PR_STATUS`, `_META_PR_URL`, `_META_PR_NUMBER`, `_META_PR_BRANCH`, `_META_PR_COMMIT`, `_META_CI_FIX_STATUS`, `_META_CI_FIX_ATTEMPTS`, `_META_CI_FIX_ERROR`) to `base.py`, replacing 72 bare string literals across 6 hand modules (`base.py`, `cli/base.py`, `iterative.py`, `e2e.py`, `langgraph.py`, `atomic.py`). Server modules (`app.py`, `celery_app.py`, `schedules.py`) use the same key strings for form fields/query params/dataclass fields and were intentionally left unchanged.
+
+**`tests/test_v216_metadata_key_constants.py`:** 28 tests: value correctness (8), type validation (8), uniqueness (1), AST-based source-level checks for bare key absence in protocol modules (5), constant definition presence (1), import verification (5).
+
+**28 new tests. 5216 passed, 219 skipped.**
+
+---
+
 ## Mar 15 — ScheduleManager unit tests (v214)
 
 **ScheduleManager CRUD test coverage:** Added 50 unit tests covering all ScheduleManager methods with mocked Redis and Celery: `create_schedule` (5 tests: save+return, auto-generate ID, duplicate rejection, RedBeat skip when disabled, RedBeat create when enabled), `update_schedule` (4 tests: metadata preservation, not-found error, RedBeat recreation, RedBeat skip), `delete_schedule` (2 tests: existing returns True, missing returns False), `enable_schedule` (3 tests: creates RedBeat entry, noop when already enabled, None when missing), `disable_schedule` (3 tests: deletes RedBeat entry, noop when already disabled, None when missing), `record_run` (2 tests: metadata update, noop when missing), `trigger_now` (2 tests: dispatch via Celery, None when missing), `get_schedule` (2 tests), `list_schedules` (3 tests: sorted desc, corrupt entry skip, empty list), internal helpers `_save_meta`/`_load_meta`/`_delete_meta`/`_list_meta_keys` (11 tests), `_create_redbeat_entry`/`_delete_redbeat_entry` (4 tests), dependency guards (4 tests), init (2 tests), `_meta_key` (2 tests), `get_schedule_manager` factory (1 test).

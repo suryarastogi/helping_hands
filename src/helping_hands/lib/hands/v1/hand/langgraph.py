@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import _META_PR_URL, Hand, HandResponse
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_langchain_chat_model,
     resolve_hand_model,
@@ -131,5 +131,5 @@ class LangGraphHand(Hand):
             prompt=prompt,
             summary="".join(parts),
         )
-        if pr_metadata.get("pr_url"):
-            yield f"\nPR created: {pr_metadata['pr_url']}\n"
+        if pr_metadata.get(_META_PR_URL):
+            yield f"\nPR created: {pr_metadata[_META_PR_URL]}\n"

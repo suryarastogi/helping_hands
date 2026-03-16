@@ -8,6 +8,14 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v216](exec-plans/completed/2026/v216-metadata-key-constants.md) —
+  Extract 8 metadata key constants (`_META_PR_STATUS`, `_META_PR_URL`,
+  `_META_PR_NUMBER`, `_META_PR_BRANCH`, `_META_PR_COMMIT`,
+  `_META_CI_FIX_STATUS`, `_META_CI_FIX_ATTEMPTS`, `_META_CI_FIX_ERROR`)
+  to `base.py`, replacing 72 bare string literals across 6 hand modules;
+  28 tests (value, type, uniqueness, AST-based source consistency checks);
+  5216 passed, 219 skipped
+
 - [2026-03-15 v215](exec-plans/completed/2026/v215-schedule-endpoint-tests.md) —
   Server schedule endpoint 34 tests: `_get_schedule_manager`, all 8
   schedule CRUD/trigger endpoints, `/notif-sw.js`, `/config`, `/build`,

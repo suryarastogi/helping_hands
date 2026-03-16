@@ -179,6 +179,34 @@ _PR_STATUS_NOT_ATTEMPTED = PRStatus.NOT_ATTEMPTED
 _PR_STATUSES_WITH_URL = PR_STATUSES_WITH_URL
 _PR_STATUSES_SKIPPED = PR_STATUSES_SKIPPED
 
+# --- Metadata dictionary key constants ---------------------------------------
+# These are the canonical key names used in the PR/CI metadata dict that flows
+# between finalization, CI-fix, and status-reporting code paths.
+
+_META_PR_STATUS = "pr_status"
+"""Metadata key for the PR finalization outcome (value is a ``PRStatus``)."""
+
+_META_PR_URL = "pr_url"
+"""Metadata key for the URL of the created or updated pull request."""
+
+_META_PR_NUMBER = "pr_number"
+"""Metadata key for the PR number as a string."""
+
+_META_PR_BRANCH = "pr_branch"
+"""Metadata key for the head branch name of the pull request."""
+
+_META_PR_COMMIT = "pr_commit"
+"""Metadata key for the latest commit SHA on the PR branch."""
+
+_META_CI_FIX_STATUS = "ci_fix_status"
+"""Metadata key for the CI-fix loop outcome (value is a ``CIFixStatus``)."""
+
+_META_CI_FIX_ATTEMPTS = "ci_fix_attempts"
+"""Metadata key for the number of CI-fix attempts as a string."""
+
+_META_CI_FIX_ERROR = "ci_fix_error"
+"""Metadata key for the error message from a failed CI-fix loop."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -467,11 +495,11 @@ class Hand(abc.ABC):
         """
         metadata.update(
             {
-                "pr_status": status,
-                "pr_url": pr_url,
-                "pr_number": pr_number,
-                "pr_branch": pr_branch,
-                "pr_commit": pr_commit,
+                _META_PR_STATUS: status,
+                _META_PR_URL: pr_url,
+                _META_PR_NUMBER: pr_number,
+                _META_PR_BRANCH: pr_branch,
+                _META_PR_COMMIT: pr_commit,
             }
         )
         return metadata
@@ -950,48 +978,48 @@ class Hand(abc.ABC):
         """
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": _PR_STATUS_NOT_ATTEMPTED,
-            "pr_url": "",
-            "pr_number": "",
-            "pr_branch": "",
-            "pr_commit": "",
+            _META_PR_STATUS: _PR_STATUS_NOT_ATTEMPTED,
+            _META_PR_URL: "",
+            _META_PR_NUMBER: "",
+            _META_PR_BRANCH: "",
+            _META_PR_COMMIT: "",
         }
         if not self.auto_pr:
-            metadata["pr_status"] = _PR_STATUS_DISABLED
+            metadata[_META_PR_STATUS] = _PR_STATUS_DISABLED
             return metadata
 
         repo_dir = self.repo_index.root.resolve()
         if not repo_dir.is_dir():
-            metadata["pr_status"] = PRStatus.NO_REPO
+            metadata[_META_PR_STATUS] = PRStatus.NO_REPO
             return metadata
 
         inside_work_tree = self._run_git_read(
             repo_dir, "rev-parse", "--is-inside-work-tree"
         )
         if inside_work_tree != "true":
-            metadata["pr_status"] = PRStatus.NOT_GIT_REPO
+            metadata[_META_PR_STATUS] = PRStatus.NOT_GIT_REPO
             return metadata
 
         has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
         if not has_changes:
-            metadata["pr_status"] = _PR_STATUS_NO_CHANGES
+            metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
             return metadata
 
         repo = self._github_repo_from_origin(repo_dir)
         if not repo:
-            metadata["pr_status"] = PRStatus.NO_GITHUB_ORIGIN
+            metadata[_META_PR_STATUS] = PRStatus.NO_GITHUB_ORIGIN
             return metadata
 
         if self._should_run_precommit_before_pr():
             try:
                 self._run_precommit_checks_and_fixes(repo_dir)
             except RuntimeError as exc:
-                metadata["pr_status"] = PRStatus.PRECOMMIT_FAILED
+                metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
                 metadata["pr_error"] = str(exc)
                 return metadata
             has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
             if not has_changes:
-                metadata["pr_status"] = _PR_STATUS_NO_CHANGES
+                metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
                 return metadata
 
         from helping_hands.lib.github import GitHubClient
@@ -1106,15 +1134,15 @@ class Hand(abc.ABC):
                     pr_commit=commit_sha,
                 )
         except ValueError as exc:
-            metadata["pr_status"] = PRStatus.MISSING_TOKEN
+            metadata[_META_PR_STATUS] = PRStatus.MISSING_TOKEN
             metadata["pr_error"] = str(exc)
             return metadata
         except RuntimeError as exc:
-            metadata["pr_status"] = PRStatus.GIT_ERROR
+            metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
             metadata["pr_error"] = str(exc)
             return metadata
         except Exception as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
-            metadata["pr_status"] = PRStatus.ERROR
+            metadata[_META_PR_STATUS] = PRStatus.ERROR
             metadata["pr_error"] = str(exc)
             return metadata

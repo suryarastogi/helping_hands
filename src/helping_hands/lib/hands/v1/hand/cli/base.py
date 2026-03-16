@@ -25,6 +25,14 @@ from helping_hands.lib.github import (
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
+    _META_CI_FIX_ATTEMPTS,
+    _META_CI_FIX_ERROR,
+    _META_CI_FIX_STATUS,
+    _META_PR_BRANCH,
+    _META_PR_COMMIT,
+    _META_PR_NUMBER,
+    _META_PR_STATUS,
+    _META_PR_URL,
     _PR_STATUS_CREATED,
     _PR_STATUS_DISABLED,
     _PR_STATUS_NO_CHANGES,
@@ -1222,11 +1230,11 @@ class _TwoPhaseCLIHand(Hand):
         """
         return {
             "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": "interrupted",
-            "pr_url": "",
-            "pr_number": "",
-            "pr_branch": "",
-            "pr_commit": "",
+            _META_PR_STATUS: "interrupted",
+            _META_PR_URL: "",
+            _META_PR_NUMBER: "",
+            _META_PR_BRANCH: "",
+            _META_PR_COMMIT: "",
         }
 
     def _finalize_after_run(self, *, prompt: str, message: str) -> dict[str, str]:
@@ -1261,14 +1269,14 @@ class _TwoPhaseCLIHand(Hand):
         Returns:
             A formatted status string, or ``None`` if no status to report.
         """
-        status = metadata.get("pr_status", "")
+        status = metadata.get(_META_PR_STATUS, "")
         if not status:
             return None
         if status == _PR_STATUS_CREATED:
-            pr_url = metadata.get("pr_url", "")
+            pr_url = metadata.get(_META_PR_URL, "")
             return f"[{self._CLI_LABEL}] PR created: {pr_url}"
         if status == _PR_STATUS_UPDATED:
-            pr_url = metadata.get("pr_url", "")
+            pr_url = metadata.get(_META_PR_URL, "")
             return f"[{self._CLI_LABEL}] PR updated: {pr_url}"
         if status == _PR_STATUS_DISABLED:
             return f"[{self._CLI_LABEL}] PR disabled (--no-pr)."
@@ -1365,12 +1373,12 @@ class _TwoPhaseCLIHand(Hand):
         if not self.fix_ci:
             return metadata
 
-        pr_status = metadata.get("pr_status", "")
+        pr_status = metadata.get(_META_PR_STATUS, "")
         if pr_status not in _PR_STATUSES_WITH_URL:
             return metadata
 
-        pr_commit = metadata.get("pr_commit", "")
-        pr_branch = metadata.get("pr_branch", "")
+        pr_commit = metadata.get(_META_PR_COMMIT, "")
+        pr_branch = metadata.get(_META_PR_BRANCH, "")
         if not pr_commit or not pr_branch:
             return metadata
 
@@ -1384,8 +1392,8 @@ class _TwoPhaseCLIHand(Hand):
         initial_wait = self.ci_check_wait_minutes * 60
         max_poll = initial_wait * 2
 
-        metadata["ci_fix_attempts"] = "0"
-        metadata["ci_fix_status"] = CIFixStatus.CHECKING
+        metadata[_META_CI_FIX_ATTEMPTS] = "0"
+        metadata[_META_CI_FIX_STATUS] = CIFixStatus.CHECKING
 
         try:
             gh_token = getattr(self.config, "github_token", "")
@@ -1393,7 +1401,7 @@ class _TwoPhaseCLIHand(Hand):
                 current_ref = pr_commit
                 for attempt in range(1, self.ci_max_retries + 1):
                     if self._is_interrupted():
-                        metadata["ci_fix_status"] = CIFixStatus.INTERRUPTED
+                        metadata[_META_CI_FIX_STATUS] = CIFixStatus.INTERRUPTED
                         return metadata
 
                     check_result = await self._poll_ci_checks(
@@ -1414,7 +1422,7 @@ class _TwoPhaseCLIHand(Hand):
                             f"({total} check{'s' if total != 1 else ''}). "
                             f"No fixes needed.\n"
                         )
-                        metadata["ci_fix_status"] = CIFixStatus.SUCCESS
+                        metadata[_META_CI_FIX_STATUS] = CIFixStatus.SUCCESS
                         return metadata
 
                     if conclusion == CIConclusion.NO_CHECKS:
@@ -1422,7 +1430,7 @@ class _TwoPhaseCLIHand(Hand):
                             f"[{self._CLI_LABEL}] No CI checks found. "
                             "Skipping CI fix loop.\n"
                         )
-                        metadata["ci_fix_status"] = CIFixStatus.NO_CHECKS
+                        metadata[_META_CI_FIX_STATUS] = CIFixStatus.NO_CHECKS
                         return metadata
 
                     if conclusion == CIConclusion.PENDING:
@@ -1430,7 +1438,7 @@ class _TwoPhaseCLIHand(Hand):
                             f"[{self._CLI_LABEL}] CI checks still pending "
                             f"after waiting. Skipping fix attempt.\n"
                         )
-                        metadata["ci_fix_status"] = CIFixStatus.PENDING_TIMEOUT
+                        metadata[_META_CI_FIX_STATUS] = CIFixStatus.PENDING_TIMEOUT
                         return metadata
 
                     # CI failed — attempt fix
@@ -1449,10 +1457,10 @@ class _TwoPhaseCLIHand(Hand):
                     await self._invoke_backend(fix_prompt, emit=emit)
 
                     if self._is_interrupted():
-                        metadata["ci_fix_status"] = CIFixStatus.INTERRUPTED
+                        metadata[_META_CI_FIX_STATUS] = CIFixStatus.INTERRUPTED
                         return metadata
 
-                    metadata["ci_fix_attempts"] = str(attempt)
+                    metadata[_META_CI_FIX_ATTEMPTS] = str(attempt)
 
                     if not self._repo_has_changes():
                         await emit(
@@ -1476,11 +1484,11 @@ class _TwoPhaseCLIHand(Hand):
                         f"Waiting for CI...\n"
                     )
 
-                    metadata["pr_commit"] = new_sha
+                    metadata[_META_PR_COMMIT] = new_sha
                     current_ref = new_sha
 
                 # Exhausted all retries
-                metadata["ci_fix_status"] = CIFixStatus.EXHAUSTED
+                metadata[_META_CI_FIX_STATUS] = CIFixStatus.EXHAUSTED
                 await emit(
                     f"[{self._CLI_LABEL}] CI fix retries exhausted "
                     f"after {self.ci_max_retries} attempts.\n"
@@ -1488,8 +1496,8 @@ class _TwoPhaseCLIHand(Hand):
 
         except Exception as exc:
             logger.debug("_ci_fix_loop unexpected error", exc_info=True)
-            metadata["ci_fix_status"] = CIFixStatus.ERROR
-            metadata["ci_fix_error"] = str(exc)
+            metadata[_META_CI_FIX_STATUS] = CIFixStatus.ERROR
+            metadata[_META_CI_FIX_ERROR] = str(exc)
             await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")
 
         return metadata
@@ -1503,10 +1511,10 @@ class _TwoPhaseCLIHand(Hand):
         Returns:
             A status string, or ``None`` if no CI fix was attempted.
         """
-        ci_status = metadata.get("ci_fix_status", "")
+        ci_status = metadata.get(_META_CI_FIX_STATUS, "")
         if not ci_status:
             return None
-        attempts = metadata.get("ci_fix_attempts", "0")
+        attempts = metadata.get(_META_CI_FIX_ATTEMPTS, "0")
         if ci_status == CIFixStatus.SUCCESS:
             return f"[{self._CLI_LABEL}] CI checks passed."
         if ci_status == CIFixStatus.EXHAUSTED:
@@ -1514,7 +1522,7 @@ class _TwoPhaseCLIHand(Hand):
         if ci_status == CIFixStatus.PENDING_TIMEOUT:
             return f"[{self._CLI_LABEL}] CI checks still pending after max wait time."
         if ci_status == CIFixStatus.ERROR:
-            error = metadata.get("ci_fix_error", "")
+            error = metadata.get(_META_CI_FIX_ERROR, "")
             return f"[{self._CLI_LABEL}] CI fix error: {error}"
         return None
 
@@ -1635,7 +1643,7 @@ class _TwoPhaseCLIHand(Hand):
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
-        if self.fix_ci and pr_metadata.get("pr_status") in _PR_STATUSES_WITH_URL:
+        if self.fix_ci and pr_metadata.get(_META_PR_STATUS) in _PR_STATUSES_WITH_URL:
 
             async def _run_ci_fix() -> dict[str, str]:
                 async def _noop_emit(chunk: str) -> None:
