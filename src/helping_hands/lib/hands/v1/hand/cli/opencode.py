@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
+import os
+
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _DOCKER_ENV_HINT_TEMPLATE,
     _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
 
-__all__ = ["OpenCodeCLIHand"]
+# Maps provider prefix (from ``provider/model`` format) to the environment
+# variable that typically holds its API key.
+_PROVIDER_ENV_MAP: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GOOGLE_API_KEY",
+    "ollama": "OLLAMA_HOST",
+}
+
+__all__ = ["_PROVIDER_ENV_MAP", "OpenCodeCLIHand"]
 
 
 class OpenCodeCLIHand(_TwoPhaseCLIHand):
@@ -27,6 +38,26 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         if not model or model in ("default", "None"):
             return self._DEFAULT_MODEL
         return model
+
+    def _describe_auth(self) -> str:
+        """Describe the current authentication state for the resolved provider.
+
+        Extracts the provider prefix from the ``provider/model`` format and
+        checks whether the corresponding API key environment variable is set.
+
+        Returns:
+            Human-readable string indicating provider and auth status, or
+            an empty string if no provider can be determined.
+        """
+        model = self._resolve_cli_model()
+        if not model or "/" not in model:
+            return ""
+        provider = model.split("/", 1)[0].lower()
+        env_var = _PROVIDER_ENV_MAP.get(provider)
+        if not env_var:
+            return f"auth=provider={provider}"
+        present = "set" if os.environ.get(env_var, "").strip() else "not set"
+        return f"auth=provider={provider} ({env_var} {present})"
 
     @staticmethod
     def _build_opencode_failure_message(*, return_code: int, output: str) -> str:

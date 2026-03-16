@@ -1013,7 +1013,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         max_iterations: int = 6,
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
-        self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._input_schema: type[Any] | None = None
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
@@ -1054,6 +1054,8 @@ class BasicAtomicHand(_BasicIterativeHand):
             ``BasicChatInputSchema`` instance with the prompt as
             ``chat_message``.
         """
+        if self._input_schema is None:
+            raise RuntimeError("_input_schema not initialised; call _build_agent first")
         return self._input_schema(chat_message=prompt)
 
     @staticmethod

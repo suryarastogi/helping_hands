@@ -41,6 +41,7 @@ from helping_hands.lib.hands.v1.hand.base import (
     Hand,
     HandResponse,
 )
+from helping_hands.lib.validation import require_non_empty_string
 
 logger = logging.getLogger(__name__)
 
@@ -1679,7 +1680,11 @@ class _TwoPhaseCLIHand(Hand):
 
         Returns:
             A ``HandResponse`` with the combined output and PR metadata.
+
+        Raises:
+            ValueError: If *prompt* is empty or whitespace-only.
         """
+        require_non_empty_string(prompt, "prompt")
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
@@ -1717,7 +1722,11 @@ class _TwoPhaseCLIHand(Hand):
 
         Yields:
             Output chunks from the subprocess and PR status messages.
+
+        Raises:
+            ValueError: If *prompt* is empty or whitespace-only.
         """
+        require_non_empty_string(prompt, "prompt")
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()
         collected: list[str] = []
 

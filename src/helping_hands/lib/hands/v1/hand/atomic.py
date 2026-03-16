@@ -41,7 +41,7 @@ class AtomicHand(Hand):
             repo_index: Repository index providing the file tree and root path.
         """
         super().__init__(config, repo_index)
-        self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._input_schema: type[Any] | None = None
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
@@ -70,6 +70,8 @@ class AtomicHand(Hand):
 
     def _make_input(self, prompt: str) -> Any:
         """Build an input schema instance. Uses mock-safe stored class."""
+        if self._input_schema is None:
+            raise RuntimeError("_input_schema not initialised; call _build_agent first")
         return self._input_schema(chat_message=prompt)
 
     def run(self, prompt: str) -> HandResponse:

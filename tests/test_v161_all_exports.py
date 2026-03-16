@@ -229,11 +229,11 @@ class TestOpenCodeCLIHandAllExport:
 
         assert "OpenCodeCLIHand" in __all__
 
-    def test_all_has_no_private_names(self) -> None:
+    def test_all_has_expected_private_names(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.opencode import __all__
 
         private = [name for name in __all__ if name.startswith("_")]
-        assert private == [], f"Private names in __all__: {private}"
+        assert private == ["_PROVIDER_ENV_MAP"]
 
     def test_all_symbols_importable(self) -> None:
         import helping_hands.lib.hands.v1.hand.cli.opencode as mod
@@ -244,7 +244,7 @@ class TestOpenCodeCLIHandAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.opencode import __all__
 
-        assert len(__all__) == 1
+        assert len(__all__) == 2
 
 
 # ---------------------------------------------------------------------------
