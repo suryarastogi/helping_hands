@@ -520,7 +520,7 @@ class _TwoPhaseCLIHand(Hand):
         Returns:
             True if ``config.use_native_cli_auth`` is set.
         """
-        return bool(getattr(self.config, "use_native_cli_auth", False))
+        return self.config.use_native_cli_auth
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         """Return env var names that carry API keys for this CLI backend.
@@ -1447,8 +1447,7 @@ class _TwoPhaseCLIHand(Hand):
         metadata[_META_CI_FIX_STATUS] = CIFixStatus.CHECKING
 
         try:
-            gh_token = getattr(self.config, "github_token", "")
-            with GitHubClient(token=gh_token) as gh:
+            with GitHubClient(token=self.config.github_token) as gh:
                 current_ref = pr_commit
                 for attempt in range(1, self.ci_max_retries + 1):
                     if self._is_interrupted():

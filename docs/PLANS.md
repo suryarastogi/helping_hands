@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v246](exec-plans/completed/2026/v246-simplify-config-getattr-to-direct-access.md) —
+  Replace 12 defensive `getattr(self.config, ...)` calls with direct
+  `self.config.field` access across 4 hand files (base.py, iterative.py,
+  cli/base.py, e2e.py); 21 tests (5826 passed, 249 skipped)
+
 - [2026-03-16 v245](exec-plans/completed/2026/v245-schedule-detail-skip-permissions-constants.md) —
   Extract `_SCHEDULE_NOT_FOUND_DETAIL` constant in app.py (5 bare strings → 1),
   extract `_SKIP_PERMISSIONS_FLAG` constant in claude.py (4 bare strings → 1);

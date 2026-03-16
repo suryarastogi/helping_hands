@@ -144,11 +144,11 @@ class _BasicIterativeHand(Hand):
 
     def _execution_tools_enabled(self) -> bool:
         """Check whether execution tools (python, bash) are enabled in config."""
-        return bool(getattr(self.config, "enable_execution", False))
+        return self.config.enable_execution
 
     def _web_tools_enabled(self) -> bool:
         """Check whether web tools (search, browse) are enabled in config."""
-        return bool(getattr(self.config, "enable_web", False))
+        return self.config.enable_web
 
     def _tool_instructions(self) -> str:
         """Build tool usage instructions for the iteration prompt.

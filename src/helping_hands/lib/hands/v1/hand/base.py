@@ -272,12 +272,12 @@ class Hand(abc.ABC):
 
         # Resolve TOOLS (callable capabilities) — independent axis.
         tool_selection = tool_registry.normalize_tool_selection(
-            getattr(self.config, "enabled_tools", ())
+            self.config.enabled_tools
         )
         merged_tools = tool_registry.merge_with_legacy_tool_flags(
             tool_selection,
-            enable_execution=bool(getattr(self.config, "enable_execution", False)),
-            enable_web=bool(getattr(self.config, "enable_web", False)),
+            enable_execution=self.config.enable_execution,
+            enable_web=self.config.enable_web,
         )
         self._selected_tool_categories = tool_registry.resolve_tool_categories(
             merged_tools
@@ -285,7 +285,7 @@ class Hand(abc.ABC):
 
         # Resolve SKILLS (knowledge catalog) — independent axis.
         skill_names = system_skills.normalize_skill_selection(
-            getattr(self.config, "enabled_skills", ())
+            self.config.enabled_skills
         )
         self._selected_skills = system_skills.resolve_skills(skill_names)
 
@@ -599,7 +599,7 @@ class Hand(abc.ABC):
         """
         if github_token.strip():
             return False
-        return bool(getattr(self.config, "use_native_cli_auth", False))
+        return self.config.use_native_cli_auth
 
     def _pr_description_cmd(self) -> list[str] | None:
         """Return CLI command for generating a rich PR description.
@@ -619,7 +619,7 @@ class Hand(abc.ABC):
         Returns:
             True if pre-commit checks should be run.
         """
-        return bool(getattr(self.config, "enable_execution", False))
+        return self.config.enable_execution
 
     @staticmethod
     def _is_git_hook_failure(error_msg: str) -> bool:
@@ -1205,8 +1205,7 @@ class Hand(abc.ABC):
         from helping_hands.lib.github import GitHubClient
 
         try:
-            gh_token = getattr(self.config, "github_token", "")
-            with GitHubClient(token=gh_token) as gh:
+            with GitHubClient(token=self.config.github_token) as gh:
                 git_name = os.environ.get(
                     "HELPING_HANDS_GIT_USER_NAME", _DEFAULT_GIT_USER_NAME
                 )
