@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v236](exec-plans/completed/2026/v236-ci-conclusion-enum-github-exception-narrowing.md) —
+  Use `CIConclusion` enum members in `github.py` comparisons, narrow `except Exception`
+  to `(GithubException, OSError)` in `base.py` (3 sites) and `e2e.py` (1 site);
+  16 tests (5641 passed, 225 skipped)
+
 - [2026-03-16 v235](exec-plans/completed/2026/v235-pr-error-constant-schedules-exception-narrowing.md) —
   Extract `_META_PR_ERROR` constant (replacing 5 bare `"pr_error"` strings), narrow
   `except Exception` in `schedules.py` (`_save_meta`, `_delete_meta`, `_list_meta_keys`);

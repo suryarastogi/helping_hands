@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from github import GithubException
+
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.hands.v1.hand.base import (
     _DEFAULT_GIT_USER_EMAIL,
@@ -229,7 +231,7 @@ class E2EHand(Hand):
                 try:
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
-                except Exception:
+                except (GithubException, OSError):
                     logger.debug(
                         "Failed to fetch default branch for %s",
                         repo,

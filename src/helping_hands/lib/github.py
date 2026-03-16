@@ -559,9 +559,9 @@ class GitHubClient:
             overall: str = CIConclusion.NO_CHECKS
         elif any(r["status"] != _CHECK_RUN_STATUS_COMPLETED for r in check_list):
             overall = CIConclusion.PENDING
-        elif all(r["conclusion"] == "success" for r in check_list):
+        elif all(r["conclusion"] == CIConclusion.SUCCESS for r in check_list):
             overall = CIConclusion.SUCCESS
-        elif any(r["conclusion"] == "failure" for r in check_list):
+        elif any(r["conclusion"] == CIConclusion.FAILURE for r in check_list):
             overall = CIConclusion.FAILURE
         else:
             overall = CIConclusion.MIXED

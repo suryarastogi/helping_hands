@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from github import GithubException
+
 from helping_hands.lib.github_url import (
     GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
 )
@@ -817,7 +819,7 @@ class Hand(abc.ABC):
         pr_creator = str(pr_info.get("user", ""))
         try:
             token_user = gh.whoami().get("login", "")
-        except Exception:
+        except (GithubException, OSError):
             logger.debug(
                 "whoami() failed; skipping PR description update", exc_info=True
             )
@@ -931,7 +933,7 @@ class Hand(abc.ABC):
         )
         try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
-        except Exception:
+        except (GithubException, OSError):
             logger.debug(
                 "Failed to update PR #%s description", self.pr_number, exc_info=True
             )
@@ -1045,7 +1047,7 @@ class Hand(abc.ABC):
             repo_obj = gh.get_repo(repo)
             if getattr(repo_obj, "default_branch", ""):
                 base_branch = str(repo_obj.default_branch)
-        except Exception:
+        except (GithubException, OSError):
             logger.debug(
                 "could not fetch default branch for %s, using %r",
                 repo,
