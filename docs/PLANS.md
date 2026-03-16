@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v225](exec-plans/completed/2026/v225-validation-type-guards-normalize-args.md) —
+  Type guards for `require_non_empty_string` (TypeError for non-strings) and
+  `require_positive_int` (TypeError for non-int/bool), `_normalize_args` container
+  type guard (rejects dict/set/generator), `search_web`/`_require_http_url` DRY
+  with centralized validators, fix 3 test mock bugs (`html_url` → `url`);
+  35 tests (5439 passed, 219 skipped)
+
 - [2026-03-16 v224](exec-plans/completed/2026/v224-dry-registry-parse-str-web-strip-repo-dir-validation.md) —
   DRY `_parse_required_str()` in registry.py (4× inline validation → helper),
   pre-compute `.strip()` in `_extract_related_topics()`, `repo_dir.is_dir()`

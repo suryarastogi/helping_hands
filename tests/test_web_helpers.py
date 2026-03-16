@@ -27,7 +27,7 @@ class TestRequireHttpUrl:
             _require_http_url("ftp://example.com")
 
     def test_rejects_empty(self) -> None:
-        with pytest.raises(ValueError, match="non-empty"):
+        with pytest.raises(ValueError, match="must not be empty"):
             _require_http_url("")
 
     def test_rejects_no_host(self) -> None:

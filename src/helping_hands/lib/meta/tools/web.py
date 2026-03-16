@@ -23,7 +23,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
-from helping_hands.lib.validation import require_positive_int
+from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
 logger = logging.getLogger(__name__)
 
@@ -147,12 +147,11 @@ def _require_http_url(url: str) -> str:
         The stripped URL if it uses ``http`` or ``https`` and includes a host.
 
     Raises:
+        TypeError: If *url* is not a string.
         ValueError: If the URL is empty, uses a non-HTTP scheme, or lacks a
             host component.
     """
-    candidate = url.strip()
-    if not candidate:
-        raise ValueError("url must be non-empty")
+    candidate = require_non_empty_string(url, "url")
     parsed = urlparse(candidate)
     if parsed.scheme not in {"http", "https"}:
         raise ValueError("url must use http or https")
@@ -249,9 +248,7 @@ def search_web(
     timeout_s: int = _DEFAULT_WEB_TIMEOUT_S,
 ) -> WebSearchResult:
     """Run a lightweight web search using DuckDuckGo's JSON endpoint."""
-    normalized_query = query.strip()
-    if not normalized_query:
-        raise ValueError("query must be non-empty")
+    normalized_query = require_non_empty_string(query, "query")
     require_positive_int(max_results, "max_results")
     require_positive_int(timeout_s, "timeout_s")
 

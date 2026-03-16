@@ -4,6 +4,24 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Validation type guards, _normalize_args container check, web.py DRY (v225)
+
+**`require_non_empty_string()` type guard:** Added `isinstance(value, str)` check raising `TypeError` for non-string inputs (None, int, bool, list, etc.). Previously caused `AttributeError` on `.strip()`.
+
+**`require_positive_int()` type guard:** Added `isinstance(value, int)` check (rejecting `bool` explicitly since Python `bool` subclasses `int`). Raises `TypeError` for non-int inputs.
+
+**`_normalize_args()` container guard:** Added `isinstance(args, (list, tuple))` check rejecting dicts, sets, generators, and other iterables that would silently iterate keys/values. Changed `if not args:` to `if args is None:` to properly distinguish None from empty containers.
+
+**`search_web()`/`_require_http_url()` DRY:** Replaced inline `query.strip()`/`url.strip()` + emptiness checks with centralized `require_non_empty_string()`, gaining type guards for free.
+
+**Test mock fix:** Fixed 3 pre-existing test mocks in `test_hand_base_statics.py` using `html_url=` (wrong attribute) instead of `url=` (matching `PRResult.url`). Previously passed because MagicMock auto-generates attributes; now correctly caught by type guard.
+
+**`tests/test_v225_validation_type_guards_normalize_args.py`:** 35 tests across 6 classes covering type guard edge cases, container validation, source consistency, and regression guards.
+
+**35 new tests. 5439 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — DRY registry _parse_required_str, web.py strip dedup, repo_dir validation (v224)
 
 **`_parse_required_str()` helper:** Extracted new `_parse_required_str(payload, key)` helper in `registry.py` replacing 4× duplicated `if not isinstance(X, str) or not X.strip()` inline validation in `_run_python_code`, `_run_python_script`, `_run_web_search`, `_run_web_browse`.
