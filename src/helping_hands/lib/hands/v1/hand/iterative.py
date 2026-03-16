@@ -354,7 +354,9 @@ class _BasicIterativeHand(Hand):
                 )
             except UnicodeError:
                 chunks.append(
-                    self._format_error_result("READ", rel_path, "file is not UTF-8 text")
+                    self._format_error_result(
+                        "READ", rel_path, "file is not UTF-8 text"
+                    )
                 )
                 continue
             except ValueError as exc:
@@ -635,9 +637,7 @@ class _BasicIterativeHand(Hand):
         chunks: list[str] = []
         for tool_name, payload, error in requests:
             if error:
-                chunks.append(
-                    self._format_error_result("TOOL", tool_name, error)
-                )
+                chunks.append(self._format_error_result("TOOL", tool_name, error))
                 continue
             try:
                 result = self._run_tool_request(
@@ -654,9 +654,7 @@ class _BasicIterativeHand(Hand):
                 TypeError,
                 ValueError,
             ) as exc:
-                chunks.append(
-                    self._format_error_result("TOOL", tool_name, str(exc))
-                )
+                chunks.append(self._format_error_result("TOOL", tool_name, str(exc)))
                 continue
             chunks.append(result)
         return "\n\n".join(chunks).strip()

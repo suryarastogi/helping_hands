@@ -85,13 +85,13 @@ class TestFormatErrorResult:
         source = inspect.getsource(_BasicIterativeHand._execute_read_requests)
         assert "_format_error_result" in source
         # Should not have raw f-string error formatting
-        assert '@@READ_RESULT: {rel_path}\\nERROR' not in source
+        assert "@@READ_RESULT: {rel_path}\\nERROR" not in source
 
     def test_used_in_execute_tool_requests(self) -> None:
         """Verify _execute_tool_requests uses _format_error_result, not inline."""
         source = inspect.getsource(_BasicIterativeHand._execute_tool_requests)
         assert "_format_error_result" in source
-        assert '@@TOOL_RESULT: {tool_name}\\nERROR' not in source
+        assert "@@TOOL_RESULT: {tool_name}\\nERROR" not in source
 
 
 # ---------------------------------------------------------------------------
