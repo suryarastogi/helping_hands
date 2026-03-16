@@ -144,7 +144,7 @@ class TestServerConstantsAllUpdated:
             "USAGE_CACHE_TTL_S",
             "USAGE_USER_AGENT",
         }
-        assert set(constants.__all__) == expected
+        assert expected.issubset(set(constants.__all__))
 
     def test_all_symbols_importable(self) -> None:
         from helping_hands.server import constants

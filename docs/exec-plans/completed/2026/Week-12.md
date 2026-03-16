@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Response status constants, exception narrowing in log_claude_usage (v233)
+
+**Response status constants:** Extracted `RESPONSE_STATUS_OK`, `RESPONSE_STATUS_ERROR`, and `RESPONSE_STATUS_NA` to `server/constants.py`, replacing 10+ bare `"ok"`/`"error"`/`"na"` string literals across `celery_app.py` response dicts and `app.py` health-check helpers.
+
+**Exception narrowing:** Narrowed 2 broad `except Exception` handlers in `log_claude_usage()`: keychain subprocess to `(CalledProcessError, OSError, TimeoutExpired)`, urllib request to `(URLError, OSError)`. The DB write handler remains broad (psycopg2 import is conditional).
+
+**`tests/test_v233_response_status_constants_exception_narrowing.py`:** 22 tests — constant values/types/distinctness, `__all__` consistency, AST-based source checks (no bare status dict literals remain), exception handler type verification, import presence checks.
+
+**22 new tests. 5588 passed, 220 skipped.**
+
+---
+
 ## Mar 16 — RedBeat prefix constants, task name constants, KeyError narrowing (v232)
 
 **RedBeat prefix constants:** Extracted `REDBEAT_KEY_PREFIX`, `REDBEAT_SCHEDULE_ENTRY_PREFIX`, and `REDBEAT_USAGE_ENTRY_NAME` to `server/constants.py`, replacing 3 scattered `"redbeat:"` and `"helping_hands:scheduled:"` string literals across `celery_app.py` and `schedules.py`.

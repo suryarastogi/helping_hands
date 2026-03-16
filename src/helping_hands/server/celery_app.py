@@ -61,6 +61,12 @@ from helping_hands.server.constants import (
     REDBEAT_USAGE_ENTRY_NAME as _REDBEAT_USAGE_ENTRY_NAME,
 )
 from helping_hands.server.constants import (
+    RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
+)
+from helping_hands.server.constants import (
+    RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
+)
+from helping_hands.server.constants import (
     TASK_NAME_LOG_USAGE as _TASK_NAME_LOG_USAGE,
 )
 from helping_hands.server.constants import (
@@ -652,7 +658,7 @@ def build_feature(
         )
         _append_update(updates, response.message)
         return {
-            "status": "ok",
+            "status": _RESPONSE_STATUS_OK,
             "prompt": prompt,
             "pr_number": pr_number,
             "repo_path": repo_path,
@@ -886,7 +892,7 @@ def build_feature(
         runtime_str = _format_runtime(hand_elapsed)
         _append_update(updates, f"Task complete. Runtime: {runtime_str}")
         return {
-            "status": "ok",
+            "status": _RESPONSE_STATUS_OK,
             "prompt": prompt,
             "pr_number": pr_number,
             "backend": requested_backend,
@@ -932,7 +938,7 @@ def scheduled_build(
 
     if schedule is None:
         return {
-            "status": "error",
+            "status": _RESPONSE_STATUS_ERROR,
             "message": f"Schedule {schedule_id} not found",
             "schedule_id": schedule_id,
         }
@@ -1038,11 +1044,17 @@ def log_claude_usage() -> dict[str, Any]:
             token = creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
         except (_json.JSONDecodeError, AttributeError):
             token = raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
-    except Exception as exc:
-        return {"status": "error", "message": f"Keychain read failed: {exc}"}
+    except (subprocess.CalledProcessError, OSError, TimeoutExpired) as exc:
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"Keychain read failed: {exc}",
+        }
 
     if not token:
-        return {"status": "error", "message": "No OAuth token found in Keychain"}
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": "No OAuth token found in Keychain",
+        }
 
     # --- Call the Anthropic usage API ---
     try:
@@ -1057,9 +1069,12 @@ def log_claude_usage() -> dict[str, Any]:
         with _url_request.urlopen(req, timeout=_USAGE_API_TIMEOUT_S) as resp:
             data = _json.loads(resp.read().decode())
     except _url_error.HTTPError as exc:
-        return {"status": "error", "message": f"Usage API HTTP {exc.code}"}
-    except Exception as exc:
-        return {"status": "error", "message": f"Usage API failed: {exc}"}
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"Usage API HTTP {exc.code}",
+        }
+    except (_url_error.URLError, OSError) as exc:
+        return {"status": _RESPONSE_STATUS_ERROR, "message": f"Usage API failed: {exc}"}
 
     five_hour = data.get("five_hour", {})
     seven_day = data.get("seven_day", {})
@@ -1093,14 +1108,14 @@ def log_claude_usage() -> dict[str, Any]:
             conn.close()
     except Exception as exc:
         return {
-            "status": "error",
+            "status": _RESPONSE_STATUS_ERROR,
             "message": f"DB write failed: {exc}",
             "session_pct": session_pct,
             "weekly_pct": weekly_pct,
         }
 
     return {
-        "status": "ok",
+        "status": _RESPONSE_STATUS_OK,
         "session_pct": session_pct,
         "weekly_pct": weekly_pct,
     }

@@ -28,6 +28,9 @@ __all__ = [
     "REDBEAT_KEY_PREFIX",
     "REDBEAT_SCHEDULE_ENTRY_PREFIX",
     "REDBEAT_USAGE_ENTRY_NAME",
+    "RESPONSE_STATUS_ERROR",
+    "RESPONSE_STATUS_NA",
+    "RESPONSE_STATUS_OK",
     "TASK_NAME_LOG_USAGE",
     "TASK_NAME_SCHEDULED_BUILD",
     "USAGE_API_TIMEOUT_S",
@@ -128,3 +131,14 @@ TASK_NAME_SCHEDULED_BUILD = "helping_hands.scheduled_build"
 
 TASK_NAME_LOG_USAGE = "helping_hands.log_claude_usage"
 """Celery task name for the periodic Claude usage logger."""
+
+# --- Response status values ---------------------------------------------------
+
+RESPONSE_STATUS_OK = "ok"
+"""Status value for successful task/health-check responses."""
+
+RESPONSE_STATUS_ERROR = "error"
+"""Status value for failed task/health-check responses."""
+
+RESPONSE_STATUS_NA = "na"
+"""Status value when a service is not configured or unavailable."""

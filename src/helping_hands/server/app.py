@@ -84,6 +84,15 @@ from helping_hands.server.constants import (
     MIN_CI_WAIT_MINUTES as _MIN_CI_WAIT_MINUTES,
 )
 from helping_hands.server.constants import (
+    RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
+)
+from helping_hands.server.constants import (
+    RESPONSE_STATUS_NA as _RESPONSE_STATUS_NA,
+)
+from helping_hands.server.constants import (
+    RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
+)
+from helping_hands.server.constants import (
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
 )
 from helping_hands.server.constants import (
@@ -2709,7 +2718,7 @@ def get_claude_usage(force: bool = False) -> ClaudeUsageResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     """Health check."""
-    return {"status": "ok"}
+    return {"status": _RESPONSE_STATUS_OK}
 
 
 class ServiceHealthResponse(BaseModel):
@@ -2740,10 +2749,10 @@ def _check_redis_health() -> Literal["ok", "error"]:
             socket_timeout=_REDIS_HEALTH_TIMEOUT_S,
         )
         r.ping()
-        return "ok"
+        return _RESPONSE_STATUS_OK
     except Exception:
         logger.debug("Redis health check failed", exc_info=True)
-        return "error"
+        return _RESPONSE_STATUS_ERROR
 
 
 def _check_db_health() -> Literal["ok", "error", "na"]:
@@ -2759,16 +2768,16 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
     """
     db_url = os.environ.get("DATABASE_URL", "").strip()
     if not db_url:
-        return "na"
+        return _RESPONSE_STATUS_NA
     try:
         import psycopg2  # psycopg2-binary is a declared dependency
 
         conn = psycopg2.connect(db_url, connect_timeout=_DB_HEALTH_TIMEOUT_S)
         conn.close()
-        return "ok"
+        return _RESPONSE_STATUS_OK
     except Exception:
         logger.debug("Database health check failed", exc_info=True)
-        return "error"
+        return _RESPONSE_STATUS_ERROR
 
 
 def _check_workers_health() -> Literal["ok", "error"]:
@@ -2784,10 +2793,10 @@ def _check_workers_health() -> Literal["ok", "error"]:
     try:
         inspector = celery_app.control.inspect(timeout=_CELERY_HEALTH_TIMEOUT_S)
         ping = inspector.ping()
-        return "ok" if ping else "error"
+        return _RESPONSE_STATUS_OK if ping else _RESPONSE_STATUS_ERROR
     except Exception:
         logger.debug("Workers health check failed", exc_info=True)
-        return "error"
+        return _RESPONSE_STATUS_ERROR
 
 
 @app.get("/health/services", response_model=ServiceHealthResponse)

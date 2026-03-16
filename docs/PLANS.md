@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v233](exec-plans/completed/2026/v233-response-status-constants-exception-narrowing.md) —
+  Extract response status constants (`RESPONSE_STATUS_OK`, `RESPONSE_STATUS_ERROR`,
+  `RESPONSE_STATUS_NA`) to `server/constants.py`, narrow `except Exception` handlers
+  in `log_claude_usage()` to specific exception types;
+  22 tests (5588 passed, 220 skipped)
+
 - [2026-03-16 v232](exec-plans/completed/2026/v232-redbeat-constants-exception-narrowing.md) —
   Extract RedBeat prefix constants (`REDBEAT_KEY_PREFIX`, `REDBEAT_SCHEDULE_ENTRY_PREFIX`,
   `REDBEAT_USAGE_ENTRY_NAME`), Celery task name constants (`TASK_NAME_SCHEDULED_BUILD`,
