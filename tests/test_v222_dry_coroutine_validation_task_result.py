@@ -81,9 +81,7 @@ class TestCloseCoroutineExtraction:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             _close_coroutine(coro)
-        runtime_warnings = [
-            w for w in caught if issubclass(w.category, RuntimeWarning)
-        ]
+        runtime_warnings = [w for w in caught if issubclass(w.category, RuntimeWarning)]
         assert runtime_warnings == []
 
     def test_pytestmark_suppresses_coroutine_warning(self) -> None:
