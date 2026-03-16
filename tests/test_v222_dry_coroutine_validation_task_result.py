@@ -114,8 +114,9 @@ class TestBuildLangchainValidation:
         with pytest.raises(ValueError, match=r"hand_model\.model"):
             build_langchain_chat_model(hm, streaming=False)
 
-    def test_valid_model_passes_through(self) -> None:
+    def test_valid_model_passes_through(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A non-empty model should proceed to the provider import."""
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fake-key")
         provider = MagicMock()
         provider.name = "openai"
         hm = HandModel(provider=provider, model="gpt-4", raw="gpt-4")
