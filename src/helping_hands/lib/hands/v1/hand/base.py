@@ -1064,6 +1064,65 @@ class Hand(abc.ABC):
             pr_commit=commit_sha,
         )
 
+    def _validate_finalization_preconditions(
+        self,
+        metadata: dict[str, str],
+    ) -> tuple[Path, str] | None:
+        """Check repo-level preconditions before PR finalization.
+
+        Validates that: auto-PR is enabled, the repository directory exists
+        and is a git work tree, uncommitted changes are present, a GitHub
+        remote origin is detected, and pre-commit hooks (if configured) pass.
+
+        Args:
+            metadata: Mutable metadata dict — updated in-place with the
+                appropriate ``pr_status`` when a precondition fails.
+
+        Returns:
+            A ``(repo_dir, repo_full_name)`` tuple when all preconditions
+            pass, or ``None`` when a precondition fails (``metadata`` will
+            already contain the failure status).
+        """
+        if not self.auto_pr:
+            metadata[_META_PR_STATUS] = _PR_STATUS_DISABLED
+            return None
+
+        repo_dir = self.repo_index.root.resolve()
+        if not repo_dir.is_dir():
+            metadata[_META_PR_STATUS] = PRStatus.NO_REPO
+            return None
+
+        inside_work_tree = self._run_git_read(
+            repo_dir, "rev-parse", "--is-inside-work-tree"
+        )
+        if inside_work_tree != "true":
+            metadata[_META_PR_STATUS] = PRStatus.NOT_GIT_REPO
+            return None
+
+        has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
+        if not has_changes:
+            metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
+            return None
+
+        repo = self._github_repo_from_origin(repo_dir)
+        if not repo:
+            metadata[_META_PR_STATUS] = PRStatus.NO_GITHUB_ORIGIN
+            return None
+
+        if self._should_run_precommit_before_pr():
+            try:
+                self._run_precommit_checks_and_fixes(repo_dir)
+            except RuntimeError as exc:
+                metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
+                metadata["pr_error"] = str(exc)
+                return None
+            has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
+            if not has_changes:
+                metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
+                return None
+
+        return repo_dir, repo
+
     def _finalize_repo_pr(
         self,
         *,
@@ -1097,43 +1156,11 @@ class Hand(abc.ABC):
             _META_PR_BRANCH: "",
             _META_PR_COMMIT: "",
         }
-        if not self.auto_pr:
-            metadata[_META_PR_STATUS] = _PR_STATUS_DISABLED
-            return metadata
 
-        repo_dir = self.repo_index.root.resolve()
-        if not repo_dir.is_dir():
-            metadata[_META_PR_STATUS] = PRStatus.NO_REPO
+        result = self._validate_finalization_preconditions(metadata)
+        if result is None:
             return metadata
-
-        inside_work_tree = self._run_git_read(
-            repo_dir, "rev-parse", "--is-inside-work-tree"
-        )
-        if inside_work_tree != "true":
-            metadata[_META_PR_STATUS] = PRStatus.NOT_GIT_REPO
-            return metadata
-
-        has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
-        if not has_changes:
-            metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
-            return metadata
-
-        repo = self._github_repo_from_origin(repo_dir)
-        if not repo:
-            metadata[_META_PR_STATUS] = PRStatus.NO_GITHUB_ORIGIN
-            return metadata
-
-        if self._should_run_precommit_before_pr():
-            try:
-                self._run_precommit_checks_and_fixes(repo_dir)
-            except RuntimeError as exc:
-                metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
-                metadata["pr_error"] = str(exc)
-                return metadata
-            has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
-            if not has_changes:
-                metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
-                return metadata
+        repo_dir, repo = result
 
         from helping_hands.lib.github import GitHubClient
 

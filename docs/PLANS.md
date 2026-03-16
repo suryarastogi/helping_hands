@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v219](exec-plans/completed/2026/v219-finalize-pr-validation-extraction-status-dispatch.md) —
+  Extract `_validate_finalization_preconditions()` from `_finalize_repo_pr()`
+  (reducing it by ~30 lines), convert `_format_pr_status_message()` and
+  `_format_ci_fix_message()` to dict-dispatch via `_PR_STATUS_TEMPLATES`
+  and `_CI_FIX_TEMPLATES`; 36 tests (5276 passed, 219 skipped)
+
 - [2026-03-16 v218](exec-plans/completed/2026/v218-finalize-pr-refactor.md) —
   Extract `_generate_pr_title_and_body()` (shared helper replacing duplicated
   PR description generation across `_create_pr_for_diverged_branch`,

@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "_APPLY_CHANGES_TRUNCATION_LIMIT",
     "_AUTH_ERROR_TOKENS",
+    "_CI_FIX_TEMPLATES",
     "_CI_POLL_INTERVAL_S",
     "_CLI_TRUTHY_VALUES",
     "_DOCKER_ENV_HINT_TEMPLATE",
@@ -56,6 +57,7 @@ __all__ = [
     "_HOOK_ERROR_TRUNCATION_LIMIT",
     "_PROCESS_TERMINATE_TIMEOUT_S",
     "_PR_DESCRIPTION_TIMEOUT_S",
+    "_PR_STATUS_TEMPLATES",
     "_STREAM_READ_BUFFER_SIZE",
     "CIFixStatus",
     "_TwoPhaseCLIHand",
@@ -157,6 +159,35 @@ class CIFixStatus(StrEnum):
 
     ERROR = "error"
     """An unexpected error occurred during the CI fix loop."""
+
+
+# --- Status message dispatch tables -------------------------------------------
+
+_PR_STATUS_TEMPLATES: dict[str, str] = {
+    _PR_STATUS_CREATED: "PR created: {pr_url}",
+    _PR_STATUS_UPDATED: "PR updated: {pr_url}",
+    _PR_STATUS_DISABLED: "PR disabled (--no-pr).",
+    _PR_STATUS_NO_CHANGES: "PR skipped: no file changes detected.",
+    "interrupted": "Interrupted.",
+}
+"""Maps PR status values to message templates.
+
+Templates may contain ``{pr_url}`` which is resolved from metadata at
+format time.  Statuses not in this table fall through to a generic
+``"PR status: {status}"`` message.
+"""
+
+_CI_FIX_TEMPLATES: dict[str, str] = {
+    CIFixStatus.SUCCESS: "CI checks passed.",
+    CIFixStatus.EXHAUSTED: "CI fix failed after {attempts} attempt(s).",
+    CIFixStatus.PENDING_TIMEOUT: "CI checks still pending after max wait time.",
+    CIFixStatus.ERROR: "CI fix error: {error}",
+}
+"""Maps CI fix status values to message templates.
+
+Templates may contain ``{attempts}`` or ``{error}`` which are resolved
+from metadata at format time.  Statuses not in this table return ``None``.
+"""
 
 
 def _truncate_with_ellipsis(text: str, limit: int) -> str:
@@ -1263,6 +1294,10 @@ class _TwoPhaseCLIHand(Hand):
     def _format_pr_status_message(self, metadata: dict[str, str]) -> str | None:
         """Format a human-readable PR status message for streaming output.
 
+        Uses :data:`_PR_STATUS_TEMPLATES` for known statuses and falls
+        back to a generic ``"PR status: {status}"`` message for unknown
+        values.
+
         Args:
             metadata: PR metadata dict from ``_finalize_after_run``.
 
@@ -1272,18 +1307,10 @@ class _TwoPhaseCLIHand(Hand):
         status = metadata.get(_META_PR_STATUS, "")
         if not status:
             return None
-        if status == _PR_STATUS_CREATED:
+        template = _PR_STATUS_TEMPLATES.get(status)
+        if template is not None:
             pr_url = metadata.get(_META_PR_URL, "")
-            return f"[{self._CLI_LABEL}] PR created: {pr_url}"
-        if status == _PR_STATUS_UPDATED:
-            pr_url = metadata.get(_META_PR_URL, "")
-            return f"[{self._CLI_LABEL}] PR updated: {pr_url}"
-        if status == _PR_STATUS_DISABLED:
-            return f"[{self._CLI_LABEL}] PR disabled (--no-pr)."
-        if status == _PR_STATUS_NO_CHANGES:
-            return f"[{self._CLI_LABEL}] PR skipped: no file changes detected."
-        if status == "interrupted":
-            return f"[{self._CLI_LABEL}] Interrupted."
+            return f"[{self._CLI_LABEL}] {template.format(pr_url=pr_url)}"
         error = metadata.get("pr_error", "").strip()
         if error:
             return f"[{self._CLI_LABEL}] PR status: {status} ({error})"
@@ -1514,17 +1541,12 @@ class _TwoPhaseCLIHand(Hand):
         ci_status = metadata.get(_META_CI_FIX_STATUS, "")
         if not ci_status:
             return None
+        template = _CI_FIX_TEMPLATES.get(ci_status)
+        if template is None:
+            return None
         attempts = metadata.get(_META_CI_FIX_ATTEMPTS, "0")
-        if ci_status == CIFixStatus.SUCCESS:
-            return f"[{self._CLI_LABEL}] CI checks passed."
-        if ci_status == CIFixStatus.EXHAUSTED:
-            return f"[{self._CLI_LABEL}] CI fix failed after {attempts} attempt(s)."
-        if ci_status == CIFixStatus.PENDING_TIMEOUT:
-            return f"[{self._CLI_LABEL}] CI checks still pending after max wait time."
-        if ci_status == CIFixStatus.ERROR:
-            error = metadata.get(_META_CI_FIX_ERROR, "")
-            return f"[{self._CLI_LABEL}] CI fix error: {error}"
-        return None
+        error = metadata.get(_META_CI_FIX_ERROR, "")
+        return f"[{self._CLI_LABEL}] {template.format(attempts=attempts, error=error)}"
 
     # ------------------------------------------------------------------
     # Pre-commit hook fix

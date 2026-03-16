@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Finalization precondition extraction & status dispatch (v219)
+
+**Extract `_validate_finalization_preconditions()` from `_finalize_repo_pr()`:** New method in `base.py` encapsulates the 6-check early-return validation block (auto_pr, repo dir, git work tree, porcelain changes, GitHub origin, precommit). Returns `(repo_dir, repo_name)` tuple on success or `None` on failure. Reduces `_finalize_repo_pr()` from ~120 → ~85 lines.
+
+**Status message dispatch tables:** Replace sequential if/elif chains in `_format_pr_status_message()` and `_format_ci_fix_message()` with module-level dict lookups (`_PR_STATUS_TEMPLATES`, `_CI_FIX_TEMPLATES`). Templates use `str.format()` placeholders for dynamic values (`{pr_url}`, `{attempts}`, `{error}`).
+
+**`tests/test_v219_validation_extraction_status_dispatch.py`:** 36 tests: `_validate_finalization_preconditions` (8 precondition paths + delegation check), `_PR_STATUS_TEMPLATES` (4 structure/content checks), `_CI_FIX_TEMPLATES` (6 structure/content checks), `_format_pr_status_message` dispatch (8 integration tests), `_format_ci_fix_message` dispatch (6 integration tests), source consistency (3 checks).
+
+**36 new tests. 5276 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — Finalize PR refactor (v218)
 
 **Extract `_generate_pr_title_and_body()` helper:** New shared method in `base.py` that encapsulates the "try rich description, fall back to generic template" pattern. Replaces duplicate code in `_finalize_repo_pr()`, `_create_pr_for_diverged_branch()`, and `_update_pr_description()` (3 call sites → 1 shared helper).
