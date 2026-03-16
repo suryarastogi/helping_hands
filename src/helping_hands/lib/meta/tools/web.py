@@ -233,17 +233,13 @@ def _extract_related_topics(
         if isinstance(topics, list):
             _extract_related_topics(topics, output)
             continue
-        text = record.get("Text")
-        url = record.get("FirstURL")
-        if (
-            isinstance(text, str)
-            and isinstance(url, str)
-            and text.strip()
-            and url.strip()
-        ):
-            output.append(
-                WebSearchItem(title=text.strip(), url=url.strip(), snippet=text.strip())
-            )
+        raw_text = record.get("Text")
+        raw_url = record.get("FirstURL")
+        if isinstance(raw_text, str) and isinstance(raw_url, str):
+            text = raw_text.strip()
+            url = raw_url.strip()
+            if text and url:
+                output.append(WebSearchItem(title=text, url=url, snippet=text))
 
 
 def search_web(

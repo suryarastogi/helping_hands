@@ -528,10 +528,13 @@ class Hand(abc.ABC):
             token: GitHub access token (PAT or installation token).
 
         Raises:
-            ValueError: If *repo* or *token* is empty/whitespace.
+            ValueError: If *repo_dir* is not an existing directory, or
+                *repo* or *token* is empty/whitespace.
             RuntimeError: If the ``git remote set-url`` command fails or
                 times out.
         """
+        if not repo_dir.is_dir():
+            raise ValueError(f"repo_dir must be an existing directory: {repo_dir}")
         require_non_empty_string(repo, "repo")
         require_non_empty_string(token, "token")
         push_url = f"https://{_GITHUB_TOKEN_USER}:{token}@{_GITHUB_HOSTNAME}/{repo}.git"

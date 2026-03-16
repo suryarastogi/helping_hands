@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v224](exec-plans/completed/2026/v224-dry-registry-parse-str-web-strip-repo-dir-validation.md) —
+  DRY `_parse_required_str()` in registry.py (4× inline validation → helper),
+  pre-compute `.strip()` in `_extract_related_topics()`, `repo_dir.is_dir()`
+  validation in `_configure_authenticated_push_remote`;
+  24 tests (5403 passed, 219 skipped)
+
 - [2026-03-16 v223](exec-plans/completed/2026/v223-input-validation-pr-metadata-finalize-cli-cmd.md) —
   `require_non_empty_string` validation for `_pr_result_metadata` (4 fields),
   `_finalize_repo_pr` (backend, prompt), `_invoke_cli_with_cmd` empty-list

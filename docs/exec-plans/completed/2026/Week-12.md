@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — DRY registry _parse_required_str, web.py strip dedup, repo_dir validation (v224)
+
+**`_parse_required_str()` helper:** Extracted new `_parse_required_str(payload, key)` helper in `registry.py` replacing 4× duplicated `if not isinstance(X, str) or not X.strip()` inline validation in `_run_python_code`, `_run_python_script`, `_run_web_search`, `_run_web_browse`.
+
+**`_extract_related_topics()` DRY strip:** Pre-compute `text = raw_text.strip()` and `url = raw_url.strip()` once each, eliminating redundant 3× `text.strip()` + 2× `url.strip()` calls in the same block.
+
+**`_configure_authenticated_push_remote()` validation:** Added `repo_dir.is_dir()` precondition check before git operations, rejecting nonexistent paths and file paths.
+
+**`tests/test_v224_dry_parse_str_web_strip_repo_dir.py`:** 24 tests across 4 classes covering `_parse_required_str` edge cases, runner source consistency, `_extract_related_topics` strip behaviour, and `repo_dir` validation.
+
+**24 new tests. 5403 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — Input validation: PR metadata, finalize entry, CLI command (v223)
 
 **`_pr_result_metadata()` validation:** Added `require_non_empty_string` validation for `pr_url`, `pr_number`, `pr_branch`, `pr_commit` at entry. Prevents silent population of metadata with empty/whitespace values.

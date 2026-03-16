@@ -116,6 +116,26 @@ def _parse_positive_int(
     return raw
 
 
+def _parse_required_str(payload: dict[str, Any], *, key: str) -> str:
+    """Extract and validate a required non-empty string from a tool payload.
+
+    Args:
+        payload: Tool invocation payload dict.
+        key: Key whose value should be a non-empty string.
+
+    Returns:
+        The raw string value (not stripped — callers decide on normalisation).
+
+    Raises:
+        ValueError: If the value is missing, not a string, or
+            empty/whitespace-only.
+    """
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a non-empty string")
+    return value
+
+
 def _parse_optional_str(payload: dict[str, Any], *, key: str) -> str | None:
     """Extract an optional string from a tool payload.
 
@@ -159,9 +179,7 @@ def _run_python_code(
     Raises:
         ValueError: If ``code`` is missing or empty.
     """
-    code = payload.get("code")
-    if not isinstance(code, str) or not code.strip():
-        raise ValueError("code must be a non-empty string")
+    code = _parse_required_str(payload, key="code")
     python_version = (
         _parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
     )
@@ -194,9 +212,7 @@ def _run_python_script(
     Raises:
         ValueError: If ``script_path`` is missing or empty.
     """
-    script_path = payload.get("script_path")
-    if not isinstance(script_path, str) or not script_path.strip():
-        raise ValueError("script_path must be a non-empty string")
+    script_path = _parse_required_str(payload, key="script_path")
     python_version = (
         _parse_optional_str(payload, key="python_version") or _DEFAULT_PYTHON_VERSION
     )
@@ -270,9 +286,7 @@ def _run_web_search(root: Path, payload: dict[str, Any]) -> web_tools.WebSearchR
         ValueError: If ``query`` is missing or empty.
     """
     del root
-    query = payload.get("query")
-    if not isinstance(query, str) or not query.strip():
-        raise ValueError("query must be a non-empty string")
+    query = _parse_required_str(payload, key="query")
     return web_tools.search_web(
         query,
         max_results=_parse_positive_int(
@@ -300,9 +314,7 @@ def _run_web_browse(root: Path, payload: dict[str, Any]) -> web_tools.WebBrowseR
         ValueError: If ``url`` is missing or empty.
     """
     del root
-    url = payload.get("url")
-    if not isinstance(url, str) or not url.strip():
-        raise ValueError("url must be a non-empty string")
+    url = _parse_required_str(payload, key="url")
     return web_tools.browse_url(
         url,
         max_chars=_parse_positive_int(
