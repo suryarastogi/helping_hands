@@ -11,6 +11,16 @@
   places across `_apply_backend_defaults()` and `_retry_command_after_failure()`
   in `claude.py`.
 
+## Tasks
+
+- [x] Create this plan
+- [x] Extract `_SCHEDULE_NOT_FOUND_DETAIL` constant in `app.py`
+- [x] Replace 5 bare string literals in schedule endpoints
+- [x] Extract `_SKIP_PERMISSIONS_FLAG` constant in `claude.py`
+- [x] Replace 4 bare string literals in `_apply_backend_defaults` and `_retry_command_after_failure`
+- [x] Update `__all__` exports and export tests
+- [x] Add new test file with constant, AST, and behavioral tests
+
 ## Changes
 
 ### `src/helping_hands/server/app.py`
