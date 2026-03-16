@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
+from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
     "HandModel",
@@ -89,6 +90,7 @@ def _infer_provider_name(model: str) -> str:
 
 def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any:
     """Build a LangChain chat model from a resolved hand model."""
+    require_non_empty_string(hand_model.model, "hand_model.model")
     provider = hand_model.provider.name
     if provider == "openai":
         from langchain_openai import ChatOpenAI
@@ -122,7 +124,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
                 "google models require langchain-google-genai. "
                 "Install with: uv add langchain-google-genai"
             ) from exc
-        return ChatGoogleGenerativeAI(model=hand_model.model)
+        return ChatGoogleGenerativeAI(model=hand_model.model, streaming=streaming)
     if provider == "litellm":
         try:
             from langchain_community.chat_models import ChatLiteLLM
@@ -138,6 +140,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
 
 def build_atomic_client(hand_model: HandModel) -> Any:
     """Build an atomic-agents instructor client from a resolved hand model."""
+    require_non_empty_string(hand_model.model, "hand_model.model")
     import instructor
 
     provider = hand_model.provider.name

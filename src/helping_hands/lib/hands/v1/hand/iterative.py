@@ -23,12 +23,18 @@ from pathlib import Path
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import (
+    _META_PR_STATUS,
+    _META_PR_URL,
     _PR_STATUSES_SKIPPED,
     Hand,
     HandResponse,
 )
-from helping_hands.lib.hands.v1.hand.langgraph import _LANGCHAIN_STREAM_EVENT
+from helping_hands.lib.hands.v1.hand.langgraph import (
+    _LANGCHAIN_STREAM_EVENT,
+    langchain_user_message,
+)
 from helping_hands.lib.hands.v1.hand.model_provider import (
+    HandModel,
     build_atomic_client,
     build_langchain_chat_model,
     resolve_hand_model,
@@ -54,9 +60,30 @@ _README_CANDIDATES: tuple[str, ...] = ("README.md", "readme.md")
 _AGENT_DOC_CANDIDATES: tuple[str, ...] = ("AGENT.md", "agent.md")
 """Candidate filenames for agent guidance doc, checked in order during bootstrap."""
 
+_RUN_STATUS_INTERRUPTED: str = "interrupted"
+"""Run status when the hand was interrupted by the user."""
+
+_RUN_STATUS_SATISFIED: str = "satisfied"
+"""Run status when the AI marked the task as satisfied."""
+
+_RUN_STATUS_MAX_ITERATIONS: str = "max_iterations"
+"""Run status when the iteration cap was reached without satisfaction."""
+
+_TRUNCATION_MARKER: str = "\n[truncated]"
+"""Marker appended to tool output that was truncated to fit size limits."""
+
+_AUTH_PRESENT_LABEL: str = "set"
+"""Label shown in stream output when the provider API key is present."""
+
+_AUTH_ABSENT_LABEL: str = "not set"
+"""Label shown in stream output when the provider API key is missing."""
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
+
+    _BACKEND_NAME: str
+    _hand_model: HandModel
 
     _EDIT_PATTERN = re.compile(
         r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",
@@ -327,20 +354,26 @@ class _BasicIterativeHand(Hand):
                 )
             except UnicodeError:
                 chunks.append(
-                    f"@@READ_RESULT: {rel_path}\nERROR: file is not UTF-8 text"
+                    self._format_error_result(
+                        "READ", rel_path, "file is not UTF-8 text"
+                    )
                 )
                 continue
             except ValueError as exc:
-                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: {exc}")
+                chunks.append(self._format_error_result("READ", rel_path, str(exc)))
                 continue
             except FileNotFoundError:
-                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: file not found")
+                chunks.append(
+                    self._format_error_result("READ", rel_path, "file not found")
+                )
                 continue
             except IsADirectoryError:
-                chunks.append(f"@@READ_RESULT: {rel_path}\nERROR: path is a directory")
+                chunks.append(
+                    self._format_error_result("READ", rel_path, "path is a directory")
+                )
                 continue
 
-            truncated_note = "\n[truncated]" if truncated else ""
+            truncated_note = _TRUNCATION_MARKER if truncated else ""
             chunks.append(
                 f"@@READ_RESULT: {display_path}\n```text\n{text}\n```{truncated_note}"
             )
@@ -350,6 +383,20 @@ class _BasicIterativeHand(Hand):
     _parse_str_list = staticmethod(_parse_str_list)
     _parse_positive_int = staticmethod(_parse_positive_int)
     _parse_optional_str = staticmethod(_parse_optional_str)
+
+    @staticmethod
+    def _format_error_result(tag: str, name: str, message: str) -> str:
+        """Format an error as a ``@@<TAG>_RESULT`` block.
+
+        Args:
+            tag: Result tag prefix (e.g. ``"READ"`` or ``"TOOL"``).
+            name: Identifier for the request that failed (path or tool name).
+            message: Human-readable error description.
+
+        Returns:
+            Formatted error string like ``@@READ_RESULT: foo\\nERROR: msg``.
+        """
+        return f"@@{tag}_RESULT: {name}\nERROR: {message}"
 
     @staticmethod
     def _format_command(command: list[str]) -> str:
@@ -396,8 +443,8 @@ class _BasicIterativeHand(Hand):
         """
         stdout, stdout_truncated = cls._truncate_tool_output(result.stdout)
         stderr, stderr_truncated = cls._truncate_tool_output(result.stderr)
-        stdout_note = "\n[truncated]" if stdout_truncated else ""
-        stderr_note = "\n[truncated]" if stderr_truncated else ""
+        stdout_note = _TRUNCATION_MARKER if stdout_truncated else ""
+        stderr_note = _TRUNCATION_MARKER if stderr_truncated else ""
         status = "success" if result.success else "failure"
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
@@ -437,7 +484,7 @@ class _BasicIterativeHand(Hand):
         ]
         payload = json.dumps(items, ensure_ascii=False, indent=2)
         payload_text, truncated = cls._truncate_tool_output(payload)
-        truncated_note = "\n[truncated]" if truncated else ""
+        truncated_note = _TRUNCATION_MARKER if truncated else ""
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
             "status: success\n"
@@ -464,7 +511,7 @@ class _BasicIterativeHand(Hand):
             page content.
         """
         text, output_truncated = cls._truncate_tool_output(result.content)
-        truncated_note = "\n[truncated]" if output_truncated else ""
+        truncated_note = _TRUNCATION_MARKER if output_truncated else ""
         return (
             f"@@TOOL_RESULT: {tool_name}\n"
             "status: success\n"
@@ -492,6 +539,47 @@ class _BasicIterativeHand(Hand):
                 f"{tool_name} is disabled; re-run with --tools {required_category}"
             )
         return ValueError(f"unsupported tool: {tool_name}")
+
+    @staticmethod
+    def _pr_status_line(pr_metadata: dict[str, Any]) -> str:
+        """Return a human-readable PR status line from finalization metadata.
+
+        Args:
+            pr_metadata: Dict returned by ``_finalize_repo_pr()``.
+
+        Returns:
+            A newline-wrapped status string, or empty string if the PR was
+            skipped or no meaningful status is available.
+        """
+        pr_url = pr_metadata.get(_META_PR_URL)
+        if pr_url:
+            return f"\nPR created: {pr_url}\n"
+        status = pr_metadata.get(_META_PR_STATUS)
+        if status and status not in _PR_STATUSES_SKIPPED:
+            return f"\nPR status: {status}\n"
+        return ""
+
+    def _auth_status_line(self) -> str:
+        """Return a one-line auth status banner for the current provider.
+
+        Checks whether the provider's API key environment variable is set
+        and returns a formatted string like::
+
+            [backend] provider=openai | auth=OPENAI_API_KEY (set)
+
+        Returns:
+            A single-line status string (newline-terminated).
+        """
+        env_name = self._hand_model.provider.api_key_env_var
+        label = (
+            _AUTH_PRESENT_LABEL
+            if os.environ.get(env_name, "").strip()
+            else _AUTH_ABSENT_LABEL
+        )
+        return (
+            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
+            f" | auth={env_name} ({label})\n"
+        )
 
     def _run_tool_request(
         self,
@@ -549,7 +637,7 @@ class _BasicIterativeHand(Hand):
         chunks: list[str] = []
         for tool_name, payload, error in requests:
             if error:
-                chunks.append(f"@@TOOL_RESULT: {tool_name}\nERROR: {error}")
+                chunks.append(self._format_error_result("TOOL", tool_name, error))
                 continue
             try:
                 result = self._run_tool_request(
@@ -566,7 +654,7 @@ class _BasicIterativeHand(Hand):
                 TypeError,
                 ValueError,
             ) as exc:
-                chunks.append(f"@@TOOL_RESULT: {tool_name}\nERROR: {exc}")
+                chunks.append(self._format_error_result("TOOL", tool_name, str(exc)))
                 continue
             chunks.append(result)
         return "\n\n".join(chunks).strip()
@@ -625,7 +713,7 @@ class _BasicIterativeHand(Hand):
             except (FileNotFoundError, IsADirectoryError, UnicodeError, ValueError):
                 continue
 
-            truncated_note = "\n[truncated]" if truncated else ""
+            truncated_note = _TRUNCATION_MARKER if truncated else ""
             return f"{display_path}:\n```text\n{text}\n```{truncated_note}"
         return ""
 
@@ -641,6 +729,7 @@ class _BasicIterativeHand(Hand):
             try:
                 normalized = system_tools.normalize_relative_path(rel_path)
             except ValueError:
+                logger.debug("skipping invalid path in tree snapshot: %s", rel_path)
                 continue
             parts = [part for part in normalized.split("/") if part]
             if not parts:
@@ -779,9 +868,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 previous_summary=prior,
                 bootstrap_context=bootstrap_context if iteration == 1 else "",
             )
-            result = self._agent.invoke(
-                {"messages": [{"role": "user", "content": step_prompt}]}
-            )
+            result = self._agent.invoke(langchain_user_message(step_prompt))
             content = self._result_content(result)
             changed = self._apply_inline_edits(content)
             read_feedback = self._execute_read_requests(content)
@@ -801,11 +888,11 @@ class BasicLangGraphHand(_BasicIterativeHand):
 
         interrupted = self._is_interrupted()
         if interrupted:
-            status = "interrupted"
+            status = _RUN_STATUS_INTERRUPTED
         elif completed:
-            status = "satisfied"
+            status = _RUN_STATUS_SATISFIED
         else:
-            status = "max_iterations"
+            status = _RUN_STATUS_MAX_ITERATIONS
 
         pr_metadata = self._finalize_repo_pr(
             backend=self._BACKEND_NAME,
@@ -843,12 +930,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
 
-        _env_name = self._hand_model.provider.api_key_env_var
-        _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
-        yield (
-            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
-            f" | auth={_env_name} ({_present})\n"
-        )
+        yield self._auth_status_line()
 
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():
@@ -865,7 +947,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             )
             parts: list[str] = []
             async for event in self._agent.astream_events(
-                {"messages": [{"role": "user", "content": step_prompt}]},
+                langchain_user_message(step_prompt),
                 version="v2",
             ):
                 if self._is_interrupted():
@@ -901,10 +983,9 @@ class BasicLangGraphHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=content,
                 )
-                if pr_metadata.get("pr_url"):
-                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                status_line = self._pr_status_line(pr_metadata)
+                if status_line:
+                    yield status_line
                 return
             yield "\n\nContinuing...\n"
 
@@ -913,10 +994,9 @@ class BasicLangGraphHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get("pr_url"):
-            yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        status_line = self._pr_status_line(pr_metadata)
+        if status_line:
+            yield status_line
         yield "\n\nMax iterations reached.\n"
 
 
@@ -1045,11 +1125,11 @@ class BasicAtomicHand(_BasicIterativeHand):
 
         interrupted = self._is_interrupted()
         if interrupted:
-            status = "interrupted"
+            status = _RUN_STATUS_INTERRUPTED
         elif completed:
-            status = "satisfied"
+            status = _RUN_STATUS_SATISFIED
         else:
-            status = "max_iterations"
+            status = _RUN_STATUS_MAX_ITERATIONS
 
         pr_metadata = self._finalize_repo_pr(
             backend=self._BACKEND_NAME,
@@ -1088,12 +1168,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
 
-        _env_name = self._hand_model.provider.api_key_env_var
-        _present = "set" if os.environ.get(_env_name, "").strip() else "not set"
-        yield (
-            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
-            f" | auth={_env_name} ({_present})\n"
-        )
+        yield self._auth_status_line()
 
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():
@@ -1167,10 +1242,9 @@ class BasicAtomicHand(_BasicIterativeHand):
                     prompt=prompt,
                     summary=stream_text,
                 )
-                if pr_metadata.get("pr_url"):
-                    yield f"\nPR created: {pr_metadata['pr_url']}\n"
-                elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-                    yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+                status_line = self._pr_status_line(pr_metadata)
+                if status_line:
+                    yield status_line
                 return
             yield "\n\nContinuing...\n"
 
@@ -1179,8 +1253,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             prompt=prompt,
             summary=prior,
         )
-        if pr_metadata.get("pr_url"):
-            yield f"\nPR created: {pr_metadata['pr_url']}\n"
-        elif pr_metadata.get("pr_status") not in _PR_STATUSES_SKIPPED:
-            yield f"\nPR status: {pr_metadata.get('pr_status')}\n"
+        status_line = self._pr_status_line(pr_metadata)
+        if status_line:
+            yield status_line
         yield "\n\nMax iterations reached.\n"

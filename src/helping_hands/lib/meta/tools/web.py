@@ -23,7 +23,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
-from helping_hands.lib.validation import require_positive_int
+from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +105,13 @@ _HORIZONTAL_WHITESPACE_RE = re.compile(r"[ \t\r\f\v]+")
 _BLANK_LINES_RE = re.compile(r"\n\s*\n+")
 """Compiled regex matching multiple consecutive blank lines."""
 
+_ENCODING_FALLBACK_CHAIN = ("utf-8", "utf-16", "latin-1")
+"""Ordered encodings tried when decoding web response bytes.
+
+UTF-8 is tried first (most common), then UTF-16, then latin-1 which accepts
+all byte values and therefore always succeeds.
+"""
+
 
 def _raise_url_error(
     exc: HTTPError | URLError,
@@ -140,12 +147,11 @@ def _require_http_url(url: str) -> str:
         The stripped URL if it uses ``http`` or ``https`` and includes a host.
 
     Raises:
+        TypeError: If *url* is not a string.
         ValueError: If the URL is empty, uses a non-HTTP scheme, or lacks a
             host component.
     """
-    candidate = url.strip()
-    if not candidate:
-        raise ValueError("url must be non-empty")
+    candidate = require_non_empty_string(url, "url")
     parsed = urlparse(candidate)
     if parsed.scheme not in {"http", "https"}:
         raise ValueError("url must use http or https")
@@ -156,7 +162,7 @@ def _require_http_url(url: str) -> str:
 
 def _decode_bytes(payload: bytes) -> str:
     """Decode bytes trying UTF-8, UTF-16, then latin-1 (which accepts all byte values)."""
-    for encoding in ("utf-8", "utf-16", "latin-1"):
+    for encoding in _ENCODING_FALLBACK_CHAIN:
         try:
             return payload.decode(encoding)
         except UnicodeDecodeError:
@@ -226,17 +232,13 @@ def _extract_related_topics(
         if isinstance(topics, list):
             _extract_related_topics(topics, output)
             continue
-        text = record.get("Text")
-        url = record.get("FirstURL")
-        if (
-            isinstance(text, str)
-            and isinstance(url, str)
-            and text.strip()
-            and url.strip()
-        ):
-            output.append(
-                WebSearchItem(title=text.strip(), url=url.strip(), snippet=text.strip())
-            )
+        raw_text = record.get("Text")
+        raw_url = record.get("FirstURL")
+        if isinstance(raw_text, str) and isinstance(raw_url, str):
+            text = raw_text.strip()
+            url = raw_url.strip()
+            if text and url:
+                output.append(WebSearchItem(title=text, url=url, snippet=text))
 
 
 def search_web(
@@ -246,9 +248,7 @@ def search_web(
     timeout_s: int = _DEFAULT_WEB_TIMEOUT_S,
 ) -> WebSearchResult:
     """Run a lightweight web search using DuckDuckGo's JSON endpoint."""
-    normalized_query = query.strip()
-    if not normalized_query:
-        raise ValueError("query must be non-empty")
+    normalized_query = require_non_empty_string(query, "query")
     require_positive_int(max_results, "max_results")
     require_positive_int(timeout_s, "timeout_s")
 

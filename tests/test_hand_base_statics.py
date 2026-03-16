@@ -786,7 +786,7 @@ class TestFinalizeDefaultBranchException:
         mock_gh.__exit__ = MagicMock(return_value=False)
         mock_gh.get_repo.side_effect = RuntimeError("API error")
         mock_gh.create_pr.return_value = MagicMock(
-            html_url="https://github.com/owner/repo/pull/1",
+            url="https://github.com/owner/repo/pull/1",
             number=1,
         )
         mock_gh.add_and_commit.return_value = "sha999"
@@ -918,7 +918,7 @@ class TestFinalizeEmptyDefaultBranch:
         mock_gh.__exit__ = MagicMock(return_value=False)
         mock_gh.get_repo.return_value = mock_repo_obj
         mock_gh.create_pr.return_value = MagicMock(
-            html_url="https://github.com/owner/repo/pull/1",
+            url="https://github.com/owner/repo/pull/1",
             number=1,
         )
         mock_gh.add_and_commit.return_value = "sha123"
@@ -978,7 +978,7 @@ class TestFinalizeDefaultBranchExceptionLogging:
         mock_gh.__exit__ = MagicMock(return_value=False)
         mock_gh.get_repo.side_effect = RuntimeError("API down")
         mock_gh.create_pr.return_value = MagicMock(
-            html_url="https://github.com/owner/repo/pull/1",
+            url="https://github.com/owner/repo/pull/1",
             number=1,
         )
         mock_gh.add_and_commit.return_value = "sha999"

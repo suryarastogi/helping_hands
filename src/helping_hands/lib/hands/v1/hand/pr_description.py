@@ -268,7 +268,14 @@ def _build_prompt(
     user_prompt: str,
     summary: str,
 ) -> str:
-    """Build the prompt that asks the CLI to generate a PR description."""
+    """Build the prompt that asks the CLI to generate a PR description.
+
+    Raises:
+        TypeError: If *diff* or *backend* is not a string.
+        ValueError: If *diff* or *backend* is empty/whitespace-only.
+    """
+    require_non_empty_string(diff, "diff")
+    require_non_empty_string(backend, "backend")
     summary_section = ""
     if summary.strip():
         truncated = _truncate_text(summary, limit=_PR_SUMMARY_TRUNCATION_LENGTH)
@@ -480,7 +487,14 @@ def _build_commit_message_prompt(
     user_prompt: str,
     summary: str,
 ) -> str:
-    """Build the prompt that asks the CLI to generate a commit message."""
+    """Build the prompt that asks the CLI to generate a commit message.
+
+    Raises:
+        TypeError: If *diff* or *backend* is not a string.
+        ValueError: If *diff* or *backend* is empty/whitespace-only.
+    """
+    require_non_empty_string(diff, "diff")
+    require_non_empty_string(backend, "backend")
     summary_section = ""
     if summary.strip():
         truncated = _truncate_text(summary, limit=_COMMIT_SUMMARY_TRUNCATION_LENGTH)

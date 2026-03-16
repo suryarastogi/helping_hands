@@ -52,11 +52,11 @@ class TestDefaultCommitMsgTemplate:
         src = getsource(Hand._push_to_existing_pr)
         assert "_DEFAULT_COMMIT_MSG_TEMPLATE" in src
 
-    def test_used_in_finalize_repo_pr(self) -> None:
-        """Constant is referenced in _finalize_repo_pr."""
+    def test_used_in_create_new_pr(self) -> None:
+        """Constant is referenced in _create_new_pr (extracted from _finalize_repo_pr)."""
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        src = getsource(Hand._finalize_repo_pr)
+        src = getsource(Hand._create_new_pr)
         assert "_DEFAULT_COMMIT_MSG_TEMPLATE" in src
 
     def test_no_inline_duplicates(self) -> None:
@@ -100,18 +100,11 @@ class TestDefaultPrTitleTemplate:
         """PR title and commit message templates are distinct."""
         assert _DEFAULT_COMMIT_MSG_TEMPLATE != _DEFAULT_PR_TITLE_TEMPLATE
 
-    def test_used_in_create_pr_for_diverged_branch(self) -> None:
-        """Constant is referenced in _create_pr_for_diverged_branch."""
+    def test_used_in_generate_pr_title_and_body(self) -> None:
+        """Constant is referenced in _generate_pr_title_and_body (extracted from _finalize_repo_pr)."""
         from helping_hands.lib.hands.v1.hand.base import Hand
 
-        src = getsource(Hand._create_pr_for_diverged_branch)
-        assert "_DEFAULT_PR_TITLE_TEMPLATE" in src
-
-    def test_used_in_finalize_repo_pr(self) -> None:
-        """Constant is referenced in _finalize_repo_pr."""
-        from helping_hands.lib.hands.v1.hand.base import Hand
-
-        src = getsource(Hand._finalize_repo_pr)
+        src = getsource(Hand._generate_pr_title_and_body)
         assert "_DEFAULT_PR_TITLE_TEMPLATE" in src
 
     def test_no_inline_duplicates(self) -> None:

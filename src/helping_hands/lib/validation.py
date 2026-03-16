@@ -24,11 +24,15 @@ def require_non_empty_string(value: str, name: str) -> str:
         The stripped value.
 
     Raises:
+        TypeError: If *value* is not a string.
         ValueError: If *value* is empty or whitespace-only.
     """
-    if not value or not value.strip():
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string, got {type(value).__name__}")
+    stripped = value.strip()
+    if not stripped:
         raise ValueError(f"{name} must not be empty")
-    return value.strip()
+    return stripped
 
 
 def require_positive_int(value: int, name: str) -> int:
@@ -42,8 +46,11 @@ def require_positive_int(value: int, name: str) -> int:
         The value unchanged.
 
     Raises:
+        TypeError: If *value* is not an ``int`` or is a ``bool``.
         ValueError: If *value* is <= 0.
     """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an int, got {type(value).__name__}")
     if value <= 0:
         raise ValueError(f"{name} must be positive, got {value}")
     return value

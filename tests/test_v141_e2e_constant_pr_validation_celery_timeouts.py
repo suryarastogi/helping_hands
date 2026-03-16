@@ -67,7 +67,8 @@ class TestCLIPrNumberValidation:
         with pytest.raises(SystemExit):
             main(["owner/repo", "--e2e", "--pr-number", "-5"])
         captured = capsys.readouterr()
-        assert "--pr-number must be a positive integer" in captured.err
+        assert "--pr-number" in captured.err
+        assert "positive" in captured.err.lower()
         assert "-5" in captured.err
 
     @patch("helping_hands.cli.main.E2EHand")
@@ -178,7 +179,8 @@ class TestCLIMaxIterationsValidation:
         with pytest.raises(SystemExit):
             main([".", "--backend", "basic-langgraph", "--max-iterations", "-5"])
         captured = capsys.readouterr()
-        assert "--max-iterations must be a positive integer" in captured.err
+        assert "--max-iterations" in captured.err
+        assert "positive" in captured.err.lower()
         assert "-5" in captured.err
 
     def test_positive_max_iterations_passes_validation(self) -> None:
@@ -190,4 +192,4 @@ class TestCLIMaxIterationsValidation:
         # Verify the validation code references max_iterations
         src = inspect.getsource(main_mod.main)
         assert "max_iterations" in src
-        assert "must be a positive integer" in src
+        assert "require_positive_int" in src

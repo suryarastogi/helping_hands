@@ -67,6 +67,10 @@ class GoogleProvider(AIProvider):
             The raw Google GenAI response object.
         """
         contents = [m.get("content") for m in messages if m.get("content")]
+        if not contents:
+            raise ValueError(
+                "all messages have empty content — nothing to send to Google"
+            )
         return inner.models.generate_content(
             model=model,
             contents=contents,

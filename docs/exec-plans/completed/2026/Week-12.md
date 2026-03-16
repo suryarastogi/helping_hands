@@ -1,6 +1,230 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, and CI status enums.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, and test coverage.
+
+---
+
+## Mar 16 — DRY _run_bash_script, prompt builder type guards (v226)
+
+**`_run_bash_script()` DRY:** Replaced 4-line manual `isinstance` checks for `script_path` and `inline_script` with `_parse_optional_str(payload, key=...)`. Gets whitespace stripping for free — whitespace-only values now normalize to `None` and hit the mutual-exclusion guard early.
+
+**`_build_prompt()` type guards:** Added `require_non_empty_string(diff, "diff")` and `require_non_empty_string(backend, "backend")` type guards. Previously, passing `None` for `diff` would silently produce `"```diff\nNone\n```"` in the prompt.
+
+**`_build_commit_message_prompt()` type guards:** Same `require_non_empty_string()` guards for `diff` and `backend` parameters.
+
+**`tests/test_v226_bash_runner_dry_prompt_builder_guards.py`:** 23 tests across 3 classes covering source consistency, type rejection, whitespace normalization, and valid pass-through.
+
+**23 new tests. 5462 passed, 219 skipped.**
+
+---
+
+## Mar 16 — Validation type guards, _normalize_args container check, web.py DRY (v225)
+
+**`require_non_empty_string()` type guard:** Added `isinstance(value, str)` check raising `TypeError` for non-string inputs (None, int, bool, list, etc.). Previously caused `AttributeError` on `.strip()`.
+
+**`require_positive_int()` type guard:** Added `isinstance(value, int)` check (rejecting `bool` explicitly since Python `bool` subclasses `int`). Raises `TypeError` for non-int inputs.
+
+**`_normalize_args()` container guard:** Added `isinstance(args, (list, tuple))` check rejecting dicts, sets, generators, and other iterables that would silently iterate keys/values. Changed `if not args:` to `if args is None:` to properly distinguish None from empty containers.
+
+**`search_web()`/`_require_http_url()` DRY:** Replaced inline `query.strip()`/`url.strip()` + emptiness checks with centralized `require_non_empty_string()`, gaining type guards for free.
+
+**Test mock fix:** Fixed 3 pre-existing test mocks in `test_hand_base_statics.py` using `html_url=` (wrong attribute) instead of `url=` (matching `PRResult.url`). Previously passed because MagicMock auto-generates attributes; now correctly caught by type guard.
+
+**`tests/test_v225_validation_type_guards_normalize_args.py`:** 35 tests across 6 classes covering type guard edge cases, container validation, source consistency, and regression guards.
+
+**35 new tests. 5439 passed, 219 skipped.**
+
+---
+
+## Mar 16 — DRY registry _parse_required_str, web.py strip dedup, repo_dir validation (v224)
+
+**`_parse_required_str()` helper:** Extracted new `_parse_required_str(payload, key)` helper in `registry.py` replacing 4× duplicated `if not isinstance(X, str) or not X.strip()` inline validation in `_run_python_code`, `_run_python_script`, `_run_web_search`, `_run_web_browse`.
+
+**`_extract_related_topics()` DRY strip:** Pre-compute `text = raw_text.strip()` and `url = raw_url.strip()` once each, eliminating redundant 3× `text.strip()` + 2× `url.strip()` calls in the same block.
+
+**`_configure_authenticated_push_remote()` validation:** Added `repo_dir.is_dir()` precondition check before git operations, rejecting nonexistent paths and file paths.
+
+**`tests/test_v224_dry_parse_str_web_strip_repo_dir.py`:** 24 tests across 4 classes covering `_parse_required_str` edge cases, runner source consistency, `_extract_related_topics` strip behaviour, and `repo_dir` validation.
+
+**24 new tests. 5403 passed, 219 skipped.**
+
+---
+
+## Mar 16 — Input validation: PR metadata, finalize entry, CLI command (v223)
+
+**`_pr_result_metadata()` validation:** Added `require_non_empty_string` validation for `pr_url`, `pr_number`, `pr_branch`, `pr_commit` at entry. Prevents silent population of metadata with empty/whitespace values.
+
+**`_finalize_repo_pr()` validation:** Added `require_non_empty_string` validation for `backend` and `prompt` at entry. Summary intentionally excluded — AI backends may produce empty output, and `_build_generic_pr_body` already handles the empty-summary case.
+
+**`_invoke_cli_with_cmd()` hardening:** Added Google-style docstring with Args/Returns/Raises. Added precondition validation rejecting empty command lists and empty first elements before subprocess creation.
+
+**`tests/test_v223_input_validation_pr_metadata_finalize_cli_cmd.py`:** 20 tests across 5 classes covering metadata field rejection, finalize parameter rejection, CLI command validation, and source consistency checks. 1 existing `test_v208_pr_status_enum.py` test updated to use non-empty values.
+
+**20 new tests. 5377 passed, 219 skipped.**
+
+---
+
+## Mar 16 — DRY test helper, model_provider validation, task_result hardening (v222)
+
+**DRY `_close_coroutine()`:** Extracted 8 identical inline definitions in `test_cli.py` to a single module-level helper function. Added `pytestmark` `filterwarnings` to suppress `RuntimeWarning: coroutine ... was never awaited` from coverage.py tracer holding frame references after mocked `asyncio.run` closes the coroutine.
+
+**`build_langchain_chat_model()` validation:** Added `require_non_empty_string(hand_model.model)` entry validation to `model_provider.py`, rejecting empty or whitespace-only model strings before reaching provider-specific import logic.
+
+**`build_atomic_client()` validation:** Same `require_non_empty_string` validation added at function entry.
+
+**`normalize_task_result()` hardening:** Added `require_non_empty_string(status)` validation. Changed non-dict/non-exception fallback to try `json.dumps()` before `str()`, preserving native JSON-serializable types (int, list, bool, float) instead of converting everything to strings.
+
+**`tests/test_v222_dry_coroutine_validation_task_result.py`:** 28 tests across 7 classes covering extraction verification, model validation, status validation, JSON-safe serialization, and source consistency checks. 3 existing `test_task_result.py` assertions updated for JSON-safe behavior.
+
+**28 new tests. 5359 passed, 219 skipped.**
+
+---
+
+## Mar 16 — DRY git clone helper, auth status line & validation wrapper (v221)
+
+**`_run_git_clone()` helper:** New function in `cli/main.py` encapsulating `subprocess.run` with `--depth`, timeout handling, non-zero exit handling, and stderr redaction. Replaces duplicate git clone subprocess logic in `_resolve_repo_path()` and `_clone_reference_repos()`.
+
+**`_auth_status_line()` method:** New instance method on `_BasicIterativeHand` in `iterative.py` returning the `[backend] provider=… | auth=… (set/not set)` banner. Replaces identical 6-line inline blocks in both `BasicLangGraphHand.stream()` and `BasicAtomicHand.stream()`.
+
+**`_validate_or_exit()` helper:** New function in `cli/main.py` wrapping validation callables in try/except ValueError → stderr + sys.exit(1). Replaces 3 identical try-except blocks in `main()`.
+
+**`_REPO_SPEC_PATTERN` constant:** New module-level constant for the `owner/repo` regex, replacing inline regex in `_resolve_repo_path()`.
+
+**`tests/test_v221_cli_clone_auth_validate.py`:** 37 tests across 5 classes covering `_run_git_clone` (7), `_validate_or_exit` (7), `_REPO_SPEC_PATTERN` (9), `_auth_status_line` (8), and source consistency (6). 2 existing v172 tests updated for new error message format.
+
+**37 new tests. 5331 passed, 219 skipped.**
+
+---
+
+## Mar 16 — DRY PR status line helper & CLI validation cleanup (v220)
+
+**DRY `_pr_status_line()` static method:** New static method on `_BasicIterativeHand` in `iterative.py` replaces 4 identical inline PR metadata yield blocks (2 in `BasicLangGraphHand.stream()`, 2 in `BasicAtomicHand.stream()`). Returns `"\nPR created: {url}\n"` when URL present, `"\nPR status: {status}\n"` for non-skipped statuses, or empty string otherwise. Adds truthy guard on status to prevent `"PR status: None"` from empty metadata.
+
+**CLI validation via `require_positive_int()`:** `cli/main.py` now imports and uses `require_positive_int()` from `validation.py` for `--pr-number` and `--max-iterations` validation, replacing 14 lines of inline if/print/exit boilerplate with 6 lines. Existing v141 tests updated for new error message format.
+
+**`tests/test_v220_pr_status_line_cli_validation.py`:** 18 tests: `_pr_status_line` behaviour (10 tests: URL present, status fallback, skipped statuses, empty metadata, URL precedence, all-skipped exhaustive, non-skipped, static method check, docstring), source consistency (2 tests: stream methods use helper, no bare `_META_PR_URL` checks), CLI validation (6 tests: zero/negative pr-number/max-iterations exits, import check, source pattern check).
+
+**18 new tests. 5294 passed, 219 skipped.**
+
+---
+
+## Mar 16 — Finalization precondition extraction & status dispatch (v219)
+
+**Extract `_validate_finalization_preconditions()` from `_finalize_repo_pr()`:** New method in `base.py` encapsulates the 6-check early-return validation block (auto_pr, repo dir, git work tree, porcelain changes, GitHub origin, precommit). Returns `(repo_dir, repo_name)` tuple on success or `None` on failure. Reduces `_finalize_repo_pr()` from ~120 → ~85 lines.
+
+**Status message dispatch tables:** Replace sequential if/elif chains in `_format_pr_status_message()` and `_format_ci_fix_message()` with module-level dict lookups (`_PR_STATUS_TEMPLATES`, `_CI_FIX_TEMPLATES`). Templates use `str.format()` placeholders for dynamic values (`{pr_url}`, `{attempts}`, `{error}`).
+
+**`tests/test_v219_validation_extraction_status_dispatch.py`:** 36 tests: `_validate_finalization_preconditions` (8 precondition paths + delegation check), `_PR_STATUS_TEMPLATES` (4 structure/content checks), `_CI_FIX_TEMPLATES` (6 structure/content checks), `_format_pr_status_message` dispatch (8 integration tests), `_format_ci_fix_message` dispatch (6 integration tests), source consistency (3 checks).
+
+**36 new tests. 5276 passed, 219 skipped.**
+
+---
+
+## Mar 16 — Finalize PR refactor (v218)
+
+**Extract `_generate_pr_title_and_body()` helper:** New shared method in `base.py` that encapsulates the "try rich description, fall back to generic template" pattern. Replaces duplicate code in `_finalize_repo_pr()`, `_create_pr_for_diverged_branch()`, and `_update_pr_description()` (3 call sites → 1 shared helper).
+
+**Extract `_create_new_pr()` from `_finalize_repo_pr()`:** Pulls the new-PR creation path (branch creation, commit, push, base-branch resolution, PR creation) into its own method. Reduces `_finalize_repo_pr()` from 194 → ~120 lines, making it a clean orchestrator that delegates to `_push_to_existing_pr()` or `_create_new_pr()`.
+
+**Updated source-inspection tests:** `test_v183_message_templates_and_logging.py` updated to check for constants in `_create_new_pr()` and `_generate_pr_title_and_body()` instead of the old monolithic `_finalize_repo_pr()`.
+
+**`tests/test_v218_finalize_pr_refactor.py`:** 14 tests: `_generate_pr_title_and_body` (rich path, fallback path, template fallback, argument forwarding, commit SHA pass-through), `_create_new_pr` (full flow, branch naming, fallback commit message, API error base branch, remote base branch, title/body forwarding), `_update_pr_description` delegation (2), `_create_pr_for_diverged_branch` delegation (1).
+
+**14 new tests. 5240 passed, 219 skipped.**
+
+---
+
+## Mar 16 — Provider consistency fixes (v217)
+
+**Google LangChain streaming fix:** Added missing `streaming=streaming` parameter to `ChatGoogleGenerativeAI()` in `build_langchain_chat_model()` (`model_provider.py`), matching the parameter already passed to OpenAI, Ollama, Anthropic, and LiteLLM providers.
+
+**Google provider empty-contents validation:** Added `ValueError` when all messages have empty content in `GoogleProvider._complete_impl()` (`google.py`), preventing a cryptic downstream API error when `contents=[]` is sent to Google's `generate_content()`.
+
+**Claude CLI GPT model filter warning:** Added `logger.warning()` in `ClaudeCodeHand._resolve_cli_model()` (`claude.py`) when a GPT-family model is silently filtered out, making it easier to diagnose why a user's model choice was ignored.
+
+**`tests/test_v217_provider_consistency.py`:** 10 tests: Google streaming pass-through (2), empty-contents validation (4), Claude CLI GPT warning log (4). Updated existing `test_hand_model_provider.py` Google assertion to expect `streaming` kwarg.
+
+**10 new tests. 5227 passed, 219 skipped.**
+
+---
+
+## Mar 16 — Metadata key constants (v216)
+
+**DRY metadata protocol keys:** Extracted 8 module-level constants (`_META_PR_STATUS`, `_META_PR_URL`, `_META_PR_NUMBER`, `_META_PR_BRANCH`, `_META_PR_COMMIT`, `_META_CI_FIX_STATUS`, `_META_CI_FIX_ATTEMPTS`, `_META_CI_FIX_ERROR`) to `base.py`, replacing 72 bare string literals across 6 hand modules (`base.py`, `cli/base.py`, `iterative.py`, `e2e.py`, `langgraph.py`, `atomic.py`). Server modules (`app.py`, `celery_app.py`, `schedules.py`) use the same key strings for form fields/query params/dataclass fields and were intentionally left unchanged.
+
+**`tests/test_v216_metadata_key_constants.py`:** 28 tests: value correctness (8), type validation (8), uniqueness (1), AST-based source-level checks for bare key absence in protocol modules (5), constant definition presence (1), import verification (5).
+
+**28 new tests. 5216 passed, 219 skipped.**
+
+---
+
+## Mar 15 — ScheduleManager unit tests (v214)
+
+**ScheduleManager CRUD test coverage:** Added 50 unit tests covering all ScheduleManager methods with mocked Redis and Celery: `create_schedule` (5 tests: save+return, auto-generate ID, duplicate rejection, RedBeat skip when disabled, RedBeat create when enabled), `update_schedule` (4 tests: metadata preservation, not-found error, RedBeat recreation, RedBeat skip), `delete_schedule` (2 tests: existing returns True, missing returns False), `enable_schedule` (3 tests: creates RedBeat entry, noop when already enabled, None when missing), `disable_schedule` (3 tests: deletes RedBeat entry, noop when already disabled, None when missing), `record_run` (2 tests: metadata update, noop when missing), `trigger_now` (2 tests: dispatch via Celery, None when missing), `get_schedule` (2 tests), `list_schedules` (3 tests: sorted desc, corrupt entry skip, empty list), internal helpers `_save_meta`/`_load_meta`/`_delete_meta`/`_list_meta_keys` (11 tests), `_create_redbeat_entry`/`_delete_redbeat_entry` (4 tests), dependency guards (4 tests), init (2 tests), `_meta_key` (2 tests), `get_schedule_manager` factory (1 test).
+
+**`tests/test_v214_schedule_manager.py`:** 50 tests covering all ScheduleManager code paths. `schedules.py` coverage: 0% → 97%.
+
+**50 new tests. 6078 passed, 2 skipped.**
+
+---
+
+## Mar 15 — ScheduledTask.from_dict validation, coverage threshold, package exports (v213)
+
+**`ScheduledTask.from_dict` empty/whitespace rejection:** Added a second validation pass after the missing-key check that rejects empty or whitespace-only values for all five required fields (`schedule_id`, `name`, `cron_expression`, `repo_path`, `prompt`). Error message reports all offending fields in one `ValueError`.
+
+**`validate_cron_expression` whitespace stripping:** Added `.strip()` to the input before preset lookup and croniter validation, so that `"  0 0 * * *  "` or `"  daily  "` are accepted cleanly.
+
+**Coverage `fail_under = 75` threshold:** Added to `[tool.coverage.report]` in `pyproject.toml` to prevent silent coverage regressions in CI.
+
+**Package-level `__all__` exports:** Populated `__all__` in `lib/__init__.py` (9 sub-modules), `server/__init__.py` (6 sub-modules), and `cli/__init__.py` (1 sub-module) — was previously empty lists in all three.
+
+**`tests/test_v213_from_dict_validation_coverage_exports.py`:** 28 tests covering empty/whitespace field rejection (11 tests), cron whitespace stripping (6 tests), package `__all__` exports (11 tests).
+
+**28 new tests. 5189 passed, 217 skipped.**
+
+---
+
+## Mar 15 — DRY run-status strings, truncation marker, auth-presence labels (v212)
+
+**`_RUN_STATUS_INTERRUPTED` / `_RUN_STATUS_SATISFIED` / `_RUN_STATUS_MAX_ITERATIONS` constants:** Extracted the three run-status strings from identical inline assignments in both `BasicLangGraphHand.run()` and `BasicAtomicHand.run()` to module-level constants with docstrings.
+
+**`_TRUNCATION_MARKER` constant:** Extracted the repeated `"\n[truncated]"` string used in `_format_command_result()`, `_format_web_search_result()`, `_format_web_browse_result()`, and `_execute_read_requests()` to a single module-level constant.
+
+**`_AUTH_PRESENT_LABEL` / `_AUTH_ABSENT_LABEL` constants:** Extracted `"set"` / `"not set"` auth-presence indicator strings used in both `stream()` methods to module-level constants.
+
+**`tests/test_v212_dry_run_status_truncation_auth.py`:** 25 tests verifying constant values, types, distinctness, and source-level verification that functions reference the constants (not inline strings).
+
+**Housekeeping:** Created `WAITING_ON.md` (missing from doc structure), consolidated 18 individual v193-v211 plan files into Week-12 weekly rollup, updated PLANS.md links.
+
+**25 new tests. 5189 passed, 216 skipped.**
+
+---
+
+## Mar 15 — DRY encoding fallback chain, git ref prefix, check-run status (v211)
+
+**`_ENCODING_FALLBACK_CHAIN` constant:** Extracted inline `("utf-8", "utf-16", "latin-1")` tuple from `_decode_bytes()` in `web.py` to a module-level constant with docstring.
+
+**`_GIT_REF_PREFIX` constant:** Extracted inline `"refs/heads/"` string from `fetch_branch()` in `github.py` to a module-level constant with docstring.
+
+**`_CHECK_RUN_STATUS_COMPLETED` constant:** Extracted inline `"completed"` string from `get_check_runs()` in `github.py` to a module-level constant with docstring.
+
+**`tests/test_v211_dry_encoding_ref_prefix_check_status.py`:** 21 versioned tests verifying constant values, types, usage in functions, and encoding codec validity.
+
+**21 new tests. 5164 passed, 216 skipped.**
+
+---
+
+## Mar 15 — Hook markers constant, validation + github_url test coverage (v210)
+
+**`_GIT_HOOK_FAILURE_MARKERS` constant:** Extracted inline `markers` tuple from `_is_git_hook_failure()` in `base.py` to a module-level constant with docstring.
+
+**`tests/test_validation.py`:** 21 dedicated unit tests for `require_non_empty_string` and `require_positive_int` — valid returns, empty/whitespace rejection, error message formatting, unicode, multiline, zero/negative values.
+
+**`tests/test_github_url.py`:** 33 dedicated unit tests for `validate_repo_spec`, `build_clone_url`, `redact_credentials`, `noninteractive_env`, and module constants.
+
+**`tests/test_v210_hook_markers_validation_github_url.py`:** 16 versioned tests verifying constant extraction, module contracts, and API surfaces.
+
+**70 new tests. 5143 passed, 216 skipped.**
 
 ---
 

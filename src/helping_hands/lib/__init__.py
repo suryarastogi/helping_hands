@@ -6,4 +6,14 @@ Primary namespaces:
 - ``helping_hands.lib.meta`` for shared cross-cutting tooling.
 """
 
-__all__: list[str] = []
+__all__ = [
+    "ai_providers",
+    "config",
+    "default_prompts",
+    "github",
+    "github_url",
+    "hands",
+    "meta",
+    "repo",
+    "validation",
+]

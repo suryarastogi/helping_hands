@@ -80,10 +80,14 @@ def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
         A new list of validated string arguments.
 
     Raises:
-        TypeError: If any element in *args* is not a string.
+        TypeError: If *args* is not a ``list``, ``tuple``, or ``None``, or if
+            any element is not a string.
     """
-    if not args:
+    if args is None:
         return []
+    if not isinstance(args, (list, tuple)):
+        msg = f"args must be a list or tuple, got {type(args).__name__}"
+        raise TypeError(msg)
     normalized: list[str] = []
     for value in args:
         if not isinstance(value, str):

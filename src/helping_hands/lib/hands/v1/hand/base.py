@@ -87,6 +87,19 @@ _PRECOMMIT_UV_MISSING_MSG = (
 _DEFAULT_GIT_ERROR_MSG = "unknown git error"
 """Fallback message when a git subprocess returns non-zero with empty stderr."""
 
+_GIT_HOOK_FAILURE_MARKERS = (
+    "husky -",
+    "husky:",
+    "lint-staged",
+    "pre-commit hook",
+    "hook failed",
+    "eslint found",
+    "eslint:",
+    "prettier",
+)
+"""Lowercased substrings that indicate a git commit failure was caused by a
+pre-commit hook (Husky, lint-staged, ESLint, Prettier, etc.)."""
+
 _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 """Fallback commit message when ``generate_commit_message`` returns empty."""
 
@@ -165,6 +178,34 @@ _PR_STATUS_DISABLED = PRStatus.DISABLED
 _PR_STATUS_NOT_ATTEMPTED = PRStatus.NOT_ATTEMPTED
 _PR_STATUSES_WITH_URL = PR_STATUSES_WITH_URL
 _PR_STATUSES_SKIPPED = PR_STATUSES_SKIPPED
+
+# --- Metadata dictionary key constants ---------------------------------------
+# These are the canonical key names used in the PR/CI metadata dict that flows
+# between finalization, CI-fix, and status-reporting code paths.
+
+_META_PR_STATUS = "pr_status"
+"""Metadata key for the PR finalization outcome (value is a ``PRStatus``)."""
+
+_META_PR_URL = "pr_url"
+"""Metadata key for the URL of the created or updated pull request."""
+
+_META_PR_NUMBER = "pr_number"
+"""Metadata key for the PR number as a string."""
+
+_META_PR_BRANCH = "pr_branch"
+"""Metadata key for the head branch name of the pull request."""
+
+_META_PR_COMMIT = "pr_commit"
+"""Metadata key for the latest commit SHA on the PR branch."""
+
+_META_CI_FIX_STATUS = "ci_fix_status"
+"""Metadata key for the CI-fix loop outcome (value is a ``CIFixStatus``)."""
+
+_META_CI_FIX_ATTEMPTS = "ci_fix_attempts"
+"""Metadata key for the number of CI-fix attempts as a string."""
+
+_META_CI_FIX_ERROR = "ci_fix_error"
+"""Metadata key for the error message from a failed CI-fix loop."""
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
@@ -451,14 +492,22 @@ class Hand(abc.ABC):
 
         Returns:
             The same *metadata* dict, updated in-place.
+
+        Raises:
+            ValueError: If any of the string fields is empty or
+                whitespace-only.
         """
+        require_non_empty_string(pr_url, "pr_url")
+        require_non_empty_string(pr_number, "pr_number")
+        require_non_empty_string(pr_branch, "pr_branch")
+        require_non_empty_string(pr_commit, "pr_commit")
         metadata.update(
             {
-                "pr_status": status,
-                "pr_url": pr_url,
-                "pr_number": pr_number,
-                "pr_branch": pr_branch,
-                "pr_commit": pr_commit,
+                _META_PR_STATUS: status,
+                _META_PR_URL: pr_url,
+                _META_PR_NUMBER: pr_number,
+                _META_PR_BRANCH: pr_branch,
+                _META_PR_COMMIT: pr_commit,
             }
         )
         return metadata
@@ -479,10 +528,13 @@ class Hand(abc.ABC):
             token: GitHub access token (PAT or installation token).
 
         Raises:
-            ValueError: If *repo* or *token* is empty/whitespace.
+            ValueError: If *repo_dir* is not an existing directory, or
+                *repo* or *token* is empty/whitespace.
             RuntimeError: If the ``git remote set-url`` command fails or
                 times out.
         """
+        if not repo_dir.is_dir():
+            raise ValueError(f"repo_dir must be an existing directory: {repo_dir}")
         require_non_empty_string(repo, "repo")
         require_non_empty_string(token, "token")
         push_url = f"https://{_GITHUB_TOKEN_USER}:{token}@{_GITHUB_HOSTNAME}/{repo}.git"
@@ -550,17 +602,7 @@ class Hand(abc.ABC):
     def _is_git_hook_failure(error_msg: str) -> bool:
         """Return True if a git error looks like a pre-commit hook failure."""
         lowered = error_msg.lower()
-        markers = (
-            "husky -",
-            "husky:",
-            "lint-staged",
-            "pre-commit hook",
-            "hook failed",
-            "eslint found",
-            "eslint:",
-            "prettier",
-        )
-        return any(marker in lowered for marker in markers)
+        return any(marker in lowered for marker in _GIT_HOOK_FAILURE_MARKERS)
 
     def _try_fix_git_hook_errors(
         self,
@@ -798,6 +840,67 @@ class Hand(abc.ABC):
             pr_commit=commit_sha,
         )
 
+    def _generate_pr_title_and_body(
+        self,
+        *,
+        repo_dir: Path,
+        base_branch: str,
+        backend: str,
+        prompt: str,
+        summary: str,
+        commit_sha: str,
+    ) -> tuple[str, str]:
+        """Generate a PR title and body, falling back to generic templates.
+
+        Attempts to produce a rich description via the external
+        ``generate_pr_description`` helper.  When that returns *None*
+        (e.g. the helper binary is unavailable), the method falls back to
+        ``_commit_message_from_prompt`` for the title and
+        ``_build_generic_pr_body`` for the body.
+
+        Args:
+            repo_dir: Absolute path to the repository working directory.
+            base_branch: Branch the PR will target.
+            backend: Hand backend name for metadata.
+            prompt: The original user-supplied task prompt.
+            summary: AI-generated change summary.
+            commit_sha: Commit SHA to embed in the generic body.
+
+        Returns:
+            A ``(title, body)`` tuple.
+        """
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            generate_pr_description,
+        )
+
+        rich_desc = generate_pr_description(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            base_branch=base_branch,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        )
+        if rich_desc is not None:
+            return rich_desc.title, rich_desc.body
+
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            _commit_message_from_prompt,
+        )
+
+        pr_title = _commit_message_from_prompt(
+            prompt, summary
+        ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
+        stamp = _utc_stamp()
+        pr_body = self._build_generic_pr_body(
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+            commit_sha=commit_sha,
+            stamp_utc=stamp,
+        )
+        return pr_title, pr_body
+
     def _update_pr_description(
         self,
         *,
@@ -815,29 +918,14 @@ class Hand(abc.ABC):
             raise ValueError(
                 "pr_number must be set before calling _update_pr_description"
             )
-        stamp = _utc_stamp()
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            generate_pr_description,
-        )
-
-        rich_desc = generate_pr_description(
-            cmd=self._pr_description_cmd(),
+        _, pr_body = self._generate_pr_title_and_body(
             repo_dir=repo_dir,
             base_branch=base_branch,
             backend=backend,
             prompt=prompt,
             summary=summary,
+            commit_sha=commit_sha,
         )
-        if rich_desc is not None:
-            pr_body = rich_desc.body
-        else:
-            pr_body = self._build_generic_pr_body(
-                backend=backend,
-                prompt=prompt,
-                summary=summary,
-                commit_sha=commit_sha,
-                stamp_utc=stamp,
-            )
         try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
         except Exception:
@@ -871,37 +959,14 @@ class Hand(abc.ABC):
         gh.create_branch(repo_dir, new_branch)
         self._push_noninteractive(gh, repo_dir, new_branch)
 
-        stamp = _utc_stamp()
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            generate_pr_description,
-        )
-
-        rich_desc = generate_pr_description(
-            cmd=self._pr_description_cmd(),
+        pr_title, pr_body = self._generate_pr_title_and_body(
             repo_dir=repo_dir,
             base_branch=pr_branch,
             backend=backend,
             prompt=prompt,
             summary=summary,
+            commit_sha=commit_sha,
         )
-        if rich_desc is not None:
-            pr_title = rich_desc.title
-            pr_body = rich_desc.body
-        else:
-            from helping_hands.lib.hands.v1.hand.pr_description import (
-                _commit_message_from_prompt,
-            )
-
-            pr_title = _commit_message_from_prompt(
-                prompt, summary
-            ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
-            pr_body = self._build_generic_pr_body(
-                backend=backend,
-                prompt=prompt,
-                summary=summary,
-                commit_sha=commit_sha,
-                stamp_utc=stamp,
-            )
         pr_body += f"\n\n---\nFollow-up to #{self.pr_number}."
 
         pr = gh.create_pr(
@@ -919,6 +984,155 @@ class Hand(abc.ABC):
             pr_branch=new_branch,
             pr_commit=commit_sha,
         )
+
+    def _create_new_pr(
+        self,
+        *,
+        gh: Any,
+        repo: str,
+        repo_dir: Path,
+        backend: str,
+        prompt: str,
+        summary: str,
+        metadata: dict[str, str],
+    ) -> dict[str, str]:
+        """Create a new branch, commit, push, and open a pull request.
+
+        This is the "happy path" for first-time PR creation when no existing
+        PR is being updated.  Branch naming, commit message generation, and
+        PR description generation are all handled here.
+
+        Args:
+            gh: Authenticated :class:`GitHubClient` instance.
+            repo: ``"owner/repo"`` string.
+            repo_dir: Absolute path to the repository working directory.
+            backend: Hand backend name for PR metadata.
+            prompt: The original user-supplied task prompt.
+            summary: AI-generated change summary.
+            metadata: Mutable metadata dict to populate with PR results.
+
+        Returns:
+            Updated *metadata* dict with PR status, URL, number, branch,
+            and commit SHA.
+        """
+        branch = f"{_BRANCH_PREFIX}{backend}-{uuid4().hex[:_UUID_HEX_LENGTH]}"
+        gh.create_branch(repo_dir, branch)
+
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            generate_commit_message,
+        )
+
+        commit_msg = generate_commit_message(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
+
+        commit_sha = self._add_and_commit_with_hook_retry(
+            gh,
+            repo_dir,
+            commit_msg,
+        )
+        self._push_noninteractive(gh, repo_dir, branch)
+
+        base_branch = self._default_base_branch()
+        try:
+            repo_obj = gh.get_repo(repo)
+            if getattr(repo_obj, "default_branch", ""):
+                base_branch = str(repo_obj.default_branch)
+        except Exception:
+            logger.debug(
+                "could not fetch default branch for %s, using %r",
+                repo,
+                base_branch,
+                exc_info=True,
+            )
+
+        pr_title, pr_body = self._generate_pr_title_and_body(
+            repo_dir=repo_dir,
+            base_branch=base_branch,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+            commit_sha=commit_sha,
+        )
+
+        pr = gh.create_pr(
+            repo,
+            title=pr_title,
+            body=pr_body,
+            head=branch,
+            base=base_branch,
+        )
+        return self._pr_result_metadata(
+            metadata,
+            status=PRStatus.CREATED,
+            pr_url=pr.url,
+            pr_number=str(pr.number),
+            pr_branch=branch,
+            pr_commit=commit_sha,
+        )
+
+    def _validate_finalization_preconditions(
+        self,
+        metadata: dict[str, str],
+    ) -> tuple[Path, str] | None:
+        """Check repo-level preconditions before PR finalization.
+
+        Validates that: auto-PR is enabled, the repository directory exists
+        and is a git work tree, uncommitted changes are present, a GitHub
+        remote origin is detected, and pre-commit hooks (if configured) pass.
+
+        Args:
+            metadata: Mutable metadata dict — updated in-place with the
+                appropriate ``pr_status`` when a precondition fails.
+
+        Returns:
+            A ``(repo_dir, repo_full_name)`` tuple when all preconditions
+            pass, or ``None`` when a precondition fails (``metadata`` will
+            already contain the failure status).
+        """
+        if not self.auto_pr:
+            metadata[_META_PR_STATUS] = _PR_STATUS_DISABLED
+            return None
+
+        repo_dir = self.repo_index.root.resolve()
+        if not repo_dir.is_dir():
+            metadata[_META_PR_STATUS] = PRStatus.NO_REPO
+            return None
+
+        inside_work_tree = self._run_git_read(
+            repo_dir, "rev-parse", "--is-inside-work-tree"
+        )
+        if inside_work_tree != "true":
+            metadata[_META_PR_STATUS] = PRStatus.NOT_GIT_REPO
+            return None
+
+        has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
+        if not has_changes:
+            metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
+            return None
+
+        repo = self._github_repo_from_origin(repo_dir)
+        if not repo:
+            metadata[_META_PR_STATUS] = PRStatus.NO_GITHUB_ORIGIN
+            return None
+
+        if self._should_run_precommit_before_pr():
+            try:
+                self._run_precommit_checks_and_fixes(repo_dir)
+            except RuntimeError as exc:
+                metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
+                metadata["pr_error"] = str(exc)
+                return None
+            has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
+            if not has_changes:
+                metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
+                return None
+
+        return repo_dir, repo
 
     def _finalize_repo_pr(
         self,
@@ -944,52 +1158,26 @@ class Hand(abc.ABC):
             Metadata dict with keys ``pr_status``, ``pr_url``,
             ``pr_number``, ``pr_branch``, ``pr_commit``, and
             ``auto_pr``.
+
+        Raises:
+            ValueError: If *backend* or *prompt* is empty or
+                whitespace-only.
         """
+        require_non_empty_string(backend, "backend")
+        require_non_empty_string(prompt, "prompt")
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
-            "pr_status": _PR_STATUS_NOT_ATTEMPTED,
-            "pr_url": "",
-            "pr_number": "",
-            "pr_branch": "",
-            "pr_commit": "",
+            _META_PR_STATUS: _PR_STATUS_NOT_ATTEMPTED,
+            _META_PR_URL: "",
+            _META_PR_NUMBER: "",
+            _META_PR_BRANCH: "",
+            _META_PR_COMMIT: "",
         }
-        if not self.auto_pr:
-            metadata["pr_status"] = _PR_STATUS_DISABLED
-            return metadata
 
-        repo_dir = self.repo_index.root.resolve()
-        if not repo_dir.is_dir():
-            metadata["pr_status"] = PRStatus.NO_REPO
+        result = self._validate_finalization_preconditions(metadata)
+        if result is None:
             return metadata
-
-        inside_work_tree = self._run_git_read(
-            repo_dir, "rev-parse", "--is-inside-work-tree"
-        )
-        if inside_work_tree != "true":
-            metadata["pr_status"] = PRStatus.NOT_GIT_REPO
-            return metadata
-
-        has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
-        if not has_changes:
-            metadata["pr_status"] = _PR_STATUS_NO_CHANGES
-            return metadata
-
-        repo = self._github_repo_from_origin(repo_dir)
-        if not repo:
-            metadata["pr_status"] = PRStatus.NO_GITHUB_ORIGIN
-            return metadata
-
-        if self._should_run_precommit_before_pr():
-            try:
-                self._run_precommit_checks_and_fixes(repo_dir)
-            except RuntimeError as exc:
-                metadata["pr_status"] = PRStatus.PRECOMMIT_FAILED
-                metadata["pr_error"] = str(exc)
-                return metadata
-            has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
-            if not has_changes:
-                metadata["pr_status"] = _PR_STATUS_NO_CHANGES
-                return metadata
+        repo_dir, repo = result
 
         from helping_hands.lib.github import GitHubClient
 
@@ -1019,99 +1207,25 @@ class Hand(abc.ABC):
                         metadata=metadata,
                     )
 
-                branch = f"{_BRANCH_PREFIX}{backend}-{uuid4().hex[:_UUID_HEX_LENGTH]}"
-                gh.create_branch(repo_dir, branch)
-
-                from helping_hands.lib.hands.v1.hand.pr_description import (
-                    generate_commit_message,
-                )
-
-                commit_msg = generate_commit_message(
-                    cmd=self._pr_description_cmd(),
+                return self._create_new_pr(
+                    gh=gh,
+                    repo=repo,
                     repo_dir=repo_dir,
                     backend=backend,
                     prompt=prompt,
                     summary=summary,
-                ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
-
-                commit_sha = self._add_and_commit_with_hook_retry(
-                    gh,
-                    repo_dir,
-                    commit_msg,
-                )
-                self._push_noninteractive(gh, repo_dir, branch)
-
-                base_branch = self._default_base_branch()
-                try:
-                    repo_obj = gh.get_repo(repo)
-                    if getattr(repo_obj, "default_branch", ""):
-                        base_branch = str(repo_obj.default_branch)
-                except Exception:
-                    logger.debug(
-                        "could not fetch default branch for %s, using %r",
-                        repo,
-                        base_branch,
-                        exc_info=True,
-                    )
-
-                stamp = _utc_stamp()
-
-                from helping_hands.lib.hands.v1.hand.pr_description import (
-                    generate_pr_description,
-                )
-
-                rich_desc = generate_pr_description(
-                    cmd=self._pr_description_cmd(),
-                    repo_dir=repo_dir,
-                    base_branch=base_branch,
-                    backend=backend,
-                    prompt=prompt,
-                    summary=summary,
-                )
-                if rich_desc is not None:
-                    pr_title = rich_desc.title
-                    pr_body = rich_desc.body
-                else:
-                    from helping_hands.lib.hands.v1.hand.pr_description import (
-                        _commit_message_from_prompt,
-                    )
-
-                    pr_title = _commit_message_from_prompt(
-                        prompt, summary
-                    ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
-                    pr_body = self._build_generic_pr_body(
-                        backend=backend,
-                        prompt=prompt,
-                        summary=summary,
-                        commit_sha=commit_sha,
-                        stamp_utc=stamp,
-                    )
-
-                pr = gh.create_pr(
-                    repo,
-                    title=pr_title,
-                    body=pr_body,
-                    head=branch,
-                    base=base_branch,
-                )
-                return self._pr_result_metadata(
-                    metadata,
-                    status=PRStatus.CREATED,
-                    pr_url=pr.url,
-                    pr_number=str(pr.number),
-                    pr_branch=branch,
-                    pr_commit=commit_sha,
+                    metadata=metadata,
                 )
         except ValueError as exc:
-            metadata["pr_status"] = PRStatus.MISSING_TOKEN
+            metadata[_META_PR_STATUS] = PRStatus.MISSING_TOKEN
             metadata["pr_error"] = str(exc)
             return metadata
         except RuntimeError as exc:
-            metadata["pr_status"] = PRStatus.GIT_ERROR
+            metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
             metadata["pr_error"] = str(exc)
             return metadata
         except Exception as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
-            metadata["pr_status"] = PRStatus.ERROR
+            metadata[_META_PR_STATUS] = PRStatus.ERROR
             metadata["pr_error"] = str(exc)
             return metadata

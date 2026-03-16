@@ -335,6 +335,11 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             return ""
         lowered = model.lower()
         if lowered.startswith("gpt-"):
+            logger.warning(
+                "GPT model %r is incompatible with Claude Code CLI — "
+                "falling back to CLI default model",
+                model,
+            )
             return ""
         return model
 

@@ -8,26 +8,139 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-15 v208](exec-plans/completed/2026/v208-pr-status-enum-validation-cleanup.md) —
+- [2026-03-16 v228](exec-plans/completed/2026/v228-dry-error-format-dict-access-skip-logging.md) —
+  DRY `_format_error_result()` helper (6 inline error strings → 1 method),
+  consistent `.get()` dict access in `_pr_status_line`, debug logging for
+  skipped paths in `_build_tree_snapshot`; 17 tests (5498 passed, 219 skipped)
+
+- [2026-03-16 v227](exec-plans/completed/2026/v227-backend-name-consistency-metadata-helper.md) —
+  Fix backend name inconsistency in langgraph.py/atomic.py (hardcoded strings →
+  `_BACKEND_NAME` class constants), DRY `langchain_user_message()` helper for
+  LangChain message dict construction (4 inline dicts → 1 shared function);
+  19 tests (5481 passed, 219 skipped)
+
+
+- [2026-03-16 v226](exec-plans/completed/2026/v226-bash-runner-dry-prompt-builder-type-guards.md) —
+  DRY `_run_bash_script()` via `_parse_optional_str()` (replacing manual isinstance),
+  `require_non_empty_string()` type guards for `_build_prompt()`/`_build_commit_message_prompt()`
+  diff/backend params; 23 tests (5462 passed, 219 skipped)
+
+- [2026-03-16 v225](exec-plans/completed/2026/v225-validation-type-guards-normalize-args.md) —
+  Type guards for `require_non_empty_string` (TypeError for non-strings) and
+  `require_positive_int` (TypeError for non-int/bool), `_normalize_args` container
+  type guard (rejects dict/set/generator), `search_web`/`_require_http_url` DRY
+  with centralized validators, fix 3 test mock bugs (`html_url` → `url`);
+  35 tests (5439 passed, 219 skipped)
+
+- [2026-03-16 v224](exec-plans/completed/2026/v224-dry-registry-parse-str-web-strip-repo-dir-validation.md) —
+  DRY `_parse_required_str()` in registry.py (4× inline validation → helper),
+  pre-compute `.strip()` in `_extract_related_topics()`, `repo_dir.is_dir()`
+  validation in `_configure_authenticated_push_remote`;
+  24 tests (5403 passed, 219 skipped)
+
+- [2026-03-16 v223](exec-plans/completed/2026/v223-input-validation-pr-metadata-finalize-cli-cmd.md) —
+  `require_non_empty_string` validation for `_pr_result_metadata` (4 fields),
+  `_finalize_repo_pr` (backend, prompt), `_invoke_cli_with_cmd` empty-list
+  guard and docstring; 20 tests (5377 passed, 219 skipped)
+
+- [2026-03-16 v222](exec-plans/completed/2026/v222-dry-close-coroutine-model-validation-task-result.md) —
+  DRY `_close_coroutine` in test_cli.py (8 copies -> 1 module-level helper),
+  `pytestmark` filterwarnings for coroutine RuntimeWarning,
+  `require_non_empty_string` validation in `build_langchain_chat_model`/
+  `build_atomic_client`/`normalize_task_result`, JSON-safe serialization
+  fallback in task_result.py; 28 tests (5359 passed, 219 skipped)
+
+- [2026-03-16 v221](exec-plans/completed/2026/v221-cli-clone-auth-validate-helpers.md) —
+  DRY `_run_git_clone()` helper (replacing duplicate subprocess logic in
+  `_resolve_repo_path`/`_clone_reference_repos`), `_auth_status_line()` method
+  on `_BasicIterativeHand` (replacing inline auth banners in both stream methods),
+  `_validate_or_exit()` wrapper, `_REPO_SPEC_PATTERN` constant;
+  37 tests (5331 passed, 219 skipped)
+
+- [2026-03-16 v220](exec-plans/completed/2026/v220-pr-status-line-helper-cli-validation.md) —
+  DRY `_pr_status_line()` static method on `_BasicIterativeHand` (replacing
+  4 inline PR status yield blocks in `iterative.py`), CLI validation cleanup
+  using `require_positive_int()` for `--pr-number` and `--max-iterations`;
+  18 tests (5294 passed, 219 skipped)
+
+- [2026-03-16 v219](exec-plans/completed/2026/v219-finalize-pr-validation-extraction-status-dispatch.md) —
+  Extract `_validate_finalization_preconditions()` from `_finalize_repo_pr()`
+  (reducing it by ~30 lines), convert `_format_pr_status_message()` and
+  `_format_ci_fix_message()` to dict-dispatch via `_PR_STATUS_TEMPLATES`
+  and `_CI_FIX_TEMPLATES`; 36 tests (5276 passed, 219 skipped)
+
+- [2026-03-16 v218](exec-plans/completed/2026/v218-finalize-pr-refactor.md) —
+  Extract `_generate_pr_title_and_body()` (shared helper replacing duplicated
+  PR description generation across `_create_pr_for_diverged_branch`,
+  `_update_pr_description`, and `_finalize_repo_pr`), extract `_create_new_pr()`
+  from `_finalize_repo_pr()` reducing it from 194 → 120 lines;
+  14 tests (5240 passed, 219 skipped)
+
+- [2026-03-16 v217](exec-plans/completed/2026/v217-provider-consistency-fixes.md) —
+  Fix Google LangChain missing `streaming` parameter, Google provider
+  empty-contents validation, Claude CLI GPT model filter warning log;
+  10 tests (5227 passed, 219 skipped)
+
+- [2026-03-16 v216](exec-plans/completed/2026/v216-metadata-key-constants.md) —
+  Extract 8 metadata key constants (`_META_PR_STATUS`, `_META_PR_URL`,
+  `_META_PR_NUMBER`, `_META_PR_BRANCH`, `_META_PR_COMMIT`,
+  `_META_CI_FIX_STATUS`, `_META_CI_FIX_ATTEMPTS`, `_META_CI_FIX_ERROR`)
+  to `base.py`, replacing 72 bare string literals across 6 hand modules;
+  28 tests (value, type, uniqueness, AST-based source consistency checks);
+  5216 passed, 219 skipped
+
+- [2026-03-15 v215](exec-plans/completed/2026/v215-schedule-endpoint-tests.md) —
+  Server schedule endpoint 34 tests: `_get_schedule_manager`, all 8
+  schedule CRUD/trigger endpoints, `/notif-sw.js`, `/config`, `/build`,
+  `/build/form` ValidationError redirect, `_is_running_in_docker`;
+  server/app.py coverage 89% → 99%; 6112 passed, 2 skipped
+
+- [2026-03-15 v214](exec-plans/completed/2026/v214-schedule-manager-tests.md) —
+  ScheduleManager unit tests with mocked Redis/Celery/RedBeat (50 tests),
+  schedules.py coverage 0% → 97%; 6078 passed, 2 skipped
+
+- [2026-03-15 v213](exec-plans/completed/2026/v213-from-dict-validation-coverage-threshold-package-exports.md) —
+  `ScheduledTask.from_dict` empty/whitespace required-field rejection,
+  `validate_cron_expression` whitespace stripping, `fail_under = 75` coverage
+  threshold, package-level `__all__` exports for lib/server/cli; 28 tests
+  (5189 passed, 217 skipped)
+
+- [2026-03-15 v212](exec-plans/completed/2026/v212-dry-run-status-truncation-auth-presence.md) —
+  DRY `_RUN_STATUS_*` constants, `_TRUNCATION_MARKER`, `_AUTH_PRESENT_LABEL`/
+  `_AUTH_ABSENT_LABEL` in iterative.py; 25 tests (5189 passed, 216 skipped)
+
+- [2026-03-15 v211](exec-plans/completed/2026/Week-12.md) —
+  DRY `_ENCODING_FALLBACK_CHAIN` in web.py, `_GIT_REF_PREFIX` and
+  `_CHECK_RUN_STATUS_COMPLETED` in github.py; 21 tests (5164 passed, 216 skipped)
+
+- [2026-03-15 v210](exec-plans/completed/2026/Week-12.md) —
+  Extract `_GIT_HOOK_FAILURE_MARKERS` constant in base.py, dedicated unit tests
+  for `validation.py` (21 tests) and `github_url.py` (33 tests), versioned
+  contract tests (16 tests); 5143 passed, 216 skipped
+
+- [2026-03-15 v209](exec-plans/completed/2026/Week-12.md) —
+  `CIConclusion(StrEnum)`, `CIFixStatus(StrEnum)`, pre-lowercase boilerplate
+  prefixes, `_LANGCHAIN_STREAM_EVENT` constant; 36 tests (5073 passed, 216 skipped)
+
+- [2026-03-15 v208](exec-plans/completed/2026/Week-12.md) —
   `PRStatus(StrEnum)` with 12 members replacing 5 string constants + 7 ad-hoc
   strings, `_build_generic_pr_body` validation standardized to
   `require_non_empty_string`, DRY `_pr_result_metadata()` helper (3 sites);
   38 tests (5037 passed, 216 skipped)
 
-
-- [2026-03-15 v207](exec-plans/completed/2026/v207-dry-shared-validators.md) —
+- [2026-03-15 v207](exec-plans/completed/2026/Week-12.md) —
   DRY shared validation helpers (`require_non_empty_string`,
   `require_positive_int`) extracted to `validation.py`, applied across 9 files;
   36 tests (4999 passed, 216 skipped)
 
-- [2026-03-15 v206](exec-plans/completed/2026/v206-dry-payload-validators-normalize-selection-url-errors.md) --
+- [2026-03-15 v206](exec-plans/completed/2026/Week-12.md) --
   DRY payload validators (iterative.py `_parse_str_list`/`_parse_positive_int`/
   `_parse_optional_str` → registry.py delegation), shared
   `_normalize_and_deduplicate` helper for tool/skill selection normalization,
   shared `_raise_url_error` helper in web.py;
   30 tests (all new, 4967 passed, 212 skipped)
 
-- [2026-03-15 v205](exec-plans/completed/2026/v205-dry-script-validation-display-path-install-hint-timeouts.md) --
+- [2026-03-15 v205](exec-plans/completed/2026/Week-12.md) --
   DRY `_validate_script_path()` in command.py (shared helper replacing duplicated
   5-line validation in `run_python_script`/`run_bash_script`), DRY `_display_path()`
   in filesystem.py (replacing 4× inline `target.relative_to(root).as_posix()`),

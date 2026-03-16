@@ -19,6 +19,8 @@ from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.hands.v1.hand.base import (
     _DEFAULT_GIT_USER_EMAIL,
     _DEFAULT_GIT_USER_NAME,
+    _META_PR_NUMBER,
+    _META_PR_URL,
     _UUID_HEX_LENGTH,
     Hand,
     HandResponse,
@@ -326,8 +328,10 @@ class E2EHand(Hand):
                 "branch": branch,
                 "base_branch": base_branch,
                 "commit": commit_sha,
-                "pr_number": "" if final_pr_number is None else str(final_pr_number),
-                "pr_url": pr_url,
+                _META_PR_NUMBER: ""
+                if final_pr_number is None
+                else str(final_pr_number),
+                _META_PR_URL: pr_url,
                 "resumed_pr": str(resumed_pr).lower(),
                 "dry_run": str(dry_run).lower(),
             },

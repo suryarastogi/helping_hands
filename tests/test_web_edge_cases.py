@@ -22,7 +22,7 @@ from helping_hands.lib.meta.tools.web import (
 
 class TestRequireHttpUrlExtra:
     def test_rejects_whitespace_only(self) -> None:
-        with pytest.raises(ValueError, match="non-empty"):
+        with pytest.raises(ValueError, match="must not be empty"):
             _require_http_url("   ")
 
     def test_rejects_no_scheme(self) -> None:
