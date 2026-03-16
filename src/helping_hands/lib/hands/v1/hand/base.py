@@ -207,6 +207,9 @@ _META_CI_FIX_ATTEMPTS = "ci_fix_attempts"
 _META_CI_FIX_ERROR = "ci_fix_error"
 """Metadata key for the error message from a failed CI-fix loop."""
 
+_META_PR_ERROR = "pr_error"
+"""Metadata key for the error message from a failed PR operation."""
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -1125,7 +1128,7 @@ class Hand(abc.ABC):
                 self._run_precommit_checks_and_fixes(repo_dir)
             except RuntimeError as exc:
                 metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
-                metadata["pr_error"] = str(exc)
+                metadata[_META_PR_ERROR] = str(exc)
                 return None
             has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
             if not has_changes:
@@ -1218,14 +1221,14 @@ class Hand(abc.ABC):
                 )
         except ValueError as exc:
             metadata[_META_PR_STATUS] = PRStatus.MISSING_TOKEN
-            metadata["pr_error"] = str(exc)
+            metadata[_META_PR_ERROR] = str(exc)
             return metadata
         except RuntimeError as exc:
             metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
-            metadata["pr_error"] = str(exc)
+            metadata[_META_PR_ERROR] = str(exc)
             return metadata
         except Exception as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
             metadata[_META_PR_STATUS] = PRStatus.ERROR
-            metadata["pr_error"] = str(exc)
+            metadata[_META_PR_ERROR] = str(exc)
             return metadata

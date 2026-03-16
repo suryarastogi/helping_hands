@@ -339,12 +339,14 @@ class ScheduleManager:
         Raises:
             RuntimeError: If the Redis write fails.
         """
+        import redis
+
         try:
             self._redis.set(
                 self._meta_key(task.schedule_id),
                 json.dumps(task.to_dict()),
             )
-        except Exception as exc:
+        except (redis.RedisError, OSError) as exc:
             logger.warning(
                 "Failed to save schedule metadata for %s: %s",
                 task.schedule_id,
@@ -378,9 +380,11 @@ class ScheduleManager:
         Logs a warning on failure but does not raise, consistent with
         ``_load_meta`` graceful degradation.
         """
+        import redis
+
         try:
             self._redis.delete(self._meta_key(schedule_id))
-        except Exception as exc:
+        except (redis.RedisError, OSError) as exc:
             logger.warning(
                 "Failed to delete schedule metadata for %s: %s",
                 schedule_id,
@@ -393,9 +397,11 @@ class ScheduleManager:
         Returns an empty list on Redis errors to allow graceful degradation.
         """
         pattern = f"{_SCHEDULE_META_PREFIX}*"
+        import redis
+
         try:
             keys = self._redis.keys(pattern)
-        except Exception as exc:
+        except (redis.RedisError, OSError) as exc:
             logger.warning("Failed to list schedule metadata keys: %s", exc)
             return []
         return [k.decode() if isinstance(k, bytes) else k for k in keys]

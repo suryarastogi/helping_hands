@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v235](exec-plans/completed/2026/v235-pr-error-constant-schedules-exception-narrowing.md) —
+  Extract `_META_PR_ERROR` constant (replacing 5 bare `"pr_error"` strings), narrow
+  `except Exception` in `schedules.py` (`_save_meta`, `_delete_meta`, `_list_meta_keys`);
+  15 tests (5625 passed, 225 skipped)
+
 - [2026-03-16 v234](exec-plans/completed/2026/v234-redis-url-constant-health-check-exception-narrowing.md) —
   Extract `DEFAULT_REDIS_URL` constant to `server/constants.py`, narrow `except Exception`
   handlers in health checks (`_check_redis_health`, `_check_db_health`) and

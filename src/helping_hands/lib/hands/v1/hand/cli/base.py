@@ -30,6 +30,7 @@ from helping_hands.lib.hands.v1.hand.base import (
     _META_CI_FIX_STATUS,
     _META_PR_BRANCH,
     _META_PR_COMMIT,
+    _META_PR_ERROR,
     _META_PR_NUMBER,
     _META_PR_STATUS,
     _META_PR_URL,
@@ -1330,7 +1331,7 @@ class _TwoPhaseCLIHand(Hand):
         if template is not None:
             pr_url = metadata.get(_META_PR_URL, "")
             return f"[{self._CLI_LABEL}] {template.format(pr_url=pr_url)}"
-        error = metadata.get("pr_error", "").strip()
+        error = metadata.get(_META_PR_ERROR, "").strip()
         if error:
             return f"[{self._CLI_LABEL}] PR status: {status} ({error})"
         return f"[{self._CLI_LABEL}] PR status: {status}"
