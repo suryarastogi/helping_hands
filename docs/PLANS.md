@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v239](exec-plans/completed/2026/v239-dry-feedback-github-tests.md) —
+  DRY `_collect_tool_feedback()` (4× inline → 1 method) and
+  `_append_iteration_transcript()` (2× inline → 1 static method) in
+  iterative.py; dedicated tests for `_github_repo_from_origin()`,
+  `get_check_runs()`, and `upsert_pr_comment()`;
+  42 tests (5720 passed, 225 skipped)
+
 - [2026-03-16 v238](exec-plans/completed/2026/v238-atomic-dry-extract-message-make-input-guard.md) —
   DRY `_extract_message()` static method on `AtomicHand` (replacing 3 inline
   `hasattr(partial, "chat_message")` checks + 1 direct `.chat_message` access),

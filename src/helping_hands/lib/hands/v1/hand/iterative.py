@@ -326,6 +326,52 @@ class _BasicIterativeHand(Hand):
             return content
         return f"{content}\n\nTool results:\n{tool_feedback}"
 
+    def _collect_tool_feedback(self, content: str) -> str:
+        """Execute read and tool requests, returning combined feedback.
+
+        Runs ``_execute_read_requests`` and ``_execute_tool_requests`` on
+        *content*, then joins non-empty results with a double newline.
+
+        Args:
+            content: AI response text to scan for ``@@READ`` / ``@@TOOL``
+                requests.
+
+        Returns:
+            Combined feedback string (stripped), or ``""`` if neither
+            read nor tool requests produced output.
+        """
+        read_feedback = self._execute_read_requests(content)
+        tool_feedback = self._execute_tool_requests(content)
+        return "\n\n".join(
+            part for part in (read_feedback, tool_feedback) if part
+        ).strip()
+
+    @staticmethod
+    def _append_iteration_transcript(
+        transcripts: list[str],
+        iteration: int,
+        content: str,
+        changed: list[str],
+        combined_feedback: str,
+    ) -> None:
+        """Append iteration summary lines to *transcripts*.
+
+        Builds a consistent transcript block used by ``run()`` methods of
+        both ``BasicLangGraphHand`` and ``BasicAtomicHand``.
+
+        Args:
+            transcripts: Mutable transcript list to extend.
+            iteration: Current 1-based iteration number.
+            content: AI response text for this iteration.
+            changed: List of filenames updated by inline edits (may be empty).
+            combined_feedback: Combined tool/read feedback (may be empty).
+        """
+        transcripts.append(f"[iteration {iteration}]\n{content}")
+        if changed:
+            transcripts.append(f"[files updated] {', '.join(changed)}")
+        if combined_feedback:
+            transcripts.append(f"[tool results]\n{combined_feedback}")
+
     def _execute_read_requests(self, content: str) -> str:
         """Execute all ``@@READ`` requests found in the AI response.
 
@@ -871,16 +917,14 @@ class BasicLangGraphHand(_BasicIterativeHand):
             result = self._agent.invoke(langchain_user_message(step_prompt))
             content = self._result_content(result)
             changed = self._apply_inline_edits(content)
-            read_feedback = self._execute_read_requests(content)
-            tool_feedback = self._execute_tool_requests(content)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
-            transcripts.append(f"[iteration {iteration}]\n{content}")
-            if changed:
-                transcripts.append(f"[files updated] {', '.join(changed)}")
-            if combined_feedback:
-                transcripts.append(f"[tool results]\n{combined_feedback}")
+            combined_feedback = self._collect_tool_feedback(content)
+            self._append_iteration_transcript(
+                transcripts,
+                iteration,
+                content,
+                changed,
+                combined_feedback,
+            )
             prior = self._merge_iteration_summary(content, combined_feedback)
             if self._is_satisfied(content):
                 completed = True
@@ -968,11 +1012,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
             changed = self._apply_inline_edits(content)
             if changed:
                 yield f"\n[files updated] {', '.join(changed)}\n"
-            read_feedback = self._execute_read_requests(content)
-            tool_feedback = self._execute_tool_requests(content)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
+            combined_feedback = self._collect_tool_feedback(content)
             if combined_feedback:
                 yield f"\n[tool results]\n{combined_feedback}\n"
             prior = self._merge_iteration_summary(content, combined_feedback)
@@ -1110,16 +1150,14 @@ class BasicAtomicHand(_BasicIterativeHand):
             response = self._agent.run(self._make_input(step_prompt))
             content = self._extract_message(response)
             changed = self._apply_inline_edits(content)
-            read_feedback = self._execute_read_requests(content)
-            tool_feedback = self._execute_tool_requests(content)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
-            transcripts.append(f"[iteration {iteration}]\n{content}")
-            if changed:
-                transcripts.append(f"[files updated] {', '.join(changed)}")
-            if combined_feedback:
-                transcripts.append(f"[tool results]\n{combined_feedback}")
+            combined_feedback = self._collect_tool_feedback(content)
+            self._append_iteration_transcript(
+                transcripts,
+                iteration,
+                content,
+                changed,
+                combined_feedback,
+            )
             prior = self._merge_iteration_summary(content, combined_feedback)
             if self._is_satisfied(content):
                 completed = True
@@ -1229,11 +1267,7 @@ class BasicAtomicHand(_BasicIterativeHand):
             changed = self._apply_inline_edits(stream_text)
             if changed:
                 yield f"\n[files updated] {', '.join(changed)}\n"
-            read_feedback = self._execute_read_requests(stream_text)
-            tool_feedback = self._execute_tool_requests(stream_text)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
+            combined_feedback = self._collect_tool_feedback(stream_text)
             if combined_feedback:
                 yield f"\n[tool results]\n{combined_feedback}\n"
             prior = self._merge_iteration_summary(stream_text, combined_feedback)
