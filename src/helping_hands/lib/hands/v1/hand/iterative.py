@@ -531,6 +531,28 @@ class _BasicIterativeHand(Hand):
             return f"\nPR status: {status}\n"
         return ""
 
+    def _auth_status_line(self) -> str:
+        """Return a one-line auth status banner for the current provider.
+
+        Checks whether the provider's API key environment variable is set
+        and returns a formatted string like::
+
+            [backend] provider=openai | auth=OPENAI_API_KEY (set)
+
+        Returns:
+            A single-line status string (newline-terminated).
+        """
+        env_name = self._hand_model.provider.api_key_env_var
+        label = (
+            _AUTH_PRESENT_LABEL
+            if os.environ.get(env_name, "").strip()
+            else _AUTH_ABSENT_LABEL
+        )
+        return (
+            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
+            f" | auth={env_name} ({label})\n"
+        )
+
     def _run_tool_request(
         self,
         *,
@@ -881,16 +903,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
 
-        _env_name = self._hand_model.provider.api_key_env_var
-        _present = (
-            _AUTH_PRESENT_LABEL
-            if os.environ.get(_env_name, "").strip()
-            else _AUTH_ABSENT_LABEL
-        )
-        yield (
-            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
-            f" | auth={_env_name} ({_present})\n"
-        )
+        yield self._auth_status_line()
 
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():
@@ -1128,16 +1141,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         prior = ""
         bootstrap_context = self._build_bootstrap_context()
 
-        _env_name = self._hand_model.provider.api_key_env_var
-        _present = (
-            _AUTH_PRESENT_LABEL
-            if os.environ.get(_env_name, "").strip()
-            else _AUTH_ABSENT_LABEL
-        )
-        yield (
-            f"[{self._BACKEND_NAME}] provider={self._hand_model.provider.name}"
-            f" | auth={_env_name} ({_present})\n"
-        )
+        yield self._auth_status_line()
 
         for iteration in range(1, self.max_iterations + 1):
             if self._is_interrupted():

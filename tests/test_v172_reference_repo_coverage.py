@@ -90,9 +90,9 @@ class TestCloneReferenceReposTimeout:
         repo_index = RepoIndex(root=tmp_path, files=[])
         _clone_reference_repos(("owner/repo",), repo_index)
         captured = capsys.readouterr()
-        assert (
-            "Warning: git clone timed out for reference repo owner/repo" in captured.out
-        )
+        assert "Warning:" in captured.out
+        assert "timed out" in captured.out
+        assert "owner/repo" in captured.out
         assert len(repo_index.reference_repos) == 0
 
     @patch("helping_hands.cli.main.atexit.register")
@@ -176,7 +176,9 @@ class TestCloneReferenceReposSuccess:
         _clone_reference_repos(("owner/repo",), repo_index)
         assert len(repo_index.reference_repos) == 0
         captured = capsys.readouterr()
-        assert "Warning: failed to clone reference repo owner/repo" in captured.out
+        assert "Warning:" in captured.out
+        assert "failed to clone" in captured.out
+        assert "owner/repo" in captured.out
 
     @patch("helping_hands.cli.main.atexit.register")
     @patch("helping_hands.cli.main.mkdtemp")

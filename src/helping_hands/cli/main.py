@@ -60,6 +60,66 @@ _DEFAULT_CLONE_DEPTH = 1
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
 
+_REPO_SPEC_PATTERN = r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
+"""Regex pattern matching a GitHub ``owner/repo`` specifier."""
+
+
+def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
+    """Call *fn* and exit on ``ValueError``.
+
+    Wraps a validation callable so that a ``ValueError`` is printed to
+    *stderr* and the process exits with code 1.  Returns *fn*'s result
+    on success.
+
+    Args:
+        fn: Callable to invoke.
+        *args: Positional arguments forwarded to *fn*.
+        **kwargs: Keyword arguments forwarded to *fn*.
+
+    Returns:
+        The return value of *fn* when no ``ValueError`` is raised.
+    """
+    try:
+        return fn(*args, **kwargs)  # type: ignore[operator]
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _run_git_clone(
+    url: str, dest: Path, *, label: str
+) -> subprocess.CompletedProcess[str]:
+    """Run ``git clone --depth …`` and return the completed process.
+
+    Args:
+        url: The HTTPS clone URL.
+        dest: Destination directory for the clone.
+        label: Human-readable label for error messages (e.g. ``owner/repo``).
+
+    Returns:
+        The :class:`subprocess.CompletedProcess` on success.
+
+    Raises:
+        ValueError: If cloning times out or exits with a non-zero code.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=_git_noninteractive_env(),
+            timeout=_GIT_CLONE_TIMEOUT_S,
+        )
+    except TimeoutExpired as exc:
+        raise ValueError(
+            f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {label}"
+        ) from exc
+    if result.returncode != 0:
+        stderr = _redact_sensitive(result.stderr.strip() or "unknown git clone error")
+        raise ValueError(f"failed to clone {label}: {stderr}")
+    return result
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for CLI mode."""
@@ -186,28 +246,18 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
-    try:
-        selected_tools = meta_tools.normalize_tool_selection(args.tools)
-        meta_tools.validate_tool_category_names(selected_tools)
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+    selected_tools = _validate_or_exit(meta_tools.normalize_tool_selection, args.tools)
+    _validate_or_exit(meta_tools.validate_tool_category_names, selected_tools)
 
-    try:
-        selected_skills = meta_skills.normalize_skill_selection(args.skills)
-        meta_skills.validate_skill_names(selected_skills)
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+    selected_skills = _validate_or_exit(
+        meta_skills.normalize_skill_selection, args.skills
+    )
+    _validate_or_exit(meta_skills.validate_skill_names, selected_skills)
 
-    try:
-        if args.pr_number is not None:
-            require_positive_int(args.pr_number, "--pr-number")
-        if args.max_iterations is not None:
-            require_positive_int(args.max_iterations, "--max-iterations")
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+    if args.pr_number is not None:
+        _validate_or_exit(require_positive_int, args.pr_number, "--pr-number")
+    if args.max_iterations is not None:
+        _validate_or_exit(require_positive_int, args.max_iterations, "--max-iterations")
 
     if args.e2e:
         config = Config.from_env(
@@ -421,30 +471,16 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
     if path.is_dir():
         return path, None
 
-    if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+    if re.fullmatch(_REPO_SPEC_PATTERN, repo):
         dest_root = Path(mkdtemp(prefix=_TEMP_CLONE_PREFIX, dir=_repo_tmp_dir()))
         atexit.register(shutil.rmtree, dest_root, True)
         dest = dest_root / "repo"
         url = _github_clone_url(repo)
         try:
-            result = subprocess.run(
-                ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
-                capture_output=True,
-                text=True,
-                check=False,
-                env=_git_noninteractive_env(),
-                timeout=_GIT_CLONE_TIMEOUT_S,
-            )
-        except TimeoutExpired as exc:
+            _run_git_clone(url, dest, label=repo)
+        except ValueError:
             shutil.rmtree(dest_root, ignore_errors=True)
-            raise ValueError(
-                f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
-            ) from exc
-        if result.returncode != 0:
-            stderr = result.stderr.strip() or "unknown git clone error"
-            stderr = _redact_sensitive(stderr)
-            msg = f"failed to clone {repo}: {stderr}"
-            raise ValueError(msg)
+            raise
         return dest.resolve(), repo
 
     raise ValueError(f"{repo} is not a directory or owner/repo reference")
@@ -471,27 +507,9 @@ def _clone_reference_repos(
         dest = dest_root / "repo"
         url = _github_clone_url(spec, token=github_token)
         try:
-            result = subprocess.run(
-                [
-                    "git",
-                    "clone",
-                    "--depth",
-                    str(_DEFAULT_CLONE_DEPTH),
-                    url,
-                    str(dest),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-                env=_git_noninteractive_env(),
-                timeout=_GIT_CLONE_TIMEOUT_S,
-            )
-        except TimeoutExpired:
-            print(f"Warning: git clone timed out for reference repo {spec}")
-            continue
-        if result.returncode != 0:
-            stderr = _redact_sensitive(result.stderr.strip() or "unknown error")
-            print(f"Warning: failed to clone reference repo {spec}: {stderr}")
+            _run_git_clone(url, dest, label=spec)
+        except ValueError as exc:
+            print(f"Warning: {exc}")
             continue
         resolved = dest.resolve()
         repo_index.reference_repos.append((spec, resolved))

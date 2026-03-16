@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v221](exec-plans/completed/2026/v221-cli-clone-auth-validate-helpers.md) —
+  DRY `_run_git_clone()` helper (replacing duplicate subprocess logic in
+  `_resolve_repo_path`/`_clone_reference_repos`), `_auth_status_line()` method
+  on `_BasicIterativeHand` (replacing inline auth banners in both stream methods),
+  `_validate_or_exit()` wrapper, `_REPO_SPEC_PATTERN` constant;
+  37 tests (5331 passed, 219 skipped)
+
 - [2026-03-16 v220](exec-plans/completed/2026/v220-pr-status-line-helper-cli-validation.md) —
   DRY `_pr_status_line()` static method on `_BasicIterativeHand` (replacing
   4 inline PR status yield blocks in `iterative.py`), CLI validation cleanup

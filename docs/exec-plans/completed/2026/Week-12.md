@@ -4,6 +4,22 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — DRY git clone helper, auth status line & validation wrapper (v221)
+
+**`_run_git_clone()` helper:** New function in `cli/main.py` encapsulating `subprocess.run` with `--depth`, timeout handling, non-zero exit handling, and stderr redaction. Replaces duplicate git clone subprocess logic in `_resolve_repo_path()` and `_clone_reference_repos()`.
+
+**`_auth_status_line()` method:** New instance method on `_BasicIterativeHand` in `iterative.py` returning the `[backend] provider=… | auth=… (set/not set)` banner. Replaces identical 6-line inline blocks in both `BasicLangGraphHand.stream()` and `BasicAtomicHand.stream()`.
+
+**`_validate_or_exit()` helper:** New function in `cli/main.py` wrapping validation callables in try/except ValueError → stderr + sys.exit(1). Replaces 3 identical try-except blocks in `main()`.
+
+**`_REPO_SPEC_PATTERN` constant:** New module-level constant for the `owner/repo` regex, replacing inline regex in `_resolve_repo_path()`.
+
+**`tests/test_v221_cli_clone_auth_validate.py`:** 37 tests across 5 classes covering `_run_git_clone` (7), `_validate_or_exit` (7), `_REPO_SPEC_PATTERN` (9), `_auth_status_line` (8), and source consistency (6). 2 existing v172 tests updated for new error message format.
+
+**37 new tests. 5331 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — DRY PR status line helper & CLI validation cleanup (v220)
 
 **DRY `_pr_status_line()` static method:** New static method on `_BasicIterativeHand` in `iterative.py` replaces 4 identical inline PR metadata yield blocks (2 in `BasicLangGraphHand.stream()`, 2 in `BasicAtomicHand.stream()`). Returns `"\nPR created: {url}\n"` when URL present, `"\nPR status: {status}\n"` for non-skipped statuses, or empty string otherwise. Adds truthy guard on status to prevent `"PR status: None"` from empty metadata.
