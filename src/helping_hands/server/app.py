@@ -3702,7 +3702,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
                         concurrency = pool.get("max-concurrency")
                         if isinstance(concurrency, int) and concurrency > 0:
                             per_worker[worker_name] = concurrency
-    except (KeyError, TypeError, ValueError, OSError, RuntimeError):
+    except Exception:
         logger.debug("Failed to resolve worker capacity", exc_info=True)
 
     if per_worker:

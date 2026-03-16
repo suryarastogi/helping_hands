@@ -228,48 +228,21 @@ class TestCLIBaseCiFixLoopHandler:
 
 
 class TestAppResolveWorkerCapacityHandler:
-    """Verify _resolve_worker_capacity handler is narrowed."""
+    """Verify _resolve_worker_capacity uses broad Exception handler.
 
-    def test_no_bare_exception(self) -> None:
-        handlers = _find_handlers_near_keyword(
-            _server_root() / "app.py", "Failed to resolve worker capacity"
-        )
-        for handler in handlers:
-            assert not _handler_catches_bare_exception(handler), (
-                "_resolve_worker_capacity handler still catches bare Exception"
-            )
+    This is a graceful degradation handler — Celery can raise many exception
+    types (ConnectionError, TimeoutError, RuntimeError, kombu errors, etc.)
+    and we must always fall back to env/default rather than crash.
+    """
 
-    def test_catches_key_error(self) -> None:
+    def test_catches_exception(self) -> None:
         handlers = _find_handlers_near_keyword(
             _server_root() / "app.py", "Failed to resolve worker capacity"
         )
         assert handlers, "No handler found for _resolve_worker_capacity"
-        names = _handler_type_names(handlers[0])
-        assert "KeyError" in names
-
-    def test_catches_type_error(self) -> None:
-        handlers = _find_handlers_near_keyword(
-            _server_root() / "app.py", "Failed to resolve worker capacity"
+        assert _handler_catches_bare_exception(handlers[0]), (
+            "_resolve_worker_capacity should use broad except Exception"
         )
-        assert handlers
-        names = _handler_type_names(handlers[0])
-        assert "TypeError" in names
-
-    def test_catches_value_error(self) -> None:
-        handlers = _find_handlers_near_keyword(
-            _server_root() / "app.py", "Failed to resolve worker capacity"
-        )
-        assert handlers
-        names = _handler_type_names(handlers[0])
-        assert "ValueError" in names
-
-    def test_catches_os_error(self) -> None:
-        handlers = _find_handlers_near_keyword(
-            _server_root() / "app.py", "Failed to resolve worker capacity"
-        )
-        assert handlers
-        names = _handler_type_names(handlers[0])
-        assert "OSError" in names
 
 
 # ---------------------------------------------------------------------------
