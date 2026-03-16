@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — DRY _run_bash_script, prompt builder type guards (v226)
+
+**`_run_bash_script()` DRY:** Replaced 4-line manual `isinstance` checks for `script_path` and `inline_script` with `_parse_optional_str(payload, key=...)`. Gets whitespace stripping for free — whitespace-only values now normalize to `None` and hit the mutual-exclusion guard early.
+
+**`_build_prompt()` type guards:** Added `require_non_empty_string(diff, "diff")` and `require_non_empty_string(backend, "backend")` type guards. Previously, passing `None` for `diff` would silently produce `"```diff\nNone\n```"` in the prompt.
+
+**`_build_commit_message_prompt()` type guards:** Same `require_non_empty_string()` guards for `diff` and `backend` parameters.
+
+**`tests/test_v226_bash_runner_dry_prompt_builder_guards.py`:** 23 tests across 3 classes covering source consistency, type rejection, whitespace normalization, and valid pass-through.
+
+**23 new tests. 5462 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — Validation type guards, _normalize_args container check, web.py DRY (v225)
 
 **`require_non_empty_string()` type guard:** Added `isinstance(value, str)` check raising `TypeError` for non-string inputs (None, int, bool, list, etc.). Previously caused `AttributeError` on `.strip()`.

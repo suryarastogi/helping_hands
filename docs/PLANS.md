@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v226](exec-plans/completed/2026/v226-bash-runner-dry-prompt-builder-type-guards.md) —
+  DRY `_run_bash_script()` via `_parse_optional_str()` (replacing manual isinstance),
+  `require_non_empty_string()` type guards for `_build_prompt()`/`_build_commit_message_prompt()`
+  diff/backend params; 23 tests (5462 passed, 219 skipped)
+
 - [2026-03-16 v225](exec-plans/completed/2026/v225-validation-type-guards-normalize-args.md) —
   Type guards for `require_non_empty_string` (TypeError for non-strings) and
   `require_positive_int` (TypeError for non-int/bool), `_normalize_args` container

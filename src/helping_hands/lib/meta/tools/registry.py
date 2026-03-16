@@ -248,12 +248,8 @@ def _run_bash_script(
         ValueError: If neither or both of ``script_path``/``inline_script``
             are provided, or if they have invalid types.
     """
-    script_path = payload.get("script_path")
-    inline_script = payload.get("inline_script")
-    if script_path is not None and not isinstance(script_path, str):
-        raise ValueError("script_path must be a string")
-    if inline_script is not None and not isinstance(inline_script, str):
-        raise ValueError("inline_script must be a string")
+    script_path = _parse_optional_str(payload, key="script_path")
+    inline_script = _parse_optional_str(payload, key="inline_script")
     has_path = script_path is not None
     has_inline = inline_script is not None
     if has_path == has_inline:
