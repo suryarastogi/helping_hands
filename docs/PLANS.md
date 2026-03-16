@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v237](exec-plans/completed/2026/v237-remaining-exception-narrowing.md) —
+  Narrow remaining `except Exception` in base.py (2 sites), cli/base.py (1 site),
+  and app.py (2 sites) to specific exception types;
+  24 tests (5665 passed, 225 skipped)
+
 - [2026-03-16 v236](exec-plans/completed/2026/v236-ci-conclusion-enum-github-exception-narrowing.md) —
   Use `CIConclusion` enum members in `github.py` comparisons, narrow `except Exception`
   to `(GithubException, OSError)` in `base.py` (3 sites) and `e2e.py` (1 site);

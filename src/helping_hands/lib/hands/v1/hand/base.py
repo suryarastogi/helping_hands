@@ -933,7 +933,7 @@ class Hand(abc.ABC):
         )
         try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
-        except Exception:
+        except (GithubException, OSError):
             logger.debug(
                 "Failed to update PR #%s description", self.pr_number, exc_info=True
             )
@@ -1229,7 +1229,7 @@ class Hand(abc.ABC):
             metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
             metadata[_META_PR_ERROR] = str(exc)
             return metadata
-        except Exception as exc:
+        except (GithubException, OSError) as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
             metadata[_META_PR_STATUS] = PRStatus.ERROR
             metadata[_META_PR_ERROR] = str(exc)

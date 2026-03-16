@@ -3702,7 +3702,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
                         concurrency = pool.get("max-concurrency")
                         if isinstance(concurrency, int) and concurrency > 0:
                             per_worker[worker_name] = concurrency
-    except Exception:
+    except (KeyError, TypeError, ValueError, OSError):
         logger.debug("Failed to resolve worker capacity", exc_info=True)
 
     if per_worker:
@@ -3839,7 +3839,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
     if task.enabled:
         try:
             next_run = next_run_time(task.cron_expression).isoformat()
-        except Exception:
+        except (ValueError, TypeError):
             logger.debug(
                 "Failed to calculate next run for schedule %s",
                 getattr(task, "schedule_id", "?"),

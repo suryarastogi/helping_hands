@@ -321,7 +321,7 @@ class TestCiFixLoopException:
             patch.object(
                 stub,
                 "_poll_ci_checks",
-                new=AsyncMock(side_effect=RuntimeError("network error")),
+                new=AsyncMock(side_effect=OSError("network error")),
             ),
         ):
             result = _run(

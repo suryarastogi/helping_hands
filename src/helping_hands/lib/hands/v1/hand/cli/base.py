@@ -16,6 +16,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
+from github import GithubException
+
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github import (
     _CI_RUN_FAILURE_CONCLUSIONS,
@@ -1541,7 +1543,12 @@ class _TwoPhaseCLIHand(Hand):
                     f"after {self.ci_max_retries} attempts.\n"
                 )
 
-        except Exception as exc:
+        except (
+            GithubException,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            OSError,
+        ) as exc:
             logger.debug("_ci_fix_loop unexpected error", exc_info=True)
             metadata[_META_CI_FIX_STATUS] = CIFixStatus.ERROR
             metadata[_META_CI_FIX_ERROR] = str(exc)

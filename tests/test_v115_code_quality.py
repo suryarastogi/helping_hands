@@ -16,6 +16,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+from github import GithubException
 
 pytest.importorskip("fastapi")
 
@@ -209,7 +210,7 @@ class TestUpdatePrDescriptionLogging:
         hand.pr_number = 99
 
         mock_gh = MagicMock()
-        mock_gh.update_pr_body.side_effect = RuntimeError("network timeout")
+        mock_gh.update_pr_body.side_effect = GithubException(500, "API error", None)
 
         with (
             patch(
