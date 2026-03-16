@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v218](exec-plans/completed/2026/v218-finalize-pr-refactor.md) —
+  Extract `_generate_pr_title_and_body()` (shared helper replacing duplicated
+  PR description generation across `_create_pr_for_diverged_branch`,
+  `_update_pr_description`, and `_finalize_repo_pr`), extract `_create_new_pr()`
+  from `_finalize_repo_pr()` reducing it from 194 → 120 lines;
+  14 tests (5240 passed, 219 skipped)
+
 - [2026-03-16 v217](exec-plans/completed/2026/v217-provider-consistency-fixes.md) —
   Fix Google LangChain missing `streaming` parameter, Google provider
   empty-contents validation, Claude CLI GPT model filter warning log;

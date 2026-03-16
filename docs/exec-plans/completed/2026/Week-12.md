@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Finalize PR refactor (v218)
+
+**Extract `_generate_pr_title_and_body()` helper:** New shared method in `base.py` that encapsulates the "try rich description, fall back to generic template" pattern. Replaces duplicate code in `_finalize_repo_pr()`, `_create_pr_for_diverged_branch()`, and `_update_pr_description()` (3 call sites → 1 shared helper).
+
+**Extract `_create_new_pr()` from `_finalize_repo_pr()`:** Pulls the new-PR creation path (branch creation, commit, push, base-branch resolution, PR creation) into its own method. Reduces `_finalize_repo_pr()` from 194 → ~120 lines, making it a clean orchestrator that delegates to `_push_to_existing_pr()` or `_create_new_pr()`.
+
+**Updated source-inspection tests:** `test_v183_message_templates_and_logging.py` updated to check for constants in `_create_new_pr()` and `_generate_pr_title_and_body()` instead of the old monolithic `_finalize_repo_pr()`.
+
+**`tests/test_v218_finalize_pr_refactor.py`:** 14 tests: `_generate_pr_title_and_body` (rich path, fallback path, template fallback, argument forwarding, commit SHA pass-through), `_create_new_pr` (full flow, branch naming, fallback commit message, API error base branch, remote base branch, title/body forwarding), `_update_pr_description` delegation (2), `_create_pr_for_diverged_branch` delegation (1).
+
+**14 new tests. 5240 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — Provider consistency fixes (v217)
 
 **Google LangChain streaming fix:** Added missing `streaming=streaming` parameter to `ChatGoogleGenerativeAI()` in `build_langchain_chat_model()` (`model_provider.py`), matching the parameter already passed to OpenAI, Ollama, Anthropic, and LiteLLM providers.

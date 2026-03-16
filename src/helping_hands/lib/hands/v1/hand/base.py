@@ -829,6 +829,67 @@ class Hand(abc.ABC):
             pr_commit=commit_sha,
         )
 
+    def _generate_pr_title_and_body(
+        self,
+        *,
+        repo_dir: Path,
+        base_branch: str,
+        backend: str,
+        prompt: str,
+        summary: str,
+        commit_sha: str,
+    ) -> tuple[str, str]:
+        """Generate a PR title and body, falling back to generic templates.
+
+        Attempts to produce a rich description via the external
+        ``generate_pr_description`` helper.  When that returns *None*
+        (e.g. the helper binary is unavailable), the method falls back to
+        ``_commit_message_from_prompt`` for the title and
+        ``_build_generic_pr_body`` for the body.
+
+        Args:
+            repo_dir: Absolute path to the repository working directory.
+            base_branch: Branch the PR will target.
+            backend: Hand backend name for metadata.
+            prompt: The original user-supplied task prompt.
+            summary: AI-generated change summary.
+            commit_sha: Commit SHA to embed in the generic body.
+
+        Returns:
+            A ``(title, body)`` tuple.
+        """
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            generate_pr_description,
+        )
+
+        rich_desc = generate_pr_description(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            base_branch=base_branch,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        )
+        if rich_desc is not None:
+            return rich_desc.title, rich_desc.body
+
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            _commit_message_from_prompt,
+        )
+
+        pr_title = _commit_message_from_prompt(
+            prompt, summary
+        ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
+        stamp = _utc_stamp()
+        pr_body = self._build_generic_pr_body(
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+            commit_sha=commit_sha,
+            stamp_utc=stamp,
+        )
+        return pr_title, pr_body
+
     def _update_pr_description(
         self,
         *,
@@ -846,29 +907,14 @@ class Hand(abc.ABC):
             raise ValueError(
                 "pr_number must be set before calling _update_pr_description"
             )
-        stamp = _utc_stamp()
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            generate_pr_description,
-        )
-
-        rich_desc = generate_pr_description(
-            cmd=self._pr_description_cmd(),
+        _, pr_body = self._generate_pr_title_and_body(
             repo_dir=repo_dir,
             base_branch=base_branch,
             backend=backend,
             prompt=prompt,
             summary=summary,
+            commit_sha=commit_sha,
         )
-        if rich_desc is not None:
-            pr_body = rich_desc.body
-        else:
-            pr_body = self._build_generic_pr_body(
-                backend=backend,
-                prompt=prompt,
-                summary=summary,
-                commit_sha=commit_sha,
-                stamp_utc=stamp,
-            )
         try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
         except Exception:
@@ -902,37 +948,14 @@ class Hand(abc.ABC):
         gh.create_branch(repo_dir, new_branch)
         self._push_noninteractive(gh, repo_dir, new_branch)
 
-        stamp = _utc_stamp()
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            generate_pr_description,
-        )
-
-        rich_desc = generate_pr_description(
-            cmd=self._pr_description_cmd(),
+        pr_title, pr_body = self._generate_pr_title_and_body(
             repo_dir=repo_dir,
             base_branch=pr_branch,
             backend=backend,
             prompt=prompt,
             summary=summary,
+            commit_sha=commit_sha,
         )
-        if rich_desc is not None:
-            pr_title = rich_desc.title
-            pr_body = rich_desc.body
-        else:
-            from helping_hands.lib.hands.v1.hand.pr_description import (
-                _commit_message_from_prompt,
-            )
-
-            pr_title = _commit_message_from_prompt(
-                prompt, summary
-            ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
-            pr_body = self._build_generic_pr_body(
-                backend=backend,
-                prompt=prompt,
-                summary=summary,
-                commit_sha=commit_sha,
-                stamp_utc=stamp,
-            )
         pr_body += f"\n\n---\nFollow-up to #{self.pr_number}."
 
         pr = gh.create_pr(
@@ -948,6 +971,96 @@ class Hand(abc.ABC):
             pr_url=pr.url,
             pr_number=str(pr.number),
             pr_branch=new_branch,
+            pr_commit=commit_sha,
+        )
+
+    def _create_new_pr(
+        self,
+        *,
+        gh: Any,
+        repo: str,
+        repo_dir: Path,
+        backend: str,
+        prompt: str,
+        summary: str,
+        metadata: dict[str, str],
+    ) -> dict[str, str]:
+        """Create a new branch, commit, push, and open a pull request.
+
+        This is the "happy path" for first-time PR creation when no existing
+        PR is being updated.  Branch naming, commit message generation, and
+        PR description generation are all handled here.
+
+        Args:
+            gh: Authenticated :class:`GitHubClient` instance.
+            repo: ``"owner/repo"`` string.
+            repo_dir: Absolute path to the repository working directory.
+            backend: Hand backend name for PR metadata.
+            prompt: The original user-supplied task prompt.
+            summary: AI-generated change summary.
+            metadata: Mutable metadata dict to populate with PR results.
+
+        Returns:
+            Updated *metadata* dict with PR status, URL, number, branch,
+            and commit SHA.
+        """
+        branch = f"{_BRANCH_PREFIX}{backend}-{uuid4().hex[:_UUID_HEX_LENGTH]}"
+        gh.create_branch(repo_dir, branch)
+
+        from helping_hands.lib.hands.v1.hand.pr_description import (
+            generate_commit_message,
+        )
+
+        commit_msg = generate_commit_message(
+            cmd=self._pr_description_cmd(),
+            repo_dir=repo_dir,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+        ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
+
+        commit_sha = self._add_and_commit_with_hook_retry(
+            gh,
+            repo_dir,
+            commit_msg,
+        )
+        self._push_noninteractive(gh, repo_dir, branch)
+
+        base_branch = self._default_base_branch()
+        try:
+            repo_obj = gh.get_repo(repo)
+            if getattr(repo_obj, "default_branch", ""):
+                base_branch = str(repo_obj.default_branch)
+        except Exception:
+            logger.debug(
+                "could not fetch default branch for %s, using %r",
+                repo,
+                base_branch,
+                exc_info=True,
+            )
+
+        pr_title, pr_body = self._generate_pr_title_and_body(
+            repo_dir=repo_dir,
+            base_branch=base_branch,
+            backend=backend,
+            prompt=prompt,
+            summary=summary,
+            commit_sha=commit_sha,
+        )
+
+        pr = gh.create_pr(
+            repo,
+            title=pr_title,
+            body=pr_body,
+            head=branch,
+            base=base_branch,
+        )
+        return self._pr_result_metadata(
+            metadata,
+            status=PRStatus.CREATED,
+            pr_url=pr.url,
+            pr_number=str(pr.number),
+            pr_branch=branch,
             pr_commit=commit_sha,
         )
 
@@ -1050,88 +1163,14 @@ class Hand(abc.ABC):
                         metadata=metadata,
                     )
 
-                branch = f"{_BRANCH_PREFIX}{backend}-{uuid4().hex[:_UUID_HEX_LENGTH]}"
-                gh.create_branch(repo_dir, branch)
-
-                from helping_hands.lib.hands.v1.hand.pr_description import (
-                    generate_commit_message,
-                )
-
-                commit_msg = generate_commit_message(
-                    cmd=self._pr_description_cmd(),
+                return self._create_new_pr(
+                    gh=gh,
+                    repo=repo,
                     repo_dir=repo_dir,
                     backend=backend,
                     prompt=prompt,
                     summary=summary,
-                ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
-
-                commit_sha = self._add_and_commit_with_hook_retry(
-                    gh,
-                    repo_dir,
-                    commit_msg,
-                )
-                self._push_noninteractive(gh, repo_dir, branch)
-
-                base_branch = self._default_base_branch()
-                try:
-                    repo_obj = gh.get_repo(repo)
-                    if getattr(repo_obj, "default_branch", ""):
-                        base_branch = str(repo_obj.default_branch)
-                except Exception:
-                    logger.debug(
-                        "could not fetch default branch for %s, using %r",
-                        repo,
-                        base_branch,
-                        exc_info=True,
-                    )
-
-                stamp = _utc_stamp()
-
-                from helping_hands.lib.hands.v1.hand.pr_description import (
-                    generate_pr_description,
-                )
-
-                rich_desc = generate_pr_description(
-                    cmd=self._pr_description_cmd(),
-                    repo_dir=repo_dir,
-                    base_branch=base_branch,
-                    backend=backend,
-                    prompt=prompt,
-                    summary=summary,
-                )
-                if rich_desc is not None:
-                    pr_title = rich_desc.title
-                    pr_body = rich_desc.body
-                else:
-                    from helping_hands.lib.hands.v1.hand.pr_description import (
-                        _commit_message_from_prompt,
-                    )
-
-                    pr_title = _commit_message_from_prompt(
-                        prompt, summary
-                    ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
-                    pr_body = self._build_generic_pr_body(
-                        backend=backend,
-                        prompt=prompt,
-                        summary=summary,
-                        commit_sha=commit_sha,
-                        stamp_utc=stamp,
-                    )
-
-                pr = gh.create_pr(
-                    repo,
-                    title=pr_title,
-                    body=pr_body,
-                    head=branch,
-                    base=base_branch,
-                )
-                return self._pr_result_metadata(
-                    metadata,
-                    status=PRStatus.CREATED,
-                    pr_url=pr.url,
-                    pr_number=str(pr.number),
-                    pr_branch=branch,
-                    pr_commit=commit_sha,
+                    metadata=metadata,
                 )
         except ValueError as exc:
             metadata[_META_PR_STATUS] = PRStatus.MISSING_TOKEN
