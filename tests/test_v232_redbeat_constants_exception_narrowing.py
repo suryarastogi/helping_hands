@@ -283,10 +283,7 @@ class TestEnsureUsageScheduleExceptionNarrowing:
         key_error_try = None
         for try_node in try_nodes:
             for handler in try_node.handlers:
-                if (
-                    isinstance(handler.type, ast.Name)
-                    and handler.type.id == "KeyError"
-                ):
+                if isinstance(handler.type, ast.Name) and handler.type.id == "KeyError":
                     key_error_try = try_node
                     break
 
