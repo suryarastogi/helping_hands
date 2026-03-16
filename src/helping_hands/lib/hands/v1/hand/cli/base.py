@@ -1039,6 +1039,24 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
+        """Execute a CLI subprocess and stream its output.
+
+        Args:
+            cmd: Command and arguments to execute.  Must contain at least
+                one non-empty element.
+            emit: Async callback that receives incremental output chunks.
+
+        Returns:
+            Concatenated stdout/stderr output from the subprocess.
+
+        Raises:
+            ValueError: If *cmd* is empty or its first element is empty.
+            RuntimeError: If the subprocess cannot be started or times out.
+        """
+        if not cmd or not cmd[0]:
+            raise ValueError(
+                "cmd must be a non-empty list with a non-empty first element"
+            )
         env = self._build_subprocess_env()
         cwd = str(self.repo_index.root.resolve())
         if self.config.verbose:

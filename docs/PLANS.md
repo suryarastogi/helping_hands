@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v223](exec-plans/completed/2026/v223-input-validation-pr-metadata-finalize-cli-cmd.md) —
+  `require_non_empty_string` validation for `_pr_result_metadata` (4 fields),
+  `_finalize_repo_pr` (backend, prompt), `_invoke_cli_with_cmd` empty-list
+  guard and docstring; 20 tests (5377 passed, 219 skipped)
+
 - [2026-03-16 v222](exec-plans/completed/2026/v222-dry-close-coroutine-model-validation-task-result.md) —
   DRY `_close_coroutine` in test_cli.py (8 copies -> 1 module-level helper),
   `pytestmark` filterwarnings for coroutine RuntimeWarning,

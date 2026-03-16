@@ -492,7 +492,15 @@ class Hand(abc.ABC):
 
         Returns:
             The same *metadata* dict, updated in-place.
+
+        Raises:
+            ValueError: If any of the string fields is empty or
+                whitespace-only.
         """
+        require_non_empty_string(pr_url, "pr_url")
+        require_non_empty_string(pr_number, "pr_number")
+        require_non_empty_string(pr_branch, "pr_branch")
+        require_non_empty_string(pr_commit, "pr_commit")
         metadata.update(
             {
                 _META_PR_STATUS: status,
@@ -1147,7 +1155,13 @@ class Hand(abc.ABC):
             Metadata dict with keys ``pr_status``, ``pr_url``,
             ``pr_number``, ``pr_branch``, ``pr_commit``, and
             ``auto_pr``.
+
+        Raises:
+            ValueError: If *backend* or *prompt* is empty or
+                whitespace-only.
         """
+        require_non_empty_string(backend, "backend")
+        require_non_empty_string(prompt, "prompt")
         metadata = {
             "auto_pr": str(self.auto_pr).lower(),
             _META_PR_STATUS: _PR_STATUS_NOT_ATTEMPTED,

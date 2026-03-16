@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Input validation: PR metadata, finalize entry, CLI command (v223)
+
+**`_pr_result_metadata()` validation:** Added `require_non_empty_string` validation for `pr_url`, `pr_number`, `pr_branch`, `pr_commit` at entry. Prevents silent population of metadata with empty/whitespace values.
+
+**`_finalize_repo_pr()` validation:** Added `require_non_empty_string` validation for `backend` and `prompt` at entry. Summary intentionally excluded — AI backends may produce empty output, and `_build_generic_pr_body` already handles the empty-summary case.
+
+**`_invoke_cli_with_cmd()` hardening:** Added Google-style docstring with Args/Returns/Raises. Added precondition validation rejecting empty command lists and empty first elements before subprocess creation.
+
+**`tests/test_v223_input_validation_pr_metadata_finalize_cli_cmd.py`:** 20 tests across 5 classes covering metadata field rejection, finalize parameter rejection, CLI command validation, and source consistency checks. 1 existing `test_v208_pr_status_enum.py` test updated to use non-empty values.
+
+**20 new tests. 5377 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — DRY test helper, model_provider validation, task_result hardening (v222)
 
 **DRY `_close_coroutine()`:** Extracted 8 identical inline definitions in `test_cli.py` to a single module-level helper function. Added `pytestmark` `filterwarnings` to suppress `RuntimeWarning: coroutine ... was never awaited` from coverage.py tracer holding frame references after mocked `asyncio.run` closes the coroutine.

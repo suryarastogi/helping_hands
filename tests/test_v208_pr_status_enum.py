@@ -252,10 +252,10 @@ class TestPrResultMetadata:
         result = Hand._pr_result_metadata(
             meta,
             status=PRStatus.CREATED,
-            pr_url="",
-            pr_number="",
-            pr_branch="",
-            pr_commit="",
+            pr_url="https://github.com/o/r/pull/99",
+            pr_number="99",
+            pr_branch="helping-hands/test",
+            pr_commit="abc1234",
         )
         assert result is meta
         assert "existing" in result
