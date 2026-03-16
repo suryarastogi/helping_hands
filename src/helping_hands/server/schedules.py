@@ -24,6 +24,15 @@ from helping_hands.server.constants import (
 from helping_hands.server.constants import (
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
 )
+from helping_hands.server.constants import (
+    REDBEAT_KEY_PREFIX as _REDBEAT_KEY_PREFIX,
+)
+from helping_hands.server.constants import (
+    REDBEAT_SCHEDULE_ENTRY_PREFIX as _REDBEAT_SCHEDULE_ENTRY_PREFIX,
+)
+from helping_hands.server.constants import (
+    TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -448,8 +457,8 @@ class ScheduleManager:
         if RedBeatSchedulerEntry is None:
             raise RuntimeError("RedBeatSchedulerEntry unavailable after _check_redbeat")
         entry = RedBeatSchedulerEntry(
-            name=f"helping_hands:scheduled:{task.schedule_id}",
-            task="helping_hands.scheduled_build",
+            name=f"{_REDBEAT_SCHEDULE_ENTRY_PREFIX}{task.schedule_id}",
+            task=_TASK_NAME_SCHEDULED_BUILD,
             schedule=schedule,
             args=[task.schedule_id],
             app=self._app,
@@ -458,14 +467,14 @@ class ScheduleManager:
 
     def _delete_redbeat_entry(self, schedule_id: str) -> None:
         """Delete the RedBeat scheduler entry."""
-        entry_name = f"helping_hands:scheduled:{schedule_id}"
+        entry_name = f"{_REDBEAT_SCHEDULE_ENTRY_PREFIX}{schedule_id}"
         try:
             if RedBeatSchedulerEntry is None:
                 raise RuntimeError(
                     "RedBeatSchedulerEntry unavailable after _check_redbeat"
                 )
             entry = RedBeatSchedulerEntry.from_key(
-                f"redbeat:{entry_name}", app=self._app
+                f"{_REDBEAT_KEY_PREFIX}{entry_name}", app=self._app
             )
             entry.delete()
         except KeyError:

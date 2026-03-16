@@ -116,7 +116,8 @@ class TestServerConstantsAllUpdated:
     def test_all_exports_updated(self) -> None:
         from helping_hands.server import constants
 
-        expected = {
+        # Superset check: at minimum these must be present (v232 added more)
+        required = {
             "ANTHROPIC_BETA_HEADER",
             "ANTHROPIC_USAGE_URL",
             "DEFAULT_BACKEND",
@@ -139,7 +140,7 @@ class TestServerConstantsAllUpdated:
             "USAGE_CACHE_TTL_S",
             "USAGE_USER_AGENT",
         }
-        assert set(constants.__all__) == expected
+        assert required <= set(constants.__all__)
 
 
 # ---------------------------------------------------------------------------

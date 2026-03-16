@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — RedBeat prefix constants, task name constants, KeyError narrowing (v232)
+
+**RedBeat prefix constants:** Extracted `REDBEAT_KEY_PREFIX`, `REDBEAT_SCHEDULE_ENTRY_PREFIX`, and `REDBEAT_USAGE_ENTRY_NAME` to `server/constants.py`, replacing 3 scattered `"redbeat:"` and `"helping_hands:scheduled:"` string literals across `celery_app.py` and `schedules.py`.
+
+**Celery task name constants:** Extracted `TASK_NAME_SCHEDULED_BUILD` and `TASK_NAME_LOG_USAGE` to `server/constants.py`, replacing 4 bare task name strings in `@celery_app.task` decorators and RedBeat entry registrations.
+
+**Exception narrowing:** Changed `ensure_usage_schedule()` inner `except Exception:` to `except KeyError:` for RedBeat entry-not-found detection, consistent with `schedules.py:471`. Unexpected errors from `from_key()` now propagate to the outer handler instead of being silently treated as "not found."
+
+**`tests/test_v232_redbeat_constants_exception_narrowing.py`:** 20 tests — constant values/types, `__all__` consistency, AST-based source checks (no bare string literals remain), `celery_app.conf.redbeat_key_prefix` runtime assertion, and `ensure_usage_schedule` handler type verification.
+
+**20 new tests. 5566 passed, 220 skipped.**
+
+---
+
 ## Mar 16 — Claude CLI model filter, auth description, exception narrowing (v230)
 
 **`_resolve_cli_model()` expanded filter:** Now rejects both `gpt-*` and `openai/`-prefixed models. Previously `openai/o1` would survive the base-class provider strip and pass through as `o1`.

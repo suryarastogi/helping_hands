@@ -25,6 +25,11 @@ __all__ = [
     "MAX_REFERENCE_REPOS",
     "MAX_REPO_PATH_LENGTH",
     "MIN_CI_WAIT_MINUTES",
+    "REDBEAT_KEY_PREFIX",
+    "REDBEAT_SCHEDULE_ENTRY_PREFIX",
+    "REDBEAT_USAGE_ENTRY_NAME",
+    "TASK_NAME_LOG_USAGE",
+    "TASK_NAME_SCHEDULED_BUILD",
     "USAGE_API_TIMEOUT_S",
     "USAGE_CACHE_TTL_S",
     "USAGE_USER_AGENT",
@@ -104,3 +109,22 @@ MAX_MODEL_LENGTH = 200
 
 MAX_GITHUB_TOKEN_LENGTH = 500
 """Maximum character length for ``github_token`` fields."""
+
+# --- RedBeat scheduler ---------------------------------------------------------
+
+REDBEAT_KEY_PREFIX = "redbeat:"
+"""Key prefix used by RedBeat for scheduler entries in Redis."""
+
+REDBEAT_SCHEDULE_ENTRY_PREFIX = "helping_hands:scheduled:"
+"""Name prefix for RedBeat entries backing cron-scheduled build tasks."""
+
+REDBEAT_USAGE_ENTRY_NAME = "helping_hands:usage-logger"
+"""RedBeat entry name for the hourly Claude usage logging schedule."""
+
+# --- Celery task names ---------------------------------------------------------
+
+TASK_NAME_SCHEDULED_BUILD = "helping_hands.scheduled_build"
+"""Celery task name for scheduled build executions."""
+
+TASK_NAME_LOG_USAGE = "helping_hands.log_claude_usage"
+"""Celery task name for the periodic Claude usage logger."""

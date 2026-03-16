@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v232](exec-plans/completed/2026/v232-redbeat-constants-exception-narrowing.md) —
+  Extract RedBeat prefix constants (`REDBEAT_KEY_PREFIX`, `REDBEAT_SCHEDULE_ENTRY_PREFIX`,
+  `REDBEAT_USAGE_ENTRY_NAME`), Celery task name constants (`TASK_NAME_SCHEDULED_BUILD`,
+  `TASK_NAME_LOG_USAGE`), narrow `except Exception` → `except KeyError` in
+  `ensure_usage_schedule()`; 20 tests (5566 passed, 220 skipped)
+
 - [2026-03-16 v231](exec-plans/completed/2026/v231-type-annotation-opencode-auth-prompt-validation.md) —
   Fix `_input_schema` type annotation (`type: ignore` → `type[Any] | None` + RuntimeError guard),
   add `_describe_auth()` to OpenCodeCLIHand (provider-aware auth reporting),

@@ -55,6 +55,18 @@ from helping_hands.server.constants import (
     KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
 )
 from helping_hands.server.constants import (
+    REDBEAT_KEY_PREFIX as _REDBEAT_KEY_PREFIX,
+)
+from helping_hands.server.constants import (
+    REDBEAT_USAGE_ENTRY_NAME as _REDBEAT_USAGE_ENTRY_NAME,
+)
+from helping_hands.server.constants import (
+    TASK_NAME_LOG_USAGE as _TASK_NAME_LOG_USAGE,
+)
+from helping_hands.server.constants import (
+    TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
+)
+from helping_hands.server.constants import (
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
 )
 from helping_hands.server.constants import (
@@ -100,7 +112,7 @@ celery_app.conf.update(
     # RedBeat scheduler configuration for cron-scheduled tasks
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=_BROKER_URL,
-    redbeat_key_prefix="redbeat:",
+    redbeat_key_prefix=_REDBEAT_KEY_PREFIX,
 )
 
 
@@ -903,7 +915,7 @@ def build_feature(
             shutil.rmtree(ref_root, ignore_errors=True)
 
 
-@celery_app.task(bind=True, name="helping_hands.scheduled_build")
+@celery_app.task(bind=True, name=_TASK_NAME_SCHEDULED_BUILD)
 def scheduled_build(
     self: object,
     schedule_id: str,
@@ -999,7 +1011,7 @@ VALUES
 """
 
 
-@celery_app.task(name="helping_hands.log_claude_usage")
+@celery_app.task(name=_TASK_NAME_LOG_USAGE)
 def log_claude_usage() -> dict[str, Any]:
     """Fetch Claude Code usage from the OAuth API and log it to Postgres."""
     import json as _json
@@ -1100,19 +1112,19 @@ def ensure_usage_schedule() -> None:
         from celery.schedules import schedule as interval_schedule
         from redbeat import RedBeatSchedulerEntry
 
-        entry_name = "helping_hands:usage-logger"
+        entry_name = _REDBEAT_USAGE_ENTRY_NAME
         try:
             existing = RedBeatSchedulerEntry.from_key(
-                f"redbeat:{entry_name}", app=celery_app
+                f"{_REDBEAT_KEY_PREFIX}{entry_name}", app=celery_app
             )
             if existing:
                 return  # already registered
-        except Exception:
+        except KeyError:
             logger.debug("Usage schedule entry not found, creating", exc_info=True)
 
         entry = RedBeatSchedulerEntry(
             name=entry_name,
-            task="helping_hands.log_claude_usage",
+            task=_TASK_NAME_LOG_USAGE,
             schedule=interval_schedule(run_every=_USAGE_LOG_INTERVAL_S),
             app=celery_app,
         )
