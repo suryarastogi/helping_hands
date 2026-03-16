@@ -933,7 +933,7 @@ class Hand(abc.ABC):
         )
         try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
-        except (GithubException, OSError):
+        except Exception:
             logger.debug(
                 "Failed to update PR #%s description", self.pr_number, exc_info=True
             )
