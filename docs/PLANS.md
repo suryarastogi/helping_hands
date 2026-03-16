@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v234](exec-plans/completed/2026/v234-redis-url-constant-health-check-exception-narrowing.md) —
+  Extract `DEFAULT_REDIS_URL` constant to `server/constants.py`, narrow `except Exception`
+  handlers in health checks (`_check_redis_health`, `_check_db_health`) and
+  `celery_app.py` (`log_claude_usage` DB write, `ensure_usage_schedule`);
+  22 tests (5610 passed, 225 skipped)
+
 - [2026-03-16 v233](exec-plans/completed/2026/v233-response-status-constants-exception-narrowing.md) —
   Extract response status constants (`RESPONSE_STATUS_OK`, `RESPONSE_STATUS_ERROR`,
   `RESPONSE_STATUS_NA`) to `server/constants.py`, narrow `except Exception` handlers

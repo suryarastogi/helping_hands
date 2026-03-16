@@ -12,6 +12,7 @@ __all__ = [
     "DEFAULT_BACKEND",
     "DEFAULT_CI_WAIT_MINUTES",
     "DEFAULT_MAX_ITERATIONS",
+    "DEFAULT_REDIS_URL",
     "JWT_TOKEN_PREFIX",
     "KEYCHAIN_ACCESS_TOKEN_KEY",
     "KEYCHAIN_OAUTH_KEY",
@@ -70,6 +71,11 @@ KEYCHAIN_TIMEOUT_S = 5
 
 JWT_TOKEN_PREFIX = "ey"
 """Base64-encoded JWT header prefix used for raw token heuristic detection."""
+
+# --- Redis default URL --------------------------------------------------------
+
+DEFAULT_REDIS_URL = "redis://localhost:6379/0"
+"""Fallback Redis URL used when no broker/backend URL is configured."""
 
 # --- Build / schedule defaults ------------------------------------------------
 

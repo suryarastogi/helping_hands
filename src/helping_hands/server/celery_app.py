@@ -40,6 +40,9 @@ from helping_hands.server.constants import (
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
 )
 from helping_hands.server.constants import (
+    DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
+)
+from helping_hands.server.constants import (
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
 )
 from helping_hands.server.constants import (
@@ -93,9 +96,7 @@ def _resolve_celery_urls() -> tuple[str, str]:
     3. local default (`redis://localhost:6379/0`)
     """
     redis_url = os.environ.get("REDIS_URL")
-    broker_url = (
-        os.environ.get("CELERY_BROKER_URL") or redis_url or "redis://localhost:6379/0"
-    )
+    broker_url = os.environ.get("CELERY_BROKER_URL") or redis_url or _DEFAULT_REDIS_URL
     # Fall back to broker URL so polling still works when only broker is set.
     backend_url = os.environ.get("CELERY_RESULT_BACKEND") or redis_url or broker_url
     return broker_url, backend_url
@@ -1086,7 +1087,15 @@ def log_claude_usage() -> dict[str, Any]:
     # --- Write to Postgres ---
     try:
         import psycopg2
+    except ImportError as exc:
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"DB write failed: {exc}",
+            "session_pct": session_pct,
+            "weekly_pct": weekly_pct,
+        }
 
+    try:
         conn = psycopg2.connect(
             _get_db_url_writer(), connect_timeout=_DB_CONNECT_TIMEOUT_S
         )
@@ -1106,7 +1115,7 @@ def log_claude_usage() -> dict[str, Any]:
             conn.commit()
         finally:
             conn.close()
-    except Exception as exc:
+    except (psycopg2.Error, OSError) as exc:
         return {
             "status": _RESPONSE_STATUS_ERROR,
             "message": f"DB write failed: {exc}",
@@ -1126,7 +1135,14 @@ def ensure_usage_schedule() -> None:
     try:
         from celery.schedules import schedule as interval_schedule
         from redbeat import RedBeatSchedulerEntry
+    except ImportError:
+        logger.debug(
+            "Failed to register usage schedule (redbeat not installed)",
+            exc_info=True,
+        )
+        return
 
+    try:
         entry_name = _REDBEAT_USAGE_ENTRY_NAME
         try:
             existing = RedBeatSchedulerEntry.from_key(
@@ -1144,9 +1160,9 @@ def ensure_usage_schedule() -> None:
             app=celery_app,
         )
         entry.save()
-    except Exception:
+    except OSError:
         logger.debug(
-            "Failed to register usage schedule (Redis/redbeat unavailable)",
+            "Failed to register usage schedule (Redis unavailable)",
             exc_info=True,
         )
 

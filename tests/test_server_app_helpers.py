@@ -411,6 +411,7 @@ class TestCheckRedisHealth:
 
         fake_redis = types.ModuleType("redis")
         fake_redis.Redis = mock_redis_cls  # type: ignore[attr-defined]
+        fake_redis.RedisError = type("RedisError", (Exception,), {})  # type: ignore[attr-defined]
         monkeypatch.setitem(sys.modules, "redis", fake_redis)
 
         assert _check_redis_health() == "ok"
@@ -425,6 +426,7 @@ class TestCheckRedisHealth:
 
         fake_redis = types.ModuleType("redis")
         fake_redis.Redis = mock_redis_cls  # type: ignore[attr-defined]
+        fake_redis.RedisError = type("RedisError", (Exception,), {})  # type: ignore[attr-defined]
         monkeypatch.setitem(sys.modules, "redis", fake_redis)
 
         assert _check_redis_health() == "error"
@@ -453,6 +455,7 @@ class TestCheckDbHealth:
 
         mock_conn = MagicMock()
         mock_psycopg2 = MagicMock()
+        mock_psycopg2.Error = type("Error", (Exception,), {})
         mock_psycopg2.connect.return_value = mock_conn
         monkeypatch.setitem(sys.modules, "psycopg2", mock_psycopg2)
 
@@ -464,8 +467,10 @@ class TestCheckDbHealth:
 
         monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/test")
 
+        fake_pg_error = type("Error", (Exception,), {})
         mock_psycopg2 = MagicMock()
-        mock_psycopg2.connect.side_effect = Exception("connection refused")
+        mock_psycopg2.Error = fake_pg_error
+        mock_psycopg2.connect.side_effect = fake_pg_error("connection refused")
         monkeypatch.setitem(sys.modules, "psycopg2", mock_psycopg2)
 
         assert _check_db_health() == "error"

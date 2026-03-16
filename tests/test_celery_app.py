@@ -648,8 +648,10 @@ class TestLogClaudeUsage:
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
+        fake_pg_error = type("Error", (Exception,), {})
         mock_psycopg2 = MagicMock()
-        mock_psycopg2.connect.side_effect = Exception("connection refused")
+        mock_psycopg2.Error = fake_pg_error
+        mock_psycopg2.connect.side_effect = fake_pg_error("connection refused")
 
         with (
             patch(

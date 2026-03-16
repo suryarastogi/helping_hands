@@ -276,15 +276,20 @@ class TestEnsureUsageScheduleExceptionNarrowing:
             f"Expected at least 2 Try nodes, found {len(try_nodes)}"
         )
 
-        # The inner try is the second one (nested inside the outer try).
-        inner_try = try_nodes[1]
-        assert len(inner_try.handlers) >= 1, "Inner try has no except handlers"
+        # Find the try node whose handler catches KeyError (the inner
+        # from_key lookup).  After v234 the function has 3 try blocks:
+        # ImportError, OSError, and KeyError — so we search by handler type
+        # instead of relying on positional index.
+        key_error_try = None
+        for try_node in try_nodes:
+            for handler in try_node.handlers:
+                if (
+                    isinstance(handler.type, ast.Name)
+                    and handler.type.id == "KeyError"
+                ):
+                    key_error_try = try_node
+                    break
 
-        inner_handler = inner_try.handlers[0]
-        assert inner_handler.type is not None, "Inner except has no type (bare except)"
-        assert isinstance(inner_handler.type, ast.Name), (
-            f"Unexpected handler type node: {type(inner_handler.type)}"
-        )
-        assert inner_handler.type.id == "KeyError", (
-            f"Inner except catches {inner_handler.type.id}, expected KeyError"
+        assert key_error_try is not None, (
+            "No try/except KeyError found in ensure_usage_schedule"
         )

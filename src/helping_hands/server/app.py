@@ -45,6 +45,9 @@ from helping_hands.server.constants import (
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
 )
 from helping_hands.server.constants import (
+    DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
+)
+from helping_hands.server.constants import (
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
 )
 from helping_hands.server.constants import (
@@ -2741,8 +2744,12 @@ def _check_redis_health() -> Literal["ok", "error"]:
     """
     try:
         import redis as redis_lib  # bundled with celery[redis]
+    except ImportError:
+        logger.debug("Redis health check failed: redis package not installed")
+        return _RESPONSE_STATUS_ERROR
 
-        broker_url = celery_app.conf.broker_url or "redis://localhost:6379/0"
+    try:
+        broker_url = celery_app.conf.broker_url or _DEFAULT_REDIS_URL
         r = redis_lib.Redis.from_url(
             broker_url,
             socket_connect_timeout=_REDIS_HEALTH_TIMEOUT_S,
@@ -2750,7 +2757,7 @@ def _check_redis_health() -> Literal["ok", "error"]:
         )
         r.ping()
         return _RESPONSE_STATUS_OK
-    except Exception:
+    except (redis_lib.RedisError, OSError):
         logger.debug("Redis health check failed", exc_info=True)
         return _RESPONSE_STATUS_ERROR
 
@@ -2771,11 +2778,15 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
         return _RESPONSE_STATUS_NA
     try:
         import psycopg2  # psycopg2-binary is a declared dependency
+    except ImportError:
+        logger.debug("Database health check failed: psycopg2 not installed")
+        return _RESPONSE_STATUS_ERROR
 
+    try:
         conn = psycopg2.connect(db_url, connect_timeout=_DB_HEALTH_TIMEOUT_S)
         conn.close()
         return _RESPONSE_STATUS_OK
-    except Exception:
+    except (psycopg2.Error, OSError):
         logger.debug("Database health check failed", exc_info=True)
         return _RESPONSE_STATUS_ERROR
 

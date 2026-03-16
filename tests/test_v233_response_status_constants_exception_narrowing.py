@@ -238,9 +238,9 @@ class TestLogClaudeUsageExceptionNarrowing:
                         and child.type.id == "Exception"
                     ):
                         bare_exception_count += 1
-                # At most 1 bare Exception (the DB write handler)
-                assert bare_exception_count <= 1, (
-                    f"Expected at most 1 bare 'except Exception' (DB write), "
+                # All handlers narrowed (DB write uses psycopg2.Error+OSError)
+                assert bare_exception_count == 0, (
+                    f"Expected 0 bare 'except Exception' handlers, "
                     f"found {bare_exception_count}"
                 )
 
