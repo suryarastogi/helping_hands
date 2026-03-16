@@ -2988,6 +2988,27 @@ def _is_helping_hands_task(entry: dict[str, Any]) -> bool:
     return task_name == _HELPING_HANDS_TASK_NAME
 
 
+def _merge_source_tags(existing_source: str, new_tag: str) -> str:
+    """Merge a new discovery-source tag into a ``+``-delimited source string.
+
+    Source strings use ``"+"`` as the separator (e.g. ``"flower+inspect"``).
+    This helper adds *new_tag* if it is not already present and returns the
+    merged, sorted result.
+
+    Args:
+        existing_source: Current ``"+"``-delimited source string (may be empty).
+        new_tag: Tag to add (ignored when empty).
+
+    Returns:
+        The merged source string with tags sorted alphabetically.
+    """
+    if not new_tag:
+        return existing_source
+    parts = {p for p in existing_source.split("+") if p}
+    parts.add(new_tag)
+    return "+".join(sorted(parts))
+
+
 def _upsert_current_task(
     tasks_by_id: dict[str, dict[str, Any]],
     *,
@@ -3019,11 +3040,8 @@ def _upsert_current_task(
         if not existing.get(key) and incoming.get(key):
             existing[key] = incoming[key]
 
-    if source and source not in str(existing.get("source", "")).split("+"):
-        merged = sorted(
-            set([*str(existing.get("source", "")).split("+"), source]) - {""}
-        )
-        existing["source"] = "+".join(merged)
+    if source:
+        existing["source"] = _merge_source_tags(str(existing.get("source", "")), source)
 
 
 def _flower_timeout_seconds() -> float:
@@ -3451,6 +3469,29 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
     return _enqueue_build_task(req)
 
 
+def _first_validation_error_msg(
+    exc: ValidationError,
+    fallback: str = "Invalid form submission.",
+) -> str:
+    """Extract a human-readable message from the first Pydantic error.
+
+    Args:
+        exc: The Pydantic ``ValidationError``.
+        fallback: Message returned when no usable error string is found.
+
+    Returns:
+        The ``msg`` field of the first error dict, or *fallback*.
+    """
+    errors = exc.errors()
+    if errors:
+        first_error = errors[0]
+        if isinstance(first_error, dict):
+            maybe_msg = first_error.get("msg")
+            if isinstance(maybe_msg, str):
+                return maybe_msg
+    return fallback
+
+
 def _build_form_redirect_query(
     *,
     repo_path: str,
@@ -3566,14 +3607,7 @@ def enqueue_build_form(
             ],
         )
     except ValidationError as exc:
-        error_msg = "Invalid form submission."
-        errors = exc.errors()
-        if errors:
-            first_error = errors[0]
-            if isinstance(first_error, dict):
-                maybe_msg = first_error.get("msg")
-                if isinstance(maybe_msg, str):
-                    error_msg = maybe_msg
+        error_msg = _first_validation_error_msg(exc)
 
         query = _build_form_redirect_query(
             repo_path=repo_path,

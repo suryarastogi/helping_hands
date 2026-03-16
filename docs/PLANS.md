@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v229](exec-plans/completed/2026/v229-validation-helpers-source-merge-error-extract.md) —
+  `require_positive_float` validation helper, `_first_validation_error_msg()` Pydantic
+  error extraction, `_merge_source_tags()` source string set helper;
+  16 tests (5514 passed, 219 skipped)
+
 - [2026-03-16 v228](exec-plans/completed/2026/v228-dry-error-format-dict-access-skip-logging.md) —
   DRY `_format_error_result()` helper (6 inline error strings → 1 method),
   consistent `.get()` dict access in `_pr_status_line`, debug logging for

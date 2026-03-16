@@ -17,9 +17,11 @@ from helping_hands.server.app import (
     _extract_task_id,
     _extract_task_kwargs,
     _extract_task_name,
+    _first_validation_error_msg,
     _flower_api_base_url,
     _flower_timeout_seconds,
     _is_helping_hands_task,
+    _merge_source_tags,
     _normalize_task_status,
     _parse_backend,
     _parse_task_kwargs_str,
@@ -854,3 +856,80 @@ class TestCollectCeleryCurrentTasks:
         assert len(result) == 1
         # SUCCESS is not in _CURRENT_TASK_STATES, falls back to "STARTED"
         assert result[0]["status"] == "STARTED"
+
+
+# --- _merge_source_tags ---
+
+
+class TestMergeSourceTags:
+    """Tests for _merge_source_tags()."""
+
+    def test_adds_new_tag_to_empty(self) -> None:
+        assert _merge_source_tags("", "flower") == "flower"
+
+    def test_adds_new_tag_to_existing(self) -> None:
+        assert _merge_source_tags("flower", "inspect") == "flower+inspect"
+
+    def test_does_not_duplicate_existing_tag(self) -> None:
+        assert _merge_source_tags("flower+inspect", "flower") == "flower+inspect"
+
+    def test_sorts_alphabetically(self) -> None:
+        assert _merge_source_tags("inspect", "active") == "active+inspect"
+
+    def test_empty_new_tag_returns_existing(self) -> None:
+        assert _merge_source_tags("flower", "") == "flower"
+
+    def test_both_empty(self) -> None:
+        assert _merge_source_tags("", "") == ""
+
+    def test_three_tags_sorted(self) -> None:
+        result = _merge_source_tags("flower+inspect", "active")
+        assert result == "active+flower+inspect"
+
+    def test_strips_empty_parts_from_existing(self) -> None:
+        assert _merge_source_tags("+flower+", "inspect") == "flower+inspect"
+
+
+# --- _first_validation_error_msg ---
+
+
+class TestFirstValidationErrorMsg:
+    """Tests for _first_validation_error_msg()."""
+
+    def test_extracts_msg_from_pydantic_error(self) -> None:
+        exc = MagicMock()
+        exc.errors.return_value = [{"msg": "Value is required", "type": "missing"}]
+        assert _first_validation_error_msg(exc) == "Value is required"
+
+    def test_returns_fallback_when_errors_empty(self) -> None:
+        exc = MagicMock()
+        exc.errors.return_value = []
+        assert _first_validation_error_msg(exc) == "Invalid form submission."
+
+    def test_returns_custom_fallback(self) -> None:
+        exc = MagicMock()
+        exc.errors.return_value = []
+        assert _first_validation_error_msg(exc, "Custom error.") == "Custom error."
+
+    def test_returns_fallback_when_first_error_not_dict(self) -> None:
+        exc = MagicMock()
+        exc.errors.return_value = ["not a dict"]
+        assert _first_validation_error_msg(exc) == "Invalid form submission."
+
+    def test_returns_fallback_when_msg_not_string(self) -> None:
+        exc = MagicMock()
+        exc.errors.return_value = [{"msg": 42, "type": "missing"}]
+        assert _first_validation_error_msg(exc) == "Invalid form submission."
+
+    def test_returns_fallback_when_msg_missing(self) -> None:
+        exc = MagicMock()
+        exc.errors.return_value = [{"type": "missing"}]
+        assert _first_validation_error_msg(exc) == "Invalid form submission."
+
+    def test_uses_first_of_multiple_errors(self) -> None:
+        exc = MagicMock()
+        exc.errors.return_value = [
+            {"msg": "First error", "type": "a"},
+            {"msg": "Second error", "type": "b"},
+        ]
+        assert _first_validation_error_msg(exc) == "First error"
