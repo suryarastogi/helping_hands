@@ -31,6 +31,7 @@ from helping_hands.lib.hands.v1.hand.base import (
 )
 from helping_hands.lib.hands.v1.hand.langgraph import _LANGCHAIN_STREAM_EVENT
 from helping_hands.lib.hands.v1.hand.model_provider import (
+    HandModel,
     build_atomic_client,
     build_langchain_chat_model,
     resolve_hand_model,
@@ -77,6 +78,9 @@ _AUTH_ABSENT_LABEL: str = "not set"
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
+
+    _BACKEND_NAME: str
+    _hand_model: HandModel
 
     _EDIT_PATTERN = re.compile(
         r"@@FILE:\s*(?P<path>[^\n]+)\n```(?:[A-Za-z0-9_+-]+)?\n(?P<content>.*?)\n```",

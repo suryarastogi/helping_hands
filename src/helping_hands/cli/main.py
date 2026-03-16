@@ -14,9 +14,9 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from subprocess import TimeoutExpired
 from tempfile import mkdtemp
-from typing import cast
+from typing import Any, cast
 
-from helping_hands.lib.config import Config
+from helping_hands.lib.config import Config, ConfigValue
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
@@ -260,8 +260,9 @@ def main(argv: list[str] | None = None) -> None:
         _validate_or_exit(require_positive_int, args.max_iterations, "--max-iterations")
 
     if args.e2e:
-        config = Config.from_env(
-            overrides={
+        e2e_overrides: dict[str, ConfigValue] = cast(
+            dict[str, Any],
+            {
                 "repo": args.repo,
                 "model": args.model,
                 "verbose": args.verbose,
@@ -272,8 +273,9 @@ def main(argv: list[str] | None = None) -> None:
                 "enabled_skills": selected_skills,
                 "github_token": args.github_token,
                 "reference_repos": args.reference_repos,
-            }
+            },
         )
+        config = Config.from_env(overrides=e2e_overrides)
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         response = E2EHand(config, repo_index).run(
             args.prompt,
@@ -294,8 +296,9 @@ def main(argv: list[str] | None = None) -> None:
     if cloned_from:
         print(f"Cloned {cloned_from} to {repo_path}")
 
-    config = Config.from_env(
-        overrides={
+    run_overrides: dict[str, ConfigValue] = cast(
+        dict[str, Any],
+        {
             "repo": str(repo_path),
             "model": args.model,
             "verbose": args.verbose,
@@ -306,8 +309,9 @@ def main(argv: list[str] | None = None) -> None:
             "enabled_skills": selected_skills,
             "github_token": args.github_token,
             "reference_repos": args.reference_repos,
-        }
+        },
     )
+    config = Config.from_env(overrides=run_overrides)
     repo_index = RepoIndex.from_path(Path(config.repo))
     if config.reference_repos:
         _clone_reference_repos(

@@ -11,6 +11,15 @@ Extract three sets of duplicated patterns into shared helpers:
 2. Auth status banner logic duplicated between `BasicLangGraphHand.stream()` and `BasicAtomicHand.stream()` in `iterative.py`
 3. Validation-or-exit pattern repeated 3× in `main()` in `cli/main.py`
 
+## Tasks
+
+- [x] Extract `_run_git_clone()` helper in `cli/main.py`
+- [x] Extract `_validate_or_exit()` helper in `cli/main.py`
+- [x] Extract `_REPO_SPEC_PATTERN` constant in `cli/main.py`
+- [x] Extract `_auth_status_line()` method on `_BasicIterativeHand`
+- [x] Add unit tests for all changes
+- [x] Run ruff + ty + pytest
+
 ## Changes
 
 ### `src/helping_hands/cli/main.py`
