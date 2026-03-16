@@ -249,7 +249,7 @@ class TestBuildLangchainChatModelGoogle:
             },
         ):
             result = build_langchain_chat_model(hm, streaming=False)
-        mock_cls.assert_called_once_with(model="gemini-2.0-flash")
+        mock_cls.assert_called_once_with(model="gemini-2.0-flash", streaming=False)
         assert result is sentinel
 
     def test_google_import_error(self) -> None:

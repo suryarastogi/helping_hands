@@ -122,7 +122,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
                 "google models require langchain-google-genai. "
                 "Install with: uv add langchain-google-genai"
             ) from exc
-        return ChatGoogleGenerativeAI(model=hand_model.model)
+        return ChatGoogleGenerativeAI(model=hand_model.model, streaming=streaming)
     if provider == "litellm":
         try:
             from langchain_community.chat_models import ChatLiteLLM

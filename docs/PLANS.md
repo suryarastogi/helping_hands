@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-16 v217](exec-plans/completed/2026/v217-provider-consistency-fixes.md) —
+  Fix Google LangChain missing `streaming` parameter, Google provider
+  empty-contents validation, Claude CLI GPT model filter warning log;
+  10 tests (5227 passed, 219 skipped)
+
 - [2026-03-16 v216](exec-plans/completed/2026/v216-metadata-key-constants.md) —
   Extract 8 metadata key constants (`_META_PR_STATUS`, `_META_PR_URL`,
   `_META_PR_NUMBER`, `_META_PR_BRANCH`, `_META_PR_COMMIT`,

@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 16 — Provider consistency fixes (v217)
+
+**Google LangChain streaming fix:** Added missing `streaming=streaming` parameter to `ChatGoogleGenerativeAI()` in `build_langchain_chat_model()` (`model_provider.py`), matching the parameter already passed to OpenAI, Ollama, Anthropic, and LiteLLM providers.
+
+**Google provider empty-contents validation:** Added `ValueError` when all messages have empty content in `GoogleProvider._complete_impl()` (`google.py`), preventing a cryptic downstream API error when `contents=[]` is sent to Google's `generate_content()`.
+
+**Claude CLI GPT model filter warning:** Added `logger.warning()` in `ClaudeCodeHand._resolve_cli_model()` (`claude.py`) when a GPT-family model is silently filtered out, making it easier to diagnose why a user's model choice was ignored.
+
+**`tests/test_v217_provider_consistency.py`:** 10 tests: Google streaming pass-through (2), empty-contents validation (4), Claude CLI GPT warning log (4). Updated existing `test_hand_model_provider.py` Google assertion to expect `streaming` kwarg.
+
+**10 new tests. 5227 passed, 219 skipped.**
+
+---
+
 ## Mar 16 — Metadata key constants (v216)
 
 **DRY metadata protocol keys:** Extracted 8 module-level constants (`_META_PR_STATUS`, `_META_PR_URL`, `_META_PR_NUMBER`, `_META_PR_BRANCH`, `_META_PR_COMMIT`, `_META_CI_FIX_STATUS`, `_META_CI_FIX_ATTEMPTS`, `_META_CI_FIX_ERROR`) to `base.py`, replacing 72 bare string literals across 6 hand modules (`base.py`, `cli/base.py`, `iterative.py`, `e2e.py`, `langgraph.py`, `atomic.py`). Server modules (`app.py`, `celery_app.py`, `schedules.py`) use the same key strings for form fields/query params/dataclass fields and were intentionally left unchanged.
