@@ -146,6 +146,10 @@ class TestLangGraphHandRunDefensive:
             ci_check_wait_minutes=0,
             tools=(),
             skills=(),
+            enabled_tools=(),
+            enabled_skills=(),
+            enable_execution=False,
+            enable_web=False,
         )
         repo_index = SimpleNamespace(
             root=Path("/tmp/fake-repo"),
