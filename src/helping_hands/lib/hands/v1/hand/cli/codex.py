@@ -10,6 +10,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
     _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
+from helping_hands.lib.validation import has_cli_flag
 
 __all__ = ["CodexCLIHand"]
 
@@ -91,7 +92,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         """
         if len(cmd) < 2 or cmd[0] != "codex" or cmd[1] != "exec":
             return cmd
-        if any(token == "--sandbox" or token.startswith("--sandbox=") for token in cmd):
+        if has_cli_flag(cmd, "sandbox"):
             return cmd
         sandbox_mode = os.environ.get("HELPING_HANDS_CODEX_SANDBOX_MODE")
         if sandbox_mode is None:

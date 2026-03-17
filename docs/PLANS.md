@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v270](exec-plans/completed/2026/v270-has-cli-flag-install-hint-check-dep.md) —
+  `has_cli_flag()`, `install_hint()`, `_check_optional_dep()` DRY extraction;
+  20 tests (6254 passed, 273 skipped)
+
 - [2026-03-17 v269](exec-plans/completed/2026/v269-empty-model-markers-parse-comma-list.md) —
   Extract `_EMPTY_MODEL_MARKERS` constant and `parse_comma_list()` helper;
   17 tests (6254 passed, 272 skipped)

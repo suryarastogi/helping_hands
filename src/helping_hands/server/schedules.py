@@ -15,6 +15,7 @@ from typing import Any
 
 from celery import Celery
 
+from helping_hands.lib.validation import install_hint
 from helping_hands.server.constants import (
     DEFAULT_BACKEND as _DEFAULT_BACKEND,
     DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
@@ -53,24 +54,39 @@ except ImportError:
     croniter = None  # type: ignore[assignment]
 
 
+def _check_optional_dep(available: bool | object, name: str, extra: str) -> None:
+    """Raise ``ImportError`` if an optional dependency is missing.
+
+    Args:
+        available: Truthy if the dependency was imported successfully,
+            falsy (``False`` or ``None``) otherwise.
+        name: Human-readable package description for the error message.
+        extra: The uv extra that provides the dependency.
+
+    Raises:
+        ImportError: When *available* is falsy.
+    """
+    if not available:
+        msg = f"{name}. {install_hint(extra)}"
+        raise ImportError(msg)
+
+
 def _check_redbeat() -> None:
     """Raise ImportError if redbeat is not available."""
-    if not _redbeat_available:
-        msg = (
-            "celery-redbeat is required for scheduling. "
-            "Install with: uv sync --extra server"
-        )
-        raise ImportError(msg)
+    _check_optional_dep(
+        _redbeat_available,
+        "celery-redbeat is required for scheduling",
+        "server",
+    )
 
 
 def _check_croniter() -> None:
     """Raise ImportError if croniter is not available."""
-    if croniter is None:
-        msg = (
-            "croniter is required for cron expression parsing. "
-            "Install with: uv sync --extra server"
-        )
-        raise ImportError(msg)
+    _check_optional_dep(
+        croniter is not None,
+        "croniter is required for cron expression parsing",
+        "server",
+    )
 
 
 @dataclass

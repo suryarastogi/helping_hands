@@ -27,6 +27,8 @@ class TestModuleAll:
     def test_all_contains_expected_names(self) -> None:
         assert set(validation_all) == {
             "format_type_error",
+            "has_cli_flag",
+            "install_hint",
             "parse_comma_list",
             "require_non_empty_string",
             "require_positive_float",

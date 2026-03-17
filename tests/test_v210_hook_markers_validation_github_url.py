@@ -84,6 +84,8 @@ class TestValidationModuleContract:
     def test_all_exports(self) -> None:
         assert set(validation_module.__all__) == {
             "format_type_error",
+            "has_cli_flag",
+            "install_hint",
             "parse_comma_list",
             "require_non_empty_string",
             "require_positive_float",

@@ -46,7 +46,7 @@ from helping_hands.lib.hands.v1.hand.base import (
     Hand,
     HandResponse,
 )
-from helping_hands.lib.validation import require_non_empty_string
+from helping_hands.lib.validation import has_cli_flag, require_non_empty_string
 
 logger = logging.getLogger(__name__)
 
@@ -460,9 +460,7 @@ class _TwoPhaseCLIHand(Hand):
                         used_model_placeholder = True
             rendered.append(updated)
 
-        has_explicit_model_flag = any(
-            token == "--model" or token.startswith("--model=") for token in rendered
-        )
+        has_explicit_model_flag = has_cli_flag(rendered, "model")
         if (
             resolved_model
             and not used_model_placeholder

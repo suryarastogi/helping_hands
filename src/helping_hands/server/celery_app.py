@@ -40,6 +40,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
     SUPPORTED_BACKENDS as _SUPPORTED_BACKENDS,
     create_hand,
 )
+from helping_hands.lib.validation import install_hint
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
@@ -799,14 +800,8 @@ def build_feature(
                 extra = "atomic"
             else:
                 extra = None
-            if extra:
-                install_hint = f"Install with: uv sync --extra {extra}"
-            else:
-                install_hint = "Check runtime setup."
-            msg = (
-                f"Missing dependency for backend {requested_backend}:"
-                f" {exc}. {install_hint}"
-            )
+            hint = install_hint(extra) if extra else "Check runtime setup."
+            msg = f"Missing dependency for backend {requested_backend}: {exc}. {hint}"
             _append_update(updates, msg)
             raise RuntimeError(msg) from exc
 

@@ -13,6 +13,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
     _truncate_with_ellipsis,
     _TwoPhaseCLIHand,
 )
+from helping_hands.lib.validation import has_cli_flag
 
 logger = logging.getLogger(__name__)
 
@@ -483,7 +484,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     @staticmethod
     def _inject_output_format(cmd: list[str], fmt: str) -> list[str]:
         """Insert ``--output-format <fmt>`` before the ``-p`` flag."""
-        if any(t == "--output-format" or t.startswith("--output-format=") for t in cmd):
+        if has_cli_flag(cmd, "output-format"):
             return cmd
         try:
             p_idx = cmd.index("-p")

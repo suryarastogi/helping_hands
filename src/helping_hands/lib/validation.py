@@ -11,11 +11,44 @@ import math
 
 __all__ = [
     "format_type_error",
+    "has_cli_flag",
+    "install_hint",
     "parse_comma_list",
     "require_non_empty_string",
     "require_positive_float",
     "require_positive_int",
 ]
+
+
+def has_cli_flag(tokens: list[str], flag: str) -> bool:
+    """Check whether *tokens* contain a CLI long-option *flag*.
+
+    Matches both the bare ``--flag`` form and the ``--flag=value`` prefix form,
+    which is the standard pattern for GNU-style CLI options.
+
+    Args:
+        tokens: Tokenized CLI command list.
+        flag: The flag name **without** the leading ``--``
+              (e.g. ``"model"``, not ``"--model"``).
+
+    Returns:
+        ``True`` if any token equals ``--flag`` or starts with ``--flag=``.
+    """
+    long = f"--{flag}"
+    prefix = f"--{flag}="
+    return any(t == long or t.startswith(prefix) for t in tokens)
+
+
+def install_hint(extra: str) -> str:
+    """Return a human-readable install instruction for a uv extra.
+
+    Args:
+        extra: The uv extra name (e.g. ``"server"``, ``"langchain"``).
+
+    Returns:
+        A string like ``"Install with: uv sync --extra server"``.
+    """
+    return f"Install with: uv sync --extra {extra}"
 
 
 def parse_comma_list(value: str) -> tuple[str, ...]:

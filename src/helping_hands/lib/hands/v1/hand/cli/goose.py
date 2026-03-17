@@ -15,6 +15,7 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     _PROVIDER_OPENAI,
     PROVIDER_API_KEY_ENV,
 )
+from helping_hands.lib.validation import has_cli_flag
 
 __all__ = ["GooseCLIHand"]
 
@@ -112,10 +113,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             ``True`` if any token is ``--with-builtin`` or starts with
             ``--with-builtin=``.
         """
-        return any(
-            token == "--with-builtin" or token.startswith("--with-builtin=")
-            for token in cmd
-        )
+        return has_cli_flag(cmd, "with-builtin")
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
         """Inject ``--with-builtin developer`` if not already present.

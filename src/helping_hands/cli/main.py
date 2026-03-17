@@ -45,7 +45,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
-from helping_hands.lib.validation import require_positive_int
+from helping_hands.lib.validation import install_hint, require_positive_int
 
 __all__ = ["build_parser", "main"]
 
@@ -378,7 +378,7 @@ def main(argv: list[str] | None = None) -> None:
                 )
             _error_exit(
                 f"missing dependency for --backend {args.backend}: {exc}. "
-                f"Install with: uv sync --extra {extra}"
+                f"{install_hint(extra)}"
             )
         try:
             asyncio.run(_stream_hand(hand, args.prompt))
