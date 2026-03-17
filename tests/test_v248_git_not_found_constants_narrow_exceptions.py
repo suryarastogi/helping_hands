@@ -163,14 +163,14 @@ class TestExceptionNarrowing:
         )
 
     def test_atomic_has_narrowed_handler(self) -> None:
-        """Verify the narrowed tuple is present in atomic.py source."""
+        """Verify the narrowed constant is used in atomic.py source."""
         source = _ATOMIC_PATH.read_text()
-        assert "RuntimeError, TypeError, ValueError, AttributeError, OSError" in source
+        assert "_RUN_ASYNC_ERRORS" in source
 
     def test_iterative_has_narrowed_handler(self) -> None:
-        """Verify the narrowed tuple is present in iterative.py source."""
+        """Verify the narrowed constant is defined in iterative.py source."""
         source = _ITERATIVE_PATH.read_text()
-        assert "RuntimeError, TypeError, ValueError, AttributeError, OSError" in source
+        assert "_RUN_ASYNC_ERRORS" in source
 
 
 # ===================================================================

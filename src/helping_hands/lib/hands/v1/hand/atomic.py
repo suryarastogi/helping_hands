@@ -21,6 +21,9 @@ from helping_hands.lib.hands.v1.hand.base import (
     Hand,
     HandResponse,
 )
+from helping_hands.lib.hands.v1.hand.iterative import (
+    _RUN_ASYNC_ERRORS,
+)
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     resolve_hand_model,
@@ -155,7 +158,7 @@ class AtomicHand(Hand):
                 parts.append(text)
                 yield text
             async_result = None
-        except (RuntimeError, TypeError, ValueError, AttributeError, OSError):
+        except _RUN_ASYNC_ERRORS:
             logger.debug("run_async raised non-AssertionError", exc_info=True)
             raise
         if async_result is None:

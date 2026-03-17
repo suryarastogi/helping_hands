@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v264](exec-plans/completed/2026/v264-validation-dedup-exception-constants-env-vars.md) —
+  Shared owner/repo validation via `validate_repo_spec`, `_TOOL_EXECUTION_ERRORS`/
+  `_RUN_ASYNC_ERRORS` exception tuple constants, 9 `_ENV_*` constants in `config.py`;
+  33 tests (6184 passed, 272 skipped)
+
 - [2026-03-17 v263](exec-plans/completed/2026/v263-dry-run-git-diff-helper.md) —
   Extract `_run_git_diff()` helper to deduplicate 3 subprocess+exception blocks
   in `pr_description.py`; 17 tests (6151 passed, 272 skipped)

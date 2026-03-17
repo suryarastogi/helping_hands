@@ -86,6 +86,31 @@ _AUTH_PRESENT_LABEL: str = "set"
 _AUTH_ABSENT_LABEL: str = "not set"
 """Label shown in stream output when the provider API key is missing."""
 
+_TOOL_EXECUTION_ERRORS: tuple[type[Exception], ...] = (
+    FileNotFoundError,
+    IsADirectoryError,
+    NotADirectoryError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
+"""Exception types caught (and reported) when executing a tool request."""
+
+_RUN_ASYNC_ERRORS: tuple[type[Exception], ...] = (
+    RuntimeError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    OSError,
+)
+"""Exception types caught and re-raised from ``run_async()`` calls.
+
+These are non-:class:`AssertionError` exceptions that indicate a real
+failure in the underlying AI SDK call rather than a transient issue.
+Shared by :class:`BasicLangGraphHand` and :class:`BasicAtomicHand`.
+"""
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
@@ -768,15 +793,7 @@ class _BasicIterativeHand(Hand):
                     tool_name=tool_name,
                     payload=payload,
                 )
-            except (
-                FileNotFoundError,
-                IsADirectoryError,
-                NotADirectoryError,
-                OSError,
-                RuntimeError,
-                TypeError,
-                ValueError,
-            ) as exc:
+            except _TOOL_EXECUTION_ERRORS as exc:
                 chunks.append(self._format_error_result("TOOL", tool_name, str(exc)))
                 continue
             chunks.append(result)
@@ -1291,7 +1308,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 if delta:
                     yield delta
                 async_result = None
-            except (RuntimeError, TypeError, ValueError, AttributeError, OSError):
+            except _RUN_ASYNC_ERRORS:
                 logger.debug("run_async raised non-AssertionError", exc_info=True)
                 raise
             if async_result is not None and hasattr(async_result, "__aiter__"):

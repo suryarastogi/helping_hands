@@ -21,6 +21,33 @@ ConfigValue = str | bool | tuple[str, ...] | None
 _TRUTHY_VALUES = frozenset({"1", "true", "yes", "on"})
 """Lowercase string values treated as boolean True for environment variables."""
 
+_ENV_MODEL = "HELPING_HANDS_MODEL"
+"""Env var for the AI model identifier."""
+
+_ENV_VERBOSE = "HELPING_HANDS_VERBOSE"
+"""Env var to enable verbose output."""
+
+_ENV_ENABLE_EXECUTION = "HELPING_HANDS_ENABLE_EXECUTION"
+"""Env var to enable execution tools (Python/Bash) in iterative hands."""
+
+_ENV_ENABLE_WEB = "HELPING_HANDS_ENABLE_WEB"
+"""Env var to enable web search and browsing tools."""
+
+_ENV_USE_NATIVE_CLI_AUTH = "HELPING_HANDS_USE_NATIVE_CLI_AUTH"
+"""Env var to prefer the CLI backend's built-in authentication."""
+
+_ENV_TOOLS = "HELPING_HANDS_TOOLS"
+"""Env var for comma-separated tool category names."""
+
+_ENV_SKILLS = "HELPING_HANDS_SKILLS"
+"""Env var for comma-separated skill names."""
+
+_ENV_GITHUB_TOKEN = "HELPING_HANDS_GITHUB_TOKEN"
+"""Env var for a per-task GitHub personal access token."""
+
+_ENV_REFERENCE_REPOS = "HELPING_HANDS_REFERENCE_REPOS"
+"""Env var for comma-separated additional ``owner/repo`` reference repos."""
+
 
 def _is_truthy_env(name: str, default: str = "") -> bool:
     """Check whether an environment variable holds a truthy value.
@@ -110,15 +137,15 @@ class Config:
         _load_env_files(str(repo_override) if isinstance(repo_override, str) else None)
 
         env_values: dict[str, ConfigValue] = {
-            "model": os.environ.get("HELPING_HANDS_MODEL"),
-            "verbose": _is_truthy_env("HELPING_HANDS_VERBOSE"),
-            "enable_execution": _is_truthy_env("HELPING_HANDS_ENABLE_EXECUTION"),
-            "enable_web": _is_truthy_env("HELPING_HANDS_ENABLE_WEB"),
-            "use_native_cli_auth": _is_truthy_env("HELPING_HANDS_USE_NATIVE_CLI_AUTH"),
-            "enabled_tools": os.environ.get("HELPING_HANDS_TOOLS"),
-            "enabled_skills": os.environ.get("HELPING_HANDS_SKILLS"),
-            "github_token": os.environ.get("HELPING_HANDS_GITHUB_TOKEN"),
-            "reference_repos": os.environ.get("HELPING_HANDS_REFERENCE_REPOS"),
+            "model": os.environ.get(_ENV_MODEL),
+            "verbose": _is_truthy_env(_ENV_VERBOSE),
+            "enable_execution": _is_truthy_env(_ENV_ENABLE_EXECUTION),
+            "enable_web": _is_truthy_env(_ENV_ENABLE_WEB),
+            "use_native_cli_auth": _is_truthy_env(_ENV_USE_NATIVE_CLI_AUTH),
+            "enabled_tools": os.environ.get(_ENV_TOOLS),
+            "enabled_skills": os.environ.get(_ENV_SKILLS),
+            "github_token": os.environ.get(_ENV_GITHUB_TOKEN),
+            "reference_repos": os.environ.get(_ENV_REFERENCE_REPOS),
         }
 
         merged = {k: v for k, v in env_values.items() if v}
