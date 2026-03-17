@@ -317,10 +317,10 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
-    selected_tools = _validate_or_exit(meta_tools.normalize_tool_selection, args.tools)
+    selected_tools: frozenset[str] = _validate_or_exit(meta_tools.normalize_tool_selection, args.tools)  # type: ignore[assignment]
     _validate_or_exit(meta_tools.validate_tool_category_names, selected_tools)
 
-    selected_skills = _validate_or_exit(
+    selected_skills: frozenset[str] = _validate_or_exit(  # type: ignore[assignment]
         meta_skills.normalize_skill_selection, args.skills
     )
     _validate_or_exit(meta_skills.validate_skill_names, selected_skills)
