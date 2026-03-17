@@ -145,6 +145,45 @@ def _run_git_clone(
     return result
 
 
+def _build_config_overrides(
+    args: argparse.Namespace,
+    *,
+    repo: str,
+    selected_tools: frozenset[str],
+    selected_skills: frozenset[str],
+) -> dict[str, ConfigValue]:
+    """Build the ``Config.from_env`` overrides dict from parsed CLI args.
+
+    Both the ``--e2e`` and regular backend code paths need the same set of
+    overrides; only the *repo* value differs (raw arg vs resolved path).
+
+    Args:
+        args: Parsed CLI namespace.
+        repo: The repo value to embed (raw string for e2e, resolved path
+            string otherwise).
+        selected_tools: Validated tool category names.
+        selected_skills: Validated skill names.
+
+    Returns:
+        A dict suitable for passing as ``Config.from_env(overrides=…)``.
+    """
+    return cast(
+        dict[str, Any],
+        {
+            "repo": repo,
+            "model": args.model,
+            "verbose": args.verbose,
+            "enable_execution": args.enable_execution,
+            "enable_web": args.enable_web,
+            "use_native_cli_auth": args.use_native_cli_auth,
+            "enabled_tools": selected_tools,
+            "enabled_skills": selected_skills,
+            "github_token": args.github_token,
+            "reference_repos": args.reference_repos,
+        },
+    )
+
+
 def _make_temp_clone_dir(prefix: str) -> Path:
     """Create a temporary directory for cloning and register it for cleanup.
 
@@ -292,22 +331,14 @@ def main(argv: list[str] | None = None) -> None:
         _validate_or_exit(require_positive_int, args.max_iterations, "--max-iterations")
 
     if args.e2e:
-        e2e_overrides: dict[str, ConfigValue] = cast(
-            dict[str, Any],
-            {
-                "repo": args.repo,
-                "model": args.model,
-                "verbose": args.verbose,
-                "enable_execution": args.enable_execution,
-                "enable_web": args.enable_web,
-                "use_native_cli_auth": args.use_native_cli_auth,
-                "enabled_tools": selected_tools,
-                "enabled_skills": selected_skills,
-                "github_token": args.github_token,
-                "reference_repos": args.reference_repos,
-            },
+        config = Config.from_env(
+            overrides=_build_config_overrides(
+                args,
+                repo=args.repo,
+                selected_tools=selected_tools,
+                selected_skills=selected_skills,
+            )
         )
-        config = Config.from_env(overrides=e2e_overrides)
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         response = E2EHand(config, repo_index).run(
             args.prompt,
@@ -327,22 +358,14 @@ def main(argv: list[str] | None = None) -> None:
     if cloned_from:
         print(f"Cloned {cloned_from} to {repo_path}")
 
-    run_overrides: dict[str, ConfigValue] = cast(
-        dict[str, Any],
-        {
-            "repo": str(repo_path),
-            "model": args.model,
-            "verbose": args.verbose,
-            "enable_execution": args.enable_execution,
-            "enable_web": args.enable_web,
-            "use_native_cli_auth": args.use_native_cli_auth,
-            "enabled_tools": selected_tools,
-            "enabled_skills": selected_skills,
-            "github_token": args.github_token,
-            "reference_repos": args.reference_repos,
-        },
+    config = Config.from_env(
+        overrides=_build_config_overrides(
+            args,
+            repo=str(repo_path),
+            selected_tools=selected_tools,
+            selected_skills=selected_skills,
+        )
     )
-    config = Config.from_env(overrides=run_overrides)
     repo_index = RepoIndex.from_path(Path(config.repo))
     if config.reference_repos:
         _clone_reference_repos(
@@ -385,7 +408,7 @@ def main(argv: list[str] | None = None) -> None:
         except KeyboardInterrupt:
             hand.interrupt()
             print("\nInterrupted by user.")
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             msg = str(exc)
             if any(marker in msg for marker in _MODEL_NOT_FOUND_MARKERS):
                 _error_exit(_MODEL_NOT_AVAILABLE_MSG.format(model=config.model))

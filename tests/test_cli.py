@@ -734,7 +734,7 @@ class TestCliAdditionalPaths:
         def _raise_model_error(coro: object) -> None:
             if hasattr(coro, "close"):
                 coro.close()
-            raise Exception("The model `bad-model` does not exist")
+            raise RuntimeError("The model `bad-model` does not exist")
 
         mock_asyncio_run.side_effect = _raise_model_error
         (tmp_path / "hello.py").write_text("")

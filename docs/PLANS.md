@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v272](exec-plans/completed/2026/v272-mcp-path-error-cli-overrides-narrow-exception.md) —
+  MCP `_reraise_path_error()` helper, CLI `_build_config_overrides()` DRY,
+  narrow `except Exception` to `(RuntimeError, ValueError, OSError)`;
+  20 tests (6298 passed, 273 skipped)
+
 - [2026-03-17 v271](exec-plans/completed/2026/v271-format-cli-failure-helper.md) —
   Extract `_format_cli_failure()` to DRY auth-failure message formatting
   across codex, claude, opencode CLI hands; 24 tests (6278 passed, 273 skipped)
