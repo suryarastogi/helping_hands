@@ -115,8 +115,9 @@ class TestIsRunningInDockerTruthy:
         from helping_hands.server import app as app_mod
 
         src = inspect.getsource(app_mod._is_running_in_docker)
-        assert "_TRUTHY_VALUES" in src, (
-            "Should use _TRUTHY_VALUES instead of inline set"
+        assert "_is_truthy_env" in src or "_TRUTHY_VALUES" in src, (
+            "Should delegate to _is_truthy_env or use _TRUTHY_VALUES"
+            " instead of inline set"
         )
         # No inline set literal
         assert '{"1", "true", "yes"}' not in src
