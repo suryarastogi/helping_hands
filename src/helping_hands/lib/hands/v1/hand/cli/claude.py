@@ -93,6 +93,14 @@ class _StreamJsonEmitter:
         self._result = ""
         self._text_parts: list[str] = []
 
+    def _label_msg(self, msg: str) -> str:
+        """Prefix *msg* with the backend label.
+
+        Returns:
+            A string of the form ``[<label>] <msg>``.
+        """
+        return f"[{self._label}] {msg}"
+
     async def __call__(self, chunk: str) -> None:
         """Buffer incoming text and process complete lines.
 
@@ -172,7 +180,7 @@ class _StreamJsonEmitter:
                     name = block.get("name", "unknown")
                     input_data = block.get("input", {})
                     summary = self._summarize_tool(name, input_data)
-                    await self._emit(f"[{self._label}] {summary}\n")
+                    await self._emit(self._label_msg(summary) + "\n")
                 elif block_type == _BLOCK_TYPE_TEXT:
                     text = block.get("text", "")
                     if text:
@@ -182,7 +190,7 @@ class _StreamJsonEmitter:
                             preview, _TEXT_PREVIEW_MAX_LENGTH
                         )
                         if preview:
-                            await self._emit(f"[{self._label}] {preview}\n")
+                            await self._emit(self._label_msg(preview) + "\n")
 
         elif event_type == _EVENT_TYPE_USER:
             # Tool results: message.content[] array of {type: "tool_result"}.
@@ -201,7 +209,7 @@ class _StreamJsonEmitter:
                     preview = _truncate_with_ellipsis(
                         preview, _TOOL_RESULT_PREVIEW_MAX_LENGTH
                     )
-                    await self._emit(f"[{self._label}] -> {preview}\n")
+                    await self._emit(self._label_msg(f"-> {preview}") + "\n")
 
         elif event_type == _EVENT_TYPE_RESULT:
             self._result = event.get("result", "")
@@ -224,7 +232,7 @@ class _StreamJsonEmitter:
                         tok_parts.append(f"out={out}")
                     parts.append(" ".join(tok_parts))
             if parts:
-                await self._emit(f"[{self._label}] api: {', '.join(parts)}\n")
+                await self._emit(self._label_msg(f"api: {', '.join(parts)}") + "\n")
 
     @staticmethod
     def _summarize_tool(name: str, input_data: dict) -> str:
@@ -490,7 +498,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
         model = self._resolve_cli_model() or "(default)"
-        await emit(f"[{self._CLI_LABEL}] model={model}\n")
+        await emit(self._label_msg(f"model={model}") + "\n")
         cmd = self._render_command(prompt)
         cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)

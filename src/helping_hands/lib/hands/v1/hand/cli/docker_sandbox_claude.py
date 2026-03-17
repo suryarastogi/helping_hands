@@ -153,9 +153,9 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
 
         cmd.extend(["claude", workspace])
 
-        await emit(f"[{self._CLI_LABEL}] Creating sandbox '{name}'...\n")
+        await emit(self._label_msg(f"Creating sandbox '{name}'...") + "\n")
         if self.config.verbose:
-            await emit(f"[{self._CLI_LABEL}] cmd: {' '.join(cmd)}\n")
+            await emit(self._label_msg(f"cmd: {' '.join(cmd)}") + "\n")
 
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -174,7 +174,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
                 break
             text = data.decode("utf-8", errors="replace")
             chunks.append(text)
-            await emit(f"[{self._CLI_LABEL}] {text}")
+            await emit(self._label_msg(text))
         await process.wait()
         output_text = "".join(chunks)
 
@@ -185,7 +185,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
             )
 
         self._sandbox_created = True
-        await emit(f"[{self._CLI_LABEL}] Sandbox '{name}' ready.\n")
+        await emit(self._label_msg(f"Sandbox '{name}' ready.") + "\n")
 
     async def _remove_sandbox(self, emit: _TwoPhaseCLIHand._Emitter) -> None:
         """Remove the Docker sandbox."""
@@ -193,7 +193,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
             return
 
         name = self._resolve_sandbox_name()
-        await emit(f"[{self._CLI_LABEL}] Removing sandbox '{name}'...\n")
+        await emit(self._label_msg(f"Removing sandbox '{name}'...") + "\n")
 
         process = await asyncio.create_subprocess_exec(
             "docker",

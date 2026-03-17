@@ -61,7 +61,7 @@ _MODEL_NOT_FOUND_MARKERS: tuple[str, ...] = ("model_not_found", "does not exist"
 """Substrings in exception messages that indicate a model-not-found error."""
 
 _MODEL_NOT_AVAILABLE_MSG = (
-    "Error: model {model!r} is not available. "
+    "model {model!r} is not available. "
     "Pass a valid model via --model (or HELPING_HANDS_MODEL), "
     "for example: --model gpt-5.2"
 )
@@ -77,6 +77,16 @@ _CLI_ERROR_EXIT_BACKENDS: frozenset[str] = frozenset(
     }
 )
 """Backends that print the error and ``sys.exit(1)`` instead of re-raising."""
+
+
+def _error_exit(msg: str) -> None:
+    """Print *msg* to stderr prefixed with ``Error:`` and exit with code 1.
+
+    Args:
+        msg: The error description to display.
+    """
+    print(f"Error: {msg}", file=sys.stderr)
+    sys.exit(1)
 
 
 def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
@@ -97,8 +107,7 @@ def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
     try:
         return fn(*args, **kwargs)  # type: ignore[operator]
     except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        _error_exit(str(exc))
 
 
 def _run_git_clone(
@@ -134,6 +143,24 @@ def _run_git_clone(
         stderr = _redact_sensitive(result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG)
         raise ValueError(f"failed to clone {label}: {stderr}")
     return result
+
+
+def _make_temp_clone_dir(prefix: str) -> Path:
+    """Create a temporary directory for cloning and register it for cleanup.
+
+    Creates a temp directory with the given *prefix* under the configured
+    temp root, registers ``shutil.rmtree`` via ``atexit``, and returns
+    the nested ``repo`` subdirectory path (which does not yet exist).
+
+    Args:
+        prefix: Prefix for the ``mkdtemp`` call.
+
+    Returns:
+        Path to the ``<tmpdir>/repo`` subdirectory.
+    """
+    dest_root = Path(mkdtemp(prefix=prefix, dir=_repo_tmp_dir()))
+    atexit.register(shutil.rmtree, dest_root, True)
+    return dest_root / "repo"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -296,8 +323,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         repo_path, cloned_from = _resolve_repo_path(args.repo)
     except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        _error_exit(str(exc))
     if cloned_from:
         print(f"Cloned {cloned_from} to {repo_path}")
 
@@ -342,26 +368,18 @@ def main(argv: list[str] | None = None) -> None:
                 3,
                 12,
             ):
-                print(
-                    (
-                        f"Error: --backend {args.backend} requires Python >= 3.12. "
-                        "Current Python is "
-                        f"{sys.version_info.major}.{sys.version_info.minor}. "
-                        "Re-run with Python 3.12+, e.g. "
-                        "'uv sync --python 3.12 --dev --extra atomic' and "
-                        "'uv run --python 3.12 helping-hands ...'"
-                    ),
-                    file=sys.stderr,
+                _error_exit(
+                    f"--backend {args.backend} requires Python >= 3.12. "
+                    "Current Python is "
+                    f"{sys.version_info.major}.{sys.version_info.minor}. "
+                    "Re-run with Python 3.12+, e.g. "
+                    "'uv sync --python 3.12 --dev --extra atomic' and "
+                    "'uv run --python 3.12 helping-hands ...'"
                 )
-                sys.exit(1)
-            print(
-                (
-                    f"Error: missing dependency for --backend {args.backend}: {exc}. "
-                    f"Install with: uv sync --extra {extra}"
-                ),
-                file=sys.stderr,
+            _error_exit(
+                f"missing dependency for --backend {args.backend}: {exc}. "
+                f"Install with: uv sync --extra {extra}"
             )
-            sys.exit(1)
         try:
             asyncio.run(_stream_hand(hand, args.prompt))
         except KeyboardInterrupt:
@@ -370,14 +388,9 @@ def main(argv: list[str] | None = None) -> None:
         except Exception as exc:
             msg = str(exc)
             if any(marker in msg for marker in _MODEL_NOT_FOUND_MARKERS):
-                print(
-                    _MODEL_NOT_AVAILABLE_MSG.format(model=config.model),
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+                _error_exit(_MODEL_NOT_AVAILABLE_MSG.format(model=config.model))
             if args.backend in _CLI_ERROR_EXIT_BACKENDS:
-                print(f"Error: {msg}", file=sys.stderr)
-                sys.exit(1)
+                _error_exit(msg)
             raise
         return
 
@@ -441,14 +454,12 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
         return path, None
 
     if re.fullmatch(_REPO_SPEC_PATTERN, repo):
-        dest_root = Path(mkdtemp(prefix=_TEMP_CLONE_PREFIX, dir=_repo_tmp_dir()))
-        atexit.register(shutil.rmtree, dest_root, True)
-        dest = dest_root / "repo"
+        dest = _make_temp_clone_dir(_TEMP_CLONE_PREFIX)
         url = _github_clone_url(repo)
         try:
             _run_git_clone(url, dest, label=repo)
         except ValueError:
-            shutil.rmtree(dest_root, ignore_errors=True)
+            shutil.rmtree(dest.parent, ignore_errors=True)
             raise
         return dest.resolve(), repo
 
@@ -469,11 +480,7 @@ def _clone_reference_repos(
             print(f"Warning: skipping invalid reference repo {spec!r}: {exc}")
             continue
         safe_name = spec.replace("/", "_")
-        dest_root = Path(
-            mkdtemp(prefix=f"helping_hands_ref_{safe_name}_", dir=_repo_tmp_dir())
-        )
-        atexit.register(shutil.rmtree, dest_root, True)
-        dest = dest_root / "repo"
+        dest = _make_temp_clone_dir(f"helping_hands_ref_{safe_name}_")
         url = _github_clone_url(spec, token=github_token)
         try:
             _run_git_clone(url, dest, label=spec)
