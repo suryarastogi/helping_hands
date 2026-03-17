@@ -21,7 +21,9 @@ from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
     DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
+    REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
     build_clone_url as _build_clone_url,
+    invalid_repo_msg as _invalid_repo_msg,
     noninteractive_env as _git_noninteractive_env,
     redact_credentials as _redact_sensitive,
     repo_tmp_dir as _repo_tmp_dir,
@@ -170,7 +172,7 @@ def _resolve_repo_path(
     if path.is_dir():
         return path, None, None
 
-    if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+    if re.fullmatch(_REPO_SPEC_PATTERN, repo):
         dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
         dest = dest_root / "repo"
         url = _github_clone_url(repo, token=token)
@@ -200,7 +202,7 @@ def _resolve_repo_path(
             raise ValueError(msg)
         return dest.resolve(), repo, dest_root
 
-    raise ValueError(f"{repo} is not a directory or owner/repo reference")
+    raise ValueError(_invalid_repo_msg(repo))
 
 
 def _normalize_backend(backend: str | None) -> tuple[str, str]:

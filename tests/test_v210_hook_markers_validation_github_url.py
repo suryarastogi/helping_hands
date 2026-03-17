@@ -83,6 +83,7 @@ class TestValidationModuleContract:
 
     def test_all_exports(self) -> None:
         assert set(validation_module.__all__) == {
+            "format_type_error",
             "require_non_empty_string",
             "require_positive_float",
             "require_positive_int",
@@ -112,7 +113,9 @@ class TestGithubUrlModuleContract:
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
+            "REPO_SPEC_PATTERN",
             "build_clone_url",
+            "invalid_repo_msg",
             "noninteractive_env",
             "redact_credentials",
             "repo_tmp_dir",

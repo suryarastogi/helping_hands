@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v261](exec-plans/completed/2026/v261-repo-spec-pattern-validation-type-error-helper.md) —
+  Extract `REPO_SPEC_PATTERN` to `github_url.py` (3 duplicates), `invalid_repo_msg()`
+  helper (2 duplicates), `format_type_error()` in `validation.py` (3 similar patterns);
+  29 tests (6110 passed, 272 skipped)
+
 - [2026-03-17 v260](exec-plans/completed/2026/v260-unify-truthy-values-env-helpers.md) —
   Unify `_TRUTHY_VALUES` with `"on"`, add `_get_env_stripped()` helper,
   update `_is_truthy_env()` to strip whitespace, remove `_PR_TRUTHY_VALUES`

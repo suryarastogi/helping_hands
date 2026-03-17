@@ -4,6 +4,32 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — Extract REPO_SPEC_PATTERN, invalid_repo_msg, format_type_error (v261)
+
+**DRY regex & error messages:** Extracted `REPO_SPEC_PATTERN` constant to `github_url.py` replacing 3 inline `r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"` literals in `cli/main.py`, `server/celery_app.py`, and `lib/hands/v1/hand/base.py`. Added `invalid_repo_msg()` helper to `github_url.py` replacing 2 identical `f"{repo} is not a directory or owner/repo reference"` messages. Added `format_type_error()` to `validation.py` replacing 3 near-identical `f"{name} must be a {type}, got {type(value).__name__}"` patterns.
+
+**`tests/test_v261_repo_spec_pattern_validation_type_error.py`:** 29 tests — `REPO_SPEC_PATTERN` tests (12: type, matches, rejects, `__all__`, source inspection), `invalid_repo_msg` tests (7: return type, content, `__all__`, source inspection), `format_type_error` tests (10: formatting, `__all__`, integration with `require_*` functions, source inspection).
+
+**29 new tests. 6110 passed, 272 skipped.**
+
+---
+
+## Mar 17 — Unify _TRUTHY_VALUES with "on", add env var helpers (v260)
+
+**Truthy unification:** Added `"on"` to `_TRUTHY_VALUES` in `config.py` (now `frozenset({"1", "true", "yes", "on"})`). Updated `_is_truthy_env()` to `.strip()` whitespace before lowercasing. Added `_get_env_stripped()` helper for common `os.environ.get(name, "").strip()` pattern. Removed duplicate `_PR_TRUTHY_VALUES` (pr_description.py) and `_CLI_TRUTHY_VALUES` (cli/base.py) — both were identical `_TRUTHY_VALUES | {"on"}`. Simplified 3 consumers to use `_is_truthy_env()` directly.
+
+**28 new tests. 6083 passed, 270 skipped.**
+
+---
+
+## Mar 17 — DRY repo_tmp_dir, resolve_github_token, truthy values (v259)
+
+**DRY helpers:** Extracted `repo_tmp_dir()` to `github_url.py` replacing identical implementations in `cli/main.py` and `server/celery_app.py`. Extracted `resolve_github_token()` to `github_url.py` replacing `os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", ""))` in `lib/github.py` and `lib/github_url.py`. Unified truthy values in `pr_description.py` with `_TRUTHY_VALUES` from config.
+
+**32 new tests. 6055 passed, 270 skipped.**
+
+---
+
 ## Mar 17 — DRY env var parsing in pr_description.py (v258)
 
 **DRY env var parsing:** Extracted `_parse_positive_env_var(env_name, default, type_fn)` generic helper in `pr_description.py` that handles unset/non-numeric/non-positive cases with appropriate warnings. Reduced `_timeout_seconds()` and `_diff_char_limit()` from ~25 lines each (with 4 duplicated `logger.warning()` calls) to single-line delegations. Uses PEP 695 type parameters (`[T: (int, float)]`).

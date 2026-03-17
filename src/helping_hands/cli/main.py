@@ -20,7 +20,9 @@ from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
     DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
+    REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
     build_clone_url as _build_clone_url,
+    invalid_repo_msg as _invalid_repo_msg,
     noninteractive_env as _git_noninteractive_env,
     redact_credentials as _redact_sensitive,
     repo_tmp_dir as _repo_tmp_dir,
@@ -54,9 +56,6 @@ _DEFAULT_CLONE_DEPTH = 1
 
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
-
-_REPO_SPEC_PATTERN = r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
-"""Regex pattern matching a GitHub ``owner/repo`` specifier."""
 
 _MODEL_NOT_FOUND_MARKERS: tuple[str, ...] = ("model_not_found", "does not exist")
 """Substrings in exception messages that indicate a model-not-found error."""
@@ -453,7 +452,7 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
             raise
         return dest.resolve(), repo
 
-    raise ValueError(f"{repo} is not a directory or owner/repo reference")
+    raise ValueError(_invalid_repo_msg(repo))
 
 
 def _clone_reference_repos(

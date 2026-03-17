@@ -20,7 +20,9 @@ __all__ = [
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
     "GIT_CLONE_TIMEOUT_S",
+    "REPO_SPEC_PATTERN",
     "build_clone_url",
+    "invalid_repo_msg",
     "noninteractive_env",
     "redact_credentials",
     "repo_tmp_dir",
@@ -46,6 +48,9 @@ ENV_GCM_INTERACTIVE = "GCM_INTERACTIVE"
 GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
 
+REPO_SPEC_PATTERN = r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
+"""Regex matching a GitHub ``owner/repo`` specifier (no anchors)."""
+
 _ENV_GITHUB_TOKEN = "GITHUB_TOKEN"
 """Primary env var for GitHub personal/fine-grained access tokens."""
 
@@ -54,6 +59,18 @@ _ENV_GH_TOKEN = "GH_TOKEN"
 
 _ENV_REPO_TMP = "HELPING_HANDS_REPO_TMP"
 """Env var for overriding the temp directory used for repo clones."""
+
+
+def invalid_repo_msg(repo: str) -> str:
+    """Format a user-facing error for an unrecognised repo argument.
+
+    Args:
+        repo: The invalid repository argument.
+
+    Returns:
+        An error message string.
+    """
+    return f"{repo} is not a directory or owner/repo reference"
 
 
 def resolve_github_token(token: str = "") -> str:

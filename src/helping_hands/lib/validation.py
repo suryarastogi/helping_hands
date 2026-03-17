@@ -10,10 +10,25 @@ from __future__ import annotations
 import math
 
 __all__ = [
+    "format_type_error",
     "require_non_empty_string",
     "require_positive_float",
     "require_positive_int",
 ]
+
+
+def format_type_error(name: str, expected: str, value: object) -> str:
+    """Format a human-readable ``TypeError`` message.
+
+    Args:
+        name: Human-readable parameter name.
+        expected: Expected type description (e.g. ``"a string"``).
+        value: The actual value received.
+
+    Returns:
+        A formatted error string like ``"foo must be a string, got int"``.
+    """
+    return f"{name} must be {expected}, got {type(value).__name__}"
 
 
 def require_non_empty_string(value: str, name: str) -> str:
@@ -31,7 +46,7 @@ def require_non_empty_string(value: str, name: str) -> str:
         ValueError: If *value* is empty or whitespace-only.
     """
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string, got {type(value).__name__}")
+        raise TypeError(format_type_error(name, "a string", value))
     stripped = value.strip()
     if not stripped:
         raise ValueError(f"{name} must not be empty")
@@ -56,7 +71,7 @@ def require_positive_float(value: float | int, name: str) -> float:
         ValueError: If *value* is <= 0, ``NaN``, or infinite.
     """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be a number, got {type(value).__name__}")
+        raise TypeError(format_type_error(name, "a number", value))
     fval = float(value)
     if not math.isfinite(fval):
         raise ValueError(f"{name} must be finite, got {value}")
@@ -80,7 +95,7 @@ def require_positive_int(value: int, name: str) -> int:
         ValueError: If *value* is <= 0.
     """
     if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"{name} must be an int, got {type(value).__name__}")
+        raise TypeError(format_type_error(name, "an int", value))
     if value <= 0:
         raise ValueError(f"{name} must be positive, got {value}")
     return value

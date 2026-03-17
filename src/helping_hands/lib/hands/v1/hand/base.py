@@ -33,6 +33,7 @@ from helping_hands.lib.github_url import (
     ENV_GIT_TERMINAL_PROMPT as _ENV_GIT_TERMINAL_PROMPT,
     GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
     GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
+    REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
 )
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
@@ -441,11 +442,11 @@ class Hand(abc.ABC):
             repo = parsed.path.lstrip("/")
             if repo.endswith(".git"):
                 repo = repo[:-4]
-            if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+            if re.fullmatch(_REPO_SPEC_PATTERN, repo):
                 return repo
 
         scp_like = re.match(
-            rf"^git@{re.escape(_GITHUB_HOSTNAME)}:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+            rf"^git@{re.escape(_GITHUB_HOSTNAME)}:(?P<repo>{_REPO_SPEC_PATTERN}?)(?:\.git)?$",
             remote,
         )
         if scp_like:
