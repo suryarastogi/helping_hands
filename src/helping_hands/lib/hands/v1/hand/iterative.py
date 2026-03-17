@@ -57,7 +57,10 @@ from helping_hands.lib.meta.tools.registry import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["BasicAtomicHand", "BasicLangGraphHand"]
+__all__ = ["DEFAULT_MAX_ITERATIONS", "BasicAtomicHand", "BasicLangGraphHand"]
+
+DEFAULT_MAX_ITERATIONS: int = 6
+"""Default maximum number of AI loop iterations for iterative hands."""
 
 _README_CANDIDATES: tuple[str, ...] = ("README.md", "readme.md")
 """Candidate filenames for project README, checked in order during bootstrap."""
@@ -119,7 +122,7 @@ class _BasicIterativeHand(Hand):
         config: Any,
         repo_index: Any,
         *,
-        max_iterations: int = 6,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
         """Initialize the iterative hand with iteration cap and tool dispatch.
 
@@ -912,7 +915,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         config: Any,
         repo_index: Any,
         *,
-        max_iterations: int = 6,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
         self._hand_model = resolve_hand_model(self.config.model)
@@ -1103,7 +1106,7 @@ class BasicAtomicHand(_BasicIterativeHand):
         config: Any,
         repo_index: Any,
         *,
-        max_iterations: int = 6,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
         self._input_schema: type[Any] | None = None

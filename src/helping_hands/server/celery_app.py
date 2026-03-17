@@ -40,6 +40,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
+    DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
     DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
     KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
@@ -582,7 +583,7 @@ def build_feature(
     pr_number: int | None = None,
     backend: str = BACKEND_CLAUDECODECLI,
     model: str | None = None,
-    max_iterations: int = 6,
+    max_iterations: int = _DEFAULT_MAX_ITERATIONS,
     no_pr: bool = False,
     enable_execution: bool = False,
     enable_web: bool = False,

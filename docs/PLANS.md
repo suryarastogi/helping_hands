@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v257](exec-plans/completed/2026/v257-centralize-default-max-iterations.md) —
+  Centralize `DEFAULT_MAX_ITERATIONS` constant: define in `iterative.py`,
+  re-export from `server/constants.py`, replace 5 bare `6` defaults across
+  `iterative.py`, `mcp_server.py`, `celery_app.py`; 14 tests (6002 passed, 270 skipped)
+
 - [2026-03-17 v256](exec-plans/completed/2026/v256-dry-env-var-status-describe-auth.md) —
   DRY `_env_var_status()` static method on `_TwoPhaseCLIHand` replacing 5
   inline `os.environ.get(env_var, "").strip()` patterns across CLI hand

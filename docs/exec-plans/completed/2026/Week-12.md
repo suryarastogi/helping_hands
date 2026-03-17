@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — Centralize DEFAULT_MAX_ITERATIONS constant (v257)
+
+**Constant centralization:** Defined `DEFAULT_MAX_ITERATIONS: int = 6` in `iterative.py` as the canonical source, replacing 5 bare `6` literals across `_BasicIterativeHand.__init__()`, `BasicLangGraphHand.__init__()`, `BasicAtomicHand.__init__()`, `mcp_server.py:build_feature()`, and `celery_app.py:build_feature()`. Updated `server/constants.py` to re-export from `iterative.py` (was previously defining locally), added import in `mcp_server.py` and `celery_app.py`. Updated `test_v161_all_exports.py` `__all__` count (2 → 3).
+
+**`tests/test_v257_centralize_default_max_iterations.py`:** 14 tests — value/type/positivity checks (3), docstring presence (1), identity re-export tests (2: same object, no local assignment in constants.py), `__all__` export checks (2), AST-based no-bare-6 checks across 3 files (3), init signature default verification (3).
+
+**14 new tests. 6002 passed, 270 skipped.**
+
+---
+
 ## Mar 17 — DRY _env_var_status() for CLI auth descriptions (v256)
 
 **DRY env var check:** Added `_env_var_status(name: str) -> str` static method to `_TwoPhaseCLIHand` in `cli/base.py`, returning `"set"` or `"not set"`. Replaced 5 inline `os.environ.get(env_var, "").strip()` patterns in `_describe_auth()` methods across `cli/base.py` (list comprehension), `cli/claude.py`, `cli/gemini.py`, `cli/goose.py`, and `cli/opencode.py`. Removed stale `import os` from `gemini.py`, `goose.py`, and `opencode.py` (no longer needed after delegating to the base class helper).

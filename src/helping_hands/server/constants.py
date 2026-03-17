@@ -11,6 +11,9 @@ from typing import Final, Literal
 from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_CLAUDECODECLI as _BACKEND_CLAUDECODECLI,
 )
+from helping_hands.lib.hands.v1.hand.iterative import (
+    DEFAULT_MAX_ITERATIONS as DEFAULT_MAX_ITERATIONS,
+)
 
 __all__ = [
     "ANTHROPIC_BETA_HEADER",
@@ -87,9 +90,6 @@ DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 
 DEFAULT_BACKEND: Final[Literal["claudecodecli"]] = _BACKEND_CLAUDECODECLI
 """Default hand backend slug for build and schedule requests."""
-
-DEFAULT_MAX_ITERATIONS = 6
-"""Default maximum iterative hand loop iterations."""
 
 DEFAULT_CI_WAIT_MINUTES = 3.0
 """Default minutes to wait between CI check polls."""

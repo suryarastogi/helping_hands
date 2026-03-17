@@ -35,6 +35,7 @@ from mcp.server.fastmcp import FastMCP
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.factory import BACKEND_CODEXCLI
+from helping_hands.lib.hands.v1.hand.iterative import DEFAULT_MAX_ITERATIONS
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import (
     command as exec_tools,
@@ -118,7 +119,7 @@ def build_feature(
     pr_number: int | None = None,
     backend: str = BACKEND_CODEXCLI,
     model: str | None = None,
-    max_iterations: int = 6,
+    max_iterations: int = DEFAULT_MAX_ITERATIONS,
     no_pr: bool = False,
     enable_execution: bool = False,
     enable_web: bool = False,
