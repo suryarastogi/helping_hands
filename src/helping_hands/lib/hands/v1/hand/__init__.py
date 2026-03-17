@@ -23,6 +23,10 @@ from helping_hands.lib.hands.v1.hand.cli import (
     OpenCodeCLIHand,
 )
 from helping_hands.lib.hands.v1.hand.e2e import E2EHand
+from helping_hands.lib.hands.v1.hand.factory import (
+    SUPPORTED_BACKENDS,
+    create_hand,
+)
 from helping_hands.lib.hands.v1.hand.iterative import (
     BasicAtomicHand,
     BasicLangGraphHand,
@@ -33,6 +37,7 @@ from helping_hands.lib.hands.v1.hand.langgraph import LangGraphHand
 subprocess = _base_module.subprocess
 
 __all__ = [
+    "SUPPORTED_BACKENDS",
     "AtomicHand",
     "BasicAtomicHand",
     "BasicLangGraphHand",
@@ -46,4 +51,5 @@ __all__ = [
     "HandResponse",
     "LangGraphHand",
     "OpenCodeCLIHand",
+    "create_hand",
 ]

@@ -36,17 +36,19 @@ from helping_hands.lib.github_url import (
 from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
 )
-from helping_hands.lib.hands.v1.hand import (
-    BasicAtomicHand,
-    BasicLangGraphHand,
-    ClaudeCodeHand,
-    CodexCLIHand,
-    DockerSandboxClaudeCodeHand,
-    E2EHand,
-    GeminiCLIHand,
-    GooseCLIHand,
-    Hand,
-    OpenCodeCLIHand,
+from helping_hands.lib.hands.v1.hand import E2EHand, Hand
+from helping_hands.lib.hands.v1.hand.factory import (
+    BACKEND_BASIC_AGENT,
+    BACKEND_BASIC_ATOMIC,
+    BACKEND_BASIC_LANGGRAPH,
+    BACKEND_CLAUDECODECLI,
+    BACKEND_CODEXCLI,
+    BACKEND_DOCKER_SANDBOX_CLAUDE,
+    BACKEND_E2E,
+    BACKEND_GEMINICLI,
+    BACKEND_GOOSE,
+    SUPPORTED_BACKENDS,
+    create_hand,
 )
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
@@ -78,11 +80,11 @@ _MODEL_NOT_AVAILABLE_MSG = (
 
 _CLI_ERROR_EXIT_BACKENDS: frozenset[str] = frozenset(
     {
-        "codexcli",
-        "claudecodecli",
-        "docker-sandbox-claude",
-        "goose",
-        "geminicli",
+        BACKEND_CODEXCLI,
+        BACKEND_CLAUDECODECLI,
+        BACKEND_DOCKER_SANDBOX_CLAUDE,
+        BACKEND_GOOSE,
+        BACKEND_GEMINICLI,
     }
 )
 """Backends that print the error and ``sys.exit(1)`` instead of re-raising."""
@@ -176,17 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--backend",
-        choices=(
-            "basic-langgraph",
-            "basic-atomic",
-            "basic-agent",
-            "codexcli",
-            "claudecodecli",
-            "docker-sandbox-claude",
-            "goose",
-            "geminicli",
-            "opencodecli",
-        ),
+        choices=sorted(SUPPORTED_BACKENDS - {BACKEND_E2E}),
         default=None,
         help="Run an iterative coding hand in CLI mode.",
     )
@@ -345,34 +337,19 @@ def main(argv: list[str] | None = None) -> None:
     if args.backend:
         hand: Hand
         try:
-            if args.backend == "basic-langgraph":
-                hand = BasicLangGraphHand(
-                    config,
-                    repo_index,
-                    max_iterations=args.max_iterations,
-                )
-            elif args.backend == "codexcli":
-                hand = CodexCLIHand(config, repo_index)
-            elif args.backend == "claudecodecli":
-                hand = ClaudeCodeHand(config, repo_index)
-            elif args.backend == "docker-sandbox-claude":
-                hand = DockerSandboxClaudeCodeHand(config, repo_index)
-            elif args.backend == "goose":
-                hand = GooseCLIHand(config, repo_index)
-            elif args.backend == "geminicli":
-                hand = GeminiCLIHand(config, repo_index)
-            elif args.backend == "opencodecli":
-                hand = OpenCodeCLIHand(config, repo_index)
-            else:
-                hand = BasicAtomicHand(
-                    config,
-                    repo_index,
-                    max_iterations=args.max_iterations,
-                )
+            hand = create_hand(
+                args.backend,
+                config,
+                repo_index,
+                max_iterations=args.max_iterations,
+            )
             hand.auto_pr = not args.no_pr
         except ModuleNotFoundError as exc:
-            extra = "langchain" if args.backend == "basic-langgraph" else "atomic"
-            if args.backend in {"basic-atomic", "basic-agent"} and sys.version_info < (
+            extra = "langchain" if args.backend == BACKEND_BASIC_LANGGRAPH else "atomic"
+            if args.backend in {
+                BACKEND_BASIC_ATOMIC,
+                BACKEND_BASIC_AGENT,
+            } and sys.version_info < (
                 3,
                 12,
             ):

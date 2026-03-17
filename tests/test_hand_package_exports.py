@@ -28,6 +28,7 @@ class TestHandPackageAll:
 
     def test_all_contains_expected_symbols(self) -> None:
         expected = {
+            "SUPPORTED_BACKENDS",
             "AtomicHand",
             "BasicAtomicHand",
             "BasicLangGraphHand",
@@ -41,6 +42,7 @@ class TestHandPackageAll:
             "HandResponse",
             "LangGraphHand",
             "OpenCodeCLIHand",
+            "create_hand",
         }
         assert set(__all__) == expected
 

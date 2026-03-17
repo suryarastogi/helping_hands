@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v250](exec-plans/completed/2026/v250-hand-factory-backend-constants.md) —
+  Hand factory function + backend name constants: `create_hand()` factory
+  replacing duplicated if/elif chains in `cli/main.py` and `celery_app.py`,
+  `BACKEND_*` constants and `SUPPORTED_BACKENDS` frozenset;
+  38 tests (5926 passed, 254 skipped)
+
 - [2026-03-17 v249](exec-plans/completed/2026/v249-deduplicate-env-var-constants.md) —
   Deduplicate `_ENV_GIT_TERMINAL_PROMPT`/`_ENV_GCM_INTERACTIVE` constants
   (defined in both `github_url.py` and `base.py` → canonical public constants

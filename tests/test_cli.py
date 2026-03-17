@@ -207,7 +207,7 @@ class TestCli:
         mock_hand.run.assert_called_once_with("test prompt", pr_number=1, dry_run=True)
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_basic_langgraph_mode(
         self,
         mock_hand_cls: MagicMock,
@@ -236,7 +236,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicAtomicHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_basic_agent_alias_and_no_pr(
         self,
         mock_hand_cls: MagicMock,
@@ -263,7 +263,7 @@ class TestCli:
         assert mock_hand.auto_pr is False
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.CodexCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_codexcli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -290,7 +290,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.CodexCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_codexcli_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -322,7 +322,7 @@ class TestCli:
         assert "Codex CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.ClaudeCodeHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_claudecodecli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -349,7 +349,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.ClaudeCodeHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_claudecodecli_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -381,7 +381,7 @@ class TestCli:
         assert "Claude Code CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GooseCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_goose_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -408,7 +408,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GooseCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_goose_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -440,7 +440,7 @@ class TestCli:
         assert "Goose CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GeminiCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_geminicli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -467,7 +467,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GeminiCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_geminicli_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -499,7 +499,7 @@ class TestCli:
         assert "Gemini CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_interrupt_requests_hand_interrupt(
         self,
         mock_hand_cls: MagicMock,
@@ -532,7 +532,7 @@ class TestCli:
         mock_hand.interrupt.assert_called_once()
 
     @patch(
-        "helping_hands.cli.main.BasicLangGraphHand",
+        "helping_hands.cli.main.create_hand",
         side_effect=ModuleNotFoundError("No module named 'langchain_openai'"),
     )
     def test_cli_reports_missing_backend_dependency(
@@ -694,7 +694,7 @@ class TestRepoTmpDir:
 
 class TestCliAdditionalPaths:
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.OpenCodeCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_opencodecli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -721,7 +721,7 @@ class TestCliAdditionalPaths:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_model_not_found_exits_with_message(
         self,
         mock_hand_cls: MagicMock,
@@ -763,7 +763,7 @@ class TestCliAdditionalPaths:
         assert "Error" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.DockerSandboxClaudeCodeHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_docker_sandbox_claude_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -790,7 +790,7 @@ class TestCliAdditionalPaths:
         assert mock_hand.auto_pr is True
 
     @patch(
-        "helping_hands.cli.main.BasicAtomicHand",
+        "helping_hands.cli.main.create_hand",
         side_effect=ModuleNotFoundError("No module named 'atomic_agents'"),
     )
     def test_cli_reports_python_version_error_for_atomic_backend(
@@ -822,7 +822,7 @@ class TestCliAdditionalPaths:
         assert "requires Python >= 3.12" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reraises_generic_exception_for_non_cli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -961,7 +961,7 @@ class TestGitHubTokenArg:
         with (
             patch.object(Config, "from_env", classmethod(capture_config)),
             patch("helping_hands.cli.main.RepoIndex") as mock_ri,
-            patch("helping_hands.cli.main.ClaudeCodeHand") as mock_hand_cls,
+            patch("helping_hands.cli.main.create_hand") as mock_hand_cls,
             patch("helping_hands.cli.main.asyncio.run"),
         ):
             mock_ri.from_path.return_value = MagicMock(root=tmp_path, files=[])
@@ -1015,7 +1015,7 @@ class TestReferenceReposArg:
         with (
             patch.object(Config, "from_env", classmethod(capture_config)),
             patch("helping_hands.cli.main.RepoIndex") as mock_ri,
-            patch("helping_hands.cli.main.ClaudeCodeHand") as mock_hand_cls,
+            patch("helping_hands.cli.main.create_hand") as mock_hand_cls,
             patch("helping_hands.cli.main.asyncio.run"),
         ):
             mock_ri.from_path.return_value = MagicMock(

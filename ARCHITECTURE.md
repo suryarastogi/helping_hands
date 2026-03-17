@@ -79,13 +79,21 @@ All hands extend `Hand` base class (`base.py`) and implement `run()`/`stream()`:
 | `OpenCodeCLIHand` | `cli/opencode.py` | CLI subprocess | Wraps `opencode run` |
 | `DockerSandboxClaudeCodeHand` | `cli/docker_sandbox_claude.py` | CLI subprocess | Wraps `claude` inside Docker sandbox microVM |
 
-### 4. Model resolution
+### 4. Hand factory
+
+`factory.py` provides backend name constants (`BACKEND_*`), a
+`SUPPORTED_BACKENDS` frozenset, and a `create_hand()` factory function
+that maps a backend name string to the correct Hand subclass. Both
+`cli/main.py` and `celery_app.py` use this single dispatch point
+instead of duplicating if/elif chains.
+
+### 5. Model resolution
 
 Model strings (e.g., `gpt-5.2`, `anthropic/claude-sonnet-4-5`) are resolved
 through `ai_providers/` wrappers and `model_provider.py` adapters before
 reaching backend-specific clients.
 
-### 5. Finalization
+### 6. Finalization
 
 All hands share a finalization flow (in `base.py`):
 1. Detect git changes
@@ -203,14 +211,14 @@ IDE sends MCP tool call (e.g., "build_repo")
                      └─────────────┘
 ```
 
-### 6. Task result normalization
+### 7. Task result normalization
 
 Celery can return non-dict objects (including exception instances) for failed
 tasks. `task_result.py` normalizes all results into JSON-serializable dicts
 before API surfaces return them. This prevents leaking Python objects through
 the REST/MCP boundary.
 
-### 7. Skill catalog
+### 8. Skill catalog
 
 Skills (`meta/skills/`) are composable knowledge bundles (Markdown files)
 injected into hand prompts via `--skills`. Unlike tools (callable capabilities),
@@ -218,7 +226,7 @@ skills carry no executable code — they are pure knowledge artifacts discovered
 from `catalog/*.md` at import time. CLI hands stage selected skill files into
 a temporary directory during execution and clean up afterward.
 
-### 8. Usage monitoring
+### 9. Usage monitoring
 
 The Celery worker includes an automated usage monitoring pipeline
 (`log_claude_usage` task) that tracks Claude Code API consumption:
@@ -253,6 +261,7 @@ outage still surfaces the utilization percentages in the task result.
 | Hand base class | `src/helping_hands/lib/hands/v1/hand/base.py` |
 | Iterative hands | `src/helping_hands/lib/hands/v1/hand/iterative.py` |
 | CLI hand base | `src/helping_hands/lib/hands/v1/hand/cli/base.py` |
+| Hand factory | `src/helping_hands/lib/hands/v1/hand/factory.py` |
 | Model resolution | `src/helping_hands/lib/hands/v1/hand/model_provider.py` |
 | PR description gen | `src/helping_hands/lib/hands/v1/hand/pr_description.py` |
 | CLI shim (legacy) | `src/helping_hands/lib/hands/v1/hand/placeholders.py` |

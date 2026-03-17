@@ -6,6 +6,10 @@ here to avoid duplication and ensure they stay in sync.
 
 from __future__ import annotations
 
+from helping_hands.lib.hands.v1.hand.factory import (
+    BACKEND_CLAUDECODECLI as _BACKEND_CLAUDECODECLI,
+)
+
 __all__ = [
     "ANTHROPIC_BETA_HEADER",
     "ANTHROPIC_USAGE_URL",
@@ -79,7 +83,7 @@ DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 
 # --- Build / schedule defaults ------------------------------------------------
 
-DEFAULT_BACKEND = "claudecodecli"
+DEFAULT_BACKEND: str = _BACKEND_CLAUDECODECLI
 """Default hand backend slug for build and schedule requests."""
 
 DEFAULT_MAX_ITERATIONS = 6

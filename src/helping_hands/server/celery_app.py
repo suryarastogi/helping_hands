@@ -36,6 +36,19 @@ from helping_hands.lib.github_url import (
 from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
 )
+from helping_hands.lib.hands.v1.hand.factory import (
+    BACKEND_BASIC_AGENT,
+    BACKEND_BASIC_ATOMIC,
+    BACKEND_BASIC_LANGGRAPH,
+    BACKEND_CLAUDECODECLI,
+    BACKEND_CODEXCLI,
+    BACKEND_E2E,
+    BACKEND_GEMINICLI,
+    create_hand,
+)
+from helping_hands.lib.hands.v1.hand.factory import (
+    SUPPORTED_BACKENDS as _SUPPORTED_BACKENDS,
+)
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
 )
@@ -132,18 +145,6 @@ _USAGE_LOG_INTERVAL_S = 3600.0
 _DB_CONNECT_TIMEOUT_S = 5
 """Timeout in seconds for PostgreSQL connection attempts."""
 
-_SUPPORTED_BACKENDS = {
-    "e2e",
-    "basic-langgraph",
-    "basic-atomic",
-    "basic-agent",
-    "codexcli",
-    "claudecodecli",
-    "docker-sandbox-claude",
-    "goose",
-    "geminicli",
-    "opencodecli",
-}
 _VERBOSE_RAW = os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
 _VERBOSE_FULL = _VERBOSE_RAW == "full"
 _VERBOSE = _VERBOSE_FULL or _VERBOSE_RAW in _TRUTHY_VALUES
@@ -234,13 +235,13 @@ def _resolve_repo_path(
 
 def _normalize_backend(backend: str | None) -> tuple[str, str]:
     """Resolve requested backend and runtime backend implementation."""
-    requested = (backend or "codexcli").strip().lower()
+    requested = (backend or BACKEND_CLAUDECODECLI).strip().lower()
     if requested not in _SUPPORTED_BACKENDS:
         choices = ", ".join(sorted(_SUPPORTED_BACKENDS))
         msg = f"unsupported backend {requested!r}; expected one of: {choices}"
         raise ValueError(msg)
 
-    runtime = "basic-atomic" if requested == "basic-agent" else requested
+    runtime = BACKEND_BASIC_ATOMIC if requested == BACKEND_BASIC_AGENT else requested
     return requested, runtime
 
 
@@ -598,7 +599,7 @@ def build_feature(
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
-    backend: str = "codexcli",
+    backend: str = BACKEND_CLAUDECODECLI,
     model: str | None = None,
     max_iterations: int = 6,
     no_pr: bool = False,
@@ -619,17 +620,7 @@ def build_feature(
     The Celery task ID is used as the hand UUID.
     """
     from helping_hands.lib.config import Config, ConfigValue
-    from helping_hands.lib.hands.v1.hand import (
-        BasicAtomicHand,
-        BasicLangGraphHand,
-        ClaudeCodeHand,
-        CodexCLIHand,
-        DockerSandboxClaudeCodeHand,
-        E2EHand,
-        GeminiCLIHand,
-        GooseCLIHand,
-        OpenCodeCLIHand,
-    )
+    from helping_hands.lib.hands.v1.hand import E2EHand
     from helping_hands.lib.meta import skills as meta_skills
     from helping_hands.lib.meta.tools import registry as meta_tools
     from helping_hands.lib.repo import RepoIndex
@@ -679,7 +670,7 @@ def build_feature(
     )
     emitter.emit("starting")
 
-    if runtime_backend == "e2e":
+    if runtime_backend == BACKEND_E2E:
         config = Config.from_env(
             overrides={
                 "repo": repo_path,
@@ -798,7 +789,7 @@ def build_feature(
                 f"Checked out branch {_pr_branch} for PR #{pr_number} (up to date)",
             )
             repo_index = RepoIndex.from_path(Path(config.repo))
-        if runtime_backend == "codexcli" and not _has_codex_auth():
+        if runtime_backend == BACKEND_CODEXCLI and not _has_codex_auth():
             msg = (
                 "Codex authentication is missing in worker runtime. "
                 "Set OPENAI_API_KEY in .env and recreate containers, "
@@ -806,7 +797,7 @@ def build_feature(
             )
             _append_update(updates, msg)
             raise RuntimeError(msg)
-        if runtime_backend == "geminicli" and not _has_gemini_auth():
+        if runtime_backend == BACKEND_GEMINICLI and not _has_gemini_auth():
             msg = (
                 "Gemini authentication is missing in worker runtime. "
                 "Set GEMINI_API_KEY in .env and recreate containers."
@@ -823,52 +814,16 @@ def build_feature(
         emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
 
         try:
-            if runtime_backend == "basic-langgraph":
-                hand = BasicLangGraphHand(
-                    config,
-                    repo_index,
-                    max_iterations=resolved_iterations,
-                )
-            elif runtime_backend == "codexcli":
-                hand = CodexCLIHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "claudecodecli":
-                hand = ClaudeCodeHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "docker-sandbox-claude":
-                hand = DockerSandboxClaudeCodeHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "goose":
-                hand = GooseCLIHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "geminicli":
-                hand = GeminiCLIHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "opencodecli":
-                hand = OpenCodeCLIHand(
-                    config,
-                    repo_index,
-                )
-            else:
-                hand = BasicAtomicHand(
-                    config,
-                    repo_index,
-                    max_iterations=resolved_iterations,
-                )
+            hand = create_hand(
+                runtime_backend,
+                config,
+                repo_index,
+                max_iterations=resolved_iterations,
+            )
         except ModuleNotFoundError as exc:
-            if runtime_backend == "basic-langgraph":
+            if runtime_backend == BACKEND_BASIC_LANGGRAPH:
                 extra = "langchain"
-            elif runtime_backend in {"basic-atomic", "basic-agent"}:
+            elif runtime_backend in {BACKEND_BASIC_ATOMIC, BACKEND_BASIC_AGENT}:
                 extra = "atomic"
             else:
                 extra = None
