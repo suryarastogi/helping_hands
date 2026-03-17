@@ -80,9 +80,7 @@ class TestDescribeAuthConsistency:
     """Verify all _describe_auth overrides use _env_var_status."""
 
     @pytest.mark.parametrize("module_name", _CLI_HAND_MODULES)
-    def test_no_inline_environ_get_in_describe_auth(
-        self, module_name: str
-    ) -> None:
+    def test_no_inline_environ_get_in_describe_auth(self, module_name: str) -> None:
         """_describe_auth methods must not call os.environ.get directly."""
         import importlib
 

@@ -554,9 +554,7 @@ class _TwoPhaseCLIHand(Hand):
         env_label = ", ".join(native_env_names)
         if self._use_native_cli_auth():
             return f"auth=native-cli ({env_label} stripped)"
-        set_vars = [
-            n for n in native_env_names if self._env_var_status(n) == "set"
-        ]
+        set_vars = [n for n in native_env_names if self._env_var_status(n) == "set"]
         if set_vars:
             return f"auth={', '.join(set_vars)}"
         return f"auth=native-cli (no {env_label} set, using CLI session)"
