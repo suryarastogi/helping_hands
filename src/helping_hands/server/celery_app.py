@@ -20,20 +20,10 @@ from celery import Celery, Task
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
     DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
-)
-from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
-)
-from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
-)
-from helping_hands.lib.github_url import (
     noninteractive_env as _git_noninteractive_env,
-)
-from helping_hands.lib.github_url import (
     redact_credentials as _redact_sensitive,
-)
-from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.hands.v1.hand.factory import (
@@ -44,57 +34,25 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_CODEXCLI,
     BACKEND_E2E,
     BACKEND_GEMINICLI,
-    create_hand,
-)
-from helping_hands.lib.hands.v1.hand.factory import (
     SUPPORTED_BACKENDS as _SUPPORTED_BACKENDS,
+    create_hand,
 )
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
-)
-from helping_hands.server.constants import (
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
-)
-from helping_hands.server.constants import (
     DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
-)
-from helping_hands.server.constants import (
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
     REDBEAT_KEY_PREFIX as _REDBEAT_KEY_PREFIX,
-)
-from helping_hands.server.constants import (
     REDBEAT_USAGE_ENTRY_NAME as _REDBEAT_USAGE_ENTRY_NAME,
-)
-from helping_hands.server.constants import (
     RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
-)
-from helping_hands.server.constants import (
     RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
-)
-from helping_hands.server.constants import (
     TASK_NAME_LOG_USAGE as _TASK_NAME_LOG_USAGE,
-)
-from helping_hands.server.constants import (
     TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
-)
-from helping_hands.server.constants import (
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
 
@@ -148,16 +106,39 @@ _DB_CONNECT_TIMEOUT_S = 5
 _VERBOSE_RAW = os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
 _VERBOSE_FULL = _VERBOSE_RAW == "full"
 _VERBOSE = _VERBOSE_FULL or _VERBOSE_RAW in _TRUTHY_VALUES
+
+_MAX_UPDATES_VERBOSE = 2000
+"""Max stored progress updates in verbose mode."""
+
+_MAX_UPDATES_NORMAL = 200
+"""Max stored progress updates in normal mode."""
+
+_MAX_LINE_CHARS_VERBOSE = 4000
+"""Max characters per progress update line in verbose mode."""
+
+_MAX_LINE_CHARS_NORMAL = 800
+"""Max characters per progress update line in normal mode."""
+
+_FLUSH_CHARS_VERBOSE = 40
+"""Buffer flush threshold (characters) in verbose mode."""
+
+_FLUSH_CHARS_NORMAL = 180
+"""Buffer flush threshold (characters) in normal mode."""
+
 _MAX_STORED_UPDATES = (
     0
     if _VERBOSE_FULL
     else (
         int(os.environ.get("HELPING_HANDS_MAX_UPDATES", "0"))
-        or (2000 if _VERBOSE else 200)
+        or (_MAX_UPDATES_VERBOSE if _VERBOSE else _MAX_UPDATES_NORMAL)
     )
 )
-_MAX_UPDATE_LINE_CHARS = 0 if _VERBOSE_FULL else (4000 if _VERBOSE else 800)
-_BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
+_MAX_UPDATE_LINE_CHARS = (
+    0
+    if _VERBOSE_FULL
+    else (_MAX_LINE_CHARS_VERBOSE if _VERBOSE else _MAX_LINE_CHARS_NORMAL)
+)
+_BUFFER_FLUSH_CHARS = _FLUSH_CHARS_VERBOSE if _VERBOSE else _FLUSH_CHARS_NORMAL
 
 
 def _github_clone_url(repo: str, token: str | None = None) -> str:
@@ -985,8 +966,7 @@ VALUES
 def log_claude_usage() -> dict[str, Any]:
     """Fetch Claude Code usage from the OAuth API and log it to Postgres."""
     import json as _json
-    from urllib import error as _url_error
-    from urllib import request as _url_request
+    from urllib import error as _url_error, request as _url_request
 
     # --- Fetch OAuth token from macOS Keychain ---
     try:

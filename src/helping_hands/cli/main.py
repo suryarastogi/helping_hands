@@ -20,20 +20,10 @@ from helping_hands.lib.config import Config, ConfigValue
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
     DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
-)
-from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
-)
-from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
-)
-from helping_hands.lib.github_url import (
     noninteractive_env as _git_noninteractive_env,
-)
-from helping_hands.lib.github_url import (
     redact_credentials as _redact_sensitive,
-)
-from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.hands.v1.hand import E2EHand, Hand

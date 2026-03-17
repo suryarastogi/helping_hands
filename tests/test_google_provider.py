@@ -180,7 +180,9 @@ class TestGoogleProviderSingleton:
         assert isinstance(GOOGLE_PROVIDER, GoogleProvider)
 
     def test_singleton_identity_across_imports(self) -> None:
-        from helping_hands.lib.ai_providers.google import GOOGLE_PROVIDER as FIRST
-        from helping_hands.lib.ai_providers.google import GOOGLE_PROVIDER as SECOND
+        from helping_hands.lib.ai_providers.google import (
+            GOOGLE_PROVIDER as FIRST,
+            GOOGLE_PROVIDER as SECOND,
+        )
 
         assert FIRST is SECOND

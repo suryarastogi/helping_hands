@@ -1,6 +1,18 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, git-not-found constants, exception narrowing, env var constant deduplication, and test coverage.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, git-not-found constants, exception narrowing, env var constant deduplication, import consolidation, and test coverage.
+
+---
+
+## Mar 17 — Consolidate imports, extract magic numbers (v255)
+
+**Import consolidation:** Enabled `combine-as-imports = true` in ruff isort config, consolidating verbose single-item `as`-aliased imports: `celery_app.py` (24 separate `from X import (Y as _Y,)` statements → 3 grouped imports), `app.py` (25 → 1). Also applied across 21 other files via `ruff check --fix`.
+
+**Magic number constants:** Extracted 6 named constants in `celery_app.py`: `_MAX_UPDATES_VERBOSE` (2000), `_MAX_UPDATES_NORMAL` (200), `_MAX_LINE_CHARS_VERBOSE` (4000), `_MAX_LINE_CHARS_NORMAL` (800), `_FLUSH_CHARS_VERBOSE` (40), `_FLUSH_CHARS_NORMAL` (180). Derived config variables (`_MAX_STORED_UPDATES`, `_MAX_UPDATE_LINE_CHARS`, `_BUFFER_FLUSH_CHARS`) now reference these constants instead of bare literals.
+
+**`tests/test_v255_consolidated_imports_magic_numbers.py`:** 12 tests — AST-based import consolidation checks (4 celery_app, 2 app), constant definition/value/relationship verification (5), ruff config check (1).
+
+**12 new tests. 5972 passed, 270 skipped.**
 
 ---
 

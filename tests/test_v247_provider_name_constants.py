@@ -20,10 +20,8 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     _PROVIDER_LITELLM,
     _PROVIDER_OLLAMA,
     _PROVIDER_OPENAI,
-    resolve_hand_model,
-)
-from helping_hands.lib.hands.v1.hand.model_provider import (
     __all__ as mp_all,
+    resolve_hand_model,
 )
 
 # ---------------------------------------------------------------------------

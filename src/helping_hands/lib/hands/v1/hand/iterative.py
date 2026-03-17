@@ -43,10 +43,12 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     resolve_hand_model,
 )
 from helping_hands.lib.meta import skills as system_skills
-from helping_hands.lib.meta.tools import command as system_exec_tools
-from helping_hands.lib.meta.tools import filesystem as system_tools
-from helping_hands.lib.meta.tools import registry as tool_registry
-from helping_hands.lib.meta.tools import web as system_web_tools
+from helping_hands.lib.meta.tools import (
+    command as system_exec_tools,
+    filesystem as system_tools,
+    registry as tool_registry,
+    web as system_web_tools,
+)
 from helping_hands.lib.meta.tools.registry import (
     _parse_optional_str,
     _parse_positive_int,

@@ -8,6 +8,17 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v255](exec-plans/completed/2026/v255-consolidate-imports-magic-numbers-factory-tests.md) —
+  Consolidate verbose single-item `as`-aliased imports in `celery_app.py` (24 → 3 statements)
+  and `app.py` (25 → 1 statement) via `combine-as-imports = true` ruff isort config;
+  extract 6 magic number constants in `celery_app.py`; 12 tests (5972 passed, 270 skipped)
+
+- [2026-03-17 v254](exec-plans/completed/2026/v254-remaining-getattr-simplification.md) —
+  Replace 4 remaining defensive `getattr()` calls with direct attribute access:
+  `response.status` in `web.py`, `repo_obj.default_branch` in `base.py`,
+  `existing.github_token` in `app.py`, `self.request.id` in `celery_app.py`;
+  10 tests (5960 passed, 270 skipped)
+
 - [2026-03-17 v253](exec-plans/completed/2026/v253-simplify-schedule-getattr-to-direct-access.md) —
   Replace 10 defensive `getattr(schedule/task, ...)` calls with direct attribute
   access in `celery_app.py` `scheduled_build()` and `app.py`

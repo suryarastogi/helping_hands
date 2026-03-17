@@ -107,8 +107,7 @@ class TestCeleryJwtTokenPrefix:
         """Ensure celery_app.py and app.py JWT prefixes are in sync."""
         pytest.importorskip("celery")
         pytest.importorskip("fastapi")
-        from helping_hands.server import app as app_mod
-        from helping_hands.server import celery_app as celery_mod
+        from helping_hands.server import app as app_mod, celery_app as celery_mod
 
         assert app_mod._JWT_TOKEN_PREFIX == celery_mod._JWT_TOKEN_PREFIX
 

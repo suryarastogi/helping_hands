@@ -74,6 +74,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["helping_hands"]
+combine-as-imports = true
 
 [tool.pytest.ini_options]
 addopts = "--cov=src/helping_hands --cov-report=term-missing"

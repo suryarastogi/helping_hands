@@ -16,8 +16,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from helping_hands.lib.github_url import DEFAULT_CLONE_ERROR_MSG
-from helping_hands.lib.github_url import __all__ as github_url_all
+from helping_hands.lib.github_url import (
+    DEFAULT_CLONE_ERROR_MSG,
+    __all__ as github_url_all,
+)
 
 
 class TestDefaultCloneErrorMsg:

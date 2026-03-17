@@ -17,20 +17,10 @@ from celery import Celery
 
 from helping_hands.server.constants import (
     DEFAULT_BACKEND as _DEFAULT_BACKEND,
-)
-from helping_hands.server.constants import (
     DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
-)
-from helping_hands.server.constants import (
     REDBEAT_KEY_PREFIX as _REDBEAT_KEY_PREFIX,
-)
-from helping_hands.server.constants import (
     REDBEAT_SCHEDULE_ENTRY_PREFIX as _REDBEAT_SCHEDULE_ENTRY_PREFIX,
-)
-from helping_hands.server.constants import (
     TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
 )
 

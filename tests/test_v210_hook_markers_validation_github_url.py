@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import inspect
 
-from helping_hands.lib import github_url as github_url_module
-from helping_hands.lib import validation as validation_module
+from helping_hands.lib import (
+    github_url as github_url_module,
+    validation as validation_module,
+)
 from helping_hands.lib.hands.v1.hand import base as hand_base_module
 
 # ---------------------------------------------------------------------------

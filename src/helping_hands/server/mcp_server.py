@@ -36,10 +36,12 @@ from mcp.server.fastmcp import FastMCP
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.factory import BACKEND_CODEXCLI
 from helping_hands.lib.meta import skills as meta_skills
-from helping_hands.lib.meta.tools import command as exec_tools
-from helping_hands.lib.meta.tools import filesystem as fs_tools
-from helping_hands.lib.meta.tools import registry as meta_tools
-from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.meta.tools import (
+    command as exec_tools,
+    filesystem as fs_tools,
+    registry as meta_tools,
+    web as web_tools,
+)
 from helping_hands.lib.meta.tools.command import _DEFAULT_PYTHON_VERSION
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import require_non_empty_string

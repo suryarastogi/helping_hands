@@ -170,8 +170,6 @@ class TestAnthropicProviderSingleton:
     def test_singleton_identity_across_imports(self) -> None:
         from helping_hands.lib.ai_providers.anthropic import (
             ANTHROPIC_PROVIDER as FIRST,
-        )
-        from helping_hands.lib.ai_providers.anthropic import (
             ANTHROPIC_PROVIDER as SECOND,
         )
 

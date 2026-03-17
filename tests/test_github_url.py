@@ -14,13 +14,11 @@ from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S,
     GITHUB_HOSTNAME,
     GITHUB_TOKEN_USER,
+    __all__ as github_url_all,
     build_clone_url,
     noninteractive_env,
     redact_credentials,
     validate_repo_spec,
-)
-from helping_hands.lib.github_url import (
-    __all__ as github_url_all,
 )
 
 # ---------------------------------------------------------------------------

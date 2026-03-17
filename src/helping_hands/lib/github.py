@@ -18,8 +18,10 @@ from github import Auth, Github
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
-from helping_hands.lib.github_url import GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER
-from helping_hands.lib.github_url import redact_credentials as _redact_credentials
+from helping_hands.lib.github_url import (
+    GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
+    redact_credentials as _redact_credentials,
+)
 from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
 __all__ = ["CIConclusion", "GitHubClient", "PRResult"]

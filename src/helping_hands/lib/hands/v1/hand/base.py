@@ -30,14 +30,8 @@ from github import GithubException
 
 from helping_hands.lib.github_url import (
     ENV_GCM_INTERACTIVE as _ENV_GCM_INTERACTIVE,
-)
-from helping_hands.lib.github_url import (
     ENV_GIT_TERMINAL_PROMPT as _ENV_GIT_TERMINAL_PROMPT,
-)
-from helping_hands.lib.github_url import (
     GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
-)
-from helping_hands.lib.github_url import (
     GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
 )
 from helping_hands.lib.meta import skills as system_skills

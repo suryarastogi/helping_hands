@@ -15,8 +15,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-from urllib import error as urllib_error
-from urllib import request as urllib_request
+from urllib import error as urllib_error, request as urllib_request
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form
@@ -43,77 +42,29 @@ from helping_hands.lib.validation import require_non_empty_string
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
-)
-from helping_hands.server.constants import (
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
-)
-from helping_hands.server.constants import (
     DEFAULT_BACKEND as _DEFAULT_BACKEND,
-)
-from helping_hands.server.constants import (
     DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
-)
-from helping_hands.server.constants import (
     DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
-)
-from helping_hands.server.constants import (
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
     MAX_CI_WAIT_MINUTES as _MAX_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
     MAX_GITHUB_TOKEN_LENGTH as _MAX_GITHUB_TOKEN_LENGTH,
-)
-from helping_hands.server.constants import (
     MAX_ITERATIONS_UPPER_BOUND as _MAX_ITERATIONS_UPPER_BOUND,
-)
-from helping_hands.server.constants import (
     MAX_MODEL_LENGTH as _MAX_MODEL_LENGTH,
-)
-from helping_hands.server.constants import (
     MAX_PROMPT_LENGTH as _MAX_PROMPT_LENGTH,
-)
-from helping_hands.server.constants import (
     MAX_REFERENCE_REPOS as _MAX_REFERENCE_REPOS,
-)
-from helping_hands.server.constants import (
     MAX_REPO_PATH_LENGTH as _MAX_REPO_PATH_LENGTH,
-)
-from helping_hands.server.constants import (
     MIN_CI_WAIT_MINUTES as _MIN_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
     RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
-)
-from helping_hands.server.constants import (
     RESPONSE_STATUS_NA as _RESPONSE_STATUS_NA,
-)
-from helping_hands.server.constants import (
     RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
-)
-from helping_hands.server.constants import (
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
-)
-from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
 from helping_hands.server.task_result import normalize_task_result
