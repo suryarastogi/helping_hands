@@ -926,11 +926,11 @@ def scheduled_build(
         enable_execution=schedule.enable_execution,
         enable_web=schedule.enable_web,
         use_native_cli_auth=schedule.use_native_cli_auth,
-        tools=getattr(schedule, "tools", []),
+        tools=schedule.tools,
         skills=schedule.skills,
-        fix_ci=getattr(schedule, "fix_ci", False),
-        ci_check_wait_minutes=getattr(schedule, "ci_check_wait_minutes", 3.0),
-        reference_repos=getattr(schedule, "reference_repos", []),
+        fix_ci=schedule.fix_ci,
+        ci_check_wait_minutes=schedule.ci_check_wait_minutes,
+        reference_repos=schedule.reference_repos,
     )
 
     # Record the run

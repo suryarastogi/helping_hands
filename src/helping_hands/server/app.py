@@ -3886,7 +3886,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         except (ValueError, TypeError):
             logger.debug(
                 "Failed to calculate next run for schedule %s",
-                getattr(task, "schedule_id", "?"),
+                task.schedule_id,
                 exc_info=True,
             )
 
@@ -3904,13 +3904,11 @@ def _schedule_to_response(task) -> ScheduleResponse:
         enable_execution=task.enable_execution,
         enable_web=task.enable_web,
         use_native_cli_auth=task.use_native_cli_auth,
-        fix_ci=getattr(task, "fix_ci", False),
-        ci_check_wait_minutes=getattr(
-            task, "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
-        ),
-        github_token=_redact_token(getattr(task, "github_token", None)),
-        reference_repos=getattr(task, "reference_repos", []),
-        tools=getattr(task, "tools", []),
+        fix_ci=task.fix_ci,
+        ci_check_wait_minutes=task.ci_check_wait_minutes,
+        github_token=_redact_token(task.github_token),
+        reference_repos=task.reference_repos,
+        tools=task.tools,
         skills=task.skills,
         enabled=task.enabled,
         created_at=task.created_at,

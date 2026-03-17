@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v253](exec-plans/completed/2026/v253-simplify-schedule-getattr-to-direct-access.md) —
+  Replace 10 defensive `getattr(schedule/task, ...)` calls with direct attribute
+  access in `celery_app.py` `scheduled_build()` and `app.py`
+  `_schedule_to_response()` (all fields exist on `ScheduledTask` dataclass);
+  14 tests (2 passed, 12 skipped without server extras; 5951 passed total)
+
 - [2026-03-17 v252](exec-plans/completed/2026/v252-backend-lookup-constants-factory-coverage.md) —
   Replace bare backend string literals in `app.py` `_BACKEND_LOOKUP` keys and
   `mcp_server.py` default with `BACKEND_*` factory constants; mock-based tests

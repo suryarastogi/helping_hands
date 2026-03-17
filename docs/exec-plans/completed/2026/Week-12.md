@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — Simplify schedule getattr() to direct access (v253)
+
+**Direct attribute access:** Replaced 10 defensive `getattr(schedule/task, "field", default)` calls with direct `schedule.field`/`task.field` access in `celery_app.py` `scheduled_build()` (4 calls: `tools`, `fix_ci`, `ci_check_wait_minutes`, `reference_repos`) and `app.py` `_schedule_to_response()` (6 calls: same fields plus `github_token`, `schedule_id`). All fields are defined on the `ScheduledTask` dataclass with defaults, making `getattr()` unnecessarily defensive — same pattern as v246 for `Config`.
+
+**`tests/test_v253_schedule_direct_access.py`:** 14 tests — AST-based no-getattr checks in `scheduled_build()` and `_schedule_to_response()`, `ScheduledTask` field default verification (7 tests), explicit value assignment verification (5 tests).
+
+**14 new tests (2 passed, 12 skipped without server extras). 5951 passed, 268 skipped.**
+
+---
+
 ## Mar 17 — Deduplicate env var constants (v249)
 
 **Constant deduplication:** `_ENV_GIT_TERMINAL_PROMPT` and `_ENV_GCM_INTERACTIVE` were defined identically in both `github_url.py` and `base.py`. Renamed to public `ENV_GIT_TERMINAL_PROMPT`/`ENV_GCM_INTERACTIVE` in `github_url.py` (canonical location), added to `__all__`, and replaced duplicate definitions in `base.py` with aliased imports. Updated 4 existing test files with new `__all__` expectations.
