@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _DOCKER_ENV_HINT_TEMPLATE,
     _detect_auth_failure,
@@ -56,7 +54,7 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         env_var = _PROVIDER_ENV_MAP.get(provider)
         if not env_var:
             return f"auth=provider={provider}"
-        present = "set" if os.environ.get(env_var, "").strip() else "not set"
+        present = self._env_var_status(env_var)
         return f"auth=provider={provider} ({env_var} {present})"
 
     @staticmethod

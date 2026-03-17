@@ -59,8 +59,6 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         Returns:
             Human-readable string summarising provider and auth status.
         """
-        import os
-
         provider, _model = self._resolve_goose_provider_model_from_config()
         env_map = {
             _PROVIDER_OPENAI: "OPENAI_API_KEY",
@@ -69,7 +67,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             _PROVIDER_OLLAMA: "OLLAMA_HOST",
         }
         env_var = env_map.get(provider, provider)
-        present = "set" if os.environ.get(env_var, "").strip() else "not set"
+        present = self._env_var_status(env_var)
         return f"auth=GOOSE_PROVIDER={provider} ({env_var} {present})"
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:

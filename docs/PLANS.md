@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v256](exec-plans/completed/2026/v256-dry-env-var-status-describe-auth.md) —
+  DRY `_env_var_status()` static method on `_TwoPhaseCLIHand` replacing 5
+  inline `os.environ.get(env_var, "").strip()` patterns across CLI hand
+  `_describe_auth()` methods; removed stale `import os` from gemini.py,
+  goose.py, opencode.py; 16 tests (5988 passed, 270 skipped)
+
 - [2026-03-17 v255](exec-plans/completed/2026/v255-consolidate-imports-magic-numbers-factory-tests.md) —
   Consolidate verbose single-item `as`-aliased imports in `celery_app.py` (24 → 3 statements)
   and `app.py` (25 → 1 statement) via `combine-as-imports = true` ruff isort config;

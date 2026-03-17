@@ -533,6 +533,19 @@ class _TwoPhaseCLIHand(Hand):
         """
         return ()
 
+    @staticmethod
+    def _env_var_status(name: str) -> str:
+        """Return ``"set"`` or ``"not set"`` based on whether *name* is populated.
+
+        Args:
+            name: Environment variable name to check.
+
+        Returns:
+            ``"set"`` if the variable exists and contains non-whitespace
+            characters, ``"not set"`` otherwise.
+        """
+        return "set" if os.environ.get(name, "").strip() else "not set"
+
     def _describe_auth(self) -> str:
         """Return a human-readable auth summary for the startup banner."""
         native_env_names = self._native_cli_auth_env_names()
@@ -541,7 +554,9 @@ class _TwoPhaseCLIHand(Hand):
         env_label = ", ".join(native_env_names)
         if self._use_native_cli_auth():
             return f"auth=native-cli ({env_label} stripped)"
-        set_vars = [n for n in native_env_names if os.environ.get(n, "").strip()]
+        set_vars = [
+            n for n in native_env_names if self._env_var_status(n) == "set"
+        ]
         if set_vars:
             return f"auth={', '.join(set_vars)}"
         return f"auth=native-cli (no {env_label} set, using CLI session)"

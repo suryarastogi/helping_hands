@@ -312,9 +312,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             Human-readable string indicating whether ``ANTHROPIC_API_KEY``
             is set.
         """
-        present = (
-            "set" if os.environ.get("ANTHROPIC_API_KEY", "").strip() else "not set"
-        )
+        present = self._env_var_status("ANTHROPIC_API_KEY")
         return f"auth=ANTHROPIC_API_KEY ({present})"
 
     def _pr_description_cmd(self) -> list[str] | None:

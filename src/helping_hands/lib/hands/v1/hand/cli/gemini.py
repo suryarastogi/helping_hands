@@ -43,9 +43,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         Returns:
             Human-readable string indicating whether ``GEMINI_API_KEY`` is set.
         """
-        import os
-
-        present = "set" if os.environ.get("GEMINI_API_KEY", "").strip() else "not set"
+        present = self._env_var_status("GEMINI_API_KEY")
         return f"auth=GEMINI_API_KEY ({present})"
 
     @staticmethod

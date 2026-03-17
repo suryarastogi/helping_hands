@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — DRY _env_var_status() for CLI auth descriptions (v256)
+
+**DRY env var check:** Added `_env_var_status(name: str) -> str` static method to `_TwoPhaseCLIHand` in `cli/base.py`, returning `"set"` or `"not set"`. Replaced 5 inline `os.environ.get(env_var, "").strip()` patterns in `_describe_auth()` methods across `cli/base.py` (list comprehension), `cli/claude.py`, `cli/gemini.py`, `cli/goose.py`, and `cli/opencode.py`. Removed stale `import os` from `gemini.py`, `goose.py`, and `opencode.py` (no longer needed after delegating to the base class helper).
+
+**`tests/test_v256_env_var_status_describe_auth.py`:** 16 tests — `_env_var_status` unit tests (8: set/not-set/empty/whitespace/leading-trailing/type/staticmethod/docstring), AST consistency tests (6: no inline `os.environ.get` in `_describe_auth` across 5 modules + class attribute check), stale `import os` regression tests (2: gemini.py, opencode.py).
+
+**16 new tests. 5988 passed, 270 skipped.**
+
+---
+
 ## Mar 17 — Consolidate imports, extract magic numbers (v255)
 
 **Import consolidation:** Enabled `combine-as-imports = true` in ruff isort config, consolidating verbose single-item `as`-aliased imports: `celery_app.py` (24 separate `from X import (Y as _Y,)` statements → 3 grouped imports), `app.py` (25 → 1). Also applied across 21 other files via `ruff check --fix`.
