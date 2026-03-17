@@ -27,9 +27,7 @@ class TestRequireLangchainClass:
 
         fake_mod = SimpleNamespace(FakeChat=FakeChat)
         with patch.dict("sys.modules", {"fake_langchain": fake_mod}):
-            result = _require_langchain_class(
-                "fake_langchain", "FakeChat", hint="test"
-            )
+            result = _require_langchain_class("fake_langchain", "FakeChat", hint="test")
         assert result is FakeChat
 
     def test_raises_runtime_error_when_module_missing(self) -> None:
@@ -38,9 +36,7 @@ class TestRequireLangchainClass:
             patch.dict("sys.modules", {"langchain_missing": None}),
             pytest.raises(RuntimeError, match="test hint") as exc_info,
         ):
-            _require_langchain_class(
-                "langchain_missing", "SomeClass", hint="test hint"
-            )
+            _require_langchain_class("langchain_missing", "SomeClass", hint="test hint")
         assert "uv add langchain-missing" in str(exc_info.value)
 
     def test_auto_derives_install_from_module_path(self) -> None:
@@ -49,9 +45,7 @@ class TestRequireLangchainClass:
             patch.dict("sys.modules", {"langchain_foo_bar": None}),
             pytest.raises(RuntimeError) as exc_info,
         ):
-            _require_langchain_class(
-                "langchain_foo_bar", "Cls", hint="need foo"
-            )
+            _require_langchain_class("langchain_foo_bar", "Cls", hint="need foo")
         assert "uv add langchain-foo-bar" in str(exc_info.value)
 
     def test_explicit_install_overrides_auto_derive(self) -> None:
@@ -155,9 +149,7 @@ class TestBuildLangchainUsesHelper:
             build_langchain_chat_model,
         )
 
-        hm = HandModel(
-            provider=PROVIDERS["litellm"], model="gpt-5.2", raw="test"
-        )
+        hm = HandModel(provider=PROVIDERS["litellm"], model="gpt-5.2", raw="test")
         with (
             patch.dict(
                 "sys.modules",
@@ -166,9 +158,7 @@ class TestBuildLangchainUsesHelper:
                     "langchain_community.chat_models": None,
                 },
             ),
-            pytest.raises(
-                RuntimeError, match="uv add langchain-community litellm"
-            ),
+            pytest.raises(RuntimeError, match="uv add langchain-community litellm"),
         ):
             build_langchain_chat_model(hm, streaming=False)
 
