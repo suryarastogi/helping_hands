@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v266](exec-plans/completed/2026/v266-langchain-import-helper.md) —
+  Extract `_require_langchain_class()` helper to deduplicate 3 identical
+  `try/except ModuleNotFoundError` blocks in `build_langchain_chat_model()`;
+  11 tests
+
 - [2026-03-17 v265](exec-plans/completed/2026/v265-provider-import-guard-api-key-map.md) —
   Extract `_require_sdk()` helper on `AIProvider` base class (dedup 5 identical
   ImportError blocks), `PROVIDER_API_KEY_ENV` constant in `model_provider.py`

@@ -21,6 +21,7 @@ __all__ = [
     "_PROVIDER_OLLAMA",
     "_PROVIDER_OPENAI",
     "HandModel",
+    "_require_langchain_class",
     "build_atomic_client",
     "build_langchain_chat_model",
     "resolve_hand_model",
@@ -54,6 +55,36 @@ _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 
 _DEFAULT_OLLAMA_API_KEY = "ollama"
 """Default API key used for Ollama (the server doesn't require real auth)."""
+
+
+def _require_langchain_class(
+    module_path: str,
+    class_name: str,
+    *,
+    hint: str,
+    install: str | None = None,
+) -> type:
+    """Import a LangChain chat-model class, raising ``RuntimeError`` on failure.
+
+    Args:
+        module_path: Dotted module path (e.g. ``"langchain_anthropic"``).
+        class_name: Class to import from the module (e.g. ``"ChatAnthropic"``).
+        hint: Human-readable requirement description for the error message.
+        install: Explicit ``uv add`` packages string.  When *None*, derived
+            from *module_path* by replacing underscores with hyphens.
+
+    Returns:
+        The imported class.
+
+    Raises:
+        RuntimeError: If the module is not installed.
+    """
+    try:
+        mod = __import__(module_path, fromlist=[class_name])
+    except ModuleNotFoundError as exc:
+        pkg = install if install is not None else module_path.replace("_", "-")
+        raise RuntimeError(f"{hint}. Install with: uv add {pkg}") from exc
+    return getattr(mod, class_name)
 
 
 @dataclass(frozen=True)
@@ -137,32 +168,27 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
             **extra,
         )
     if provider == _PROVIDER_ANTHROPIC:
-        try:
-            from langchain_anthropic import ChatAnthropic
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "anthropic models require langchain-anthropic. "
-                "Install with: uv add langchain-anthropic"
-            ) from exc
-        return ChatAnthropic(model=hand_model.model, streaming=streaming)
+        cls = _require_langchain_class(
+            "langchain_anthropic",
+            "ChatAnthropic",
+            hint="anthropic models require langchain-anthropic",
+        )
+        return cls(model=hand_model.model, streaming=streaming)
     if provider == _PROVIDER_GOOGLE:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "google models require langchain-google-genai. "
-                "Install with: uv add langchain-google-genai"
-            ) from exc
-        return ChatGoogleGenerativeAI(model=hand_model.model, streaming=streaming)
+        cls = _require_langchain_class(
+            "langchain_google_genai",
+            "ChatGoogleGenerativeAI",
+            hint="google models require langchain-google-genai",
+        )
+        return cls(model=hand_model.model, streaming=streaming)
     if provider == _PROVIDER_LITELLM:
-        try:
-            from langchain_community.chat_models import ChatLiteLLM
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "litellm models require langchain-community and litellm. "
-                "Install with: uv add langchain-community litellm"
-            ) from exc
-        return ChatLiteLLM(model=hand_model.model, streaming=streaming)
+        cls = _require_langchain_class(
+            "langchain_community.chat_models",
+            "ChatLiteLLM",
+            hint="litellm models require langchain-community and litellm",
+            install="langchain-community litellm",
+        )
+        return cls(model=hand_model.model, streaming=streaming)
 
     raise RuntimeError(f"unsupported provider for LangGraph backend: {provider}")
 

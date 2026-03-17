@@ -249,6 +249,7 @@ class TestModelProviderAllExport:
             "_PROVIDER_GOOGLE",
             "_PROVIDER_OLLAMA",
             "_PROVIDER_LITELLM",
+            "_require_langchain_class",
         }
         private = [
             name
@@ -266,7 +267,7 @@ class TestModelProviderAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.model_provider import __all__
 
-        assert len(__all__) == 10
+        assert len(__all__) == 11
 
 
 # ---------------------------------------------------------------------------
