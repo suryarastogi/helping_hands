@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v271](exec-plans/completed/2026/v271-format-cli-failure-helper.md) —
+  Extract `_format_cli_failure()` to DRY auth-failure message formatting
+  across codex, claude, opencode CLI hands; 24 tests (6278 passed, 273 skipped)
+
 - [2026-03-17 v270](exec-plans/completed/2026/v270-has-cli-flag-install-hint-check-dep.md) —
   `has_cli_flag()`, `install_hint()`, `_check_optional_dep()` DRY extraction;
   20 tests (6254 passed, 273 skipped)

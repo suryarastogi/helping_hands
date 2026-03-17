@@ -6,8 +6,7 @@ import os
 from pathlib import Path
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _DOCKER_ENV_HINT_TEMPLATE,
-    _detect_auth_failure,
+    _format_cli_failure,
     _TwoPhaseCLIHand,
 )
 from helping_hands.lib.validation import has_cli_flag
@@ -42,8 +41,8 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     def _build_codex_failure_message(*, return_code: int, output: str) -> str:
         """Build a human-readable failure message from Codex CLI output.
 
-        Detects authentication errors (401 Unauthorized) and provides
-        targeted remediation guidance.
+        Delegates to :func:`_format_cli_failure` with Codex-specific
+        parameters for auth detection and remediation guidance.
 
         Args:
             return_code: Process exit code.
@@ -52,18 +51,13 @@ class CodexCLIHand(_TwoPhaseCLIHand):
         Returns:
             Formatted error message with output tail and optional auth hint.
         """
-        is_auth, tail = _detect_auth_failure(
-            output,
+        return _format_cli_failure(
+            backend_name="Codex CLI",
+            return_code=return_code,
+            output=output,
+            env_var_hint="OPENAI_API_KEY",
             extra_tokens=("missing bearer or basic authentication",),
         )
-        if is_auth:
-            return (
-                "Codex CLI authentication failed (401 Unauthorized). "
-                "Ensure OPENAI_API_KEY is set in this runtime. "
-                f"{_DOCKER_ENV_HINT_TEMPLATE.format('OPENAI_API_KEY')}\n"
-                f"Output:\n{tail}"
-            )
-        return f"Codex CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
         """Expand bare ``codex`` to ``codex exec``.

@@ -8,8 +8,7 @@ import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _DOCKER_ENV_HINT_TEMPLATE,
-    _detect_auth_failure,
+    _format_cli_failure,
     _truncate_with_ellipsis,
     _TwoPhaseCLIHand,
 )
@@ -363,17 +362,25 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
-        is_auth, tail = _detect_auth_failure(
-            output, extra_tokens=ClaudeCodeHand._EXTRA_AUTH_TOKENS
+        """Build a human-readable failure message from Claude Code CLI output.
+
+        Delegates to :func:`_format_cli_failure` with Claude-specific
+        parameters for auth detection and remediation guidance.
+
+        Args:
+            return_code: Process exit code.
+            output: Combined stdout/stderr from the Claude Code CLI process.
+
+        Returns:
+            Formatted error message with output tail and optional auth hint.
+        """
+        return _format_cli_failure(
+            backend_name="Claude Code CLI",
+            return_code=return_code,
+            output=output,
+            env_var_hint="ANTHROPIC_API_KEY",
+            extra_tokens=ClaudeCodeHand._EXTRA_AUTH_TOKENS,
         )
-        if is_auth:
-            return (
-                "Claude Code CLI authentication failed. "
-                "Ensure ANTHROPIC_API_KEY is set in this runtime. "
-                f"{_DOCKER_ENV_HINT_TEMPLATE.format('ANTHROPIC_API_KEY')}\n"
-                f"Output:\n{tail}"
-            )
-        return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _resolve_cli_model(self) -> str:
         """Resolve the CLI model, filtering out incompatible non-Anthropic models.

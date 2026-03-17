@@ -25,17 +25,22 @@ class TestFailureOutputTailConsolidation:
 
         assert _FAILURE_OUTPUT_TAIL_LENGTH > 0
 
-    def test_subclasses_use_detect_auth_failure(self) -> None:
-        """Since v203, subclasses use _detect_auth_failure which
-        encapsulates _FAILURE_OUTPUT_TAIL_LENGTH internally."""
+    def test_subclasses_use_auth_detection(self) -> None:
+        """Since v271, codex/claude/opencode delegate to _format_cli_failure
+        (which internally calls _detect_auth_failure).  Gemini still calls
+        _detect_auth_failure directly due to its model-not-found branch."""
         import inspect
 
         from helping_hands.lib.hands.v1.hand.cli import claude, codex, gemini, opencode
 
-        for mod in (claude, codex, gemini, opencode):
+        # Gemini still uses _detect_auth_failure directly
+        assert "_detect_auth_failure" in inspect.getsource(gemini)
+
+        # Others delegate via _format_cli_failure
+        for mod in (claude, codex, opencode):
             src = inspect.getsource(mod)
-            assert "_detect_auth_failure" in src, (
-                f"{mod.__name__} should use _detect_auth_failure"
+            assert "_format_cli_failure" in src, (
+                f"{mod.__name__} should use _format_cli_failure"
             )
 
     def test_constant_in_base_all(self) -> None:

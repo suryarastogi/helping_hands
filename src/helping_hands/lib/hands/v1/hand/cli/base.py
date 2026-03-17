@@ -68,6 +68,7 @@ __all__ = [
     "CIFixStatus",
     "_TwoPhaseCLIHand",
     "_detect_auth_failure",
+    "_format_cli_failure",
     "_truncate_with_ellipsis",
 ]
 
@@ -240,6 +241,48 @@ def _detect_auth_failure(
     lower_tail = tail.lower()
     is_auth = any(token in lower_tail for token in (*_AUTH_ERROR_TOKENS, *extra_tokens))
     return is_auth, tail
+
+
+def _format_cli_failure(
+    *,
+    backend_name: str,
+    return_code: int,
+    output: str,
+    env_var_hint: str,
+    auth_guidance: str | None = None,
+    extra_tokens: tuple[str, ...] = (),
+) -> str:
+    """Format a CLI failure message, detecting auth failures.
+
+    Checks the output for authentication error tokens via
+    :func:`_detect_auth_failure` and returns a targeted auth-failure message
+    when detected, otherwise returns a generic failure message with the
+    process exit code.
+
+    Args:
+        backend_name: Display name of the CLI backend (e.g. ``"Codex CLI"``).
+        return_code: Process exit code.
+        output: Combined stdout/stderr from the CLI process.
+        env_var_hint: Environment variable name shown in the remediation hint
+            and passed to :data:`_DOCKER_ENV_HINT_TEMPLATE`.
+        auth_guidance: Custom auth remediation text.  Defaults to
+            ``"Ensure {env_var_hint} is set in this runtime."``.
+        extra_tokens: Additional auth error tokens passed to
+            :func:`_detect_auth_failure`.
+
+    Returns:
+        Formatted error message string.
+    """
+    is_auth, tail = _detect_auth_failure(output, extra_tokens=extra_tokens)
+    if is_auth:
+        guidance = auth_guidance or f"Ensure {env_var_hint} is set in this runtime."
+        return (
+            f"{backend_name} authentication failed. "
+            f"{guidance} "
+            f"{_DOCKER_ENV_HINT_TEMPLATE.format(env_var_hint)}\n"
+            f"Output:\n{tail}"
+        )
+    return f"{backend_name} failed (exit={return_code}). Output:\n{tail}"
 
 
 class _TwoPhaseCLIHand(Hand):

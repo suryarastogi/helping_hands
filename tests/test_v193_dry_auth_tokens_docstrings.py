@@ -54,11 +54,12 @@ class TestAuthErrorTokensSharedConstant:
 
 
 class TestAuthErrorTokensCrossModuleSync:
-    """Since v203, CLI hands use _detect_auth_failure (which encapsulates
-    _AUTH_ERROR_TOKENS) instead of importing the constant directly."""
+    """Since v271, codex/claude/opencode delegate to _format_cli_failure
+    (which internally calls _detect_auth_failure).  Gemini still calls
+    _detect_auth_failure directly due to its model-not-found branch."""
 
-    def test_subclasses_use_detect_auth_failure(self) -> None:
-        """All 4 subclasses import _detect_auth_failure from base."""
+    def test_subclasses_use_auth_detection(self) -> None:
+        """Gemini uses _detect_auth_failure; others use _format_cli_failure."""
         from helping_hands.lib.hands.v1.hand.cli import (
             claude,
             codex,
@@ -66,10 +67,12 @@ class TestAuthErrorTokensCrossModuleSync:
             opencode,
         )
 
-        for mod in (claude, codex, gemini, opencode):
+        assert "_detect_auth_failure" in inspect.getsource(gemini)
+
+        for mod in (claude, codex, opencode):
             src = inspect.getsource(mod)
-            assert "_detect_auth_failure" in src, (
-                f"{mod.__name__} should use _detect_auth_failure"
+            assert "_format_cli_failure" in src, (
+                f"{mod.__name__} should use _format_cli_failure"
             )
 
     def test_detect_auth_failure_uses_shared_tokens(self) -> None:

@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — Extract `_format_cli_failure()` helper (v271)
+
+**DRY auth/failure messages:** Extracted `_format_cli_failure()` module-level function in `cli/base.py` to centralize the auth-detection + message-formatting pattern. Codex, Claude, and OpenCode CLI hands now delegate their `_build_X_failure_message` static methods to this shared helper (each reduced from ~12 lines to a one-liner). Gemini excluded due to its extra model-not-found branch. Removed now-unused `_detect_auth_failure` / `_DOCKER_ENV_HINT_TEMPLATE` imports from 3 modules. Updated 4 existing test files (v166, v193, v201, v203) that asserted direct usage patterns.
+
+**`tests/test_v271_format_cli_failure.py`:** 24 tests — basic behaviour (12: exit code, output, auth detection, env var hint, Docker hint, default/custom guidance, extra tokens, backend name), export/docstring (2), static method delegation consistency (4), AST no-duplication checks (6).
+
+**24 new tests. 6278 passed, 273 skipped.**
+
+---
+
 ## Mar 17 — Extract REPO_SPEC_PATTERN, invalid_repo_msg, format_type_error (v261)
 
 **DRY regex & error messages:** Extracted `REPO_SPEC_PATTERN` constant to `github_url.py` replacing 3 inline `r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"` literals in `cli/main.py`, `server/celery_app.py`, and `lib/hands/v1/hand/base.py`. Added `invalid_repo_msg()` helper to `github_url.py` replacing 2 identical `f"{repo} is not a directory or owner/repo reference"` messages. Added `format_type_error()` to `validation.py` replacing 3 near-identical `f"{name} must be a {type}, got {type(value).__name__}"` patterns.
