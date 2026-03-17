@@ -6,7 +6,7 @@ here to avoid duplication and ensure they stay in sync.
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, Literal
 
 from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_CLAUDECODECLI as _BACKEND_CLAUDECODECLI,
@@ -85,7 +85,7 @@ DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 
 # --- Build / schedule defaults ------------------------------------------------
 
-DEFAULT_BACKEND: Final = _BACKEND_CLAUDECODECLI
+DEFAULT_BACKEND: Final[Literal["claudecodecli"]] = _BACKEND_CLAUDECODECLI
 """Default hand backend slug for build and schedule requests."""
 
 DEFAULT_MAX_ITERATIONS = 6
