@@ -155,7 +155,7 @@ class AtomicHand(Hand):
                 parts.append(text)
                 yield text
             async_result = None
-        except Exception:
+        except (RuntimeError, TypeError, ValueError, AttributeError, OSError):
             logger.debug("run_async raised non-AssertionError", exc_info=True)
             raise
         if async_result is None:

@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v248](exec-plans/completed/2026/v248-git-not-found-constants-narrow-exceptions.md) —
+  Extract `_GIT_NOT_FOUND_DIFF_MSG`, `_GIT_NOT_FOUND_UNCOMMITTED_MSG`,
+  `_CLI_NOT_FOUND_MSG` constants in `pr_description.py` (6 bare strings → 3
+  constants); narrow `except Exception` in `atomic.py` and `iterative.py`
+  `run_async` handlers to `(RuntimeError, TypeError, ValueError, AttributeError, OSError)`;
+  22 tests (5877 passed, 249 skipped)
+
 - [2026-03-17 v247](exec-plans/completed/2026/v247-provider-name-constants.md) —
   Extract `_PROVIDER_*` name constants in `model_provider.py`, replace 20
   bare provider name strings across `model_provider.py` and `goose.py`;

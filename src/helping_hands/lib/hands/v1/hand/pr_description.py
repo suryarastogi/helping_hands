@@ -50,6 +50,17 @@ _PR_ERROR_TAIL_LENGTH = 500
 _COMMIT_ERROR_TAIL_LENGTH = 300
 """Trailing characters of CLI output kept in commit message error/debug logs."""
 
+_GIT_NOT_FOUND_DIFF_MSG = "git not found on PATH; cannot compute diff"
+"""Debug message when ``git`` is missing and a staged/committed diff is needed."""
+
+_GIT_NOT_FOUND_UNCOMMITTED_MSG = (
+    "git not found on PATH; cannot compute uncommitted diff"
+)
+"""Debug message when ``git`` is missing and an uncommitted diff is needed."""
+
+_CLI_NOT_FOUND_MSG = "%s CLI not found"
+"""Debug template when the description/commit-message CLI binary is missing."""
+
 _COMMIT_MSG_MAX_LENGTH = 72
 """Maximum length for generated commit messages (conventional commit standard)."""
 
@@ -224,7 +235,7 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute diff")
+        logger.debug(_GIT_NOT_FOUND_DIFF_MSG)
         return ""
     except TimeoutExpired:
         logger.warning("git diff timed out after %ss", _GIT_DIFF_TIMEOUT_S)
@@ -242,7 +253,7 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute diff")
+        logger.debug(_GIT_NOT_FOUND_DIFF_MSG)
         return ""
     except TimeoutExpired:
         logger.warning("git diff HEAD~1 timed out after %ss", _GIT_DIFF_TIMEOUT_S)
@@ -403,7 +414,7 @@ def generate_pr_description(
         )
         return None
     except FileNotFoundError:
-        logger.debug("%s CLI not found at execution time.", cli_label)
+        logger.debug(_CLI_NOT_FOUND_MSG + " at execution time.", cli_label)
         return None
 
     if result.returncode != 0:
@@ -455,7 +466,7 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
             timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        logger.debug(_GIT_NOT_FOUND_UNCOMMITTED_MSG)
         return ""
     except TimeoutExpired:
         logger.warning("git add timed out after %ss", _GIT_DIFF_TIMEOUT_S)
@@ -470,7 +481,7 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
             timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        logger.debug(_GIT_NOT_FOUND_UNCOMMITTED_MSG)
         return ""
     except TimeoutExpired:
         logger.warning("git diff --cached timed out after %ss", _GIT_DIFF_TIMEOUT_S)
@@ -710,7 +721,7 @@ def generate_commit_message(
         )
         return None
     except FileNotFoundError:
-        logger.debug("%s CLI not found for commit message generation.", cli_label)
+        logger.debug(_CLI_NOT_FOUND_MSG + " for commit message generation.", cli_label)
         return None
 
     if result.returncode != 0:

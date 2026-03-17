@@ -1286,7 +1286,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 if delta:
                     yield delta
                 async_result = None
-            except Exception:
+            except (RuntimeError, TypeError, ValueError, AttributeError, OSError):
                 logger.debug("run_async raised non-AssertionError", exc_info=True)
                 raise
             if async_result is not None and hasattr(async_result, "__aiter__"):

@@ -1,6 +1,18 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, and test coverage.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, git-not-found constants, exception narrowing, and test coverage.
+
+---
+
+## Mar 17 — Git-not-found constants, narrow run_async exceptions (v248)
+
+**Git-not-found constants:** Extracted `_GIT_NOT_FOUND_DIFF_MSG`, `_GIT_NOT_FOUND_UNCOMMITTED_MSG`, and `_CLI_NOT_FOUND_MSG` to `pr_description.py`, replacing 6 bare debug message strings (4 "git not found on PATH" variants and 2 "CLI not found" variants).
+
+**Exception narrowing:** Narrowed `except Exception:` in `atomic.py:158` and `iterative.py:1289` (run_async error handlers) to `except (RuntimeError, TypeError, ValueError, AttributeError, OSError):`. AssertionError was already handled separately.
+
+**`tests/test_v248_git_not_found_constants_narrow_exceptions.py`:** 22 tests — constant values/types/distinctness, AST-based source checks (no bare "git not found" or "CLI not found" strings, no `except Exception` in atomic/iterative), behavioral formatting tests.
+
+**22 new tests. 5877 passed, 249 skipped.**
 
 ---
 
