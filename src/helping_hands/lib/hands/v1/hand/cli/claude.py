@@ -17,6 +17,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "_OUTPUT_FORMAT_STREAM_JSON",
     "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
     "_TOOL_SUMMARY_STATIC",
@@ -71,6 +72,9 @@ _TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
 _TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
 """Tools whose summary is simply their name with no parameters."""
 
+_OUTPUT_FORMAT_STREAM_JSON = "stream-json"
+"""The ``--output-format`` value used for structured streaming output."""
+
 _SKIP_PERMISSIONS_FLAG = "--dangerously-skip-permissions"
 """Claude CLI flag to bypass the interactive permission prompt."""
 
@@ -109,6 +113,37 @@ class _StreamJsonEmitter:
             await self._process_line(self._buffer.strip())
             self._buffer = ""
 
+    @staticmethod
+    def _normalize_preview(text: str) -> str:
+        """Strip whitespace and collapse newlines to spaces.
+
+        Args:
+            text: Raw text to normalise for single-line preview display.
+
+        Returns:
+            The cleaned text with leading/trailing whitespace removed
+            and internal newlines replaced by spaces.
+        """
+        return text.strip().replace("\n", " ")
+
+    @staticmethod
+    def _extract_message_blocks(event: dict) -> list:
+        """Extract the ``message.content`` block list from a stream event.
+
+        Returns an empty list when ``message`` is not a dict or has no
+        ``content`` key, so callers can iterate unconditionally.
+
+        Args:
+            event: A parsed JSON event dict from the Claude Code stream.
+
+        Returns:
+            The ``content`` list, or ``[]`` if unavailable.
+        """
+        message = event.get("message")
+        if not isinstance(message, dict):
+            return []
+        return message.get("content", [])
+
     async def _process_line(self, line: str) -> None:
         """Parse a single JSON event line and emit progress.
 
@@ -131,10 +166,7 @@ class _StreamJsonEmitter:
         if event_type == _EVENT_TYPE_ASSISTANT:
             # Claude Code stream-json: message is a full Anthropic API message
             # with message.content[] array of {type: "text"} / {type: "tool_use"}.
-            message = event.get("message")
-            if not isinstance(message, dict):
-                return
-            for block in message.get("content", []):
+            for block in self._extract_message_blocks(event):
                 block_type = block.get("type", "")
                 if block_type == _BLOCK_TYPE_TOOL_USE:
                     name = block.get("name", "unknown")
@@ -145,7 +177,7 @@ class _StreamJsonEmitter:
                     text = block.get("text", "")
                     if text:
                         self._text_parts.append(text)
-                        preview = text.strip().replace("\n", " ")
+                        preview = self._normalize_preview(text)
                         preview = _truncate_with_ellipsis(
                             preview, _TEXT_PREVIEW_MAX_LENGTH
                         )
@@ -154,10 +186,7 @@ class _StreamJsonEmitter:
 
         elif event_type == _EVENT_TYPE_USER:
             # Tool results: message.content[] array of {type: "tool_result"}.
-            message = event.get("message")
-            if not isinstance(message, dict):
-                return
-            for block in message.get("content", []):
+            for block in self._extract_message_blocks(event):
                 if block.get("type") != _BLOCK_TYPE_TOOL_RESULT:
                     continue
                 content = block.get("content", "")
@@ -168,7 +197,7 @@ class _StreamJsonEmitter:
                         if isinstance(item, dict)
                     )
                 if isinstance(content, str) and content.strip():
-                    preview = content.strip().replace("\n", " ")
+                    preview = self._normalize_preview(content)
                     preview = _truncate_with_ellipsis(
                         preview, _TOOL_RESULT_PREVIEW_MAX_LENGTH
                     )
@@ -463,7 +492,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         model = self._resolve_cli_model() or "(default)"
         await emit(f"[{self._CLI_LABEL}] model={model}\n")
         cmd = self._render_command(prompt)
-        cmd = self._inject_output_format(cmd, "stream-json")
+        cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
         try:
             raw = await self._invoke_cli_with_cmd(cmd, emit=parser)

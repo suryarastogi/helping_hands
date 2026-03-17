@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v262](exec-plans/completed/2026/v262-stream-json-constant-normalize-preview-extract-blocks.md) —
+  Extract `_OUTPUT_FORMAT_STREAM_JSON` constant, `_normalize_preview()` and
+  `_extract_message_blocks()` helpers in `_StreamJsonEmitter`;
+  23 tests (6133 passed, 272 skipped)
+
 - [2026-03-17 v261](exec-plans/completed/2026/v261-repo-spec-pattern-validation-type-error-helper.md) —
   Extract `REPO_SPEC_PATTERN` to `github_url.py` (3 duplicates), `invalid_repo_msg()`
   helper (2 duplicates), `format_type_error()` in `validation.py` (3 similar patterns);

@@ -26,6 +26,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
     _TwoPhaseCLIHand,
 )
 from helping_hands.lib.hands.v1.hand.cli.claude import (
+    _OUTPUT_FORMAT_STREAM_JSON,
     ClaudeCodeHand,
     _StreamJsonEmitter,
 )
@@ -285,7 +286,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         # Build the raw claude command (no container wrapping since
         # _CONTAINER_ENABLED_ENV_VAR is empty).
         cmd = self._render_command(prompt)
-        cmd = self._inject_output_format(cmd, "stream-json")
+        cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
         # Wrap with docker sandbox exec.
         cmd = self._wrap_sandbox_exec(cmd)
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
