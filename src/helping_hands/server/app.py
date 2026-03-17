@@ -25,6 +25,18 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.hands.v1.hand.factory import (
+    BACKEND_BASIC_AGENT,
+    BACKEND_BASIC_ATOMIC,
+    BACKEND_BASIC_LANGGRAPH,
+    BACKEND_CLAUDECODECLI,
+    BACKEND_CODEXCLI,
+    BACKEND_DOCKER_SANDBOX_CLAUDE,
+    BACKEND_E2E,
+    BACKEND_GEMINICLI,
+    BACKEND_GOOSE,
+    BACKEND_OPENCODECLI,
+)
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.validation import require_non_empty_string
@@ -618,16 +630,16 @@ _TASK_STATE_PRIORITY = {
     "SCHEDULED": 1,
 }
 _BACKEND_LOOKUP: dict[str, BackendName] = {
-    "e2e": "e2e",
-    "basic-langgraph": "basic-langgraph",
-    "basic-atomic": "basic-atomic",
-    "basic-agent": "basic-agent",
-    "codexcli": "codexcli",
-    "claudecodecli": "claudecodecli",
-    "docker-sandbox-claude": "docker-sandbox-claude",
-    "goose": "goose",
-    "geminicli": "geminicli",
-    "opencodecli": "opencodecli",
+    BACKEND_E2E: "e2e",
+    BACKEND_BASIC_LANGGRAPH: "basic-langgraph",
+    BACKEND_BASIC_ATOMIC: "basic-atomic",
+    BACKEND_BASIC_AGENT: "basic-agent",
+    BACKEND_CODEXCLI: "codexcli",
+    BACKEND_CLAUDECODECLI: "claudecodecli",
+    BACKEND_DOCKER_SANDBOX_CLAUDE: "docker-sandbox-claude",
+    BACKEND_GOOSE: "goose",
+    BACKEND_GEMINICLI: "geminicli",
+    BACKEND_OPENCODECLI: "opencodecli",
 }
 assert _TERMINAL_TASK_STATES.isdisjoint(_CURRENT_TASK_STATES), (
     "_TERMINAL_TASK_STATES and _CURRENT_TASK_STATES must be disjoint"

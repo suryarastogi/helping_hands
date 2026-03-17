@@ -85,7 +85,8 @@ All hands extend `Hand` base class (`base.py`) and implement `run()`/`stream()`:
 `SUPPORTED_BACKENDS` frozenset, and a `create_hand()` factory function
 that maps a backend name string to the correct Hand subclass. Both
 `cli/main.py` and `celery_app.py` use this single dispatch point
-instead of duplicating if/elif chains.
+instead of duplicating if/elif chains. Server modules (`app.py`,
+`mcp_server.py`) also import `BACKEND_*` constants from the factory.
 
 ### 5. Model resolution
 

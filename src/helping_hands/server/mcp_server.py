@@ -34,6 +34,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from helping_hands.lib.config import Config
+from helping_hands.lib.hands.v1.hand.factory import BACKEND_CODEXCLI
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import command as exec_tools
 from helping_hands.lib.meta.tools import filesystem as fs_tools
@@ -113,7 +114,7 @@ def build_feature(
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
-    backend: str = "codexcli",
+    backend: str = BACKEND_CODEXCLI,
     model: str | None = None,
     max_iterations: int = 6,
     no_pr: bool = False,

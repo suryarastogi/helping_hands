@@ -6,6 +6,8 @@ create_hand() factory function.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from helping_hands.lib.config import Config
@@ -215,6 +217,192 @@ class TestCreateHandAtomicBackends:
 
 
 # ---------------------------------------------------------------------------
+# create_hand — mock-based tests (cover paths even without optional extras)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateHandLangGraphMocked:
+    """Mock-based tests that always run, covering factory.py lines 106-111."""
+
+    @pytest.fixture(autouse=True)
+    def _remove_iterative_cache(self) -> None:
+        """Ensure the iterative module isn't cached so the mock takes effect."""
+        import sys
+
+        key = "helping_hands.lib.hands.v1.hand.iterative"
+        saved = sys.modules.pop(key, None)
+        yield  # type: ignore[misc]
+        if saved is not None:
+            sys.modules[key] = saved
+        else:
+            sys.modules.pop(key, None)
+
+    def test_langgraph_path_calls_constructor(
+        self, _config: Config, _repo_index: RepoIndex
+    ) -> None:
+        mock_cls = MagicMock()
+        mock_hand = MagicMock()
+        mock_cls.return_value = mock_hand
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "helping_hands.lib.hands.v1.hand.iterative": MagicMock(
+                    BasicLangGraphHand=mock_cls
+                )
+            },
+        ):
+            result = create_hand(BACKEND_BASIC_LANGGRAPH, _config, _repo_index)
+
+        assert result is mock_hand
+        mock_cls.assert_called_once_with(_config, _repo_index)
+
+    def test_langgraph_path_forwards_max_iterations(
+        self, _config: Config, _repo_index: RepoIndex
+    ) -> None:
+        mock_cls = MagicMock()
+        mock_hand = MagicMock()
+        mock_cls.return_value = mock_hand
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "helping_hands.lib.hands.v1.hand.iterative": MagicMock(
+                    BasicLangGraphHand=mock_cls
+                )
+            },
+        ):
+            result = create_hand(
+                BACKEND_BASIC_LANGGRAPH,
+                _config,
+                _repo_index,
+                max_iterations=15,
+            )
+
+        assert result is mock_hand
+        mock_cls.assert_called_once_with(_config, _repo_index, max_iterations=15)
+
+    def test_langgraph_path_no_max_iterations_omits_kwarg(
+        self, _config: Config, _repo_index: RepoIndex
+    ) -> None:
+        mock_cls = MagicMock()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "helping_hands.lib.hands.v1.hand.iterative": MagicMock(
+                    BasicLangGraphHand=mock_cls
+                )
+            },
+        ):
+            create_hand(BACKEND_BASIC_LANGGRAPH, _config, _repo_index)
+
+        # max_iterations should NOT be in kwargs when None
+        _, kwargs = mock_cls.call_args
+        assert "max_iterations" not in kwargs
+
+
+class TestCreateHandAtomicMocked:
+    """Mock-based tests that always run, covering factory.py lines 146-151."""
+
+    @pytest.fixture(autouse=True)
+    def _remove_iterative_cache(self) -> None:
+        """Ensure the iterative module isn't cached so the mock takes effect."""
+        import sys
+
+        key = "helping_hands.lib.hands.v1.hand.iterative"
+        saved = sys.modules.pop(key, None)
+        yield  # type: ignore[misc]
+        if saved is not None:
+            sys.modules[key] = saved
+        else:
+            sys.modules.pop(key, None)
+
+    def test_atomic_path_calls_constructor(
+        self, _config: Config, _repo_index: RepoIndex
+    ) -> None:
+        mock_cls = MagicMock()
+        mock_hand = MagicMock()
+        mock_cls.return_value = mock_hand
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "helping_hands.lib.hands.v1.hand.iterative": MagicMock(
+                    BasicAtomicHand=mock_cls
+                )
+            },
+        ):
+            result = create_hand(BACKEND_BASIC_ATOMIC, _config, _repo_index)
+
+        assert result is mock_hand
+        mock_cls.assert_called_once_with(_config, _repo_index)
+
+    def test_agent_alias_path_calls_atomic_constructor(
+        self, _config: Config, _repo_index: RepoIndex
+    ) -> None:
+        mock_cls = MagicMock()
+        mock_hand = MagicMock()
+        mock_cls.return_value = mock_hand
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "helping_hands.lib.hands.v1.hand.iterative": MagicMock(
+                    BasicAtomicHand=mock_cls
+                )
+            },
+        ):
+            result = create_hand(BACKEND_BASIC_AGENT, _config, _repo_index)
+
+        assert result is mock_hand
+        mock_cls.assert_called_once_with(_config, _repo_index)
+
+    def test_atomic_path_forwards_max_iterations(
+        self, _config: Config, _repo_index: RepoIndex
+    ) -> None:
+        mock_cls = MagicMock()
+        mock_hand = MagicMock()
+        mock_cls.return_value = mock_hand
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "helping_hands.lib.hands.v1.hand.iterative": MagicMock(
+                    BasicAtomicHand=mock_cls
+                )
+            },
+        ):
+            result = create_hand(
+                BACKEND_BASIC_ATOMIC,
+                _config,
+                _repo_index,
+                max_iterations=7,
+            )
+
+        assert result is mock_hand
+        mock_cls.assert_called_once_with(_config, _repo_index, max_iterations=7)
+
+    def test_atomic_path_no_max_iterations_omits_kwarg(
+        self, _config: Config, _repo_index: RepoIndex
+    ) -> None:
+        mock_cls = MagicMock()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "helping_hands.lib.hands.v1.hand.iterative": MagicMock(
+                    BasicAtomicHand=mock_cls
+                )
+            },
+        ):
+            create_hand(BACKEND_BASIC_ATOMIC, _config, _repo_index)
+
+        _, kwargs = mock_cls.call_args
+        assert "max_iterations" not in kwargs
+
+
+# ---------------------------------------------------------------------------
 # create_hand — error cases
 # ---------------------------------------------------------------------------
 
@@ -297,3 +485,29 @@ class TestConstantsIntegration:
         from helping_hands.server.constants import DEFAULT_BACKEND
 
         assert DEFAULT_BACKEND in SUPPORTED_BACKENDS
+
+    def test_app_backend_lookup_keys_use_constants(self) -> None:
+        pytest.importorskip("fastapi", reason="server extra not installed")
+        from helping_hands.server.app import _BACKEND_LOOKUP
+
+        for key in _BACKEND_LOOKUP:
+            assert key in SUPPORTED_BACKENDS, (
+                f"_BACKEND_LOOKUP key {key!r} not in SUPPORTED_BACKENDS"
+            )
+
+    def test_app_backend_lookup_keys_match_supported(self) -> None:
+        pytest.importorskip("fastapi", reason="server extra not installed")
+        from helping_hands.server.app import _BACKEND_LOOKUP
+
+        assert set(_BACKEND_LOOKUP.keys()) == SUPPORTED_BACKENDS
+
+    def test_mcp_build_feature_default_uses_constant(self) -> None:
+        pytest.importorskip("mcp", reason="mcp extra not installed")
+        import inspect
+
+        from helping_hands.server.mcp_server import build_feature
+
+        sig = inspect.signature(build_feature)
+        default = sig.parameters["backend"].default
+        assert default == BACKEND_CODEXCLI
+        assert default in SUPPORTED_BACKENDS

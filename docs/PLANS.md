@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v252](exec-plans/completed/2026/v252-backend-lookup-constants-factory-coverage.md) —
+  Replace bare backend string literals in `app.py` `_BACKEND_LOOKUP` keys and
+  `mcp_server.py` default with `BACKEND_*` factory constants; mock-based tests
+  bring `factory.py` from 79% to 100% coverage;
+  8 tests (5950 passed, 256 skipped)
+
 - [2026-03-17 v251](exec-plans/completed/2026/v251-github-errors-constant-celery-exception-narrowing.md) —
   `_GITHUB_ERRORS` exception tuple constant replacing 5 bare `(GithubException, OSError)`
   in `base.py` (4×) and `e2e.py` (1×); narrow `except Exception` in `app.py`
