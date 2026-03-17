@@ -3223,7 +3223,13 @@ def _collect_celery_current_tasks() -> list[dict[str, Any]]:
     """Collect currently active/queued task summaries from Celery inspect."""
     try:
         inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
-    except (AttributeError, ConnectionError, OSError, TimeoutError):  # pragma: no cover
+    except (
+        AttributeError,
+        ConnectionError,
+        OSError,
+        RuntimeError,
+        TimeoutError,
+    ):  # pragma: no cover
         logger.debug("celery inspect init failed", exc_info=True)
         return []
     if inspector is None:

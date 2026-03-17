@@ -168,6 +168,7 @@ _CELERY_INSPECT_EXCEPTIONS = {
     "AttributeError",
     "ConnectionError",
     "OSError",
+    "RuntimeError",
     "TimeoutError",
 }
 
