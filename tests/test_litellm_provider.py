@@ -39,7 +39,7 @@ class TestLiteLLMBuildInner:
         with patch.dict(sys.modules, {"litellm": None}):
             provider = LiteLLMProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="LiteLLM is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_returns_litellm_module_with_api_key(

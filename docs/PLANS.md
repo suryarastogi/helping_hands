@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v265](exec-plans/completed/2026/v265-provider-import-guard-api-key-map.md) —
+  Extract `_require_sdk()` helper on `AIProvider` base class (dedup 5 identical
+  ImportError blocks), `PROVIDER_API_KEY_ENV` constant in `model_provider.py`
+  (dedup 2 identical provider-to-env-var dicts);
+  22 tests (6206 passed, 272 skipped)
+
 - [2026-03-17 v264](exec-plans/completed/2026/v264-validation-dedup-exception-constants-env-vars.md) —
   Shared owner/repo validation via `validate_repo_spec`, `_TOOL_EXECUTION_ERRORS`/
   `_RUN_ASYNC_ERRORS` exception tuple constants, 9 `_ENV_*` constants in `config.py`;

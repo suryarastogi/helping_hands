@@ -39,7 +39,7 @@ class TestAnthropicBuildInner:
         with patch.dict(sys.modules, {"anthropic": None}):
             provider = AnthropicProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="Anthropic SDK is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_creates_client_with_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:

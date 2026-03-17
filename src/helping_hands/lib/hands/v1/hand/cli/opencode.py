@@ -7,15 +7,9 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
     _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
-
-# Maps provider prefix (from ``provider/model`` format) to the environment
-# variable that typically holds its API key.
-_PROVIDER_ENV_MAP: dict[str, str] = {
-    "openai": "OPENAI_API_KEY",
-    "anthropic": "ANTHROPIC_API_KEY",
-    "google": "GOOGLE_API_KEY",
-    "ollama": "OLLAMA_HOST",
-}
+from helping_hands.lib.hands.v1.hand.model_provider import (
+    PROVIDER_API_KEY_ENV as _PROVIDER_ENV_MAP,
+)
 
 __all__ = ["_PROVIDER_ENV_MAP", "OpenCodeCLIHand"]
 

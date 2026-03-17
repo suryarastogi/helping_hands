@@ -266,7 +266,7 @@ class TestModelProviderAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.model_provider import __all__
 
-        assert len(__all__) == 9
+        assert len(__all__) == 10
 
 
 # ---------------------------------------------------------------------------

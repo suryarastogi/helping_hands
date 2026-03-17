@@ -33,19 +33,14 @@ class OllamaProvider(AIProvider):
         Raises:
             RuntimeError: If the ``openai`` package is not installed.
         """
-        try:
-            from openai import OpenAI
-        except ImportError as exc:
-            raise RuntimeError(
-                f"OpenAI SDK is not installed. Install with: {self.install_hint}"
-            ) from exc
+        sdk = self._require_sdk("openai")
 
         api_key = os.environ.get(self.api_key_env_var, "ollama").strip() or "ollama"
         base_url = (
             os.environ.get(self.base_url_env_var, self.default_base_url).strip()
             or self.default_base_url
         )
-        return OpenAI(api_key=api_key, base_url=base_url)
+        return sdk.OpenAI(api_key=api_key, base_url=base_url)
 
     def _complete_impl(
         self,

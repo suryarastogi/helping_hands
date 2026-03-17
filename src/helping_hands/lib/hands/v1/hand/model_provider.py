@@ -14,6 +14,7 @@ from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
 from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
+    "PROVIDER_API_KEY_ENV",
     "_PROVIDER_ANTHROPIC",
     "_PROVIDER_GOOGLE",
     "_PROVIDER_LITELLM",
@@ -39,6 +40,14 @@ _PROVIDER_OLLAMA = "ollama"
 
 _PROVIDER_LITELLM = "litellm"
 """Provider name constant for LiteLLM."""
+
+PROVIDER_API_KEY_ENV: dict[str, str] = {
+    _PROVIDER_OPENAI: "OPENAI_API_KEY",
+    _PROVIDER_ANTHROPIC: "ANTHROPIC_API_KEY",
+    _PROVIDER_GOOGLE: "GOOGLE_API_KEY",
+    _PROVIDER_OLLAMA: "OLLAMA_HOST",
+}
+"""Maps provider name to the environment variable holding its API key."""
 
 _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 """Default base URL for the Ollama OpenAI-compatible API endpoint."""

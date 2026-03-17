@@ -13,6 +13,7 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     _PROVIDER_GOOGLE,
     _PROVIDER_OLLAMA,
     _PROVIDER_OPENAI,
+    PROVIDER_API_KEY_ENV,
 )
 
 __all__ = ["GooseCLIHand"]
@@ -60,13 +61,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             Human-readable string summarising provider and auth status.
         """
         provider, _model = self._resolve_goose_provider_model_from_config()
-        env_map = {
-            _PROVIDER_OPENAI: "OPENAI_API_KEY",
-            _PROVIDER_ANTHROPIC: "ANTHROPIC_API_KEY",
-            _PROVIDER_GOOGLE: "GOOGLE_API_KEY",
-            _PROVIDER_OLLAMA: "OLLAMA_HOST",
-        }
-        env_var = env_map.get(provider, provider)
+        env_var = PROVIDER_API_KEY_ENV.get(provider, provider)
         present = self._env_var_status(env_var)
         return f"auth=GOOSE_PROVIDER={provider} ({env_var} {present})"
 

@@ -39,7 +39,7 @@ class TestGoogleBuildInner:
         with patch.dict(sys.modules, {"google": None, "google.genai": None}):
             provider = GoogleProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="Google GenAI SDK is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_creates_client_with_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
