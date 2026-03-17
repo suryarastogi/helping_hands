@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from subprocess import TimeoutExpired
 
+from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.validation import (
     require_non_empty_string,
     require_positive_int,
@@ -31,6 +32,9 @@ _DEFAULT_TIMEOUT_SECONDS = 60.0
 _DISABLE_ENV_VAR = "HELPING_HANDS_DISABLE_PR_DESCRIPTION"
 _TIMEOUT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_TIMEOUT"
 _DIFF_LIMIT_ENV_VAR = "HELPING_HANDS_PR_DESCRIPTION_DIFF_LIMIT"
+
+_PR_TRUTHY_VALUES = _TRUTHY_VALUES | {"on"}
+"""Truthy values for PR description env vars (includes ``"on"``)."""
 
 _GIT_DIFF_TIMEOUT_S = 30
 """Timeout in seconds for git diff subprocess calls."""
@@ -202,7 +206,7 @@ def _parse_positive_env_var[T: (int, float)](
 def _is_disabled() -> bool:
     """Check whether rich PR description generation is explicitly disabled."""
     raw = os.environ.get(_DISABLE_ENV_VAR, "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    return raw in _PR_TRUTHY_VALUES
 
 
 def _timeout_seconds() -> float:

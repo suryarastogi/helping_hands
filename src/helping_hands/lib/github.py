@@ -21,6 +21,7 @@ from github.Repository import Repository
 from helping_hands.lib.github_url import (
     GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
     redact_credentials as _redact_credentials,
+    resolve_github_token as _resolve_github_token,
 )
 from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
@@ -176,9 +177,7 @@ class GitHubClient:
         Raises:
             ValueError: If no token is available from any source.
         """
-        resolved = self.token or os.environ.get(
-            "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-        )
+        resolved = _resolve_github_token(self.token)
         if not resolved:
             msg = (
                 "No GitHub token provided. Set GITHUB_TOKEN or GH_TOKEN, "

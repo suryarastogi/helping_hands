@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 
 from helping_hands.lib.validation import require_non_empty_string
 
@@ -22,6 +23,8 @@ __all__ = [
     "build_clone_url",
     "noninteractive_env",
     "redact_credentials",
+    "repo_tmp_dir",
+    "resolve_github_token",
     "validate_repo_spec",
 ]
 
@@ -42,6 +45,48 @@ ENV_GCM_INTERACTIVE = "GCM_INTERACTIVE"
 
 GIT_CLONE_TIMEOUT_S = 120
 """Timeout in seconds for git clone subprocess calls."""
+
+_ENV_GITHUB_TOKEN = "GITHUB_TOKEN"
+"""Primary env var for GitHub personal/fine-grained access tokens."""
+
+_ENV_GH_TOKEN = "GH_TOKEN"
+"""Fallback env var for GitHub tokens (used by ``gh`` CLI)."""
+
+_ENV_REPO_TMP = "HELPING_HANDS_REPO_TMP"
+"""Env var for overriding the temp directory used for repo clones."""
+
+
+def resolve_github_token(token: str = "") -> str:
+    """Resolve a GitHub token from an explicit value or environment variables.
+
+    Checks the given *token* first, then ``GITHUB_TOKEN``, then ``GH_TOKEN``.
+
+    Args:
+        token: Explicit token value (takes priority over env vars).
+
+    Returns:
+        The resolved token string, or ``""`` if none is available.
+    """
+    return (
+        (token or "").strip()
+        or os.environ.get(_ENV_GITHUB_TOKEN, "").strip()
+        or os.environ.get(_ENV_GH_TOKEN, "").strip()
+    )
+
+
+def repo_tmp_dir() -> Path | None:
+    """Return the directory to use for temporary repo clones.
+
+    Reads ``HELPING_HANDS_REPO_TMP``; returns ``None`` to let callers
+    fall back to the OS default temp dir.  When set, the directory is
+    created if it does not already exist.
+    """
+    d = os.environ.get(_ENV_REPO_TMP, "").strip()
+    if d:
+        p = Path(d).expanduser()
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    return None
 
 
 def validate_repo_spec(repo: str) -> None:
@@ -76,9 +121,7 @@ def build_clone_url(repo: str, token: str | None = None) -> str:
         ValueError: If *repo* is not in valid ``owner/repo`` format.
     """
     validate_repo_spec(repo)
-    effective_token = (token or "").strip() or os.environ.get(
-        "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-    ).strip()
+    effective_token = resolve_github_token(token or "")
     if effective_token:
         return (
             f"https://{GITHUB_TOKEN_USER}:{effective_token}"

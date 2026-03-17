@@ -42,6 +42,8 @@ class TestGitHubUrlConstants:
             "build_clone_url",
             "noninteractive_env",
             "redact_credentials",
+            "repo_tmp_dir",
+            "resolve_github_token",
             "validate_repo_spec",
         }
         assert set(github_url.__all__) == expected

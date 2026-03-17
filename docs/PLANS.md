@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v259](exec-plans/completed/2026/v259-dry-repo-tmp-token-resolution-truthy.md) —
+  DRY `_repo_tmp_dir()` (deduplicate `cli/main.py` + `celery_app.py` → shared
+  `repo_tmp_dir()` in `github_url.py`), extract `resolve_github_token()` helper
+  (deduplicate `github.py` + `github_url.py`), unify truthy values in
+  `pr_description.py` with `_TRUTHY_VALUES` from config; 32 tests (6055 passed,
+  270 skipped)
+
 - [2026-03-17 v258](exec-plans/completed/2026/v258-dry-env-var-parsing-pr-description.md) —
   DRY env var parsing in `pr_description.py`: extract `_parse_positive_env_var()`
   helper, reduce `_timeout_seconds()` and `_diff_char_limit()` to one-line

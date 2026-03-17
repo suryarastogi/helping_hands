@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
-import os
 import re
 import shutil
 import subprocess
@@ -24,6 +23,7 @@ from helping_hands.lib.github_url import (
     build_clone_url as _build_clone_url,
     noninteractive_env as _git_noninteractive_env,
     redact_credentials as _redact_sensitive,
+    repo_tmp_dir as _repo_tmp_dir,
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.hands.v1.hand import E2EHand, Hand
@@ -416,21 +416,6 @@ def _github_clone_url(repo: str, token: str | None = None) -> str:
         ValueError: If *repo* is not in valid ``owner/repo`` format.
     """
     return _build_clone_url(repo, token=token)
-
-
-def _repo_tmp_dir() -> Path | None:
-    """Return the directory to use for temporary repo clones.
-
-    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
-    Setting this to a known path (e.g. /tmp/helping_hands or a project tmp/)
-    keeps clones out of /var/folders and makes manual cleanup easy.
-    """
-    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
-    if d:
-        p = Path(d).expanduser()
-        p.mkdir(parents=True, exist_ok=True)
-        return p
-    return None
 
 
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
