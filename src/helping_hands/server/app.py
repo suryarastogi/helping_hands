@@ -4005,7 +4005,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
     github_token = request.github_token
     if github_token and "***" in github_token:
         existing = manager.get_schedule(schedule_id)
-        github_token = getattr(existing, "github_token", None) if existing else None
+        github_token = existing.github_token if existing else None
 
     task = ScheduledTask(
         schedule_id=schedule_id,

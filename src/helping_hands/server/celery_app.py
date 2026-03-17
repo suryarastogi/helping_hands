@@ -625,7 +625,7 @@ def build_feature(
     from helping_hands.lib.meta.tools import registry as meta_tools
     from helping_hands.lib.repo import RepoIndex
 
-    task_id = getattr(getattr(self, "request", None), "id", None)
+    task_id = self.request.id
     requested_backend, runtime_backend = _normalize_backend(backend)
     resolved_iterations = max(1, int(max_iterations))
     selected_tools = meta_tools.normalize_tool_selection(tools)

@@ -4,6 +4,10 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — Simplify remaining getattr() to direct access (v254)
+
+**Direct attribute access:** Replaced 4 remaining defensive `getattr()` calls with direct attribute access: `response.status` in `web.py` (HTTPResponse always has `.status`), `repo_obj.default_branch` in `base.py` (PyGithub Repository), `existing.github_token` in `app.py` (ScheduledTask dataclass), and nested `getattr(getattr(self, "request", None), "id", None)` → `self.request.id` in `celery_app.py` (Celery bound task). 10 new tests (8 passed, 2 skipped without server extras).
+
 ## Mar 17 — Simplify schedule getattr() to direct access (v253)
 
 **Direct attribute access:** Replaced 10 defensive `getattr(schedule/task, "field", default)` calls with direct `schedule.field`/`task.field` access in `celery_app.py` `scheduled_build()` (4 calls: `tools`, `fix_ci`, `ci_check_wait_minutes`, `reference_repos`) and `app.py` `_schedule_to_response()` (6 calls: same fields plus `github_token`, `schedule_id`). All fields are defined on the `ScheduledTask` dataclass with defaults, making `getattr()` unnecessarily defensive — same pattern as v246 for `Config`.

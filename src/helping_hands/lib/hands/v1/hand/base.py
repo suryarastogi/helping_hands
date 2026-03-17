@@ -1066,7 +1066,7 @@ class Hand(abc.ABC):
         base_branch = self._default_base_branch()
         try:
             repo_obj = gh.get_repo(repo)
-            if getattr(repo_obj, "default_branch", ""):
+            if repo_obj.default_branch:
                 base_branch = str(repo_obj.default_branch)
         except _GITHUB_ERRORS:
             logger.debug(
