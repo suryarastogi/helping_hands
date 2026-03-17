@@ -84,6 +84,9 @@ _AUTH_ABSENT_LABEL: str = "not set"
 _TOOL_RESULT_PREFIX: str = "@@TOOL_RESULT"
 """Prefix used to mark tool result blocks in the iterative prompt protocol."""
 
+_READ_RESULT_PREFIX: str = "@@READ_RESULT"
+"""Prefix used to mark read result blocks in the iterative prompt protocol."""
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
@@ -476,27 +479,27 @@ class _BasicIterativeHand(Hand):
             except UnicodeError:
                 chunks.append(
                     self._format_error_result(
-                        "READ", rel_path, "file is not UTF-8 text"
+                        _READ_RESULT_PREFIX, rel_path, "file is not UTF-8 text"
                     )
                 )
                 continue
             except ValueError as exc:
-                chunks.append(self._format_error_result("READ", rel_path, str(exc)))
+                chunks.append(self._format_error_result(_READ_RESULT_PREFIX, rel_path, str(exc)))
                 continue
             except FileNotFoundError:
                 chunks.append(
-                    self._format_error_result("READ", rel_path, "file not found")
+                    self._format_error_result(_READ_RESULT_PREFIX, rel_path, "file not found")
                 )
                 continue
             except IsADirectoryError:
                 chunks.append(
-                    self._format_error_result("READ", rel_path, "path is a directory")
+                    self._format_error_result(_READ_RESULT_PREFIX, rel_path, "path is a directory")
                 )
                 continue
 
             truncated_note = _TRUNCATION_MARKER if truncated else ""
             chunks.append(
-                f"@@READ_RESULT: {display_path}\n```text\n{text}\n```{truncated_note}"
+                f"{_READ_RESULT_PREFIX}: {display_path}\n```text\n{text}\n```{truncated_note}"
             )
         return "\n\n".join(chunks).strip()
 
@@ -506,18 +509,19 @@ class _BasicIterativeHand(Hand):
     _parse_optional_str = staticmethod(_parse_optional_str)
 
     @staticmethod
-    def _format_error_result(tag: str, name: str, message: str) -> str:
+    def _format_error_result(prefix: str, name: str, message: str) -> str:
         """Format an error as a ``@@<TAG>_RESULT`` block.
 
         Args:
-            tag: Result tag prefix (e.g. ``"READ"`` or ``"TOOL"``).
+            prefix: Result block prefix constant
+                (e.g. ``_READ_RESULT_PREFIX`` or ``_TOOL_RESULT_PREFIX``).
             name: Identifier for the request that failed (path or tool name).
             message: Human-readable error description.
 
         Returns:
             Formatted error string like ``@@READ_RESULT: foo\\nERROR: msg``.
         """
-        return f"@@{tag}_RESULT: {name}\nERROR: {message}"
+        return f"{prefix}: {name}\nERROR: {message}"
 
     @staticmethod
     def _format_command(command: list[str]) -> str:
@@ -758,7 +762,7 @@ class _BasicIterativeHand(Hand):
         chunks: list[str] = []
         for tool_name, payload, error in requests:
             if error:
-                chunks.append(self._format_error_result("TOOL", tool_name, error))
+                chunks.append(self._format_error_result(_TOOL_RESULT_PREFIX, tool_name, error))
                 continue
             try:
                 result = self._run_tool_request(
@@ -775,7 +779,7 @@ class _BasicIterativeHand(Hand):
                 TypeError,
                 ValueError,
             ) as exc:
-                chunks.append(self._format_error_result("TOOL", tool_name, str(exc)))
+                chunks.append(self._format_error_result(_TOOL_RESULT_PREFIX, tool_name, str(exc)))
                 continue
             chunks.append(result)
         return "\n\n".join(chunks).strip()

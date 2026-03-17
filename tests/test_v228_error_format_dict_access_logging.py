@@ -22,7 +22,11 @@ from helping_hands.lib.hands.v1.hand.base import (
     _META_PR_URL,
     HandResponse,
 )
-from helping_hands.lib.hands.v1.hand.iterative import _BasicIterativeHand
+from helping_hands.lib.hands.v1.hand.iterative import (
+    _READ_RESULT_PREFIX,
+    _TOOL_RESULT_PREFIX,
+    _BasicIterativeHand,
+)
 from helping_hands.lib.repo import RepoIndex
 
 
@@ -46,29 +50,31 @@ class TestFormatErrorResult:
 
     def test_read_tag(self) -> None:
         result = _BasicIterativeHand._format_error_result(
-            "READ", "src/main.py", "file not found"
+            _READ_RESULT_PREFIX, "src/main.py", "file not found"
         )
         assert result == "@@READ_RESULT: src/main.py\nERROR: file not found"
 
     def test_tool_tag(self) -> None:
         result = _BasicIterativeHand._format_error_result(
-            "TOOL", "bash", "command failed"
+            _TOOL_RESULT_PREFIX, "bash", "command failed"
         )
         assert result == "@@TOOL_RESULT: bash\nERROR: command failed"
 
     def test_custom_tag(self) -> None:
         result = _BasicIterativeHand._format_error_result(
-            "CUSTOM", "op", "something broke"
+            "@@CUSTOM_RESULT", "op", "something broke"
         )
         assert result == "@@CUSTOM_RESULT: op\nERROR: something broke"
 
     def test_empty_message(self) -> None:
-        result = _BasicIterativeHand._format_error_result("READ", "f.py", "")
+        result = _BasicIterativeHand._format_error_result(
+            _READ_RESULT_PREFIX, "f.py", ""
+        )
         assert result == "@@READ_RESULT: f.py\nERROR: "
 
     def test_multiline_message(self) -> None:
         result = _BasicIterativeHand._format_error_result(
-            "TOOL", "bash", "line1\nline2"
+            _TOOL_RESULT_PREFIX, "bash", "line1\nline2"
         )
         assert result == "@@TOOL_RESULT: bash\nERROR: line1\nline2"
 

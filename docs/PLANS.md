@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v253](exec-plans/completed/2026/v253-read-result-prefix-format-error-result.md) —
+  Extract `_READ_RESULT_PREFIX` constant in `iterative.py` (1 bare `"@@READ_RESULT"`
+  f-string → constant), refactor `_format_error_result` to accept prefix constants
+  instead of dynamic `"READ"`/`"TOOL"` tag strings (6 call sites updated);
+  15 tests (5982 passed, 254 skipped)
+
 - [2026-03-17 v252](exec-plans/completed/2026/v252-tool-result-goose-builtin-claude-cli-constants.md) —
   Extract `_TOOL_RESULT_PREFIX` constant in `iterative.py` (3 bare `"@@TOOL_RESULT"`
   f-string prefixes → 1), `_GOOSE_BUILTIN_FLAG` constant in `goose.py` (5 bare

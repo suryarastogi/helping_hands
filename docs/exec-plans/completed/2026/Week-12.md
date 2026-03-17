@@ -4,6 +4,18 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — Read result prefix, _format_error_result refactor (v253)
+
+**Read result prefix:** Extracted `_READ_RESULT_PREFIX = "@@READ_RESULT"` constant in `iterative.py`, replacing 1 bare f-string literal in `_execute_read_requests`. Parallel to existing `_TOOL_RESULT_PREFIX`.
+
+**_format_error_result refactor:** Changed first parameter from `tag: str` (dynamic `@@{tag}_RESULT:` construction) to `prefix: str` (direct prefix constant). Updated all 6 call sites: 4 × `_READ_RESULT_PREFIX` (read error handlers) and 2 × `_TOOL_RESULT_PREFIX` (tool error handlers). Updated v228 tests to use prefix constants.
+
+**`tests/test_v253_read_result_prefix_format_error_result.py`:** 15 tests — constant value/type/docstring, AST-based source checks (no bare `@@READ_RESULT` in f-strings, no bare `"READ"`/`"TOOL"` tags in call sites, no dynamic `@@` construction in method body), behavioral tests for both prefixes, parameter signature check.
+
+**15 new tests. 5982 passed, 254 skipped.**
+
+---
+
 ## Mar 17 — Tool result, Goose builtin, Claude CLI name constants (v252)
 
 **Tool result prefix:** Extracted `_TOOL_RESULT_PREFIX = "@@TOOL_RESULT"` constant in `iterative.py`, replacing 3 bare f-string prefixes in `_format_command_result`, `_format_web_search_result`, and `_format_web_browse_result`.
