@@ -29,6 +29,12 @@ from uuid import uuid4
 from github import GithubException
 
 from helping_hands.lib.github_url import (
+    ENV_GCM_INTERACTIVE as _ENV_GCM_INTERACTIVE,
+)
+from helping_hands.lib.github_url import (
+    ENV_GIT_TERMINAL_PROMPT as _ENV_GIT_TERMINAL_PROMPT,
+)
+from helping_hands.lib.github_url import (
     GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
 )
 from helping_hands.lib.github_url import (
@@ -221,14 +227,8 @@ _META_MODEL = "model"
 _META_PROVIDER = "provider"
 """Metadata key for the AI provider name."""
 
-# --- Environment variable name constants -------------------------------------
-# Used in ``_push_branch`` to temporarily suppress interactive git prompts.
-
-_ENV_GIT_TERMINAL_PROMPT = "GIT_TERMINAL_PROMPT"
-"""Env var that git checks before opening a terminal prompt (``0`` = suppress)."""
-
-_ENV_GCM_INTERACTIVE = "GCM_INTERACTIVE"
-"""Env var that Git Credential Manager checks (``never`` = suppress)."""
+# _ENV_GIT_TERMINAL_PROMPT and _ENV_GCM_INTERACTIVE are imported from
+# helping_hands.lib.github_url (the canonical location for git env helpers).
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config

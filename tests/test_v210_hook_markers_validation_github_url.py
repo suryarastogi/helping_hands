@@ -105,6 +105,8 @@ class TestGithubUrlModuleContract:
     def test_all_exports(self) -> None:
         assert set(github_url_module.__all__) == {
             "DEFAULT_CLONE_ERROR_MSG",
+            "ENV_GCM_INTERACTIVE",
+            "ENV_GIT_TERMINAL_PROMPT",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",

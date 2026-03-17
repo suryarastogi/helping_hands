@@ -34,6 +34,8 @@ class TestGitHubUrlConstants:
 
         expected = {
             "DEFAULT_CLONE_ERROR_MSG",
+            "ENV_GCM_INTERACTIVE",
+            "ENV_GIT_TERMINAL_PROMPT",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",

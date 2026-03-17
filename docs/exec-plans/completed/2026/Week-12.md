@@ -1,6 +1,16 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, git-not-found constants, exception narrowing, and test coverage.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, git-not-found constants, exception narrowing, env var constant deduplication, and test coverage.
+
+---
+
+## Mar 17 — Deduplicate env var constants (v249)
+
+**Constant deduplication:** `_ENV_GIT_TERMINAL_PROMPT` and `_ENV_GCM_INTERACTIVE` were defined identically in both `github_url.py` and `base.py`. Renamed to public `ENV_GIT_TERMINAL_PROMPT`/`ENV_GCM_INTERACTIVE` in `github_url.py` (canonical location), added to `__all__`, and replaced duplicate definitions in `base.py` with aliased imports. Updated 4 existing test files with new `__all__` expectations.
+
+**`tests/test_v249_deduplicate_env_var_constants.py`:** 16 tests — identity (same objects across modules), AST-based no-assignment checks in `base.py`, canonical definition in `github_url.py`, `__all__` exports, import source verification, behavioral `_push_noninteractive` checks, docstring presence.
+
+**16 new tests. 5893 passed, 249 skipped.**
 
 ---
 

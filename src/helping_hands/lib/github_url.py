@@ -14,6 +14,8 @@ from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
     "DEFAULT_CLONE_ERROR_MSG",
+    "ENV_GCM_INTERACTIVE",
+    "ENV_GIT_TERMINAL_PROMPT",
     "GITHUB_HOSTNAME",
     "GITHUB_TOKEN_USER",
     "GIT_CLONE_TIMEOUT_S",
@@ -32,10 +34,10 @@ GITHUB_TOKEN_USER = "x-access-token"
 GITHUB_HOSTNAME = "github.com"
 """Hostname matched when extracting ``owner/repo`` from git remote URLs."""
 
-_ENV_GIT_TERMINAL_PROMPT = "GIT_TERMINAL_PROMPT"
+ENV_GIT_TERMINAL_PROMPT = "GIT_TERMINAL_PROMPT"
 """Env var that git checks before opening a terminal prompt (``0`` = suppress)."""
 
-_ENV_GCM_INTERACTIVE = "GCM_INTERACTIVE"
+ENV_GCM_INTERACTIVE = "GCM_INTERACTIVE"
 """Env var that Git Credential Manager checks (``never`` = suppress)."""
 
 GIT_CLONE_TIMEOUT_S = 120
@@ -112,6 +114,6 @@ def noninteractive_env() -> dict[str, str]:
         A copy of the current environment with non-interactive git settings.
     """
     env = os.environ.copy()
-    env[_ENV_GIT_TERMINAL_PROMPT] = "0"
-    env[_ENV_GCM_INTERACTIVE] = "never"
+    env[ENV_GIT_TERMINAL_PROMPT] = "0"
+    env[ENV_GCM_INTERACTIVE] = "never"
     return env

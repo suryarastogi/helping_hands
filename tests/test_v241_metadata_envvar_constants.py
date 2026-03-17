@@ -276,8 +276,8 @@ class TestGithubUrlUsesEnvConstants:
     def test_defines_env_constants(self) -> None:
         github_url_path = _HAND_DIR.parent.parent.parent / "github_url.py"
         source = github_url_path.read_text()
-        assert "_ENV_GIT_TERMINAL_PROMPT" in source
-        assert "_ENV_GCM_INTERACTIVE" in source
+        assert "ENV_GIT_TERMINAL_PROMPT" in source
+        assert "ENV_GCM_INTERACTIVE" in source
 
 
 class TestProtocolModulesImportNewConstants:

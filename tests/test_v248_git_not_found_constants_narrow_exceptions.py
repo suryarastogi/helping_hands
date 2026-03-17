@@ -23,9 +23,7 @@ from helping_hands.lib.hands.v1.hand.pr_description import (
 
 _SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "helping_hands"
 
-_PR_DESCRIPTION_PATH = (
-    _SRC_ROOT / "lib" / "hands" / "v1" / "hand" / "pr_description.py"
-)
+_PR_DESCRIPTION_PATH = _SRC_ROOT / "lib" / "hands" / "v1" / "hand" / "pr_description.py"
 _ATOMIC_PATH = _SRC_ROOT / "lib" / "hands" / "v1" / "hand" / "atomic.py"
 _ITERATIVE_PATH = _SRC_ROOT / "lib" / "hands" / "v1" / "hand" / "iterative.py"
 
@@ -117,7 +115,9 @@ class TestASTSourceConsistency:
     def test_no_bare_cli_not_found_full_messages(self) -> None:
         """No full 'CLI not found at/for' messages remain as bare strings."""
         literals = _collect_string_literals(_PR_DESCRIPTION_PATH)
-        bad = [s for s in literals if "CLI not found at" in s or "CLI not found for" in s]
+        bad = [
+            s for s in literals if "CLI not found at" in s or "CLI not found for" in s
+        ]
         assert bad == [], f"Bare CLI-not-found messages remain: {bad}"
 
     def test_cli_not_found_constant_defined_once(self) -> None:
@@ -154,9 +154,7 @@ class TestExceptionNarrowing:
 
     def test_atomic_no_except_exception(self) -> None:
         lines = _find_except_exception_handlers(_ATOMIC_PATH)
-        assert lines == [], (
-            f"atomic.py still has 'except Exception' at lines {lines}"
-        )
+        assert lines == [], f"atomic.py still has 'except Exception' at lines {lines}"
 
     def test_iterative_no_except_exception(self) -> None:
         lines = _find_except_exception_handlers(_ITERATIVE_PATH)

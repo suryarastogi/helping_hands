@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v249](exec-plans/completed/2026/v249-deduplicate-env-var-constants.md) —
+  Deduplicate `_ENV_GIT_TERMINAL_PROMPT`/`_ENV_GCM_INTERACTIVE` constants
+  (defined in both `github_url.py` and `base.py` → canonical public constants
+  in `github_url.py`, imported by `base.py`); 16 tests (5893 passed, 249 skipped)
+
 - [2026-03-17 v248](exec-plans/completed/2026/v248-git-not-found-constants-narrow-exceptions.md) —
   Extract `_GIT_NOT_FOUND_DIFF_MSG`, `_GIT_NOT_FOUND_UNCOMMITTED_MSG`,
   `_CLI_NOT_FOUND_MSG` constants in `pr_description.py` (6 bare strings → 3
