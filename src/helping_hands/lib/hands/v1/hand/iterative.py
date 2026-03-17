@@ -484,16 +484,22 @@ class _BasicIterativeHand(Hand):
                 )
                 continue
             except ValueError as exc:
-                chunks.append(self._format_error_result(_READ_RESULT_PREFIX, rel_path, str(exc)))
+                chunks.append(
+                    self._format_error_result(_READ_RESULT_PREFIX, rel_path, str(exc))
+                )
                 continue
             except FileNotFoundError:
                 chunks.append(
-                    self._format_error_result(_READ_RESULT_PREFIX, rel_path, "file not found")
+                    self._format_error_result(
+                        _READ_RESULT_PREFIX, rel_path, "file not found"
+                    )
                 )
                 continue
             except IsADirectoryError:
                 chunks.append(
-                    self._format_error_result(_READ_RESULT_PREFIX, rel_path, "path is a directory")
+                    self._format_error_result(
+                        _READ_RESULT_PREFIX, rel_path, "path is a directory"
+                    )
                 )
                 continue
 
@@ -762,7 +768,9 @@ class _BasicIterativeHand(Hand):
         chunks: list[str] = []
         for tool_name, payload, error in requests:
             if error:
-                chunks.append(self._format_error_result(_TOOL_RESULT_PREFIX, tool_name, error))
+                chunks.append(
+                    self._format_error_result(_TOOL_RESULT_PREFIX, tool_name, error)
+                )
                 continue
             try:
                 result = self._run_tool_request(
@@ -779,7 +787,9 @@ class _BasicIterativeHand(Hand):
                 TypeError,
                 ValueError,
             ) as exc:
-                chunks.append(self._format_error_result(_TOOL_RESULT_PREFIX, tool_name, str(exc)))
+                chunks.append(
+                    self._format_error_result(_TOOL_RESULT_PREFIX, tool_name, str(exc))
+                )
                 continue
             chunks.append(result)
         return "\n\n".join(chunks).strip()

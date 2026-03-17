@@ -90,7 +90,7 @@ class TestReadResultPrefix:
                 isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                 and node.name in prompt_methods
             ):
-                    excluded_ranges.append((node.lineno, node.end_lineno or node.lineno))
+                excluded_ranges.append((node.lineno, node.end_lineno or node.lineno))
 
         for node in ast.walk(tree):
             if isinstance(node, ast.JoinedStr):
@@ -235,9 +235,7 @@ class TestFormatErrorResult:
                     if isinstance(child, ast.JoinedStr):
                         parts = []
                         for v in child.values:
-                            if isinstance(v, ast.Constant) and isinstance(
-                                v.value, str
-                            ):
+                            if isinstance(v, ast.Constant) and isinstance(v.value, str):
                                 parts.append(v.value)
                         combined = "".join(parts)
                         assert "@@" not in combined, (
