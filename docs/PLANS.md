@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v263](exec-plans/completed/2026/v263-dry-run-git-diff-helper.md) —
+  Extract `_run_git_diff()` helper to deduplicate 3 subprocess+exception blocks
+  in `pr_description.py`; 17 tests (6151 passed, 272 skipped)
+
 - [2026-03-17 v262](exec-plans/completed/2026/v262-stream-json-constant-normalize-preview-extract-blocks.md) —
   Extract `_OUTPUT_FORMAT_STREAM_JSON` constant, `_normalize_preview()` and
   `_extract_message_blocks()` helpers in `_StreamJsonEmitter`;

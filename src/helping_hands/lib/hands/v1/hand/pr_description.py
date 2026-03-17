@@ -222,9 +222,48 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
     (e.g. shallow clone without the base ref).  Returns empty string if
     git is not installed.
     """
+    diff = _run_git_diff(
+        repo_dir,
+        ["git", "diff", f"{base_branch}...HEAD"],
+        not_found_msg=_GIT_NOT_FOUND_DIFF_MSG,
+        timeout_label="git diff",
+    )
+    if diff:
+        return diff
+
+    return _run_git_diff(
+        repo_dir,
+        ["git", "diff", "HEAD~1", "HEAD"],
+        not_found_msg=_GIT_NOT_FOUND_DIFF_MSG,
+        timeout_label="git diff HEAD~1",
+    )
+
+
+def _run_git_diff(
+    repo_dir: Path,
+    args: list[str],
+    *,
+    not_found_msg: str,
+    timeout_label: str,
+) -> str:
+    """Run a ``git diff`` subprocess and return stripped stdout.
+
+    Handles the common pattern of calling ``subprocess.run`` with capture,
+    text mode, timeout, and exception handling for missing ``git`` or
+    timeouts.
+
+    Args:
+        repo_dir: Working directory for the subprocess.
+        args: Full argument list (e.g. ``["git", "diff", "--cached"]``).
+        not_found_msg: Debug message when ``git`` is not found.
+        timeout_label: Human-readable label for timeout warning messages.
+
+    Returns:
+        Stripped stdout when the command succeeds, empty string otherwise.
+    """
     try:
         result = subprocess.run(
-            ["git", "diff", f"{base_branch}...HEAD"],
+            args,
             cwd=repo_dir,
             capture_output=True,
             text=True,
@@ -232,32 +271,13 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
-        logger.debug(_GIT_NOT_FOUND_DIFF_MSG)
+        logger.debug(not_found_msg)
         return ""
     except TimeoutExpired:
-        logger.warning("git diff timed out after %ss", _GIT_DIFF_TIMEOUT_S)
+        logger.warning("%s timed out after %ss", timeout_label, _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
-
-    try:
-        result = subprocess.run(
-            ["git", "diff", "HEAD~1", "HEAD"],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=_GIT_DIFF_TIMEOUT_S,
-        )
-    except FileNotFoundError:
-        logger.debug(_GIT_NOT_FOUND_DIFF_MSG)
-        return ""
-    except TimeoutExpired:
-        logger.warning("git diff HEAD~1 timed out after %ss", _GIT_DIFF_TIMEOUT_S)
-        return ""
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
-
     return ""
 
 
@@ -468,24 +488,12 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
     except TimeoutExpired:
         logger.warning("git add timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--cached"],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=_GIT_DIFF_TIMEOUT_S,
-        )
-    except FileNotFoundError:
-        logger.debug(_GIT_NOT_FOUND_UNCOMMITTED_MSG)
-        return ""
-    except TimeoutExpired:
-        logger.warning("git diff --cached timed out after %ss", _GIT_DIFF_TIMEOUT_S)
-        return ""
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
-    return ""
+    return _run_git_diff(
+        repo_dir,
+        ["git", "diff", "--cached"],
+        not_found_msg=_GIT_NOT_FOUND_UNCOMMITTED_MSG,
+        timeout_label="git diff --cached",
+    )
 
 
 def _build_commit_message_prompt(
