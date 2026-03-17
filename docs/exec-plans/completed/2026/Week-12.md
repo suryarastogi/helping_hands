@@ -4,6 +4,16 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — DRY env var parsing in pr_description.py (v258)
+
+**DRY env var parsing:** Extracted `_parse_positive_env_var(env_name, default, type_fn)` generic helper in `pr_description.py` that handles unset/non-numeric/non-positive cases with appropriate warnings. Reduced `_timeout_seconds()` and `_diff_char_limit()` from ~25 lines each (with 4 duplicated `logger.warning()` calls) to single-line delegations. Uses PEP 695 type parameters (`[T: (int, float)]`).
+
+**`tests/test_v258_dry_env_var_parsing_pr_description.py`:** 21 tests — `_parse_positive_env_var` unit tests (11: unset, valid int, valid float, whitespace, non-numeric, zero, negative, docstring, int type preservation, float type preservation), `_timeout_seconds` delegation tests (4: default, custom, non-numeric, return type), `_diff_char_limit` delegation tests (4: default, custom, non-numeric, return type), AST source consistency tests (3: timeout one-liner, diff one-liner, no inline logger.warning in delegators).
+
+**21 new tests. 6023 passed, 270 skipped.**
+
+---
+
 ## Mar 17 — Centralize DEFAULT_MAX_ITERATIONS constant (v257)
 
 **Constant centralization:** Defined `DEFAULT_MAX_ITERATIONS: int = 6` in `iterative.py` as the canonical source, replacing 5 bare `6` literals across `_BasicIterativeHand.__init__()`, `BasicLangGraphHand.__init__()`, `BasicAtomicHand.__init__()`, `mcp_server.py:build_feature()`, and `celery_app.py:build_feature()`. Updated `server/constants.py` to re-export from `iterative.py` (was previously defining locally), added import in `mcp_server.py` and `celery_app.py`. Updated `test_v161_all_exports.py` `__all__` count (2 → 3).

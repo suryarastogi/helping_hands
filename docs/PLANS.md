@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v258](exec-plans/completed/2026/v258-dry-env-var-parsing-pr-description.md) —
+  DRY env var parsing in `pr_description.py`: extract `_parse_positive_env_var()`
+  helper, reduce `_timeout_seconds()` and `_diff_char_limit()` to one-line
+  delegations; 21 tests (6023 passed, 270 skipped)
+
 - [2026-03-17 v257](exec-plans/completed/2026/v257-centralize-default-max-iterations.md) —
   Centralize `DEFAULT_MAX_ITERATIONS` constant: define in `iterative.py`,
   re-export from `server/constants.py`, replace 5 bare `6` defaults across

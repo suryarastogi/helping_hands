@@ -160,6 +160,45 @@ class PRDescription:
     body: str
 
 
+def _parse_positive_env_var[T: (int, float)](
+    env_name: str,
+    default: T,
+    type_fn: type[T],
+) -> T:
+    """Parse a positive numeric value from an environment variable.
+
+    Returns *default* when the variable is unset, non-numeric, or
+    non-positive, logging a warning for the latter two cases.
+
+    Args:
+        env_name: Name of the environment variable to read.
+        default: Fallback value when the variable is absent or invalid.
+        type_fn: Numeric type constructor (``int`` or ``float``).
+    """
+    raw = os.environ.get(env_name)
+    if raw is None:
+        return default
+    try:
+        value = type_fn(raw.strip())
+    except ValueError:
+        logger.warning(
+            "ignoring non-numeric %s=%r, using default %s",
+            env_name,
+            raw,
+            default,
+        )
+        return default
+    if value <= 0:
+        logger.warning(
+            "ignoring non-positive %s=%r, using default %s",
+            env_name,
+            raw,
+            default,
+        )
+        return default
+    return value
+
+
 def _is_disabled() -> bool:
     """Check whether rich PR description generation is explicitly disabled."""
     raw = os.environ.get(_DISABLE_ENV_VAR, "").strip().lower()
@@ -168,54 +207,12 @@ def _is_disabled() -> bool:
 
 def _timeout_seconds() -> float:
     """Return the configured timeout for CLI invocation."""
-    raw = os.environ.get(_TIMEOUT_ENV_VAR)
-    if raw is None:
-        return _DEFAULT_TIMEOUT_SECONDS
-    try:
-        value = float(raw.strip())
-    except ValueError:
-        logger.warning(
-            "ignoring non-numeric %s=%r, using default %.0fs",
-            _TIMEOUT_ENV_VAR,
-            raw,
-            _DEFAULT_TIMEOUT_SECONDS,
-        )
-        return _DEFAULT_TIMEOUT_SECONDS
-    if value <= 0:
-        logger.warning(
-            "ignoring non-positive %s=%r, using default %.0fs",
-            _TIMEOUT_ENV_VAR,
-            raw,
-            _DEFAULT_TIMEOUT_SECONDS,
-        )
-        return _DEFAULT_TIMEOUT_SECONDS
-    return value
+    return _parse_positive_env_var(_TIMEOUT_ENV_VAR, _DEFAULT_TIMEOUT_SECONDS, float)
 
 
 def _diff_char_limit() -> int:
     """Return the maximum number of characters for the diff."""
-    raw = os.environ.get(_DIFF_LIMIT_ENV_VAR)
-    if raw is None:
-        return _DEFAULT_DIFF_CHAR_LIMIT
-    try:
-        value = int(raw.strip())
-    except ValueError:
-        logger.warning(
-            "ignoring non-numeric %s=%r, using default %d",
-            _DIFF_LIMIT_ENV_VAR,
-            raw,
-            _DEFAULT_DIFF_CHAR_LIMIT,
-        )
-        return _DEFAULT_DIFF_CHAR_LIMIT
-    if value <= 0:
-        logger.warning(
-            "ignoring non-positive %s=%r, using default %d",
-            _DIFF_LIMIT_ENV_VAR,
-            raw,
-            _DEFAULT_DIFF_CHAR_LIMIT,
-        )
-        return _DEFAULT_DIFF_CHAR_LIMIT
-    return value
+    return _parse_positive_env_var(_DIFF_LIMIT_ENV_VAR, _DEFAULT_DIFF_CHAR_LIMIT, int)
 
 
 def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
