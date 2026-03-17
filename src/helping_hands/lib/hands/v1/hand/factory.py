@@ -7,7 +7,7 @@ duplicating identical ``if/elif`` chains.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
@@ -105,7 +105,10 @@ def create_hand(
     if backend == BACKEND_BASIC_LANGGRAPH:
         from helping_hands.lib.hands.v1.hand.iterative import BasicLangGraphHand
 
-        return BasicLangGraphHand(config, repo_index, max_iterations=max_iterations)
+        kwargs: dict[str, Any] = {}
+        if max_iterations is not None:
+            kwargs["max_iterations"] = max_iterations
+        return BasicLangGraphHand(config, repo_index, **kwargs)
 
     if backend == BACKEND_CODEXCLI:
         from helping_hands.lib.hands.v1.hand.cli.codex import CodexCLIHand
@@ -142,7 +145,10 @@ def create_hand(
     if backend in {BACKEND_BASIC_ATOMIC, BACKEND_BASIC_AGENT}:
         from helping_hands.lib.hands.v1.hand.iterative import BasicAtomicHand
 
-        return BasicAtomicHand(config, repo_index, max_iterations=max_iterations)
+        kwargs: dict[str, Any] = {}
+        if max_iterations is not None:
+            kwargs["max_iterations"] = max_iterations
+        return BasicAtomicHand(config, repo_index, **kwargs)
 
     raise ValueError(
         f"Unknown backend: {backend!r}. "
