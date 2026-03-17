@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v260](exec-plans/completed/2026/v260-unify-truthy-values-env-helpers.md) —
+  Unify `_TRUTHY_VALUES` with `"on"`, add `_get_env_stripped()` helper,
+  update `_is_truthy_env()` to strip whitespace, remove `_PR_TRUTHY_VALUES`
+  and `_CLI_TRUTHY_VALUES` duplicates; 28 tests (6083 passed, 270 skipped)
+
 - [2026-03-17 v259](exec-plans/completed/2026/v259-dry-repo-tmp-token-resolution-truthy.md) —
   DRY `_repo_tmp_dir()` (deduplicate `cli/main.py` + `celery_app.py` → shared
   `repo_tmp_dir()` in `github_url.py`), extract `resolve_github_token()` helper

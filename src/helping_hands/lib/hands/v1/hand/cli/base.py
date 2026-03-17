@@ -55,7 +55,6 @@ __all__ = [
     "_AUTH_ERROR_TOKENS",
     "_CI_FIX_TEMPLATES",
     "_CI_POLL_INTERVAL_S",
-    "_CLI_TRUTHY_VALUES",
     "_DOCKER_ENV_HINT_TEMPLATE",
     "_DOCKER_REBUILD_HINT_TEMPLATE",
     "_FAILURE_OUTPUT_TAIL_LENGTH",
@@ -96,9 +95,6 @@ _GIT_REF_DISPLAY_LENGTH = 8
 
 _FAILURE_OUTPUT_TAIL_LENGTH = 2000
 """Number of trailing characters kept from CLI output in failure messages."""
-
-_CLI_TRUTHY_VALUES = _TRUTHY_VALUES | {"on"}
-"""Superset of config ``_TRUTHY_VALUES`` with ``"on"`` for CLI env var parsing."""
 
 _AUTH_ERROR_TOKENS: tuple[str, ...] = (
     "401 unauthorized",
@@ -302,11 +298,11 @@ class _TwoPhaseCLIHand(Hand):
             value: Raw string value, or None.
 
         Returns:
-            True if the lowercased, stripped value is in ``_CLI_TRUTHY_VALUES``.
+            True if the lowercased, stripped value is in ``_TRUTHY_VALUES``.
         """
         if value is None:
             return False
-        return value.strip().lower() in _CLI_TRUTHY_VALUES
+        return value.strip().lower() in _TRUTHY_VALUES
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
         """Append default args when the command is a bare binary name.

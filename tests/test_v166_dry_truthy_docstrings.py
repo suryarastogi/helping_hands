@@ -50,31 +50,25 @@ class TestFailureOutputTailConsolidation:
 
 
 class TestCLITruthyValues:
-    """Verify _CLI_TRUTHY_VALUES extends config _TRUTHY_VALUES with 'on'."""
+    """Verify _TRUTHY_VALUES includes 'on' and _is_truthy uses it."""
 
-    def test_cli_truthy_is_frozenset(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
-
-        assert isinstance(_CLI_TRUTHY_VALUES, frozenset)
-
-    def test_cli_truthy_contains_config_values(self) -> None:
+    def test_truthy_is_frozenset(self) -> None:
         from helping_hands.lib.config import _TRUTHY_VALUES
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
 
-        assert _TRUTHY_VALUES.issubset(_CLI_TRUTHY_VALUES)
+        assert isinstance(_TRUTHY_VALUES, frozenset)
 
-    def test_cli_truthy_contains_on(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
+    def test_truthy_contains_on(self) -> None:
+        from helping_hands.lib.config import _TRUTHY_VALUES
 
-        assert "on" in _CLI_TRUTHY_VALUES
+        assert "on" in _TRUTHY_VALUES
 
-    def test_cli_truthy_expected_members(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
+    def test_truthy_expected_members(self) -> None:
+        from helping_hands.lib.config import _TRUTHY_VALUES
 
-        assert frozenset({"1", "true", "yes", "on"}) == _CLI_TRUTHY_VALUES
+        assert frozenset({"1", "true", "yes", "on"}) == _TRUTHY_VALUES
 
-    def test_is_truthy_uses_cli_truthy_values(self) -> None:
-        """_is_truthy should accept 'on' (via _CLI_TRUTHY_VALUES)."""
+    def test_is_truthy_uses_truthy_values(self) -> None:
+        """_is_truthy should accept 'on' (via _TRUTHY_VALUES)."""
         from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
         assert _TwoPhaseCLIHand._is_truthy("on") is True

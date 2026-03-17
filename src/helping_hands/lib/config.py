@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - optional dependency safety
 
 ConfigValue = str | bool | tuple[str, ...] | None
 
-_TRUTHY_VALUES = frozenset({"1", "true", "yes"})
+_TRUTHY_VALUES = frozenset({"1", "true", "yes", "on"})
 """Lowercase string values treated as boolean True for environment variables."""
 
 
@@ -30,9 +30,22 @@ def _is_truthy_env(name: str, default: str = "") -> bool:
         default: Fallback if the variable is unset.
 
     Returns:
-        True if the lowercased value is in ``_TRUTHY_VALUES``.
+        True if the stripped, lowercased value is in ``_TRUTHY_VALUES``.
     """
-    return os.environ.get(name, default).lower() in _TRUTHY_VALUES
+    return os.environ.get(name, default).strip().lower() in _TRUTHY_VALUES
+
+
+def _get_env_stripped(name: str, default: str = "") -> str:
+    """Return a stripped environment variable value.
+
+    Args:
+        name: Environment variable name to look up.
+        default: Fallback if the variable is unset.
+
+    Returns:
+        The stripped value, or the stripped default.
+    """
+    return os.environ.get(name, default).strip()
 
 
 def _load_env_files(repo: str | None = None) -> None:

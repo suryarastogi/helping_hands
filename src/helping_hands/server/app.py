@@ -22,7 +22,7 @@ from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.config import _is_truthy_env
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_BASIC_AGENT,
@@ -2796,8 +2796,7 @@ def _is_running_in_docker() -> bool:
     """Return True when the process is running inside a Docker container."""
     if Path("/.dockerenv").exists():
         return True
-    raw = os.environ.get("HELPING_HANDS_IN_DOCKER", "").strip().lower()
-    return raw in _TRUTHY_VALUES
+    return _is_truthy_env("HELPING_HANDS_IN_DOCKER")
 
 
 @app.get("/config", response_model=ServerConfig)

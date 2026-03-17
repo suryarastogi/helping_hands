@@ -210,29 +210,23 @@ class TestEnvVarConstants:
 
 
 # ---------------------------------------------------------------------------
-# _PR_TRUTHY_VALUES / _is_disabled() tests
+# _is_disabled() tests (truthy values now unified in config._TRUTHY_VALUES)
 # ---------------------------------------------------------------------------
 
 
 class TestPRTruthyValues:
-    """Tests for unified truthy values in pr_description.py."""
+    """Tests for unified truthy values used by _is_disabled()."""
 
-    def test_pr_truthy_is_superset_of_config_truthy(self) -> None:
+    def test_truthy_includes_on(self) -> None:
         from helping_hands.lib.config import _TRUTHY_VALUES
-        from helping_hands.lib.hands.v1.hand.pr_description import _PR_TRUTHY_VALUES
 
-        assert _TRUTHY_VALUES <= _PR_TRUTHY_VALUES
+        assert "on" in _TRUTHY_VALUES
 
-    def test_pr_truthy_includes_on(self) -> None:
-        from helping_hands.lib.hands.v1.hand.pr_description import _PR_TRUTHY_VALUES
-
-        assert "on" in _PR_TRUTHY_VALUES
-
-    def test_pr_truthy_includes_standard_values(self) -> None:
-        from helping_hands.lib.hands.v1.hand.pr_description import _PR_TRUTHY_VALUES
+    def test_truthy_includes_standard_values(self) -> None:
+        from helping_hands.lib.config import _TRUTHY_VALUES
 
         for val in ("1", "true", "yes", "on"):
-            assert val in _PR_TRUTHY_VALUES
+            assert val in _TRUTHY_VALUES
 
     def test_is_disabled_recognizes_on(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_DISABLE_PR_DESCRIPTION", "on")
@@ -269,10 +263,3 @@ class TestPRTruthyValues:
         from helping_hands.lib.hands.v1.hand.pr_description import _is_disabled
 
         assert _is_disabled() is False
-
-    def test_pr_truthy_matches_cli_truthy(self) -> None:
-        """_PR_TRUTHY_VALUES should match _CLI_TRUTHY_VALUES (same superset)."""
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
-        from helping_hands.lib.hands.v1.hand.pr_description import _PR_TRUTHY_VALUES
-
-        assert _PR_TRUTHY_VALUES == _CLI_TRUTHY_VALUES

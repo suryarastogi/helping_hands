@@ -87,7 +87,6 @@ class TestCLIBaseModuleAll:
             "_HOOK_ERROR_TRUNCATION_LIMIT",
             "_GIT_REF_DISPLAY_LENGTH",
             "_FAILURE_OUTPUT_TAIL_LENGTH",
-            "_CLI_TRUTHY_VALUES",
         ]
         for name in expected:
             assert name in cli_base_module.__all__, f"{name!r} missing from __all__"
