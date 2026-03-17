@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v247](exec-plans/completed/2026/v247-provider-name-constants.md) —
+  Extract `_PROVIDER_*` name constants in `model_provider.py`, replace 20
+  bare provider name strings across `model_provider.py` and `goose.py`;
+  24 tests (5855 passed, 249 skipped)
+
 - [2026-03-16 v246](exec-plans/completed/2026/v246-simplify-config-getattr-to-direct-access.md) —
   Replace 12 defensive `getattr(self.config, ...)` calls with direct
   `self.config.field` access across 4 hand files (base.py, iterative.py,

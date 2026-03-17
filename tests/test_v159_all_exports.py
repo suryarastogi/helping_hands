@@ -240,11 +240,22 @@ class TestModelProviderAllExport:
 
         assert "build_atomic_client" in __all__
 
-    def test_all_has_no_private_names(self) -> None:
+    def test_all_has_no_unexpected_private_names(self) -> None:
         from helping_hands.lib.hands.v1.hand.model_provider import __all__
 
-        private = [name for name in __all__ if name.startswith("_")]
-        assert private == [], f"Private names in __all__: {private}"
+        allowed_private = {
+            "_PROVIDER_OPENAI",
+            "_PROVIDER_ANTHROPIC",
+            "_PROVIDER_GOOGLE",
+            "_PROVIDER_OLLAMA",
+            "_PROVIDER_LITELLM",
+        }
+        private = [
+            name
+            for name in __all__
+            if name.startswith("_") and name not in allowed_private
+        ]
+        assert private == [], f"Unexpected private names in __all__: {private}"
 
     def test_all_symbols_importable(self) -> None:
         import helping_hands.lib.hands.v1.hand.model_provider as mod
@@ -255,7 +266,7 @@ class TestModelProviderAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.model_provider import __all__
 
-        assert len(__all__) == 4
+        assert len(__all__) == 9
 
 
 # ---------------------------------------------------------------------------

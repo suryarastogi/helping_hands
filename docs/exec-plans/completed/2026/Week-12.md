@@ -1,6 +1,16 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, and test coverage.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, and test coverage.
+
+---
+
+## Mar 17 — Provider name constants in model_provider.py and goose.py (v247)
+
+**Provider name constants:** Extracted `_PROVIDER_OPENAI`, `_PROVIDER_ANTHROPIC`, `_PROVIDER_GOOGLE`, `_PROVIDER_OLLAMA`, `_PROVIDER_LITELLM` to `model_provider.py`, replacing 20 bare provider name string literals across `model_provider.py` (12 in `resolve_hand_model`/`_infer_provider_name`/`build_langchain_chat_model`/`build_atomic_client`) and `goose.py` (8 in `_GOOSE_DEFAULT_PROVIDER`/`_pr_description_cmd`/`_describe_auth`/`_normalize_goose_provider`/`_infer_goose_provider_from_model`/`_build_subprocess_env`).
+
+**`tests/test_v247_provider_name_constants.py`:** 24 tests — constant values/types/distinctness, `__all__` exports, AST-based source checks (no bare provider strings remain in either file), provider resolution behavioral tests.
+
+**24 new tests. 5855 passed, 249 skipped.**
 
 ---
 

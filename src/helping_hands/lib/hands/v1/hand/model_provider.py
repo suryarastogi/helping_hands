@@ -14,11 +14,31 @@ from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
 from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
+    "_PROVIDER_ANTHROPIC",
+    "_PROVIDER_GOOGLE",
+    "_PROVIDER_LITELLM",
+    "_PROVIDER_OLLAMA",
+    "_PROVIDER_OPENAI",
     "HandModel",
     "build_atomic_client",
     "build_langchain_chat_model",
     "resolve_hand_model",
 ]
+
+_PROVIDER_OPENAI = "openai"
+"""Provider name constant for OpenAI."""
+
+_PROVIDER_ANTHROPIC = "anthropic"
+"""Provider name constant for Anthropic."""
+
+_PROVIDER_GOOGLE = "google"
+"""Provider name constant for Google."""
+
+_PROVIDER_OLLAMA = "ollama"
+"""Provider name constant for Ollama."""
+
+_PROVIDER_LITELLM = "litellm"
+"""Provider name constant for LiteLLM."""
 
 _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 """Default base URL for the Ollama OpenAI-compatible API endpoint."""
@@ -54,7 +74,7 @@ def resolve_hand_model(model: str | None) -> HandModel:
     raw = (model or "").strip() or "default"
 
     if raw == "default":
-        provider = PROVIDERS["ollama"]
+        provider = PROVIDERS[_PROVIDER_OLLAMA]
         return HandModel(provider=provider, model=provider.default_model, raw=raw)
 
     direct_provider = PROVIDERS.get(raw)
@@ -80,23 +100,23 @@ def resolve_hand_model(model: str | None) -> HandModel:
 def _infer_provider_name(model: str) -> str:
     lowered = model.lower()
     if lowered.startswith("claude"):
-        return "anthropic"
+        return _PROVIDER_ANTHROPIC
     if lowered.startswith("gemini"):
-        return "google"
+        return _PROVIDER_GOOGLE
     if lowered.startswith("llama"):
-        return "ollama"
-    return "openai"
+        return _PROVIDER_OLLAMA
+    return _PROVIDER_OPENAI
 
 
 def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any:
     """Build a LangChain chat model from a resolved hand model."""
     require_non_empty_string(hand_model.model, "hand_model.model")
     provider = hand_model.provider.name
-    if provider == "openai":
+    if provider == _PROVIDER_OPENAI:
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(model_name=hand_model.model, streaming=streaming)
-    if provider == "ollama":
+    if provider == _PROVIDER_OLLAMA:
         from langchain_openai import ChatOpenAI
 
         base_url = os.environ.get("OLLAMA_BASE_URL", _DEFAULT_OLLAMA_BASE_URL)
@@ -107,7 +127,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
             streaming=streaming,
             **extra,
         )
-    if provider == "anthropic":
+    if provider == _PROVIDER_ANTHROPIC:
         try:
             from langchain_anthropic import ChatAnthropic
         except ModuleNotFoundError as exc:
@@ -116,7 +136,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
                 "Install with: uv add langchain-anthropic"
             ) from exc
         return ChatAnthropic(model=hand_model.model, streaming=streaming)
-    if provider == "google":
+    if provider == _PROVIDER_GOOGLE:
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
         except ModuleNotFoundError as exc:
@@ -125,7 +145,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
                 "Install with: uv add langchain-google-genai"
             ) from exc
         return ChatGoogleGenerativeAI(model=hand_model.model, streaming=streaming)
-    if provider == "litellm":
+    if provider == _PROVIDER_LITELLM:
         try:
             from langchain_community.chat_models import ChatLiteLLM
         except ModuleNotFoundError as exc:
@@ -144,9 +164,9 @@ def build_atomic_client(hand_model: HandModel) -> Any:
     import instructor
 
     provider = hand_model.provider.name
-    if provider == "openai":
+    if provider == _PROVIDER_OPENAI:
         return instructor.from_openai(hand_model.provider.inner)
-    if provider == "litellm":
+    if provider == _PROVIDER_LITELLM:
         if hasattr(instructor, "from_litellm"):
             return instructor.from_litellm(hand_model.provider.inner.completion)
         raise RuntimeError(
