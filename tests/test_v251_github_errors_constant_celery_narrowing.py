@@ -159,8 +159,8 @@ def _find_function_handlers(
             and node.name == func_name
         ):
             for child in ast.walk(node):
-                    if isinstance(child, ast.ExceptHandler):
-                        handlers.append(child)
+                if isinstance(child, ast.ExceptHandler):
+                    handlers.append(child)
     return handlers
 
 
