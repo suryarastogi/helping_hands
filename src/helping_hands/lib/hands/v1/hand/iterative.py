@@ -81,6 +81,9 @@ _AUTH_PRESENT_LABEL: str = "set"
 _AUTH_ABSENT_LABEL: str = "not set"
 """Label shown in stream output when the provider API key is missing."""
 
+_TOOL_RESULT_PREFIX: str = "@@TOOL_RESULT"
+"""Prefix used to mark tool result blocks in the iterative prompt protocol."""
+
 
 class _BasicIterativeHand(Hand):
     """Shared helpers for iterative hands."""
@@ -565,7 +568,7 @@ class _BasicIterativeHand(Hand):
         stderr_note = _TRUNCATION_MARKER if stderr_truncated else ""
         status = "success" if result.success else "failure"
         return (
-            f"@@TOOL_RESULT: {tool_name}\n"
+            f"{_TOOL_RESULT_PREFIX}: {tool_name}\n"
             f"status: {status}\n"
             f"exit_code: {result.exit_code}\n"
             f"timed_out: {str(result.timed_out).lower()}\n"
@@ -604,7 +607,7 @@ class _BasicIterativeHand(Hand):
         payload_text, truncated = cls._truncate_tool_output(payload)
         truncated_note = _TRUNCATION_MARKER if truncated else ""
         return (
-            f"@@TOOL_RESULT: {tool_name}\n"
+            f"{_TOOL_RESULT_PREFIX}: {tool_name}\n"
             "status: success\n"
             f"query: {result.query}\n"
             f"result_count: {len(result.results)}\n"
@@ -631,7 +634,7 @@ class _BasicIterativeHand(Hand):
         text, output_truncated = cls._truncate_tool_output(result.content)
         truncated_note = _TRUNCATION_MARKER if output_truncated else ""
         return (
-            f"@@TOOL_RESULT: {tool_name}\n"
+            f"{_TOOL_RESULT_PREFIX}: {tool_name}\n"
             "status: success\n"
             f"url: {result.url}\n"
             f"final_url: {result.final_url}\n"

@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v252](exec-plans/completed/2026/v252-tool-result-goose-builtin-claude-cli-constants.md) —
+  Extract `_TOOL_RESULT_PREFIX` constant in `iterative.py` (3 bare `"@@TOOL_RESULT"`
+  f-string prefixes → 1), `_GOOSE_BUILTIN_FLAG` constant in `goose.py` (5 bare
+  `"--with-builtin"` strings → 1), `_CLAUDE_CLI_NAME` constant in `claude.py` (4 bare
+  `"claude"` strings → 1); 25 tests (5967 passed, 254 skipped)
+
 - [2026-03-17 v251](exec-plans/completed/2026/v251-github-errors-constant-celery-exception-narrowing.md) —
   `_GITHUB_ERRORS` exception tuple constant replacing 5 bare `(GithubException, OSError)`
   in `base.py` (4×) and `e2e.py` (1×); narrow `except Exception` in `app.py`

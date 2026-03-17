@@ -17,6 +17,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "_CLAUDE_CLI_NAME",
     "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
     "_TOOL_SUMMARY_STATIC",
@@ -73,6 +74,9 @@ _TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
 
 _SKIP_PERMISSIONS_FLAG = "--dangerously-skip-permissions"
 """Claude CLI flag to bypass the interactive permission prompt."""
+
+_CLAUDE_CLI_NAME = "claude"
+"""Binary name of the Claude Code CLI used for subprocess invocations."""
 
 
 class _StreamJsonEmitter:
@@ -318,8 +322,8 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return f"auth=ANTHROPIC_API_KEY ({present})"
 
     def _pr_description_cmd(self) -> list[str] | None:
-        if shutil.which("claude") is not None:
-            return ["claude", "-p", "--output-format", "text"]
+        if shutil.which(_CLAUDE_CLI_NAME) is not None:
+            return [_CLAUDE_CLI_NAME, "-p", "--output-format", "text"]
         return None
 
     _EXTRA_AUTH_TOKENS: tuple[str, ...] = ("anthropic_api_key",)
@@ -391,7 +395,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
         if (
             cmd
-            and cmd[0] == "claude"
+            and cmd[0] == _CLAUDE_CLI_NAME
             and self._skip_permissions_enabled()
             and _SKIP_PERMISSIONS_FLAG not in cmd
         ):
@@ -439,7 +443,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return None
 
     def _fallback_command_when_not_found(self, cmd: list[str]) -> list[str] | None:
-        if not cmd or cmd[0] != "claude":
+        if not cmd or cmd[0] != _CLAUDE_CLI_NAME:
             return None
         if shutil.which("npx") is None:
             return None

@@ -20,6 +20,9 @@ __all__ = ["GooseCLIHand"]
 _OLLAMA_DEFAULT_HOST = "http://localhost:11434"
 """Default Ollama API host used when no OLLAMA_HOST or OLLAMA_BASE_URL is set."""
 
+_GOOSE_BUILTIN_FLAG = "--with-builtin"
+"""CLI flag to select a Goose built-in extension (e.g. ``developer``)."""
+
 
 class GooseCLIHand(_TwoPhaseCLIHand):
     """Hand backed by Goose CLI subprocess execution."""
@@ -28,7 +31,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _CLI_LABEL = "goose"
     _CLI_DISPLAY_NAME = "Goose CLI"
     _COMMAND_ENV_VAR = "HELPING_HANDS_GOOSE_CLI_CMD"
-    _DEFAULT_CLI_CMD = "goose run --with-builtin developer --text"
+    _DEFAULT_CLI_CMD = f"goose run {_GOOSE_BUILTIN_FLAG} developer --text"
     _DEFAULT_MODEL = ""
     _GOOSE_DEFAULT_PROVIDER = _PROVIDER_OLLAMA
     _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
@@ -86,12 +89,12 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             Normalized command token list.
         """
         if tokens == ["goose"]:
-            return ["goose", "run", "--with-builtin", "developer", "--text"]
+            return ["goose", "run", _GOOSE_BUILTIN_FLAG, "developer", "--text"]
         if tokens == ["goose", "run"]:
-            return ["goose", "run", "--with-builtin", "developer", "--text"]
+            return ["goose", "run", _GOOSE_BUILTIN_FLAG, "developer", "--text"]
         # Backward compatibility for older local env examples.
         if tokens == ["goose", "run", "--instructions"]:
-            return ["goose", "run", "--with-builtin", "developer", "--text"]
+            return ["goose", "run", _GOOSE_BUILTIN_FLAG, "developer", "--text"]
         return super()._normalize_base_command(tokens)
 
     def _resolve_cli_model(self) -> str:
@@ -120,7 +123,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             ``--with-builtin=``.
         """
         return any(
-            token == "--with-builtin" or token.startswith("--with-builtin=")
+            token == _GOOSE_BUILTIN_FLAG or token.startswith(f"{_GOOSE_BUILTIN_FLAG}=")
             for token in cmd
         )
 
@@ -141,7 +144,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             return cmd
         if self._has_goose_builtin_flag(cmd):
             return cmd
-        return [*cmd[:2], "--with-builtin", "developer", *cmd[2:]]
+        return [*cmd[:2], _GOOSE_BUILTIN_FLAG, "developer", *cmd[2:]]
 
     @staticmethod
     def _normalize_goose_provider(provider: str) -> str:

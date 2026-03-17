@@ -4,6 +4,20 @@ Per-task GitHub token override, dead code cleanup, constant docstrings, security
 
 ---
 
+## Mar 17 — Tool result, Goose builtin, Claude CLI name constants (v252)
+
+**Tool result prefix:** Extracted `_TOOL_RESULT_PREFIX = "@@TOOL_RESULT"` constant in `iterative.py`, replacing 3 bare f-string prefixes in `_format_command_result`, `_format_web_search_result`, and `_format_web_browse_result`.
+
+**Goose builtin flag:** Extracted `_GOOSE_BUILTIN_FLAG = "--with-builtin"` constant in `goose.py`, replacing 5 bare string literals across `_DEFAULT_CLI_CMD`, `_normalize_base_command` (3 branches), `_has_goose_builtin_flag`, and `_apply_backend_defaults`.
+
+**Claude CLI name:** Extracted `_CLAUDE_CLI_NAME = "claude"` constant in `claude.py`, replacing 4 bare string literals in `_pr_description_cmd` (shutil.which + list literal), `_apply_backend_defaults` (cmd[0] comparison), and `_fallback_command_when_not_found` (cmd[0] comparison). Added to `__all__`.
+
+**`tests/test_v252_tool_result_goose_builtin_claude_cli_constants.py`:** 25 tests — constant values/types/docstrings, AST-based source checks (no bare literals remain in code paths), behavioral tests for all 3 format methods and Goose normalize/builtin-flag helpers.
+
+**25 new tests. 5967 passed, 254 skipped.**
+
+---
+
 ## Mar 17 — Deduplicate env var constants (v249)
 
 **Constant deduplication:** `_ENV_GIT_TERMINAL_PROMPT` and `_ENV_GCM_INTERACTIVE` were defined identically in both `github_url.py` and `base.py`. Renamed to public `ENV_GIT_TERMINAL_PROMPT`/`ENV_GCM_INTERACTIVE` in `github_url.py` (canonical location), added to `__all__`, and replaced duplicate definitions in `base.py` with aliased imports. Updated 4 existing test files with new `__all__` expectations.
