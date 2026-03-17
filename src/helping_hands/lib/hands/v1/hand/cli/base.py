@@ -57,6 +57,7 @@ __all__ = [
     "_CI_POLL_INTERVAL_S",
     "_DOCKER_ENV_HINT_TEMPLATE",
     "_DOCKER_REBUILD_HINT_TEMPLATE",
+    "_EMPTY_MODEL_MARKERS",
     "_FAILURE_OUTPUT_TAIL_LENGTH",
     "_GIT_REF_DISPLAY_LENGTH",
     "_HOOK_ERROR_TRUNCATION_LIMIT",
@@ -95,6 +96,13 @@ _GIT_REF_DISPLAY_LENGTH = 8
 
 _FAILURE_OUTPUT_TAIL_LENGTH = 2000
 """Number of trailing characters kept from CLI output in failure messages."""
+
+_EMPTY_MODEL_MARKERS: tuple[str, ...] = ("default", "None")
+"""Model values treated as *empty* — resolved to ``_DEFAULT_MODEL`` instead.
+
+Shared by :meth:`_TwoPhaseCLIHand._resolve_cli_model` and overrides in
+``opencode.py``.
+"""
 
 _AUTH_ERROR_TOKENS: tuple[str, ...] = (
     "401 unauthorized",
@@ -360,7 +368,7 @@ class _TwoPhaseCLIHand(Hand):
             The resolved model name string, or ``_DEFAULT_MODEL``.
         """
         model = str(self.config.model).strip()
-        if not model or model in ("default", "None"):
+        if not model or model in _EMPTY_MODEL_MARKERS:
             return self._DEFAULT_MODEL
         if "/" in model:
             _, _, provider_model = model.partition("/")

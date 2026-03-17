@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v269](exec-plans/completed/2026/v269-empty-model-markers-parse-comma-list.md) —
+  Extract `_EMPTY_MODEL_MARKERS` constant and `parse_comma_list()` helper;
+  17 tests (6254 passed, 272 skipped)
+
 - [2026-03-17 v267](exec-plans/completed/2026/v267-dry-cli-label-prefix.md) —
   Extract `_label_msg()` helper on `_TwoPhaseCLIHand` to DRY 32 inline
   `f"[{self._CLI_LABEL}] ..."` patterns; 7 tests (6220 passed, 272 skipped)

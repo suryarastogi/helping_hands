@@ -38,7 +38,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
 )
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
-from helping_hands.lib.validation import require_non_empty_string
+from helping_hands.lib.validation import parse_comma_list, require_non_empty_string
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
@@ -3616,9 +3616,7 @@ def enqueue_build_form(
             github_token=github_token
             if github_token and github_token.strip()
             else None,
-            reference_repos=[
-                r.strip() for r in (reference_repos or "").split(",") if r.strip()
-            ],
+            reference_repos=list(parse_comma_list(reference_repos or "")),
         )
     except ValidationError as exc:
         error_msg = _first_validation_error_msg(exc)

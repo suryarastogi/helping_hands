@@ -8,6 +8,7 @@ from pathlib import Path
 
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
+from helping_hands.lib.validation import parse_comma_list
 
 __all__ = ["Config"]
 
@@ -166,7 +167,7 @@ class Config:
 
         raw_ref_repos = merged.get("reference_repos", cls.reference_repos)
         if isinstance(raw_ref_repos, str):
-            ref_repos = tuple(r.strip() for r in raw_ref_repos.split(",") if r.strip())
+            ref_repos = parse_comma_list(raw_ref_repos)
         elif isinstance(raw_ref_repos, list | tuple):
             ref_repos = tuple(str(r).strip() for r in raw_ref_repos if str(r).strip())
         else:

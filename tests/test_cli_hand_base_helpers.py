@@ -12,7 +12,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+from helping_hands.lib.hands.v1.hand.cli.base import (
+    _EMPTY_MODEL_MARKERS,
+    _TwoPhaseCLIHand,
+)
 
 # ---------------------------------------------------------------------------
 # Minimal stub that skips the full __init__ chain
@@ -46,6 +49,27 @@ class _Stub(_TwoPhaseCLIHand):
 # ---------------------------------------------------------------------------
 # _resolve_cli_model
 # ---------------------------------------------------------------------------
+
+
+class TestEmptyModelMarkers:
+    """Tests for the _EMPTY_MODEL_MARKERS constant."""
+
+    def test_contains_default(self) -> None:
+        assert "default" in _EMPTY_MODEL_MARKERS
+
+    def test_contains_none_string(self) -> None:
+        assert "None" in _EMPTY_MODEL_MARKERS
+
+    def test_is_tuple(self) -> None:
+        assert isinstance(_EMPTY_MODEL_MARKERS, tuple)
+
+    def test_all_markers_fall_back_to_default_model(self) -> None:
+        """Every marker in _EMPTY_MODEL_MARKERS should trigger fallback."""
+        for marker in _EMPTY_MODEL_MARKERS:
+            stub = _Stub(model=marker)
+            assert stub._resolve_cli_model() == "stub-model-1", (
+                f"marker {marker!r} did not trigger fallback"
+            )
 
 
 class TestResolveCliModel:

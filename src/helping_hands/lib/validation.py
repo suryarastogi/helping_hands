@@ -11,10 +11,24 @@ import math
 
 __all__ = [
     "format_type_error",
+    "parse_comma_list",
     "require_non_empty_string",
     "require_positive_float",
     "require_positive_int",
 ]
+
+
+def parse_comma_list(value: str) -> tuple[str, ...]:
+    """Split a comma-separated string into a tuple of stripped, non-empty items.
+
+    Args:
+        value: Comma-separated string (e.g. ``"a, b, c"``).
+
+    Returns:
+        Tuple of stripped non-empty items.  Returns an empty tuple for
+        blank or whitespace-only input.
+    """
+    return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
 def format_type_error(name: str, expected: str, value: object) -> str:
