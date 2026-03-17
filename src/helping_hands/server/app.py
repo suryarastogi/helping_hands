@@ -3204,7 +3204,13 @@ def _safe_inspect_call(inspector: Any, method_name: str) -> Any:
         return None
     try:
         return method()
-    except (AttributeError, ConnectionError, OSError, TimeoutError):  # pragma: no cover
+    except (
+        AttributeError,
+        ConnectionError,
+        OSError,
+        RuntimeError,
+        TimeoutError,
+    ):  # pragma: no cover
         logger.debug(
             "inspect.%s() failed",
             method_name,

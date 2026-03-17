@@ -197,22 +197,31 @@ class TestCreateHandAtomicBackends:
     def _skip_without_atomic(self) -> None:
         pytest.importorskip("atomic_agents", reason="atomic extra not installed")
 
-    def test_basic_atomic(self, _config: Config, _repo_index: RepoIndex) -> None:
+    @pytest.fixture()
+    def _openai_config(self, tmp_path: object) -> Config:
+        """Config with an OpenAI-compatible model (atomic requires it)."""
+        return Config.from_env(overrides={"repo": str(tmp_path), "model": "gpt-4o"})
+
+    def test_basic_atomic(self, _openai_config: Config, _repo_index: RepoIndex) -> None:
         from helping_hands.lib.hands.v1.hand.iterative import BasicAtomicHand
 
-        hand = create_hand(BACKEND_BASIC_ATOMIC, _config, _repo_index)
+        hand = create_hand(BACKEND_BASIC_ATOMIC, _openai_config, _repo_index)
         assert isinstance(hand, BasicAtomicHand)
 
-    def test_basic_agent_alias(self, _config: Config, _repo_index: RepoIndex) -> None:
+    def test_basic_agent_alias(
+        self, _openai_config: Config, _repo_index: RepoIndex
+    ) -> None:
         from helping_hands.lib.hands.v1.hand.iterative import BasicAtomicHand
 
-        hand = create_hand(BACKEND_BASIC_AGENT, _config, _repo_index)
+        hand = create_hand(BACKEND_BASIC_AGENT, _openai_config, _repo_index)
         assert isinstance(hand, BasicAtomicHand)
 
     def test_basic_atomic_max_iterations(
-        self, _config: Config, _repo_index: RepoIndex
+        self, _openai_config: Config, _repo_index: RepoIndex
     ) -> None:
-        hand = create_hand(BACKEND_BASIC_ATOMIC, _config, _repo_index, max_iterations=5)
+        hand = create_hand(
+            BACKEND_BASIC_ATOMIC, _openai_config, _repo_index, max_iterations=5
+        )
         assert hand.max_iterations == 5
 
 

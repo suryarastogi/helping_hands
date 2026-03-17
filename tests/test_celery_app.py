@@ -174,10 +174,10 @@ class TestResolveRepoPath:
 
 
 class TestNormalizeBackend:
-    def test_defaults_to_codexcli(self) -> None:
+    def test_defaults_to_claudecodecli(self) -> None:
         requested, runtime = celery_app._normalize_backend(None)
-        assert requested == "codexcli"
-        assert runtime == "codexcli"
+        assert requested == "claudecodecli"
+        assert runtime == "claudecodecli"
 
     def test_basic_agent_maps_to_atomic_runtime(self) -> None:
         requested, runtime = celery_app._normalize_backend("basic-agent")
