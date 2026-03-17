@@ -151,10 +151,10 @@ class TestCIConclusionEnumUsage:
 
 
 class TestBaseGithubExceptionNarrowing:
-    """Verify base.py GitHub handlers use (GithubException, OSError)."""
+    """Verify base.py GitHub handlers use ``_GITHUB_ERRORS`` constant."""
 
     def test_imports_github_exception(self) -> None:
-        """base.py imports GithubException."""
+        """base.py imports GithubException (used in _GITHUB_ERRORS definition)."""
         tree = _parse_file(_hand_root() / "base.py")
         imported = False
         for node in ast.walk(tree):
@@ -180,7 +180,7 @@ class TestBaseGithubExceptionNarrowing:
                 if handler_src and "whoami" in handler_src:
                     pytest.fail(
                         "whoami() handler catches bare Exception; "
-                        "should use (GithubException, OSError)"
+                        "should use _GITHUB_ERRORS"
                     )
 
     def test_no_bare_exception_for_update_pr_body(self) -> None:
@@ -195,7 +195,7 @@ class TestBaseGithubExceptionNarrowing:
                 if handler_src and "update_pr_body" in handler_src:
                     pytest.fail(
                         "update_pr_body() handler catches bare Exception; "
-                        "should use (GithubException, OSError)"
+                        "should use _GITHUB_ERRORS"
                     )
 
     def test_no_bare_exception_for_get_repo(self) -> None:
@@ -210,36 +210,20 @@ class TestBaseGithubExceptionNarrowing:
                 if handler_src and "default branch" in handler_src:
                     pytest.fail(
                         "get_repo() handler catches bare Exception; "
-                        "should use (GithubException, OSError)"
+                        "should use _GITHUB_ERRORS"
                     )
 
-    def test_github_handlers_catch_github_exception(self) -> None:
-        """All GitHub-related handlers should include GithubException."""
-        tree = _parse_file(_hand_root() / "base.py")
+    def test_github_handlers_use_constant(self) -> None:
+        """All GitHub-related handlers should reference ``_GITHUB_ERRORS``."""
         source = (_hand_root() / "base.py").read_text()
-        github_keywords = ["whoami", "update_pr_body", "default branch"]
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ExceptHandler):
-                handler_src = ast.get_source_segment(source, node)
-                if handler_src and any(kw in handler_src for kw in github_keywords):
-                    names = _handler_type_names(node)
-                    assert "GithubException" in names, (
-                        f"GitHub handler missing GithubException: {names}"
-                    )
+        assert "except _GITHUB_ERRORS" in source
+        # The constant itself contains the right types
+        from github import GithubException
 
-    def test_github_handlers_catch_os_error(self) -> None:
-        """All GitHub-related handlers should include OSError for network."""
-        tree = _parse_file(_hand_root() / "base.py")
-        source = (_hand_root() / "base.py").read_text()
-        github_keywords = ["whoami", "update_pr_body", "default branch"]
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ExceptHandler):
-                handler_src = ast.get_source_segment(source, node)
-                if handler_src and any(kw in handler_src for kw in github_keywords):
-                    names = _handler_type_names(node)
-                    assert "OSError" in names, (
-                        f"GitHub handler missing OSError: {names}"
-                    )
+        from helping_hands.lib.hands.v1.hand.base import _GITHUB_ERRORS
+
+        assert GithubException in _GITHUB_ERRORS
+        assert OSError in _GITHUB_ERRORS
 
 
 # ---------------------------------------------------------------------------
@@ -248,18 +232,12 @@ class TestBaseGithubExceptionNarrowing:
 
 
 class TestE2EGithubExceptionNarrowing:
-    """Verify e2e.py GitHub handler uses (GithubException, OSError)."""
+    """Verify e2e.py GitHub handler uses ``_GITHUB_ERRORS`` constant."""
 
-    def test_imports_github_exception(self) -> None:
-        """e2e.py imports GithubException."""
-        tree = _parse_file(_hand_root() / "e2e.py")
-        imported = False
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == "github":
-                for alias in node.names:
-                    if alias.name == "GithubException":
-                        imported = True
-        assert imported, "e2e.py must import GithubException from github"
+    def test_imports_github_errors(self) -> None:
+        """e2e.py imports _GITHUB_ERRORS from base."""
+        source = (_hand_root() / "e2e.py").read_text()
+        assert "_GITHUB_ERRORS" in source
 
     def test_no_bare_exception_for_default_branch(self) -> None:
         """default_branch handler should not catch bare Exception."""
@@ -273,20 +251,13 @@ class TestE2EGithubExceptionNarrowing:
                 if handler_src and "default branch" in handler_src:
                     pytest.fail(
                         "default_branch handler catches bare Exception; "
-                        "should use (GithubException, OSError)"
+                        "should use _GITHUB_ERRORS"
                     )
 
-    def test_handler_catches_github_exception(self) -> None:
-        """The default_branch handler includes GithubException."""
-        tree = _parse_file(_hand_root() / "e2e.py")
+    def test_handler_uses_github_errors_constant(self) -> None:
+        """The default_branch handler references ``_GITHUB_ERRORS``."""
         source = (_hand_root() / "e2e.py").read_text()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ExceptHandler):
-                handler_src = ast.get_source_segment(source, node)
-                if handler_src and "default branch" in handler_src:
-                    names = _handler_type_names(node)
-                    assert "GithubException" in names
-                    assert "OSError" in names
+        assert "except _GITHUB_ERRORS" in source
 
 
 # ---------------------------------------------------------------------------

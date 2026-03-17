@@ -108,21 +108,14 @@ class TestBaseUpdatePrBodyHandler:
                 "update_pr_body handler still catches bare Exception"
             )
 
-    def test_catches_github_exception(self) -> None:
+    def test_catches_github_errors_constant(self) -> None:
+        """Handler should reference ``_GITHUB_ERRORS`` constant."""
         handlers = _find_try_handlers_by_keyword(
             _hand_root() / "base.py", "update_pr_body"
         )
         assert handlers, "No handler found for update_pr_body"
         names = _handler_type_names(handlers[0])
-        assert "GithubException" in names
-
-    def test_catches_os_error(self) -> None:
-        handlers = _find_try_handlers_by_keyword(
-            _hand_root() / "base.py", "update_pr_body"
-        )
-        assert handlers, "No handler found for update_pr_body"
-        names = _handler_type_names(handlers[0])
-        assert "OSError" in names
+        assert "_GITHUB_ERRORS" in names
 
 
 # ---------------------------------------------------------------------------
@@ -143,21 +136,14 @@ class TestBaseFinalizeReprCatchAll:
                 "_finalize_repo_pr catch-all still catches bare Exception"
             )
 
-    def test_catches_github_exception(self) -> None:
+    def test_catches_github_errors_constant(self) -> None:
+        """Handler should reference ``_GITHUB_ERRORS`` constant."""
         handlers = _find_handlers_near_keyword(
             _hand_root() / "base.py", "_finalize_repo_pr unexpected"
         )
         assert handlers, "No catch-all handler found for _finalize_repo_pr"
         names = _handler_type_names(handlers[0])
-        assert "GithubException" in names
-
-    def test_catches_os_error(self) -> None:
-        handlers = _find_handlers_near_keyword(
-            _hand_root() / "base.py", "_finalize_repo_pr unexpected"
-        )
-        assert handlers, "No catch-all handler found for _finalize_repo_pr"
-        names = _handler_type_names(handlers[0])
-        assert "OSError" in names
+        assert "_GITHUB_ERRORS" in names
 
 
 # ---------------------------------------------------------------------------

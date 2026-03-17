@@ -114,6 +114,9 @@ _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 _DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
 """Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
 
+_GITHUB_ERRORS: tuple[type[Exception], ...] = (GithubException, OSError)
+"""Exception types caught during GitHub API / network operations."""
+
 
 def _utc_stamp() -> str:
     """Return the current UTC time as an ISO-8601 string without microseconds.
@@ -837,7 +840,7 @@ class Hand(abc.ABC):
         pr_creator = str(pr_info.get("user", ""))
         try:
             token_user = gh.whoami().get("login", "")
-        except (GithubException, OSError):
+        except _GITHUB_ERRORS:
             logger.debug(
                 "whoami() failed; skipping PR description update", exc_info=True
             )
@@ -951,7 +954,7 @@ class Hand(abc.ABC):
         )
         try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
-        except (GithubException, OSError):
+        except _GITHUB_ERRORS:
             logger.debug(
                 "Failed to update PR #%s description", self.pr_number, exc_info=True
             )
@@ -1065,7 +1068,7 @@ class Hand(abc.ABC):
             repo_obj = gh.get_repo(repo)
             if getattr(repo_obj, "default_branch", ""):
                 base_branch = str(repo_obj.default_branch)
-        except (GithubException, OSError):
+        except _GITHUB_ERRORS:
             logger.debug(
                 "could not fetch default branch for %s, using %r",
                 repo,
@@ -1246,7 +1249,7 @@ class Hand(abc.ABC):
             metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
             metadata[_META_PR_ERROR] = str(exc)
             return metadata
-        except (GithubException, OSError) as exc:
+        except _GITHUB_ERRORS as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
             metadata[_META_PR_STATUS] = PRStatus.ERROR
             metadata[_META_PR_ERROR] = str(exc)
