@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import ast
 import inspect
-import textwrap
 
 import pytest
 
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
-
 
 # ---------------------------------------------------------------------------
 # _env_var_status unit tests
