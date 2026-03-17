@@ -15,7 +15,7 @@ from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import Any
 
-from celery import Celery
+from celery import Celery, Task
 
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
@@ -595,7 +595,7 @@ async def _collect_stream(
 
 @celery_app.task(bind=True, name="helping_hands.build_feature")
 def build_feature(
-    self: object,
+    self: Task,
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
