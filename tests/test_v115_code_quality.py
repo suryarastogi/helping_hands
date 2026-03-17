@@ -260,6 +260,8 @@ class _FakeScheduledTask:
             "use_native_cli_auth": False,
             "fix_ci": False,
             "ci_check_wait_minutes": 3.0,
+            "github_token": None,
+            "reference_repos": [],
             "tools": [],
             "skills": [],
             "enabled": True,
