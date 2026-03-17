@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v267](exec-plans/completed/2026/v267-dry-cli-label-prefix.md) —
+  Extract `_label_msg()` helper on `_TwoPhaseCLIHand` to DRY 32 inline
+  `f"[{self._CLI_LABEL}] ..."` patterns; 7 tests (6220 passed, 272 skipped)
+
 - [2026-03-17 v266](exec-plans/completed/2026/v266-langchain-import-helper.md) —
   Extract `_require_langchain_class()` helper to deduplicate 3 identical
   `try/except ModuleNotFoundError` blocks in `build_langchain_chat_model()`;

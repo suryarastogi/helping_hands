@@ -268,6 +268,14 @@ class _TwoPhaseCLIHand(Hand):
         self._active_process: asyncio.subprocess.Process | None = None
         self._skill_catalog_dir: Path | None = None
 
+    def _label_msg(self, msg: str) -> str:
+        """Prefix *msg* with the CLI backend label.
+
+        Returns:
+            A string of the form ``[<label>] <msg>``.
+        """
+        return f"[{self._CLI_LABEL}] {msg}"
+
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
         """Truncate text to *limit* characters with a ``[truncated]`` marker.
@@ -1075,8 +1083,8 @@ class _TwoPhaseCLIHand(Hand):
         env = self._build_subprocess_env()
         cwd = str(self.repo_index.root.resolve())
         if self.config.verbose:
-            await emit(f"[{self._CLI_LABEL}] cmd: {shlex.join(cmd)}\n")
-            await emit(f"[{self._CLI_LABEL}] cwd: {cwd}\n")
+            await emit(self._label_msg(f"cmd: {shlex.join(cmd)}\n"))
+            await emit(self._label_msg(f"cwd: {cwd}\n"))
         start_time = time.monotonic()
         try:
             process = await asyncio.create_subprocess_exec(
@@ -1091,13 +1099,16 @@ class _TwoPhaseCLIHand(Hand):
             fallback = self._fallback_command_when_not_found(cmd)
             if fallback and fallback != cmd:
                 await emit(
-                    f"[{self._CLI_LABEL}] {cmd[0]!r} not found; "
-                    f"retrying with {fallback[0]!r}.\n"
+                    self._label_msg(
+                        f"{cmd[0]!r} not found; retrying with {fallback[0]!r}.\n"
+                    )
                 )
                 if fallback[0] == "npx":
                     await emit(
-                        f"[{self._CLI_LABEL}] npx fallback may take a while on "
-                        "first run while the package is downloaded.\n"
+                        self._label_msg(
+                            "npx fallback may take a while on "
+                            "first run while the package is downloaded.\n"
+                        )
                     )
                 return await self._invoke_cli_with_cmd(fallback, emit=emit)
             raise RuntimeError(self._command_not_found_message(cmd[0])) from exc
@@ -1136,9 +1147,11 @@ class _TwoPhaseCLIHand(Hand):
                     idle_seconds = now - last_output_ts
                     if now - last_heartbeat_ts >= heartbeat_seconds:
                         await emit(
-                            f"[{self._CLI_LABEL}] still running "
-                            f"({int(idle_seconds)}s since last output; "
-                            f"timeout={int(idle_timeout_seconds)}s)...\n"
+                            self._label_msg(
+                                f"still running "
+                                f"({int(idle_seconds)}s since last output; "
+                                f"timeout={int(idle_timeout_seconds)}s)...\n"
+                            )
                         )
                         last_heartbeat_ts = now
                     if idle_seconds >= idle_timeout_seconds:
@@ -1164,8 +1177,9 @@ class _TwoPhaseCLIHand(Hand):
                 elapsed = time.monotonic() - start_time
                 if self.config.verbose:
                     await emit(
-                        f"[{self._CLI_LABEL}] finished in {elapsed:.1f}s "
-                        f"(exit={return_code})\n"
+                        self._label_msg(
+                            f"finished in {elapsed:.1f}s (exit={return_code})\n"
+                        )
                     )
                 if return_code != 0:
                     output = "".join(chunks)
@@ -1176,8 +1190,9 @@ class _TwoPhaseCLIHand(Hand):
                     )
                     if retry_cmd and retry_cmd != cmd:
                         await emit(
-                            f"[{self._CLI_LABEL}] command failed; retrying with "
-                            "adjusted arguments.\n"
+                            self._label_msg(
+                                "command failed; retrying with adjusted arguments.\n"
+                            )
                         )
                         return await self._invoke_cli_with_cmd(retry_cmd, emit=emit)
                     msg = self._build_failure_message(
@@ -1213,32 +1228,28 @@ class _TwoPhaseCLIHand(Hand):
     ) -> str:
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""
-        await emit(
-            f"[{self._CLI_LABEL}] isolation={self._execution_mode()}{auth_part}\n"
-        )
+        await emit(self._label_msg(f"isolation={self._execution_mode()}{auth_part}\n"))
         if self.config.verbose:
             model = self._resolve_cli_model() or "(default)"
             await emit(
-                f"[{self._CLI_LABEL}] verbose=on | model={model} "
-                f"| heartbeat={self._heartbeat_seconds():.0f}s "
-                f"| idle_timeout={self._idle_timeout_seconds():.0f}s\n"
+                self._label_msg(
+                    f"verbose=on | model={model} "
+                    f"| heartbeat={self._heartbeat_seconds():.0f}s "
+                    f"| idle_timeout={self._idle_timeout_seconds():.0f}s\n"
+                )
             )
         run_start = time.monotonic()
-        await emit(
-            f"[{self._CLI_LABEL}] [phase 1/2] Initializing repository context...\n"
-        )
+        await emit(self._label_msg("[phase 1/2] Initializing repository context...\n"))
         init_output = await self._invoke_backend(self._build_init_prompt(), emit=emit)
         if self._is_interrupted():
-            await emit(f"[{self._CLI_LABEL}] Interrupted during initialization.\n")
+            await emit(self._label_msg("Interrupted during initialization.\n"))
             return init_output
         if self.config.verbose:
             phase1_elapsed = time.monotonic() - run_start
-            await emit(
-                f"[{self._CLI_LABEL}] phase 1 completed in {phase1_elapsed:.1f}s\n"
-            )
+            await emit(self._label_msg(f"phase 1 completed in {phase1_elapsed:.1f}s\n"))
 
         phase2_start = time.monotonic()
-        await emit(f"[{self._CLI_LABEL}] [phase 2/2] Executing user task...\n")
+        await emit(self._label_msg("[phase 2/2] Executing user task...\n"))
         task_output = await self._invoke_backend(
             self._build_task_prompt(prompt=prompt, learned_summary=init_output),
             emit=emit,
@@ -1247,15 +1258,18 @@ class _TwoPhaseCLIHand(Hand):
             phase2_elapsed = time.monotonic() - phase2_start
             total_elapsed = time.monotonic() - run_start
             await emit(
-                f"[{self._CLI_LABEL}] phase 2 completed in {phase2_elapsed:.1f}s "
-                f"| total elapsed: {total_elapsed:.1f}s\n"
+                self._label_msg(
+                    f"phase 2 completed in {phase2_elapsed:.1f}s "
+                    f"| total elapsed: {total_elapsed:.1f}s\n"
+                )
             )
         combined_output = f"{init_output}{task_output}"
 
         if self._should_retry_without_changes(prompt):
             await emit(
-                f"[{self._CLI_LABEL}] No file edits detected; "
-                "requesting direct file application...\n"
+                self._label_msg(
+                    "No file edits detected; requesting direct file application...\n"
+                )
             )
             apply_output = await self._invoke_backend(
                 self._build_apply_changes_prompt(
@@ -1343,11 +1357,11 @@ class _TwoPhaseCLIHand(Hand):
         template = _PR_STATUS_TEMPLATES.get(status)
         if template is not None:
             pr_url = metadata.get(_META_PR_URL, "")
-            return f"[{self._CLI_LABEL}] {template.format(pr_url=pr_url)}"
+            return self._label_msg(template.format(pr_url=pr_url))
         error = metadata.get(_META_PR_ERROR, "").strip()
         if error:
-            return f"[{self._CLI_LABEL}] PR status: {status} ({error})"
-        return f"[{self._CLI_LABEL}] PR status: {status}"
+            return self._label_msg(f"PR status: {status} ({error})")
+        return self._label_msg(f"PR status: {status}")
 
     # ------------------------------------------------------------------
     # CI fix loop
@@ -1365,8 +1379,11 @@ class _TwoPhaseCLIHand(Hand):
     ) -> dict[str, Any]:
         """Wait for CI checks to complete and return the result."""
         await emit(
-            f"\n[{self._CLI_LABEL}] Waiting {initial_wait:.0f}s "
-            f"for CI checks on {ref[:_GIT_REF_DISPLAY_LENGTH]}...\n"
+            "\n"
+            + self._label_msg(
+                f"Waiting {initial_wait:.0f}s "
+                f"for CI checks on {ref[:_GIT_REF_DISPLAY_LENGTH]}...\n"
+            )
         )
         await asyncio.sleep(initial_wait)
 
@@ -1378,8 +1395,9 @@ class _TwoPhaseCLIHand(Hand):
             if conclusion not in CI_CONCLUSIONS_IN_PROGRESS:
                 return result
             await emit(
-                f"[{self._CLI_LABEL}] CI still {conclusion}, "
-                f"polling again in {poll_interval:.0f}s...\n"
+                self._label_msg(
+                    f"CI still {conclusion}, polling again in {poll_interval:.0f}s...\n"
+                )
             )
             await asyncio.sleep(poll_interval)
 
@@ -1477,34 +1495,42 @@ class _TwoPhaseCLIHand(Hand):
 
                     if conclusion == CIConclusion.SUCCESS:
                         await emit(
-                            f"[{self._CLI_LABEL}] CI passed "
-                            f"({total} check{'s' if total != 1 else ''}). "
-                            f"No fixes needed.\n"
+                            self._label_msg(
+                                f"CI passed "
+                                f"({total} check{'s' if total != 1 else ''}). "
+                                f"No fixes needed.\n"
+                            )
                         )
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.SUCCESS
                         return metadata
 
                     if conclusion == CIConclusion.NO_CHECKS:
                         await emit(
-                            f"[{self._CLI_LABEL}] No CI checks found. "
-                            "Skipping CI fix loop.\n"
+                            self._label_msg(
+                                "No CI checks found. Skipping CI fix loop.\n"
+                            )
                         )
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.NO_CHECKS
                         return metadata
 
                     if conclusion == CIConclusion.PENDING:
                         await emit(
-                            f"[{self._CLI_LABEL}] CI checks still pending "
-                            f"after waiting. Skipping fix attempt.\n"
+                            self._label_msg(
+                                "CI checks still pending "
+                                "after waiting. Skipping fix attempt.\n"
+                            )
                         )
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.PENDING_TIMEOUT
                         return metadata
 
                     # CI failed — attempt fix
                     await emit(
-                        f"\n[{self._CLI_LABEL}] CI failed (attempt "
-                        f"{attempt}/{self.ci_max_retries}). "
-                        f"Invoking backend to fix...\n"
+                        "\n"
+                        + self._label_msg(
+                            f"CI failed (attempt "
+                            f"{attempt}/{self.ci_max_retries}). "
+                            f"Invoking backend to fix...\n"
+                        )
                     )
 
                     fix_prompt = self._build_ci_fix_prompt(
@@ -1523,8 +1549,9 @@ class _TwoPhaseCLIHand(Hand):
 
                     if not self._repo_has_changes():
                         await emit(
-                            f"[{self._CLI_LABEL}] No changes produced "
-                            f"by fix attempt {attempt}.\n"
+                            self._label_msg(
+                                f"No changes produced by fix attempt {attempt}.\n"
+                            )
                         )
                         continue
 
@@ -1538,9 +1565,9 @@ class _TwoPhaseCLIHand(Hand):
                     self._push_noninteractive(gh, repo_dir, pr_branch)
 
                     await emit(
-                        f"[{self._CLI_LABEL}] Fix pushed "
-                        f"(commit {new_sha}). "
-                        f"Waiting for CI...\n"
+                        self._label_msg(
+                            f"Fix pushed (commit {new_sha}). Waiting for CI...\n"
+                        )
                     )
 
                     metadata[_META_PR_COMMIT] = new_sha
@@ -1549,8 +1576,10 @@ class _TwoPhaseCLIHand(Hand):
                 # Exhausted all retries
                 metadata[_META_CI_FIX_STATUS] = CIFixStatus.EXHAUSTED
                 await emit(
-                    f"[{self._CLI_LABEL}] CI fix retries exhausted "
-                    f"after {self.ci_max_retries} attempts.\n"
+                    self._label_msg(
+                        f"CI fix retries exhausted "
+                        f"after {self.ci_max_retries} attempts.\n"
+                    )
                 )
 
         except (
@@ -1562,7 +1591,7 @@ class _TwoPhaseCLIHand(Hand):
             logger.debug("_ci_fix_loop unexpected error", exc_info=True)
             metadata[_META_CI_FIX_STATUS] = CIFixStatus.ERROR
             metadata[_META_CI_FIX_ERROR] = str(exc)
-            await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")
+            await emit(self._label_msg(f"CI fix loop error: {exc}\n"))
 
         return metadata
 
@@ -1583,7 +1612,7 @@ class _TwoPhaseCLIHand(Hand):
             return None
         attempts = metadata.get(_META_CI_FIX_ATTEMPTS, "0")
         error = metadata.get(_META_CI_FIX_ERROR, "")
-        return f"[{self._CLI_LABEL}] {template.format(attempts=attempts, error=error)}"
+        return self._label_msg(template.format(attempts=attempts, error=error))
 
     # ------------------------------------------------------------------
     # Pre-commit hook fix
