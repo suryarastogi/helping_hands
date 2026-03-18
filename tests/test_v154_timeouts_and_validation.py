@@ -10,8 +10,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from helping_hands.cli.main import _GIT_CLONE_TIMEOUT_S as CLI_GIT_CLONE_TIMEOUT_S
-from helping_hands.cli.main import _resolve_repo_path as cli_resolve_repo_path
+from helping_hands.cli.main import (
+    _GIT_CLONE_TIMEOUT_S as CLI_GIT_CLONE_TIMEOUT_S,
+    _resolve_repo_path as cli_resolve_repo_path,
+)
 from helping_hands.lib.hands.v1.hand.pr_description import (
     _GIT_DIFF_TIMEOUT_S,
     _get_diff,

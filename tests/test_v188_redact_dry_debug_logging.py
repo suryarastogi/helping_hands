@@ -14,6 +14,7 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from github import GithubException
 
 # ---------------------------------------------------------------------------
 # redact_credentials uses constants in regex
@@ -157,7 +158,7 @@ class TestFinalizeRepoPrDebugLogging:
             patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
             patch(
                 "helping_hands.lib.github.GitHubClient",
-                side_effect=TypeError("unexpected type error"),
+                side_effect=GithubException(500, "API error", None),
             ),
             caplog.at_level(logging.DEBUG),
         ):
@@ -226,7 +227,7 @@ class TestCiFixLoopDebugLogging:
             patch.object(
                 stub,
                 "_poll_ci_checks",
-                new=AsyncMock(side_effect=TypeError("unexpected type")),
+                new=AsyncMock(side_effect=OSError("network error")),
             ),
             caplog.at_level(logging.DEBUG),
         ):

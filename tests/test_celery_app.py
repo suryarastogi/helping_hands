@@ -174,10 +174,10 @@ class TestResolveRepoPath:
 
 
 class TestNormalizeBackend:
-    def test_defaults_to_codexcli(self) -> None:
+    def test_defaults_to_claudecodecli(self) -> None:
         requested, runtime = celery_app._normalize_backend(None)
-        assert requested == "codexcli"
-        assert runtime == "codexcli"
+        assert requested == "claudecodecli"
+        assert runtime == "claudecodecli"
 
     def test_basic_agent_maps_to_atomic_runtime(self) -> None:
         requested, runtime = celery_app._normalize_backend("basic-agent")
@@ -350,9 +350,34 @@ class TestUpdateProgress:
         assert meta["workspace"] == "/tmp/workspace"
 
 
+def _make_emitter(mock_task=None, updates=None, **kwargs):
+    """Create a _ProgressEmitter with sensible test defaults."""
+    defaults = {
+        "task_id": "t-1",
+        "updates": updates if updates is not None else [],
+        "prompt": "test prompt",
+        "pr_number": None,
+        "backend": "codexcli",
+        "runtime_backend": "codexcli",
+        "repo_path": "/tmp/repo",
+        "model": None,
+        "max_iterations": 6,
+        "no_pr": False,
+        "enable_execution": False,
+        "enable_web": False,
+        "use_native_cli_auth": False,
+        "tools": (),
+        "skills": (),
+    }
+    defaults.update(kwargs)
+    task = mock_task or MagicMock()
+    return celery_app._ProgressEmitter(task, **defaults)
+
+
 class TestCollectStream:
     def test_collects_chunks_and_calls_update(self) -> None:
         mock_task = MagicMock()
+        updates: list[str] = []
         chunks = ["chunk1\n", "chunk2\n", "chunk3\n"]
 
         async def mock_stream(prompt):
@@ -361,26 +386,14 @@ class TestCollectStream:
 
         hand = MagicMock()
         hand.stream = mock_stream
+        emitter = _make_emitter(mock_task, updates=updates)
 
         result = asyncio.run(
             celery_app._collect_stream(
                 hand,
                 "test prompt",
-                task=mock_task,
-                task_id="t-1",
-                pr_number=None,
-                updates=[],
-                backend="codexcli",
-                runtime_backend="codexcli",
-                repo_path="/tmp/repo",
-                model=None,
-                max_iterations=6,
-                no_pr=False,
-                enable_execution=False,
-                enable_web=False,
-                use_native_cli_auth=False,
-                tools=(),
-                skills=(),
+                emitter=emitter,
+                updates=updates,
             )
         )
 
@@ -390,6 +403,7 @@ class TestCollectStream:
 
     def test_empty_stream_returns_empty_string(self) -> None:
         mock_task = MagicMock()
+        updates: list[str] = []
 
         async def mock_stream(prompt):
             return
@@ -397,26 +411,14 @@ class TestCollectStream:
 
         hand = MagicMock()
         hand.stream = mock_stream
+        emitter = _make_emitter(mock_task, updates=updates)
 
         result = asyncio.run(
             celery_app._collect_stream(
                 hand,
                 "test prompt",
-                task=mock_task,
-                task_id="t-empty",
-                pr_number=None,
-                updates=[],
-                backend="codexcli",
-                runtime_backend="codexcli",
-                repo_path="/tmp/repo",
-                model=None,
-                max_iterations=6,
-                no_pr=False,
-                enable_execution=False,
-                enable_web=False,
-                use_native_cli_auth=False,
-                tools=(),
-                skills=(),
+                emitter=emitter,
+                updates=updates,
             )
         )
         assert result == ""
@@ -425,34 +427,27 @@ class TestCollectStream:
 
     def test_workspace_and_started_at_forwarded(self) -> None:
         mock_task = MagicMock()
+        updates: list[str] = []
 
         async def mock_stream(prompt):
             yield "data\n"
 
         hand = MagicMock()
         hand.stream = mock_stream
+        emitter = _make_emitter(
+            mock_task,
+            updates=updates,
+            task_id="t-ws",
+            workspace="/tmp/workspace",
+            started_at="2026-03-10T00:00:00+00:00",
+        )
 
         asyncio.run(
             celery_app._collect_stream(
                 hand,
                 "test prompt",
-                task=mock_task,
-                task_id="t-ws",
-                pr_number=None,
-                updates=[],
-                backend="codexcli",
-                runtime_backend="codexcli",
-                repo_path="/tmp/repo",
-                model=None,
-                max_iterations=6,
-                no_pr=False,
-                enable_execution=False,
-                enable_web=False,
-                use_native_cli_auth=False,
-                tools=(),
-                skills=(),
-                workspace="/tmp/workspace",
-                started_at="2026-03-10T00:00:00+00:00",
+                emitter=emitter,
+                updates=updates,
             )
         )
         # Verify the final call includes workspace and started_at
@@ -462,6 +457,7 @@ class TestCollectStream:
 
     def test_periodic_updates_called_for_many_chunks(self) -> None:
         mock_task = MagicMock()
+        updates: list[str] = []
         chunk_count = 24
 
         async def mock_stream(prompt):
@@ -470,26 +466,14 @@ class TestCollectStream:
 
         hand = MagicMock()
         hand.stream = mock_stream
+        emitter = _make_emitter(mock_task, updates=updates, task_id="t-many")
 
         asyncio.run(
             celery_app._collect_stream(
                 hand,
                 "prompt",
-                task=mock_task,
-                task_id="t-many",
-                pr_number=None,
-                updates=[],
-                backend="codexcli",
-                runtime_backend="codexcli",
-                repo_path="/tmp/repo",
-                model=None,
-                max_iterations=6,
-                no_pr=False,
-                enable_execution=False,
-                enable_web=False,
-                use_native_cli_auth=False,
-                tools=(),
-                skills=(),
+                emitter=emitter,
+                updates=updates,
             )
         )
         # With 24 chunks and update every 8, expect 3 periodic + 1 final = 4
@@ -648,8 +632,10 @@ class TestLogClaudeUsage:
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
+        fake_pg_error = type("Error", (Exception,), {})
         mock_psycopg2 = MagicMock()
-        mock_psycopg2.connect.side_effect = Exception("connection refused")
+        mock_psycopg2.Error = fake_pg_error
+        mock_psycopg2.connect.side_effect = fake_pg_error("connection refused")
 
         with (
             patch(
@@ -658,6 +644,7 @@ class TestLogClaudeUsage:
             ),
             patch("urllib.request.urlopen", return_value=mock_resp),
             patch.dict("sys.modules", {"psycopg2": mock_psycopg2}),
+            patch.dict("os.environ", {"DATABASE_URL": "postgresql://localhost/test"}),
         ):
             result = celery_app.log_claude_usage()
 

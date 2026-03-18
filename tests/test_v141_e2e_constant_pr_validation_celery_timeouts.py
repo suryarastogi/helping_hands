@@ -145,8 +145,7 @@ class TestCeleryTimeoutConstants:
         """Ensure celery_app.py and app.py keychain timeouts are in sync."""
         pytest.importorskip("celery")
         pytest.importorskip("fastapi")
-        from helping_hands.server import app as app_mod
-        from helping_hands.server import celery_app as celery_mod
+        from helping_hands.server import app as app_mod, celery_app as celery_mod
 
         assert app_mod._KEYCHAIN_TIMEOUT_S == celery_mod._KEYCHAIN_TIMEOUT_S
 

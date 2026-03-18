@@ -65,7 +65,7 @@ class TestTruthyValues:
         assert isinstance(_TRUTHY_VALUES, frozenset)
 
     def test_truthy_values_length(self):
-        assert len(_TRUTHY_VALUES) == 3
+        assert len(_TRUTHY_VALUES) == 4
 
     def test_false_values_not_in_truthy(self):
         for val in ("0", "false", "no", "", "maybe"):
@@ -110,14 +110,15 @@ class TestIsTruthyEnv:
 
 
 class TestE2ETruthyImport:
-    """Verify e2e.py uses _TRUTHY_VALUES from config."""
+    """Verify e2e.py uses _is_truthy_env from config."""
 
-    def test_e2e_imports_truthy_values(self):
+    def test_e2e_imports_is_truthy_env(self):
+        from helping_hands.lib.config import _is_truthy_env
         from helping_hands.lib.hands.v1.hand import e2e
 
-        # The module should reference the same _TRUTHY_VALUES object
-        assert hasattr(e2e, "_TRUTHY_VALUES")
-        assert e2e._TRUTHY_VALUES is _TRUTHY_VALUES
+        # The module should reference the same _is_truthy_env function
+        assert hasattr(e2e, "_is_truthy_env")
+        assert e2e._is_truthy_env is _is_truthy_env
 
 
 # ---------------------------------------------------------------------------

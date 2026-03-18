@@ -12,7 +12,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
+from helping_hands.lib.hands.v1.hand.cli.base import (
+    _EMPTY_MODEL_MARKERS,
+    _TwoPhaseCLIHand,
+)
 
 # ---------------------------------------------------------------------------
 # Minimal stub that skips the full __init__ chain
@@ -46,6 +49,27 @@ class _Stub(_TwoPhaseCLIHand):
 # ---------------------------------------------------------------------------
 # _resolve_cli_model
 # ---------------------------------------------------------------------------
+
+
+class TestEmptyModelMarkers:
+    """Tests for the _EMPTY_MODEL_MARKERS constant."""
+
+    def test_contains_default(self) -> None:
+        assert "default" in _EMPTY_MODEL_MARKERS
+
+    def test_contains_none_string(self) -> None:
+        assert "None" in _EMPTY_MODEL_MARKERS
+
+    def test_is_tuple(self) -> None:
+        assert isinstance(_EMPTY_MODEL_MARKERS, tuple)
+
+    def test_all_markers_fall_back_to_default_model(self) -> None:
+        """Every marker in _EMPTY_MODEL_MARKERS should trigger fallback."""
+        for marker in _EMPTY_MODEL_MARKERS:
+            stub = _Stub(model=marker)
+            assert stub._resolve_cli_model() == "stub-model-1", (
+                f"marker {marker!r} did not trigger fallback"
+            )
 
 
 class TestResolveCliModel:
@@ -474,3 +498,53 @@ class TestRepoHasChanges:
         ):
             stub._repo_has_changes()
         assert any("git status timed out" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# _label_msg
+# ---------------------------------------------------------------------------
+
+
+class TestLabelMsg:
+    """v267: _label_msg prefixes messages with the CLI backend label."""
+
+    def test_default_label(self) -> None:
+        stub = _Stub()
+        assert stub._label_msg("hello") == "[stub] hello"
+
+    def test_empty_message(self) -> None:
+        stub = _Stub()
+        assert stub._label_msg("") == "[stub] "
+
+    def test_custom_label(self) -> None:
+        stub = _Stub()
+        stub._CLI_LABEL = "custom-backend"
+        assert stub._label_msg("test") == "[custom-backend] test"
+
+    def test_message_with_newline(self) -> None:
+        stub = _Stub()
+        result = stub._label_msg("phase 1 done\n")
+        assert result == "[stub] phase 1 done\n"
+
+    def test_message_with_interpolation(self) -> None:
+        stub = _Stub()
+        elapsed = 3.5
+        result = stub._label_msg(f"finished in {elapsed:.1f}s (exit=0)\n")
+        assert result == "[stub] finished in 3.5s (exit=0)\n"
+
+    def test_format_pr_status_uses_label_msg(self) -> None:
+        """Ensure _format_pr_status_message uses the label prefix."""
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=Path("/tmp"))
+        metadata = {"pr_status": "no_changes"}
+        result = stub._format_pr_status_message(metadata)
+        assert result is not None
+        assert result.startswith("[stub] ")
+
+    def test_format_ci_fix_message_uses_label_msg(self) -> None:
+        """Ensure _format_ci_fix_message uses the label prefix."""
+        stub = _Stub()
+        metadata = {"ci_fix_status": "success", "ci_fix_attempts": "0"}
+        result = stub._format_ci_fix_message(metadata)
+        assert result is not None
+        assert result.startswith("[stub] ")

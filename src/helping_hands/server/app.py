@@ -15,81 +15,60 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-from urllib import error as urllib_error
-from urllib import request as urllib_request
+from urllib import error as urllib_error, request as urllib_request
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.config import _is_truthy_env
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.hands.v1.hand.factory import (
+    BACKEND_BASIC_AGENT,
+    BACKEND_BASIC_ATOMIC,
+    BACKEND_BASIC_LANGGRAPH,
+    BACKEND_CLAUDECODECLI,
+    BACKEND_CODEXCLI,
+    BACKEND_DOCKER_SANDBOX_CLAUDE,
+    BACKEND_E2E,
+    BACKEND_GEMINICLI,
+    BACKEND_GOOSE,
+    BACKEND_OPENCODECLI,
+)
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
-from helping_hands.lib.validation import require_non_empty_string
+from helping_hands.lib.validation import (
+    install_hint,
+    parse_comma_list,
+    require_non_empty_string,
+)
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
-)
-from helping_hands.server.constants import (
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
-)
-from helping_hands.server.constants import (
     DEFAULT_BACKEND as _DEFAULT_BACKEND,
-)
-from helping_hands.server.constants import (
     DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
-)
-from helping_hands.server.constants import (
+    DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
     MAX_CI_WAIT_MINUTES as _MAX_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
     MAX_GITHUB_TOKEN_LENGTH as _MAX_GITHUB_TOKEN_LENGTH,
-)
-from helping_hands.server.constants import (
     MAX_ITERATIONS_UPPER_BOUND as _MAX_ITERATIONS_UPPER_BOUND,
-)
-from helping_hands.server.constants import (
     MAX_MODEL_LENGTH as _MAX_MODEL_LENGTH,
-)
-from helping_hands.server.constants import (
     MAX_PROMPT_LENGTH as _MAX_PROMPT_LENGTH,
-)
-from helping_hands.server.constants import (
     MAX_REFERENCE_REPOS as _MAX_REFERENCE_REPOS,
-)
-from helping_hands.server.constants import (
     MAX_REPO_PATH_LENGTH as _MAX_REPO_PATH_LENGTH,
-)
-from helping_hands.server.constants import (
     MIN_CI_WAIT_MINUTES as _MIN_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
+    RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
+    RESPONSE_STATUS_NA as _RESPONSE_STATUS_NA,
+    RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
-)
-from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
 from helping_hands.server.task_result import normalize_task_result
@@ -151,6 +130,10 @@ leaking a disproportionate fraction of the secret.  At the default values
 (prefix=4, suffix=4), a 12-character token would expose 8 of 12 characters
 (67%), which is too much for meaningful redaction.
 """
+
+# --- Schedule endpoint constants ---
+_SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
+"""HTTP 404 detail message for missing schedule resources."""
 
 app = FastAPI(
     title="helping_hands",
@@ -469,9 +452,38 @@ def _get_claude_oauth_token() -> str | None:
         except (json.JSONDecodeError, AttributeError):
             # Maybe stored as plain token
             return raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         logger.debug("Failed to read Claude OAuth token from Keychain", exc_info=True)
         return None
+
+
+def _extract_usage_level(
+    data: dict[str, Any],
+    key: str,
+    name: str,
+) -> ClaudeUsageLevel | None:
+    """Extract a single usage level from the API response.
+
+    Args:
+        data: Top-level usage API response dict.
+        key: Key for the usage window (e.g. ``"five_hour"``).
+        name: Human-readable label (e.g. ``"Session"``).
+
+    Returns:
+        A ``ClaudeUsageLevel`` if the window contains a numeric utilization
+        value, otherwise ``None``.
+    """
+    window = data.get(key, {})
+    utilization = window.get("utilization")
+    if not isinstance(utilization, int | float):
+        return None
+    pct = round(utilization, 1)
+    resets = window.get("resets_at", "")
+    return ClaudeUsageLevel(
+        name=name,
+        percent_used=pct,
+        detail=f"Resets {resets}" if resets else "",
+    )
 
 
 _usage_cache: ClaudeUsageResponse | None = None
@@ -517,47 +529,23 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
         body = ""
         try:
             body = exc.read().decode(errors="replace")[:_HTTP_ERROR_BODY_PREVIEW_LENGTH]
-        except Exception:
+        except (OSError, UnicodeDecodeError):
             logger.debug("Failed to read HTTP error body", exc_info=True)
         return ClaudeUsageResponse(
             error=f"Usage API returned {exc.code}: {body}",
             fetched_at=now,
         )
-    except Exception as exc:
+    except (urllib_error.URLError, OSError, json.JSONDecodeError) as exc:
         return ClaudeUsageResponse(
             error=f"Usage API request failed: {exc}",
             fetched_at=now,
         )
 
     levels: list[ClaudeUsageLevel] = []
-
-    # Session (5-hour window)
-    five_hour = data.get("five_hour", {})
-    five_hour_util = five_hour.get("utilization")
-    if isinstance(five_hour_util, int | float):
-        pct = round(five_hour_util, 1)
-        resets = five_hour.get("resets_at", "")
-        levels.append(
-            ClaudeUsageLevel(
-                name="Session",
-                percent_used=pct,
-                detail=f"Resets {resets}" if resets else "",
-            )
-        )
-
-    # Weekly (7-day window)
-    seven_day = data.get("seven_day", {})
-    seven_day_util = seven_day.get("utilization")
-    if isinstance(seven_day_util, int | float):
-        pct = round(seven_day_util, 1)
-        resets = seven_day.get("resets_at", "")
-        levels.append(
-            ClaudeUsageLevel(
-                name="Weekly",
-                percent_used=pct,
-                detail=f"Resets {resets}" if resets else "",
-            )
-        )
+    for key, name in (("five_hour", "Session"), ("seven_day", "Weekly")):
+        level = _extract_usage_level(data, key, name)
+        if level is not None:
+            levels.append(level)
 
     if not levels:
         return ClaudeUsageResponse(
@@ -597,16 +585,16 @@ _TASK_STATE_PRIORITY = {
     "SCHEDULED": 1,
 }
 _BACKEND_LOOKUP: dict[str, BackendName] = {
-    "e2e": "e2e",
-    "basic-langgraph": "basic-langgraph",
-    "basic-atomic": "basic-atomic",
-    "basic-agent": "basic-agent",
-    "codexcli": "codexcli",
-    "claudecodecli": "claudecodecli",
-    "docker-sandbox-claude": "docker-sandbox-claude",
-    "goose": "goose",
-    "geminicli": "geminicli",
-    "opencodecli": "opencodecli",
+    BACKEND_E2E: "e2e",
+    BACKEND_BASIC_LANGGRAPH: "basic-langgraph",
+    BACKEND_BASIC_ATOMIC: "basic-atomic",
+    BACKEND_BASIC_AGENT: "basic-agent",
+    BACKEND_CODEXCLI: "codexcli",
+    BACKEND_CLAUDECODECLI: "claudecodecli",
+    BACKEND_DOCKER_SANDBOX_CLAUDE: "docker-sandbox-claude",
+    BACKEND_GOOSE: "goose",
+    BACKEND_GEMINICLI: "geminicli",
+    BACKEND_OPENCODECLI: "opencodecli",
 }
 assert _TERMINAL_TASK_STATES.isdisjoint(_CURRENT_TASK_STATES), (
     "_TERMINAL_TASK_STATES and _CURRENT_TASK_STATES must be disjoint"
@@ -2709,7 +2697,7 @@ def get_claude_usage(force: bool = False) -> ClaudeUsageResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     """Health check."""
-    return {"status": "ok"}
+    return {"status": _RESPONSE_STATUS_OK}
 
 
 class ServiceHealthResponse(BaseModel):
@@ -2732,18 +2720,22 @@ def _check_redis_health() -> Literal["ok", "error"]:
     """
     try:
         import redis as redis_lib  # bundled with celery[redis]
+    except ImportError:
+        logger.debug("Redis health check failed: redis package not installed")
+        return _RESPONSE_STATUS_ERROR
 
-        broker_url = celery_app.conf.broker_url or "redis://localhost:6379/0"
+    try:
+        broker_url = celery_app.conf.broker_url or _DEFAULT_REDIS_URL
         r = redis_lib.Redis.from_url(
             broker_url,
             socket_connect_timeout=_REDIS_HEALTH_TIMEOUT_S,
             socket_timeout=_REDIS_HEALTH_TIMEOUT_S,
         )
         r.ping()
-        return "ok"
-    except Exception:
+        return _RESPONSE_STATUS_OK
+    except (redis_lib.RedisError, OSError):
         logger.debug("Redis health check failed", exc_info=True)
-        return "error"
+        return _RESPONSE_STATUS_ERROR
 
 
 def _check_db_health() -> Literal["ok", "error", "na"]:
@@ -2759,16 +2751,20 @@ def _check_db_health() -> Literal["ok", "error", "na"]:
     """
     db_url = os.environ.get("DATABASE_URL", "").strip()
     if not db_url:
-        return "na"
+        return _RESPONSE_STATUS_NA
     try:
         import psycopg2  # psycopg2-binary is a declared dependency
+    except ImportError:
+        logger.debug("Database health check failed: psycopg2 not installed")
+        return _RESPONSE_STATUS_ERROR
 
+    try:
         conn = psycopg2.connect(db_url, connect_timeout=_DB_HEALTH_TIMEOUT_S)
         conn.close()
-        return "ok"
-    except Exception:
+        return _RESPONSE_STATUS_OK
+    except (psycopg2.Error, OSError):
         logger.debug("Database health check failed", exc_info=True)
-        return "error"
+        return _RESPONSE_STATUS_ERROR
 
 
 def _check_workers_health() -> Literal["ok", "error"]:
@@ -2784,10 +2780,10 @@ def _check_workers_health() -> Literal["ok", "error"]:
     try:
         inspector = celery_app.control.inspect(timeout=_CELERY_HEALTH_TIMEOUT_S)
         ping = inspector.ping()
-        return "ok" if ping else "error"
-    except Exception:
+        return _RESPONSE_STATUS_OK if ping else _RESPONSE_STATUS_ERROR
+    except (ConnectionError, OSError, TimeoutError):
         logger.debug("Workers health check failed", exc_info=True)
-        return "error"
+        return _RESPONSE_STATUS_ERROR
 
 
 @app.get("/health/services", response_model=ServiceHealthResponse)
@@ -2804,8 +2800,7 @@ def _is_running_in_docker() -> bool:
     """Return True when the process is running inside a Docker container."""
     if Path("/.dockerenv").exists():
         return True
-    raw = os.environ.get("HELPING_HANDS_IN_DOCKER", "").strip().lower()
-    return raw in _TRUTHY_VALUES
+    return _is_truthy_env("HELPING_HANDS_IN_DOCKER")
 
 
 @app.get("/config", response_model=ServerConfig)
@@ -2897,28 +2892,39 @@ def _normalize_task_status(raw: Any, *, default: str) -> str:
     return text or default
 
 
-def _extract_task_id(entry: dict[str, Any]) -> str | None:
-    """Extract a task UUID from Celery/Flower payload shapes."""
-    for key in ("task_id", "uuid", "id"):
+def _extract_nested_str_field(
+    entry: dict[str, Any], keys: tuple[str, ...]
+) -> str | None:
+    """Extract a stripped string value from nested Celery/Flower payloads.
+
+    Searches *entry* for the first key in *keys* whose value is a non-empty
+    string.  Falls back to recursing into ``entry["request"]`` when present.
+
+    Args:
+        entry: Celery/Flower task payload dict.
+        keys: Candidate key names to search, in priority order.
+
+    Returns:
+        Stripped string value, or ``None`` if not found.
+    """
+    for key in keys:
         value = entry.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     request_payload = entry.get("request")
     if isinstance(request_payload, dict):
-        return _extract_task_id(request_payload)
+        return _extract_nested_str_field(request_payload, keys)
     return None
+
+
+def _extract_task_id(entry: dict[str, Any]) -> str | None:
+    """Extract a task UUID from Celery/Flower payload shapes."""
+    return _extract_nested_str_field(entry, ("task_id", "uuid", "id"))
 
 
 def _extract_task_name(entry: dict[str, Any]) -> str | None:
     """Extract task name from Celery/Flower payload shapes."""
-    for key in ("name", "task"):
-        value = entry.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    request_payload = entry.get("request")
-    if isinstance(request_payload, dict):
-        return _extract_task_name(request_payload)
-    return None
+    return _extract_nested_str_field(entry, ("name", "task"))
 
 
 def _extract_task_kwargs(entry: dict[str, Any]) -> dict[str, Any]:
@@ -2988,6 +2994,27 @@ def _is_helping_hands_task(entry: dict[str, Any]) -> bool:
     return task_name == _HELPING_HANDS_TASK_NAME
 
 
+def _merge_source_tags(existing_source: str, new_tag: str) -> str:
+    """Merge a new discovery-source tag into a ``+``-delimited source string.
+
+    Source strings use ``"+"`` as the separator (e.g. ``"flower+inspect"``).
+    This helper adds *new_tag* if it is not already present and returns the
+    merged, sorted result.
+
+    Args:
+        existing_source: Current ``"+"``-delimited source string (may be empty).
+        new_tag: Tag to add (ignored when empty).
+
+    Returns:
+        The merged source string with tags sorted alphabetically.
+    """
+    if not new_tag:
+        return existing_source
+    parts = {p for p in existing_source.split("+") if p}
+    parts.add(new_tag)
+    return "+".join(sorted(parts))
+
+
 def _upsert_current_task(
     tasks_by_id: dict[str, dict[str, Any]],
     *,
@@ -3019,11 +3046,8 @@ def _upsert_current_task(
         if not existing.get(key) and incoming.get(key):
             existing[key] = incoming[key]
 
-    if source and source not in str(existing.get("source", "")).split("+"):
-        merged = sorted(
-            set([*str(existing.get("source", "")).split("+"), source]) - {""}
-        )
-        existing["source"] = "+".join(merged)
+    if source:
+        existing["source"] = _merge_source_tags(str(existing.get("source", "")), source)
 
 
 def _flower_timeout_seconds() -> float:
@@ -3134,7 +3158,13 @@ def _safe_inspect_call(inspector: Any, method_name: str) -> Any:
         return None
     try:
         return method()
-    except Exception:  # pragma: no cover - defensive runtime guard
+    except (
+        AttributeError,
+        ConnectionError,
+        OSError,
+        RuntimeError,
+        TimeoutError,
+    ):  # pragma: no cover
         logger.debug(
             "inspect.%s() failed",
             method_name,
@@ -3147,7 +3177,13 @@ def _collect_celery_current_tasks() -> list[dict[str, Any]]:
     """Collect currently active/queued task summaries from Celery inspect."""
     try:
         inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
-    except Exception:  # pragma: no cover - defensive runtime guard
+    except (
+        AttributeError,
+        ConnectionError,
+        OSError,
+        RuntimeError,
+        TimeoutError,
+    ):  # pragma: no cover
         logger.debug("celery inspect init failed", exc_info=True)
         return []
     if inspector is None:
@@ -3451,6 +3487,29 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
     return _enqueue_build_task(req)
 
 
+def _first_validation_error_msg(
+    exc: ValidationError,
+    fallback: str = "Invalid form submission.",
+) -> str:
+    """Extract a human-readable message from the first Pydantic error.
+
+    Args:
+        exc: The Pydantic ``ValidationError``.
+        fallback: Message returned when no usable error string is found.
+
+    Returns:
+        The ``msg`` field of the first error dict, or *fallback*.
+    """
+    errors = exc.errors()
+    if errors:
+        first_error = errors[0]
+        if isinstance(first_error, dict):
+            maybe_msg = first_error.get("msg")
+            if isinstance(maybe_msg, str):
+                return maybe_msg
+    return fallback
+
+
 def _build_form_redirect_query(
     *,
     repo_path: str,
@@ -3561,19 +3620,10 @@ def enqueue_build_form(
             github_token=github_token
             if github_token and github_token.strip()
             else None,
-            reference_repos=[
-                r.strip() for r in (reference_repos or "").split(",") if r.strip()
-            ],
+            reference_repos=list(parse_comma_list(reference_repos or "")),
         )
     except ValidationError as exc:
-        error_msg = "Invalid form submission."
-        errors = exc.errors()
-        if errors:
-            first_error = errors[0]
-            if isinstance(first_error, dict):
-                maybe_msg = first_error.get("msg")
-                if isinstance(maybe_msg, str):
-                    error_msg = maybe_msg
+        error_msg = _first_validation_error_msg(exc)
 
         query = _build_form_redirect_query(
             repo_path=repo_path,
@@ -3648,7 +3698,7 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
                         concurrency = pool.get("max-concurrency")
                         if isinstance(concurrency, int) and concurrency > 0:
                             per_worker[worker_name] = concurrency
-    except Exception:
+    except (ConnectionError, OSError, TimeoutError):
         logger.debug("Failed to resolve worker capacity", exc_info=True)
 
     if per_worker:
@@ -3744,8 +3794,7 @@ def _get_schedule_manager() -> ScheduleManager:
 
             raise HTTPException(
                 status_code=503,
-                detail=f"Scheduling not available: {exc}. "
-                "Install with: uv sync --extra server",
+                detail=f"Scheduling not available: {exc}. {install_hint('server')}",
             ) from exc
     return _schedule_manager
 
@@ -3785,10 +3834,10 @@ def _schedule_to_response(task) -> ScheduleResponse:
     if task.enabled:
         try:
             next_run = next_run_time(task.cron_expression).isoformat()
-        except Exception:
+        except (ValueError, TypeError):
             logger.debug(
                 "Failed to calculate next run for schedule %s",
-                getattr(task, "schedule_id", "?"),
+                task.schedule_id,
                 exc_info=True,
             )
 
@@ -3806,13 +3855,11 @@ def _schedule_to_response(task) -> ScheduleResponse:
         enable_execution=task.enable_execution,
         enable_web=task.enable_web,
         use_native_cli_auth=task.use_native_cli_auth,
-        fix_ci=getattr(task, "fix_ci", False),
-        ci_check_wait_minutes=getattr(
-            task, "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
-        ),
-        github_token=_redact_token(getattr(task, "github_token", None)),
-        reference_repos=getattr(task, "reference_repos", []),
-        tools=getattr(task, "tools", []),
+        fix_ci=task.fix_ci,
+        ci_check_wait_minutes=task.ci_check_wait_minutes,
+        github_token=_redact_token(task.github_token),
+        reference_repos=task.reference_repos,
+        tools=task.tools,
         skills=task.skills,
         enabled=task.enabled,
         created_at=task.created_at,
@@ -3891,7 +3938,7 @@ def get_schedule(schedule_id: str) -> ScheduleResponse:
     manager = _get_schedule_manager()
     task = manager.get_schedule(schedule_id)
     if task is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
     return _schedule_to_response(task)
 
 
@@ -3909,7 +3956,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
     github_token = request.github_token
     if github_token and "***" in github_token:
         existing = manager.get_schedule(schedule_id)
-        github_token = getattr(existing, "github_token", None) if existing else None
+        github_token = existing.github_token if existing else None
 
     task = ScheduledTask(
         schedule_id=schedule_id,
@@ -3950,7 +3997,7 @@ def delete_schedule(schedule_id: str) -> None:
     schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
     if not manager.delete_schedule(schedule_id):
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
 
 
 @app.post("/schedules/{schedule_id}/enable", response_model=ScheduleResponse)
@@ -3962,7 +4009,7 @@ def enable_schedule(schedule_id: str) -> ScheduleResponse:
     manager = _get_schedule_manager()
     task = manager.enable_schedule(schedule_id)
     if task is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
     return _schedule_to_response(task)
 
 
@@ -3975,7 +4022,7 @@ def disable_schedule(schedule_id: str) -> ScheduleResponse:
     manager = _get_schedule_manager()
     task = manager.disable_schedule(schedule_id)
     if task is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
     return _schedule_to_response(task)
 
 
@@ -3988,7 +4035,7 @@ def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
     manager = _get_schedule_manager()
     task_id = manager.trigger_now(schedule_id)
     if task_id is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
 
     return ScheduleTriggerResponse(
         schedule_id=schedule_id,

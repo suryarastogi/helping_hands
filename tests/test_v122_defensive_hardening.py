@@ -18,6 +18,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from github import GithubException
 
 # ---------------------------------------------------------------------------
 # command.py: assert→RuntimeError guards
@@ -285,7 +286,7 @@ class TestE2EDefaultBranchLogging:
         hand = E2EHand(config, repo_index)
 
         mock_gh = MagicMock()
-        mock_gh.default_branch.side_effect = RuntimeError("API down")
+        mock_gh.default_branch.side_effect = GithubException(503, "API down", None)
         mock_gh.clone.return_value = None
         mock_gh.current_branch.return_value = "main"
         mock_gh.create_branch.return_value = None

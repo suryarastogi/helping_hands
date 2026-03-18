@@ -9,6 +9,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from github import GithubException
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand import Hand, HandResponse
@@ -338,7 +339,7 @@ class TestCreateNewPr:
 
         mock_gh = MagicMock()
         mock_gh.add_and_commit.return_value = "sha1"
-        mock_gh.get_repo.side_effect = RuntimeError("API error")
+        mock_gh.get_repo.side_effect = GithubException(500, "API error", None)
         mock_gh.create_pr.return_value = MagicMock(number=1, url="u")
 
         with (

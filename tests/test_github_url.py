@@ -14,13 +14,11 @@ from helping_hands.lib.github_url import (
     GIT_CLONE_TIMEOUT_S,
     GITHUB_HOSTNAME,
     GITHUB_TOKEN_USER,
+    __all__ as github_url_all,
     build_clone_url,
     noninteractive_env,
     redact_credentials,
     validate_repo_spec,
-)
-from helping_hands.lib.github_url import (
-    __all__ as github_url_all,
 )
 
 # ---------------------------------------------------------------------------
@@ -33,12 +31,19 @@ class TestModuleAll:
 
     def test_all_contains_expected_names(self) -> None:
         assert set(github_url_all) == {
+            "DEFAULT_CLONE_ERROR_MSG",
+            "ENV_GCM_INTERACTIVE",
+            "ENV_GIT_TERMINAL_PROMPT",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
+            "REPO_SPEC_PATTERN",
             "build_clone_url",
+            "invalid_repo_msg",
             "noninteractive_env",
             "redact_credentials",
+            "repo_tmp_dir",
+            "resolve_github_token",
             "validate_repo_spec",
         }
 

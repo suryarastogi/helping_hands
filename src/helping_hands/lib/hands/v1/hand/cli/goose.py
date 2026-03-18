@@ -8,6 +8,14 @@ from urllib.parse import urlparse
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _TwoPhaseCLIHand,
 )
+from helping_hands.lib.hands.v1.hand.model_provider import (
+    _PROVIDER_ANTHROPIC,
+    _PROVIDER_GOOGLE,
+    _PROVIDER_OLLAMA,
+    _PROVIDER_OPENAI,
+    PROVIDER_API_KEY_ENV,
+)
+from helping_hands.lib.validation import has_cli_flag
 
 __all__ = ["GooseCLIHand"]
 
@@ -24,7 +32,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _COMMAND_ENV_VAR = "HELPING_HANDS_GOOSE_CLI_CMD"
     _DEFAULT_CLI_CMD = "goose run --with-builtin developer --text"
     _DEFAULT_MODEL = ""
-    _GOOSE_DEFAULT_PROVIDER = "ollama"
+    _GOOSE_DEFAULT_PROVIDER = _PROVIDER_OLLAMA
     _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
 
     def _pr_description_cmd(self) -> list[str] | None:
@@ -39,7 +47,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             Command token list for PR description generation, or ``None``.
         """
         provider, _model = self._resolve_goose_provider_model_from_config()
-        if provider == "anthropic" and shutil.which("claude") is not None:
+        if provider == _PROVIDER_ANTHROPIC and shutil.which("claude") is not None:
             return ["claude", "-p", "--output-format", "text"]
         return None
 
@@ -53,17 +61,9 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         Returns:
             Human-readable string summarising provider and auth status.
         """
-        import os
-
         provider, _model = self._resolve_goose_provider_model_from_config()
-        env_map = {
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-            "google": "GOOGLE_API_KEY",
-            "ollama": "OLLAMA_HOST",
-        }
-        env_var = env_map.get(provider, provider)
-        present = "set" if os.environ.get(env_var, "").strip() else "not set"
+        env_var = PROVIDER_API_KEY_ENV.get(provider, provider)
+        present = self._env_var_status(env_var)
         return f"auth=GOOSE_PROVIDER={provider} ({env_var} {present})"
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
@@ -113,10 +113,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             ``True`` if any token is ``--with-builtin`` or starts with
             ``--with-builtin=``.
         """
-        return any(
-            token == "--with-builtin" or token.startswith("--with-builtin=")
-            for token in cmd
-        )
+        return has_cli_flag(cmd, "with-builtin")
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
         """Inject ``--with-builtin developer`` if not already present.
@@ -154,7 +151,7 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         if not value:
             return ""
         if value == "gemini":
-            return "google"
+            return _PROVIDER_GOOGLE
         return value
 
     @staticmethod
@@ -173,12 +170,12 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         """
         lowered = model.strip().lower()
         if lowered.startswith(("claude", "anthropic/")):
-            return "anthropic"
+            return _PROVIDER_ANTHROPIC
         if lowered.startswith(("gemini", "google/")):
-            return "google"
+            return _PROVIDER_GOOGLE
         if lowered.startswith(("llama", "ollama/")):
-            return "ollama"
-        return "openai"
+            return _PROVIDER_OLLAMA
+        return _PROVIDER_OPENAI
 
     @staticmethod
     def _normalize_ollama_host(value: str) -> str:
@@ -290,6 +287,6 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         resolved_provider = goose_provider or default_provider
         env["GOOSE_PROVIDER"] = resolved_provider
         env["GOOSE_MODEL"] = goose_model
-        if resolved_provider == "ollama":
+        if resolved_provider == _PROVIDER_OLLAMA:
             env["OLLAMA_HOST"] = self._resolve_ollama_host(env)
         return env

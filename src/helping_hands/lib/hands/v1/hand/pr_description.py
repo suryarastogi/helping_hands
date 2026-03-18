@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from subprocess import TimeoutExpired
 
+from helping_hands.lib.config import _is_truthy_env
 from helping_hands.lib.validation import (
     require_non_empty_string,
     require_positive_int,
@@ -49,6 +50,17 @@ _PR_ERROR_TAIL_LENGTH = 500
 
 _COMMIT_ERROR_TAIL_LENGTH = 300
 """Trailing characters of CLI output kept in commit message error/debug logs."""
+
+_GIT_NOT_FOUND_DIFF_MSG = "git not found on PATH; cannot compute diff"
+"""Debug message when ``git`` is missing and a staged/committed diff is needed."""
+
+_GIT_NOT_FOUND_UNCOMMITTED_MSG = (
+    "git not found on PATH; cannot compute uncommitted diff"
+)
+"""Debug message when ``git`` is missing and an uncommitted diff is needed."""
+
+_CLI_NOT_FOUND_MSG = "%s CLI not found"
+"""Debug template when the description/commit-message CLI binary is missing."""
 
 _COMMIT_MSG_MAX_LENGTH = 72
 """Maximum length for generated commit messages (conventional commit standard)."""
@@ -149,62 +161,58 @@ class PRDescription:
     body: str
 
 
+def _parse_positive_env_var[T: (int, float)](
+    env_name: str,
+    default: T,
+    type_fn: type[T],
+) -> T:
+    """Parse a positive numeric value from an environment variable.
+
+    Returns *default* when the variable is unset, non-numeric, or
+    non-positive, logging a warning for the latter two cases.
+
+    Args:
+        env_name: Name of the environment variable to read.
+        default: Fallback value when the variable is absent or invalid.
+        type_fn: Numeric type constructor (``int`` or ``float``).
+    """
+    raw = os.environ.get(env_name)
+    if raw is None:
+        return default
+    try:
+        value = type_fn(raw.strip())
+    except ValueError:
+        logger.warning(
+            "ignoring non-numeric %s=%r, using default %s",
+            env_name,
+            raw,
+            default,
+        )
+        return default
+    if value <= 0:
+        logger.warning(
+            "ignoring non-positive %s=%r, using default %s",
+            env_name,
+            raw,
+            default,
+        )
+        return default
+    return value
+
+
 def _is_disabled() -> bool:
     """Check whether rich PR description generation is explicitly disabled."""
-    raw = os.environ.get(_DISABLE_ENV_VAR, "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    return _is_truthy_env(_DISABLE_ENV_VAR)
 
 
 def _timeout_seconds() -> float:
     """Return the configured timeout for CLI invocation."""
-    raw = os.environ.get(_TIMEOUT_ENV_VAR)
-    if raw is None:
-        return _DEFAULT_TIMEOUT_SECONDS
-    try:
-        value = float(raw.strip())
-    except ValueError:
-        logger.warning(
-            "ignoring non-numeric %s=%r, using default %.0fs",
-            _TIMEOUT_ENV_VAR,
-            raw,
-            _DEFAULT_TIMEOUT_SECONDS,
-        )
-        return _DEFAULT_TIMEOUT_SECONDS
-    if value <= 0:
-        logger.warning(
-            "ignoring non-positive %s=%r, using default %.0fs",
-            _TIMEOUT_ENV_VAR,
-            raw,
-            _DEFAULT_TIMEOUT_SECONDS,
-        )
-        return _DEFAULT_TIMEOUT_SECONDS
-    return value
+    return _parse_positive_env_var(_TIMEOUT_ENV_VAR, _DEFAULT_TIMEOUT_SECONDS, float)
 
 
 def _diff_char_limit() -> int:
     """Return the maximum number of characters for the diff."""
-    raw = os.environ.get(_DIFF_LIMIT_ENV_VAR)
-    if raw is None:
-        return _DEFAULT_DIFF_CHAR_LIMIT
-    try:
-        value = int(raw.strip())
-    except ValueError:
-        logger.warning(
-            "ignoring non-numeric %s=%r, using default %d",
-            _DIFF_LIMIT_ENV_VAR,
-            raw,
-            _DEFAULT_DIFF_CHAR_LIMIT,
-        )
-        return _DEFAULT_DIFF_CHAR_LIMIT
-    if value <= 0:
-        logger.warning(
-            "ignoring non-positive %s=%r, using default %d",
-            _DIFF_LIMIT_ENV_VAR,
-            raw,
-            _DEFAULT_DIFF_CHAR_LIMIT,
-        )
-        return _DEFAULT_DIFF_CHAR_LIMIT
-    return value
+    return _parse_positive_env_var(_DIFF_LIMIT_ENV_VAR, _DEFAULT_DIFF_CHAR_LIMIT, int)
 
 
 def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
@@ -214,9 +222,48 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
     (e.g. shallow clone without the base ref).  Returns empty string if
     git is not installed.
     """
+    diff = _run_git_diff(
+        repo_dir,
+        ["git", "diff", f"{base_branch}...HEAD"],
+        not_found_msg=_GIT_NOT_FOUND_DIFF_MSG,
+        timeout_label="git diff",
+    )
+    if diff:
+        return diff
+
+    return _run_git_diff(
+        repo_dir,
+        ["git", "diff", "HEAD~1", "HEAD"],
+        not_found_msg=_GIT_NOT_FOUND_DIFF_MSG,
+        timeout_label="git diff HEAD~1",
+    )
+
+
+def _run_git_diff(
+    repo_dir: Path,
+    args: list[str],
+    *,
+    not_found_msg: str,
+    timeout_label: str,
+) -> str:
+    """Run a ``git diff`` subprocess and return stripped stdout.
+
+    Handles the common pattern of calling ``subprocess.run`` with capture,
+    text mode, timeout, and exception handling for missing ``git`` or
+    timeouts.
+
+    Args:
+        repo_dir: Working directory for the subprocess.
+        args: Full argument list (e.g. ``["git", "diff", "--cached"]``).
+        not_found_msg: Debug message when ``git`` is not found.
+        timeout_label: Human-readable label for timeout warning messages.
+
+    Returns:
+        Stripped stdout when the command succeeds, empty string otherwise.
+    """
     try:
         result = subprocess.run(
-            ["git", "diff", f"{base_branch}...HEAD"],
+            args,
             cwd=repo_dir,
             capture_output=True,
             text=True,
@@ -224,32 +271,13 @@ def _get_diff(repo_dir: Path, *, base_branch: str) -> str:
             timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute diff")
+        logger.debug(not_found_msg)
         return ""
     except TimeoutExpired:
-        logger.warning("git diff timed out after %ss", _GIT_DIFF_TIMEOUT_S)
+        logger.warning("%s timed out after %ss", timeout_label, _GIT_DIFF_TIMEOUT_S)
         return ""
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
-
-    try:
-        result = subprocess.run(
-            ["git", "diff", "HEAD~1", "HEAD"],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=_GIT_DIFF_TIMEOUT_S,
-        )
-    except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute diff")
-        return ""
-    except TimeoutExpired:
-        logger.warning("git diff HEAD~1 timed out after %ss", _GIT_DIFF_TIMEOUT_S)
-        return ""
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
-
     return ""
 
 
@@ -403,7 +431,7 @@ def generate_pr_description(
         )
         return None
     except FileNotFoundError:
-        logger.debug("%s CLI not found at execution time.", cli_label)
+        logger.debug(_CLI_NOT_FOUND_MSG + " at execution time.", cli_label)
         return None
 
     if result.returncode != 0:
@@ -455,29 +483,17 @@ def _get_uncommitted_diff(repo_dir: Path) -> str:
             timeout=_GIT_DIFF_TIMEOUT_S,
         )
     except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute uncommitted diff")
+        logger.debug(_GIT_NOT_FOUND_UNCOMMITTED_MSG)
         return ""
     except TimeoutExpired:
         logger.warning("git add timed out after %ss", _GIT_DIFF_TIMEOUT_S)
         return ""
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--cached"],
-            cwd=repo_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=_GIT_DIFF_TIMEOUT_S,
-        )
-    except FileNotFoundError:
-        logger.debug("git not found on PATH; cannot compute uncommitted diff")
-        return ""
-    except TimeoutExpired:
-        logger.warning("git diff --cached timed out after %ss", _GIT_DIFF_TIMEOUT_S)
-        return ""
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
-    return ""
+    return _run_git_diff(
+        repo_dir,
+        ["git", "diff", "--cached"],
+        not_found_msg=_GIT_NOT_FOUND_UNCOMMITTED_MSG,
+        timeout_label="git diff --cached",
+    )
 
 
 def _build_commit_message_prompt(
@@ -710,7 +726,7 @@ def generate_commit_message(
         )
         return None
     except FileNotFoundError:
-        logger.debug("%s CLI not found for commit message generation.", cli_label)
+        logger.debug(_CLI_NOT_FOUND_MSG + " for commit message generation.", cli_label)
         return None
 
     if result.returncode != 0:

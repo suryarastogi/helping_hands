@@ -8,15 +8,17 @@ import os
 import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _DOCKER_ENV_HINT_TEMPLATE,
-    _detect_auth_failure,
+    _format_cli_failure,
     _truncate_with_ellipsis,
     _TwoPhaseCLIHand,
 )
+from helping_hands.lib.validation import has_cli_flag
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "_OUTPUT_FORMAT_STREAM_JSON",
+    "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
     "_TOOL_SUMMARY_STATIC",
     "ClaudeCodeHand",
@@ -70,6 +72,12 @@ _TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
 _TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
 """Tools whose summary is simply their name with no parameters."""
 
+_OUTPUT_FORMAT_STREAM_JSON = "stream-json"
+"""The ``--output-format`` value used for structured streaming output."""
+
+_SKIP_PERMISSIONS_FLAG = "--dangerously-skip-permissions"
+"""Claude CLI flag to bypass the interactive permission prompt."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -84,6 +92,14 @@ class _StreamJsonEmitter:
         self._buffer = ""
         self._result = ""
         self._text_parts: list[str] = []
+
+    def _label_msg(self, msg: str) -> str:
+        """Prefix *msg* with the backend label.
+
+        Returns:
+            A string of the form ``[<label>] <msg>``.
+        """
+        return f"[{self._label}] {msg}"
 
     async def __call__(self, chunk: str) -> None:
         """Buffer incoming text and process complete lines.
@@ -104,6 +120,37 @@ class _StreamJsonEmitter:
         if self._buffer.strip():
             await self._process_line(self._buffer.strip())
             self._buffer = ""
+
+    @staticmethod
+    def _normalize_preview(text: str) -> str:
+        """Strip whitespace and collapse newlines to spaces.
+
+        Args:
+            text: Raw text to normalise for single-line preview display.
+
+        Returns:
+            The cleaned text with leading/trailing whitespace removed
+            and internal newlines replaced by spaces.
+        """
+        return text.strip().replace("\n", " ")
+
+    @staticmethod
+    def _extract_message_blocks(event: dict) -> list:
+        """Extract the ``message.content`` block list from a stream event.
+
+        Returns an empty list when ``message`` is not a dict or has no
+        ``content`` key, so callers can iterate unconditionally.
+
+        Args:
+            event: A parsed JSON event dict from the Claude Code stream.
+
+        Returns:
+            The ``content`` list, or ``[]`` if unavailable.
+        """
+        message = event.get("message")
+        if not isinstance(message, dict):
+            return []
+        return message.get("content", [])
 
     async def _process_line(self, line: str) -> None:
         """Parse a single JSON event line and emit progress.
@@ -127,33 +174,27 @@ class _StreamJsonEmitter:
         if event_type == _EVENT_TYPE_ASSISTANT:
             # Claude Code stream-json: message is a full Anthropic API message
             # with message.content[] array of {type: "text"} / {type: "tool_use"}.
-            message = event.get("message")
-            if not isinstance(message, dict):
-                return
-            for block in message.get("content", []):
+            for block in self._extract_message_blocks(event):
                 block_type = block.get("type", "")
                 if block_type == _BLOCK_TYPE_TOOL_USE:
                     name = block.get("name", "unknown")
                     input_data = block.get("input", {})
                     summary = self._summarize_tool(name, input_data)
-                    await self._emit(f"[{self._label}] {summary}\n")
+                    await self._emit(self._label_msg(summary) + "\n")
                 elif block_type == _BLOCK_TYPE_TEXT:
                     text = block.get("text", "")
                     if text:
                         self._text_parts.append(text)
-                        preview = text.strip().replace("\n", " ")
+                        preview = self._normalize_preview(text)
                         preview = _truncate_with_ellipsis(
                             preview, _TEXT_PREVIEW_MAX_LENGTH
                         )
                         if preview:
-                            await self._emit(f"[{self._label}] {preview}\n")
+                            await self._emit(self._label_msg(preview) + "\n")
 
         elif event_type == _EVENT_TYPE_USER:
             # Tool results: message.content[] array of {type: "tool_result"}.
-            message = event.get("message")
-            if not isinstance(message, dict):
-                return
-            for block in message.get("content", []):
+            for block in self._extract_message_blocks(event):
                 if block.get("type") != _BLOCK_TYPE_TOOL_RESULT:
                     continue
                 content = block.get("content", "")
@@ -164,11 +205,11 @@ class _StreamJsonEmitter:
                         if isinstance(item, dict)
                     )
                 if isinstance(content, str) and content.strip():
-                    preview = content.strip().replace("\n", " ")
+                    preview = self._normalize_preview(content)
                     preview = _truncate_with_ellipsis(
                         preview, _TOOL_RESULT_PREVIEW_MAX_LENGTH
                     )
-                    await self._emit(f"[{self._label}] -> {preview}\n")
+                    await self._emit(self._label_msg(f"-> {preview}") + "\n")
 
         elif event_type == _EVENT_TYPE_RESULT:
             self._result = event.get("result", "")
@@ -191,7 +232,7 @@ class _StreamJsonEmitter:
                         tok_parts.append(f"out={out}")
                     parts.append(" ".join(tok_parts))
             if parts:
-                await self._emit(f"[{self._label}] api: {', '.join(parts)}\n")
+                await self._emit(self._label_msg(f"api: {', '.join(parts)}") + "\n")
 
     @staticmethod
     def _summarize_tool(name: str, input_data: dict) -> str:
@@ -301,6 +342,16 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         return ("ANTHROPIC_API_KEY",)
 
+    def _describe_auth(self) -> str:
+        """Describe the current Anthropic authentication state.
+
+        Returns:
+            Human-readable string indicating whether ``ANTHROPIC_API_KEY``
+            is set.
+        """
+        present = self._env_var_status("ANTHROPIC_API_KEY")
+        return f"auth=ANTHROPIC_API_KEY ({present})"
+
     def _pr_description_cmd(self) -> list[str] | None:
         if shutil.which("claude") is not None:
             return ["claude", "-p", "--output-format", "text"]
@@ -311,32 +362,43 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
     @staticmethod
     def _build_claude_failure_message(*, return_code: int, output: str) -> str:
-        is_auth, tail = _detect_auth_failure(
-            output, extra_tokens=ClaudeCodeHand._EXTRA_AUTH_TOKENS
+        """Build a human-readable failure message from Claude Code CLI output.
+
+        Delegates to :func:`_format_cli_failure` with Claude-specific
+        parameters for auth detection and remediation guidance.
+
+        Args:
+            return_code: Process exit code.
+            output: Combined stdout/stderr from the Claude Code CLI process.
+
+        Returns:
+            Formatted error message with output tail and optional auth hint.
+        """
+        return _format_cli_failure(
+            backend_name="Claude Code CLI",
+            return_code=return_code,
+            output=output,
+            env_var_hint="ANTHROPIC_API_KEY",
+            extra_tokens=ClaudeCodeHand._EXTRA_AUTH_TOKENS,
         )
-        if is_auth:
-            return (
-                "Claude Code CLI authentication failed. "
-                "Ensure ANTHROPIC_API_KEY is set in this runtime. "
-                f"{_DOCKER_ENV_HINT_TEMPLATE.format('ANTHROPIC_API_KEY')}\n"
-                f"Output:\n{tail}"
-            )
-        return f"Claude Code CLI failed (exit={return_code}). Output:\n{tail}"
 
     def _resolve_cli_model(self) -> str:
-        """Resolve the CLI model, filtering out incompatible GPT models.
+        """Resolve the CLI model, filtering out incompatible non-Anthropic models.
+
+        Rejects GPT-family models (``gpt-*``) and explicitly OpenAI-prefixed
+        models (``openai/*``) that survive the base-class provider strip.
 
         Returns:
             The resolved model name, or an empty string if the model is
-            missing or is a GPT-family model incompatible with Claude Code.
+            missing or incompatible with Claude Code.
         """
         model = super()._resolve_cli_model()
         if not model:
             return ""
         lowered = model.lower()
-        if lowered.startswith("gpt-"):
+        if lowered.startswith(("gpt-", "openai/")):
             logger.warning(
-                "GPT model %r is incompatible with Claude Code CLI — "
+                "Model %r is incompatible with Claude Code CLI — "
                 "falling back to CLI default model",
                 model,
             )
@@ -365,7 +427,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             try:
                 if int(geteuid()) == 0:
                     return False
-            except Exception:
+            except (ValueError, OSError):
                 logger.debug("geteuid() check failed", exc_info=True)
         return True
 
@@ -374,9 +436,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             cmd
             and cmd[0] == "claude"
             and self._skip_permissions_enabled()
-            and "--dangerously-skip-permissions" not in cmd
+            and _SKIP_PERMISSIONS_FLAG not in cmd
         ):
-            return [cmd[0], "--dangerously-skip-permissions", *cmd[1:]]
+            return [cmd[0], _SKIP_PERMISSIONS_FLAG, *cmd[1:]]
         return cmd
 
     def _retry_command_after_failure(
@@ -388,12 +450,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     ) -> list[str] | None:
         if return_code == 0:
             return None
-        if "--dangerously-skip-permissions" not in cmd:
+        if _SKIP_PERMISSIONS_FLAG not in cmd:
             return None
         lowered = output.lower()
         if self._ROOT_PERMISSION_ERROR.lower() not in lowered:
             return None
-        return [token for token in cmd if token != "--dangerously-skip-permissions"]
+        return [token for token in cmd if token != _SKIP_PERMISSIONS_FLAG]
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         return self._build_claude_failure_message(
@@ -429,7 +491,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     @staticmethod
     def _inject_output_format(cmd: list[str], fmt: str) -> list[str]:
         """Insert ``--output-format <fmt>`` before the ``-p`` flag."""
-        if any(t == "--output-format" or t.startswith("--output-format=") for t in cmd):
+        if has_cli_flag(cmd, "output-format"):
             return cmd
         try:
             p_idx = cmd.index("-p")
@@ -444,9 +506,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         emit: _TwoPhaseCLIHand._Emitter,
     ) -> str:
         model = self._resolve_cli_model() or "(default)"
-        await emit(f"[{self._CLI_LABEL}] model={model}\n")
+        await emit(self._label_msg(f"model={model}") + "\n")
         cmd = self._render_command(prompt)
-        cmd = self._inject_output_format(cmd, "stream-json")
+        cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
         try:
             raw = await self._invoke_cli_with_cmd(cmd, emit=parser)

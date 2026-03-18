@@ -14,17 +14,77 @@ from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
 from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
+    "PROVIDER_API_KEY_ENV",
+    "_PROVIDER_ANTHROPIC",
+    "_PROVIDER_GOOGLE",
+    "_PROVIDER_LITELLM",
+    "_PROVIDER_OLLAMA",
+    "_PROVIDER_OPENAI",
     "HandModel",
+    "_require_langchain_class",
     "build_atomic_client",
     "build_langchain_chat_model",
     "resolve_hand_model",
 ]
+
+_PROVIDER_OPENAI = "openai"
+"""Provider name constant for OpenAI."""
+
+_PROVIDER_ANTHROPIC = "anthropic"
+"""Provider name constant for Anthropic."""
+
+_PROVIDER_GOOGLE = "google"
+"""Provider name constant for Google."""
+
+_PROVIDER_OLLAMA = "ollama"
+"""Provider name constant for Ollama."""
+
+_PROVIDER_LITELLM = "litellm"
+"""Provider name constant for LiteLLM."""
+
+PROVIDER_API_KEY_ENV: dict[str, str] = {
+    _PROVIDER_OPENAI: "OPENAI_API_KEY",
+    _PROVIDER_ANTHROPIC: "ANTHROPIC_API_KEY",
+    _PROVIDER_GOOGLE: "GOOGLE_API_KEY",
+    _PROVIDER_OLLAMA: "OLLAMA_HOST",
+}
+"""Maps provider name to the environment variable holding its API key."""
 
 _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 """Default base URL for the Ollama OpenAI-compatible API endpoint."""
 
 _DEFAULT_OLLAMA_API_KEY = "ollama"
 """Default API key used for Ollama (the server doesn't require real auth)."""
+
+
+def _require_langchain_class(
+    module_path: str,
+    class_name: str,
+    *,
+    hint: str,
+    install: str | None = None,
+) -> type:
+    """Import a LangChain chat-model class, raising ``RuntimeError`` on failure.
+
+    Args:
+        module_path: Dotted module path (e.g. ``"langchain_anthropic"``).
+        class_name: Class to import from the module (e.g. ``"ChatAnthropic"``).
+        hint: Human-readable requirement description for the error message.
+        install: Explicit ``uv add`` packages string.  When *None*, derived
+            from *module_path* by replacing underscores with hyphens.
+
+    Returns:
+        The imported class.
+
+    Raises:
+        RuntimeError: If the module is not installed.
+    """
+    try:
+        mod = __import__(module_path, fromlist=[class_name])
+    except ModuleNotFoundError as exc:
+        pkg = install if install is not None else module_path.replace("_", "-")
+        raise RuntimeError(f"{hint}. Install with: uv add {pkg}") from exc
+    return getattr(mod, class_name)
 
 
 @dataclass(frozen=True)
@@ -54,7 +114,7 @@ def resolve_hand_model(model: str | None) -> HandModel:
     raw = (model or "").strip() or "default"
 
     if raw == "default":
-        provider = PROVIDERS["ollama"]
+        provider = PROVIDERS[_PROVIDER_OLLAMA]
         return HandModel(provider=provider, model=provider.default_model, raw=raw)
 
     direct_provider = PROVIDERS.get(raw)
@@ -80,23 +140,23 @@ def resolve_hand_model(model: str | None) -> HandModel:
 def _infer_provider_name(model: str) -> str:
     lowered = model.lower()
     if lowered.startswith("claude"):
-        return "anthropic"
+        return _PROVIDER_ANTHROPIC
     if lowered.startswith("gemini"):
-        return "google"
+        return _PROVIDER_GOOGLE
     if lowered.startswith("llama"):
-        return "ollama"
-    return "openai"
+        return _PROVIDER_OLLAMA
+    return _PROVIDER_OPENAI
 
 
 def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any:
     """Build a LangChain chat model from a resolved hand model."""
     require_non_empty_string(hand_model.model, "hand_model.model")
     provider = hand_model.provider.name
-    if provider == "openai":
+    if provider == _PROVIDER_OPENAI:
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(model_name=hand_model.model, streaming=streaming)
-    if provider == "ollama":
+    if provider == _PROVIDER_OLLAMA:
         from langchain_openai import ChatOpenAI
 
         base_url = os.environ.get("OLLAMA_BASE_URL", _DEFAULT_OLLAMA_BASE_URL)
@@ -107,33 +167,28 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
             streaming=streaming,
             **extra,
         )
-    if provider == "anthropic":
-        try:
-            from langchain_anthropic import ChatAnthropic
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "anthropic models require langchain-anthropic. "
-                "Install with: uv add langchain-anthropic"
-            ) from exc
-        return ChatAnthropic(model=hand_model.model, streaming=streaming)
-    if provider == "google":
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "google models require langchain-google-genai. "
-                "Install with: uv add langchain-google-genai"
-            ) from exc
-        return ChatGoogleGenerativeAI(model=hand_model.model, streaming=streaming)
-    if provider == "litellm":
-        try:
-            from langchain_community.chat_models import ChatLiteLLM
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "litellm models require langchain-community and litellm. "
-                "Install with: uv add langchain-community litellm"
-            ) from exc
-        return ChatLiteLLM(model=hand_model.model, streaming=streaming)
+    if provider == _PROVIDER_ANTHROPIC:
+        cls = _require_langchain_class(
+            "langchain_anthropic",
+            "ChatAnthropic",
+            hint="anthropic models require langchain-anthropic",
+        )
+        return cls(model=hand_model.model, streaming=streaming)
+    if provider == _PROVIDER_GOOGLE:
+        cls = _require_langchain_class(
+            "langchain_google_genai",
+            "ChatGoogleGenerativeAI",
+            hint="google models require langchain-google-genai",
+        )
+        return cls(model=hand_model.model, streaming=streaming)
+    if provider == _PROVIDER_LITELLM:
+        cls = _require_langchain_class(
+            "langchain_community.chat_models",
+            "ChatLiteLLM",
+            hint="litellm models require langchain-community and litellm",
+            install="langchain-community litellm",
+        )
+        return cls(model=hand_model.model, streaming=streaming)
 
     raise RuntimeError(f"unsupported provider for LangGraph backend: {provider}")
 
@@ -144,9 +199,9 @@ def build_atomic_client(hand_model: HandModel) -> Any:
     import instructor
 
     provider = hand_model.provider.name
-    if provider == "openai":
+    if provider == _PROVIDER_OPENAI:
         return instructor.from_openai(hand_model.provider.inner)
-    if provider == "litellm":
+    if provider == _PROVIDER_LITELLM:
         if hasattr(instructor, "from_litellm"):
             return instructor.from_litellm(hand_model.provider.inner.completion)
         raise RuntimeError(

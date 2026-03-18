@@ -92,25 +92,28 @@ class TestDockerRebuildHintTemplate:
 
 
 class TestDockerEnvHintCrossModuleSync:
-    """CLI hands importing _DOCKER_ENV_HINT_TEMPLATE use the same object."""
+    """CLI hands use _DOCKER_ENV_HINT_TEMPLATE via _format_cli_failure or
+    direct import.  Since v271, codex/claude/opencode delegate to
+    _format_cli_failure (which uses the template internally); gemini
+    still imports it directly."""
 
-    def test_claude_uses_same_object(self) -> None:
+    def test_claude_uses_format_cli_failure(self) -> None:
         src = inspect.getsource(
             __import__(
                 "helping_hands.lib.hands.v1.hand.cli.claude",
                 fromlist=["ClaudeCodeHand"],
             )
         )
-        assert "_DOCKER_ENV_HINT_TEMPLATE" in src
+        assert "_format_cli_failure" in src
 
-    def test_codex_uses_same_object(self) -> None:
+    def test_codex_uses_format_cli_failure(self) -> None:
         src = inspect.getsource(
             __import__(
                 "helping_hands.lib.hands.v1.hand.cli.codex",
                 fromlist=["CodexCLIHand"],
             )
         )
-        assert "_DOCKER_ENV_HINT_TEMPLATE" in src
+        assert "_format_cli_failure" in src
 
     def test_gemini_uses_same_object(self) -> None:
         src = inspect.getsource(
@@ -121,14 +124,14 @@ class TestDockerEnvHintCrossModuleSync:
         )
         assert "_DOCKER_ENV_HINT_TEMPLATE" in src
 
-    def test_opencode_uses_same_object(self) -> None:
+    def test_opencode_uses_format_cli_failure(self) -> None:
         src = inspect.getsource(
             __import__(
                 "helping_hands.lib.hands.v1.hand.cli.opencode",
                 fromlist=["OpenCodeCLIHand"],
             )
         )
-        assert "_DOCKER_ENV_HINT_TEMPLATE" in src
+        assert "_format_cli_failure" in src
 
 
 # ---------------------------------------------------------------------------

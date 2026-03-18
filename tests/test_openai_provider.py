@@ -20,7 +20,7 @@ class TestOpenAIBuildInner:
         with patch.dict(sys.modules, {"openai": None}):
             provider = OpenAIProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="OpenAI SDK is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_creates_client_with_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:

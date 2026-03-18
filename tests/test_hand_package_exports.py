@@ -28,6 +28,7 @@ class TestHandPackageAll:
 
     def test_all_contains_expected_symbols(self) -> None:
         expected = {
+            "SUPPORTED_BACKENDS",
             "AtomicHand",
             "BasicAtomicHand",
             "BasicLangGraphHand",
@@ -41,6 +42,7 @@ class TestHandPackageAll:
             "HandResponse",
             "LangGraphHand",
             "OpenCodeCLIHand",
+            "create_hand",
         }
         assert set(__all__) == expected
 
@@ -102,20 +104,10 @@ class TestHandPackageIdentity:
     def test_cli_hand_identities(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli import (
             ClaudeCodeHand as SrcClaude,
-        )
-        from helping_hands.lib.hands.v1.hand.cli import (
             CodexCLIHand as SrcCodex,
-        )
-        from helping_hands.lib.hands.v1.hand.cli import (
             DockerSandboxClaudeCodeHand as SrcDocker,
-        )
-        from helping_hands.lib.hands.v1.hand.cli import (
             GeminiCLIHand as SrcGemini,
-        )
-        from helping_hands.lib.hands.v1.hand.cli import (
             GooseCLIHand as SrcGoose,
-        )
-        from helping_hands.lib.hands.v1.hand.cli import (
             OpenCodeCLIHand as SrcOpenCode,
         )
 

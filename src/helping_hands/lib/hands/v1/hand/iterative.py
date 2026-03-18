@@ -23,8 +23,11 @@ from pathlib import Path
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.base import (
+    _META_BACKEND,
+    _META_MODEL,
     _META_PR_STATUS,
     _META_PR_URL,
+    _META_PROVIDER,
     _PR_STATUSES_SKIPPED,
     Hand,
     HandResponse,
@@ -40,10 +43,12 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     resolve_hand_model,
 )
 from helping_hands.lib.meta import skills as system_skills
-from helping_hands.lib.meta.tools import command as system_exec_tools
-from helping_hands.lib.meta.tools import filesystem as system_tools
-from helping_hands.lib.meta.tools import registry as tool_registry
-from helping_hands.lib.meta.tools import web as system_web_tools
+from helping_hands.lib.meta.tools import (
+    command as system_exec_tools,
+    filesystem as system_tools,
+    registry as tool_registry,
+    web as system_web_tools,
+)
 from helping_hands.lib.meta.tools.registry import (
     _parse_optional_str,
     _parse_positive_int,
@@ -52,7 +57,10 @@ from helping_hands.lib.meta.tools.registry import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["BasicAtomicHand", "BasicLangGraphHand"]
+__all__ = ["DEFAULT_MAX_ITERATIONS", "BasicAtomicHand", "BasicLangGraphHand"]
+
+DEFAULT_MAX_ITERATIONS: int = 6
+"""Default maximum number of AI loop iterations for iterative hands."""
 
 _README_CANDIDATES: tuple[str, ...] = ("README.md", "readme.md")
 """Candidate filenames for project README, checked in order during bootstrap."""
@@ -77,6 +85,31 @@ _AUTH_PRESENT_LABEL: str = "set"
 
 _AUTH_ABSENT_LABEL: str = "not set"
 """Label shown in stream output when the provider API key is missing."""
+
+_TOOL_EXECUTION_ERRORS: tuple[type[Exception], ...] = (
+    FileNotFoundError,
+    IsADirectoryError,
+    NotADirectoryError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
+"""Exception types caught (and reported) when executing a tool request."""
+
+_RUN_ASYNC_ERRORS: tuple[type[Exception], ...] = (
+    RuntimeError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    OSError,
+)
+"""Exception types caught and re-raised from ``run_async()`` calls.
+
+These are non-:class:`AssertionError` exceptions that indicate a real
+failure in the underlying AI SDK call rather than a transient issue.
+Shared by :class:`BasicLangGraphHand` and :class:`BasicAtomicHand`.
+"""
 
 
 class _BasicIterativeHand(Hand):
@@ -114,7 +147,7 @@ class _BasicIterativeHand(Hand):
         config: Any,
         repo_index: Any,
         *,
-        max_iterations: int = 6,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
         """Initialize the iterative hand with iteration cap and tool dispatch.
 
@@ -141,11 +174,11 @@ class _BasicIterativeHand(Hand):
 
     def _execution_tools_enabled(self) -> bool:
         """Check whether execution tools (python, bash) are enabled in config."""
-        return bool(getattr(self.config, "enable_execution", False))
+        return self.config.enable_execution
 
     def _web_tools_enabled(self) -> bool:
         """Check whether web tools (search, browse) are enabled in config."""
-        return bool(getattr(self.config, "enable_web", False))
+        return self.config.enable_web
 
     def _tool_instructions(self) -> str:
         """Build tool usage instructions for the iteration prompt.
@@ -325,6 +358,121 @@ class _BasicIterativeHand(Hand):
         if not tool_feedback:
             return content
         return f"{content}\n\nTool results:\n{tool_feedback}"
+
+    def _collect_tool_feedback(self, content: str) -> str:
+        """Execute read and tool requests, returning combined feedback.
+
+        Runs ``_execute_read_requests`` and ``_execute_tool_requests`` on
+        *content*, then joins non-empty results with a double newline.
+
+        Args:
+            content: AI response text to scan for ``@@READ`` / ``@@TOOL``
+                requests.
+
+        Returns:
+            Combined feedback string (stripped), or ``""`` if neither
+            read nor tool requests produced output.
+        """
+        read_feedback = self._execute_read_requests(content)
+        tool_feedback = self._execute_tool_requests(content)
+        return "\n\n".join(
+            part for part in (read_feedback, tool_feedback) if part
+        ).strip()
+
+    def _process_stream_iteration(
+        self, content: str, prompt: str
+    ) -> tuple[list[str], str, bool]:
+        """Apply edits, collect feedback, and check satisfaction for a stream iteration.
+
+        Encapsulates the post-response processing shared by
+        ``BasicLangGraphHand.stream()`` and ``BasicAtomicHand.stream()``:
+        apply inline edits, collect tool feedback, merge iteration summary,
+        and check whether the task is satisfied.
+
+        Args:
+            content: AI response text for the current iteration.
+            prompt: Original user prompt (passed to ``_finalize_repo_pr`` on
+                satisfaction).
+
+        Returns:
+            Tuple of ``(messages, prior, satisfied)`` where *messages* is a
+            list of strings to yield, *prior* is the merged iteration summary,
+            and *satisfied* is ``True`` when the task should stop.
+        """
+        messages: list[str] = []
+        changed = self._apply_inline_edits(content)
+        if changed:
+            messages.append(f"\n[files updated] {', '.join(changed)}\n")
+        combined_feedback = self._collect_tool_feedback(content)
+        if combined_feedback:
+            messages.append(f"\n[tool results]\n{combined_feedback}\n")
+        prior = self._merge_iteration_summary(content, combined_feedback)
+        if self._is_satisfied(content):
+            messages.append("\n\nTask marked satisfied.\n")
+            pr_metadata = self._finalize_repo_pr(
+                backend=self._BACKEND_NAME,
+                prompt=prompt,
+                summary=content,
+            )
+            status_line = self._pr_status_line(pr_metadata)
+            if status_line:
+                messages.append(status_line)
+            return messages, prior, True
+        messages.append("\n\nContinuing...\n")
+        return messages, prior, False
+
+    def _stream_max_iterations_tail(self, prompt: str, prior: str) -> list[str]:
+        """Finalize stream when max iterations are reached.
+
+        Called at the end of both ``BasicLangGraphHand.stream()`` and
+        ``BasicAtomicHand.stream()`` when the iteration loop exhausts
+        without satisfaction.
+
+        Args:
+            prompt: Original user prompt for PR finalization.
+            prior: Last merged iteration summary.
+
+        Returns:
+            List of strings to yield (PR status line + max-iterations
+            message).
+        """
+        messages: list[str] = []
+        pr_metadata = self._finalize_repo_pr(
+            backend=self._BACKEND_NAME,
+            prompt=prompt,
+            summary=prior,
+        )
+        status_line = self._pr_status_line(pr_metadata)
+        if status_line:
+            messages.append(status_line)
+        messages.append("\n\nMax iterations reached.\n")
+        return messages
+
+    @staticmethod
+    def _append_iteration_transcript(
+        transcripts: list[str],
+        iteration: int,
+        content: str,
+        changed: list[str],
+        combined_feedback: str,
+    ) -> None:
+        """Append iteration summary lines to *transcripts*.
+
+        Builds a consistent transcript block used by ``run()`` methods of
+        both ``BasicLangGraphHand`` and ``BasicAtomicHand``.
+
+        Args:
+            transcripts: Mutable transcript list to extend.
+            iteration: Current 1-based iteration number.
+            content: AI response text for this iteration.
+            changed: List of filenames updated by inline edits (may be empty).
+            combined_feedback: Combined tool/read feedback (may be empty).
+        """
+        transcripts.append(f"[iteration {iteration}]\n{content}")
+        if changed:
+            transcripts.append(f"[files updated] {', '.join(changed)}")
+        if combined_feedback:
+            transcripts.append(f"[tool results]\n{combined_feedback}")
 
     def _execute_read_requests(self, content: str) -> str:
         """Execute all ``@@READ`` requests found in the AI response.
@@ -645,15 +793,7 @@ class _BasicIterativeHand(Hand):
                     tool_name=tool_name,
                     payload=payload,
                 )
-            except (
-                FileNotFoundError,
-                IsADirectoryError,
-                NotADirectoryError,
-                OSError,
-                RuntimeError,
-                TypeError,
-                ValueError,
-            ) as exc:
+            except _TOOL_EXECUTION_ERRORS as exc:
                 chunks.append(self._format_error_result("TOOL", tool_name, str(exc)))
                 continue
             chunks.append(result)
@@ -792,7 +932,7 @@ class BasicLangGraphHand(_BasicIterativeHand):
         config: Any,
         repo_index: Any,
         *,
-        max_iterations: int = 6,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
         self._hand_model = resolve_hand_model(self.config.model)
@@ -871,16 +1011,14 @@ class BasicLangGraphHand(_BasicIterativeHand):
             result = self._agent.invoke(langchain_user_message(step_prompt))
             content = self._result_content(result)
             changed = self._apply_inline_edits(content)
-            read_feedback = self._execute_read_requests(content)
-            tool_feedback = self._execute_tool_requests(content)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
-            transcripts.append(f"[iteration {iteration}]\n{content}")
-            if changed:
-                transcripts.append(f"[files updated] {', '.join(changed)}")
-            if combined_feedback:
-                transcripts.append(f"[tool results]\n{combined_feedback}")
+            combined_feedback = self._collect_tool_feedback(content)
+            self._append_iteration_transcript(
+                transcripts,
+                iteration,
+                content,
+                changed,
+                combined_feedback,
+            )
             prior = self._merge_iteration_summary(content, combined_feedback)
             if self._is_satisfied(content):
                 completed = True
@@ -903,9 +1041,9 @@ class BasicLangGraphHand(_BasicIterativeHand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self._hand_model.model,
-                "provider": self._hand_model.provider.name,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self._hand_model.model,
+                _META_PROVIDER: self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
                 "interrupted": str(interrupted).lower(),
@@ -965,39 +1103,14 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 return
 
             content = "".join(parts)
-            changed = self._apply_inline_edits(content)
-            if changed:
-                yield f"\n[files updated] {', '.join(changed)}\n"
-            read_feedback = self._execute_read_requests(content)
-            tool_feedback = self._execute_tool_requests(content)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
-            if combined_feedback:
-                yield f"\n[tool results]\n{combined_feedback}\n"
-            prior = self._merge_iteration_summary(content, combined_feedback)
-            if self._is_satisfied(content):
-                yield "\n\nTask marked satisfied.\n"
-                pr_metadata = self._finalize_repo_pr(
-                    backend=self._BACKEND_NAME,
-                    prompt=prompt,
-                    summary=content,
-                )
-                status_line = self._pr_status_line(pr_metadata)
-                if status_line:
-                    yield status_line
+            messages, prior, satisfied = self._process_stream_iteration(content, prompt)
+            for msg in messages:
+                yield msg
+            if satisfied:
                 return
-            yield "\n\nContinuing...\n"
 
-        pr_metadata = self._finalize_repo_pr(
-            backend=self._BACKEND_NAME,
-            prompt=prompt,
-            summary=prior,
-        )
-        status_line = self._pr_status_line(pr_metadata)
-        if status_line:
-            yield status_line
-        yield "\n\nMax iterations reached.\n"
+        for msg in self._stream_max_iterations_tail(prompt, prior):
+            yield msg
 
 
 class BasicAtomicHand(_BasicIterativeHand):
@@ -1010,10 +1123,10 @@ class BasicAtomicHand(_BasicIterativeHand):
         config: Any,
         repo_index: Any,
         *,
-        max_iterations: int = 6,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
         super().__init__(config, repo_index, max_iterations=max_iterations)
-        self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._input_schema: type[Any] | None = None
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
@@ -1054,6 +1167,8 @@ class BasicAtomicHand(_BasicIterativeHand):
             ``BasicChatInputSchema`` instance with the prompt as
             ``chat_message``.
         """
+        if self._input_schema is None:
+            raise RuntimeError("_input_schema not initialised; call _build_agent first")
         return self._input_schema(chat_message=prompt)
 
     @staticmethod
@@ -1108,16 +1223,14 @@ class BasicAtomicHand(_BasicIterativeHand):
             response = self._agent.run(self._make_input(step_prompt))
             content = self._extract_message(response)
             changed = self._apply_inline_edits(content)
-            read_feedback = self._execute_read_requests(content)
-            tool_feedback = self._execute_tool_requests(content)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
-            transcripts.append(f"[iteration {iteration}]\n{content}")
-            if changed:
-                transcripts.append(f"[files updated] {', '.join(changed)}")
-            if combined_feedback:
-                transcripts.append(f"[tool results]\n{combined_feedback}")
+            combined_feedback = self._collect_tool_feedback(content)
+            self._append_iteration_transcript(
+                transcripts,
+                iteration,
+                content,
+                changed,
+                combined_feedback,
+            )
             prior = self._merge_iteration_summary(content, combined_feedback)
             if self._is_satisfied(content):
                 completed = True
@@ -1140,9 +1253,9 @@ class BasicAtomicHand(_BasicIterativeHand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self._hand_model.model,
-                "provider": self._hand_model.provider.name,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self._hand_model.model,
+                _META_PROVIDER: self._hand_model.provider.name,
                 "iterations": iterations,
                 "status": status,
                 "interrupted": str(interrupted).lower(),
@@ -1195,7 +1308,7 @@ class BasicAtomicHand(_BasicIterativeHand):
                 if delta:
                     yield delta
                 async_result = None
-            except Exception:
+            except _RUN_ASYNC_ERRORS:
                 logger.debug("run_async raised non-AssertionError", exc_info=True)
                 raise
             if async_result is not None and hasattr(async_result, "__aiter__"):
@@ -1224,36 +1337,13 @@ class BasicAtomicHand(_BasicIterativeHand):
                 yield "\n[interrupted]\n"
                 return
 
-            changed = self._apply_inline_edits(stream_text)
-            if changed:
-                yield f"\n[files updated] {', '.join(changed)}\n"
-            read_feedback = self._execute_read_requests(stream_text)
-            tool_feedback = self._execute_tool_requests(stream_text)
-            combined_feedback = "\n\n".join(
-                part for part in (read_feedback, tool_feedback) if part
-            ).strip()
-            if combined_feedback:
-                yield f"\n[tool results]\n{combined_feedback}\n"
-            prior = self._merge_iteration_summary(stream_text, combined_feedback)
-            if self._is_satisfied(stream_text):
-                yield "\n\nTask marked satisfied.\n"
-                pr_metadata = self._finalize_repo_pr(
-                    backend=self._BACKEND_NAME,
-                    prompt=prompt,
-                    summary=stream_text,
-                )
-                status_line = self._pr_status_line(pr_metadata)
-                if status_line:
-                    yield status_line
+            messages, prior, satisfied = self._process_stream_iteration(
+                stream_text, prompt
+            )
+            for msg in messages:
+                yield msg
+            if satisfied:
                 return
-            yield "\n\nContinuing...\n"
 
-        pr_metadata = self._finalize_repo_pr(
-            backend=self._BACKEND_NAME,
-            prompt=prompt,
-            summary=prior,
-        )
-        status_line = self._pr_status_line(pr_metadata)
-        if status_line:
-            yield status_line
-        yield "\n\nMax iterations reached.\n"
+        for msg in self._stream_max_iterations_tail(prompt, prior):
+            yield msg

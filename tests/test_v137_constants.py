@@ -130,8 +130,7 @@ class TestCeleryAppAnthropicApiConstants:
     def test_constants_match_app_module(self) -> None:
         """Ensure app.py and celery_app.py constants stay in sync."""
         pytest.importorskip("celery")
-        from helping_hands.server import app as app_mod
-        from helping_hands.server import celery_app as celery_mod
+        from helping_hands.server import app as app_mod, celery_app as celery_mod
 
         assert app_mod._ANTHROPIC_USAGE_URL == celery_mod._ANTHROPIC_USAGE_URL
         assert app_mod._ANTHROPIC_BETA_HEADER == celery_mod._ANTHROPIC_BETA_HEADER

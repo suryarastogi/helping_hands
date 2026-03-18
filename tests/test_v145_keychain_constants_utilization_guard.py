@@ -235,11 +235,11 @@ class TestUtilizationTypeGuard:
         assert result.levels[0].percent_used == 42
 
     def test_source_uses_isinstance(self) -> None:
-        """Verify _fetch_claude_usage uses isinstance guard, not 'is not None'."""
+        """Verify _extract_usage_level uses isinstance guard, not 'is not None'."""
         pytest.importorskip("fastapi")
-        from helping_hands.server.app import _fetch_claude_usage
+        from helping_hands.server.app import _extract_usage_level
 
-        source = inspect.getsource(_fetch_claude_usage)
+        source = inspect.getsource(_extract_usage_level)
         assert "isinstance" in source
         assert "(int, float)" in source or "int | float" in source
 

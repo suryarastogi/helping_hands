@@ -12,8 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from helping_hands.lib.meta.tools import command as command_tools
-from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.meta.tools import command as command_tools, web as web_tools
 from helping_hands.lib.meta.tools.command import (
     _DEFAULT_PYTHON_VERSION,
     _DEFAULT_SCRIPT_TIMEOUT_S,

@@ -9,6 +9,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from github import GithubException
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.e2e import E2EHand
@@ -247,7 +248,7 @@ class TestE2EHandRunDefaultBranchFallback:
         monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
         hand = _make_hand()
         gh = _mock_gh()
-        gh.default_branch.side_effect = Exception("API error")
+        gh.default_branch.side_effect = GithubException(500, "API error", None)
         gh.current_branch.return_value = "master"
 
         def _fake_clone(repo: str, dest: Path, **kwargs: Any) -> Path:
@@ -278,7 +279,7 @@ class TestE2EHandRunDefaultBranchFallbackNoDetected:
         monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
         hand = _make_hand()
         gh = _mock_gh()
-        gh.default_branch.side_effect = Exception("API error")
+        gh.default_branch.side_effect = GithubException(500, "API error", None)
         gh.current_branch.return_value = ""
 
         def _fake_clone(repo: str, dest: Path, **kwargs: Any) -> Path:

@@ -34,11 +34,15 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from helping_hands.lib.config import Config
+from helping_hands.lib.hands.v1.hand.factory import BACKEND_CODEXCLI
+from helping_hands.lib.hands.v1.hand.iterative import DEFAULT_MAX_ITERATIONS
 from helping_hands.lib.meta import skills as meta_skills
-from helping_hands.lib.meta.tools import command as exec_tools
-from helping_hands.lib.meta.tools import filesystem as fs_tools
-from helping_hands.lib.meta.tools import registry as meta_tools
-from helping_hands.lib.meta.tools import web as web_tools
+from helping_hands.lib.meta.tools import (
+    command as exec_tools,
+    filesystem as fs_tools,
+    registry as meta_tools,
+    web as web_tools,
+)
 from helping_hands.lib.meta.tools.command import _DEFAULT_PYTHON_VERSION
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import require_non_empty_string
@@ -64,6 +68,25 @@ _DEFAULT_BROWSE_MAX_CHARS = web_tools.DEFAULT_BROWSE_MAX_CHARS
 
 _INDEX_FILES_LIMIT = 200
 """Maximum number of file paths returned by the index_repo MCP tool."""
+
+
+def _reraise_path_error(exc: Exception, label: str, path: str) -> None:
+    """Re-raise *exc* with a user-facing message including *path*.
+
+    Used by MCP filesystem tools to wrap low-level exceptions from
+    ``fs_tools`` with contextual messages like
+    ``"Invalid file path: foo.txt"`` or ``"File not found: bar.py"``.
+
+    Args:
+        exc: The original exception to chain via ``raise … from``.
+        label: Human-readable error label (e.g. ``"Invalid file path"``).
+        path: The repo-relative path that caused the error.
+
+    Raises:
+        The same exception type as *exc* with a formatted message.
+    """
+    msg = f"{label}: {path}"
+    raise type(exc)(msg) from exc
 
 
 def _repo_root(repo_path: str) -> Path:
@@ -113,9 +136,9 @@ def build_feature(
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
-    backend: str = "codexcli",
+    backend: str = BACKEND_CODEXCLI,
     model: str | None = None,
-    max_iterations: int = 6,
+    max_iterations: int = DEFAULT_MAX_ITERATIONS,
     no_pr: bool = False,
     enable_execution: bool = False,
     enable_web: bool = False,
@@ -210,18 +233,14 @@ def read_file(repo_path: str, file_path: str, max_chars: int | None = None) -> s
     try:
         text, _, _ = fs_tools.read_text_file(root, file_path, max_chars=max_chars)
     except FileNotFoundError as exc:
-        msg = f"File not found: {file_path}"
-        raise FileNotFoundError(msg) from exc
+        _reraise_path_error(exc, "File not found", file_path)
     except IsADirectoryError as exc:
-        msg = f"Path is a directory: {file_path}"
-        raise IsADirectoryError(msg) from exc
+        _reraise_path_error(exc, "Path is a directory", file_path)
     except UnicodeError as exc:
         # UnicodeError is a subclass of ValueError; catch it before ValueError.
-        msg = f"File is not UTF-8 text: {file_path}"
-        raise UnicodeError(msg) from exc
+        _reraise_path_error(exc, "File is not UTF-8 text", file_path)
     except ValueError as exc:
-        msg = f"Invalid file path: {file_path}"
-        raise ValueError(msg) from exc
+        _reraise_path_error(exc, "Invalid file path", file_path)
     return text
 
 
@@ -241,8 +260,7 @@ def write_file(repo_path: str, file_path: str, content: str) -> dict:
     try:
         written_path = fs_tools.write_text_file(root, file_path, content)
     except ValueError as exc:
-        msg = f"Invalid file path: {file_path}"
-        raise ValueError(msg) from exc
+        _reraise_path_error(exc, "Invalid file path", file_path)
     return {"path": written_path, "bytes": len(content.encode("utf-8"))}
 
 
@@ -261,8 +279,7 @@ def mkdir(repo_path: str, dir_path: str) -> dict:
     try:
         created = fs_tools.mkdir_path(root, dir_path)
     except ValueError as exc:
-        msg = f"Invalid directory path: {dir_path}"
-        raise ValueError(msg) from exc
+        _reraise_path_error(exc, "Invalid directory path", dir_path)
     return {"path": created}
 
 

@@ -15,49 +15,49 @@ from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import Any
 
-from celery import Celery
+from celery import Celery, Task
 
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
+    DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
-)
-from helping_hands.lib.github_url import (
+    REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
     build_clone_url as _build_clone_url,
-)
-from helping_hands.lib.github_url import (
+    invalid_repo_msg as _invalid_repo_msg,
     noninteractive_env as _git_noninteractive_env,
-)
-from helping_hands.lib.github_url import (
     redact_credentials as _redact_sensitive,
-)
-from helping_hands.lib.github_url import (
+    repo_tmp_dir as _repo_tmp_dir,
     validate_repo_spec as _validate_repo_spec,
 )
+from helping_hands.lib.hands.v1.hand.factory import (
+    BACKEND_BASIC_AGENT,
+    BACKEND_BASIC_ATOMIC,
+    BACKEND_BASIC_LANGGRAPH,
+    BACKEND_CLAUDECODECLI,
+    BACKEND_CODEXCLI,
+    BACKEND_E2E,
+    BACKEND_GEMINICLI,
+    SUPPORTED_BACKENDS as _SUPPORTED_BACKENDS,
+    create_hand,
+)
+from helping_hands.lib.validation import install_hint
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
-)
-from helping_hands.server.constants import (
     ANTHROPIC_USAGE_URL as _ANTHROPIC_USAGE_URL,
-)
-from helping_hands.server.constants import (
+    DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
+    DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
-)
-from helping_hands.server.constants import (
     KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
+    REDBEAT_KEY_PREFIX as _REDBEAT_KEY_PREFIX,
+    REDBEAT_USAGE_ENTRY_NAME as _REDBEAT_USAGE_ENTRY_NAME,
+    RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
+    RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
+    TASK_NAME_LOG_USAGE as _TASK_NAME_LOG_USAGE,
+    TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
-)
-from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
 
@@ -75,9 +75,7 @@ def _resolve_celery_urls() -> tuple[str, str]:
     3. local default (`redis://localhost:6379/0`)
     """
     redis_url = os.environ.get("REDIS_URL")
-    broker_url = (
-        os.environ.get("CELERY_BROKER_URL") or redis_url or "redis://localhost:6379/0"
-    )
+    broker_url = os.environ.get("CELERY_BROKER_URL") or redis_url or _DEFAULT_REDIS_URL
     # Fall back to broker URL so polling still works when only broker is set.
     backend_url = os.environ.get("CELERY_RESULT_BACKEND") or redis_url or broker_url
     return broker_url, backend_url
@@ -100,7 +98,7 @@ celery_app.conf.update(
     # RedBeat scheduler configuration for cron-scheduled tasks
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=_BROKER_URL,
-    redbeat_key_prefix="redbeat:",
+    redbeat_key_prefix=_REDBEAT_KEY_PREFIX,
 )
 
 
@@ -110,31 +108,42 @@ _USAGE_LOG_INTERVAL_S = 3600.0
 _DB_CONNECT_TIMEOUT_S = 5
 """Timeout in seconds for PostgreSQL connection attempts."""
 
-_SUPPORTED_BACKENDS = {
-    "e2e",
-    "basic-langgraph",
-    "basic-atomic",
-    "basic-agent",
-    "codexcli",
-    "claudecodecli",
-    "docker-sandbox-claude",
-    "goose",
-    "geminicli",
-    "opencodecli",
-}
 _VERBOSE_RAW = os.environ.get("HELPING_HANDS_VERBOSE", "").lower()
 _VERBOSE_FULL = _VERBOSE_RAW == "full"
 _VERBOSE = _VERBOSE_FULL or _VERBOSE_RAW in _TRUTHY_VALUES
+
+_MAX_UPDATES_VERBOSE = 2000
+"""Max stored progress updates in verbose mode."""
+
+_MAX_UPDATES_NORMAL = 200
+"""Max stored progress updates in normal mode."""
+
+_MAX_LINE_CHARS_VERBOSE = 4000
+"""Max characters per progress update line in verbose mode."""
+
+_MAX_LINE_CHARS_NORMAL = 800
+"""Max characters per progress update line in normal mode."""
+
+_FLUSH_CHARS_VERBOSE = 40
+"""Buffer flush threshold (characters) in verbose mode."""
+
+_FLUSH_CHARS_NORMAL = 180
+"""Buffer flush threshold (characters) in normal mode."""
+
 _MAX_STORED_UPDATES = (
     0
     if _VERBOSE_FULL
     else (
         int(os.environ.get("HELPING_HANDS_MAX_UPDATES", "0"))
-        or (2000 if _VERBOSE else 200)
+        or (_MAX_UPDATES_VERBOSE if _VERBOSE else _MAX_UPDATES_NORMAL)
     )
 )
-_MAX_UPDATE_LINE_CHARS = 0 if _VERBOSE_FULL else (4000 if _VERBOSE else 800)
-_BUFFER_FLUSH_CHARS = 40 if _VERBOSE else 180
+_MAX_UPDATE_LINE_CHARS = (
+    0
+    if _VERBOSE_FULL
+    else (_MAX_LINE_CHARS_VERBOSE if _VERBOSE else _MAX_LINE_CHARS_NORMAL)
+)
+_BUFFER_FLUSH_CHARS = _FLUSH_CHARS_VERBOSE if _VERBOSE else _FLUSH_CHARS_NORMAL
 
 
 def _github_clone_url(repo: str, token: str | None = None) -> str:
@@ -144,19 +153,6 @@ def _github_clone_url(repo: str, token: str | None = None) -> str:
     Kept as a module-level alias for backward compatibility with tests.
     """
     return _build_clone_url(repo, token=token)
-
-
-def _repo_tmp_dir() -> Path | None:
-    """Return the directory to use for temporary repo clones.
-
-    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
-    """
-    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
-    if d:
-        p = Path(d).expanduser()
-        p.mkdir(parents=True, exist_ok=True)
-        return p
-    return None
 
 
 def _resolve_repo_path(
@@ -177,7 +173,7 @@ def _resolve_repo_path(
     if path.is_dir():
         return path, None, None
 
-    if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+    if re.fullmatch(_REPO_SPEC_PATTERN, repo):
         dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
         dest = dest_root / "repo"
         url = _github_clone_url(repo, token=token)
@@ -201,24 +197,24 @@ def _resolve_repo_path(
             ) from exc
         if result.returncode != 0:
             shutil.rmtree(dest_root, ignore_errors=True)
-            stderr = result.stderr.strip() or "unknown git clone error"
+            stderr = result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG
             stderr = _redact_sensitive(stderr)
             msg = f"failed to clone {repo}: {stderr}"
             raise ValueError(msg)
         return dest.resolve(), repo, dest_root
 
-    raise ValueError(f"{repo} is not a directory or owner/repo reference")
+    raise ValueError(_invalid_repo_msg(repo))
 
 
 def _normalize_backend(backend: str | None) -> tuple[str, str]:
     """Resolve requested backend and runtime backend implementation."""
-    requested = (backend or "codexcli").strip().lower()
+    requested = (backend or BACKEND_CLAUDECODECLI).strip().lower()
     if requested not in _SUPPORTED_BACKENDS:
         choices = ", ".join(sorted(_SUPPORTED_BACKENDS))
         msg = f"unsupported backend {requested!r}; expected one of: {choices}"
         raise ValueError(msg)
 
-    runtime = "basic-atomic" if requested == "basic-agent" else requested
+    runtime = BACKEND_BASIC_ATOMIC if requested == BACKEND_BASIC_AGENT else requested
     return requested, runtime
 
 
@@ -314,6 +310,124 @@ class _UpdateCollector:
         if self._buffer:
             _append_update(self._updates, self._buffer)
             self._buffer = ""
+
+
+class _ProgressEmitter:
+    """Captures common ``_update_progress`` kwargs for repeated emission.
+
+    ``build_feature`` and ``_collect_stream`` call ``_update_progress`` with
+    ~20 identical keyword arguments.  This class stores those arguments once
+    and exposes a lightweight :meth:`emit` method so each call site passes
+    only the fields that actually vary (typically just *stage*).
+
+    Args:
+        task: Celery task instance (or any object with ``update_state``).
+        task_id: Celery task identifier.
+        updates: Shared mutable list of progress update strings.
+        prompt: Original user prompt.
+        pr_number: GitHub PR number, or ``None``.
+        backend: Requested backend name.
+        runtime_backend: Resolved runtime backend in use.
+        repo_path: Local repository path.
+        model: AI model identifier.
+        max_iterations: Maximum agent iterations.
+        no_pr: Whether PR creation is disabled.
+        enable_execution: Whether execution tools are enabled.
+        enable_web: Whether web tools are enabled.
+        use_native_cli_auth: Whether native CLI auth is used.
+        tools: Enabled tool category names.
+        skills: Enabled skill names.
+        fix_ci: Whether to attempt CI fix.
+        ci_check_wait_minutes: Minutes to wait for CI checks.
+        reference_repos: Optional reference repo specs.
+        workspace: Optional workspace identifier.
+        started_at: ISO-format start timestamp.
+    """
+
+    def __init__(
+        self,
+        task: object,
+        *,
+        task_id: str | None,
+        updates: list[str],
+        prompt: str,
+        pr_number: int | None,
+        backend: str,
+        runtime_backend: str,
+        repo_path: str,
+        model: str | None,
+        max_iterations: int,
+        no_pr: bool,
+        enable_execution: bool,
+        enable_web: bool,
+        use_native_cli_auth: bool,
+        tools: tuple[str, ...],
+        skills: tuple[str, ...],
+        fix_ci: bool = False,
+        ci_check_wait_minutes: float = 3.0,
+        reference_repos: list[str] | None = None,
+        workspace: str | None = None,
+        started_at: str | None = None,
+    ) -> None:
+        self._task = task
+        self._task_id = task_id
+        self._updates = updates
+        self._prompt = prompt
+        self._pr_number = pr_number
+        self._backend = backend
+        self._runtime_backend = runtime_backend
+        self._repo_path = repo_path
+        self._model = model
+        self._max_iterations = max_iterations
+        self._no_pr = no_pr
+        self._enable_execution = enable_execution
+        self._enable_web = enable_web
+        self._use_native_cli_auth = use_native_cli_auth
+        self._tools = tools
+        self._skills = skills
+        self._fix_ci = fix_ci
+        self._ci_check_wait_minutes = ci_check_wait_minutes
+        self._reference_repos = reference_repos
+        self._workspace = workspace
+        self._started_at = started_at
+
+    def emit(self, stage: str, **overrides: Any) -> None:
+        """Emit a progress update for *stage*, optionally overriding fields.
+
+        Args:
+            stage: Human-readable stage label (e.g. ``"starting"``,
+                ``"running"``).
+            **overrides: Any keyword accepted by ``_update_progress`` whose
+                value should differ from the stored default for this call.
+        """
+        _update_progress(
+            self._task,
+            task_id=overrides.get("task_id", self._task_id),
+            stage=stage,
+            updates=overrides.get("updates", self._updates),
+            prompt=overrides.get("prompt", self._prompt),
+            pr_number=overrides.get("pr_number", self._pr_number),
+            backend=overrides.get("backend", self._backend),
+            runtime_backend=overrides.get("runtime_backend", self._runtime_backend),
+            repo_path=overrides.get("repo_path", self._repo_path),
+            model=overrides.get("model", self._model),
+            max_iterations=overrides.get("max_iterations", self._max_iterations),
+            no_pr=overrides.get("no_pr", self._no_pr),
+            enable_execution=overrides.get("enable_execution", self._enable_execution),
+            enable_web=overrides.get("enable_web", self._enable_web),
+            use_native_cli_auth=overrides.get(
+                "use_native_cli_auth", self._use_native_cli_auth
+            ),
+            tools=overrides.get("tools", self._tools),
+            skills=overrides.get("skills", self._skills),
+            fix_ci=overrides.get("fix_ci", self._fix_ci),
+            ci_check_wait_minutes=overrides.get(
+                "ci_check_wait_minutes", self._ci_check_wait_minutes
+            ),
+            reference_repos=overrides.get("reference_repos", self._reference_repos),
+            workspace=overrides.get("workspace", self._workspace),
+            started_at=overrides.get("started_at", self._started_at),
+        )
 
 
 def _update_progress(
@@ -421,27 +535,20 @@ async def _collect_stream(
     hand: Any,
     prompt: str,
     *,
-    task: object,
-    task_id: str | None,
-    pr_number: int | None,
+    emitter: _ProgressEmitter,
     updates: list[str],
-    backend: str,
-    runtime_backend: str,
-    repo_path: str,
-    model: str | None,
-    max_iterations: int,
-    no_pr: bool,
-    enable_execution: bool,
-    enable_web: bool,
-    use_native_cli_auth: bool,
-    tools: tuple[str, ...],
-    skills: tuple[str, ...],
-    fix_ci: bool = False,
-    ci_check_wait_minutes: float = 3.0,
-    reference_repos: list[str] | None = None,
-    workspace: str | None = None,
-    started_at: str | None = None,
 ) -> str:
+    """Consume the hand's async stream, collecting text and emitting progress.
+
+    Args:
+        hand: The hand instance whose ``stream()`` method to consume.
+        prompt: The user prompt forwarded to ``hand.stream()``.
+        emitter: Pre-configured :class:`_ProgressEmitter` for progress updates.
+        updates: Shared mutable list of progress update strings.
+
+    Returns:
+        The concatenated full response text.
+    """
     parts: list[str] = []
     collector = _UpdateCollector(updates)
     chunk_count = 0
@@ -452,68 +559,22 @@ async def _collect_stream(
         collector.feed(text)
         chunk_count += 1
         if chunk_count % (2 if _VERBOSE else 8) == 0:
-            _update_progress(
-                task,
-                task_id=task_id,
-                stage="running",
-                updates=updates,
-                prompt=prompt,
-                pr_number=pr_number,
-                backend=backend,
-                runtime_backend=runtime_backend,
-                repo_path=repo_path,
-                model=model,
-                max_iterations=max_iterations,
-                no_pr=no_pr,
-                enable_execution=enable_execution,
-                enable_web=enable_web,
-                use_native_cli_auth=use_native_cli_auth,
-                tools=tools,
-                skills=skills,
-                fix_ci=fix_ci,
-                ci_check_wait_minutes=ci_check_wait_minutes,
-                reference_repos=reference_repos,
-                workspace=workspace,
-                started_at=started_at,
-            )
+            emitter.emit("running")
 
     collector.flush()
-    _update_progress(
-        task,
-        task_id=task_id,
-        stage="running",
-        updates=updates,
-        prompt=prompt,
-        pr_number=pr_number,
-        backend=backend,
-        runtime_backend=runtime_backend,
-        repo_path=repo_path,
-        model=model,
-        max_iterations=max_iterations,
-        no_pr=no_pr,
-        enable_execution=enable_execution,
-        enable_web=enable_web,
-        use_native_cli_auth=use_native_cli_auth,
-        tools=tools,
-        skills=skills,
-        fix_ci=fix_ci,
-        ci_check_wait_minutes=ci_check_wait_minutes,
-        reference_repos=reference_repos,
-        workspace=workspace,
-        started_at=started_at,
-    )
+    emitter.emit("running")
     return "".join(parts)
 
 
 @celery_app.task(bind=True, name="helping_hands.build_feature")
 def build_feature(
-    self: object,
+    self: Task,
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
-    backend: str = "codexcli",
+    backend: str = BACKEND_CLAUDECODECLI,
     model: str | None = None,
-    max_iterations: int = 6,
+    max_iterations: int = _DEFAULT_MAX_ITERATIONS,
     no_pr: bool = False,
     enable_execution: bool = False,
     enable_web: bool = False,
@@ -532,22 +593,12 @@ def build_feature(
     The Celery task ID is used as the hand UUID.
     """
     from helping_hands.lib.config import Config, ConfigValue
-    from helping_hands.lib.hands.v1.hand import (
-        BasicAtomicHand,
-        BasicLangGraphHand,
-        ClaudeCodeHand,
-        CodexCLIHand,
-        DockerSandboxClaudeCodeHand,
-        E2EHand,
-        GeminiCLIHand,
-        GooseCLIHand,
-        OpenCodeCLIHand,
-    )
+    from helping_hands.lib.hands.v1.hand import E2EHand
     from helping_hands.lib.meta import skills as meta_skills
     from helping_hands.lib.meta.tools import registry as meta_tools
     from helping_hands.lib.repo import RepoIndex
 
-    task_id = getattr(getattr(self, "request", None), "id", None)
+    task_id = self.request.id  # type: ignore[unresolved-attribute]
     requested_backend, runtime_backend = _normalize_backend(backend)
     resolved_iterations = max(1, int(max_iterations))
     selected_tools = meta_tools.normalize_tool_selection(tools)
@@ -568,10 +619,9 @@ def build_feature(
             f"reference_repos={','.join(reference_repos) if reference_repos else 'none'}"
         ),
     )
-    _update_progress(
+    emitter = _ProgressEmitter(
         self,
         task_id=task_id,
-        stage="starting",
         updates=updates,
         prompt=prompt,
         pr_number=pr_number,
@@ -591,8 +641,9 @@ def build_feature(
         reference_repos=list(reference_repos or []),
         started_at=task_started_at,
     )
+    emitter.emit("starting")
 
-    if runtime_backend == "e2e":
+    if runtime_backend == BACKEND_E2E:
         config = Config.from_env(
             overrides={
                 "repo": repo_path,
@@ -609,29 +660,7 @@ def build_feature(
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         hand = E2EHand(config, repo_index)
         _append_update(updates, "Running E2E hand.")
-        _update_progress(
-            self,
-            task_id=task_id,
-            stage="running",
-            updates=updates,
-            prompt=prompt,
-            pr_number=pr_number,
-            backend=requested_backend,
-            runtime_backend=runtime_backend,
-            repo_path=repo_path,
-            model=config.model,
-            max_iterations=resolved_iterations,
-            no_pr=no_pr,
-            enable_execution=enable_execution,
-            enable_web=enable_web,
-            use_native_cli_auth=use_native_cli_auth,
-            tools=selected_tools,
-            skills=selected_skills,
-            fix_ci=fix_ci,
-            ci_check_wait_minutes=ci_check_wait_minutes,
-            reference_repos=list(reference_repos or []),
-            started_at=task_started_at,
-        )
+        emitter.emit("running", model=config.model)
         response = hand.run(
             prompt,
             hand_uuid=task_id,
@@ -640,7 +669,7 @@ def build_feature(
         )
         _append_update(updates, response.message)
         return {
-            "status": "ok",
+            "status": _RESPONSE_STATUS_OK,
             "prompt": prompt,
             "pr_number": pr_number,
             "repo_path": repo_path,
@@ -705,7 +734,9 @@ def build_feature(
                 )
                 continue
             if ref_result.returncode != 0:
-                stderr = _redact_sensitive(ref_result.stderr.strip() or "unknown error")
+                stderr = _redact_sensitive(
+                    ref_result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG
+                )
                 _append_update(
                     updates,
                     f"Failed to clone reference repo {ref_spec}: {stderr}",
@@ -731,7 +762,7 @@ def build_feature(
                 f"Checked out branch {_pr_branch} for PR #{pr_number} (up to date)",
             )
             repo_index = RepoIndex.from_path(Path(config.repo))
-        if runtime_backend == "codexcli" and not _has_codex_auth():
+        if runtime_backend == BACKEND_CODEXCLI and not _has_codex_auth():
             msg = (
                 "Codex authentication is missing in worker runtime. "
                 "Set OPENAI_API_KEY in .env and recreate containers, "
@@ -739,7 +770,7 @@ def build_feature(
             )
             _append_update(updates, msg)
             raise RuntimeError(msg)
-        if runtime_backend == "geminicli" and not _has_gemini_auth():
+        if runtime_backend == BACKEND_GEMINICLI and not _has_gemini_auth():
             msg = (
                 "Gemini authentication is missing in worker runtime. "
                 "Set GEMINI_API_KEY in .env and recreate containers."
@@ -753,89 +784,24 @@ def build_feature(
                 f"(runtime={runtime_backend}), model={config.model}"
             ),
         )
-        _update_progress(
-            self,
-            task_id=task_id,
-            stage="running",
-            updates=updates,
-            prompt=prompt,
-            pr_number=pr_number,
-            backend=requested_backend,
-            runtime_backend=runtime_backend,
-            repo_path=repo_path,
-            model=config.model,
-            max_iterations=resolved_iterations,
-            no_pr=no_pr,
-            enable_execution=enable_execution,
-            enable_web=enable_web,
-            use_native_cli_auth=use_native_cli_auth,
-            tools=selected_tools,
-            skills=selected_skills,
-            fix_ci=fix_ci,
-            ci_check_wait_minutes=ci_check_wait_minutes,
-            reference_repos=list(reference_repos or []),
-            workspace=str(resolved_repo_path),
-            started_at=task_started_at,
-        )
+        emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
 
         try:
-            if runtime_backend == "basic-langgraph":
-                hand = BasicLangGraphHand(
-                    config,
-                    repo_index,
-                    max_iterations=resolved_iterations,
-                )
-            elif runtime_backend == "codexcli":
-                hand = CodexCLIHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "claudecodecli":
-                hand = ClaudeCodeHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "docker-sandbox-claude":
-                hand = DockerSandboxClaudeCodeHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "goose":
-                hand = GooseCLIHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "geminicli":
-                hand = GeminiCLIHand(
-                    config,
-                    repo_index,
-                )
-            elif runtime_backend == "opencodecli":
-                hand = OpenCodeCLIHand(
-                    config,
-                    repo_index,
-                )
-            else:
-                hand = BasicAtomicHand(
-                    config,
-                    repo_index,
-                    max_iterations=resolved_iterations,
-                )
+            hand = create_hand(
+                runtime_backend,
+                config,
+                repo_index,
+                max_iterations=resolved_iterations,
+            )
         except ModuleNotFoundError as exc:
-            if runtime_backend == "basic-langgraph":
+            if runtime_backend == BACKEND_BASIC_LANGGRAPH:
                 extra = "langchain"
-            elif runtime_backend in {"basic-atomic", "basic-agent"}:
+            elif runtime_backend in {BACKEND_BASIC_ATOMIC, BACKEND_BASIC_AGENT}:
                 extra = "atomic"
             else:
                 extra = None
-            if extra:
-                install_hint = f"Install with: uv sync --extra {extra}"
-            else:
-                install_hint = "Check runtime setup."
-            msg = (
-                f"Missing dependency for backend {requested_backend}:"
-                f" {exc}. {install_hint}"
-            )
+            hint = install_hint(extra) if extra else "Check runtime setup."
+            msg = f"Missing dependency for backend {requested_backend}: {exc}. {hint}"
             _append_update(updates, msg)
             raise RuntimeError(msg) from exc
 
@@ -844,37 +810,20 @@ def build_feature(
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
         hand_start = time.monotonic()
+        emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
         message = asyncio.run(
             _collect_stream(
                 hand,
                 prompt,
-                task=self,
-                task_id=task_id,
-                pr_number=pr_number,
+                emitter=emitter,
                 updates=updates,
-                backend=requested_backend,
-                runtime_backend=runtime_backend,
-                repo_path=repo_path,
-                model=config.model,
-                max_iterations=resolved_iterations,
-                no_pr=no_pr,
-                enable_execution=enable_execution,
-                enable_web=enable_web,
-                use_native_cli_auth=use_native_cli_auth,
-                tools=selected_tools,
-                skills=selected_skills,
-                fix_ci=fix_ci,
-                ci_check_wait_minutes=ci_check_wait_minutes,
-                reference_repos=list(reference_repos or []),
-                workspace=str(resolved_repo_path),
-                started_at=task_started_at,
             )
         )
         hand_elapsed = time.monotonic() - hand_start
         runtime_str = _format_runtime(hand_elapsed)
         _append_update(updates, f"Task complete. Runtime: {runtime_str}")
         return {
-            "status": "ok",
+            "status": _RESPONSE_STATUS_OK,
             "prompt": prompt,
             "pr_number": pr_number,
             "backend": requested_backend,
@@ -903,7 +852,7 @@ def build_feature(
             shutil.rmtree(ref_root, ignore_errors=True)
 
 
-@celery_app.task(bind=True, name="helping_hands.scheduled_build")
+@celery_app.task(bind=True, name=_TASK_NAME_SCHEDULED_BUILD)
 def scheduled_build(
     self: object,
     schedule_id: str,
@@ -920,7 +869,7 @@ def scheduled_build(
 
     if schedule is None:
         return {
-            "status": "error",
+            "status": _RESPONSE_STATUS_ERROR,
             "message": f"Schedule {schedule_id} not found",
             "schedule_id": schedule_id,
         }
@@ -944,11 +893,11 @@ def scheduled_build(
         enable_execution=schedule.enable_execution,
         enable_web=schedule.enable_web,
         use_native_cli_auth=schedule.use_native_cli_auth,
-        tools=getattr(schedule, "tools", []),
+        tools=schedule.tools,
         skills=schedule.skills,
-        fix_ci=getattr(schedule, "fix_ci", False),
-        ci_check_wait_minutes=getattr(schedule, "ci_check_wait_minutes", 3.0),
-        reference_repos=getattr(schedule, "reference_repos", []),
+        fix_ci=schedule.fix_ci,
+        ci_check_wait_minutes=schedule.ci_check_wait_minutes,
+        reference_repos=schedule.reference_repos,
     )
 
     # Record the run
@@ -999,12 +948,11 @@ VALUES
 """
 
 
-@celery_app.task(name="helping_hands.log_claude_usage")
+@celery_app.task(name=_TASK_NAME_LOG_USAGE)
 def log_claude_usage() -> dict[str, Any]:
     """Fetch Claude Code usage from the OAuth API and log it to Postgres."""
     import json as _json
-    from urllib import error as _url_error
-    from urllib import request as _url_request
+    from urllib import error as _url_error, request as _url_request
 
     # --- Fetch OAuth token from macOS Keychain ---
     try:
@@ -1026,11 +974,17 @@ def log_claude_usage() -> dict[str, Any]:
             token = creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
         except (_json.JSONDecodeError, AttributeError):
             token = raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
-    except Exception as exc:
-        return {"status": "error", "message": f"Keychain read failed: {exc}"}
+    except (subprocess.CalledProcessError, OSError, TimeoutExpired) as exc:
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"Keychain read failed: {exc}",
+        }
 
     if not token:
-        return {"status": "error", "message": "No OAuth token found in Keychain"}
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": "No OAuth token found in Keychain",
+        }
 
     # --- Call the Anthropic usage API ---
     try:
@@ -1045,9 +999,12 @@ def log_claude_usage() -> dict[str, Any]:
         with _url_request.urlopen(req, timeout=_USAGE_API_TIMEOUT_S) as resp:
             data = _json.loads(resp.read().decode())
     except _url_error.HTTPError as exc:
-        return {"status": "error", "message": f"Usage API HTTP {exc.code}"}
-    except Exception as exc:
-        return {"status": "error", "message": f"Usage API failed: {exc}"}
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"Usage API HTTP {exc.code}",
+        }
+    except (_url_error.URLError, OSError) as exc:
+        return {"status": _RESPONSE_STATUS_ERROR, "message": f"Usage API failed: {exc}"}
 
     five_hour = data.get("five_hour", {})
     seven_day = data.get("seven_day", {})
@@ -1059,7 +1016,15 @@ def log_claude_usage() -> dict[str, Any]:
     # --- Write to Postgres ---
     try:
         import psycopg2
+    except ImportError as exc:
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"DB write failed: {exc}",
+            "session_pct": session_pct,
+            "weekly_pct": weekly_pct,
+        }
 
+    try:
         conn = psycopg2.connect(
             _get_db_url_writer(), connect_timeout=_DB_CONNECT_TIMEOUT_S
         )
@@ -1079,16 +1044,16 @@ def log_claude_usage() -> dict[str, Any]:
             conn.commit()
         finally:
             conn.close()
-    except Exception as exc:
+    except (psycopg2.Error, OSError) as exc:
         return {
-            "status": "error",
+            "status": _RESPONSE_STATUS_ERROR,
             "message": f"DB write failed: {exc}",
             "session_pct": session_pct,
             "weekly_pct": weekly_pct,
         }
 
     return {
-        "status": "ok",
+        "status": _RESPONSE_STATUS_OK,
         "session_pct": session_pct,
         "weekly_pct": weekly_pct,
     }
@@ -1099,27 +1064,34 @@ def ensure_usage_schedule() -> None:
     try:
         from celery.schedules import schedule as interval_schedule
         from redbeat import RedBeatSchedulerEntry
+    except ImportError:
+        logger.debug(
+            "Failed to register usage schedule (redbeat not installed)",
+            exc_info=True,
+        )
+        return
 
-        entry_name = "helping_hands:usage-logger"
+    try:
+        entry_name = _REDBEAT_USAGE_ENTRY_NAME
         try:
             existing = RedBeatSchedulerEntry.from_key(
-                f"redbeat:{entry_name}", app=celery_app
+                f"{_REDBEAT_KEY_PREFIX}{entry_name}", app=celery_app
             )
             if existing:
                 return  # already registered
-        except Exception:
+        except KeyError:
             logger.debug("Usage schedule entry not found, creating", exc_info=True)
 
         entry = RedBeatSchedulerEntry(
             name=entry_name,
-            task="helping_hands.log_claude_usage",
+            task=_TASK_NAME_LOG_USAGE,
             schedule=interval_schedule(run_every=_USAGE_LOG_INTERVAL_S),
             app=celery_app,
         )
         entry.save()
-    except Exception:
+    except OSError:
         logger.debug(
-            "Failed to register usage schedule (Redis/redbeat unavailable)",
+            "Failed to register usage schedule (Redis unavailable)",
             exc_info=True,
         )
 

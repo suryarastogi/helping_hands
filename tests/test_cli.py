@@ -10,8 +10,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.cli.main import (
+    _error_exit,
     _git_noninteractive_env,
     _github_clone_url,
+    _make_temp_clone_dir,
     _redact_sensitive,
     _repo_tmp_dir,
     _resolve_repo_path,
@@ -207,7 +209,7 @@ class TestCli:
         mock_hand.run.assert_called_once_with("test prompt", pr_number=1, dry_run=True)
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_basic_langgraph_mode(
         self,
         mock_hand_cls: MagicMock,
@@ -236,7 +238,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicAtomicHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_basic_agent_alias_and_no_pr(
         self,
         mock_hand_cls: MagicMock,
@@ -263,7 +265,7 @@ class TestCli:
         assert mock_hand.auto_pr is False
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.CodexCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_codexcli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -290,7 +292,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.CodexCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_codexcli_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -322,7 +324,7 @@ class TestCli:
         assert "Codex CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.ClaudeCodeHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_claudecodecli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -349,7 +351,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.ClaudeCodeHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_claudecodecli_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -381,7 +383,7 @@ class TestCli:
         assert "Claude Code CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GooseCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_goose_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -408,7 +410,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GooseCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_goose_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -440,7 +442,7 @@ class TestCli:
         assert "Goose CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GeminiCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_geminicli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -467,7 +469,7 @@ class TestCli:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.GeminiCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reports_geminicli_runtime_error(
         self,
         mock_hand_cls: MagicMock,
@@ -499,7 +501,7 @@ class TestCli:
         assert "Gemini CLI command not found" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_interrupt_requests_hand_interrupt(
         self,
         mock_hand_cls: MagicMock,
@@ -532,7 +534,7 @@ class TestCli:
         mock_hand.interrupt.assert_called_once()
 
     @patch(
-        "helping_hands.cli.main.BasicLangGraphHand",
+        "helping_hands.cli.main.create_hand",
         side_effect=ModuleNotFoundError("No module named 'langchain_openai'"),
     )
     def test_cli_reports_missing_backend_dependency(
@@ -694,7 +696,7 @@ class TestRepoTmpDir:
 
 class TestCliAdditionalPaths:
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.OpenCodeCLIHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_opencodecli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -721,7 +723,7 @@ class TestCliAdditionalPaths:
         assert mock_hand.auto_pr is True
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_model_not_found_exits_with_message(
         self,
         mock_hand_cls: MagicMock,
@@ -732,7 +734,7 @@ class TestCliAdditionalPaths:
         def _raise_model_error(coro: object) -> None:
             if hasattr(coro, "close"):
                 coro.close()
-            raise Exception("The model `bad-model` does not exist")
+            raise RuntimeError("The model `bad-model` does not exist")
 
         mock_asyncio_run.side_effect = _raise_model_error
         (tmp_path / "hello.py").write_text("")
@@ -763,7 +765,7 @@ class TestCliAdditionalPaths:
         assert "Error" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.DockerSandboxClaudeCodeHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_runs_docker_sandbox_claude_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -790,7 +792,7 @@ class TestCliAdditionalPaths:
         assert mock_hand.auto_pr is True
 
     @patch(
-        "helping_hands.cli.main.BasicAtomicHand",
+        "helping_hands.cli.main.create_hand",
         side_effect=ModuleNotFoundError("No module named 'atomic_agents'"),
     )
     def test_cli_reports_python_version_error_for_atomic_backend(
@@ -822,7 +824,7 @@ class TestCliAdditionalPaths:
         assert "requires Python >= 3.12" in captured.err
 
     @patch("helping_hands.cli.main.asyncio.run")
-    @patch("helping_hands.cli.main.BasicLangGraphHand")
+    @patch("helping_hands.cli.main.create_hand")
     def test_cli_reraises_generic_exception_for_non_cli_backend(
         self,
         mock_hand_cls: MagicMock,
@@ -961,7 +963,7 @@ class TestGitHubTokenArg:
         with (
             patch.object(Config, "from_env", classmethod(capture_config)),
             patch("helping_hands.cli.main.RepoIndex") as mock_ri,
-            patch("helping_hands.cli.main.ClaudeCodeHand") as mock_hand_cls,
+            patch("helping_hands.cli.main.create_hand") as mock_hand_cls,
             patch("helping_hands.cli.main.asyncio.run"),
         ):
             mock_ri.from_path.return_value = MagicMock(root=tmp_path, files=[])
@@ -1015,7 +1017,7 @@ class TestReferenceReposArg:
         with (
             patch.object(Config, "from_env", classmethod(capture_config)),
             patch("helping_hands.cli.main.RepoIndex") as mock_ri,
-            patch("helping_hands.cli.main.ClaudeCodeHand") as mock_hand_cls,
+            patch("helping_hands.cli.main.create_hand") as mock_hand_cls,
             patch("helping_hands.cli.main.asyncio.run"),
         ):
             mock_ri.from_path.return_value = MagicMock(
@@ -1129,3 +1131,69 @@ class TestCliMainDocstrings:
     def test_resolve_repo_path_has_raises(self) -> None:
         doc = _resolve_repo_path.__doc__
         assert "Raises:" in doc
+
+
+class TestErrorExit:
+    """v268: _error_exit prints to stderr and exits with code 1."""
+
+    def test_prints_error_prefix_and_exits(self) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            _error_exit("something went wrong")
+        assert exc_info.value.code == 1
+
+    def test_message_written_to_stderr(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        with pytest.raises(SystemExit):
+            _error_exit("bad input")
+        assert "Error: bad input" in capsys.readouterr().err
+
+    def test_empty_message(self, capsys: pytest.CaptureFixture[str]) -> None:
+        with pytest.raises(SystemExit):
+            _error_exit("")
+        assert "Error: " in capsys.readouterr().err
+
+    def test_has_docstring(self) -> None:
+        assert _error_exit.__doc__ is not None
+        assert "Args:" in _error_exit.__doc__
+
+
+class TestMakeTempCloneDir:
+    """v268: _make_temp_clone_dir creates temp dir with atexit cleanup."""
+
+    def test_returns_repo_subdir(self, tmp_path: Path) -> None:
+        with (
+            patch("helping_hands.cli.main._repo_tmp_dir", return_value=str(tmp_path)),
+            patch("helping_hands.cli.main.atexit") as mock_atexit,
+        ):
+            result = _make_temp_clone_dir("test_prefix_")
+            assert result.name == "repo"
+            assert result.parent.exists()
+            assert result.parent.name.startswith("test_prefix_")
+            mock_atexit.register.assert_called_once()
+
+    def test_parent_dir_is_created(self, tmp_path: Path) -> None:
+        with (
+            patch("helping_hands.cli.main._repo_tmp_dir", return_value=str(tmp_path)),
+            patch("helping_hands.cli.main.atexit"),
+        ):
+            result = _make_temp_clone_dir("hh_")
+            assert result.parent.is_dir()
+            # repo subdir itself is NOT created by the helper
+            assert not result.exists()
+
+    def test_atexit_registers_rmtree(self, tmp_path: Path) -> None:
+        import shutil
+
+        with (
+            patch("helping_hands.cli.main._repo_tmp_dir", return_value=str(tmp_path)),
+            patch("helping_hands.cli.main.atexit") as mock_atexit,
+        ):
+            result = _make_temp_clone_dir("prefix_")
+            mock_atexit.register.assert_called_once_with(
+                shutil.rmtree, result.parent, True
+            )
+
+    def test_has_docstring(self) -> None:
+        assert _make_temp_clone_dir.__doc__ is not None
+        assert "Args:" in _make_temp_clone_dir.__doc__

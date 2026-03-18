@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import importlib
 from collections.abc import Mapping, Sequence
+from types import ModuleType
 from typing import Any
 
 __all__ = ["AIProvider", "PromptInput", "normalize_messages"]
@@ -76,6 +78,27 @@ class AIProvider(abc.ABC):
     @abc.abstractmethod
     def install_hint(self) -> str:
         """Human-readable dependency install hint."""
+
+    def _require_sdk(self, module_name: str) -> ModuleType:
+        """Import *module_name*, raising ``RuntimeError`` on failure.
+
+        Args:
+            module_name: Dotted Python module path to import
+                (e.g. ``"anthropic"``).
+
+        Returns:
+            The imported module.
+
+        Raises:
+            RuntimeError: If the module is not installed, with a message
+                that includes :pyattr:`install_hint`.
+        """
+        try:
+            return importlib.import_module(module_name)
+        except ImportError as exc:
+            raise RuntimeError(
+                f"{module_name!r} is not installed. Install with: {self.install_hint}"
+            ) from exc
 
     @abc.abstractmethod
     def _build_inner(self) -> Any:

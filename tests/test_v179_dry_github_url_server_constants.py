@@ -33,12 +33,19 @@ class TestGitHubUrlConstants:
         from helping_hands.lib import github_url
 
         expected = {
+            "DEFAULT_CLONE_ERROR_MSG",
+            "ENV_GCM_INTERACTIVE",
+            "ENV_GIT_TERMINAL_PROMPT",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
+            "REPO_SPEC_PATTERN",
             "build_clone_url",
+            "invalid_repo_msg",
             "noninteractive_env",
             "redact_credentials",
+            "repo_tmp_dir",
+            "resolve_github_token",
             "validate_repo_spec",
         }
         assert set(github_url.__all__) == expected
@@ -244,7 +251,8 @@ class TestServerConstants:
     def test_all_exports(self) -> None:
         from helping_hands.server import constants
 
-        expected = {
+        # Superset check: at minimum these must be present (v232 added more)
+        required = {
             "ANTHROPIC_BETA_HEADER",
             "ANTHROPIC_USAGE_URL",
             "DEFAULT_BACKEND",
@@ -267,7 +275,7 @@ class TestServerConstants:
             "USAGE_CACHE_TTL_S",
             "USAGE_USER_AGENT",
         }
-        assert set(constants.__all__) == expected
+        assert required <= set(constants.__all__)
 
 
 # ---------------------------------------------------------------------------

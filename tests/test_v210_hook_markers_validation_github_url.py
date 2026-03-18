@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import inspect
 
-from helping_hands.lib import github_url as github_url_module
-from helping_hands.lib import validation as validation_module
+from helping_hands.lib import (
+    github_url as github_url_module,
+    validation as validation_module,
+)
 from helping_hands.lib.hands.v1.hand import base as hand_base_module
 
 # ---------------------------------------------------------------------------
@@ -81,7 +83,12 @@ class TestValidationModuleContract:
 
     def test_all_exports(self) -> None:
         assert set(validation_module.__all__) == {
+            "format_type_error",
+            "has_cli_flag",
+            "install_hint",
+            "parse_comma_list",
             "require_non_empty_string",
+            "require_positive_float",
             "require_positive_int",
         }
 
@@ -103,12 +110,19 @@ class TestGithubUrlModuleContract:
 
     def test_all_exports(self) -> None:
         assert set(github_url_module.__all__) == {
+            "DEFAULT_CLONE_ERROR_MSG",
+            "ENV_GCM_INTERACTIVE",
+            "ENV_GIT_TERMINAL_PROMPT",
             "GITHUB_HOSTNAME",
             "GITHUB_TOKEN_USER",
             "GIT_CLONE_TIMEOUT_S",
+            "REPO_SPEC_PATTERN",
             "build_clone_url",
+            "invalid_repo_msg",
             "noninteractive_env",
             "redact_credentials",
+            "repo_tmp_dir",
+            "resolve_github_token",
             "validate_repo_spec",
         }
 

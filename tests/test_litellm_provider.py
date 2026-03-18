@@ -39,7 +39,7 @@ class TestLiteLLMBuildInner:
         with patch.dict(sys.modules, {"litellm": None}):
             provider = LiteLLMProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="LiteLLM is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_returns_litellm_module_with_api_key(
@@ -133,7 +133,9 @@ class TestLiteLLMProviderSingleton:
         assert isinstance(LITELLM_PROVIDER, LiteLLMProvider)
 
     def test_singleton_identity_across_imports(self) -> None:
-        from helping_hands.lib.ai_providers.litellm import LITELLM_PROVIDER as FIRST
-        from helping_hands.lib.ai_providers.litellm import LITELLM_PROVIDER as SECOND
+        from helping_hands.lib.ai_providers.litellm import (
+            LITELLM_PROVIDER as FIRST,
+            LITELLM_PROVIDER as SECOND,
+        )
 
         assert FIRST is SECOND

@@ -25,17 +25,22 @@ class TestFailureOutputTailConsolidation:
 
         assert _FAILURE_OUTPUT_TAIL_LENGTH > 0
 
-    def test_subclasses_use_detect_auth_failure(self) -> None:
-        """Since v203, subclasses use _detect_auth_failure which
-        encapsulates _FAILURE_OUTPUT_TAIL_LENGTH internally."""
+    def test_subclasses_use_auth_detection(self) -> None:
+        """Since v271, codex/claude/opencode delegate to _format_cli_failure
+        (which internally calls _detect_auth_failure).  Gemini still calls
+        _detect_auth_failure directly due to its model-not-found branch."""
         import inspect
 
         from helping_hands.lib.hands.v1.hand.cli import claude, codex, gemini, opencode
 
-        for mod in (claude, codex, gemini, opencode):
+        # Gemini still uses _detect_auth_failure directly
+        assert "_detect_auth_failure" in inspect.getsource(gemini)
+
+        # Others delegate via _format_cli_failure
+        for mod in (claude, codex, opencode):
             src = inspect.getsource(mod)
-            assert "_detect_auth_failure" in src, (
-                f"{mod.__name__} should use _detect_auth_failure"
+            assert "_format_cli_failure" in src, (
+                f"{mod.__name__} should use _format_cli_failure"
             )
 
     def test_constant_in_base_all(self) -> None:
@@ -50,31 +55,25 @@ class TestFailureOutputTailConsolidation:
 
 
 class TestCLITruthyValues:
-    """Verify _CLI_TRUTHY_VALUES extends config _TRUTHY_VALUES with 'on'."""
+    """Verify _TRUTHY_VALUES includes 'on' and _is_truthy uses it."""
 
-    def test_cli_truthy_is_frozenset(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
-
-        assert isinstance(_CLI_TRUTHY_VALUES, frozenset)
-
-    def test_cli_truthy_contains_config_values(self) -> None:
+    def test_truthy_is_frozenset(self) -> None:
         from helping_hands.lib.config import _TRUTHY_VALUES
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
 
-        assert _TRUTHY_VALUES.issubset(_CLI_TRUTHY_VALUES)
+        assert isinstance(_TRUTHY_VALUES, frozenset)
 
-    def test_cli_truthy_contains_on(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
+    def test_truthy_contains_on(self) -> None:
+        from helping_hands.lib.config import _TRUTHY_VALUES
 
-        assert "on" in _CLI_TRUTHY_VALUES
+        assert "on" in _TRUTHY_VALUES
 
-    def test_cli_truthy_expected_members(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _CLI_TRUTHY_VALUES
+    def test_truthy_expected_members(self) -> None:
+        from helping_hands.lib.config import _TRUTHY_VALUES
 
-        assert frozenset({"1", "true", "yes", "on"}) == _CLI_TRUTHY_VALUES
+        assert frozenset({"1", "true", "yes", "on"}) == _TRUTHY_VALUES
 
-    def test_is_truthy_uses_cli_truthy_values(self) -> None:
-        """_is_truthy should accept 'on' (via _CLI_TRUTHY_VALUES)."""
+    def test_is_truthy_uses_truthy_values(self) -> None:
+        """_is_truthy should accept 'on' (via _TRUTHY_VALUES)."""
         from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 
         assert _TwoPhaseCLIHand._is_truthy("on") is True

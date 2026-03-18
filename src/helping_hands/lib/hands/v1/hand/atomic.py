@@ -13,7 +13,17 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from helping_hands.lib.hands.v1.hand.base import _META_PR_URL, Hand, HandResponse
+from helping_hands.lib.hands.v1.hand.base import (
+    _META_BACKEND,
+    _META_MODEL,
+    _META_PR_URL,
+    _META_PROVIDER,
+    Hand,
+    HandResponse,
+)
+from helping_hands.lib.hands.v1.hand.iterative import (
+    _RUN_ASYNC_ERRORS,
+)
 from helping_hands.lib.hands.v1.hand.model_provider import (
     build_atomic_client,
     resolve_hand_model,
@@ -41,7 +51,7 @@ class AtomicHand(Hand):
             repo_index: Repository index providing the file tree and root path.
         """
         super().__init__(config, repo_index)
-        self._input_schema: type[Any] = None  # type: ignore[assignment]
+        self._input_schema: type[Any] | None = None
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
 
@@ -70,7 +80,29 @@ class AtomicHand(Hand):
 
     def _make_input(self, prompt: str) -> Any:
         """Build an input schema instance. Uses mock-safe stored class."""
+        if self._input_schema is None:
+            raise RuntimeError("_input_schema not initialised; call _build_agent first")
         return self._input_schema(chat_message=prompt)
+
+    @staticmethod
+    def _extract_message(response: Any) -> str:
+        """Extract the chat message text from an Atomic Agents response.
+
+        Unlike ``BasicAtomicHand._extract_message`` (which falls back to
+        ``str(response)``), this variant returns ``""`` when no truthy
+        ``chat_message`` is found.  This matches the single-shot stream
+        pattern where only real content should be yielded.
+
+        Args:
+            response: Atomic Agents agent response object.
+
+        Returns:
+            String content from ``chat_message`` if present and truthy,
+            otherwise ``""``.
+        """
+        if hasattr(response, "chat_message") and response.chat_message:
+            return str(response.chat_message)
+        return ""
 
     def run(self, prompt: str) -> HandResponse:
         """Execute the prompt synchronously via the Atomic agent.
@@ -85,7 +117,7 @@ class AtomicHand(Hand):
             A ``HandResponse`` with the agent output and PR metadata.
         """
         response = self._agent.run(self._make_input(prompt))
-        message = response.chat_message
+        message = self._extract_message(response)
         pr_metadata = self._finalize_repo_pr(
             backend=self._BACKEND_NAME,
             prompt=prompt,
@@ -94,9 +126,9 @@ class AtomicHand(Hand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self._hand_model.model,
-                "provider": self._hand_model.provider.name,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self._hand_model.model,
+                _META_PROVIDER: self._hand_model.provider.name,
                 **pr_metadata,
             },
         )
@@ -121,20 +153,20 @@ class AtomicHand(Hand):
             async_result = self._agent.run_async(user_input)
         except AssertionError:
             partial = await asyncio.to_thread(self._agent.run, user_input)
-            if hasattr(partial, "chat_message") and partial.chat_message:
-                text = str(partial.chat_message)
+            text = self._extract_message(partial)
+            if text:
                 parts.append(text)
                 yield text
             async_result = None
-        except Exception:
+        except _RUN_ASYNC_ERRORS:
             logger.debug("run_async raised non-AssertionError", exc_info=True)
             raise
         if async_result is None:
             pass
         elif hasattr(async_result, "__aiter__"):
             async for partial in async_result:
-                if hasattr(partial, "chat_message") and partial.chat_message:
-                    text = str(partial.chat_message)
+                text = self._extract_message(partial)
+                if text:
                     parts.append(text)
                     yield text
         else:
@@ -142,8 +174,8 @@ class AtomicHand(Hand):
                 partial = await async_result
             except AssertionError:
                 partial = await asyncio.to_thread(self._agent.run, user_input)
-            if hasattr(partial, "chat_message") and partial.chat_message:
-                text = str(partial.chat_message)
+            text = self._extract_message(partial)
+            if text:
                 parts.append(text)
                 yield text
         pr_metadata = self._finalize_repo_pr(

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
-    _DOCKER_ENV_HINT_TEMPLATE,
-    _detect_auth_failure,
+    _EMPTY_MODEL_MARKERS,
+    _format_cli_failure,
     _TwoPhaseCLIHand,
 )
+from helping_hands.lib.hands.v1.hand.model_provider import (
+    PROVIDER_API_KEY_ENV as _PROVIDER_ENV_MAP,
+)
 
-__all__ = ["OpenCodeCLIHand"]
+__all__ = ["_PROVIDER_ENV_MAP", "OpenCodeCLIHand"]
 
 
 class OpenCodeCLIHand(_TwoPhaseCLIHand):
@@ -24,16 +27,36 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
     def _resolve_cli_model(self) -> str:
         """Preserve provider/model format (e.g. anthropic/claude-sonnet-4-6)."""
         model = str(self.config.model).strip()
-        if not model or model in ("default", "None"):
+        if not model or model in _EMPTY_MODEL_MARKERS:
             return self._DEFAULT_MODEL
         return model
+
+    def _describe_auth(self) -> str:
+        """Describe the current authentication state for the resolved provider.
+
+        Extracts the provider prefix from the ``provider/model`` format and
+        checks whether the corresponding API key environment variable is set.
+
+        Returns:
+            Human-readable string indicating provider and auth status, or
+            an empty string if no provider can be determined.
+        """
+        model = self._resolve_cli_model()
+        if not model or "/" not in model:
+            return ""
+        provider = model.split("/", 1)[0].lower()
+        env_var = _PROVIDER_ENV_MAP.get(provider)
+        if not env_var:
+            return f"auth=provider={provider}"
+        present = self._env_var_status(env_var)
+        return f"auth=provider={provider} ({env_var} {present})"
 
     @staticmethod
     def _build_opencode_failure_message(*, return_code: int, output: str) -> str:
         """Build a user-facing error message from OpenCode CLI failure output.
 
-        Checks the tail of the output for authentication error tokens
-        and returns a specialised auth-failure message when detected.
+        Delegates to :func:`_format_cli_failure` with OpenCode-specific
+        parameters for auth detection and remediation guidance.
 
         Args:
             return_code: Process exit code.
@@ -42,15 +65,15 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
         Returns:
             Descriptive error message string.
         """
-        is_auth, tail = _detect_auth_failure(output)
-        if is_auth:
-            return (
-                "OpenCode CLI authentication failed. "
-                "Ensure your provider API key is set or run 'opencode auth login'. "
-                f"{_DOCKER_ENV_HINT_TEMPLATE.format('the appropriate API key')}\n"
-                f"Output:\n{tail}"
-            )
-        return f"OpenCode CLI failed (exit={return_code}). Output:\n{tail}"
+        return _format_cli_failure(
+            backend_name="OpenCode CLI",
+            return_code=return_code,
+            output=output,
+            env_var_hint="the appropriate API key",
+            auth_guidance=(
+                "Ensure your provider API key is set or run 'opencode auth login'."
+            ),
+        )
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         """Delegate to :meth:`_build_opencode_failure_message`.

@@ -775,7 +775,8 @@ class TestCheckRedisHealth:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_redis_mod = MagicMock()
-        mock_redis_mod.Redis.from_url.side_effect = ConnectionError("refused")
+        mock_redis_mod.RedisError = type("RedisError", (Exception,), {})
+        mock_redis_mod.Redis.from_url.side_effect = mock_redis_mod.RedisError("refused")
         monkeypatch.setitem(__import__("sys").modules, "redis", mock_redis_mod)
 
         assert _check_redis_health() == "error"
@@ -831,7 +832,8 @@ class TestCheckDbHealth:
     ) -> None:
         monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/test")
         mock_psycopg2 = MagicMock()
-        mock_psycopg2.connect.side_effect = Exception("connection refused")
+        mock_psycopg2.Error = type("Error", (Exception,), {})
+        mock_psycopg2.connect.side_effect = mock_psycopg2.Error("connection refused")
         monkeypatch.setitem(__import__("sys").modules, "psycopg2", mock_psycopg2)
 
         assert _check_db_health() == "error"

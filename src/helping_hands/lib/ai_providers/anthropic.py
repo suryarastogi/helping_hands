@@ -34,17 +34,12 @@ class AnthropicProvider(AIProvider):
         Raises:
             RuntimeError: If the ``anthropic`` package is not installed.
         """
-        try:
-            from anthropic import Anthropic
-        except ImportError as exc:
-            raise RuntimeError(
-                f"Anthropic SDK is not installed. Install with: {self.install_hint}"
-            ) from exc
+        sdk = self._require_sdk("anthropic")
 
         api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:
-            return Anthropic(api_key=api_key)
-        return Anthropic()
+            return sdk.Anthropic(api_key=api_key)
+        return sdk.Anthropic()
 
     def _complete_impl(
         self,

@@ -1,6 +1,170 @@
 # Week 12 (Mar 13 – Mar 19, 2026)
 
-Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, and test coverage.
+Per-task GitHub token override, dead code cleanup, constant docstrings, security fix, input validation, CI status enums, provider name constants, git-not-found constants, exception narrowing, env var constant deduplication, import consolidation, and test coverage.
+
+---
+
+## Mar 17 — Extract `_format_cli_failure()` helper (v271)
+
+**DRY auth/failure messages:** Extracted `_format_cli_failure()` module-level function in `cli/base.py` to centralize the auth-detection + message-formatting pattern. Codex, Claude, and OpenCode CLI hands now delegate their `_build_X_failure_message` static methods to this shared helper (each reduced from ~12 lines to a one-liner). Gemini excluded due to its extra model-not-found branch. Removed now-unused `_detect_auth_failure` / `_DOCKER_ENV_HINT_TEMPLATE` imports from 3 modules. Updated 4 existing test files (v166, v193, v201, v203) that asserted direct usage patterns.
+
+**`tests/test_v271_format_cli_failure.py`:** 24 tests — basic behaviour (12: exit code, output, auth detection, env var hint, Docker hint, default/custom guidance, extra tokens, backend name), export/docstring (2), static method delegation consistency (4), AST no-duplication checks (6).
+
+**24 new tests. 6278 passed, 273 skipped.**
+
+---
+
+## Mar 17 — Extract REPO_SPEC_PATTERN, invalid_repo_msg, format_type_error (v261)
+
+**DRY regex & error messages:** Extracted `REPO_SPEC_PATTERN` constant to `github_url.py` replacing 3 inline `r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"` literals in `cli/main.py`, `server/celery_app.py`, and `lib/hands/v1/hand/base.py`. Added `invalid_repo_msg()` helper to `github_url.py` replacing 2 identical `f"{repo} is not a directory or owner/repo reference"` messages. Added `format_type_error()` to `validation.py` replacing 3 near-identical `f"{name} must be a {type}, got {type(value).__name__}"` patterns.
+
+**`tests/test_v261_repo_spec_pattern_validation_type_error.py`:** 29 tests — `REPO_SPEC_PATTERN` tests (12: type, matches, rejects, `__all__`, source inspection), `invalid_repo_msg` tests (7: return type, content, `__all__`, source inspection), `format_type_error` tests (10: formatting, `__all__`, integration with `require_*` functions, source inspection).
+
+**29 new tests. 6110 passed, 272 skipped.**
+
+---
+
+## Mar 17 — Unify _TRUTHY_VALUES with "on", add env var helpers (v260)
+
+**Truthy unification:** Added `"on"` to `_TRUTHY_VALUES` in `config.py` (now `frozenset({"1", "true", "yes", "on"})`). Updated `_is_truthy_env()` to `.strip()` whitespace before lowercasing. Added `_get_env_stripped()` helper for common `os.environ.get(name, "").strip()` pattern. Removed duplicate `_PR_TRUTHY_VALUES` (pr_description.py) and `_CLI_TRUTHY_VALUES` (cli/base.py) — both were identical `_TRUTHY_VALUES | {"on"}`. Simplified 3 consumers to use `_is_truthy_env()` directly.
+
+**28 new tests. 6083 passed, 270 skipped.**
+
+---
+
+## Mar 17 — DRY repo_tmp_dir, resolve_github_token, truthy values (v259)
+
+**DRY helpers:** Extracted `repo_tmp_dir()` to `github_url.py` replacing identical implementations in `cli/main.py` and `server/celery_app.py`. Extracted `resolve_github_token()` to `github_url.py` replacing `os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", ""))` in `lib/github.py` and `lib/github_url.py`. Unified truthy values in `pr_description.py` with `_TRUTHY_VALUES` from config.
+
+**32 new tests. 6055 passed, 270 skipped.**
+
+---
+
+## Mar 17 — DRY env var parsing in pr_description.py (v258)
+
+**DRY env var parsing:** Extracted `_parse_positive_env_var(env_name, default, type_fn)` generic helper in `pr_description.py` that handles unset/non-numeric/non-positive cases with appropriate warnings. Reduced `_timeout_seconds()` and `_diff_char_limit()` from ~25 lines each (with 4 duplicated `logger.warning()` calls) to single-line delegations. Uses PEP 695 type parameters (`[T: (int, float)]`).
+
+**`tests/test_v258_dry_env_var_parsing_pr_description.py`:** 21 tests — `_parse_positive_env_var` unit tests (11: unset, valid int, valid float, whitespace, non-numeric, zero, negative, docstring, int type preservation, float type preservation), `_timeout_seconds` delegation tests (4: default, custom, non-numeric, return type), `_diff_char_limit` delegation tests (4: default, custom, non-numeric, return type), AST source consistency tests (3: timeout one-liner, diff one-liner, no inline logger.warning in delegators).
+
+**21 new tests. 6023 passed, 270 skipped.**
+
+---
+
+## Mar 17 — Centralize DEFAULT_MAX_ITERATIONS constant (v257)
+
+**Constant centralization:** Defined `DEFAULT_MAX_ITERATIONS: int = 6` in `iterative.py` as the canonical source, replacing 5 bare `6` literals across `_BasicIterativeHand.__init__()`, `BasicLangGraphHand.__init__()`, `BasicAtomicHand.__init__()`, `mcp_server.py:build_feature()`, and `celery_app.py:build_feature()`. Updated `server/constants.py` to re-export from `iterative.py` (was previously defining locally), added import in `mcp_server.py` and `celery_app.py`. Updated `test_v161_all_exports.py` `__all__` count (2 → 3).
+
+**`tests/test_v257_centralize_default_max_iterations.py`:** 14 tests — value/type/positivity checks (3), docstring presence (1), identity re-export tests (2: same object, no local assignment in constants.py), `__all__` export checks (2), AST-based no-bare-6 checks across 3 files (3), init signature default verification (3).
+
+**14 new tests. 6002 passed, 270 skipped.**
+
+---
+
+## Mar 17 — DRY _env_var_status() for CLI auth descriptions (v256)
+
+**DRY env var check:** Added `_env_var_status(name: str) -> str` static method to `_TwoPhaseCLIHand` in `cli/base.py`, returning `"set"` or `"not set"`. Replaced 5 inline `os.environ.get(env_var, "").strip()` patterns in `_describe_auth()` methods across `cli/base.py` (list comprehension), `cli/claude.py`, `cli/gemini.py`, `cli/goose.py`, and `cli/opencode.py`. Removed stale `import os` from `gemini.py`, `goose.py`, and `opencode.py` (no longer needed after delegating to the base class helper).
+
+**`tests/test_v256_env_var_status_describe_auth.py`:** 16 tests — `_env_var_status` unit tests (8: set/not-set/empty/whitespace/leading-trailing/type/staticmethod/docstring), AST consistency tests (6: no inline `os.environ.get` in `_describe_auth` across 5 modules + class attribute check), stale `import os` regression tests (2: gemini.py, opencode.py).
+
+**16 new tests. 5988 passed, 270 skipped.**
+
+---
+
+## Mar 17 — Consolidate imports, extract magic numbers (v255)
+
+**Import consolidation:** Enabled `combine-as-imports = true` in ruff isort config, consolidating verbose single-item `as`-aliased imports: `celery_app.py` (24 separate `from X import (Y as _Y,)` statements → 3 grouped imports), `app.py` (25 → 1). Also applied across 21 other files via `ruff check --fix`.
+
+**Magic number constants:** Extracted 6 named constants in `celery_app.py`: `_MAX_UPDATES_VERBOSE` (2000), `_MAX_UPDATES_NORMAL` (200), `_MAX_LINE_CHARS_VERBOSE` (4000), `_MAX_LINE_CHARS_NORMAL` (800), `_FLUSH_CHARS_VERBOSE` (40), `_FLUSH_CHARS_NORMAL` (180). Derived config variables (`_MAX_STORED_UPDATES`, `_MAX_UPDATE_LINE_CHARS`, `_BUFFER_FLUSH_CHARS`) now reference these constants instead of bare literals.
+
+**`tests/test_v255_consolidated_imports_magic_numbers.py`:** 12 tests — AST-based import consolidation checks (4 celery_app, 2 app), constant definition/value/relationship verification (5), ruff config check (1).
+
+**12 new tests. 5972 passed, 270 skipped.**
+
+---
+
+## Mar 17 — Simplify remaining getattr() to direct access (v254)
+
+**Direct attribute access:** Replaced 4 remaining defensive `getattr()` calls with direct attribute access: `response.status` in `web.py` (HTTPResponse always has `.status`), `repo_obj.default_branch` in `base.py` (PyGithub Repository), `existing.github_token` in `app.py` (ScheduledTask dataclass), and nested `getattr(getattr(self, "request", None), "id", None)` → `self.request.id` in `celery_app.py` (Celery bound task). 10 new tests (8 passed, 2 skipped without server extras).
+
+## Mar 17 — Simplify schedule getattr() to direct access (v253)
+
+**Direct attribute access:** Replaced 10 defensive `getattr(schedule/task, "field", default)` calls with direct `schedule.field`/`task.field` access in `celery_app.py` `scheduled_build()` (4 calls: `tools`, `fix_ci`, `ci_check_wait_minutes`, `reference_repos`) and `app.py` `_schedule_to_response()` (6 calls: same fields plus `github_token`, `schedule_id`). All fields are defined on the `ScheduledTask` dataclass with defaults, making `getattr()` unnecessarily defensive — same pattern as v246 for `Config`.
+
+**`tests/test_v253_schedule_direct_access.py`:** 14 tests — AST-based no-getattr checks in `scheduled_build()` and `_schedule_to_response()`, `ScheduledTask` field default verification (7 tests), explicit value assignment verification (5 tests).
+
+**14 new tests (2 passed, 12 skipped without server extras). 5951 passed, 268 skipped.**
+
+---
+
+## Mar 17 — Deduplicate env var constants (v249)
+
+**Constant deduplication:** `_ENV_GIT_TERMINAL_PROMPT` and `_ENV_GCM_INTERACTIVE` were defined identically in both `github_url.py` and `base.py`. Renamed to public `ENV_GIT_TERMINAL_PROMPT`/`ENV_GCM_INTERACTIVE` in `github_url.py` (canonical location), added to `__all__`, and replaced duplicate definitions in `base.py` with aliased imports. Updated 4 existing test files with new `__all__` expectations.
+
+**`tests/test_v249_deduplicate_env_var_constants.py`:** 16 tests — identity (same objects across modules), AST-based no-assignment checks in `base.py`, canonical definition in `github_url.py`, `__all__` exports, import source verification, behavioral `_push_noninteractive` checks, docstring presence.
+
+**16 new tests. 5893 passed, 249 skipped.**
+
+---
+
+## Mar 17 — Git-not-found constants, narrow run_async exceptions (v248)
+
+**Git-not-found constants:** Extracted `_GIT_NOT_FOUND_DIFF_MSG`, `_GIT_NOT_FOUND_UNCOMMITTED_MSG`, and `_CLI_NOT_FOUND_MSG` to `pr_description.py`, replacing 6 bare debug message strings (4 "git not found on PATH" variants and 2 "CLI not found" variants).
+
+**Exception narrowing:** Narrowed `except Exception:` in `atomic.py:158` and `iterative.py:1289` (run_async error handlers) to `except (RuntimeError, TypeError, ValueError, AttributeError, OSError):`. AssertionError was already handled separately.
+
+**`tests/test_v248_git_not_found_constants_narrow_exceptions.py`:** 22 tests — constant values/types/distinctness, AST-based source checks (no bare "git not found" or "CLI not found" strings, no `except Exception` in atomic/iterative), behavioral formatting tests.
+
+**22 new tests. 5877 passed, 249 skipped.**
+
+---
+
+## Mar 17 — Provider name constants in model_provider.py and goose.py (v247)
+
+**Provider name constants:** Extracted `_PROVIDER_OPENAI`, `_PROVIDER_ANTHROPIC`, `_PROVIDER_GOOGLE`, `_PROVIDER_OLLAMA`, `_PROVIDER_LITELLM` to `model_provider.py`, replacing 20 bare provider name string literals across `model_provider.py` (12 in `resolve_hand_model`/`_infer_provider_name`/`build_langchain_chat_model`/`build_atomic_client`) and `goose.py` (8 in `_GOOSE_DEFAULT_PROVIDER`/`_pr_description_cmd`/`_describe_auth`/`_normalize_goose_provider`/`_infer_goose_provider_from_model`/`_build_subprocess_env`).
+
+**`tests/test_v247_provider_name_constants.py`:** 24 tests — constant values/types/distinctness, `__all__` exports, AST-based source checks (no bare provider strings remain in either file), provider resolution behavioral tests.
+
+**24 new tests. 5855 passed, 249 skipped.**
+
+---
+
+## Mar 16 — Response status constants, exception narrowing in log_claude_usage (v233)
+
+**Response status constants:** Extracted `RESPONSE_STATUS_OK`, `RESPONSE_STATUS_ERROR`, and `RESPONSE_STATUS_NA` to `server/constants.py`, replacing 10+ bare `"ok"`/`"error"`/`"na"` string literals across `celery_app.py` response dicts and `app.py` health-check helpers.
+
+**Exception narrowing:** Narrowed 2 broad `except Exception` handlers in `log_claude_usage()`: keychain subprocess to `(CalledProcessError, OSError, TimeoutExpired)`, urllib request to `(URLError, OSError)`. The DB write handler remains broad (psycopg2 import is conditional).
+
+**`tests/test_v233_response_status_constants_exception_narrowing.py`:** 22 tests — constant values/types/distinctness, `__all__` consistency, AST-based source checks (no bare status dict literals remain), exception handler type verification, import presence checks.
+
+**22 new tests. 5588 passed, 220 skipped.**
+
+---
+
+## Mar 16 — RedBeat prefix constants, task name constants, KeyError narrowing (v232)
+
+**RedBeat prefix constants:** Extracted `REDBEAT_KEY_PREFIX`, `REDBEAT_SCHEDULE_ENTRY_PREFIX`, and `REDBEAT_USAGE_ENTRY_NAME` to `server/constants.py`, replacing 3 scattered `"redbeat:"` and `"helping_hands:scheduled:"` string literals across `celery_app.py` and `schedules.py`.
+
+**Celery task name constants:** Extracted `TASK_NAME_SCHEDULED_BUILD` and `TASK_NAME_LOG_USAGE` to `server/constants.py`, replacing 4 bare task name strings in `@celery_app.task` decorators and RedBeat entry registrations.
+
+**Exception narrowing:** Changed `ensure_usage_schedule()` inner `except Exception:` to `except KeyError:` for RedBeat entry-not-found detection, consistent with `schedules.py:471`. Unexpected errors from `from_key()` now propagate to the outer handler instead of being silently treated as "not found."
+
+**`tests/test_v232_redbeat_constants_exception_narrowing.py`:** 20 tests — constant values/types, `__all__` consistency, AST-based source checks (no bare string literals remain), `celery_app.conf.redbeat_key_prefix` runtime assertion, and `ensure_usage_schedule` handler type verification.
+
+**20 new tests. 5566 passed, 220 skipped.**
+
+---
+
+## Mar 16 — Claude CLI model filter, auth description, exception narrowing (v230)
+
+**`_resolve_cli_model()` expanded filter:** Now rejects both `gpt-*` and `openai/`-prefixed models. Previously `openai/o1` would survive the base-class provider strip and pass through as `o1`.
+
+**`_describe_auth()` override:** Added for consistency with `GeminiCLIHand` and `GooseCLIHand`. Reports whether `ANTHROPIC_API_KEY` is set/not set, including whitespace-only detection.
+
+**`_skip_permissions_enabled()` exception narrowing:** Changed bare `except Exception` to `except (ValueError, OSError)`. Unexpected exception types (TypeError, RuntimeError) now propagate instead of being silently swallowed.
+
+**`tests/test_v230_claude_cli_model_auth_exceptions.py`:** 14 tests across 3 classes covering model filter expansion, auth description states, and narrowed exception propagation.
+
+**14 new tests. 5528 passed, 219 skipped.**
 
 ---
 
@@ -609,6 +773,18 @@ Completed input validation coverage for all public `GitHubClient` methods. Added
 **Frontend UX:** Added output prefix filter system to both React and inline HTML UIs — log lines with `[prefix]` tags (e.g. `[claudecodecli]`, `[git]`) are detected and rendered as clickable filter chips with three-state cycling (show → hide → only → show). Added reference repos field to the submission form in React frontend, allowing users to specify additional repos for context. Added API usage cost accumulation: parses `api: $X.XX, Xs, in=N out=N` lines from Claude Code CLI output and displays running totals (cost, time, input/output tokens) right-justified in the filter row. Uses incremental accumulation from the full payload to survive log rotation — a ref tracks how many update entries have been processed, and only new entries are scanned on each poll. Resets on task switch.
 
 **Backend:** Added `HELPING_HANDS_VERBOSE=full` as a third verbosity tier — disables both `_MAX_STORED_UPDATES` and `_MAX_UPDATE_LINE_CHARS` limits for unbounded log retention. Added `HELPING_HANDS_MAX_UPDATES` env var for custom update count caps. Implemented reference repos support in CLI (`--reference-repos`), Config, server API, Celery task, and schedule models — passed through to Hand base class for multi-repo context.
+
+---
+
+## Mar 16 — Metadata key constants (backend/model/provider) and env var constants (v241)
+
+**Metadata key constants:** Extracted `_META_BACKEND`, `_META_MODEL`, `_META_PROVIDER` to `base.py`, replacing 16 bare `"backend"`/`"model"`/`"provider"` dict key strings across `atomic.py`, `langgraph.py`, `iterative.py` (×2), `cli/base.py`, and `e2e.py`.
+
+**Env var constants:** Extracted `_ENV_GIT_TERMINAL_PROMPT` and `_ENV_GCM_INTERACTIVE` to both `base.py` and `github_url.py`, replacing 12 bare env var name strings in `_push_noninteractive()` and `noninteractive_env()`.
+
+**`tests/test_v241_metadata_envvar_constants.py`:** 35 tests — constant values/types/uniqueness, docstring presence, AST-based source consistency (no bare dict keys, no bare env var strings), import presence checks across all protocol modules.
+
+**35 new tests. 5773 passed, 239 skipped.**
 
 ---
 

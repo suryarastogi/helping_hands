@@ -15,10 +15,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from helping_hands.lib.config import _TRUTHY_VALUES
+from helping_hands.lib.config import _is_truthy_env
 from helping_hands.lib.hands.v1.hand.base import (
     _DEFAULT_GIT_USER_EMAIL,
     _DEFAULT_GIT_USER_NAME,
+    _GITHUB_ERRORS,
+    _META_BACKEND,
+    _META_MODEL,
     _META_PR_NUMBER,
     _META_PR_URL,
     _UUID_HEX_LENGTH,
@@ -160,10 +163,7 @@ class E2EHand(Hand):
     @staticmethod
     def _draft_pr_enabled() -> bool:
         """Check whether E2E PRs should be created as drafts."""
-        return (
-            os.environ.get("HELPING_HANDS_E2E_DRAFT_PR", "true").strip().lower()
-            in _TRUTHY_VALUES
-        )
+        return _is_truthy_env("HELPING_HANDS_E2E_DRAFT_PR", "true")
 
     def run(
         self,
@@ -211,8 +211,7 @@ class E2EHand(Hand):
         e2e_file = _E2E_MARKER_FILE
         e2e_path = repo_dir / e2e_file
 
-        gh_token = getattr(self.config, "github_token", "")
-        with GitHubClient(token=gh_token) as gh:
+        with GitHubClient(token=self.config.github_token) as gh:
             pr_url = ""
             resumed_pr = False
             pr_info: dict[str, Any] | None = None
@@ -229,7 +228,7 @@ class E2EHand(Hand):
                 try:
                     base_branch = gh.default_branch(repo)
                     clone_branch = base_branch
-                except Exception:
+                except _GITHUB_ERRORS:
                     logger.debug(
                         "Failed to fetch default branch for %s",
                         repo,
@@ -319,8 +318,8 @@ class E2EHand(Hand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": "e2e",
-                "model": self.config.model,
+                _META_BACKEND: "e2e",
+                _META_MODEL: self.config.model,
                 "hand_uuid": hand_uuid,
                 "hand_root": str(hand_root),
                 "repo": repo,

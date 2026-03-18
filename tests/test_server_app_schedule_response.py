@@ -138,15 +138,9 @@ class TestScheduleToResponse:
         assert resp.next_run_at is None
         assert resp.schedule_id == "sched-1"
 
-    def test_task_missing_optional_attrs_uses_defaults(self) -> None:
-        """Tasks without fix_ci/ci_check_wait_minutes/tools/etc use getattr defaults."""
+    def test_task_optional_attrs_use_correct_defaults(self) -> None:
+        """Tasks with default values for optional attrs produce expected response."""
         task = _FakeScheduledTask(enabled=False)
-        # Remove optional attrs to simulate older ScheduledTask versions
-        delattr(task, "fix_ci")
-        delattr(task, "ci_check_wait_minutes")
-        delattr(task, "github_token")
-        delattr(task, "reference_repos")
-        delattr(task, "tools")
 
         resp = _schedule_to_response(task)
 

@@ -31,17 +31,12 @@ class OpenAIProvider(AIProvider):
         Raises:
             RuntimeError: If the ``openai`` package is not installed.
         """
-        try:
-            from openai import OpenAI
-        except ImportError as exc:
-            raise RuntimeError(
-                f"OpenAI SDK is not installed. Install with: {self.install_hint}"
-            ) from exc
+        sdk = self._require_sdk("openai")
 
         api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:
-            return OpenAI(api_key=api_key)
-        return OpenAI()
+            return sdk.OpenAI(api_key=api_key)
+        return sdk.OpenAI()
 
     def _complete_impl(
         self,

@@ -10,6 +10,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
     _detect_auth_failure,
     _TwoPhaseCLIHand,
 )
+from helping_hands.lib.validation import has_cli_flag
 
 __all__ = ["GeminiCLIHand"]
 
@@ -43,9 +44,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         Returns:
             Human-readable string indicating whether ``GEMINI_API_KEY`` is set.
         """
-        import os
-
-        present = "set" if os.environ.get("GEMINI_API_KEY", "").strip() else "not set"
+        present = self._env_var_status("GEMINI_API_KEY")
         return f"auth=GEMINI_API_KEY ({present})"
 
     @staticmethod
@@ -123,10 +122,7 @@ class GeminiCLIHand(_TwoPhaseCLIHand):
         Returns:
             True if ``--approval-mode`` or ``--approval-mode=`` is present.
         """
-        return any(
-            token == "--approval-mode" or token.startswith("--approval-mode=")
-            for token in cmd
-        )
+        return has_cli_flag(cmd, "approval-mode")
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
         """Inject ``--approval-mode auto_edit`` if not already present.

@@ -54,7 +54,7 @@ class TestOllamaProviderBuildInner:
         with patch.dict(sys.modules, {"openai": None}):
             provider = OllamaProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="OpenAI SDK is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
 
@@ -132,7 +132,9 @@ class TestOllamaProviderSingleton:
         assert isinstance(OLLAMA_PROVIDER, OllamaProvider)
 
     def test_singleton_identity_across_imports(self) -> None:
-        from helping_hands.lib.ai_providers.ollama import OLLAMA_PROVIDER as FIRST
-        from helping_hands.lib.ai_providers.ollama import OLLAMA_PROVIDER as SECOND
+        from helping_hands.lib.ai_providers.ollama import (
+            OLLAMA_PROVIDER as FIRST,
+            OLLAMA_PROVIDER as SECOND,
+        )
 
         assert FIRST is SECOND

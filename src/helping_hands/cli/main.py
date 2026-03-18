@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
-import os
 import re
 import shutil
 import subprocess
@@ -19,36 +18,34 @@ from typing import Any, cast
 from helping_hands.lib.config import Config, ConfigValue
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
+    DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
-)
-from helping_hands.lib.github_url import (
+    REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
     build_clone_url as _build_clone_url,
-)
-from helping_hands.lib.github_url import (
+    invalid_repo_msg as _invalid_repo_msg,
     noninteractive_env as _git_noninteractive_env,
-)
-from helping_hands.lib.github_url import (
     redact_credentials as _redact_sensitive,
-)
-from helping_hands.lib.github_url import (
+    repo_tmp_dir as _repo_tmp_dir,
     validate_repo_spec as _validate_repo_spec,
 )
-from helping_hands.lib.hands.v1.hand import (
-    BasicAtomicHand,
-    BasicLangGraphHand,
-    ClaudeCodeHand,
-    CodexCLIHand,
-    DockerSandboxClaudeCodeHand,
-    E2EHand,
-    GeminiCLIHand,
-    GooseCLIHand,
-    Hand,
-    OpenCodeCLIHand,
+from helping_hands.lib.hands.v1.hand import E2EHand, Hand
+from helping_hands.lib.hands.v1.hand.factory import (
+    BACKEND_BASIC_AGENT,
+    BACKEND_BASIC_ATOMIC,
+    BACKEND_BASIC_LANGGRAPH,
+    BACKEND_CLAUDECODECLI,
+    BACKEND_CODEXCLI,
+    BACKEND_DOCKER_SANDBOX_CLAUDE,
+    BACKEND_E2E,
+    BACKEND_GEMINICLI,
+    BACKEND_GOOSE,
+    SUPPORTED_BACKENDS,
+    create_hand,
 )
 from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
-from helping_hands.lib.validation import require_positive_int
+from helping_hands.lib.validation import install_hint, require_positive_int
 
 __all__ = ["build_parser", "main"]
 
@@ -60,8 +57,36 @@ _DEFAULT_CLONE_DEPTH = 1
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
 
-_REPO_SPEC_PATTERN = r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
-"""Regex pattern matching a GitHub ``owner/repo`` specifier."""
+_MODEL_NOT_FOUND_MARKERS: tuple[str, ...] = ("model_not_found", "does not exist")
+"""Substrings in exception messages that indicate a model-not-found error."""
+
+_MODEL_NOT_AVAILABLE_MSG = (
+    "model {model!r} is not available. "
+    "Pass a valid model via --model (or HELPING_HANDS_MODEL), "
+    "for example: --model gpt-5.2"
+)
+"""User-facing message template when the requested model is not found."""
+
+_CLI_ERROR_EXIT_BACKENDS: frozenset[str] = frozenset(
+    {
+        BACKEND_CODEXCLI,
+        BACKEND_CLAUDECODECLI,
+        BACKEND_DOCKER_SANDBOX_CLAUDE,
+        BACKEND_GOOSE,
+        BACKEND_GEMINICLI,
+    }
+)
+"""Backends that print the error and ``sys.exit(1)`` instead of re-raising."""
+
+
+def _error_exit(msg: str) -> None:
+    """Print *msg* to stderr prefixed with ``Error:`` and exit with code 1.
+
+    Args:
+        msg: The error description to display.
+    """
+    print(f"Error: {msg}", file=sys.stderr)
+    sys.exit(1)
 
 
 def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
@@ -82,8 +107,7 @@ def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
     try:
         return fn(*args, **kwargs)  # type: ignore[operator]
     except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        _error_exit(str(exc))
 
 
 def _run_git_clone(
@@ -116,9 +140,66 @@ def _run_git_clone(
             f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {label}"
         ) from exc
     if result.returncode != 0:
-        stderr = _redact_sensitive(result.stderr.strip() or "unknown git clone error")
+        stderr = _redact_sensitive(result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG)
         raise ValueError(f"failed to clone {label}: {stderr}")
     return result
+
+
+def _build_config_overrides(
+    args: argparse.Namespace,
+    *,
+    repo: str,
+    selected_tools: frozenset[str],
+    selected_skills: frozenset[str],
+) -> dict[str, ConfigValue]:
+    """Build the ``Config.from_env`` overrides dict from parsed CLI args.
+
+    Both the ``--e2e`` and regular backend code paths need the same set of
+    overrides; only the *repo* value differs (raw arg vs resolved path).
+
+    Args:
+        args: Parsed CLI namespace.
+        repo: The repo value to embed (raw string for e2e, resolved path
+            string otherwise).
+        selected_tools: Validated tool category names.
+        selected_skills: Validated skill names.
+
+    Returns:
+        A dict suitable for passing as ``Config.from_env(overrides=…)``.
+    """
+    return cast(
+        dict[str, Any],
+        {
+            "repo": repo,
+            "model": args.model,
+            "verbose": args.verbose,
+            "enable_execution": args.enable_execution,
+            "enable_web": args.enable_web,
+            "use_native_cli_auth": args.use_native_cli_auth,
+            "enabled_tools": selected_tools,
+            "enabled_skills": selected_skills,
+            "github_token": args.github_token,
+            "reference_repos": args.reference_repos,
+        },
+    )
+
+
+def _make_temp_clone_dir(prefix: str) -> Path:
+    """Create a temporary directory for cloning and register it for cleanup.
+
+    Creates a temp directory with the given *prefix* under the configured
+    temp root, registers ``shutil.rmtree`` via ``atexit``, and returns
+    the nested ``repo`` subdirectory path (which does not yet exist).
+
+    Args:
+        prefix: Prefix for the ``mkdtemp`` call.
+
+    Returns:
+        Path to the ``<tmpdir>/repo`` subdirectory.
+    """
+    dest_root = Path(mkdtemp(prefix=prefix, dir=_repo_tmp_dir()))
+    atexit.register(shutil.rmtree, dest_root, True)
+    return dest_root / "repo"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -152,17 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--backend",
-        choices=(
-            "basic-langgraph",
-            "basic-atomic",
-            "basic-agent",
-            "codexcli",
-            "claudecodecli",
-            "docker-sandbox-claude",
-            "goose",
-            "geminicli",
-            "opencodecli",
-        ),
+        choices=sorted(SUPPORTED_BACKENDS - {BACKEND_E2E}),
         default=None,
         help="Run an iterative coding hand in CLI mode.",
     )
@@ -246,11 +317,15 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
-    selected_tools = _validate_or_exit(meta_tools.normalize_tool_selection, args.tools)
+    selected_tools: frozenset[str] = cast(
+        frozenset[str],
+        _validate_or_exit(meta_tools.normalize_tool_selection, args.tools),
+    )
     _validate_or_exit(meta_tools.validate_tool_category_names, selected_tools)
 
-    selected_skills = _validate_or_exit(
-        meta_skills.normalize_skill_selection, args.skills
+    selected_skills: frozenset[str] = cast(
+        frozenset[str],
+        _validate_or_exit(meta_skills.normalize_skill_selection, args.skills),
     )
     _validate_or_exit(meta_skills.validate_skill_names, selected_skills)
 
@@ -260,22 +335,14 @@ def main(argv: list[str] | None = None) -> None:
         _validate_or_exit(require_positive_int, args.max_iterations, "--max-iterations")
 
     if args.e2e:
-        e2e_overrides: dict[str, ConfigValue] = cast(
-            dict[str, Any],
-            {
-                "repo": args.repo,
-                "model": args.model,
-                "verbose": args.verbose,
-                "enable_execution": args.enable_execution,
-                "enable_web": args.enable_web,
-                "use_native_cli_auth": args.use_native_cli_auth,
-                "enabled_tools": selected_tools,
-                "enabled_skills": selected_skills,
-                "github_token": args.github_token,
-                "reference_repos": args.reference_repos,
-            },
+        config = Config.from_env(
+            overrides=_build_config_overrides(
+                args,
+                repo=args.repo,
+                selected_tools=selected_tools,
+                selected_skills=selected_skills,
+            )
         )
-        config = Config.from_env(overrides=e2e_overrides)
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         response = E2EHand(config, repo_index).run(
             args.prompt,
@@ -291,27 +358,18 @@ def main(argv: list[str] | None = None) -> None:
     try:
         repo_path, cloned_from = _resolve_repo_path(args.repo)
     except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        _error_exit(str(exc))
     if cloned_from:
         print(f"Cloned {cloned_from} to {repo_path}")
 
-    run_overrides: dict[str, ConfigValue] = cast(
-        dict[str, Any],
-        {
-            "repo": str(repo_path),
-            "model": args.model,
-            "verbose": args.verbose,
-            "enable_execution": args.enable_execution,
-            "enable_web": args.enable_web,
-            "use_native_cli_auth": args.use_native_cli_auth,
-            "enabled_tools": selected_tools,
-            "enabled_skills": selected_skills,
-            "github_token": args.github_token,
-            "reference_repos": args.reference_repos,
-        },
+    config = Config.from_env(
+        overrides=_build_config_overrides(
+            args,
+            repo=str(repo_path),
+            selected_tools=selected_tools,
+            selected_skills=selected_skills,
+        )
     )
-    config = Config.from_env(overrides=run_overrides)
     repo_index = RepoIndex.from_path(Path(config.repo))
     if config.reference_repos:
         _clone_reference_repos(
@@ -321,83 +379,45 @@ def main(argv: list[str] | None = None) -> None:
     if args.backend:
         hand: Hand
         try:
-            if args.backend == "basic-langgraph":
-                hand = BasicLangGraphHand(
-                    config,
-                    repo_index,
-                    max_iterations=args.max_iterations,
-                )
-            elif args.backend == "codexcli":
-                hand = CodexCLIHand(config, repo_index)
-            elif args.backend == "claudecodecli":
-                hand = ClaudeCodeHand(config, repo_index)
-            elif args.backend == "docker-sandbox-claude":
-                hand = DockerSandboxClaudeCodeHand(config, repo_index)
-            elif args.backend == "goose":
-                hand = GooseCLIHand(config, repo_index)
-            elif args.backend == "geminicli":
-                hand = GeminiCLIHand(config, repo_index)
-            elif args.backend == "opencodecli":
-                hand = OpenCodeCLIHand(config, repo_index)
-            else:
-                hand = BasicAtomicHand(
-                    config,
-                    repo_index,
-                    max_iterations=args.max_iterations,
-                )
+            hand = create_hand(
+                args.backend,
+                config,
+                repo_index,
+                max_iterations=args.max_iterations,
+            )
             hand.auto_pr = not args.no_pr
         except ModuleNotFoundError as exc:
-            extra = "langchain" if args.backend == "basic-langgraph" else "atomic"
-            if args.backend in {"basic-atomic", "basic-agent"} and sys.version_info < (
+            extra = "langchain" if args.backend == BACKEND_BASIC_LANGGRAPH else "atomic"
+            if args.backend in {
+                BACKEND_BASIC_ATOMIC,
+                BACKEND_BASIC_AGENT,
+            } and sys.version_info < (
                 3,
                 12,
             ):
-                print(
-                    (
-                        f"Error: --backend {args.backend} requires Python >= 3.12. "
-                        "Current Python is "
-                        f"{sys.version_info.major}.{sys.version_info.minor}. "
-                        "Re-run with Python 3.12+, e.g. "
-                        "'uv sync --python 3.12 --dev --extra atomic' and "
-                        "'uv run --python 3.12 helping-hands ...'"
-                    ),
-                    file=sys.stderr,
+                _error_exit(
+                    f"--backend {args.backend} requires Python >= 3.12. "
+                    "Current Python is "
+                    f"{sys.version_info.major}.{sys.version_info.minor}. "
+                    "Re-run with Python 3.12+, e.g. "
+                    "'uv sync --python 3.12 --dev --extra atomic' and "
+                    "'uv run --python 3.12 helping-hands ...'"
                 )
-                sys.exit(1)
-            print(
-                (
-                    f"Error: missing dependency for --backend {args.backend}: {exc}. "
-                    f"Install with: uv sync --extra {extra}"
-                ),
-                file=sys.stderr,
+            _error_exit(
+                f"missing dependency for --backend {args.backend}: {exc}. "
+                f"{install_hint(extra)}"
             )
-            sys.exit(1)
         try:
             asyncio.run(_stream_hand(hand, args.prompt))
         except KeyboardInterrupt:
             hand.interrupt()
             print("\nInterrupted by user.")
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             msg = str(exc)
-            if "model_not_found" in msg or "does not exist" in msg:
-                print(
-                    (
-                        f"Error: model {config.model!r} is not available. "
-                        "Pass a valid model via --model (or HELPING_HANDS_MODEL), "
-                        "for example: --model gpt-5.2"
-                    ),
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            if args.backend in {
-                "codexcli",
-                "claudecodecli",
-                "docker-sandbox-claude",
-                "goose",
-                "geminicli",
-            }:
-                print(f"Error: {msg}", file=sys.stderr)
-                sys.exit(1)
+            if any(marker in msg for marker in _MODEL_NOT_FOUND_MARKERS):
+                _error_exit(_MODEL_NOT_AVAILABLE_MSG.format(model=config.model))
+            if args.backend in _CLI_ERROR_EXIT_BACKENDS:
+                _error_exit(msg)
             raise
         return
 
@@ -437,21 +457,6 @@ def _github_clone_url(repo: str, token: str | None = None) -> str:
     return _build_clone_url(repo, token=token)
 
 
-def _repo_tmp_dir() -> Path | None:
-    """Return the directory to use for temporary repo clones.
-
-    Reads HELPING_HANDS_REPO_TMP; falls back to the OS default temp dir.
-    Setting this to a known path (e.g. /tmp/helping_hands or a project tmp/)
-    keeps clones out of /var/folders and makes manual cleanup easy.
-    """
-    d = os.environ.get("HELPING_HANDS_REPO_TMP", "").strip()
-    if d:
-        p = Path(d).expanduser()
-        p.mkdir(parents=True, exist_ok=True)
-        return p
-    return None
-
-
 def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
     """Resolve a repo argument to a local directory path.
 
@@ -476,18 +481,16 @@ def _resolve_repo_path(repo: str) -> tuple[Path, str | None]:
         return path, None
 
     if re.fullmatch(_REPO_SPEC_PATTERN, repo):
-        dest_root = Path(mkdtemp(prefix=_TEMP_CLONE_PREFIX, dir=_repo_tmp_dir()))
-        atexit.register(shutil.rmtree, dest_root, True)
-        dest = dest_root / "repo"
+        dest = _make_temp_clone_dir(_TEMP_CLONE_PREFIX)
         url = _github_clone_url(repo)
         try:
             _run_git_clone(url, dest, label=repo)
         except ValueError:
-            shutil.rmtree(dest_root, ignore_errors=True)
+            shutil.rmtree(dest.parent, ignore_errors=True)
             raise
         return dest.resolve(), repo
 
-    raise ValueError(f"{repo} is not a directory or owner/repo reference")
+    raise ValueError(_invalid_repo_msg(repo))
 
 
 def _clone_reference_repos(
@@ -504,11 +507,7 @@ def _clone_reference_repos(
             print(f"Warning: skipping invalid reference repo {spec!r}: {exc}")
             continue
         safe_name = spec.replace("/", "_")
-        dest_root = Path(
-            mkdtemp(prefix=f"helping_hands_ref_{safe_name}_", dir=_repo_tmp_dir())
-        )
-        atexit.register(shutil.rmtree, dest_root, True)
-        dest = dest_root / "repo"
+        dest = _make_temp_clone_dir(f"helping_hands_ref_{safe_name}_")
         url = _github_clone_url(spec, token=github_token)
         try:
             _run_git_clone(url, dest, label=spec)

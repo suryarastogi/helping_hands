@@ -18,8 +18,12 @@ from github import Auth, Github
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
-from helping_hands.lib.github_url import GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER
-from helping_hands.lib.github_url import redact_credentials as _redact_credentials
+from helping_hands.lib.github_url import (
+    GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
+    redact_credentials as _redact_credentials,
+    resolve_github_token as _resolve_github_token,
+    validate_repo_spec as _validate_repo_spec,
+)
 from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
 __all__ = ["CIConclusion", "GitHubClient", "PRResult"]
@@ -106,6 +110,9 @@ def _git_timeout() -> int:
 def _validate_full_name(full_name: str) -> None:
     """Validate that *full_name* matches the ``owner/repo`` format.
 
+    Delegates to :func:`github_url.validate_repo_spec` for the structural
+    check, then adds a whitespace guard specific to API-facing full names.
+
     Raises:
         ValueError: If the string is empty, missing a ``/``, has empty segments,
             or contains whitespace.
@@ -113,11 +120,7 @@ def _validate_full_name(full_name: str) -> None:
     require_non_empty_string(full_name, "full_name")
     if " " in full_name or "\t" in full_name:
         raise ValueError(f"full_name must not contain whitespace: {full_name!r}")
-    parts = full_name.split("/")
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(
-            f"full_name must be in 'owner/repo' format, got: {full_name!r}"
-        )
+    _validate_repo_spec(full_name)
 
 
 def _validate_branch_name(branch_name: str) -> None:
@@ -174,9 +177,7 @@ class GitHubClient:
         Raises:
             ValueError: If no token is available from any source.
         """
-        resolved = self.token or os.environ.get(
-            "GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")
-        )
+        resolved = _resolve_github_token(self.token)
         if not resolved:
             msg = (
                 "No GitHub token provided. Set GITHUB_TOKEN or GH_TOKEN, "
@@ -559,9 +560,9 @@ class GitHubClient:
             overall: str = CIConclusion.NO_CHECKS
         elif any(r["status"] != _CHECK_RUN_STATUS_COMPLETED for r in check_list):
             overall = CIConclusion.PENDING
-        elif all(r["conclusion"] == "success" for r in check_list):
+        elif all(r["conclusion"] == CIConclusion.SUCCESS for r in check_list):
             overall = CIConclusion.SUCCESS
-        elif any(r["conclusion"] == "failure" for r in check_list):
+        elif any(r["conclusion"] == CIConclusion.FAILURE for r in check_list):
             overall = CIConclusion.FAILURE
         else:
             overall = CIConclusion.MIXED

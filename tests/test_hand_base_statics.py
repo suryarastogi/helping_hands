@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from github import GithubException
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.base import (
@@ -475,7 +476,7 @@ class TestUpdatePrDescription:
         hand.pr_number = 42
 
         mock_gh = MagicMock()
-        mock_gh.update_pr_body.side_effect = RuntimeError("API error")
+        mock_gh.update_pr_body.side_effect = GithubException(500, "API error", None)
 
         with patch(
             "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",
@@ -701,7 +702,7 @@ class TestPushToExistingPrWhoamiException:
             "user": "some-user",
         }
         mock_gh.add_and_commit.return_value = "sha789"
-        mock_gh.whoami.side_effect = RuntimeError("network error")
+        mock_gh.whoami.side_effect = GithubException(401, "network error", None)
 
         with (
             patch.object(Hand, "_push_noninteractive"),
@@ -784,7 +785,7 @@ class TestFinalizeDefaultBranchException:
         mock_gh = MagicMock()
         mock_gh.__enter__ = MagicMock(return_value=mock_gh)
         mock_gh.__exit__ = MagicMock(return_value=False)
-        mock_gh.get_repo.side_effect = RuntimeError("API error")
+        mock_gh.get_repo.side_effect = GithubException(500, "API error", None)
         mock_gh.create_pr.return_value = MagicMock(
             url="https://github.com/owner/repo/pull/1",
             number=1,
@@ -976,7 +977,7 @@ class TestFinalizeDefaultBranchExceptionLogging:
         mock_gh = MagicMock()
         mock_gh.__enter__ = MagicMock(return_value=mock_gh)
         mock_gh.__exit__ = MagicMock(return_value=False)
-        mock_gh.get_repo.side_effect = RuntimeError("API down")
+        mock_gh.get_repo.side_effect = GithubException(503, "API down", None)
         mock_gh.create_pr.return_value = MagicMock(
             url="https://github.com/owner/repo/pull/1",
             number=1,
@@ -1038,7 +1039,7 @@ class TestPushToExistingPrWhoamiExceptionLogging:
             "user": "some-user",
         }
         mock_gh.add_and_commit.return_value = "sha789"
-        mock_gh.whoami.side_effect = RuntimeError("network error")
+        mock_gh.whoami.side_effect = GithubException(401, "network error", None)
 
         with (
             patch.object(Hand, "_push_noninteractive"),

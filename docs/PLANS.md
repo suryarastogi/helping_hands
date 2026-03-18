@@ -8,6 +8,244 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-17 v272](exec-plans/completed/2026/v272-mcp-path-error-cli-overrides-narrow-exception.md) —
+  MCP `_reraise_path_error()` helper, CLI `_build_config_overrides()` DRY,
+  narrow `except Exception` to `(RuntimeError, ValueError, OSError)`;
+  20 tests (6298 passed, 273 skipped)
+
+- [2026-03-17 v271](exec-plans/completed/2026/v271-format-cli-failure-helper.md) —
+  Extract `_format_cli_failure()` to DRY auth-failure message formatting
+  across codex, claude, opencode CLI hands; 24 tests (6278 passed, 273 skipped)
+
+- [2026-03-17 v270](exec-plans/completed/2026/v270-has-cli-flag-install-hint-check-dep.md) —
+  `has_cli_flag()`, `install_hint()`, `_check_optional_dep()` DRY extraction;
+  20 tests (6254 passed, 273 skipped)
+
+- [2026-03-17 v269](exec-plans/completed/2026/v269-empty-model-markers-parse-comma-list.md) —
+  Extract `_EMPTY_MODEL_MARKERS` constant and `parse_comma_list()` helper;
+  17 tests (6254 passed, 272 skipped)
+
+- [2026-03-17 v267](exec-plans/completed/2026/v267-dry-cli-label-prefix.md) —
+  Extract `_label_msg()` helper on `_TwoPhaseCLIHand` to DRY 32 inline
+  `f"[{self._CLI_LABEL}] ..."` patterns; 7 tests (6220 passed, 272 skipped)
+
+- [2026-03-17 v266](exec-plans/completed/2026/v266-langchain-import-helper.md) —
+  Extract `_require_langchain_class()` helper to deduplicate 3 identical
+  `try/except ModuleNotFoundError` blocks in `build_langchain_chat_model()`;
+  11 tests
+
+- [2026-03-17 v265](exec-plans/completed/2026/v265-provider-import-guard-api-key-map.md) —
+  Extract `_require_sdk()` helper on `AIProvider` base class (dedup 5 identical
+  ImportError blocks), `PROVIDER_API_KEY_ENV` constant in `model_provider.py`
+  (dedup 2 identical provider-to-env-var dicts);
+  22 tests (6206 passed, 272 skipped)
+
+- [2026-03-17 v264](exec-plans/completed/2026/v264-validation-dedup-exception-constants-env-vars.md) —
+  Shared owner/repo validation via `validate_repo_spec`, `_TOOL_EXECUTION_ERRORS`/
+  `_RUN_ASYNC_ERRORS` exception tuple constants, 9 `_ENV_*` constants in `config.py`;
+  33 tests (6184 passed, 272 skipped)
+
+- [2026-03-17 v263](exec-plans/completed/2026/v263-dry-run-git-diff-helper.md) —
+  Extract `_run_git_diff()` helper to deduplicate 3 subprocess+exception blocks
+  in `pr_description.py`; 17 tests (6151 passed, 272 skipped)
+
+- [2026-03-17 v262](exec-plans/completed/2026/v262-stream-json-constant-normalize-preview-extract-blocks.md) —
+  Extract `_OUTPUT_FORMAT_STREAM_JSON` constant, `_normalize_preview()` and
+  `_extract_message_blocks()` helpers in `_StreamJsonEmitter`;
+  23 tests (6133 passed, 272 skipped)
+
+- [2026-03-17 v261](exec-plans/completed/2026/v261-repo-spec-pattern-validation-type-error-helper.md) —
+  Extract `REPO_SPEC_PATTERN` to `github_url.py` (3 duplicates), `invalid_repo_msg()`
+  helper (2 duplicates), `format_type_error()` in `validation.py` (3 similar patterns);
+  29 tests (6110 passed, 272 skipped)
+
+- [2026-03-17 v260](exec-plans/completed/2026/v260-unify-truthy-values-env-helpers.md) —
+  Unify `_TRUTHY_VALUES` with `"on"`, add `_get_env_stripped()` helper,
+  update `_is_truthy_env()` to strip whitespace, remove `_PR_TRUTHY_VALUES`
+  and `_CLI_TRUTHY_VALUES` duplicates; 28 tests (6083 passed, 270 skipped)
+
+- [2026-03-17 v259](exec-plans/completed/2026/v259-dry-repo-tmp-token-resolution-truthy.md) —
+  DRY `_repo_tmp_dir()` (deduplicate `cli/main.py` + `celery_app.py` → shared
+  `repo_tmp_dir()` in `github_url.py`), extract `resolve_github_token()` helper
+  (deduplicate `github.py` + `github_url.py`), unify truthy values in
+  `pr_description.py` with `_TRUTHY_VALUES` from config; 32 tests (6055 passed,
+  270 skipped)
+
+- [2026-03-17 v258](exec-plans/completed/2026/v258-dry-env-var-parsing-pr-description.md) —
+  DRY env var parsing in `pr_description.py`: extract `_parse_positive_env_var()`
+  helper, reduce `_timeout_seconds()` and `_diff_char_limit()` to one-line
+  delegations; 21 tests (6023 passed, 270 skipped)
+
+- [2026-03-17 v257](exec-plans/completed/2026/v257-centralize-default-max-iterations.md) —
+  Centralize `DEFAULT_MAX_ITERATIONS` constant: define in `iterative.py`,
+  re-export from `server/constants.py`, replace 5 bare `6` defaults across
+  `iterative.py`, `mcp_server.py`, `celery_app.py`; 14 tests (6002 passed, 270 skipped)
+
+- [2026-03-17 v256](exec-plans/completed/2026/v256-dry-env-var-status-describe-auth.md) —
+  DRY `_env_var_status()` static method on `_TwoPhaseCLIHand` replacing 5
+  inline `os.environ.get(env_var, "").strip()` patterns across CLI hand
+  `_describe_auth()` methods; removed stale `import os` from gemini.py,
+  goose.py, opencode.py; 16 tests (5988 passed, 270 skipped)
+
+- [2026-03-17 v255](exec-plans/completed/2026/v255-consolidate-imports-magic-numbers-factory-tests.md) —
+  Consolidate verbose single-item `as`-aliased imports in `celery_app.py` (24 → 3 statements)
+  and `app.py` (25 → 1 statement) via `combine-as-imports = true` ruff isort config;
+  extract 6 magic number constants in `celery_app.py`; 12 tests (5972 passed, 270 skipped)
+
+- [2026-03-17 v254](exec-plans/completed/2026/v254-remaining-getattr-simplification.md) —
+  Replace 4 remaining defensive `getattr()` calls with direct attribute access:
+  `response.status` in `web.py`, `repo_obj.default_branch` in `base.py`,
+  `existing.github_token` in `app.py`, `self.request.id` in `celery_app.py`;
+  10 tests (5960 passed, 270 skipped)
+
+- [2026-03-17 v253](exec-plans/completed/2026/v253-simplify-schedule-getattr-to-direct-access.md) —
+  Replace 10 defensive `getattr(schedule/task, ...)` calls with direct attribute
+  access in `celery_app.py` `scheduled_build()` and `app.py`
+  `_schedule_to_response()` (all fields exist on `ScheduledTask` dataclass);
+  14 tests (2 passed, 12 skipped without server extras; 5951 passed total)
+
+- [2026-03-17 v252](exec-plans/completed/2026/v252-backend-lookup-constants-factory-coverage.md) —
+  Replace bare backend string literals in `app.py` `_BACKEND_LOOKUP` keys and
+  `mcp_server.py` default with `BACKEND_*` factory constants; mock-based tests
+  bring `factory.py` from 79% to 100% coverage;
+  8 tests (5950 passed, 256 skipped)
+
+- [2026-03-17 v251](exec-plans/completed/2026/v251-github-errors-constant-celery-exception-narrowing.md) —
+  `_GITHUB_ERRORS` exception tuple constant replacing 5 bare `(GithubException, OSError)`
+  in `base.py` (4×) and `e2e.py` (1×); narrow `except Exception` in `app.py`
+  `_safe_inspect_call` and `_collect_celery_current_tasks` to
+  `(AttributeError, ConnectionError, OSError, TimeoutError)`;
+  19 tests (5942 passed, 254 skipped)
+
+- [2026-03-17 v250](exec-plans/completed/2026/v250-hand-factory-backend-constants.md) —
+  Hand factory function + backend name constants: `create_hand()` factory
+  replacing duplicated if/elif chains in `cli/main.py` and `celery_app.py`,
+  `BACKEND_*` constants and `SUPPORTED_BACKENDS` frozenset;
+  38 tests (5926 passed, 254 skipped)
+
+- [2026-03-17 v249](exec-plans/completed/2026/v249-deduplicate-env-var-constants.md) —
+  Deduplicate `_ENV_GIT_TERMINAL_PROMPT`/`_ENV_GCM_INTERACTIVE` constants
+  (defined in both `github_url.py` and `base.py` → canonical public constants
+  in `github_url.py`, imported by `base.py`); 16 tests (5893 passed, 249 skipped)
+
+- [2026-03-17 v248](exec-plans/completed/2026/v248-git-not-found-constants-narrow-exceptions.md) —
+  Extract `_GIT_NOT_FOUND_DIFF_MSG`, `_GIT_NOT_FOUND_UNCOMMITTED_MSG`,
+  `_CLI_NOT_FOUND_MSG` constants in `pr_description.py` (6 bare strings → 3
+  constants); narrow `except Exception` in `atomic.py` and `iterative.py`
+  `run_async` handlers to `(RuntimeError, TypeError, ValueError, AttributeError, OSError)`;
+  22 tests (5877 passed, 249 skipped)
+
+- [2026-03-17 v247](exec-plans/completed/2026/v247-provider-name-constants.md) —
+  Extract `_PROVIDER_*` name constants in `model_provider.py`, replace 20
+  bare provider name strings across `model_provider.py` and `goose.py`;
+  24 tests (5855 passed, 249 skipped)
+
+- [2026-03-16 v246](exec-plans/completed/2026/v246-simplify-config-getattr-to-direct-access.md) —
+  Replace 12 defensive `getattr(self.config, ...)` calls with direct
+  `self.config.field` access across 4 hand files (base.py, iterative.py,
+  cli/base.py, e2e.py); 21 tests (5826 passed, 249 skipped)
+
+- [2026-03-16 v245](exec-plans/completed/2026/v245-schedule-detail-skip-permissions-constants.md) —
+  Extract `_SCHEDULE_NOT_FOUND_DETAIL` constant in app.py (5 bare strings → 1),
+  extract `_SKIP_PERMISSIONS_FLAG` constant in claude.py (4 bare strings → 1);
+  17 tests (5810 passed, 249 skipped)
+
+- [2026-03-16 v244](exec-plans/completed/2026/v244-cli-error-constants-health-exception-narrowing.md) —
+  Extract `_MODEL_NOT_FOUND_MARKERS`, `_MODEL_NOT_AVAILABLE_MSG`, and
+  `_CLI_ERROR_EXIT_BACKENDS` constants in cli/main.py; narrow `except Exception`
+  in `_check_workers_health()` and `_resolve_worker_capacity()` to
+  `(ConnectionError, OSError, TimeoutError)`;
+  21 tests (5792 passed, 246 skipped)
+
+- [2026-03-16 v243](exec-plans/completed/2026/v243-dry-progress-emitter-clone-error-constant.md) —
+  DRY `_ProgressEmitter` class (replacing 5× `_update_progress` calls with ~20
+  identical kwargs each in `celery_app.py`), refactor `_collect_stream` to
+  accept emitter, extract `DEFAULT_CLONE_ERROR_MSG` constant to `github_url.py`;
+  22 tests (5773 passed, 241 skipped)
+
+- [2026-03-16 v242](exec-plans/completed/2026/v242-dry-usage-level-narrow-exceptions.md) —
+  DRY `_extract_usage_level()` helper (replacing 2× 12-line inline blocks in
+  `_fetch_claude_usage()`), narrow `except Exception` in `_get_claude_oauth_token()`
+  to `(subprocess.SubprocessError, OSError)` and in `_fetch_claude_usage()` to
+  `(urllib_error.URLError, OSError, json.JSONDecodeError)`;
+  23 tests (6754 passed, 2 skipped)
+
+- [2026-03-16 v241](exec-plans/completed/2026/v241-metadata-envvar-constants.md) —
+  Extract `_META_BACKEND`/`_META_MODEL`/`_META_PROVIDER` metadata key constants
+  and `_ENV_GIT_TERMINAL_PROMPT`/`_ENV_GCM_INTERACTIVE` env var constants;
+  replace 21 bare strings across 7 files; 35 tests (5773 passed, 239 skipped)
+
+
+- [2026-03-16 v240](exec-plans/completed/2026/v240-stream-iteration-dry-nested-field.md) —
+  DRY `_process_stream_iteration()` (2× 18-line inline → 1 method) and
+  `_stream_max_iterations_tail()` (2× 9-line inline → 1 method) in
+  iterative.py; DRY `_extract_nested_str_field()` in app.py (2 functions → 1
+  shared helper); 32 tests (5738 passed, 239 skipped)
+
+- [2026-03-16 v239](exec-plans/completed/2026/v239-dry-feedback-github-tests.md) —
+  DRY `_collect_tool_feedback()` (4× inline → 1 method) and
+  `_append_iteration_transcript()` (2× inline → 1 static method) in
+  iterative.py; dedicated tests for `_github_repo_from_origin()`,
+  `get_check_runs()`, and `upsert_pr_comment()`;
+  42 tests (5720 passed, 225 skipped)
+
+- [2026-03-16 v238](exec-plans/completed/2026/v238-atomic-dry-extract-message-make-input-guard.md) —
+  DRY `_extract_message()` static method on `AtomicHand` (replacing 3 inline
+  `hasattr(partial, "chat_message")` checks + 1 direct `.chat_message` access),
+  `_make_input` `_input_schema is None` guard tests on both Atomic hand classes;
+  17 tests (5678 passed, 225 skipped)
+
+- [2026-03-16 v237](exec-plans/completed/2026/v237-remaining-exception-narrowing.md) —
+  Narrow remaining `except Exception` in base.py (2 sites), cli/base.py (1 site),
+  and app.py (2 sites) to specific exception types;
+  24 tests (5665 passed, 225 skipped)
+
+- [2026-03-16 v236](exec-plans/completed/2026/v236-ci-conclusion-enum-github-exception-narrowing.md) —
+  Use `CIConclusion` enum members in `github.py` comparisons, narrow `except Exception`
+  to `(GithubException, OSError)` in `base.py` (3 sites) and `e2e.py` (1 site);
+  16 tests (5641 passed, 225 skipped)
+
+- [2026-03-16 v235](exec-plans/completed/2026/v235-pr-error-constant-schedules-exception-narrowing.md) —
+  Extract `_META_PR_ERROR` constant (replacing 5 bare `"pr_error"` strings), narrow
+  `except Exception` in `schedules.py` (`_save_meta`, `_delete_meta`, `_list_meta_keys`);
+  15 tests (5625 passed, 225 skipped)
+
+- [2026-03-16 v234](exec-plans/completed/2026/v234-redis-url-constant-health-check-exception-narrowing.md) —
+  Extract `DEFAULT_REDIS_URL` constant to `server/constants.py`, narrow `except Exception`
+  handlers in health checks (`_check_redis_health`, `_check_db_health`) and
+  `celery_app.py` (`log_claude_usage` DB write, `ensure_usage_schedule`);
+  22 tests (5610 passed, 225 skipped)
+
+- [2026-03-16 v233](exec-plans/completed/2026/v233-response-status-constants-exception-narrowing.md) —
+  Extract response status constants (`RESPONSE_STATUS_OK`, `RESPONSE_STATUS_ERROR`,
+  `RESPONSE_STATUS_NA`) to `server/constants.py`, narrow `except Exception` handlers
+  in `log_claude_usage()` to specific exception types;
+  22 tests (5588 passed, 220 skipped)
+
+- [2026-03-16 v232](exec-plans/completed/2026/v232-redbeat-constants-exception-narrowing.md) —
+  Extract RedBeat prefix constants (`REDBEAT_KEY_PREFIX`, `REDBEAT_SCHEDULE_ENTRY_PREFIX`,
+  `REDBEAT_USAGE_ENTRY_NAME`), Celery task name constants (`TASK_NAME_SCHEDULED_BUILD`,
+  `TASK_NAME_LOG_USAGE`), narrow `except Exception` → `except KeyError` in
+  `ensure_usage_schedule()`; 20 tests (5566 passed, 220 skipped)
+
+- [2026-03-16 v231](exec-plans/completed/2026/v231-type-annotation-opencode-auth-prompt-validation.md) —
+  Fix `_input_schema` type annotation (`type: ignore` → `type[Any] | None` + RuntimeError guard),
+  add `_describe_auth()` to OpenCodeCLIHand (provider-aware auth reporting),
+  add `require_non_empty_string` prompt validation to `_TwoPhaseCLIHand.run()`/`stream()`;
+  18 tests (5546 passed, 219 skipped)
+
+- [2026-03-16 v230](exec-plans/completed/2026/v230-claude-cli-model-filter-auth-exceptions.md) —
+  Expand Claude CLI model filter (reject `openai/` prefix), add `_describe_auth()`
+  for consistency with Gemini/Goose, narrow `_skip_permissions_enabled()` exception
+  handling from bare `Exception` to `(ValueError, OSError)`;
+  14 tests (5528 passed, 219 skipped)
+
+
+- [2026-03-16 v229](exec-plans/completed/2026/v229-validation-helpers-source-merge-error-extract.md) —
+  `require_positive_float` validation helper, `_first_validation_error_msg()` Pydantic
+  error extraction, `_merge_source_tags()` source string set helper;
+  16 tests (5514 passed, 219 skipped)
+
 - [2026-03-16 v228](exec-plans/completed/2026/v228-dry-error-format-dict-access-skip-logging.md) —
   DRY `_format_error_result()` helper (6 inline error strings → 1 method),
   consistent `.get()` dict access in `_pr_status_line`, debug logging for

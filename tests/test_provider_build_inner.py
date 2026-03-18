@@ -22,7 +22,7 @@ class TestLiteLLMBuildInner:
         with patch.dict(sys.modules, {"litellm": None}):
             provider = LiteLLMProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="LiteLLM is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_sets_api_key_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -64,7 +64,7 @@ class TestGoogleBuildInner:
         with patch.dict(sys.modules, {"google": None, "google.genai": None}):
             provider = GoogleProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="Google GenAI SDK is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_creates_client_with_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -120,7 +120,7 @@ class TestAnthropicBuildInner:
         with patch.dict(sys.modules, {"anthropic": None}):
             provider = AnthropicProvider()
             provider._inner = None
-            with pytest.raises(RuntimeError, match="Anthropic SDK is not installed"):
+            with pytest.raises(RuntimeError, match="is not installed"):
                 _ = provider.inner
 
     def test_creates_client_with_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:

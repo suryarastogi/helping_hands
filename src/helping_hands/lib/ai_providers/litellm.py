@@ -30,16 +30,11 @@ class LiteLLMProvider(AIProvider):
         Raises:
             RuntimeError: If the ``litellm`` package is not installed.
         """
-        try:
-            import litellm
-        except ImportError as exc:
-            raise RuntimeError(
-                f"LiteLLM is not installed. Install with: {self.install_hint}"
-            ) from exc
+        litellm = self._require_sdk("litellm")
 
         api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:
-            litellm.api_key = api_key
+            litellm.api_key = api_key  # type: ignore[attr-defined]
         return litellm
 
     def _complete_impl(

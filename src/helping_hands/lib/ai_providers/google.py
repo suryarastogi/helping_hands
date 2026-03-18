@@ -31,12 +31,8 @@ class GoogleProvider(AIProvider):
         Raises:
             RuntimeError: If the ``google-genai`` package is not installed.
         """
-        try:
-            from google import genai
-        except ImportError as exc:
-            raise RuntimeError(
-                f"Google GenAI SDK is not installed. Install with: {self.install_hint}"
-            ) from exc
+        sdk = self._require_sdk("google.genai")
+        genai = sdk
 
         api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:

@@ -321,7 +321,7 @@ def browse_url(
         with urlopen(request, timeout=timeout_s) as response:
             payload = response.read()
             final_url = response.geturl()
-            status = getattr(response, "status", None)
+            status = response.status
             content_type = str(response.headers.get("Content-Type", "")).lower()
     except (HTTPError, URLError) as exc:
         _raise_url_error(exc, operation="browse")

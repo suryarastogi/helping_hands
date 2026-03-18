@@ -38,7 +38,8 @@ class TestCheckRedisHealthLogging:
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         mock_redis_mod = MagicMock()
-        mock_redis_mod.Redis.from_url.side_effect = ConnectionError("refused")
+        mock_redis_mod.RedisError = type("RedisError", (Exception,), {})
+        mock_redis_mod.Redis.from_url.side_effect = mock_redis_mod.RedisError("refused")
         monkeypatch.setitem(__import__("sys").modules, "redis", mock_redis_mod)
 
         with caplog.at_level(logging.DEBUG):
@@ -61,7 +62,8 @@ class TestCheckDbHealthLogging:
     ) -> None:
         monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/test")
         mock_psycopg2 = MagicMock()
-        mock_psycopg2.connect.side_effect = Exception("connection refused")
+        mock_psycopg2.Error = type("Error", (Exception,), {})
+        mock_psycopg2.connect.side_effect = mock_psycopg2.Error("connection refused")
         monkeypatch.setitem(__import__("sys").modules, "psycopg2", mock_psycopg2)
 
         with caplog.at_level(logging.DEBUG):
@@ -102,14 +104,15 @@ class TestResolveWorkerCapacityLogging:
     """Verify _resolve_worker_capacity logs debug on exception."""
 
     def test_logs_debug_on_capacity_failure(
-        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+        self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        mock_control = MagicMock()
-        mock_control.inspect.side_effect = RuntimeError("broker down")
-        monkeypatch.setattr("helping_hands.server.app.celery_app.control", mock_control)
-
-        with caplog.at_level(logging.DEBUG):
-            resp = _resolve_worker_capacity()
+        # Use patch() instead of monkeypatch.setattr to avoid Python 3.14
+        # incompatibility with kombu's cached_property descriptor on
+        # celery_app.control.
+        with patch("helping_hands.server.app.celery_app") as mock_celery:
+            mock_celery.control.inspect.side_effect = ConnectionError("broker down")
+            with caplog.at_level(logging.DEBUG):
+                resp = _resolve_worker_capacity()
 
         # Falls back to env or default
         assert resp.source in ("env", "default")

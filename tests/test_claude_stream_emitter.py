@@ -1,6 +1,9 @@
-"""Tests for _StreamJsonEmitter._summarize_tool in the Claude Code hand."""
+"""Tests for _StreamJsonEmitter helpers in the Claude Code hand."""
 
 from __future__ import annotations
+
+import asyncio
+from unittest.mock import AsyncMock
 
 from helping_hands.lib.hands.v1.hand.cli.claude import _StreamJsonEmitter
 
@@ -53,3 +56,52 @@ class TestSummarizeTool:
 
     def test_missing_input_key_returns_empty_path(self) -> None:
         assert _StreamJsonEmitter._summarize_tool("Read", {}) == "Read "
+
+
+class TestStreamJsonEmitterLabelMsg:
+    """v268: _label_msg prefixes messages with the backend label."""
+
+    def _make_emitter(self, label: str = "test") -> _StreamJsonEmitter:
+        return _StreamJsonEmitter(AsyncMock(), label)
+
+    def test_basic_prefix(self) -> None:
+        emitter = self._make_emitter("claude")
+        assert emitter._label_msg("hello") == "[claude] hello"
+
+    def test_empty_message(self) -> None:
+        emitter = self._make_emitter("x")
+        assert emitter._label_msg("") == "[x] "
+
+    def test_preserves_inner_brackets(self) -> None:
+        emitter = self._make_emitter("lab")
+        assert emitter._label_msg("[info] done") == "[lab] [info] done"
+
+    def test_label_used_in_tool_use_event(self) -> None:
+        """Verify _label_msg is used when emitting tool use summaries."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "myhand")
+            event = '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.py"}}]}}'
+            await emitter(event + "\n")
+
+        asyncio.run(run())
+        assert any("[myhand] Read /a.py" in c for c in collected)
+
+    def test_label_used_in_text_event(self) -> None:
+        """Verify _label_msg is used when emitting text previews."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "back")
+            event = '{"type":"assistant","message":{"content":[{"type":"text","text":"hi there"}]}}'
+            await emitter(event + "\n")
+
+        asyncio.run(run())
+        assert any("[back] hi there" in c for c in collected)

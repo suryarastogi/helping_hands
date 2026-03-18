@@ -26,6 +26,7 @@ from helping_hands.lib.hands.v1.hand.cli.base import (
     _TwoPhaseCLIHand,
 )
 from helping_hands.lib.hands.v1.hand.cli.claude import (
+    _OUTPUT_FORMAT_STREAM_JSON,
     ClaudeCodeHand,
     _StreamJsonEmitter,
 )
@@ -152,9 +153,9 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
 
         cmd.extend(["claude", workspace])
 
-        await emit(f"[{self._CLI_LABEL}] Creating sandbox '{name}'...\n")
+        await emit(self._label_msg(f"Creating sandbox '{name}'...") + "\n")
         if self.config.verbose:
-            await emit(f"[{self._CLI_LABEL}] cmd: {' '.join(cmd)}\n")
+            await emit(self._label_msg(f"cmd: {' '.join(cmd)}") + "\n")
 
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -173,7 +174,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
                 break
             text = data.decode("utf-8", errors="replace")
             chunks.append(text)
-            await emit(f"[{self._CLI_LABEL}] {text}")
+            await emit(self._label_msg(text))
         await process.wait()
         output_text = "".join(chunks)
 
@@ -184,7 +185,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
             )
 
         self._sandbox_created = True
-        await emit(f"[{self._CLI_LABEL}] Sandbox '{name}' ready.\n")
+        await emit(self._label_msg(f"Sandbox '{name}' ready.") + "\n")
 
     async def _remove_sandbox(self, emit: _TwoPhaseCLIHand._Emitter) -> None:
         """Remove the Docker sandbox."""
@@ -192,7 +193,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
             return
 
         name = self._resolve_sandbox_name()
-        await emit(f"[{self._CLI_LABEL}] Removing sandbox '{name}'...\n")
+        await emit(self._label_msg(f"Removing sandbox '{name}'...") + "\n")
 
         process = await asyncio.create_subprocess_exec(
             "docker",
@@ -285,7 +286,7 @@ class DockerSandboxClaudeCodeHand(ClaudeCodeHand):
         # Build the raw claude command (no container wrapping since
         # _CONTAINER_ENABLED_ENV_VAR is empty).
         cmd = self._render_command(prompt)
-        cmd = self._inject_output_format(cmd, "stream-json")
+        cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
         # Wrap with docker sandbox exec.
         cmd = self._wrap_sandbox_exec(cmd)
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)

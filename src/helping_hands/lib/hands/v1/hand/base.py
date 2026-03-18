@@ -26,11 +26,14 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from github import GithubException
+
 from helping_hands.lib.github_url import (
+    ENV_GCM_INTERACTIVE as _ENV_GCM_INTERACTIVE,
+    ENV_GIT_TERMINAL_PROMPT as _ENV_GIT_TERMINAL_PROMPT,
     GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
-)
-from helping_hands.lib.github_url import (
     GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
+    REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
 )
 from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
@@ -105,6 +108,9 @@ _DEFAULT_COMMIT_MSG_TEMPLATE = "feat({backend}): apply hand updates"
 
 _DEFAULT_PR_TITLE_TEMPLATE = "feat({backend}): automated hand update"
 """Fallback PR title when ``_commit_message_from_prompt`` returns empty."""
+
+_GITHUB_ERRORS: tuple[type[Exception], ...] = (GithubException, OSError)
+"""Exception types caught during GitHub API / network operations."""
 
 
 def _utc_stamp() -> str:
@@ -207,6 +213,21 @@ _META_CI_FIX_ATTEMPTS = "ci_fix_attempts"
 _META_CI_FIX_ERROR = "ci_fix_error"
 """Metadata key for the error message from a failed CI-fix loop."""
 
+_META_PR_ERROR = "pr_error"
+"""Metadata key for the error message from a failed PR operation."""
+
+_META_BACKEND = "backend"
+"""Metadata key for the execution backend name."""
+
+_META_MODEL = "model"
+"""Metadata key for the AI model identifier."""
+
+_META_PROVIDER = "provider"
+"""Metadata key for the AI provider name."""
+
+# _ENV_GIT_TERMINAL_PROMPT and _ENV_GCM_INTERACTIVE are imported from
+# helping_hands.lib.github_url (the canonical location for git env helpers).
+
 if TYPE_CHECKING:
     from helping_hands.lib.config import Config
     from helping_hands.lib.repo import RepoIndex
@@ -249,12 +270,12 @@ class Hand(abc.ABC):
 
         # Resolve TOOLS (callable capabilities) — independent axis.
         tool_selection = tool_registry.normalize_tool_selection(
-            getattr(self.config, "enabled_tools", ())
+            self.config.enabled_tools
         )
         merged_tools = tool_registry.merge_with_legacy_tool_flags(
             tool_selection,
-            enable_execution=bool(getattr(self.config, "enable_execution", False)),
-            enable_web=bool(getattr(self.config, "enable_web", False)),
+            enable_execution=self.config.enable_execution,
+            enable_web=self.config.enable_web,
         )
         self._selected_tool_categories = tool_registry.resolve_tool_categories(
             merged_tools
@@ -262,7 +283,7 @@ class Hand(abc.ABC):
 
         # Resolve SKILLS (knowledge catalog) — independent axis.
         skill_names = system_skills.normalize_skill_selection(
-            getattr(self.config, "enabled_skills", ())
+            self.config.enabled_skills
         )
         self._selected_skills = system_skills.resolve_skills(skill_names)
 
@@ -421,11 +442,11 @@ class Hand(abc.ABC):
             repo = parsed.path.lstrip("/")
             if repo.endswith(".git"):
                 repo = repo[:-4]
-            if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+            if re.fullmatch(_REPO_SPEC_PATTERN, repo):
                 return repo
 
         scp_like = re.match(
-            rf"^git@{re.escape(_GITHUB_HOSTNAME)}:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$",
+            rf"^git@{re.escape(_GITHUB_HOSTNAME)}:(?P<repo>{_REPO_SPEC_PATTERN}?)(?:\.git)?$",
             remote,
         )
         if scp_like:
@@ -576,7 +597,7 @@ class Hand(abc.ABC):
         """
         if github_token.strip():
             return False
-        return bool(getattr(self.config, "use_native_cli_auth", False))
+        return self.config.use_native_cli_auth
 
     def _pr_description_cmd(self) -> list[str] | None:
         """Return CLI command for generating a rich PR description.
@@ -596,7 +617,7 @@ class Hand(abc.ABC):
         Returns:
             True if pre-commit checks should be run.
         """
-        return bool(getattr(self.config, "enable_execution", False))
+        return self.config.enable_execution
 
     @staticmethod
     def _is_git_hook_failure(error_msg: str) -> bool:
@@ -726,21 +747,21 @@ class Hand(abc.ABC):
             repo_dir: Path to the local git repository.
             branch: Branch name to push with ``--set-upstream``.
         """
-        prior_prompt = os.environ.get("GIT_TERMINAL_PROMPT")
-        prior_gcm_interactive = os.environ.get("GCM_INTERACTIVE")
-        os.environ["GIT_TERMINAL_PROMPT"] = "0"
-        os.environ["GCM_INTERACTIVE"] = "never"
+        prior_prompt = os.environ.get(_ENV_GIT_TERMINAL_PROMPT)
+        prior_gcm_interactive = os.environ.get(_ENV_GCM_INTERACTIVE)
+        os.environ[_ENV_GIT_TERMINAL_PROMPT] = "0"
+        os.environ[_ENV_GCM_INTERACTIVE] = "never"
         try:
             gh.push(repo_dir, branch=branch, set_upstream=True)
         finally:
             if prior_prompt is None:
-                os.environ.pop("GIT_TERMINAL_PROMPT", None)
+                os.environ.pop(_ENV_GIT_TERMINAL_PROMPT, None)
             else:
-                os.environ["GIT_TERMINAL_PROMPT"] = prior_prompt
+                os.environ[_ENV_GIT_TERMINAL_PROMPT] = prior_prompt
             if prior_gcm_interactive is None:
-                os.environ.pop("GCM_INTERACTIVE", None)
+                os.environ.pop(_ENV_GCM_INTERACTIVE, None)
             else:
-                os.environ["GCM_INTERACTIVE"] = prior_gcm_interactive
+                os.environ[_ENV_GCM_INTERACTIVE] = prior_gcm_interactive
 
     def _push_to_existing_pr(
         self,
@@ -814,7 +835,7 @@ class Hand(abc.ABC):
         pr_creator = str(pr_info.get("user", ""))
         try:
             token_user = gh.whoami().get("login", "")
-        except Exception:
+        except _GITHUB_ERRORS:
             logger.debug(
                 "whoami() failed; skipping PR description update", exc_info=True
             )
@@ -928,7 +949,7 @@ class Hand(abc.ABC):
         )
         try:
             gh.update_pr_body(repo, self.pr_number, body=pr_body)
-        except Exception:
+        except _GITHUB_ERRORS:
             logger.debug(
                 "Failed to update PR #%s description", self.pr_number, exc_info=True
             )
@@ -1040,9 +1061,9 @@ class Hand(abc.ABC):
         base_branch = self._default_base_branch()
         try:
             repo_obj = gh.get_repo(repo)
-            if getattr(repo_obj, "default_branch", ""):
+            if repo_obj.default_branch:
                 base_branch = str(repo_obj.default_branch)
-        except Exception:
+        except _GITHUB_ERRORS:
             logger.debug(
                 "could not fetch default branch for %s, using %r",
                 repo,
@@ -1125,7 +1146,7 @@ class Hand(abc.ABC):
                 self._run_precommit_checks_and_fixes(repo_dir)
             except RuntimeError as exc:
                 metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
-                metadata["pr_error"] = str(exc)
+                metadata[_META_PR_ERROR] = str(exc)
                 return None
             has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
             if not has_changes:
@@ -1182,8 +1203,7 @@ class Hand(abc.ABC):
         from helping_hands.lib.github import GitHubClient
 
         try:
-            gh_token = getattr(self.config, "github_token", "")
-            with GitHubClient(token=gh_token) as gh:
+            with GitHubClient(token=self.config.github_token) as gh:
                 git_name = os.environ.get(
                     "HELPING_HANDS_GIT_USER_NAME", _DEFAULT_GIT_USER_NAME
                 )
@@ -1218,14 +1238,14 @@ class Hand(abc.ABC):
                 )
         except ValueError as exc:
             metadata[_META_PR_STATUS] = PRStatus.MISSING_TOKEN
-            metadata["pr_error"] = str(exc)
+            metadata[_META_PR_ERROR] = str(exc)
             return metadata
         except RuntimeError as exc:
             metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
-            metadata["pr_error"] = str(exc)
+            metadata[_META_PR_ERROR] = str(exc)
             return metadata
-        except Exception as exc:
+        except _GITHUB_ERRORS as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
             metadata[_META_PR_STATUS] = PRStatus.ERROR
-            metadata["pr_error"] = str(exc)
+            metadata[_META_PR_ERROR] = str(exc)
             return metadata

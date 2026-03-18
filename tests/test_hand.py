@@ -9,6 +9,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from github import GithubException
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand import (
@@ -3076,7 +3077,9 @@ class TestE2EHand:
         monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
 
         mock_gh = MagicMock()
-        mock_gh.default_branch.side_effect = RuntimeError("api unavailable")
+        mock_gh.default_branch.side_effect = GithubException(
+            500, "api unavailable", None
+        )
         mock_gh.current_branch.return_value = "master"
         mock_gh_cls.return_value.__enter__.return_value = mock_gh
 

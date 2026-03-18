@@ -156,22 +156,29 @@ class TestSubclassesUseDetectAuthFailure:
         # Should not have the old 3-line manual pattern
         assert "lower_tail = tail.lower()" not in src
 
+    def test_gemini_imports_detect_auth_failure(self) -> None:
+        """Gemini still uses _detect_auth_failure directly."""
+        mod = __import__(
+            "helping_hands.lib.hands.v1.hand.cli.gemini", fromlist=["GeminiCLIHand"]
+        )
+        src = inspect.getsource(mod)
+        assert "_detect_auth_failure" in src
+
     @pytest.mark.parametrize(
         "module_path,class_name",
         [
             ("helping_hands.lib.hands.v1.hand.cli.claude", "ClaudeCodeHand"),
             ("helping_hands.lib.hands.v1.hand.cli.codex", "CodexCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.gemini", "GeminiCLIHand"),
             ("helping_hands.lib.hands.v1.hand.cli.opencode", "OpenCodeCLIHand"),
         ],
     )
-    def test_imports_detect_auth_failure(
+    def test_imports_format_cli_failure(
         self, module_path: str, class_name: str
     ) -> None:
-        """Module source should import _detect_auth_failure."""
+        """Since v271, these modules delegate to _format_cli_failure."""
         mod = __import__(module_path, fromlist=[class_name])
         src = inspect.getsource(mod)
-        assert "_detect_auth_failure" in src
+        assert "_format_cli_failure" in src
 
     @pytest.mark.parametrize(
         "module_path,class_name",

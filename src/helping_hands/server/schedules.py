@@ -15,14 +15,14 @@ from typing import Any
 
 from celery import Celery
 
+from helping_hands.lib.validation import install_hint
 from helping_hands.server.constants import (
     DEFAULT_BACKEND as _DEFAULT_BACKEND,
-)
-from helping_hands.server.constants import (
     DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
-)
-from helping_hands.server.constants import (
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
+    REDBEAT_KEY_PREFIX as _REDBEAT_KEY_PREFIX,
+    REDBEAT_SCHEDULE_ENTRY_PREFIX as _REDBEAT_SCHEDULE_ENTRY_PREFIX,
+    TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,24 +54,39 @@ except ImportError:
     croniter = None  # type: ignore[assignment]
 
 
+def _check_optional_dep(available: bool | object, name: str, extra: str) -> None:
+    """Raise ``ImportError`` if an optional dependency is missing.
+
+    Args:
+        available: Truthy if the dependency was imported successfully,
+            falsy (``False`` or ``None``) otherwise.
+        name: Human-readable package description for the error message.
+        extra: The uv extra that provides the dependency.
+
+    Raises:
+        ImportError: When *available* is falsy.
+    """
+    if not available:
+        msg = f"{name}. {install_hint(extra)}"
+        raise ImportError(msg)
+
+
 def _check_redbeat() -> None:
     """Raise ImportError if redbeat is not available."""
-    if not _redbeat_available:
-        msg = (
-            "celery-redbeat is required for scheduling. "
-            "Install with: uv sync --extra server"
-        )
-        raise ImportError(msg)
+    _check_optional_dep(
+        _redbeat_available,
+        "celery-redbeat is required for scheduling",
+        "server",
+    )
 
 
 def _check_croniter() -> None:
     """Raise ImportError if croniter is not available."""
-    if croniter is None:
-        msg = (
-            "croniter is required for cron expression parsing. "
-            "Install with: uv sync --extra server"
-        )
-        raise ImportError(msg)
+    _check_optional_dep(
+        croniter is not None,
+        "croniter is required for cron expression parsing",
+        "server",
+    )
 
 
 @dataclass
@@ -330,12 +345,14 @@ class ScheduleManager:
         Raises:
             RuntimeError: If the Redis write fails.
         """
+        import redis
+
         try:
             self._redis.set(
                 self._meta_key(task.schedule_id),
                 json.dumps(task.to_dict()),
             )
-        except Exception as exc:
+        except (redis.RedisError, OSError) as exc:
             logger.warning(
                 "Failed to save schedule metadata for %s: %s",
                 task.schedule_id,
@@ -369,9 +386,11 @@ class ScheduleManager:
         Logs a warning on failure but does not raise, consistent with
         ``_load_meta`` graceful degradation.
         """
+        import redis
+
         try:
             self._redis.delete(self._meta_key(schedule_id))
-        except Exception as exc:
+        except (redis.RedisError, OSError) as exc:
             logger.warning(
                 "Failed to delete schedule metadata for %s: %s",
                 schedule_id,
@@ -384,9 +403,11 @@ class ScheduleManager:
         Returns an empty list on Redis errors to allow graceful degradation.
         """
         pattern = f"{_SCHEDULE_META_PREFIX}*"
+        import redis
+
         try:
             keys = self._redis.keys(pattern)
-        except Exception as exc:
+        except (redis.RedisError, OSError) as exc:
             logger.warning("Failed to list schedule metadata keys: %s", exc)
             return []
         return [k.decode() if isinstance(k, bytes) else k for k in keys]
@@ -448,8 +469,8 @@ class ScheduleManager:
         if RedBeatSchedulerEntry is None:
             raise RuntimeError("RedBeatSchedulerEntry unavailable after _check_redbeat")
         entry = RedBeatSchedulerEntry(
-            name=f"helping_hands:scheduled:{task.schedule_id}",
-            task="helping_hands.scheduled_build",
+            name=f"{_REDBEAT_SCHEDULE_ENTRY_PREFIX}{task.schedule_id}",
+            task=_TASK_NAME_SCHEDULED_BUILD,
             schedule=schedule,
             args=[task.schedule_id],
             app=self._app,
@@ -458,14 +479,14 @@ class ScheduleManager:
 
     def _delete_redbeat_entry(self, schedule_id: str) -> None:
         """Delete the RedBeat scheduler entry."""
-        entry_name = f"helping_hands:scheduled:{schedule_id}"
+        entry_name = f"{_REDBEAT_SCHEDULE_ENTRY_PREFIX}{schedule_id}"
         try:
             if RedBeatSchedulerEntry is None:
                 raise RuntimeError(
                     "RedBeatSchedulerEntry unavailable after _check_redbeat"
                 )
             entry = RedBeatSchedulerEntry.from_key(
-                f"redbeat:{entry_name}", app=self._app
+                f"{_REDBEAT_KEY_PREFIX}{entry_name}", app=self._app
             )
             entry.delete()
         except KeyError:

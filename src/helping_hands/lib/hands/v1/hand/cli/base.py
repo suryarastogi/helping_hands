@@ -16,6 +16,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
+from github import GithubException
+
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github import (
     _CI_RUN_FAILURE_CONCLUSIONS,
@@ -25,11 +27,14 @@ from helping_hands.lib.github import (
 from helping_hands.lib.hands.v1.hand.base import (
     _FILE_LIST_PREVIEW_LIMIT,
     _GIT_READ_TIMEOUT_S,
+    _META_BACKEND,
     _META_CI_FIX_ATTEMPTS,
     _META_CI_FIX_ERROR,
     _META_CI_FIX_STATUS,
+    _META_MODEL,
     _META_PR_BRANCH,
     _META_PR_COMMIT,
+    _META_PR_ERROR,
     _META_PR_NUMBER,
     _META_PR_STATUS,
     _META_PR_URL,
@@ -41,6 +46,7 @@ from helping_hands.lib.hands.v1.hand.base import (
     Hand,
     HandResponse,
 )
+from helping_hands.lib.validation import has_cli_flag, require_non_empty_string
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +55,9 @@ __all__ = [
     "_AUTH_ERROR_TOKENS",
     "_CI_FIX_TEMPLATES",
     "_CI_POLL_INTERVAL_S",
-    "_CLI_TRUTHY_VALUES",
     "_DOCKER_ENV_HINT_TEMPLATE",
     "_DOCKER_REBUILD_HINT_TEMPLATE",
+    "_EMPTY_MODEL_MARKERS",
     "_FAILURE_OUTPUT_TAIL_LENGTH",
     "_GIT_REF_DISPLAY_LENGTH",
     "_HOOK_ERROR_TRUNCATION_LIMIT",
@@ -62,6 +68,7 @@ __all__ = [
     "CIFixStatus",
     "_TwoPhaseCLIHand",
     "_detect_auth_failure",
+    "_format_cli_failure",
     "_truncate_with_ellipsis",
 ]
 
@@ -91,8 +98,12 @@ _GIT_REF_DISPLAY_LENGTH = 8
 _FAILURE_OUTPUT_TAIL_LENGTH = 2000
 """Number of trailing characters kept from CLI output in failure messages."""
 
-_CLI_TRUTHY_VALUES = _TRUTHY_VALUES | {"on"}
-"""Superset of config ``_TRUTHY_VALUES`` with ``"on"`` for CLI env var parsing."""
+_EMPTY_MODEL_MARKERS: tuple[str, ...] = ("default", "None")
+"""Model values treated as *empty* — resolved to ``_DEFAULT_MODEL`` instead.
+
+Shared by :meth:`_TwoPhaseCLIHand._resolve_cli_model` and overrides in
+``opencode.py``.
+"""
 
 _AUTH_ERROR_TOKENS: tuple[str, ...] = (
     "401 unauthorized",
@@ -232,6 +243,48 @@ def _detect_auth_failure(
     return is_auth, tail
 
 
+def _format_cli_failure(
+    *,
+    backend_name: str,
+    return_code: int,
+    output: str,
+    env_var_hint: str,
+    auth_guidance: str | None = None,
+    extra_tokens: tuple[str, ...] = (),
+) -> str:
+    """Format a CLI failure message, detecting auth failures.
+
+    Checks the output for authentication error tokens via
+    :func:`_detect_auth_failure` and returns a targeted auth-failure message
+    when detected, otherwise returns a generic failure message with the
+    process exit code.
+
+    Args:
+        backend_name: Display name of the CLI backend (e.g. ``"Codex CLI"``).
+        return_code: Process exit code.
+        output: Combined stdout/stderr from the CLI process.
+        env_var_hint: Environment variable name shown in the remediation hint
+            and passed to :data:`_DOCKER_ENV_HINT_TEMPLATE`.
+        auth_guidance: Custom auth remediation text.  Defaults to
+            ``"Ensure {env_var_hint} is set in this runtime."``.
+        extra_tokens: Additional auth error tokens passed to
+            :func:`_detect_auth_failure`.
+
+    Returns:
+        Formatted error message string.
+    """
+    is_auth, tail = _detect_auth_failure(output, extra_tokens=extra_tokens)
+    if is_auth:
+        guidance = auth_guidance or f"Ensure {env_var_hint} is set in this runtime."
+        return (
+            f"{backend_name} authentication failed. "
+            f"{guidance} "
+            f"{_DOCKER_ENV_HINT_TEMPLATE.format(env_var_hint)}\n"
+            f"Output:\n{tail}"
+        )
+    return f"{backend_name} failed (exit={return_code}). Output:\n{tail}"
+
+
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
 
@@ -266,6 +319,14 @@ class _TwoPhaseCLIHand(Hand):
         self._active_process: asyncio.subprocess.Process | None = None
         self._skill_catalog_dir: Path | None = None
 
+    def _label_msg(self, msg: str) -> str:
+        """Prefix *msg* with the CLI backend label.
+
+        Returns:
+            A string of the form ``[<label>] <msg>``.
+        """
+        return f"[{self._CLI_LABEL}] {msg}"
+
     @staticmethod
     def _truncate_summary(text: str, *, limit: int) -> str:
         """Truncate text to *limit* characters with a ``[truncated]`` marker.
@@ -296,11 +357,11 @@ class _TwoPhaseCLIHand(Hand):
             value: Raw string value, or None.
 
         Returns:
-            True if the lowercased, stripped value is in ``_CLI_TRUTHY_VALUES``.
+            True if the lowercased, stripped value is in ``_TRUTHY_VALUES``.
         """
         if value is None:
             return False
-        return value.strip().lower() in _CLI_TRUTHY_VALUES
+        return value.strip().lower() in _TRUTHY_VALUES
 
     def _normalize_base_command(self, tokens: list[str]) -> list[str]:
         """Append default args when the command is a bare binary name.
@@ -350,7 +411,7 @@ class _TwoPhaseCLIHand(Hand):
             The resolved model name string, or ``_DEFAULT_MODEL``.
         """
         model = str(self.config.model).strip()
-        if not model or model in ("default", "None"):
+        if not model or model in _EMPTY_MODEL_MARKERS:
             return self._DEFAULT_MODEL
         if "/" in model:
             _, _, provider_model = model.partition("/")
@@ -442,9 +503,7 @@ class _TwoPhaseCLIHand(Hand):
                         used_model_placeholder = True
             rendered.append(updated)
 
-        has_explicit_model_flag = any(
-            token == "--model" or token.startswith("--model=") for token in rendered
-        )
+        has_explicit_model_flag = has_cli_flag(rendered, "model")
         if (
             resolved_model
             and not used_model_placeholder
@@ -514,7 +573,7 @@ class _TwoPhaseCLIHand(Hand):
         Returns:
             True if ``config.use_native_cli_auth`` is set.
         """
-        return bool(getattr(self.config, "use_native_cli_auth", False))
+        return self.config.use_native_cli_auth
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         """Return env var names that carry API keys for this CLI backend.
@@ -527,6 +586,19 @@ class _TwoPhaseCLIHand(Hand):
         """
         return ()
 
+    @staticmethod
+    def _env_var_status(name: str) -> str:
+        """Return ``"set"`` or ``"not set"`` based on whether *name* is populated.
+
+        Args:
+            name: Environment variable name to check.
+
+        Returns:
+            ``"set"`` if the variable exists and contains non-whitespace
+            characters, ``"not set"`` otherwise.
+        """
+        return "set" if os.environ.get(name, "").strip() else "not set"
+
     def _describe_auth(self) -> str:
         """Return a human-readable auth summary for the startup banner."""
         native_env_names = self._native_cli_auth_env_names()
@@ -535,7 +607,7 @@ class _TwoPhaseCLIHand(Hand):
         env_label = ", ".join(native_env_names)
         if self._use_native_cli_auth():
             return f"auth=native-cli ({env_label} stripped)"
-        set_vars = [n for n in native_env_names if os.environ.get(n, "").strip()]
+        set_vars = [n for n in native_env_names if self._env_var_status(n) == "set"]
         if set_vars:
             return f"auth={', '.join(set_vars)}"
         return f"auth=native-cli (no {env_label} set, using CLI session)"
@@ -1060,8 +1132,8 @@ class _TwoPhaseCLIHand(Hand):
         env = self._build_subprocess_env()
         cwd = str(self.repo_index.root.resolve())
         if self.config.verbose:
-            await emit(f"[{self._CLI_LABEL}] cmd: {shlex.join(cmd)}\n")
-            await emit(f"[{self._CLI_LABEL}] cwd: {cwd}\n")
+            await emit(self._label_msg(f"cmd: {shlex.join(cmd)}\n"))
+            await emit(self._label_msg(f"cwd: {cwd}\n"))
         start_time = time.monotonic()
         try:
             process = await asyncio.create_subprocess_exec(
@@ -1076,13 +1148,16 @@ class _TwoPhaseCLIHand(Hand):
             fallback = self._fallback_command_when_not_found(cmd)
             if fallback and fallback != cmd:
                 await emit(
-                    f"[{self._CLI_LABEL}] {cmd[0]!r} not found; "
-                    f"retrying with {fallback[0]!r}.\n"
+                    self._label_msg(
+                        f"{cmd[0]!r} not found; retrying with {fallback[0]!r}.\n"
+                    )
                 )
                 if fallback[0] == "npx":
                     await emit(
-                        f"[{self._CLI_LABEL}] npx fallback may take a while on "
-                        "first run while the package is downloaded.\n"
+                        self._label_msg(
+                            "npx fallback may take a while on "
+                            "first run while the package is downloaded.\n"
+                        )
                     )
                 return await self._invoke_cli_with_cmd(fallback, emit=emit)
             raise RuntimeError(self._command_not_found_message(cmd[0])) from exc
@@ -1121,9 +1196,11 @@ class _TwoPhaseCLIHand(Hand):
                     idle_seconds = now - last_output_ts
                     if now - last_heartbeat_ts >= heartbeat_seconds:
                         await emit(
-                            f"[{self._CLI_LABEL}] still running "
-                            f"({int(idle_seconds)}s since last output; "
-                            f"timeout={int(idle_timeout_seconds)}s)...\n"
+                            self._label_msg(
+                                f"still running "
+                                f"({int(idle_seconds)}s since last output; "
+                                f"timeout={int(idle_timeout_seconds)}s)...\n"
+                            )
                         )
                         last_heartbeat_ts = now
                     if idle_seconds >= idle_timeout_seconds:
@@ -1149,8 +1226,9 @@ class _TwoPhaseCLIHand(Hand):
                 elapsed = time.monotonic() - start_time
                 if self.config.verbose:
                     await emit(
-                        f"[{self._CLI_LABEL}] finished in {elapsed:.1f}s "
-                        f"(exit={return_code})\n"
+                        self._label_msg(
+                            f"finished in {elapsed:.1f}s (exit={return_code})\n"
+                        )
                     )
                 if return_code != 0:
                     output = "".join(chunks)
@@ -1161,8 +1239,9 @@ class _TwoPhaseCLIHand(Hand):
                     )
                     if retry_cmd and retry_cmd != cmd:
                         await emit(
-                            f"[{self._CLI_LABEL}] command failed; retrying with "
-                            "adjusted arguments.\n"
+                            self._label_msg(
+                                "command failed; retrying with adjusted arguments.\n"
+                            )
                         )
                         return await self._invoke_cli_with_cmd(retry_cmd, emit=emit)
                     msg = self._build_failure_message(
@@ -1198,32 +1277,28 @@ class _TwoPhaseCLIHand(Hand):
     ) -> str:
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""
-        await emit(
-            f"[{self._CLI_LABEL}] isolation={self._execution_mode()}{auth_part}\n"
-        )
+        await emit(self._label_msg(f"isolation={self._execution_mode()}{auth_part}\n"))
         if self.config.verbose:
             model = self._resolve_cli_model() or "(default)"
             await emit(
-                f"[{self._CLI_LABEL}] verbose=on | model={model} "
-                f"| heartbeat={self._heartbeat_seconds():.0f}s "
-                f"| idle_timeout={self._idle_timeout_seconds():.0f}s\n"
+                self._label_msg(
+                    f"verbose=on | model={model} "
+                    f"| heartbeat={self._heartbeat_seconds():.0f}s "
+                    f"| idle_timeout={self._idle_timeout_seconds():.0f}s\n"
+                )
             )
         run_start = time.monotonic()
-        await emit(
-            f"[{self._CLI_LABEL}] [phase 1/2] Initializing repository context...\n"
-        )
+        await emit(self._label_msg("[phase 1/2] Initializing repository context...\n"))
         init_output = await self._invoke_backend(self._build_init_prompt(), emit=emit)
         if self._is_interrupted():
-            await emit(f"[{self._CLI_LABEL}] Interrupted during initialization.\n")
+            await emit(self._label_msg("Interrupted during initialization.\n"))
             return init_output
         if self.config.verbose:
             phase1_elapsed = time.monotonic() - run_start
-            await emit(
-                f"[{self._CLI_LABEL}] phase 1 completed in {phase1_elapsed:.1f}s\n"
-            )
+            await emit(self._label_msg(f"phase 1 completed in {phase1_elapsed:.1f}s\n"))
 
         phase2_start = time.monotonic()
-        await emit(f"[{self._CLI_LABEL}] [phase 2/2] Executing user task...\n")
+        await emit(self._label_msg("[phase 2/2] Executing user task...\n"))
         task_output = await self._invoke_backend(
             self._build_task_prompt(prompt=prompt, learned_summary=init_output),
             emit=emit,
@@ -1232,15 +1307,18 @@ class _TwoPhaseCLIHand(Hand):
             phase2_elapsed = time.monotonic() - phase2_start
             total_elapsed = time.monotonic() - run_start
             await emit(
-                f"[{self._CLI_LABEL}] phase 2 completed in {phase2_elapsed:.1f}s "
-                f"| total elapsed: {total_elapsed:.1f}s\n"
+                self._label_msg(
+                    f"phase 2 completed in {phase2_elapsed:.1f}s "
+                    f"| total elapsed: {total_elapsed:.1f}s\n"
+                )
             )
         combined_output = f"{init_output}{task_output}"
 
         if self._should_retry_without_changes(prompt):
             await emit(
-                f"[{self._CLI_LABEL}] No file edits detected; "
-                "requesting direct file application...\n"
+                self._label_msg(
+                    "No file edits detected; requesting direct file application...\n"
+                )
             )
             apply_output = await self._invoke_backend(
                 self._build_apply_changes_prompt(
@@ -1328,11 +1406,11 @@ class _TwoPhaseCLIHand(Hand):
         template = _PR_STATUS_TEMPLATES.get(status)
         if template is not None:
             pr_url = metadata.get(_META_PR_URL, "")
-            return f"[{self._CLI_LABEL}] {template.format(pr_url=pr_url)}"
-        error = metadata.get("pr_error", "").strip()
+            return self._label_msg(template.format(pr_url=pr_url))
+        error = metadata.get(_META_PR_ERROR, "").strip()
         if error:
-            return f"[{self._CLI_LABEL}] PR status: {status} ({error})"
-        return f"[{self._CLI_LABEL}] PR status: {status}"
+            return self._label_msg(f"PR status: {status} ({error})")
+        return self._label_msg(f"PR status: {status}")
 
     # ------------------------------------------------------------------
     # CI fix loop
@@ -1350,8 +1428,11 @@ class _TwoPhaseCLIHand(Hand):
     ) -> dict[str, Any]:
         """Wait for CI checks to complete and return the result."""
         await emit(
-            f"\n[{self._CLI_LABEL}] Waiting {initial_wait:.0f}s "
-            f"for CI checks on {ref[:_GIT_REF_DISPLAY_LENGTH]}...\n"
+            "\n"
+            + self._label_msg(
+                f"Waiting {initial_wait:.0f}s "
+                f"for CI checks on {ref[:_GIT_REF_DISPLAY_LENGTH]}...\n"
+            )
         )
         await asyncio.sleep(initial_wait)
 
@@ -1363,8 +1444,9 @@ class _TwoPhaseCLIHand(Hand):
             if conclusion not in CI_CONCLUSIONS_IN_PROGRESS:
                 return result
             await emit(
-                f"[{self._CLI_LABEL}] CI still {conclusion}, "
-                f"polling again in {poll_interval:.0f}s...\n"
+                self._label_msg(
+                    f"CI still {conclusion}, polling again in {poll_interval:.0f}s...\n"
+                )
             )
             await asyncio.sleep(poll_interval)
 
@@ -1441,8 +1523,7 @@ class _TwoPhaseCLIHand(Hand):
         metadata[_META_CI_FIX_STATUS] = CIFixStatus.CHECKING
 
         try:
-            gh_token = getattr(self.config, "github_token", "")
-            with GitHubClient(token=gh_token) as gh:
+            with GitHubClient(token=self.config.github_token) as gh:
                 current_ref = pr_commit
                 for attempt in range(1, self.ci_max_retries + 1):
                     if self._is_interrupted():
@@ -1463,34 +1544,42 @@ class _TwoPhaseCLIHand(Hand):
 
                     if conclusion == CIConclusion.SUCCESS:
                         await emit(
-                            f"[{self._CLI_LABEL}] CI passed "
-                            f"({total} check{'s' if total != 1 else ''}). "
-                            f"No fixes needed.\n"
+                            self._label_msg(
+                                f"CI passed "
+                                f"({total} check{'s' if total != 1 else ''}). "
+                                f"No fixes needed.\n"
+                            )
                         )
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.SUCCESS
                         return metadata
 
                     if conclusion == CIConclusion.NO_CHECKS:
                         await emit(
-                            f"[{self._CLI_LABEL}] No CI checks found. "
-                            "Skipping CI fix loop.\n"
+                            self._label_msg(
+                                "No CI checks found. Skipping CI fix loop.\n"
+                            )
                         )
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.NO_CHECKS
                         return metadata
 
                     if conclusion == CIConclusion.PENDING:
                         await emit(
-                            f"[{self._CLI_LABEL}] CI checks still pending "
-                            f"after waiting. Skipping fix attempt.\n"
+                            self._label_msg(
+                                "CI checks still pending "
+                                "after waiting. Skipping fix attempt.\n"
+                            )
                         )
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.PENDING_TIMEOUT
                         return metadata
 
                     # CI failed — attempt fix
                     await emit(
-                        f"\n[{self._CLI_LABEL}] CI failed (attempt "
-                        f"{attempt}/{self.ci_max_retries}). "
-                        f"Invoking backend to fix...\n"
+                        "\n"
+                        + self._label_msg(
+                            f"CI failed (attempt "
+                            f"{attempt}/{self.ci_max_retries}). "
+                            f"Invoking backend to fix...\n"
+                        )
                     )
 
                     fix_prompt = self._build_ci_fix_prompt(
@@ -1509,8 +1598,9 @@ class _TwoPhaseCLIHand(Hand):
 
                     if not self._repo_has_changes():
                         await emit(
-                            f"[{self._CLI_LABEL}] No changes produced "
-                            f"by fix attempt {attempt}.\n"
+                            self._label_msg(
+                                f"No changes produced by fix attempt {attempt}.\n"
+                            )
                         )
                         continue
 
@@ -1524,9 +1614,9 @@ class _TwoPhaseCLIHand(Hand):
                     self._push_noninteractive(gh, repo_dir, pr_branch)
 
                     await emit(
-                        f"[{self._CLI_LABEL}] Fix pushed "
-                        f"(commit {new_sha}). "
-                        f"Waiting for CI...\n"
+                        self._label_msg(
+                            f"Fix pushed (commit {new_sha}). Waiting for CI...\n"
+                        )
                     )
 
                     metadata[_META_PR_COMMIT] = new_sha
@@ -1535,15 +1625,22 @@ class _TwoPhaseCLIHand(Hand):
                 # Exhausted all retries
                 metadata[_META_CI_FIX_STATUS] = CIFixStatus.EXHAUSTED
                 await emit(
-                    f"[{self._CLI_LABEL}] CI fix retries exhausted "
-                    f"after {self.ci_max_retries} attempts.\n"
+                    self._label_msg(
+                        f"CI fix retries exhausted "
+                        f"after {self.ci_max_retries} attempts.\n"
+                    )
                 )
 
-        except Exception as exc:
+        except (
+            GithubException,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            OSError,
+        ) as exc:
             logger.debug("_ci_fix_loop unexpected error", exc_info=True)
             metadata[_META_CI_FIX_STATUS] = CIFixStatus.ERROR
             metadata[_META_CI_FIX_ERROR] = str(exc)
-            await emit(f"[{self._CLI_LABEL}] CI fix loop error: {exc}\n")
+            await emit(self._label_msg(f"CI fix loop error: {exc}\n"))
 
         return metadata
 
@@ -1564,7 +1661,7 @@ class _TwoPhaseCLIHand(Hand):
             return None
         attempts = metadata.get(_META_CI_FIX_ATTEMPTS, "0")
         error = metadata.get(_META_CI_FIX_ERROR, "")
-        return f"[{self._CLI_LABEL}] {template.format(attempts=attempts, error=error)}"
+        return self._label_msg(template.format(attempts=attempts, error=error))
 
     # ------------------------------------------------------------------
     # Pre-commit hook fix
@@ -1679,7 +1776,11 @@ class _TwoPhaseCLIHand(Hand):
 
         Returns:
             A ``HandResponse`` with the combined output and PR metadata.
+
+        Raises:
+            ValueError: If *prompt* is empty or whitespace-only.
         """
+        require_non_empty_string(prompt, "prompt")
         message = asyncio.run(self._collect_run_output(prompt))
         pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
@@ -1700,8 +1801,8 @@ class _TwoPhaseCLIHand(Hand):
         return HandResponse(
             message=message,
             metadata={
-                "backend": self._BACKEND_NAME,
-                "model": self.config.model,
+                _META_BACKEND: self._BACKEND_NAME,
+                _META_MODEL: self.config.model,
                 **pr_metadata,
             },
         )
@@ -1717,7 +1818,11 @@ class _TwoPhaseCLIHand(Hand):
 
         Yields:
             Output chunks from the subprocess and PR status messages.
+
+        Raises:
+            ValueError: If *prompt* is empty or whitespace-only.
         """
+        require_non_empty_string(prompt, "prompt")
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()
         collected: list[str] = []
 
