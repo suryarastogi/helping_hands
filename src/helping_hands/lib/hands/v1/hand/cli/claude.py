@@ -169,6 +169,11 @@ class _StreamJsonEmitter:
             await self._emit(line + "\n")
             return
 
+        if not isinstance(event, dict):
+            # JSON primitive (string, number, etc.) — pass through.
+            await self._emit(line + "\n")
+            return
+
         event_type = event.get("type", "")
 
         if event_type == _EVENT_TYPE_ASSISTANT:
