@@ -79,6 +79,22 @@ deleted. The Yjs awareness endpoint at `/ws/yjs` is now the sole multiplayer syn
 mechanism. A connection status indicator (green/yellow/red dot) was added to the
 Hand World UI showing Yjs provider connection health.
 
+## UX improvements (v279)
+
+Multiplayer logic extracted from the monolithic `App.tsx` into a dedicated
+`useMultiplayer` hook (`frontend/src/hooks/useMultiplayer.ts`). This hook
+encapsulates all Yjs connection lifecycle, awareness sync, position broadcasting,
+and emote handling.
+
+Additional features:
+- **Player name customization** — players can set a custom name via an input
+  field in the Factory Floor panel. Names persist in `localStorage` and are
+  broadcast via the awareness protocol without reconnecting.
+- **Presence panel** — when other players are connected, a sidebar panel shows
+  their names and colour indicators.
+- **Shared types** — `PlayerDirection` moved to `frontend/src/types.ts` for
+  reuse across App and the hook.
+
 ## Future extensions
 
 - Chat bubbles above player avatars

@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Multiplayer UX Improvements (2026-03-23) — Completed
+
+**User request:** Continue improving the multiplayer Hand World experience — better code structure, player identity, and presence awareness.
+
+**Implemented (v279):**
+- Extracted `useMultiplayer` hook from monolithic App.tsx (reduced ~150 lines of inline logic)
+- Player name customization with localStorage persistence
+- Connected players presence panel showing online users with color indicators
+- 11 new tests (222 total, up from 211)
+
 ### Yjs Multiplayer Synchronisation (2026-03-23) — Completed
 
 **User request:** Migrate Hand World multiplayer sync to use Yjs. The user likes frontends that use Yjs for real-time collaboration. Synchronisation should flow through the Python backend.

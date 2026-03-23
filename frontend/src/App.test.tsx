@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 
 import App from "./App";
+import { loadPlayerName, savePlayerName, useMultiplayer } from "./hooks/useMultiplayer";
 
 // Build a mock Response-like object with clone() support.
 function mockResponse(props: {
@@ -1631,7 +1632,7 @@ describe("Yjs Multiplayer Awareness", () => {
     act(() => { mockAwareness._setRemoteStates(remoteStates); });
 
     await waitFor(() => {
-      expect(screen.getByText("3 Players online")).toBeInTheDocument();
+      expect(screen.getByText("3 Online")).toBeInTheDocument();
     });
   });
 
@@ -1730,5 +1731,168 @@ describe("Yjs Multiplayer Awareness", () => {
       expect(dot).toBeInTheDocument();
       expect(dot.classList.contains("conn-status-connected")).toBe(true);
     });
+  });
+
+  it("renders player name input in world view", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const input = screen.getByLabelText("Player name");
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveAttribute("maxLength", "24");
+  });
+
+  it("player name input updates on typing", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const input = screen.getByLabelText("Player name") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "TestUser" } });
+    expect(input.value).toBe("TestUser");
+  });
+
+  it("shows presence panel with remote player names", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    remoteStates.set(100, {
+      player: { player_id: "100", name: "PresenceTestUser", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false, emote: null },
+    });
+
+    act(() => { mockAwareness._setRemoteStates(remoteStates); });
+
+    // The remote player appears in the world (aria-label on the sprite)
+    // and the presence list shows their name.
+    await waitFor(() => {
+      expect(screen.getByLabelText("PresenceTestUser")).toBeInTheDocument();
+    });
+    // Presence list should render names in the sidebar panel.
+    const nameElements = screen.getAllByText("PresenceTestUser");
+    // At least 2: one in the sprite, one in the presence list.
+    expect(nameElements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("hides presence panel when no remote players", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    expect(screen.queryByLabelText("Connected players")).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useMultiplayer hook unit tests
+// ---------------------------------------------------------------------------
+
+describe("loadPlayerName / savePlayerName", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("returns empty string when nothing saved", () => {
+    expect(loadPlayerName()).toBe("");
+  });
+
+  it("persists and loads a name", () => {
+    savePlayerName("Alice");
+    expect(loadPlayerName()).toBe("Alice");
+  });
+
+  it("overwrites previous name", () => {
+    savePlayerName("Alice");
+    savePlayerName("Bob");
+    expect(loadPlayerName()).toBe("Bob");
+  });
+});
+
+describe("useMultiplayer hook", () => {
+  const stableWsUrl = (path: string) => `ws://localhost${path}`;
+  const defaultOpts = () => ({
+    active: true,
+    playerPosition: { x: 50, y: 50 },
+    playerDirection: "down" as const,
+    isPlayerWalking: false,
+    wsUrlBuilder: stableWsUrl,
+  });
+
+  beforeEach(() => {
+    mockProviderDestroyCalled = false;
+    mockDocDestroyCalled = false;
+  });
+
+  it("manages connection lifecycle and awareness state", () => {
+    // Inactive: stays disconnected
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), active: false } },
+    );
+    expect(result.current.connectionStatus).toBe("disconnected");
+    expect(result.current.remotePlayers).toEqual([]);
+
+    // Activate: sets awareness with default name
+    rerender(defaultOpts());
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.player_id).toBe(String(MOCK_CLIENT_ID));
+    expect(player.name).toBe(`Player ${(MOCK_CLIENT_ID % 1000) + 1}`);
+
+    // Deactivate: destroys provider and doc
+    rerender({ ...defaultOpts(), active: false });
+    expect(mockProviderDestroyCalled).toBe(true);
+    expect(mockDocDestroyCalled).toBe(true);
+  });
+
+  it("supports custom player name and position updates", () => {
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), playerName: "Zara" } },
+    );
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.name).toBe("Zara");
+
+    // Name change does NOT trigger reconnect
+    mockProviderDestroyCalled = false;
+    rerender({ ...defaultOpts(), playerName: "Bob" });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.name).toBe("Bob");
+    expect(mockProviderDestroyCalled).toBe(false);
+
+    // Position update
+    rerender({ ...defaultOpts(), playerName: "Bob", playerPosition: { x: 70, y: 80 } });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(70);
+    expect(player.y).toBe(80);
+  });
+
+  it("tracks remote players and emotes from awareness", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(100, {
+      player: { player_id: "100", name: "HookBob", color: "#e11d48", x: 30, y: 40, direction: "left", walking: true, emote: "wave" },
+    });
+
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.remotePlayers).toHaveLength(1);
+    expect(result.current.remotePlayers[0].name).toBe("HookBob");
+    expect(result.current.remoteEmotes["100"]).toBe("wave");
+  });
+
+  it("triggerEmote sets and clears local emote", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.triggerEmote("1"));
+    expect(result.current.localEmote).toBe("wave");
+
+    // Unknown key does nothing
+    act(() => result.current.triggerEmote("9"));
+    expect(result.current.localEmote).toBe("wave");
+
+    act(() => vi.advanceTimersByTime(2000));
+    expect(result.current.localEmote).toBeNull();
+
+    vi.useRealTimers();
   });
 });

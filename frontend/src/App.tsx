@@ -7,8 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
-import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
+
+import { useMultiplayer, loadPlayerName, savePlayerName } from "./hooks/useMultiplayer";
+import type { PlayerDirection } from "./types";
 
 type Backend =
   | "e2e"
@@ -201,17 +202,7 @@ type PlayerPosition = {
   y: number;
 };
 
-type PlayerDirection = "down" | "up" | "left" | "right";
-
-type RemotePlayer = {
-  player_id: string;
-  name: string;
-  color: string;
-  x: number;
-  y: number;
-  direction: PlayerDirection;
-  walking: boolean;
-};
+export type { PlayerDirection } from "./types";
 
 export const EMOTE_DISPLAY_MS = 2000;
 
@@ -1082,12 +1073,21 @@ export default function App() {
     typeof Notification !== "undefined" ? Notification.permission : "denied"
   );
 
-  const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
-  const yjsDocRef = useRef<Y.Doc | null>(null);
-  const yjsProviderRef = useRef<WebsocketProvider | null>(null);
-  const [localEmote, setLocalEmote] = useState<string | null>(null);
-  const [remoteEmotes, setRemoteEmotes] = useState<Record<string, string>>({});
-  const [yjsConnStatus, setYjsConnStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+  const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
+
+  const {
+    remotePlayers,
+    remoteEmotes,
+    localEmote,
+    connectionStatus: yjsConnStatus,
+  } = useMultiplayer({
+    active: dashboardView === "world",
+    playerPosition,
+    playerDirection,
+    isPlayerWalking,
+    wsUrlBuilder: wsUrl,
+    playerName: playerNameInput,
+  });
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
@@ -1735,152 +1735,6 @@ export default function App() {
       }
     };
   }, [dashboardView, deskSlots]);
-
-  // --- Yjs multiplayer connection (awareness protocol) ---
-  useEffect(() => {
-    if (dashboardView !== "world") {
-      // Disconnect when leaving world view.
-      if (yjsProviderRef.current) {
-        yjsProviderRef.current.destroy();
-        yjsProviderRef.current = null;
-      }
-      if (yjsDocRef.current) {
-        yjsDocRef.current.destroy();
-        yjsDocRef.current = null;
-      }
-      setRemotePlayers([]);
-      setYjsConnStatus("disconnected");
-      return;
-    }
-
-    const doc = new Y.Doc();
-    yjsDocRef.current = doc;
-
-    // Derive deterministic color and name from Yjs clientID.
-    const myColor = PLAYER_COLORS[doc.clientID % PLAYER_COLORS.length];
-    const myName = `Player ${(doc.clientID % 1000) + 1}`;
-    const myId = String(doc.clientID);
-
-    // Connect to the Yjs WebSocket server via y-websocket provider.
-    const wsBase = wsUrl("/ws/yjs").replace(/\/$/, "");
-    const provider = new WebsocketProvider(wsBase, "hand-world", doc);
-    yjsProviderRef.current = provider;
-
-    // Track connection status.
-    const onStatus = ({ status }: { status: string }) => {
-      setYjsConnStatus(status as "disconnected" | "connecting" | "connected");
-    };
-    provider.on("status", onStatus);
-
-    // Set initial local awareness state.
-    provider.awareness.setLocalStateField("player", {
-      player_id: myId,
-      name: myName,
-      color: myColor,
-      x: 50,
-      y: 50,
-      direction: "down",
-      walking: false,
-      emote: null,
-    });
-
-    // Listen for awareness changes and derive remotePlayers.
-    const onAwarenessChange = () => {
-      const states = provider.awareness.getStates();
-      const others: RemotePlayer[] = [];
-      const newEmotes: Record<string, string> = {};
-
-      states.forEach((state, clientId) => {
-        if (clientId === doc.clientID) return;
-        const p = state.player as RemotePlayer & { emote?: string | null } | undefined;
-        if (!p) return;
-        others.push({
-          player_id: p.player_id ?? String(clientId),
-          name: p.name ?? `Player ${(clientId % 1000) + 1}`,
-          color: p.color ?? PLAYER_COLORS[clientId % PLAYER_COLORS.length],
-          x: p.x ?? 50,
-          y: p.y ?? 50,
-          direction: (p.direction ?? "down") as PlayerDirection,
-          walking: p.walking ?? false,
-        });
-        if (p.emote) {
-          newEmotes[p.player_id ?? String(clientId)] = p.emote;
-        }
-      });
-
-      setRemotePlayers(others);
-      setRemoteEmotes(newEmotes);
-    };
-
-    provider.awareness.on("change", onAwarenessChange);
-
-    return () => {
-      provider.off("status", onStatus);
-      provider.awareness.off("change", onAwarenessChange);
-      provider.destroy();
-      doc.destroy();
-      yjsProviderRef.current = null;
-      yjsDocRef.current = null;
-      setYjsConnStatus("disconnected");
-    };
-  }, [dashboardView]);
-
-  // --- Send local position updates via Yjs awareness ---
-  useEffect(() => {
-    if (dashboardView !== "world") return;
-    const provider = yjsProviderRef.current;
-    if (!provider) return;
-
-    const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
-    if (!current) return;
-
-    provider.awareness.setLocalStateField("player", {
-      ...current,
-      x: playerPosition.x,
-      y: playerPosition.y,
-      direction: playerDirection,
-      walking: isPlayerWalking,
-    });
-  }, [dashboardView, playerPosition, playerDirection, isPlayerWalking]);
-
-  // --- Emote key bindings (1-4) via Yjs awareness ---
-  useEffect(() => {
-    if (dashboardView !== "world") return;
-
-    const handleEmoteKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const isTyping =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable;
-      if (isTyping) return;
-
-      const emote = EMOTE_KEY_BINDINGS[event.key];
-      if (!emote) return;
-
-      setLocalEmote(emote);
-      setTimeout(() => setLocalEmote(null), EMOTE_DISPLAY_MS);
-
-      // Broadcast emote via Yjs awareness.
-      const provider = yjsProviderRef.current;
-      if (provider) {
-        const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
-        if (current) {
-          provider.awareness.setLocalStateField("player", { ...current, emote });
-          // Clear emote from awareness after display period.
-          setTimeout(() => {
-            const latest = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
-            if (latest) {
-              provider.awareness.setLocalStateField("player", { ...latest, emote: null });
-            }
-          }, EMOTE_DISPLAY_MS);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleEmoteKey);
-    return () => window.removeEventListener("keydown", handleEmoteKey);
-  }, [dashboardView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3581,14 +3435,38 @@ export default function App() {
                     <span className="stat-icon">&#129302;</span>
                     <span>{sceneWorkerEntries.length} Active</span>
                   </div>
-                  <div className="status-summary-stat">
+                  <div className="status-summary-stat player-name-row">
                     <span className="stat-icon">&#128100;</span>
-                    <span>You: ({Math.round(playerPosition.x)}, {Math.round(playerPosition.y)})</span>
+                    <input
+                      type="text"
+                      className="player-name-input"
+                      value={playerNameInput}
+                      onChange={(e) => {
+                        setPlayerNameInput(e.target.value);
+                        savePlayerName(e.target.value);
+                      }}
+                      placeholder="Your name"
+                      maxLength={24}
+                      aria-label="Player name"
+                    />
                   </div>
                   {remotePlayers.length > 0 && (
-                    <div className="status-summary-stat">
-                      <span className="stat-icon">&#128101;</span>
-                      <span>{remotePlayers.length + 1} Players online</span>
+                    <div className="presence-panel" aria-label="Connected players">
+                      <div className="presence-header">
+                        <span className="stat-icon">&#128101;</span>
+                        <span>{remotePlayers.length + 1} Online</span>
+                      </div>
+                      <ul className="presence-list">
+                        {remotePlayers.map((rp) => (
+                          <li key={rp.player_id} className="presence-item">
+                            <span
+                              className="presence-dot"
+                              style={{ backgroundColor: rp.color }}
+                            />
+                            <span className="presence-name">{rp.name}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                   <div className="status-summary-hint">
