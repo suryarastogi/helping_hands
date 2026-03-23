@@ -145,6 +145,7 @@ To verify both surfaces offer the same features:
 | `/monitor/{task_id}` | GET | HTML auto-refresh monitor |
 | `/workers/capacity` | GET | Celery worker pool info |
 | `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync |
+| `/health/multiplayer` | GET | Multiplayer room/connection stats |
 
 ## Multiplayer Hand World
 
@@ -184,6 +185,7 @@ the Y.Doc itself remains empty.
 - Chat bubbles appear above the sender's avatar and fade after 4 seconds
 - Idle detection: players with no movement for 30s show a floating "zzz" indicator
 - Presence panel shows "(idle)" suffix next to idle players
+- Player count badge: green pill badge in Hand World header showing online player count
 
 ### Awareness state per client
 

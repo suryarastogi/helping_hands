@@ -162,6 +162,14 @@ history panel.
 
 ---
 
+## Mar 23 — Multiplayer Stats Endpoint & Player Count Badge (v292)
+
+**Observability & UX:** Added `get_multiplayer_stats()` to `multiplayer_yjs.py` — queries Yjs WebsocketServer for room/connection counts with defensive fallbacks. New `GET /health/multiplayer` endpoint. Frontend: player-count badge (green pill) in Hand World header showing online count when connected. CSS `.player-count-badge`.
+
+**9 new tests (5 backend, 4 frontend), 342 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -183,3 +191,4 @@ history panel.
 - `v289-chat-history-panel.md`
 - `v290-player-idle-detection.md`
 - `v291-multiplayer-hook-branch-coverage.md`
+- `v292-multiplayer-stats-player-count.md`

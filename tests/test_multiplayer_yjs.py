@@ -8,6 +8,7 @@ import pytest
 
 from helping_hands.server.multiplayer_yjs import (
     create_yjs_app,
+    get_multiplayer_stats,
     start_yjs_server,
     stop_yjs_server,
 )
@@ -119,3 +120,62 @@ class TestYjsAppGlobals:
             assert result is None
             assert mod.yjs_websocket_server is None
             assert mod.yjs_asgi_app is None
+
+
+class TestGetMultiplayerStats:
+    """Tests for the ``get_multiplayer_stats`` function."""
+
+    def test_returns_unavailable_when_server_is_none(self) -> None:
+        with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", None):
+            result = get_multiplayer_stats()
+            assert result == {"available": False, "rooms": 0, "connections": 0}
+
+    def test_returns_stats_with_rooms_and_clients(self) -> None:
+        mock_room = MagicMock()
+        mock_room.clients = [MagicMock(), MagicMock(), MagicMock()]
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_multiplayer_stats()
+            assert result == {"available": True, "rooms": 1, "connections": 3}
+
+    def test_returns_zero_counts_with_empty_rooms(self) -> None:
+        mock_server = MagicMock()
+        mock_server.rooms = {}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_multiplayer_stats()
+            assert result == {"available": True, "rooms": 0, "connections": 0}
+
+    def test_handles_multiple_rooms(self) -> None:
+        room_a = MagicMock()
+        room_a.clients = [MagicMock(), MagicMock()]
+        room_b = MagicMock()
+        room_b.clients = [MagicMock()]
+        mock_server = MagicMock()
+        mock_server.rooms = {"room-a": room_a, "room-b": room_b}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_multiplayer_stats()
+            assert result == {"available": True, "rooms": 2, "connections": 3}
+
+    def test_handles_exception_gracefully(self) -> None:
+        mock_server = MagicMock()
+        mock_server.rooms = property(lambda self: (_ for _ in ()).throw(RuntimeError))
+        # Make rooms access raise an exception.
+        type(mock_server).rooms = property(
+            lambda self: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_multiplayer_stats()
+            assert result == {"available": True, "rooms": 0, "connections": 0}

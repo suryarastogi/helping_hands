@@ -150,7 +150,14 @@ export default function HandWorldScene({
   return (
     <section className="card hand-world-card">
       <header className="header">
-        <h1>Hand World</h1>
+        <h1>
+          Hand World
+          {connectionStatus === "connected" && (
+            <span className="player-count-badge" aria-label={`${remotePlayers.length + 1} players online`}>
+              {remotePlayers.length + 1}
+            </span>
+          )}
+        </h1>
         <p>{maxWorkers} stations &middot; click a worker to stream its output</p>
       </header>
 

@@ -66,7 +66,7 @@ describe("HandWorldScene component", () => {
   it("renders the scene container with header", () => {
     const { container } = render(<HandWorldScene {...BASE_SCENE_PROPS} />);
     expect(container.querySelector(".hand-world-card")).toBeTruthy();
-    expect(container.querySelector("h1")?.textContent).toBe("Hand World");
+    expect(container.querySelector("h1")?.textContent).toContain("Hand World");
     expect(container.querySelector(".world-scene.office-scene")).toBeTruthy();
   });
 
@@ -404,5 +404,45 @@ describe("HandWorldScene component", () => {
     const indicator = container.querySelector(".human-player .idle-indicator");
     expect(indicator).toBeTruthy();
     expect(indicator?.textContent).toBe("zzz");
+  });
+
+  it("shows player count badge when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" remotePlayers={[]} />
+    );
+    const badge = container.querySelector(".player-count-badge");
+    expect(badge).toBeTruthy();
+    expect(badge?.textContent).toBe("1");
+    expect(badge?.getAttribute("aria-label")).toBe("1 players online");
+  });
+
+  it("shows correct count with remote players", () => {
+    const remotes: RemotePlayer[] = [
+      { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 30, direction: "down", walking: false, idle: false },
+      { player_id: "r2", name: "Bob", color: "#2563eb", x: 60, y: 60, direction: "up", walking: true, idle: false },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" remotePlayers={remotes} />
+    );
+    const badge = container.querySelector(".player-count-badge");
+    expect(badge).toBeTruthy();
+    expect(badge?.textContent).toBe("3");
+    expect(badge?.getAttribute("aria-label")).toBe("3 players online");
+  });
+
+  it("hides player count badge when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    const badge = container.querySelector(".player-count-badge");
+    expect(badge).toBeNull();
+  });
+
+  it("hides player count badge when connecting", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connecting" />
+    );
+    const badge = container.querySelector(".player-count-badge");
+    expect(badge).toBeNull();
   });
 });

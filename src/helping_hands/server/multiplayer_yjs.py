@@ -75,3 +75,34 @@ async def stop_yjs_server() -> None:
     if yjs_websocket_server is not None:
         await yjs_websocket_server.stop()
         logger.info("Yjs WebSocket server stopped")
+
+
+def get_multiplayer_stats() -> dict[str, object]:
+    """Return current multiplayer room/connection statistics.
+
+    Queries the ``WebsocketServer`` singleton for room and connection counts.
+    Returns a dict suitable for JSON serialisation::
+
+        {"available": True, "rooms": 1, "connections": 3}
+
+    When pycrdt-websocket is not installed or the server has not been
+    created, returns ``{"available": False, "rooms": 0, "connections": 0}``.
+    """
+    if yjs_websocket_server is None:
+        return {"available": False, "rooms": 0, "connections": 0}
+
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        room_count = len(rooms)
+        connection_count = 0
+        for room in rooms.values():
+            clients = getattr(room, "clients", [])
+            connection_count += len(clients)
+        return {
+            "available": True,
+            "rooms": room_count,
+            "connections": connection_count,
+        }
+    except Exception:
+        logger.debug("Failed to read multiplayer stats", exc_info=True)
+        return {"available": True, "rooms": 0, "connections": 0}

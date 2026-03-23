@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Multiplayer Observability & UX Polish (2026-03-23) — Completed
+
+**Implemented (v292):**
+- Backend: `get_multiplayer_stats()` in `multiplayer_yjs.py` — queries Yjs WebsocketServer for room/connection counts
+- Backend: `GET /health/multiplayer` endpoint in `app.py` — returns `{available, rooms, connections}`
+- Frontend: Player count badge in Hand World header — shows online count when connected
+- CSS: `.player-count-badge` — green pill badge with player count
+- 5 backend tests (stats: unavailable, empty rooms, multiple rooms, exception handling)
+- 4 frontend tests (badge shown/hidden per connection status, correct count with remotes)
+- 342 frontend tests total (up from 338), 13 backend multiplayer tests (up from 8)
+
 ### Multiplayer Hook Branch Coverage (2026-03-23) — Completed
 
 **Implemented (v291):**

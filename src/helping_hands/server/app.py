@@ -75,6 +75,7 @@ from helping_hands.server.constants import (
 )
 from helping_hands.server.multiplayer_yjs import (
     create_yjs_app,
+    get_multiplayer_stats,
     start_yjs_server,
     stop_yjs_server,
 )
@@ -2720,6 +2721,12 @@ def get_claude_usage(force: bool = False) -> ClaudeUsageResponse:
 def health() -> dict[str, str]:
     """Health check."""
     return {"status": _RESPONSE_STATUS_OK}
+
+
+@app.get("/health/multiplayer")
+def health_multiplayer() -> dict[str, object]:
+    """Return multiplayer room/connection statistics."""
+    return get_multiplayer_stats()
 
 
 class ServiceHealthResponse(BaseModel):
