@@ -823,6 +823,24 @@ h2 {
   letter-spacing: 0.1em;
 }
 
+.player-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  height: 1.4em;
+  margin-left: 0.5em;
+  padding: 0 0.35em;
+  font-size: 0.55em;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--background);
+  background: var(--success);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
 .world-scene {
   position: relative;
   margin-top: 12px;
@@ -1658,6 +1676,111 @@ h2 {
   color: #94a3b8;
   font-size: 0.38rem;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.conn-status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.conn-status-connected {
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.6);
+}
+
+.conn-status-connecting {
+  background: #eab308;
+  box-shadow: 0 0 4px rgba(234, 179, 8, 0.6);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.conn-status-disconnected {
+  background: #ef4444;
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.6);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Player Name Input ── */
+.player-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.player-name-input {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 3px;
+  color: #e2e8f0;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.38rem;
+  padding: 2px 4px;
+  width: 80px;
+  outline: none;
+}
+
+.player-name-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 3px rgba(96, 165, 250, 0.4);
+}
+
+.player-name-input::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+/* ── Presence Panel ── */
+.presence-panel {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.presence-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.presence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+.presence-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+}
+
+.presence-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.presence-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70px;
 }
 
 /* ── Claude Usage Overlay ── */
@@ -2028,6 +2151,255 @@ h2 {
 
 .human-player.up .human-helmet {
   background: linear-gradient(135deg, #2d3748 0%, #4a5568 50%, #2d3748 100%);
+}
+
+/* --- Remote multiplayer players --- */
+
+.remote-player {
+  position: absolute;
+  width: 36px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  z-index: 7;
+  pointer-events: none;
+  transition: left 0.08s linear, top 0.08s linear;
+}
+
+.remote-player .human-helmet {
+  background: var(--rp-body, #e11d48);
+  border-color: color-mix(in srgb, var(--rp-body, #e11d48) 70%, #000);
+}
+
+.remote-player .human-torso {
+  background: var(--rp-body, #e11d48);
+  border-color: color-mix(in srgb, var(--rp-body, #e11d48) 70%, #000);
+}
+
+.remote-player .human-arm {
+  background: var(--rp-body, #e11d48);
+  border-color: color-mix(in srgb, var(--rp-body, #e11d48) 70%, #000);
+}
+
+.remote-player .human-glove {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 60%, #fff);
+}
+
+.remote-player .human-belt {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 50%, #000);
+}
+
+.remote-player .human-leg {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 40%, #000);
+}
+
+.remote-player .human-boot {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 30%, #000);
+}
+
+.remote-player.left {
+  transform: translate(-50%, -50%) scaleX(-1);
+}
+
+.remote-player.up .human-visor,
+.remote-player.up .human-visor-shine {
+  visibility: hidden;
+}
+
+.remote-player.up .human-helmet {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 80%, #000);
+}
+
+.remote-player-name {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.remote-player.left .remote-player-name {
+  transform: translateX(-50%) scaleX(-1);
+}
+
+.remote-player.walking .human-leg-left,
+.remote-player.walking .human-boot-left {
+  animation: leg-walk-left 0.25s steps(2, end) infinite;
+}
+
+.remote-player.walking .human-leg-right,
+.remote-player.walking .human-boot-right {
+  animation: leg-walk-right 0.25s steps(2, end) infinite;
+}
+
+.remote-player.walking .human-arm-left,
+.remote-player.walking .human-glove-left {
+  animation: arm-walk-left 0.25s steps(2, end) infinite;
+}
+
+.remote-player.walking .human-arm-right,
+.remote-player.walking .human-glove-right {
+  animation: arm-walk-right 0.25s steps(2, end) infinite;
+}
+
+.emote-bubble {
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  pointer-events: none;
+  z-index: 10;
+  animation: emote-float 2s ease-out forwards;
+}
+
+@keyframes emote-float {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
+.chat-bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 4px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  z-index: 11;
+  animation: chat-float 4s ease-out forwards;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.chat-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1e293b;
+}
+
+@keyframes chat-float {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  80% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-14px);
+  }
+}
+
+.idle-indicator {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  color: #94a3b8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  letter-spacing: 2px;
+  animation: idle-bob 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes idle-bob {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.chat-input-form {
+  margin-top: 6px;
+}
+
+.chat-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.chat-input::placeholder {
+  color: #64748b;
+}
+
+.chat-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.chat-history-panel {
+  margin-top: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  background: #0a1324;
+  padding: 4px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+
+.chat-history-message {
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 0;
+}
+
+.chat-history-name {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.chat-history-name::after {
+  content: ":";
+}
+
+.chat-history-text {
+  color: #cbd5e1;
 }
 
 button.worker-sprite {

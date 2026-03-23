@@ -42,6 +42,10 @@ Index of design documents for helping_hands.
 - [Local Stack](local-stack.md) — Native process management for local development with Docker data services
 - [Usage Monitoring](usage-monitoring.md) — Claude Code OAuth usage polling, Keychain token retrieval, Postgres persistence
 
+## Frontend
+
+- [Multiplayer Hand World](multiplayer-hand-world.md) — WebSocket-based real-time avatar synchronization in Hand World
+
 ## Quality
 
 - [Testing Methodology](testing-methodology.md) — Coverage-guided iteration, test patterns, and dead code documentation

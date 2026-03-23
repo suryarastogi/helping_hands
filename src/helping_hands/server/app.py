@@ -12,6 +12,8 @@ import logging
 import os
 import subprocess
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -70,6 +72,12 @@ from helping_hands.server.constants import (
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
+)
+from helping_hands.server.multiplayer_yjs import (
+    create_yjs_app,
+    get_multiplayer_stats,
+    start_yjs_server,
+    stop_yjs_server,
 )
 from helping_hands.server.task_result import normalize_task_result
 
@@ -135,11 +143,26 @@ leaking a disproportionate fraction of the secret.  At the default values
 _SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
 """HTTP 404 detail message for missing schedule resources."""
 
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Manage server lifecycle — start/stop the Yjs WebSocket server."""
+    await start_yjs_server()
+    yield
+    await stop_yjs_server()
+
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
     version="0.1.0",
+    lifespan=_lifespan,
 )
+
+# --- Yjs-based multiplayer WebSocket (awareness protocol) ---
+_yjs_app = create_yjs_app()
+if _yjs_app is not None:
+    app.mount("/ws/yjs", _yjs_app)
 
 
 class _ToolSkillValidatorMixin(BaseModel):
@@ -2698,6 +2721,12 @@ def get_claude_usage(force: bool = False) -> ClaudeUsageResponse:
 def health() -> dict[str, str]:
     """Health check."""
     return {"status": _RESPONSE_STATUS_OK}
+
+
+@app.get("/health/multiplayer")
+def health_multiplayer() -> dict[str, object]:
+    """Return multiplayer room/connection statistics."""
+    return get_multiplayer_stats()
 
 
 class ServiceHealthResponse(BaseModel):

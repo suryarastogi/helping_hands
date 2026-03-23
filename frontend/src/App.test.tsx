@@ -1454,3 +1454,330 @@ describe("Hand World factory and incinerator", () => {
     expect(document.querySelector(".zen-shrine")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Yjs Multiplayer Awareness tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Mock Yjs awareness that tracks state and fires change events.
+ */
+class MockAwareness {
+  private _localState: Record<string, unknown> = {};
+  private _states = new Map<number, Record<string, unknown>>();
+  private _listeners: Record<string, Array<() => void>> = {};
+
+  getLocalState() { return this._localState; }
+  getStates() { return this._states; }
+
+  setLocalStateField(field: string, value: unknown) {
+    this._localState[field] = value;
+  }
+
+  on(event: string, cb: () => void) {
+    (this._listeners[event] ??= []).push(cb);
+  }
+
+  off(event: string, cb: () => void) {
+    const arr = this._listeners[event];
+    if (arr) {
+      const idx = arr.indexOf(cb);
+      if (idx >= 0) arr.splice(idx, 1);
+    }
+  }
+
+  /** Simulate remote awareness states and fire change event. */
+  _setRemoteStates(states: Map<number, Record<string, unknown>>) {
+    this._states = states;
+    (this._listeners["change"] ?? []).forEach((cb) => cb());
+  }
+}
+
+/** Most-recently created mock awareness instance. */
+let mockAwareness: MockAwareness;
+let mockProviderDestroyCalled: boolean;
+let mockDocDestroyCalled: boolean;
+let mockProviderInstance: { _listeners: Record<string, Array<(arg: unknown) => void>>; _fireStatus: (status: string) => void } | null = null;
+const MOCK_CLIENT_ID = 42;
+
+vi.mock("yjs", () => ({
+  Doc: class MockDoc {
+    clientID = MOCK_CLIENT_ID;
+    destroy() { mockDocDestroyCalled = true; }
+  },
+}));
+
+vi.mock("y-websocket", () => ({
+  WebsocketProvider: class MockProvider {
+    awareness: MockAwareness;
+    _listeners: Record<string, Array<(arg: unknown) => void>> = {};
+    constructor() {
+      mockAwareness = new MockAwareness();
+      this.awareness = mockAwareness;
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      mockProviderInstance = this as unknown as typeof mockProviderInstance;
+    }
+    on(event: string, cb: (arg: unknown) => void) {
+      (this._listeners[event] ??= []).push(cb);
+    }
+    off(event: string, cb: (arg: unknown) => void) {
+      const arr = this._listeners[event];
+      if (arr) {
+        const idx = arr.indexOf(cb);
+        if (idx >= 0) arr.splice(idx, 1);
+      }
+    }
+    _fireStatus(status: string) {
+      (this._listeners["status"] ?? []).forEach((cb) => cb({ status }));
+    }
+    destroy() { mockProviderDestroyCalled = true; }
+  },
+}));
+
+describe("Yjs Multiplayer Awareness", () => {
+  beforeEach(() => {
+    mockProviderDestroyCalled = false;
+    mockDocDestroyCalled = false;
+  });
+
+  function switchToWorld() {
+    render(<App />);
+    fireEvent.click(screen.getByText("Hand world"));
+  }
+
+  it("creates Yjs provider when entering world view", async () => {
+    switchToWorld();
+    await vi.waitFor(() => {
+      expect(mockAwareness).toBeDefined();
+    });
+    // Should set local awareness state with player info.
+    const local = mockAwareness.getLocalState();
+    expect(local.player).toBeDefined();
+    const player = local.player as Record<string, unknown>;
+    expect(player.player_id).toBe(String(MOCK_CLIENT_ID));
+  });
+
+  it("renders remote players from awareness state", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState()); // self
+    remoteStates.set(999, {
+      player: {
+        player_id: "999",
+        name: "Remote Player",
+        color: "#2563eb",
+        x: 30,
+        y: 40,
+        direction: "left",
+        walking: true,
+        emote: null,
+      },
+    });
+
+    act(() => {
+      mockAwareness._setRemoteStates(remoteStates);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Remote Player")).toBeInTheDocument();
+    });
+  });
+
+  it("removes remote player when awareness state is cleared", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    // Add remote player.
+    const states1 = new Map<number, Record<string, unknown>>();
+    states1.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states1.set(888, {
+      player: {
+        player_id: "888",
+        name: "Leaving",
+        color: "#d97706",
+        x: 50,
+        y: 50,
+        direction: "down",
+        walking: false,
+        emote: null,
+      },
+    });
+    act(() => { mockAwareness._setRemoteStates(states1); });
+    await waitFor(() => expect(screen.getByLabelText("Leaving")).toBeInTheDocument());
+
+    // Remove remote player (awareness cleanup).
+    const states2 = new Map<number, Record<string, unknown>>();
+    states2.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    act(() => { mockAwareness._setRemoteStates(states2); });
+
+    await waitFor(() => expect(screen.queryByLabelText("Leaving")).toBeNull());
+  });
+
+  it("shows player count when remote players are present", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    remoteStates.set(100, {
+      player: { player_id: "100", name: "P2", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false, emote: null },
+    });
+    remoteStates.set(200, {
+      player: { player_id: "200", name: "P3", color: "#2563eb", x: 30, y: 30, direction: "left", walking: false, emote: null },
+    });
+
+    act(() => { mockAwareness._setRemoteStates(remoteStates); });
+
+    await waitFor(() => {
+      expect(screen.getByText("3 Online")).toBeInTheDocument();
+    });
+  });
+
+  it("cleans up Yjs provider when leaving world view", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    // Switch back to classic view.
+    fireEvent.click(screen.getByText("Classic view"));
+
+    expect(mockProviderDestroyCalled).toBe(true);
+    expect(mockDocDestroyCalled).toBe(true);
+  });
+
+  it("shows local emote bubble when pressing emote key", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "2", bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Emote: celebrate")).toBeInTheDocument();
+    });
+  });
+
+  it("shows remote emote via awareness state", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    remoteStates.set(777, {
+      player: {
+        player_id: "777",
+        name: "Emoter",
+        color: "#e11d48",
+        x: 50,
+        y: 50,
+        direction: "down",
+        walking: false,
+        emote: "sparkle",
+      },
+    });
+
+    act(() => { mockAwareness._setRemoteStates(remoteStates); });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Emoter")).toBeInTheDocument();
+      expect(screen.getByLabelText("Emote: sparkle")).toBeInTheDocument();
+    });
+  });
+
+  it("shows Multiplayer active when provider fires connected status", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("connected"); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Multiplayer active/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows Connecting when provider fires connecting status", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("connecting"); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Connecting/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows Disconnected when provider fires disconnected status", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("disconnected"); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Disconnected/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders connection status dot with correct class", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("connected"); });
+
+    await waitFor(() => {
+      const dot = screen.getByLabelText("Connection: connected");
+      expect(dot).toBeInTheDocument();
+      expect(dot.classList.contains("conn-status-connected")).toBe(true);
+    });
+  });
+
+  it("renders player name input in world view", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const input = screen.getByLabelText("Player name");
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveAttribute("maxLength", "24");
+  });
+
+  it("player name input updates on typing", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const input = screen.getByLabelText("Player name") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "TestUser" } });
+    expect(input.value).toBe("TestUser");
+  });
+
+  it("shows presence panel with remote player names", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    remoteStates.set(100, {
+      player: { player_id: "100", name: "PresenceTestUser", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false, emote: null },
+    });
+
+    act(() => { mockAwareness._setRemoteStates(remoteStates); });
+
+    // The remote player appears in the world (aria-label on the sprite)
+    // and the presence list shows their name.
+    await waitFor(() => {
+      expect(screen.getByLabelText("PresenceTestUser")).toBeInTheDocument();
+    });
+    // Presence list should render names in the sidebar panel.
+    const nameElements = screen.getAllByText("PresenceTestUser");
+    // At least 2: one in the sprite, one in the presence list.
+    expect(nameElements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("hides presence panel when no remote players", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    expect(screen.queryByLabelText("Connected players")).not.toBeInTheDocument();
+  });
+});
+

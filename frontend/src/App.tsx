@@ -8,1004 +8,120 @@ import {
   useState,
 } from "react";
 
-type Backend =
-  | "e2e"
-  | "basic-langgraph"
-  | "basic-atomic"
-  | "basic-agent"
-  | "codexcli"
-  | "claudecodecli"
-  | "docker-sandbox-claude"
-  | "goose"
-  | "geminicli"
-  | "opencodecli";
-
-type BuildResponse = {
-  task_id: string;
-  status: string;
-  backend: string;
-};
-
-type TaskStatus = {
-  task_id: string;
-  status: string;
-  result: Record<string, unknown> | null;
-};
-
-type CurrentTask = {
-  task_id: string;
-  status: string;
-  backend?: string | null;
-  repo_path?: string | null;
-};
-
-type CurrentTasksResponse = {
-  tasks: CurrentTask[];
-  source: string;
-};
-
-type WorkerCapacityResponse = {
-  max_workers: number;
-  source: string;
-  workers: Record<string, number>;
-};
-
-type FormState = {
-  repo_path: string;
-  prompt: string;
-  backend: Backend;
-  model: string;
-  max_iterations: number;
-  pr_number: string;
-  tools: string;
-  skills: string;
-  no_pr: boolean;
-  enable_execution: boolean;
-  enable_web: boolean;
-  use_native_cli_auth: boolean;
-  fix_ci: boolean;
-  ci_check_wait_minutes: number;
-  github_token: string;
-  reference_repos: string;
-};
-
-type TaskHistoryItem = {
-  taskId: string;
-  status: string;
-  backend: string;
-  repoPath: string;
-  createdAt: number;
-  lastUpdatedAt: number;
-};
-
-type TaskHistoryPatch = {
-  taskId: string;
-  status?: string;
-  backend?: string;
-  repoPath?: string;
-};
-
-type ServerConfig = {
-  in_docker: boolean;
-  native_auth_default: boolean;
-};
-
-type ServiceHealth = {
-  redis: "ok" | "error";
-  db: "ok" | "error" | "na";
-  workers: "ok" | "error";
-};
-
-type ServiceHealthState = {
-  reachable: boolean;
-  health: ServiceHealth | null;
-};
-
-type ScheduleItem = {
-  schedule_id: string;
-  name: string;
-  cron_expression: string;
-  repo_path: string;
-  prompt: string;
-  backend: string;
-  model: string | null;
-  max_iterations: number;
-  pr_number: number | null;
-  no_pr: boolean;
-  enable_execution: boolean;
-  enable_web: boolean;
-  use_native_cli_auth: boolean;
-  fix_ci: boolean;
-  ci_check_wait_minutes: number;
-  github_token: string | null;
-  reference_repos: string[];
-  tools: string[];
-  skills: string[];
-  enabled: boolean;
-  created_at: string;
-  last_run_at: string | null;
-  last_run_task_id: string | null;
-  run_count: number;
-  next_run_at: string | null;
-};
-
-type ScheduleFormState = {
-  name: string;
-  cron_expression: string;
-  repo_path: string;
-  prompt: string;
-  backend: Backend;
-  model: string;
-  max_iterations: number;
-  pr_number: string;
-  no_pr: boolean;
-  enable_execution: boolean;
-  enable_web: boolean;
-  use_native_cli_auth: boolean;
-  fix_ci: boolean;
-  ci_check_wait_minutes: number;
-  github_token: string;
-  reference_repos: string;
-  tools: string;
-  skills: string;
-  enabled: boolean;
-};
-
-type ClaudeUsageLevel = {
-  name: string;
-  percent_used: number;
-  detail: string;
-};
-
-type ClaudeUsageResponse = {
-  levels: ClaudeUsageLevel[];
-  error: string | null;
-  fetched_at: string;
-};
-
-type OutputTab = "updates" | "raw" | "payload";
-type PrefixFilterMode = "show" | "hide" | "only";
-type MainView = "submission" | "monitor" | "schedules";
-type DashboardView = "classic" | "world";
-
-type WorkerVariant = "bot-alpha" | "bot-round" | "bot-heavy" | "goose";
-
-type CharacterStyle = {
-  bodyColor: string;
-  accentColor: string;
-  skinColor: string;
-  outlineColor: string;
-  variant: WorkerVariant;
-};
-
-type SceneWorkerPhase = "at-factory" | "walking-to-desk" | "active" | "walking-to-exit" | "at-exit";
-
-type SceneWorker = {
-  taskId: string;
-  slot: number;
-  phase: SceneWorkerPhase;
-  phaseChangedAt: number;
-};
-
-type FloatingNumber = {
-  id: number;
-  taskId: string;
-  value: number;
-  createdAt: number;
-};
-
-type PlayerPosition = {
-  x: number;
-  y: number;
-};
-
-type PlayerDirection = "down" | "up" | "left" | "right";
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
-export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
-const TASK_HISTORY_LIMIT = 60;
-const BACKEND_OPTIONS: Backend[] = [
-  "e2e",
-  "basic-langgraph",
-  "basic-atomic",
-  "basic-agent",
-  "codexcli",
-  "claudecodecli",
-  "docker-sandbox-claude",
-  "goose",
-  "geminicli",
-  "opencodecli",
-];
-
-const DEFAULT_PROMPT =
-  "Update README.md with results of your smoke test. Keep changes minimal and safe.";
-
-const INITIAL_FORM: FormState = {
-  repo_path: "suryarastogi/helping_hands",
-  prompt: DEFAULT_PROMPT,
-  backend: "claudecodecli",
-  model: "claude-opus-4-6",
-  max_iterations: 6,
-  pr_number: "",
-  tools: "",
-  skills: "",
-  no_pr: false,
-  enable_execution: false,
-  enable_web: false,
-  use_native_cli_auth: false,
-  fix_ci: false,
-  ci_check_wait_minutes: 3,
-  github_token: "",
-  reference_repos: "",
-};
-
-const CRON_PRESETS: Record<string, string> = {
-  every_minute: "* * * * *",
-  every_5_minutes: "*/5 * * * *",
-  every_15_minutes: "*/15 * * * *",
-  every_30_minutes: "*/30 * * * *",
-  hourly: "0 * * * *",
-  daily: "0 0 * * *",
-  weekly: "0 0 * * 0",
-  monthly: "0 0 1 * *",
-  weekdays: "0 9 * * 1-5",
-};
-
-const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
-  name: "",
-  cron_expression: "",
-  repo_path: "suryarastogi/helping_hands",
-  prompt: "",
-  backend: "claudecodecli",
-  model: "",
-  max_iterations: 6,
-  pr_number: "",
-  no_pr: false,
-  enable_execution: false,
-  enable_web: false,
-  use_native_cli_auth: false,
-  fix_ci: false,
-  ci_check_wait_minutes: 3,
-  github_token: "",
-  reference_repos: "",
-  tools: "",
-  skills: "",
-  enabled: true,
-};
-
-const DASHBOARD_VIEW_STORAGE_KEY = "helping_hands_dashboard_view_v1";
-const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
-  "at-factory": 80,
-  "walking-to-desk": 1500,
-  "active": Infinity,
-  "walking-to-exit": 1500,
-  "at-exit": 400,
-};
-const DEFAULT_WORLD_MAX_WORKERS = 8;
-
-const FACTORY_POS = { left: 8, top: 52 };
-const INCINERATOR_POS = { left: 92, top: 52 };
-
-const PLAYER_MOVE_STEP = 1.2;
-const PLAYER_SIZE = { width: 3.5, height: 4 };
-const DESK_SIZE = { width: 8, height: 7 };
-const FACTORY_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
-const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 };
-const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
-
-const DEFAULT_CHARACTER_STYLE: CharacterStyle = {
-  bodyColor: "#64748b",
-  accentColor: "#94a3b8",
-  skinColor: "#f2c7a7",
-  outlineColor: "#020617",
-  variant: "bot-alpha",
-};
-
-const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
-  openai: {
-    bodyColor: "#10a37f",
-    accentColor: "#c7fff1",
-    skinColor: "#d9f6ef",
-    outlineColor: "#0b3e32",
-    variant: "bot-alpha",
-  },
-  claude: {
-    bodyColor: "#d97706",
-    accentColor: "#ffe0b8",
-    skinColor: "#f7ddbf",
-    outlineColor: "#492709",
-    variant: "bot-heavy",
-  },
-  gemini: {
-    bodyColor: "#2563eb",
-    accentColor: "#d5e4ff",
-    skinColor: "#d7e3ff",
-    outlineColor: "#14295c",
-    variant: "bot-round",
-  },
-  goose: {
-    bodyColor: "#ffffff",
-    accentColor: "#f97316",
-    skinColor: "#e2e8f0",
-    outlineColor: "#334155",
-    variant: "goose",
-  },
-  langgraph: {
-    bodyColor: "#0891b2",
-    accentColor: "#c6f7ff",
-    skinColor: "#e0fbff",
-    outlineColor: "#0d3f4d",
-    variant: "bot-round",
-  },
-  atomic: {
-    bodyColor: "#dc2626",
-    accentColor: "#ffd1d1",
-    skinColor: "#ffe4e4",
-    outlineColor: "#4a1111",
-    variant: "bot-heavy",
-  },
-  agent: {
-    bodyColor: "#f59e0b",
-    accentColor: "#ffe8bd",
-    skinColor: "#fff0d1",
-    outlineColor: "#55300a",
-    variant: "bot-alpha",
-  },
-  e2e: {
-    bodyColor: "#7c3aed",
-    accentColor: "#e9d5ff",
-    skinColor: "#f4e8ff",
-    outlineColor: "#2f1b63",
-    variant: "bot-round",
-  },
-  opencode: {
-    bodyColor: "#0d9488",
-    accentColor: "#ccfbf1",
-    skinColor: "#d5f5f0",
-    outlineColor: "#134e4a",
-    variant: "bot-alpha",
-  },
-  other: DEFAULT_CHARACTER_STYLE,
-};
-
-export function backendDisplayName(backend: string): string {
-  if (backend === "e2e") return "Smoke Test (internal)";
-  if (backend === "docker-sandbox-claude") return "Claude (Docker Sandbox)";
-  return backend;
-}
-
-export function providerFromBackend(backend: string): string {
-  const normalized = backend.trim().toLowerCase();
-  if (normalized.includes("claude")) {
-    return "claude";
-  }
-  if (normalized.includes("gemini")) {
-    return "gemini";
-  }
-  if (normalized.includes("codex") || normalized.includes("openai")) {
-    return "openai";
-  }
-  if (normalized.includes("opencode")) {
-    return "opencode";
-  }
-  if (normalized.includes("goose")) {
-    return "goose";
-  }
-  if (normalized.includes("langgraph")) {
-    return "langgraph";
-  }
-  if (normalized.includes("atomic")) {
-    return "atomic";
-  }
-  if (normalized.includes("agent")) {
-    return "agent";
-  }
-  if (normalized.includes("e2e")) {
-    return "e2e";
-  }
-  return "other";
-}
-
-export function formatProviderName(provider: string): string {
-  if (provider === "openai") {
-    return "OpenAI / Codex";
-  }
-  if (provider === "opencode") {
-    return "OpenCode";
-  }
-  if (provider === "e2e") {
-    return "Smoke Test";
-  }
-  return provider.charAt(0).toUpperCase() + provider.slice(1);
-}
-
-export function apiUrl(path: string): string {
-  if (!API_BASE) {
-    return path;
-  }
-  return `${API_BASE.replace(/\/$/, "")}${path}`;
-}
-
-export function shortTaskId(value: string): string {
-  if (value.length <= 26) {
-    return value;
-  }
-  return `${value.slice(0, 10)}…${value.slice(-8)}`;
-}
-
-export function repoName(repoPath: string): string {
-  const trimmed = repoPath.replace(/\/+$/, "");
-  const last = trimmed.split("/").pop();
-  return last || trimmed;
-}
-
-export function cronFrequency(cron: string): { symbol: string; label: string } | null {
-  const c = cron.trim();
-  if (c === "* * * * *") return { symbol: "\u26A1", label: "1m" }; // ⚡
-  if (c === "*/5 * * * *") return { symbol: "\uD83D\uDD04", label: "5m" }; // 🔄
-  if (c === "*/15 * * * *") return { symbol: "\uD83D\uDD04", label: "15m" };
-  if (c === "*/30 * * * *") return { symbol: "\uD83D\uDD04", label: "30m" };
-  if (c === "0 * * * *") return { symbol: "\u23F0", label: "1h" }; // ⏰
-  if (c === "0 0 * * *") return { symbol: "\u2600", label: "daily" }; // ☀
-  if (c === "0 0 * * 0") return { symbol: "\uD83D\uDCC5", label: "weekly" }; // 📅
-  if (c === "0 0 1 * *") return { symbol: "\uD83D\uDDD3", label: "monthly" }; // 🗓
-  if (c === "0 9 * * 1-5") return { symbol: "\uD83D\uDCBC", label: "wkday" }; // 💼
-  // Fallback: check common patterns
-  if (/^\*\/\d+\s/.test(c)) return { symbol: "\uD83D\uDD04", label: c.split(" ")[0] };
-  if (/^0\s\*/.test(c)) return { symbol: "\u23F0", label: "hourly" };
-  if (/^0\s\d+\s\*\s\*\s\*$/.test(c)) return { symbol: "\u2600", label: "daily" };
-  return { symbol: "\uD83D\uDD01", label: "cron" }; // 🔁 generic fallback
-}
-
-export function statusTone(status: string): "ok" | "fail" | "run" | "idle" {
-  const normalized = status.trim().toUpperCase();
-  if (normalized === "SUCCESS") {
-    return "ok";
-  }
-  if (normalized === "FAILURE" || normalized === "REVOKED" || normalized === "POLL_ERROR") {
-    return "fail";
-  }
-  if (
-    normalized === "QUEUED" ||
-    normalized === "PENDING" ||
-    normalized === "STARTED" ||
-    normalized === "RUNNING" ||
-    normalized === "RECEIVED" ||
-    normalized === "RETRY" ||
-    normalized === "PROGRESS" ||
-    normalized === "SCHEDULED" ||
-    normalized === "RESERVED" ||
-    normalized === "SENT" ||
-    normalized === "MONITORING" ||
-    normalized === "SUBMITTING"
-  ) {
-    return "run";
-  }
-  return "idle";
-}
-
-export async function parseError(response: Response): Promise<string> {
-  const responseClone = response.clone();
-  try {
-    const data = (await response.json()) as { detail?: string };
-    if (typeof data?.detail === "string" && data.detail.trim()) {
-      return data.detail;
-    }
-    return JSON.stringify(data);
-  } catch {
-    const text = await responseClone.text().catch(() => "");
-    return text || `HTTP ${response.status}`;
-  }
-}
-
-export function parseBool(value: string | null): boolean {
-  return value === "1" || value === "true";
-}
-
-export function statusBlinkerColor(status: string): string {
-  const tone = statusTone(status);
-  if (tone === "ok") return "var(--success)";
-  if (tone === "fail") return "var(--danger)";
-  if (tone === "run") return "#eab308";
-  return "#6b7280";
-}
-
-export function isTerminalTaskStatus(status: string): boolean {
-  const normalized = status.trim().toUpperCase();
-  return (
-    normalized === "SUCCESS" ||
-    normalized === "FAILURE" ||
-    normalized === "REVOKED" ||
-    normalized === "ERROR" ||
-    normalized === "POLL_ERROR"
-  );
-}
-
-type InputItem = {
-  label: string;
-  value: string;
-};
-
-export function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  return value as Record<string, unknown>;
-}
-
-export function readStringValue(value: unknown): string | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
-  }
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-export function readBoolishValue(value: unknown): string | null {
-  if (typeof value === "boolean") {
-    return value ? "true" : "false";
-  }
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "true" || normalized === "false") {
-    return normalized;
-  }
-  return null;
-}
-
-export function readSkillsValue(value: unknown): string | null {
-  if (Array.isArray(value)) {
-    const tokens = value
-      .map((item) => String(item).trim())
-      .filter((item) => item.length > 0);
-    return tokens.length > 0 ? tokens.join(", ") : null;
-  }
-  return readStringValue(value);
-}
-
-async function fetchWorkerCapacity(): Promise<number | null> {
-  try {
-    const response = await fetch(apiUrl(`/workers/capacity?_=${Date.now()}`), {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      return null;
-    }
-    const data = (await response.json()) as WorkerCapacityResponse;
-    if (typeof data.max_workers === "number" && data.max_workers >= 1) {
-      return data.max_workers;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchServiceHealth(): Promise<ServiceHealthState> {
-  try {
-    const response = await fetch(apiUrl("/health/services"), { cache: "no-store" });
-    if (!response.ok) {
-      return { reachable: false, health: null };
-    }
-    const health = (await response.json()) as ServiceHealth;
-    return { reachable: true, health };
-  } catch {
-    return { reachable: false, health: null };
-  }
-}
-
-async function fetchClaudeUsage(force = false): Promise<ClaudeUsageResponse> {
-  try {
-    const qs = force ? `force=true&_=${Date.now()}` : `_=${Date.now()}`;
-    const response = await fetch(apiUrl(`/health/claude-usage?${qs}`), {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      return { levels: [], error: `Server returned ${response.status}`, fetched_at: new Date().toISOString() };
-    }
-    return (await response.json()) as ClaudeUsageResponse;
-  } catch (err) {
-    return { levels: [], error: `Fetch failed: ${err instanceof Error ? err.message : String(err)}`, fetched_at: new Date().toISOString() };
-  }
-}
-
-async function fetchServerConfig(): Promise<ServerConfig | null> {
-  try {
-    const response = await fetch(apiUrl("/config"), { cache: "no-store" });
-    if (!response.ok) {
-      return null;
-    }
-    return (await response.json()) as ServerConfig;
-  } catch {
-    return null;
-  }
-}
-
-export type DeskSlot = {
-  id: string;
-  left: number;
-  top: number;
-};
-
-export function buildDeskSlots(capacity: number): DeskSlot[] {
-  const columns = 4;
-  const rows = Math.max(1, Math.ceil(capacity / columns));
-  const slots: DeskSlot[] = [];
-  const leftStart = 14;
-  const leftStep = 22;
-  const topStart = 24;
-  const topEnd = 82;
-  const rowStep = rows > 1 ? (topEnd - topStart) / (rows - 1) : 0;
-
-  for (let index = 0; index < capacity; index += 1) {
-    const row = Math.floor(index / columns);
-    const col = index % columns;
-    slots.push({
-      id: `desk-${index}`,
-      left: leftStart + col * leftStep,
-      top: Number((topStart + row * rowStep).toFixed(2)),
-    });
-  }
-
-  return slots;
-}
-
-export function checkDeskCollision(
-  playerX: number,
-  playerY: number,
-  deskSlots: DeskSlot[]
-): boolean {
-  const playerLeft = playerX - PLAYER_SIZE.width / 2;
-  const playerRight = playerX + PLAYER_SIZE.width / 2;
-  const playerTop = playerY - PLAYER_SIZE.height / 2;
-  const playerBottom = playerY + PLAYER_SIZE.height / 2;
-
-  for (const desk of deskSlots) {
-    const deskLeft = desk.left - DESK_SIZE.width / 2;
-    const deskRight = desk.left + DESK_SIZE.width / 2;
-    // Only use the bottom portion of the desk for collision so sprites can
-    // walk "behind" the desk from above without stopping mid-way.
-    const collisionTop = desk.top + DESK_SIZE.height * 0.1;
-    const deskBottom = desk.top + DESK_SIZE.height / 2;
-
-    const overlapsX = playerRight > deskLeft && playerLeft < deskRight;
-    const overlapsY = playerBottom > collisionTop && playerTop < deskBottom;
-
-    if (overlapsX && overlapsY) {
-      return true;
-    }
-  }
-
-  // Check factory and incinerator collisions
-  for (const box of [FACTORY_COLLISION, INCINERATOR_COLLISION]) {
-    const bLeft = box.left;
-    const bRight = box.left + box.width;
-    const bTop = box.top;
-    const bBottom = box.top + box.height;
-    if (playerRight > bLeft && playerLeft < bRight && playerBottom > bTop && playerTop < bBottom) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-const PREFIX_RE = /^\[([^\]]+)\]/;
-
-const API_COST_RE = /api:\s*\$([0-9]+(?:\.[0-9]+)?)/;
-
-export type AccumulatedUsage = {
-  totalCost: number;
-  totalSeconds: number;
-  totalIn: number;
-  totalOut: number;
-  count: number;
-};
-
-export function accumulateUsage(rawUpdates: string[]): AccumulatedUsage | null {
-  let totalCost = 0;
-  let totalSeconds = 0;
-  let totalIn = 0;
-  let totalOut = 0;
-  let count = 0;
-  for (const entry of rawUpdates) {
-    for (const line of String(entry).split(/\r?\n/)) {
-      const costMatch = line.match(API_COST_RE);
-      if (!costMatch) continue;
-      count++;
-      totalCost += parseFloat(costMatch[1]);
-      const secMatch = line.match(/([0-9]+(?:\.[0-9]+)?)s/);
-      if (secMatch) totalSeconds += parseFloat(secMatch[1]);
-      const inMatch = line.match(/in=([0-9]+)/);
-      if (inMatch) totalIn += parseInt(inMatch[1], 10);
-      const outMatch = line.match(/out=([0-9]+)/);
-      if (outMatch) totalOut += parseInt(outMatch[1], 10);
-    }
-  }
-  if (count === 0) return null;
-  return { totalCost, totalSeconds, totalIn, totalOut, count };
-}
-
-export function extractPrefixes(rawUpdates: string[]): string[] {
-  const seen = new Set<string>();
-  for (const entry of rawUpdates) {
-    for (const line of String(entry).split(/\r?\n/)) {
-      const m = line.trim().match(PREFIX_RE);
-      if (m) {
-        seen.add(m[1]);
-      }
-    }
-  }
-  return Array.from(seen).sort();
-}
-
-export function filterLinesByPrefix(
-  text: string,
-  filters: Record<string, PrefixFilterMode>
-): string {
-  const entries = Object.entries(filters);
-  if (entries.length === 0) {
-    return text;
-  }
-  const hasOnly = entries.some(([, mode]) => mode === "only");
-  const lines = text.split("\n");
-  const result: string[] = [];
-  for (const line of lines) {
-    const m = line.match(PREFIX_RE);
-    const prefix = m ? m[1] : null;
-    if (hasOnly) {
-      if (!prefix || filters[prefix] !== "only") continue;
-      result.push(line.replace(PREFIX_RE, "").trimStart());
-    } else {
-      if (prefix && filters[prefix] === "hide") continue;
-      result.push(line);
-    }
-  }
-  return result.join("\n");
-}
-
-export function extractUpdates(result: Record<string, unknown> | null): string[] {
-  if (!result || typeof result !== "object") {
-    return [];
-  }
-  const raw = result.updates;
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw.map((item) => String(item));
-}
-
-export function parseOptimisticUpdates(rawUpdates: string[]): string[] {
-  const lines = rawUpdates.flatMap((entry) => String(entry).split(/\r?\n/));
-  const parsed: string[] = [];
-  let inIndexedFiles = false;
-  let indexedFileCount = 0;
-  let inGoals = false;
-  let goalCount = 0;
-
-  const pushUnique = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return;
-    }
-    if (parsed[parsed.length - 1] !== trimmed) {
-      parsed.push(trimmed);
-    }
-  };
-
-  const flushIndexedFiles = () => {
-    if (!inIndexedFiles) {
-      return;
-    }
-    pushUnique(`Repository index loaded (${indexedFileCount} files).`);
-    inIndexedFiles = false;
-    indexedFileCount = 0;
-  };
-
-  const flushGoals = () => {
-    if (!inGoals) {
-      return;
-    }
-    pushUnique(`Loaded ${goalCount} initialization goals.`);
-    inGoals = false;
-    goalCount = 0;
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-    if (trimmed.includes(".zshenv:.:1: no such file or directory")) {
-      continue;
-    }
-
-    if (trimmed === "Indexed files:") {
-      flushGoals();
-      inIndexedFiles = true;
-      indexedFileCount = 0;
-      continue;
-    }
-    if (trimmed === "Goals:") {
-      flushIndexedFiles();
-      inGoals = true;
-      goalCount = 0;
-      continue;
-    }
-
-    if (inIndexedFiles) {
-      if (trimmed.startsWith("- ")) {
-        indexedFileCount += 1;
-        continue;
-      }
-      flushIndexedFiles();
-    }
-
-    if (inGoals) {
-      if (/^\d+\./.test(trimmed)) {
-        goalCount += 1;
-        continue;
-      }
-      flushGoals();
-    }
-
-    if (trimmed.toLowerCase() === "thinking") {
-      pushUnique("Planning next step.");
-      continue;
-    }
-
-    if (trimmed.startsWith("Initialization phase:")) {
-      pushUnique("Initialization phase started.");
-      continue;
-    }
-
-    if (trimmed.startsWith("Execution context:")) {
-      pushUnique("Execution context confirmed (scripted, non-interactive).");
-      continue;
-    }
-
-    if (trimmed.startsWith("Repository root:")) {
-      pushUnique(trimmed);
-      continue;
-    }
-
-    if (trimmed.startsWith("mcp startup:")) {
-      pushUnique(`MCP startup: ${trimmed.slice("mcp startup:".length).trim()}`);
-      continue;
-    }
-
-    if (trimmed.startsWith("[codexcli] still running") || trimmed.startsWith("[claudecodecli] still running")) {
-      pushUnique(trimmed.replace(/^\[(codexcli|claudecodecli)\] /, ""));
-      continue;
-    }
-
-    if (trimmed.startsWith("I will ")) {
-      pushUnique(trimmed.slice("I will ".length));
-      continue;
-    }
-
-    if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
-      pushUnique(trimmed.slice(2, -2));
-      continue;
-    }
-
-    const execMatch = trimmed.match(
-      /^\/bin\/\S+\s+-lc\s+"([^"]+)".*\s(succeeded|failed)\s+in\s+([^:]+):?$/
-    );
-    if (execMatch) {
-      const [, command, outcome, duration] = execMatch;
-      pushUnique(
-        `${outcome === "succeeded" ? "Executed" : "Failed"}: ${command} (${duration.trim()})`
-      );
-      continue;
-    }
-
-    if (trimmed === "exec") {
-      continue;
-    }
-
-    if (trimmed.length <= 250 && !trimmed.startsWith("- ")) {
-      pushUnique(trimmed);
-    }
-  }
-
-  flushIndexedFiles();
-  flushGoals();
-  return parsed;
-}
-
-export function loadTaskHistory(): TaskHistoryItem[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(TASK_HISTORY_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    const now = Date.now();
-    const items: TaskHistoryItem[] = [];
-
-    for (const entry of parsed) {
-      if (!entry || typeof entry !== "object") {
-        continue;
-      }
-
-      const candidate = entry as Record<string, unknown>;
-      const taskId = String(candidate.taskId ?? "").trim();
-      if (!taskId) {
-        continue;
-      }
-
-      const createdAtRaw = Number(candidate.createdAt);
-      const lastUpdatedRaw = Number(candidate.lastUpdatedAt);
-
-      items.push({
-        taskId,
-        status: String(candidate.status ?? "unknown"),
-        backend: String(candidate.backend ?? "unknown"),
-        repoPath: String(candidate.repoPath ?? ""),
-        createdAt: Number.isFinite(createdAtRaw) ? createdAtRaw : now,
-        lastUpdatedAt: Number.isFinite(lastUpdatedRaw) ? lastUpdatedRaw : now,
-      });
-    }
-
-    return items.slice(0, TASK_HISTORY_LIMIT);
-  } catch {
-    return [];
-  }
-}
-
-export function upsertTaskHistory(
-  items: TaskHistoryItem[],
-  patch: TaskHistoryPatch
-): TaskHistoryItem[] {
-  const taskId = patch.taskId.trim();
-  if (!taskId) {
-    return items;
-  }
-
-  const now = Date.now();
-  const idx = items.findIndex((item) => item.taskId === taskId);
-
-  if (idx >= 0) {
-    const existing = items[idx];
-    const updated: TaskHistoryItem = {
-      ...existing,
-      status: patch.status ?? existing.status,
-      backend: patch.backend ?? existing.backend,
-      repoPath: patch.repoPath ?? existing.repoPath,
-      lastUpdatedAt: now,
-    };
-
-    const next = [...items];
-    next[idx] = updated;
-    return next;
-  }
-
-  const next: TaskHistoryItem = {
-    taskId,
-    status: patch.status ?? "queued",
-    backend: patch.backend ?? "unknown",
-    repoPath: patch.repoPath ?? "",
-    createdAt: now,
-    lastUpdatedAt: now,
-  };
-
-  return [next, ...items].slice(0, TASK_HISTORY_LIMIT);
-}
+import AppOverlays from "./components/AppOverlays";
+import HandWorldScene from "./components/HandWorldScene";
+import MonitorCard from "./components/MonitorCard";
+import ScheduleCard from "./components/ScheduleCard";
+import SubmissionForm from "./components/SubmissionForm";
+import TaskListSidebar from "./components/TaskListSidebar";
+import { useMovement } from "./hooks/useMovement";
+import { useMultiplayer, loadPlayerName } from "./hooks/useMultiplayer";
+import { useSchedules } from "./hooks/useSchedules";
+import type {
+  AccumulatedUsage,
+  Backend,
+  BuildResponse,
+  ClaudeUsageResponse,
+  CurrentTasksResponse,
+  DashboardView,
+  FloatingNumber,
+  FormState,
+  InputItem,
+  MainView,
+  OutputTab,
+  PrefixFilterMode,
+  ScheduleItem,
+  SceneWorker,
+  SceneWorkerPhase,
+  ServiceHealthState,
+  TaskHistoryItem,
+  TaskHistoryPatch,
+  TaskStatus,
+  WorkerVariant,
+} from "./types";
+import {
+  accumulateUsage,
+  apiUrl,
+  asRecord,
+  BACKEND_OPTIONS,
+  buildDeskSlots,
+  DASHBOARD_VIEW_STORAGE_KEY,
+  DEFAULT_CHARACTER_STYLE,
+  DEFAULT_WORLD_MAX_WORKERS,
+  extractPrefixes,
+  extractUpdates,
+  fetchClaudeUsage,
+  fetchServerConfig,
+  fetchServiceHealth,
+  fetchWorkerCapacity,
+  filterLinesByPrefix,
+  INITIAL_FORM,
+  isTerminalTaskStatus,
+  loadTaskHistory,
+  parseBool,
+  parseError,
+  parseOptimisticUpdates,
+  PHASE_DURATION,
+  providerFromBackend,
+  PROVIDER_CHARACTER_DEFAULTS,
+  readBoolishValue,
+  readSkillsValue,
+  readStringValue,
+  shortTaskId,
+  statusTone,
+  TASK_HISTORY_STORAGE_KEY,
+  upsertTaskHistory,
+  wsUrl,
+} from "./App.utils";
+
+// Re-export types and utilities so existing imports from "./App" continue to work.
+export type { PlayerDirection } from "./types";
+export type { AccumulatedUsage, DeskSlot } from "./types";
+export {
+  CHAT_DISPLAY_MS,
+  CHAT_MAX_LENGTH,
+  EMOTE_DISPLAY_MS,
+  EMOTE_KEY_BINDINGS,
+  EMOTE_MAP,
+  PLAYER_COLORS,
+  FACTORY_POS,
+  INCINERATOR_POS,
+  PLAYER_MOVE_STEP,
+  PLAYER_SIZE,
+  DESK_SIZE,
+  FACTORY_COLLISION,
+  INCINERATOR_COLLISION,
+  OFFICE_BOUNDS,
+} from "./constants";
+export {
+  accumulateUsage,
+  apiUrl,
+  asRecord,
+  backendDisplayName,
+  buildDeskSlots,
+  checkDeskCollision,
+  cronFrequency,
+  extractPrefixes,
+  extractUpdates,
+  filterLinesByPrefix,
+  formatProviderName,
+  isTerminalTaskStatus,
+  loadTaskHistory,
+  parseBool,
+  parseError,
+  parseOptimisticUpdates,
+  providerFromBackend,
+  readBoolishValue,
+  readSkillsValue,
+  readStringValue,
+  repoName,
+  shortTaskId,
+  statusBlinkerColor,
+  statusTone,
+  TASK_HISTORY_STORAGE_KEY,
+  upsertTaskHistory,
+  wsUrl,
+} from "./App.utils";
 
 export default function App() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -1021,25 +137,58 @@ export default function App() {
   const [dashboardView, setDashboardView] = useState<DashboardView>("classic");
   const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
-  const [playerPosition, setPlayerPosition] = useState<PlayerPosition>({ x: 50, y: 50 });
-  const [playerDirection, setPlayerDirection] = useState<PlayerDirection>("down");
-  const [isPlayerWalking, setIsPlayerWalking] = useState(false);
   const slotByTaskRef = useRef<Record<string, number>>({});
   const sceneRef = useRef<HTMLDivElement>(null);
   const [serviceHealthState, setServiceHealthState] = useState<ServiceHealthState | null>(null);
-  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
-  const [scheduleForm, setScheduleForm] = useState<ScheduleFormState>(INITIAL_SCHEDULE_FORM);
-  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const {
+    schedules,
+    scheduleForm,
+    editingScheduleId,
+    showScheduleForm,
+    scheduleError,
+    updateScheduleField,
+    loadSchedules,
+    openNewScheduleForm,
+    openEditScheduleForm,
+    saveSchedule,
+    deleteSchedule,
+    triggerSchedule,
+    toggleSchedule,
+    cancelScheduleForm,
+  } = useSchedules();
   const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
   const floatingIdRef = useRef(0);
   const updateCountsRef = useRef<Map<string, number>>(new Map());
   const [toasts, setToasts] = useState<{ id: number; taskId: string; status: string }[]>([]);
   const toastIdRef = useRef(0);
-  const [notifPerm, setNotifPerm] = useState<NotificationPermission>(
-    typeof Notification !== "undefined" ? Notification.permission : "denied"
-  );
+  const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
+
+  const deskSlots = useMemo(() => buildDeskSlots(maxOfficeWorkers), [maxOfficeWorkers]);
+
+  const {
+    playerPosition,
+    playerDirection,
+    isPlayerWalking,
+  } = useMovement({ active: dashboardView === "world", deskSlots });
+
+  const {
+    remotePlayers,
+    remoteEmotes,
+    remoteChats,
+    localEmote,
+    localChat,
+    isLocalIdle,
+    connectionStatus: yjsConnStatus,
+    chatHistory,
+    sendChat,
+  } = useMultiplayer({
+    active: dashboardView === "world",
+    playerPosition,
+    playerDirection,
+    isPlayerWalking,
+    wsUrlBuilder: wsUrl,
+    playerName: playerNameInput,
+  });
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
@@ -1070,38 +219,11 @@ export default function App() {
     }, 5000);
   }, []);
 
-  const swReg = useRef<ServiceWorkerRegistration | null>(null);
-
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker
-      .register("/notif-sw.js")
-      .then((reg) => {
-        swReg.current = reg;
-        console.log("[HH] Notification SW registered");
-      })
-      .catch((err) => console.warn("[HH] SW registration failed:", err));
-  }, []);
-
   const sendBrowserNotification = useCallback((notifTaskId: string, notifStatus: string) => {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const tone = notifStatus.toUpperCase() === "SUCCESS" ? "completed successfully" : "failed";
     const body = `Task ${shortTaskId(notifTaskId)} ${tone}`;
-    const reg = swReg.current;
-    if (reg) {
-      reg.showNotification("Helping Hands", { body, tag: notifTaskId }).catch((err) =>
-        console.error("[HH] showNotification failed:", err)
-      );
-    } else {
-      try { new Notification("Helping Hands", { body }); } catch (_) { /* fallback */ }
-    }
-  }, []);
-
-  const requestNotifPermission = useCallback(() => {
-    if (typeof Notification === "undefined") return;
-    Notification.requestPermission().then((perm) => {
-      setNotifPerm(perm);
-    }).catch(() => { /* permission request failed or was dismissed */ });
+    try { new Notification("Helping Hands", { body }); } catch (_) { /* fallback */ }
   }, []);
 
   const handleMonitorScroll = useCallback(() => {
@@ -1235,8 +357,6 @@ export default function App() {
     }
     return map;
   }, [taskHistory]);
-
-  const deskSlots = useMemo(() => buildDeskSlots(maxOfficeWorkers), [maxOfficeWorkers]);
 
   const claimSlotForTask = useCallback(
     (activeTaskId: string, occupiedSlots: Set<number>): number => {
@@ -1591,102 +711,7 @@ export default function App() {
     };
   }, [sceneWorkers.length]);
 
-  useEffect(() => {
-    if (dashboardView !== "world") {
-      return;
-    }
-
-    const keysPressed = new Set<string>();
-    let animationFrame: number | null = null;
-
-    const movePlayer = () => {
-      if (keysPressed.size === 0) {
-        setIsPlayerWalking(false);
-        animationFrame = null;
-        return;
-      }
-
-      setIsPlayerWalking(true);
-
-      setPlayerPosition((current) => {
-        let newX = current.x;
-        let newY = current.y;
-
-        if (keysPressed.has("ArrowUp") || keysPressed.has("w")) {
-          newY -= PLAYER_MOVE_STEP;
-          setPlayerDirection("up");
-        }
-        if (keysPressed.has("ArrowDown") || keysPressed.has("s")) {
-          newY += PLAYER_MOVE_STEP;
-          setPlayerDirection("down");
-        }
-        if (keysPressed.has("ArrowLeft") || keysPressed.has("a")) {
-          newX -= PLAYER_MOVE_STEP;
-          setPlayerDirection("left");
-        }
-        if (keysPressed.has("ArrowRight") || keysPressed.has("d")) {
-          newX += PLAYER_MOVE_STEP;
-          setPlayerDirection("right");
-        }
-
-        newX = Math.max(OFFICE_BOUNDS.minX, Math.min(OFFICE_BOUNDS.maxX, newX));
-        newY = Math.max(OFFICE_BOUNDS.minY, Math.min(OFFICE_BOUNDS.maxY, newY));
-
-        if (checkDeskCollision(newX, newY, deskSlots)) {
-          return current;
-        }
-
-        return { x: newX, y: newY };
-      });
-
-      animationFrame = requestAnimationFrame(movePlayer);
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const key = event.key;
-      const target = event.target as HTMLElement | null;
-      const isTyping =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable;
-
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
-        event.preventDefault();
-        if (!keysPressed.has(key)) {
-          keysPressed.add(key);
-          if (animationFrame === null) {
-            animationFrame = requestAnimationFrame(movePlayer);
-          }
-        }
-      } else if (["w", "a", "s", "d"].includes(key) && !isTyping) {
-        event.preventDefault();
-        if (!keysPressed.has(key)) {
-          keysPressed.add(key);
-          if (animationFrame === null) {
-            animationFrame = requestAnimationFrame(movePlayer);
-          }
-        }
-      }
-    };
-
-    const handleKeyUp = (event: KeyboardEvent) => {
-      keysPressed.delete(event.key);
-      if (keysPressed.size === 0) {
-        setIsPlayerWalking(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      if (animationFrame !== null) {
-        cancelAnimationFrame(animationFrame);
-      }
-    };
-  }, [dashboardView, deskSlots]);
+  // Player movement is handled by useMovement (keyboard input, collision, clamping).
 
   useEffect(() => {
     let cancelled = false;
@@ -1891,7 +916,7 @@ export default function App() {
     if (mainView === "schedules") {
       void loadSchedules();
     }
-  }, [mainView]);
+  }, [mainView, loadSchedules]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2201,205 +1226,11 @@ export default function App() {
     }
   };
 
-  // --- Schedule helpers ---
-
-  const updateScheduleField = <K extends keyof ScheduleFormState>(
-    key: K,
-    value: ScheduleFormState[K],
-  ) => {
-    setScheduleForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const loadSchedules = async () => {
-    setScheduleError(null);
-    try {
-      const response = await fetch(apiUrl("/schedules"), { cache: "no-store" });
-      if (!response.ok) {
-        const detail = await parseError(response);
-        throw new Error(detail);
-      }
-      const data = (await response.json()) as { schedules: ScheduleItem[]; total: number };
-      setSchedules(data.schedules);
-    } catch (error) {
-      setScheduleError(String(error));
-    }
-  };
-
-  const openNewScheduleForm = () => {
-    setEditingScheduleId(null);
-    setScheduleForm(INITIAL_SCHEDULE_FORM);
-    setShowScheduleForm(true);
-    setScheduleError(null);
-  };
-
-  const openEditScheduleForm = async (scheduleId: string) => {
-    setScheduleError(null);
-    try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}`), { cache: "no-store" });
-      if (!response.ok) {
-        const detail = await parseError(response);
-        throw new Error(detail);
-      }
-      const item = (await response.json()) as ScheduleItem;
-      setScheduleForm({
-        name: item.name,
-        cron_expression: item.cron_expression,
-        repo_path: item.repo_path,
-        prompt: item.prompt,
-        backend: item.backend as Backend,
-        model: item.model ?? "",
-        max_iterations: item.max_iterations,
-        pr_number: item.pr_number != null ? String(item.pr_number) : "",
-        no_pr: item.no_pr,
-        enable_execution: item.enable_execution,
-        enable_web: item.enable_web,
-        use_native_cli_auth: item.use_native_cli_auth,
-        fix_ci: item.fix_ci ?? false,
-        ci_check_wait_minutes: item.ci_check_wait_minutes ?? 3,
-        github_token: item.github_token ?? "",
-        reference_repos: (item.reference_repos ?? []).join(", "),
-        tools: (item.tools ?? []).join(", "),
-        skills: item.skills.join(", "),
-        enabled: item.enabled,
-      });
-      setEditingScheduleId(scheduleId);
-      setShowScheduleForm(false);
-    } catch (error) {
-      setScheduleError(String(error));
-    }
-  };
-
-  const saveSchedule = async (event: FormEvent) => {
-    event.preventDefault();
-    setScheduleError(null);
-
-    const name = scheduleForm.name.trim();
-    const cronExpr = scheduleForm.cron_expression.trim();
-    const schedRepoPath = scheduleForm.repo_path.trim();
-    const schedPrompt = scheduleForm.prompt.trim();
-    if (!name || !cronExpr || !schedRepoPath || !schedPrompt) {
-      setScheduleError("Name, cron expression, repository path, and prompt are required.");
-      return;
-    }
-
-    const body: Record<string, unknown> = {
-      name,
-      cron_expression: cronExpr,
-      repo_path: schedRepoPath,
-      prompt: schedPrompt,
-      backend: scheduleForm.backend,
-      max_iterations: scheduleForm.max_iterations,
-      no_pr: scheduleForm.no_pr,
-      enable_execution: scheduleForm.enable_execution,
-      enable_web: scheduleForm.enable_web,
-      use_native_cli_auth: scheduleForm.use_native_cli_auth,
-      fix_ci: scheduleForm.fix_ci,
-      ci_check_wait_minutes: scheduleForm.ci_check_wait_minutes,
-      enabled: scheduleForm.enabled,
-    };
-    if (scheduleForm.github_token.trim()) {
-      body.github_token = scheduleForm.github_token.trim();
-    }
-    if (scheduleForm.reference_repos.trim()) {
-      body.reference_repos = scheduleForm.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
-    }
-    if (scheduleForm.model.trim()) body.model = scheduleForm.model.trim();
-    if (scheduleForm.pr_number.trim()) {
-      const parsed = Number(scheduleForm.pr_number.trim());
-      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
-        body.pr_number = parsed;
-      }
-    }
-    if (scheduleForm.tools.trim()) {
-      body.tools = scheduleForm.tools
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    }
-    if (scheduleForm.skills.trim()) {
-      body.skills = scheduleForm.skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    }
-
-    const isEdit = editingScheduleId !== null;
-    const url = isEdit ? apiUrl(`/schedules/${editingScheduleId}`) : apiUrl("/schedules");
-    const method = isEdit ? "PUT" : "POST";
-
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        const detail = await parseError(response);
-        throw new Error(detail);
-      }
-      setShowScheduleForm(false);
-      setEditingScheduleId(null);
-      setScheduleForm(INITIAL_SCHEDULE_FORM);
-      await loadSchedules();
-    } catch (error) {
-      setScheduleError(String(error));
-    }
-  };
-
-  const deleteSchedule = async (scheduleId: string) => {
-    if (!window.confirm("Delete this schedule? This cannot be undone.")) return;
-    setScheduleError(null);
-    try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}`), { method: "DELETE" });
-      if (!response.ok && response.status !== 204) {
-        const detail = await parseError(response);
-        throw new Error(detail);
-      }
-      await loadSchedules();
-    } catch (error) {
-      setScheduleError(String(error));
-    }
-  };
-
-  const triggerSchedule = async (scheduleId: string) => {
-    if (!window.confirm("Run this schedule now?")) return;
-    setScheduleError(null);
-    try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}/trigger`), { method: "POST" });
-      if (!response.ok) {
-        const detail = await parseError(response);
-        throw new Error(detail);
-      }
-      const data = (await response.json()) as { task_id: string; message: string };
-      window.alert(`Triggered! Task ID: ${data.task_id}`);
-      await loadSchedules();
-    } catch (error) {
-      setScheduleError(String(error));
-    }
-  };
-
-  const toggleSchedule = async (scheduleId: string, enable: boolean) => {
-    setScheduleError(null);
-    const action = enable ? "enable" : "disable";
-    try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}/${action}`), { method: "POST" });
-      if (!response.ok) {
-        const detail = await parseError(response);
-        throw new Error(detail);
-      }
-      await loadSchedules();
-    } catch (error) {
-      setScheduleError(String(error));
-    }
-  };
-
-  const blinkerColor = statusBlinkerColor(status);
-  const isBlinkerAnimated = statusTone(status) === "run";
-
   // Live elapsed-time timer for running tasks; stored runtime for completed tasks.
   const payloadResult = (payload as Record<string, unknown> | null)?.result as Record<string, unknown> | undefined;
   const startedAtRaw = payloadResult?.started_at;
   const storedRuntime = typeof payloadResult?.runtime === "string" ? payloadResult.runtime : null;
+  const isTaskRunning = statusTone(status) === "run";
   const startedAtMs = useMemo(() => {
     if (typeof startedAtRaw === "string") {
       const ms = Date.parse(startedAtRaw);
@@ -2411,7 +1242,7 @@ export default function App() {
   const [elapsedStr, setElapsedStr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!startedAtMs || !isBlinkerAnimated) {
+    if (!startedAtMs || !isTaskRunning) {
       setElapsedStr(null);
       return;
     }
@@ -2424,840 +1255,68 @@ export default function App() {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [startedAtMs, isBlinkerAnimated]);
+  }, [startedAtMs, isTaskRunning]);
 
   const runtimeDisplay = elapsedStr ?? storedRuntime;
 
-  const serviceHealthIndicators: { key: string; label: string; state: "ok" | "error" | "na" | null }[] = [
-    {
-      key: "api",
-      label: "api",
-      state: serviceHealthState === null ? null : serviceHealthState.reachable ? "ok" : "error",
-    },
-    {
-      key: "redis",
-      label: "redis",
-      state: serviceHealthState?.health?.redis ?? null,
-    },
-    {
-      key: "db",
-      label: "db",
-      state: serviceHealthState?.health?.db ?? null,
-    },
-    {
-      key: "workers",
-      label: "workers",
-      state: serviceHealthState?.health?.workers ?? null,
-    },
-  ];
-
-  const testNotification = () => {
-    if (typeof Notification === "undefined") {
-      alert("Notification API not available in this context");
-      return;
-    }
-    if (Notification.permission !== "granted") {
-      Notification.requestPermission().then((perm) => {
-        setNotifPerm(perm);
-        if (perm === "granted") testNotification();
-      }).catch(() => { /* permission request failed or was dismissed */ });
-      return;
-    }
-    const body = "If you see this, OS notifications are working!";
-    const reg = swReg.current;
-    if (reg) {
-      reg.showNotification("Helping Hands — Test", { body }).catch((err) =>
-        alert("showNotification failed: " + String(err))
-      );
-    } else {
-      try { new Notification("Helping Hands — Test", { body }); } catch (err) {
-        alert("Notification failed: " + String(err));
-      }
-    }
-  };
-
-  const serviceHealthBar = (
-    <div className="service-health-bar" aria-label="Service health">
-      {serviceHealthIndicators
-        .filter((item) => item.state !== "na")
-        .map((item) => {
-          const color =
-            item.state === "ok"
-              ? "var(--success)"
-              : item.state === "error"
-                ? "var(--danger)"
-                : "#4b5563";
-          const title =
-            item.state === null
-              ? `${item.label}: checking…`
-              : `${item.label}: ${item.state}`;
-          return (
-            <span key={item.key} className="service-health-item" title={title}>
-              <span
-                className={`service-health-dot${item.state === null ? " service-health-dot--checking" : ""}`}
-                style={{ backgroundColor: color }}
-              />
-              <span className="service-health-label">{item.label}</span>
-            </span>
-          );
-        })}
-      <button
-        type="button"
-        className="service-health-item"
-        style={{ cursor: "pointer", background: "none", border: "none", color: "inherit", fontSize: "inherit", padding: 0 }}
-        onClick={testNotification}
-        title="Send a test OS notification"
-      >
-        <span className="service-health-label" style={{ textDecoration: "underline", opacity: 0.7 }}>test notification</span>
-      </button>
-    </div>
-  );
-
   const submissionCard = (
-    <section className="card form-card compact-form">
-      <form onSubmit={submitRun} className="form-grid-compact">
-        <div className="form-inline-row">
-          <input
-            className="repo-input"
-            value={form.repo_path}
-            onChange={(event) => updateField("repo_path", event.target.value)}
-            required
-            placeholder="owner/repo"
-            aria-label="Repository path"
-          />
-          <input
-            className="prompt-input"
-            value={form.prompt}
-            onChange={(event) => updateField("prompt", event.target.value)}
-            required
-            placeholder="Prompt"
-            aria-label="Task prompt"
-          />
-          <button type="submit" className="submit-inline">Run</button>
-        </div>
-
-        <details className="compact-advanced">
-          <summary>Advanced</summary>
-          <div className="compact-advanced-body">
-            <div className="row two-col">
-              <label>
-                Backend
-                <select
-                  value={form.backend}
-                  onChange={(event) => updateField("backend", event.target.value as Backend)}
-                >
-                  {BACKEND_OPTIONS.map((backend) => (
-                    <option key={backend} value={backend}>
-                      {backendDisplayName(backend)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Model
-                <input
-                  value={form.model}
-                  onChange={(event) => updateField("model", event.target.value)}
-                  placeholder="claude-opus-4-6"
-                />
-              </label>
-            </div>
-            <div className="row two-col">
-              <label>
-                Max iterations
-                <input
-                  type="number"
-                  min={1}
-                  value={form.max_iterations}
-                  onChange={(event) =>
-                    updateField("max_iterations", Math.max(1, Number(event.target.value || 1)))
-                  }
-                />
-              </label>
-              <label>
-                PR number
-                <input
-                  type="number"
-                  min={1}
-                  value={form.pr_number}
-                  onChange={(event) => updateField("pr_number", event.target.value)}
-                />
-              </label>
-            </div>
-            <label>
-              Tools
-              <input
-                value={form.tools}
-                onChange={(event) => updateField("tools", event.target.value)}
-                placeholder="execution,web"
-              />
-            </label>
-            <label>
-              Skills
-              <input
-                value={form.skills}
-                onChange={(event) => updateField("skills", event.target.value)}
-                placeholder="execution,web,prd,ralph"
-              />
-            </label>
-            <div className="row check-grid">
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.no_pr}
-                  onChange={(event) => updateField("no_pr", event.target.checked)}
-                />
-                No PR
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.enable_execution}
-                  onChange={(event) => updateField("enable_execution", event.target.checked)}
-                />
-                Execution
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.enable_web}
-                  onChange={(event) => updateField("enable_web", event.target.checked)}
-                />
-                Web
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.use_native_cli_auth}
-                  onChange={(event) => updateField("use_native_cli_auth", event.target.checked)}
-                />
-                Native auth
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.fix_ci}
-                  onChange={(event) => updateField("fix_ci", event.target.checked)}
-                />
-                Fix CI
-              </label>
-            </div>
-            <div className="row">
-              <label>
-                GitHub Token
-                <input
-                  type="password"
-                  value={form.github_token}
-                  onChange={(event) => updateField("github_token", event.target.value)}
-                  placeholder="ghp_... (optional)"
-                />
-              </label>
-            </div>
-            <div className="row">
-              <label>
-                Reference Repos
-                <input
-                  type="text"
-                  value={form.reference_repos}
-                  onChange={(event) => updateField("reference_repos", event.target.value)}
-                  placeholder="owner/repo, owner/repo2 (optional, read-only)"
-                />
-              </label>
-            </div>
-          </div>
-        </details>
-      </form>
-    </section>
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} />
   );
 
   const monitorCard = (
-    <section className="card status-card compact-monitor">
-      <div className="monitor-bar">
-        <div className="monitor-bar-left">
-          <h2 className="monitor-title">Output{taskId ? `: ${shortTaskId(taskId)}` : ""}</h2>
-          <div className="pane-tabs" role="tablist" aria-label="Output mode">
-            <button
-              type="button"
-              role="tab"
-              className={`tab-btn${outputTab === "updates" ? " active" : ""}`}
-              aria-selected={outputTab === "updates"}
-              onClick={() => setOutputTab("updates")}
-            >
-              Updates
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={`tab-btn${outputTab === "raw" ? " active" : ""}`}
-              aria-selected={outputTab === "raw"}
-              onClick={() => setOutputTab("raw")}
-            >
-              Raw
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={`tab-btn${outputTab === "payload" ? " active" : ""}`}
-              aria-selected={outputTab === "payload"}
-              onClick={() => setOutputTab("payload")}
-            >
-              Payload
-            </button>
-          </div>
-        </div>
-        <div className="monitor-bar-right">
-          {taskId && !isTerminalTaskStatus(status) && (
-            <button
-              type="button"
-              className="secondary cancel-task-btn"
-              style={{ fontSize: "0.7rem", padding: "2px 8px", color: "#fca5a5", borderColor: "#7f1d1d" }}
-              title="Cancel this task"
-              onClick={async () => {
-                if (!confirm("Cancel this task?")) return;
-                try {
-                  await fetch(apiUrl(`/tasks/${taskId}/cancel`), { method: "POST" });
-                } catch {
-                  /* swallow — next poll picks up REVOKED */
-                }
-              }}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            type="button"
-            className="secondary"
-            style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-            title="Copy output to clipboard"
-            onClick={() => {
-              navigator.clipboard.writeText(activeOutputText).catch(() => {});
-            }}
-          >
-            Copy
-          </button>
-          <span
-            className={`status-blinker${isBlinkerAnimated ? " pulse" : ""}`}
-            style={{ backgroundColor: blinkerColor }}
-            title={`${status}${isPolling ? " (polling)" : ""}`}
-          />
-          {runtimeDisplay && (
-            <span className="elapsed-timer" title="Elapsed runtime">
-              {runtimeDisplay}
-            </span>
-          )}
-          <span className="info-badge" title={taskId || "No task selected"}>
-            i
-          </span>
-        </div>
-      </div>
-      {(accUsage || (detectedPrefixes.length > 0 && outputTab !== "payload")) && (
-        <div className="prefix-filters">
-          {detectedPrefixes.length > 0 && outputTab !== "payload" && (
-            <>
-              <span className="prefix-filters-label">Filter:</span>
-              {detectedPrefixes.map((prefix) => {
-                const mode = prefixFilters[prefix] ?? "show";
-                return (
-                  <button
-                    key={prefix}
-                    type="button"
-                    className={`prefix-chip ${mode}`}
-                    title={`[${prefix}] — ${mode === "show" ? "Showing (click to hide)" : mode === "hide" ? "Hidden (click for only)" : "Only (click to reset)"}`}
-                    onClick={() => {
-                      setPrefixFilters((prev) => {
-                        const current = prev[prefix] ?? "show";
-                        const next: PrefixFilterMode =
-                          current === "show" ? "hide" : current === "hide" ? "only" : "show";
-                        const updated = { ...prev };
-                        if (next === "show") {
-                          delete updated[prefix];
-                        } else {
-                          updated[prefix] = next;
-                        }
-                        return updated;
-                      });
-                    }}
-                  >
-                    <span className="prefix-chip-icon">
-                      {mode === "show" ? "●" : mode === "hide" ? "○" : "◉"}
-                    </span>
-                    [{prefix}]
-                  </button>
-                );
-              })}
-              {Object.keys(prefixFilters).length > 0 && (
-                <button
-                  type="button"
-                  className="prefix-chip reset"
-                  title="Reset all filters"
-                  onClick={() => setPrefixFilters({})}
-                >
-                  Reset
-                </button>
-              )}
-            </>
-          )}
-          {accUsage && (
-            <span
-              className="usage-total"
-              title={`${accUsage.count} API call${accUsage.count !== 1 ? "s" : ""}, ${Math.round(accUsage.totalSeconds)}s, in=${accUsage.totalIn.toLocaleString()} out=${accUsage.totalOut.toLocaleString()}`}
-            >
-              api: ${accUsage.totalCost.toFixed(4)}, {Math.round(accUsage.totalSeconds)}s, in={accUsage.totalIn.toLocaleString()} out={accUsage.totalOut.toLocaleString()}
-            </span>
-          )}
-        </div>
-      )}
-      <pre
-        ref={monitorOutputRef}
-        className="monitor-output"
-        onScroll={handleMonitorScroll}
-        style={monitorHeight != null ? { height: monitorHeight, minHeight: 60, maxHeight: "none" } : undefined}
-      >{activeOutputText}</pre>
-      <div className="monitor-resize-handle" onMouseDown={handleResizeStart} title="Drag to resize" />
-
-      <details className="compact-advanced monitor-inputs">
-        <summary>Task inputs</summary>
-        <div className="compact-advanced-body">
-          {taskInputs.length === 0 ? (
-            <p className="inputs-empty">Inputs not available yet.</p>
-          ) : (
-            <dl className="inputs-grid">
-              {taskInputs.map((item) => (
-                <div key={item.label} className="input-item">
-                  <dt>{item.label}</dt>
-                  <dd>{item.value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </div>
-      </details>
-    </section>
-  );
-
-  const scheduleFormFields = (
-    <form onSubmit={saveSchedule} className="form-grid" style={{ marginTop: 0 }}>
-      <label>
-        Name
-        <input
-          value={scheduleForm.name}
-          onChange={(e) => updateScheduleField("name", e.target.value)}
-          required
-          placeholder="e.g. Daily docs update"
-        />
-      </label>
-
-      <div className="row two-col">
-        <label>
-          Cron expression
-          <input
-            value={scheduleForm.cron_expression}
-            onChange={(e) => updateScheduleField("cron_expression", e.target.value)}
-            required
-            placeholder="0 0 * * * (midnight)"
-          />
-        </label>
-        <label>
-          Or preset
-          <select
-            value={
-              Object.entries(CRON_PRESETS).find(
-                ([, v]) => v === scheduleForm.cron_expression,
-              )?.[0] ?? ""
-            }
-            onChange={(e) => {
-              const preset = e.target.value;
-              if (preset && CRON_PRESETS[preset]) {
-                updateScheduleField("cron_expression", CRON_PRESETS[preset]);
-              }
-            }}
-          >
-            <option value="">Custom</option>
-            {Object.entries(CRON_PRESETS).map(([key, val]) => (
-              <option key={key} value={key}>
-                {key.replace(/_/g, " ")} ({val})
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <label>
-        Repo path (owner/repo)
-        <input
-          value={scheduleForm.repo_path}
-          onChange={(e) => updateScheduleField("repo_path", e.target.value)}
-          required
-          placeholder="owner/repo"
-        />
-      </label>
-
-      <label>
-        Prompt
-        <textarea
-          value={scheduleForm.prompt}
-          onChange={(e) => updateScheduleField("prompt", e.target.value)}
-          required
-          rows={4}
-          placeholder="Update documentation..."
-        />
-      </label>
-
-      <details className="advanced-settings">
-        <summary>Advanced settings</summary>
-        <div className="advanced-settings-body">
-          <div className="row two-col">
-            <label>
-              Backend
-              <select
-                value={scheduleForm.backend}
-                onChange={(e) => updateScheduleField("backend", e.target.value as Backend)}
-              >
-                {BACKEND_OPTIONS.map((b) => (
-                  <option key={b} value={b}>{backendDisplayName(b)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Model
-              <input
-                value={scheduleForm.model}
-                onChange={(e) => updateScheduleField("model", e.target.value)}
-                placeholder="claude-opus-4-6"
-              />
-            </label>
-          </div>
-          <div className="row two-col">
-            <label>
-              Max iterations
-              <input
-                type="number"
-                min={1}
-                value={scheduleForm.max_iterations}
-                onChange={(e) =>
-                  updateScheduleField("max_iterations", Math.max(1, Number(e.target.value || 1)))
-                }
-              />
-            </label>
-            <label>
-              PR number
-              <input
-                type="number"
-                min={1}
-                value={scheduleForm.pr_number}
-                onChange={(e) => updateScheduleField("pr_number", e.target.value)}
-              />
-            </label>
-          </div>
-          <label>
-            Tools
-            <input
-              value={scheduleForm.tools}
-              onChange={(e) => updateScheduleField("tools", e.target.value)}
-              placeholder="execution,web"
-            />
-          </label>
-          <label>
-            Skills
-            <input
-              value={scheduleForm.skills}
-              onChange={(e) => updateScheduleField("skills", e.target.value)}
-              placeholder="execution,web,prd"
-            />
-          </label>
-          <div className="row check-grid">
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={scheduleForm.no_pr}
-                onChange={(e) => updateScheduleField("no_pr", e.target.checked)}
-              />
-              No PR
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={scheduleForm.enable_execution}
-                onChange={(e) => updateScheduleField("enable_execution", e.target.checked)}
-              />
-              Execution
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={scheduleForm.enable_web}
-                onChange={(e) => updateScheduleField("enable_web", e.target.checked)}
-              />
-              Web
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={scheduleForm.use_native_cli_auth}
-                onChange={(e) => updateScheduleField("use_native_cli_auth", e.target.checked)}
-              />
-              Native auth
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={scheduleForm.fix_ci}
-                onChange={(e) => updateScheduleField("fix_ci", e.target.checked)}
-              />
-              Fix CI
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={scheduleForm.enabled}
-                onChange={(e) => updateScheduleField("enabled", e.target.checked)}
-              />
-              Enabled
-            </label>
-          </div>
-          <div className="row">
-            <label>
-              GitHub Token
-              <input
-                type="password"
-                value={scheduleForm.github_token}
-                onChange={(e) => updateScheduleField("github_token", e.target.value)}
-                placeholder="ghp_... (optional)"
-              />
-            </label>
-          </div>
-          <div className="row">
-            <label>
-              Reference Repos
-              <input
-                type="text"
-                value={scheduleForm.reference_repos}
-                onChange={(e) => updateScheduleField("reference_repos", e.target.value)}
-                placeholder="owner/repo, owner/repo2 (optional, read-only)"
-              />
-            </label>
-          </div>
-        </div>
-      </details>
-
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="submit">
-          {editingScheduleId ? "Update schedule" : "Create schedule"}
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => {
-            setShowScheduleForm(false);
-            setEditingScheduleId(null);
-            setScheduleForm(INITIAL_SCHEDULE_FORM);
-            setScheduleError(null);
-          }}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+    <MonitorCard
+      taskId={taskId}
+      status={status}
+      isPolling={isPolling}
+      outputTab={outputTab}
+      onOutputTabChange={setOutputTab}
+      prefixFilters={prefixFilters}
+      onPrefixFiltersChange={setPrefixFilters}
+      activeOutputText={activeOutputText}
+      detectedPrefixes={detectedPrefixes}
+      accUsage={accUsage}
+      taskInputs={taskInputs}
+      runtimeDisplay={runtimeDisplay}
+      monitorOutputRef={monitorOutputRef}
+      monitorHeight={monitorHeight}
+      onMonitorScroll={handleMonitorScroll}
+      onResizeStart={handleResizeStart}
+    />
   );
 
   const schedulesCard = (
-    <section className="card compact-form" style={{ padding: "14px 16px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>
-            Scheduled tasks{" "}
-            <span className="status-pill run" style={{ fontSize: "0.6rem", verticalAlign: "middle" }}>
-              cron
-            </span>
-          </h2>
-          <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.84rem" }}>
-            Create and manage recurring builds.
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" onClick={openNewScheduleForm}>
-            New schedule
-          </button>
-          <button type="button" className="secondary" onClick={() => void loadSchedules()}>
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {scheduleError && (
-        <div style={{ padding: "8px 10px", marginBottom: 10, borderRadius: 8, background: "var(--danger-soft)", border: "1px solid var(--danger)", color: "#fca5a5", fontSize: "0.84rem" }}>
-          {scheduleError}
-        </div>
-      )}
-
-      {showScheduleForm && !editingScheduleId && (
-        <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}>
-          <h3 style={{ margin: "0 0 10px", fontSize: "0.95rem" }}>New schedule</h3>
-          {scheduleFormFields}
-        </div>
-      )}
-
-      {schedules.length === 0 && !showScheduleForm ? (
-        <p className="empty-list">No scheduled tasks yet.</p>
-      ) : (
-        <div style={{ display: "grid", gap: 8 }}>
-          {schedules.map((item) => (
-            <div key={item.schedule_id} className="schedule-item">
-              {editingScheduleId === item.schedule_id ? (
-                <div style={{ padding: "4px 0" }}>
-                  {scheduleFormFields}
-                </div>
-              ) : (
-                <>
-                  <div className="schedule-item-header">
-                    <strong>{item.name}</strong>
-                    <span className={`status-pill ${item.enabled ? "ok" : "idle"}`}>
-                      {item.enabled ? "enabled" : "disabled"}
-                    </span>
-                  </div>
-                  <div className="schedule-item-meta">
-                    <code>{item.cron_expression}</code> &middot; {item.repo_path} &middot;{" "}
-                    {item.backend}
-                    {item.next_run_at && (
-                      <> &middot; next: {new Date(item.next_run_at).toLocaleString()}</>
-                    )}
-                  </div>
-                  <div className="schedule-item-meta" style={{ fontSize: "0.72rem" }}>
-                    {item.run_count} runs
-                    {item.last_run_at && (
-                      <> &middot; last: {new Date(item.last_run_at).toLocaleString()}</>
-                    )}
-                  </div>
-                  <div className="schedule-item-actions">
-                    <button
-                      type="button"
-                      className="secondary"
-                      style={{ padding: "5px 10px", fontSize: "0.76rem" }}
-                      onClick={() => void openEditScheduleForm(item.schedule_id)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      style={{ padding: "5px 10px", fontSize: "0.76rem" }}
-                      onClick={() => void triggerSchedule(item.schedule_id)}
-                    >
-                      Run now
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      style={{ padding: "5px 10px", fontSize: "0.76rem" }}
-                      onClick={() => void toggleSchedule(item.schedule_id, !item.enabled)}
-                    >
-                      {item.enabled ? "Disable" : "Enable"}
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        padding: "5px 10px",
-                        fontSize: "0.76rem",
-                        background: "var(--danger-soft)",
-                        border: "1px solid var(--danger)",
-                        color: "#fca5a5",
-                      }}
-                      onClick={() => void deleteSchedule(item.schedule_id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
+    <ScheduleCard
+      schedules={schedules}
+      scheduleForm={scheduleForm}
+      editingScheduleId={editingScheduleId}
+      showScheduleForm={showScheduleForm}
+      scheduleError={scheduleError}
+      onUpdateField={updateScheduleField}
+      onNewSchedule={openNewScheduleForm}
+      onEditSchedule={openEditScheduleForm}
+      onSaveSchedule={saveSchedule}
+      onDeleteSchedule={deleteSchedule}
+      onTriggerSchedule={triggerSchedule}
+      onToggleSchedule={toggleSchedule}
+      onCancelForm={cancelScheduleForm}
+      onRefresh={loadSchedules}
+    />
   );
 
   return (
     <>
     <main className="page">
-      <aside className="card task-list-card">
-        <div className="view-toggle" role="tablist" aria-label="Dashboard view">
-          <button
-            type="button"
-            role="tab"
-            className={`view-toggle-btn${dashboardView === "classic" ? " active" : ""}`}
-            aria-selected={dashboardView === "classic"}
-            onClick={() => setDashboardView("classic")}
-          >
-            Classic view
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={`view-toggle-btn${dashboardView === "world" ? " active" : ""}`}
-            aria-selected={dashboardView === "world"}
-            onClick={() => setDashboardView("world")}
-          >
-            Hand world
-          </button>
-        </div>
-        <button
-          type="button"
-          className={`new-submission-button${
-            dashboardView === "classic" && mainView === "submission" ? " active" : ""
-          }`}
-          onClick={openSubmissionView}
-        >
-          New submission
-        </button>
-        <button
-          type="button"
-          className={`new-submission-button${
-            mainView === "schedules" ? " active" : ""
-          }`}
-          style={{ marginTop: 0 }}
-          onClick={() => setMainView("schedules")}
-        >
-          Scheduled tasks
-        </button>
-        <div className="task-list-header">
-          <h2>Submitted tasks</h2>
-          <button
-            type="button"
-            className="text-button"
-            disabled={taskHistory.length === 0}
-            onClick={() => setTaskHistory([])}
-          >
-            Clear
-          </button>
-        </div>
-        {taskHistory.length === 0 ? (
-          <p className="empty-list">No tasks submitted yet.</p>
-        ) : (
-          <ul className="task-list">
-            {taskHistory.map((item) => (
-              <li key={item.taskId}>
-                <button
-                  type="button"
-                  className={`task-row${taskId === item.taskId ? " active" : ""}`}
-                  onClick={() => selectTask(item.taskId)}
-                  title={item.taskId}
-                >
-                  <span className="task-row-top">
-                    <code>{shortTaskId(item.taskId)}</code>
-                    <span className={`status-pill ${statusTone(item.status)}`}>
-                      {item.status}
-                    </span>
-                  </span>
-                  <span className="task-row-meta">
-                    {item.backend} • {item.repoPath || "manual"} •{" "}
-                    {new Date(item.lastUpdatedAt).toLocaleTimeString()}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
+      <TaskListSidebar
+        dashboardView={dashboardView}
+        onDashboardViewChange={setDashboardView}
+        mainView={mainView}
+        onNewSubmission={openSubmissionView}
+        onShowSchedules={() => setMainView("schedules")}
+        taskHistory={taskHistory}
+        selectedTaskId={taskId}
+        onSelectTask={selectTask}
+        onClearHistory={() => setTaskHistory([])}
+      />
 
       <div className="main-column">
         {dashboardView === "classic" ? (
@@ -3270,438 +1329,33 @@ export default function App() {
           )
         ) : (
           <>
-            <section className="card hand-world-card">
-              <header className="header">
-                <h1>Hand World</h1>
-                <p>{maxOfficeWorkers} stations &middot; click a worker to stream its output</p>
-              </header>
-
-              <div
-                ref={sceneRef}
-                className="world-scene office-scene"
-                role="list"
-                aria-label="Current factory workers"
-                style={worldSceneStyle}
-                tabIndex={0}
-              >
-                <div className="zen-border" aria-hidden="true" />
-                <div className="zen-sand-floor" aria-hidden="true" />
-
-                {/* Sky & mountains backdrop */}
-                <div className="zen-sky" aria-hidden="true">
-                  <div className="zen-mountain zen-mountain-1" />
-                  <div className="zen-mountain zen-mountain-2" />
-                  <div className="zen-mountain zen-mountain-3" />
-                  <div className="zen-moon" />
-                </div>
-
-                {/* Garden decorations */}
-                <div className="zen-gravel-path" aria-hidden="true" />
-                <div className="zen-bamboo" aria-hidden="true">
-                  <span className="bamboo-stalk bamboo-stalk-1" />
-                  <span className="bamboo-stalk bamboo-stalk-2" />
-                  <span className="bamboo-stalk bamboo-stalk-3" />
-                  <span className="bamboo-leaves" />
-                </div>
-                <div className="zen-maple" aria-hidden="true">
-                  <span className="maple-trunk" />
-                  <span className="maple-canopy maple-canopy-1" />
-                  <span className="maple-canopy maple-canopy-2" />
-                  <span className="maple-canopy maple-canopy-3" />
-                </div>
-                <div className="zen-lantern" aria-hidden="true">
-                  <span className="lantern-cap" />
-                  <span className="lantern-light" />
-                  <span className="lantern-base" />
-                  <span className="lantern-glow" />
-                </div>
-                <div className="zen-rock zen-rock-lg" aria-hidden="true" />
-                <div className="zen-rock zen-rock-sm" aria-hidden="true" />
-
-                {/* Factory entrance (middle-left) */}
-                <div className="hh-factory" aria-hidden="true">
-                  <span className="factory-building" />
-                  <span className="factory-roof" />
-                  <span className="factory-chimney" />
-                  <span className="factory-smoke factory-smoke-1" />
-                  <span className="factory-smoke factory-smoke-2" />
-                  <span className="factory-smoke factory-smoke-3" />
-                  <span className="factory-door" />
-                  <span className="factory-window factory-window-1" />
-                  <span className="factory-window factory-window-2" />
-                  <span className="factory-conveyor" />
-                  <span className="factory-conveyor-line factory-conveyor-line-1" />
-                  <span className="factory-conveyor-line factory-conveyor-line-2" />
-                  <span className="factory-conveyor-line factory-conveyor-line-3" />
-                  <span className="factory-light" />
-                  <div className="factory-label">FACTORY</div>
-                </div>
-
-                {/* Incinerator exit (middle-right) */}
-                <div className="hh-incinerator" aria-hidden="true">
-                  <span className="incinerator-body" />
-                  <span className="incinerator-top" />
-                  <span className="incinerator-mouth" />
-                  <span className="incinerator-grate" />
-                  <span className="incinerator-flame incinerator-flame-1" />
-                  <span className="incinerator-flame incinerator-flame-2" />
-                  <span className="incinerator-flame incinerator-flame-3" />
-                  <span className="incinerator-ember incinerator-ember-1" />
-                  <span className="incinerator-ember incinerator-ember-2" />
-                  <span className="incinerator-heat-glow" />
-                  <span className="incinerator-chimney" />
-                  <span className="incinerator-exhaust incinerator-exhaust-1" />
-                  <span className="incinerator-exhaust incinerator-exhaust-2" />
-                  <div className="incinerator-label">INCINERATOR</div>
-                </div>
-
-                {deskSlots.map((slot, slotIdx) => {
-                  const occupant = sceneWorkerEntries.find((w) => w.slot === slotIdx);
-                  const showMonitor = occupant && (occupant.phase === "walking-to-desk" || occupant.phase === "active");
-                  return (
-                    <div
-                      key={slot.id}
-                      className="work-desk"
-                      style={{ left: `${slot.left}%`, top: `${slot.top}%` }}
-                      aria-hidden="true"
-                    >
-                      {showMonitor && (
-                        <span className={`desk-monitor${occupant.phase === "active" ? " monitor-on" : ""}`}>
-                          <span className="monitor-screen" />
-                          <span className="monitor-stand" />
-                          <span className="monitor-base" />
-                          <span className="monitor-glow" />
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <div className="zen-status-summary">
-                  <div className="status-summary-header">Factory Floor</div>
-                  <div className="status-summary-stat">
-                    <span className="stat-icon">&#128187;</span>
-                    <span>{maxOfficeWorkers} Stations</span>
-                  </div>
-                  <div className="status-summary-stat">
-                    <span className="stat-icon">&#129302;</span>
-                    <span>{sceneWorkerEntries.length} Active</span>
-                  </div>
-                  <div className="status-summary-stat">
-                    <span className="stat-icon">&#128100;</span>
-                    <span>You: ({Math.round(playerPosition.x)}, {Math.round(playerPosition.y)})</span>
-                  </div>
-                  <div className="status-summary-hint">Use arrow keys to walk</div>
-                </div>
-
-                <div className="zen-usage-summary">
-                  <div className="status-summary-header">
-                    Claude Usage
-                    <button
-                      type="button"
-                      className="usage-refresh-btn"
-                      onClick={() => void refreshClaudeUsage()}
-                      disabled={claudeUsageLoading}
-                      title="Refresh usage"
-                    >
-                      &#8635;
-                    </button>
-                  </div>
-                  {claudeUsageLoading && !claudeUsage && (
-                    <div className="usage-meter-row">
-                      <span className="usage-placeholder">Loading...</span>
-                    </div>
-                  )}
-                  {claudeUsage?.error && (
-                    <div className="usage-error">{claudeUsage.error}</div>
-                  )}
-                  {claudeUsage && !claudeUsage.error && claudeUsage.levels.map((level) => (
-                    <div key={level.name} className="usage-meter-row">
-                      <span className="usage-meter-label">{level.name}</span>
-                      <div className="usage-meter-track">
-                        <div
-                          className={`usage-meter-fill${level.percent_used >= 90 ? " crit" : level.percent_used >= 70 ? " warn" : ""}`}
-                          style={{ width: `${Math.min(level.percent_used, 100)}%` }}
-                        />
-                      </div>
-                      <span className="usage-meter-pct">{Math.round(level.percent_used)}%</span>
-                    </div>
-                  ))}
-                  {!claudeUsage && !claudeUsageLoading && (
-                    <div className="usage-meter-row">
-                      <span className="usage-placeholder">Click &#8635; to load</span>
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  className={`human-player ${playerDirection}${isPlayerWalking ? " walking" : ""}`}
-                  style={{
-                    left: `${playerPosition.x}%`,
-                    top: `${playerPosition.y}%`,
-                  }}
-                  aria-label="You (player character)"
-                >
-                  <span className="human-shadow" />
-                  <span className="human-body">
-                    <span className="human-helmet" />
-                    <span className="human-helmet-light" />
-                    <span className="human-visor" />
-                    <span className="human-visor-shine" />
-                    <span className="human-torso" />
-                    <span className="human-belt" />
-                    <span className="human-buckle" />
-                    <span className="human-arm human-arm-left" />
-                    <span className="human-glove human-glove-left" />
-                    <span className="human-arm human-arm-right" />
-                    <span className="human-glove human-glove-right" />
-                    <span className="human-leg human-leg-left" />
-                    <span className="human-boot human-boot-left" />
-                    <span className="human-leg human-leg-right" />
-                    <span className="human-boot human-boot-right" />
-                  </span>
-                </div>
-
-                {sceneWorkerEntries.map((worker) => {
-                  const isAtFactory = worker.phase === "at-factory";
-                  const isAtExit = worker.phase === "walking-to-exit" || worker.phase === "at-exit";
-                  const posLeft = isAtFactory ? FACTORY_POS.left : isAtExit ? INCINERATOR_POS.left : worker.desk.left;
-                  const posTop = isAtFactory ? FACTORY_POS.top : isAtExit ? INCINERATOR_POS.top : worker.desk.top;
-                  return (
-                    <button
-                      key={worker.taskId}
-                      type="button"
-                      role="listitem"
-                      className={`worker-sprite ${worker.phase}${
-                        taskId === worker.taskId ? " selected" : ""
-                      }`}
-                      style={{
-                        left: `${posLeft}%`,
-                        top: `${posTop}%`,
-                      }}
-                      onClick={() => selectTask(worker.taskId)}
-                      title={`${worker.task?.backend ?? "unknown"} • ${worker.taskId}${worker.task?.repoPath ? ` • ${worker.task.repoPath}` : ""}${worker.schedule ? ` • ${worker.schedule.name} (${worker.schedule.cron_expression})` : ""}`}
-                      disabled={!worker.isActive}
-                    >
-                      <span className={`worker-art ${worker.spriteVariant}`} aria-hidden="true">
-                        <span className="sprite-shadow" />
-                        {worker.spriteVariant === "goose" ? (
-                          <>
-                            <span
-                              className="goose-tail"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-body"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-wing"
-                              style={{
-                                backgroundColor: worker.style.skinColor,
-                              }}
-                            />
-                            <span
-                              className="goose-wing-tip"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                              }}
-                            />
-                            <span
-                              className="goose-neck"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-head"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-beak"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-eye"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span className="goose-brow" style={{ backgroundColor: worker.style.outlineColor }} />
-                            <span className="goose-cheek" />
-                            <span
-                              className="goose-leg goose-leg-left"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-leg goose-leg-right"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-foot goose-foot-left"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-foot goose-foot-right"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <span
-                              className="bot-antenna"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-antenna-tip"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-ear bot-ear-left"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-ear bot-ear-right"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-head"
-                              style={{
-                                backgroundColor: worker.style.skinColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-eye bot-eye-left"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-eye bot-eye-right"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-mouth"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-torso"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-core"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-arm bot-arm-left"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-arm bot-arm-right"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-leg bot-leg-left"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-leg bot-leg-right"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-foot bot-foot-left"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-foot bot-foot-right"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                          </>
-                        )}
-                      </span>
-                      {floatingNumbers
-                        .filter((f) => f.taskId === worker.taskId)
-                        .map((f) => (
-                          <span key={f.id} className="floating-number" aria-hidden="true">
-                            +{f.value}
-                          </span>
-                        ))}
-                      <span className="worker-caption">
-                        {worker.task?.repoPath && (
-                          <span className="worker-repo">{repoName(worker.task.repoPath)}</span>
-                        )}
-                        <span>
-                          {formatProviderName(worker.provider)} • {worker.task?.status ?? "unknown"}
-                        </span>
-                        {worker.schedule && (() => {
-                          const freq = cronFrequency(worker.schedule.cron_expression);
-                          return freq ? (
-                            <span className="worker-cron" title={`Schedule: ${worker.schedule.name} (${worker.schedule.cron_expression})`}>
-                              {freq.symbol} {freq.label}
-                            </span>
-                          ) : null;
-                        })()}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-            </section>
+            <HandWorldScene
+              sceneRef={sceneRef}
+              sceneStyle={worldSceneStyle}
+              maxWorkers={maxOfficeWorkers}
+              deskSlots={deskSlots}
+              workerEntries={sceneWorkerEntries}
+              selectedTaskId={taskId}
+              onSelectTask={selectTask}
+              playerDirection={playerDirection}
+              isPlayerWalking={isPlayerWalking}
+              playerPosition={playerPosition}
+              localEmote={localEmote}
+              remotePlayers={remotePlayers}
+              remoteEmotes={remoteEmotes}
+              remoteChats={remoteChats}
+              localChat={localChat}
+              isLocalIdle={isLocalIdle}
+              connectionStatus={yjsConnStatus}
+              chatHistory={chatHistory}
+              onSendChat={sendChat}
+              playerNameInput={playerNameInput}
+              onPlayerNameChange={setPlayerNameInput}
+              claudeUsage={claudeUsage}
+              claudeUsageLoading={claudeUsageLoading}
+              onRefreshClaudeUsage={() => void refreshClaudeUsage()}
+              floatingNumbers={floatingNumbers}
+            />
 
             {mainView !== "schedules" && submissionCard}
             {mainView === "monitor" && taskId && monitorCard}
@@ -3710,28 +1364,11 @@ export default function App() {
         )}
       </div>
     </main>
-    {notifPerm === "default" && (
-      <div className="notif-banner">
-        <span>Enable OS notifications for task updates?</span>
-        <button onClick={requestNotifPermission}>Enable</button>
-        <button onClick={() => setNotifPerm("denied")}>Dismiss</button>
-      </div>
-    )}
-    {toasts.length > 0 && (
-      <div className="toast-container">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast--${statusTone(t.status)}`}>
-            <span className="toast-text">
-              Task {shortTaskId(t.taskId)} — {t.status}
-            </span>
-            <button className="toast-close" onClick={() => removeToast(t.id)} aria-label="Dismiss">
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-    )}
-    {serviceHealthBar}
+    <AppOverlays
+      serviceHealthState={serviceHealthState}
+      toasts={toasts}
+      onRemoveToast={removeToast}
+    />
     </>
   );
 }
