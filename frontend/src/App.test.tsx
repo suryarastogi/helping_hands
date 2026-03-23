@@ -1454,3 +1454,271 @@ describe("Hand World factory and incinerator", () => {
     expect(document.querySelector(".zen-shrine")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Multiplayer WebSocket tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal mock WebSocket that tracks calls and allows simulating server messages.
+ */
+class MockWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+
+  url: string;
+  readyState = MockWebSocket.CONNECTING;
+  onopen: ((ev: Event) => void) | null = null;
+  onclose: ((ev: CloseEvent) => void) | null = null;
+  onmessage: ((ev: MessageEvent) => void) | null = null;
+  onerror: ((ev: Event) => void) | null = null;
+  sentMessages: string[] = [];
+
+  constructor(url: string) {
+    this.url = url;
+    // Auto-open on next tick so useEffect handlers attach first.
+    setTimeout(() => {
+      this.readyState = MockWebSocket.OPEN;
+      this.onopen?.(new Event("open"));
+    }, 0);
+  }
+
+  send(data: string) {
+    this.sentMessages.push(data);
+  }
+
+  close() {
+    this.readyState = MockWebSocket.CLOSED;
+    this.onclose?.(new CloseEvent("close"));
+  }
+
+  /** Simulate a server message arriving. */
+  _receive(data: unknown) {
+    this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(data) }));
+  }
+}
+
+/** All MockWebSocket instances created during a test. */
+let mockWsInstances: MockWebSocket[] = [];
+
+function installWebSocketMock() {
+  mockWsInstances = [];
+  vi.stubGlobal("WebSocket", class extends MockWebSocket {
+    constructor(url: string) {
+      super(url);
+      mockWsInstances.push(this);
+    }
+  });
+  // Expose OPEN etc. on the stub constructor so readyState checks work.
+  (globalThis as Record<string, unknown>).WebSocket = Object.assign(
+    (globalThis as Record<string, unknown>).WebSocket as object,
+    { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 }
+  );
+}
+
+describe("Multiplayer WebSocket", () => {
+  beforeEach(() => {
+    installWebSocketMock();
+  });
+
+  function switchToWorld() {
+    render(<App />);
+    fireEvent.click(screen.getByText("Hand world"));
+  }
+
+  it("opens a WebSocket connection when entering world view", async () => {
+    switchToWorld();
+    await vi.waitFor(() => {
+      expect(mockWsInstances.length).toBeGreaterThanOrEqual(1);
+    });
+    expect(mockWsInstances[0].url).toContain("/ws/world");
+  });
+
+  it("renders remote players after players_sync message", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      ws._receive({
+        type: "players_sync",
+        your_id: "me123",
+        players: [
+          { player_id: "me123", name: "Me", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
+          { player_id: "other1", name: "Player 2", color: "#2563eb", x: 30, y: 40, direction: "left", walking: true },
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Player 2")).toBeInTheDocument();
+    });
+
+    // Should not render self as a remote player.
+    expect(screen.queryByLabelText("Me")).toBeNull();
+  });
+
+  it("adds a remote player on player_joined message", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      ws._receive({ type: "players_sync", your_id: "me1", players: [] });
+    });
+    act(() => {
+      ws._receive({
+        type: "player_joined",
+        player_id: "newcomer",
+        name: "New Player",
+        color: "#16a34a",
+        x: 60,
+        y: 70,
+        direction: "right",
+        walking: false,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("New Player")).toBeInTheDocument();
+    });
+  });
+
+  it("removes a remote player on player_left message", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      ws._receive({
+        type: "players_sync",
+        your_id: "me1",
+        players: [
+          { player_id: "leaver", name: "Leaving", color: "#d97706", x: 50, y: 50, direction: "down", walking: false },
+        ],
+      });
+    });
+
+    await waitFor(() => expect(screen.getByLabelText("Leaving")).toBeInTheDocument());
+
+    act(() => {
+      ws._receive({ type: "player_left", player_id: "leaver" });
+    });
+
+    await waitFor(() => expect(screen.queryByLabelText("Leaving")).toBeNull());
+  });
+
+  it("updates remote player position on player_moved message", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      ws._receive({
+        type: "players_sync",
+        your_id: "me1",
+        players: [
+          { player_id: "mover", name: "Mover", color: "#7c3aed", x: 20, y: 20, direction: "down", walking: false },
+        ],
+      });
+    });
+
+    await waitFor(() => expect(screen.getByLabelText("Mover")).toBeInTheDocument());
+
+    act(() => {
+      ws._receive({
+        type: "player_moved",
+        player_id: "mover",
+        x: 80,
+        y: 75,
+        direction: "up",
+        walking: true,
+      });
+    });
+
+    await waitFor(() => {
+      const el = screen.getByLabelText("Mover");
+      expect(el.style.left).toBe("80%");
+      expect(el.style.top).toBe("75%");
+      expect(el.className).toContain("up");
+      expect(el.className).toContain("walking");
+    });
+  });
+
+  it("shows player count when remote players are present", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      ws._receive({
+        type: "players_sync",
+        your_id: "me1",
+        players: [
+          { player_id: "p2", name: "P2", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
+          { player_id: "p3", name: "P3", color: "#2563eb", x: 30, y: 30, direction: "left", walking: false },
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("3 Players online")).toBeInTheDocument();
+    });
+  });
+
+  it("does not duplicate a player on repeated player_joined", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    const joinMsg = {
+      type: "player_joined",
+      player_id: "dupe",
+      name: "Dupe",
+      color: "#0891b2",
+      x: 50,
+      y: 50,
+      direction: "down" as const,
+      walking: false,
+    };
+    act(() => {
+      ws._receive({ type: "players_sync", your_id: "me1", players: [] });
+    });
+    act(() => { ws._receive(joinMsg); });
+    act(() => { ws._receive(joinMsg); });
+
+    await waitFor(() => {
+      const els = screen.getAllByLabelText("Dupe");
+      expect(els).toHaveLength(1);
+    });
+  });
+
+  it("cleans up WebSocket when leaving world view", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    const closeSpy = vi.spyOn(ws, "close");
+
+    // Switch back to classic view
+    fireEvent.click(screen.getByText("Classic view"));
+
+    expect(closeSpy).toHaveBeenCalled();
+  });
+
+  it("ignores malformed WebSocket messages", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    // Send invalid JSON — should not crash.
+    act(() => {
+      ws.onmessage?.(new MessageEvent("message", { data: "not-json{{{" }));
+    });
+
+    // The world scene should still be visible and functional.
+    expect(screen.getByRole("heading", { name: "Hand World" })).toBeInTheDocument();
+  });
+});

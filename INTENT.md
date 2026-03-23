@@ -4,7 +4,11 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Multiplayer Hand World (2026-03-23)
+_No active intents._
+
+## Completed Intents
+
+### Multiplayer Hand World (2026-03-23) — Completed
 
 **User request:** In `frontend/`, make Hand World a multiplayer view so that different users can walk around Hand World. Multiple users should see each other's avatars moving in real-time.
 
@@ -20,3 +24,5 @@ User intents and desires for the helping-hands project.
 - Frontend: WebSocket client that sends/receives player positions
 - Simple protocol: join → position updates → leave
 - No external dependencies for sync (lightweight custom protocol over WebSocket)
+
+**Implementation:** v273 (backend + frontend + CSS), v274 (testing + consolidation)
