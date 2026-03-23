@@ -213,20 +213,20 @@ type RemotePlayer = {
   walking: boolean;
 };
 
-const EMOTE_DISPLAY_MS = 2000;
+export const EMOTE_DISPLAY_MS = 2000;
 
 /** Player avatar colour palette — matches backend palette, indexed by Yjs clientID. */
-const PLAYER_COLORS = [
+export const PLAYER_COLORS = [
   "#e11d48", "#2563eb", "#16a34a", "#d97706", "#7c3aed",
   "#0891b2", "#dc2626", "#4f46e5", "#059669", "#c026d3",
 ];
-const EMOTE_MAP: Record<string, string> = {
+export const EMOTE_MAP: Record<string, string> = {
   wave: "\u{1F44B}",
   celebrate: "\u{1F389}",
   thumbsup: "\u{1F44D}",
   sparkle: "\u{2728}",
 };
-const EMOTE_KEY_BINDINGS: Record<string, string> = {
+export const EMOTE_KEY_BINDINGS: Record<string, string> = {
   "1": "wave",
   "2": "celebrate",
   "3": "thumbsup",
@@ -315,15 +315,15 @@ const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
 };
 const DEFAULT_WORLD_MAX_WORKERS = 8;
 
-const FACTORY_POS = { left: 8, top: 52 };
-const INCINERATOR_POS = { left: 92, top: 52 };
+export const FACTORY_POS = { left: 8, top: 52 };
+export const INCINERATOR_POS = { left: 92, top: 52 };
 
-const PLAYER_MOVE_STEP = 1.2;
-const PLAYER_SIZE = { width: 3.5, height: 4 };
-const DESK_SIZE = { width: 8, height: 7 };
-const FACTORY_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
-const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 };
-const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
+export const PLAYER_MOVE_STEP = 1.2;
+export const PLAYER_SIZE = { width: 3.5, height: 4 };
+export const DESK_SIZE = { width: 8, height: 7 };
+export const FACTORY_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
+export const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 };
+export const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
 
 const DEFAULT_CHARACTER_STYLE: CharacterStyle = {
   bodyColor: "#64748b",

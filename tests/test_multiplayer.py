@@ -393,3 +393,153 @@ class TestWorldWebSocketEndpoint:
             await world_websocket_endpoint(ws)
 
         assert fresh_mgr.player_count == 0
+
+    @pytest.mark.asyncio
+    async def test_endpoint_ignores_unknown_message_type(self) -> None:
+        """Messages with unrecognised type are silently skipped."""
+        ws = _make_ws()
+        from fastapi import WebSocketDisconnect
+
+        unknown_msg = json.dumps({"type": "dance", "style": "waltz"})
+        ws.receive_text = AsyncMock(side_effect=[unknown_msg, WebSocketDisconnect()])
+
+        fresh_mgr = WorldConnectionManager()
+        with patch("helping_hands.server.multiplayer.world_manager", fresh_mgr):
+            await world_websocket_endpoint(ws)
+
+        assert fresh_mgr.player_count == 0
+
+    @pytest.mark.asyncio
+    async def test_endpoint_returns_immediately_when_at_capacity(self) -> None:
+        """When connect returns None (at capacity), endpoint exits cleanly."""
+        ws = _make_ws()
+        fresh_mgr = WorldConnectionManager()
+
+        # Fill to capacity.
+        for _ in range(_MAX_PLAYERS):
+            await fresh_mgr.connect(_make_ws())
+
+        with patch("helping_hands.server.multiplayer.world_manager", fresh_mgr):
+            await world_websocket_endpoint(ws)
+
+        # receive_text should never have been called.
+        ws.receive_text.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Edge-case coverage (v277)
+# ---------------------------------------------------------------------------
+
+
+class TestMultiplayerEdgeCases:
+    """Additional edge-case tests for multiplayer.py (v277)."""
+
+    @pytest.mark.asyncio
+    async def test_handle_position_unknown_player_is_noop(self) -> None:
+        """handle_position with a non-existent player_id returns silently."""
+        mgr = WorldConnectionManager()
+        ws = _make_ws()
+        await mgr.connect(ws)
+        ws.send_text.reset_mock()
+
+        # Should not raise or broadcast anything.
+        await mgr.handle_position(
+            "nonexistent", {"x": 50, "y": 50, "direction": "up", "walking": False}
+        )
+        ws.send_text.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_handle_position_missing_optional_fields_uses_defaults(self) -> None:
+        """Position update with missing fields uses the player's current values."""
+        mgr = WorldConnectionManager()
+        ws1 = _make_ws()
+        ws2 = _make_ws()
+        p1 = await mgr.connect(ws1)
+        await mgr.connect(ws2)
+        assert p1 is not None
+
+        # Set known position first.
+        await mgr.handle_position(
+            p1.player_id, {"x": 30, "y": 40, "direction": "left", "walking": True}
+        )
+
+        ws2.send_text.reset_mock()
+
+        # Send empty data dict — should keep previous values.
+        await mgr.handle_position(p1.player_id, {})
+        assert p1.x == 30.0
+        assert p1.y == 40.0
+        assert p1.direction == "left"
+        assert p1.walking is True
+
+    @pytest.mark.asyncio
+    async def test_handle_position_at_exact_boundaries(self) -> None:
+        """Position values at exact boundaries are not clamped further."""
+        mgr = WorldConnectionManager()
+        ws = _make_ws()
+        p = await mgr.connect(ws)
+        assert p is not None
+
+        await mgr.handle_position(
+            p.player_id,
+            {
+                "x": _BOUNDS_MAX_X,
+                "y": _BOUNDS_MIN_Y,
+                "direction": "up",
+                "walking": False,
+            },
+        )
+        assert p.x == _BOUNDS_MAX_X
+        assert p.y == _BOUNDS_MIN_Y
+
+    @pytest.mark.asyncio
+    async def test_disconnect_twice_is_safe(self) -> None:
+        """Disconnecting the same player twice does not raise."""
+        mgr = WorldConnectionManager()
+        ws = _make_ws()
+        p = await mgr.connect(ws)
+        assert p is not None
+
+        await mgr.disconnect(p.player_id)
+        await mgr.disconnect(p.player_id)  # Second call is a noop.
+        assert mgr.player_count == 0
+
+    @pytest.mark.asyncio
+    async def test_endpoint_handles_generic_exception_in_receive(self) -> None:
+        """If receive_text raises a non-disconnect exception, player is still cleaned up."""
+        ws = _make_ws()
+        ws.receive_text = AsyncMock(side_effect=RuntimeError("connection reset"))
+
+        fresh_mgr = WorldConnectionManager()
+        with (
+            patch("helping_hands.server.multiplayer.world_manager", fresh_mgr),
+            pytest.raises(RuntimeError, match="connection reset"),
+        ):
+            await world_websocket_endpoint(ws)
+
+        # Player should still be cleaned up via finally block.
+        assert fresh_mgr.player_count == 0
+
+    @pytest.mark.asyncio
+    async def test_broadcast_to_three_players_one_dead(self) -> None:
+        """When broadcasting to 3 players and one dies, only the dead one is removed."""
+        mgr = WorldConnectionManager()
+        ws1 = _make_ws()
+        ws2 = _make_ws()
+        ws3 = _make_ws()
+        ws2.send_text.side_effect = ConnectionError("gone")
+
+        p1 = await mgr.connect(ws1)
+        p2 = await mgr.connect(ws2)
+        p3 = await mgr.connect(ws3)
+        assert p1 is not None and p2 is not None and p3 is not None
+
+        await mgr.handle_position(
+            p1.player_id,
+            {"x": 55, "y": 55, "direction": "right", "walking": False},
+        )
+
+        assert mgr.player_count == 2
+        assert p2.player_id not in mgr._players
+        assert p1.player_id in mgr._players
+        assert p3.player_id in mgr._players

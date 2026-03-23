@@ -1,6 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DESK_SIZE,
+  EMOTE_DISPLAY_MS,
+  EMOTE_KEY_BINDINGS,
+  EMOTE_MAP,
+  FACTORY_COLLISION,
+  FACTORY_POS,
+  INCINERATOR_COLLISION,
+  INCINERATOR_POS,
+  OFFICE_BOUNDS,
+  PLAYER_COLORS,
+  PLAYER_MOVE_STEP,
+  PLAYER_SIZE,
   TASK_HISTORY_STORAGE_KEY,
   apiUrl,
   asRecord,
@@ -793,5 +805,115 @@ describe("statusBlinkerColor", () => {
 
   it("returns gray for empty string", () => {
     expect(statusBlinkerColor("")).toBe("#6b7280");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multiplayer constants & collision (v277)
+// ---------------------------------------------------------------------------
+
+describe("PLAYER_COLORS", () => {
+  it("has 10 distinct colours", () => {
+    expect(PLAYER_COLORS).toHaveLength(10);
+    expect(new Set(PLAYER_COLORS).size).toBe(10);
+  });
+
+  it("contains only valid hex colour strings", () => {
+    for (const c of PLAYER_COLORS) {
+      expect(c).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it("matches the backend palette order", () => {
+    // First three: rose, blue, green — must stay in sync with multiplayer.py
+    expect(PLAYER_COLORS[0]).toBe("#e11d48");
+    expect(PLAYER_COLORS[1]).toBe("#2563eb");
+    expect(PLAYER_COLORS[2]).toBe("#16a34a");
+  });
+});
+
+describe("EMOTE_MAP", () => {
+  it("maps all four emotes to emoji strings", () => {
+    expect(Object.keys(EMOTE_MAP)).toEqual(["wave", "celebrate", "thumbsup", "sparkle"]);
+    for (const v of Object.values(EMOTE_MAP)) {
+      expect(typeof v).toBe("string");
+      expect(v.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("EMOTE_KEY_BINDINGS", () => {
+  it("maps keys 1-4 to valid emote names", () => {
+    expect(EMOTE_KEY_BINDINGS["1"]).toBe("wave");
+    expect(EMOTE_KEY_BINDINGS["2"]).toBe("celebrate");
+    expect(EMOTE_KEY_BINDINGS["3"]).toBe("thumbsup");
+    expect(EMOTE_KEY_BINDINGS["4"]).toBe("sparkle");
+  });
+
+  it("every binding points to a key in EMOTE_MAP", () => {
+    for (const emote of Object.values(EMOTE_KEY_BINDINGS)) {
+      expect(EMOTE_MAP).toHaveProperty(emote);
+    }
+  });
+});
+
+describe("EMOTE_DISPLAY_MS", () => {
+  it("is a positive number suitable for setTimeout", () => {
+    expect(EMOTE_DISPLAY_MS).toBeGreaterThan(0);
+    expect(EMOTE_DISPLAY_MS).toBe(2000);
+  });
+});
+
+describe("scene layout constants", () => {
+  it("OFFICE_BOUNDS defines a valid play area", () => {
+    expect(OFFICE_BOUNDS.minX).toBeLessThan(OFFICE_BOUNDS.maxX);
+    expect(OFFICE_BOUNDS.minY).toBeLessThan(OFFICE_BOUNDS.maxY);
+  });
+
+  it("FACTORY_POS is inside office bounds", () => {
+    expect(FACTORY_POS.left).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minX);
+    expect(FACTORY_POS.top).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minY);
+  });
+
+  it("INCINERATOR_POS is inside office bounds", () => {
+    expect(INCINERATOR_POS.left).toBeLessThanOrEqual(OFFICE_BOUNDS.maxX);
+    expect(INCINERATOR_POS.top).toBeLessThanOrEqual(OFFICE_BOUNDS.maxY);
+  });
+
+  it("PLAYER_SIZE and DESK_SIZE are positive", () => {
+    expect(PLAYER_SIZE.width).toBeGreaterThan(0);
+    expect(PLAYER_SIZE.height).toBeGreaterThan(0);
+    expect(DESK_SIZE.width).toBeGreaterThan(0);
+    expect(DESK_SIZE.height).toBeGreaterThan(0);
+  });
+
+  it("PLAYER_MOVE_STEP is positive and reasonable", () => {
+    expect(PLAYER_MOVE_STEP).toBeGreaterThan(0);
+    expect(PLAYER_MOVE_STEP).toBeLessThan(10);
+  });
+});
+
+describe("checkDeskCollision with factory/incinerator", () => {
+  it("detects collision with factory entrance", () => {
+    // Place player inside the factory collision box
+    const cx = FACTORY_COLLISION.left + FACTORY_COLLISION.width / 2;
+    const cy = FACTORY_COLLISION.top + FACTORY_COLLISION.height / 2;
+    expect(checkDeskCollision(cx, cy, [])).toBe(true);
+  });
+
+  it("detects collision with incinerator exit", () => {
+    const cx = INCINERATOR_COLLISION.left + INCINERATOR_COLLISION.width / 2;
+    const cy = INCINERATOR_COLLISION.top + INCINERATOR_COLLISION.height / 2;
+    expect(checkDeskCollision(cx, cy, [])).toBe(true);
+  });
+
+  it("returns false at scene centre (no obstacles)", () => {
+    expect(checkDeskCollision(50, 50, [])).toBe(false);
+  });
+
+  it("returns false just outside factory collision boundary", () => {
+    // Player centre just right of the factory collision right edge + half player width
+    const justOutside = FACTORY_COLLISION.left + FACTORY_COLLISION.width + PLAYER_SIZE.width;
+    expect(checkDeskCollision(justOutside, FACTORY_COLLISION.top + 10, [])).toBe(false);
   });
 });

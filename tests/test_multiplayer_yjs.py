@@ -76,3 +76,46 @@ class TestYjsServerLifecycle:
     async def test_stop_noop_when_server_is_none(self) -> None:
         with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", None):
             await stop_yjs_server()  # Should not raise.
+
+
+class TestYjsAppGlobals:
+    """Tests that create_yjs_app sets module-level singletons correctly."""
+
+    def test_create_sets_module_globals(self) -> None:
+        """create_yjs_app populates yjs_websocket_server and yjs_asgi_app globals."""
+        mock_ws_server = MagicMock()
+        mock_asgi = MagicMock()
+
+        with (
+            patch("helping_hands.server.multiplayer_yjs._HAS_PYCRDT", True),
+            patch(
+                "helping_hands.server.multiplayer_yjs.WebsocketServer",
+                create=True,
+                return_value=mock_ws_server,
+            ),
+            patch(
+                "helping_hands.server.multiplayer_yjs.ASGIServer",
+                create=True,
+                return_value=mock_asgi,
+            ),
+        ):
+            import helping_hands.server.multiplayer_yjs as mod
+
+            result = create_yjs_app()
+            assert result is mock_asgi
+            assert mod.yjs_websocket_server is mock_ws_server
+            assert mod.yjs_asgi_app is mock_asgi
+
+    def test_create_returns_none_leaves_globals_unchanged(self) -> None:
+        """When pycrdt is unavailable, globals remain None."""
+        with (
+            patch("helping_hands.server.multiplayer_yjs._HAS_PYCRDT", False),
+            patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", None),
+            patch("helping_hands.server.multiplayer_yjs.yjs_asgi_app", None),
+        ):
+            import helping_hands.server.multiplayer_yjs as mod
+
+            result = create_yjs_app()
+            assert result is None
+            assert mod.yjs_websocket_server is None
+            assert mod.yjs_asgi_app is None

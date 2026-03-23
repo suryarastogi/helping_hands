@@ -4,6 +4,10 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+(none)
+
+## Recently Completed
+
 ### Yjs Multiplayer Synchronisation (2026-03-23) — Completed
 
 **User request:** Migrate Hand World multiplayer sync to use Yjs. The user likes frontends that use Yjs for real-time collaboration. Synchronisation should flow through the Python backend.
