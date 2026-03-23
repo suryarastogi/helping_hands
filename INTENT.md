@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Extract ScheduleCard Component (2026-03-23) — Completed
+
+**Implemented (v295):**
+- Extracted `ScheduleCard` component from inline schedule form + list JSX in App.tsx (~316 lines)
+- Internal `ScheduleFormFields` sub-component for reuse in new/edit modes
+- Props interface: `ScheduleCardProps` with 16 typed props
+- App.tsx reduced from 1,891 to 1,575 lines (-316 lines)
+- 20 new tests in `ScheduleCard.test.tsx` (rendering, callbacks, form states, error display, toggle, delete, edit, trigger)
+- 398 frontend tests total (up from 378)
+
 ### Extract SubmissionForm Component (2026-03-23) — Completed
 
 **Implemented (v294):**

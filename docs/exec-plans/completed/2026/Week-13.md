@@ -2,7 +2,8 @@
 
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
-history panel, and continued component extraction (MonitorCard, SubmissionForm).
+history panel, and continued component extraction (MonitorCard, SubmissionForm,
+ScheduleCard).
 
 ---
 
@@ -186,6 +187,14 @@ history panel, and continued component extraction (MonitorCard, SubmissionForm).
 
 ---
 
+## Mar 23 — Extract ScheduleCard Component (v295)
+
+**Component extraction:** Moved inline schedule form and schedule list JSX (~316 lines) into `ScheduleCard` component with internal `ScheduleFormFields` sub-component. 16 typed props covering schedule CRUD callbacks, form state, and error display. App.tsx: 1,891 → 1,575 lines.
+
+**20 new tests, 398 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -210,3 +219,4 @@ history panel, and continued component extraction (MonitorCard, SubmissionForm).
 - `v292-multiplayer-stats-player-count.md`
 - `v293-extract-monitor-card.md`
 - `v294-extract-submission-form.md`
+- `v295-extract-schedule-card.md`
