@@ -9,34 +9,34 @@
 
 Enable multiple users to see each other walking around Hand World in real-time. Each user gets a unique colored avatar, and position updates are broadcast through the Python backend via WebSocket.
 
-## Plan
+## Tasks
 
 ### Phase 1: Backend WebSocket Endpoint
-- [ ] Add `/ws/world` WebSocket endpoint to `server/app.py`
-- [ ] Implement connection manager with join/leave/position broadcast
-- [ ] Each client gets a unique player ID and random color on connect
-- [ ] Server broadcasts position updates to all other connected clients
+- [x] Add `/ws/world` WebSocket endpoint to `server/app.py`
+- [x] Implement connection manager with join/leave/position broadcast
+- [x] Each client gets a unique player ID and random color on connect
+- [x] Server broadcasts position updates to all other connected clients
 
 ### Phase 2: Frontend WebSocket Client
-- [ ] Add WebSocket connection logic when world view is active
-- [ ] Send local player position updates on movement
-- [ ] Receive and render remote player avatars
-- [ ] Handle connect/disconnect/reconnect gracefully
+- [x] Add WebSocket connection logic when world view is active
+- [x] Send local player position updates on movement
+- [x] Receive and render remote player avatars
+- [x] Handle connect/disconnect/reconnect gracefully
 
 ### Phase 3: Remote Player Rendering
-- [ ] Add `RemotePlayer` type and state management
-- [ ] Render remote players with distinct colors and name tags
-- [ ] Show player count in Factory Floor status panel
-- [ ] CSS styles for remote player avatars
+- [x] Add `RemotePlayer` type and state management
+- [x] Render remote players with distinct colors and name tags
+- [x] Show player count in Factory Floor status panel
+- [x] CSS styles for remote player avatars
 
 ### Phase 4: Testing
-- [ ] Backend: WebSocket endpoint unit tests (connect, broadcast, disconnect)
-- [ ] Frontend: Vitest unit tests for multiplayer state management
-- [ ] Update E2E test helpers if needed
+- [x] Backend: WebSocket endpoint unit tests (connect, broadcast, disconnect)
+- [x] Frontend: Vitest unit tests for multiplayer state management
+- [x] Update E2E test helpers if needed
 
 ### Phase 5: Documentation
-- [ ] Update FRONTEND.md with multiplayer architecture
-- [ ] Add design doc for multiplayer sync protocol
+- [x] Update FRONTEND.md with multiplayer architecture
+- [x] Add design doc for multiplayer sync protocol
 
 ## Protocol Design
 
