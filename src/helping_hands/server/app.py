@@ -141,6 +141,11 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Mount the multiplayer WebSocket relay for Hand World awareness sync.
+from helping_hands.server.multiplayer import mount_multiplayer  # noqa: E402
+
+mount_multiplayer(app)
+
 
 class _ToolSkillValidatorMixin(BaseModel):
     """Shared coercion and validation for tools/skills list fields."""

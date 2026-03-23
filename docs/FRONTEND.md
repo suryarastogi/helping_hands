@@ -31,14 +31,16 @@ The React frontend is organized as a single-page application:
 
 ```
 frontend/src/
-├── main.tsx          # Entry point, renders <App />
-├── App.tsx           # Main component (form, task list, monitors)
-├── App.test.tsx      # Component render tests (@testing-library/react)
-├── App.utils.test.ts # Unit tests for utility functions
-├── styles.css        # Global styles
-├── vite-env.d.ts     # Vite type declarations
+├── main.tsx               # Entry point, renders <App />
+├── App.tsx                # Main component (form, task list, monitors)
+├── App.test.tsx           # Component render tests (@testing-library/react)
+├── App.utils.test.ts      # Unit tests for utility functions
+├── useMultiplayer.ts      # yjs awareness hook for multiplayer Hand World
+├── useMultiplayer.test.ts # Tests for multiplayer hook
+├── styles.css             # Global styles
+├── vite-env.d.ts          # Vite type declarations
 └── test/
-    └── setup.ts      # Vitest setup (jsdom environment)
+    └── setup.ts           # Vitest setup (jsdom environment)
 ```
 
 ### State management
@@ -126,3 +128,38 @@ To verify both surfaces offer the same features:
 | `/tasks/current` | GET | List active/queued tasks |
 | `/monitor/{task_id}` | GET | HTML auto-refresh monitor |
 | `/workers/capacity` | GET | Celery worker pool info |
+| `/ws/world` | WebSocket | Multiplayer awareness relay (yjs protocol) |
+
+## Multiplayer (Hand World)
+
+The Hand World view supports multiplayer presence — multiple browser tabs/users
+can see each other's player avatars moving in real time.
+
+### Architecture
+
+```
+Browser A ──ws──┐
+                ├── FastAPI /ws/world ── MultiplayerRoom relay
+Browser B ──ws──┘
+```
+
+### Frontend (yjs awareness)
+
+- `useMultiplayer.ts` — React hook using `yjs` + `y-websocket`
+- Each client creates a `Doc` + `WebsocketProvider` connected to `/ws/world`
+- Local player state (position, direction, walking, color, name) is broadcast
+  via the yjs awareness protocol
+- Remote players are rendered as `RemotePlayer[]` with distinct colored sprites
+  and name labels
+
+### Backend (WebSocket relay)
+
+- `src/helping_hands/server/multiplayer.py` — `MultiplayerRoom` class
+- Simple binary message relay: forwards each message to all peers except sender
+- No document persistence — awareness is ephemeral presence data
+- Mounted on the FastAPI app via `mount_multiplayer(app)`
+
+### Dependencies
+
+- **Frontend:** `yjs`, `y-websocket`
+- **Backend:** `pycrdt-websocket` (server extra, for future document sync features)

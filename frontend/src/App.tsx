@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useMultiplayer } from "./useMultiplayer";
 
 type Backend =
   | "e2e"
@@ -1048,6 +1049,10 @@ export default function App() {
   const autoScrollRef = useRef(true);
   const [monitorHeight, setMonitorHeight] = useState<number | null>(null);
 
+  // ── Multiplayer awareness ──────────────────────────────────────────
+  const { remotePlayers, updateLocalState: updateMultiplayerState, connectionCount, connected: multiplayerConnected } =
+    useMultiplayer({ enabled: dashboardView === "world" });
+
   const spawnFloatingNumber = useCallback((forTaskId: string, delta: number) => {
     if (delta <= 0) return;
     const id = ++floatingIdRef.current;
@@ -1687,6 +1692,16 @@ export default function App() {
       }
     };
   }, [dashboardView, deskSlots]);
+
+  // Broadcast local player state to multiplayer peers.
+  useEffect(() => {
+    if (dashboardView !== "world") return;
+    updateMultiplayerState({
+      position: playerPosition,
+      direction: playerDirection,
+      walking: isPlayerWalking,
+    });
+  }, [dashboardView, playerPosition, playerDirection, isPlayerWalking, updateMultiplayerState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3391,6 +3406,10 @@ export default function App() {
                     <span className="stat-icon">&#128100;</span>
                     <span>You: ({Math.round(playerPosition.x)}, {Math.round(playerPosition.y)})</span>
                   </div>
+                  <div className="status-summary-stat">
+                    <span className="stat-icon">&#127760;</span>
+                    <span>{multiplayerConnected ? `${connectionCount} Online` : "Connecting..."}</span>
+                  </div>
                   <div className="status-summary-hint">Use arrow keys to walk</div>
                 </div>
 
@@ -3461,6 +3480,39 @@ export default function App() {
                     <span className="human-boot human-boot-right" />
                   </span>
                 </div>
+
+                {/* Remote multiplayer players */}
+                {remotePlayers.map((rp) => (
+                  <div
+                    key={rp.clientId}
+                    className={`human-player remote-player ${rp.direction}${rp.walking ? " walking" : ""}`}
+                    style={{
+                      left: `${rp.position.x}%`,
+                      top: `${rp.position.y}%`,
+                    }}
+                    aria-label={`Player: ${rp.name}`}
+                  >
+                    <span className="remote-player-name">{rp.name}</span>
+                    <span className="human-shadow" />
+                    <span className="human-body" style={{ "--player-color": rp.color } as CSSProperties}>
+                      <span className="human-helmet" />
+                      <span className="human-helmet-light" />
+                      <span className="human-visor" />
+                      <span className="human-visor-shine" />
+                      <span className="human-torso" />
+                      <span className="human-belt" />
+                      <span className="human-buckle" />
+                      <span className="human-arm human-arm-left" />
+                      <span className="human-glove human-glove-left" />
+                      <span className="human-arm human-arm-right" />
+                      <span className="human-glove human-glove-right" />
+                      <span className="human-leg human-leg-left" />
+                      <span className="human-boot human-boot-left" />
+                      <span className="human-leg human-leg-right" />
+                      <span className="human-boot human-boot-right" />
+                    </span>
+                  </div>
+                ))}
 
                 {sceneWorkerEntries.map((worker) => {
                   const isAtFactory = worker.phase === "at-factory";

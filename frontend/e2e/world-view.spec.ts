@@ -55,3 +55,13 @@ test("Claude usage panel is visible in world view", async ({ page }) => {
 
   await expect(page.getByText("Claude Usage")).toBeVisible();
 });
+
+test("world view shows multiplayer connection status", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Hand world" }).click();
+
+  // The status summary should show the multiplayer indicator (connecting or online).
+  await expect(
+    page.locator(".zen-status-summary").getByText(/Online|Connecting/)
+  ).toBeVisible();
+});

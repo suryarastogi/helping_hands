@@ -280,8 +280,9 @@ outage still surfaces the utilization percentages in the task result.
 | MCP server | `src/helping_hands/server/mcp_server.py` |
 | Schedules | `src/helping_hands/server/schedules.py` |
 | Task result helper | `src/helping_hands/server/task_result.py` |
+| Multiplayer relay | `src/helping_hands/server/multiplayer.py` |
 | Docker sandbox hand | `src/helping_hands/lib/hands/v1/hand/cli/docker_sandbox_claude.py` |
 
 ---
 
-*Last updated: 2026-03-07*
+*Last updated: 2026-03-23*

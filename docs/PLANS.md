@@ -4,7 +4,9 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-(none)
+- [v273 — Multiplayer Hand World](exec-plans/active/v273-multiplayer-hand-world.md) —
+  yjs awareness protocol for real-time multiplayer presence in Hand World;
+  WebSocket relay backend, React hook, remote player rendering
 
 ## Completed plans
 

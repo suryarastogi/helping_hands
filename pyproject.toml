@@ -28,6 +28,7 @@ server = [
     "flower>=2.0",
     "psycopg2-binary>=2.9",
     "croniter>=2.0",
+    "pycrdt-websocket>=0.15",
 ]
 github = [
     "PyGithub>=2.3",
