@@ -8,8 +8,19 @@ import {
   useState,
 } from "react";
 
+import PlayerAvatar from "./components/PlayerAvatar";
 import { useMultiplayer, loadPlayerName, savePlayerName } from "./hooks/useMultiplayer";
 import type { PlayerDirection } from "./types";
+import {
+  DESK_SIZE,
+  FACTORY_COLLISION,
+  FACTORY_POS,
+  INCINERATOR_COLLISION,
+  INCINERATOR_POS,
+  OFFICE_BOUNDS,
+  PLAYER_MOVE_STEP,
+  PLAYER_SIZE,
+} from "./constants";
 
 type Backend =
   | "e2e"
@@ -204,25 +215,13 @@ type PlayerPosition = {
 
 export type { PlayerDirection } from "./types";
 
-export const EMOTE_DISPLAY_MS = 2000;
-
-/** Player avatar colour palette — matches backend palette, indexed by Yjs clientID. */
-export const PLAYER_COLORS = [
-  "#e11d48", "#2563eb", "#16a34a", "#d97706", "#7c3aed",
-  "#0891b2", "#dc2626", "#4f46e5", "#059669", "#c026d3",
-];
-export const EMOTE_MAP: Record<string, string> = {
-  wave: "\u{1F44B}",
-  celebrate: "\u{1F389}",
-  thumbsup: "\u{1F44D}",
-  sparkle: "\u{2728}",
-};
-export const EMOTE_KEY_BINDINGS: Record<string, string> = {
-  "1": "wave",
-  "2": "celebrate",
-  "3": "thumbsup",
-  "4": "sparkle",
-};
+// Re-export constants so existing imports from App continue to work.
+export {
+  EMOTE_DISPLAY_MS,
+  EMOTE_KEY_BINDINGS,
+  EMOTE_MAP,
+  PLAYER_COLORS,
+} from "./constants";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
@@ -306,15 +305,17 @@ const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
 };
 const DEFAULT_WORLD_MAX_WORKERS = 8;
 
-export const FACTORY_POS = { left: 8, top: 52 };
-export const INCINERATOR_POS = { left: 92, top: 52 };
-
-export const PLAYER_MOVE_STEP = 1.2;
-export const PLAYER_SIZE = { width: 3.5, height: 4 };
-export const DESK_SIZE = { width: 8, height: 7 };
-export const FACTORY_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
-export const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 };
-export const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
+// Scene-geometry constants are in constants.ts; re-export for test compat.
+export {
+  FACTORY_POS,
+  INCINERATOR_POS,
+  PLAYER_MOVE_STEP,
+  PLAYER_SIZE,
+  DESK_SIZE,
+  FACTORY_COLLISION,
+  INCINERATOR_COLLISION,
+  OFFICE_BOUNDS,
+} from "./constants";
 
 const DEFAULT_CHARACTER_STYLE: CharacterStyle = {
   bodyColor: "#64748b",
@@ -3519,76 +3520,26 @@ export default function App() {
                   )}
                 </div>
 
-                <div
-                  className={`human-player ${playerDirection}${isPlayerWalking ? " walking" : ""}`}
-                  style={{
-                    left: `${playerPosition.x}%`,
-                    top: `${playerPosition.y}%`,
-                  }}
-                  aria-label="You (player character)"
-                >
-                  {localEmote && (
-                    <span className="emote-bubble" aria-label={`Emote: ${localEmote}`}>
-                      {EMOTE_MAP[localEmote]}
-                    </span>
-                  )}
-                  <span className="human-shadow" />
-                  <span className="human-body">
-                    <span className="human-helmet" />
-                    <span className="human-helmet-light" />
-                    <span className="human-visor" />
-                    <span className="human-visor-shine" />
-                    <span className="human-torso" />
-                    <span className="human-belt" />
-                    <span className="human-buckle" />
-                    <span className="human-arm human-arm-left" />
-                    <span className="human-glove human-glove-left" />
-                    <span className="human-arm human-arm-right" />
-                    <span className="human-glove human-glove-right" />
-                    <span className="human-leg human-leg-left" />
-                    <span className="human-boot human-boot-left" />
-                    <span className="human-leg human-leg-right" />
-                    <span className="human-boot human-boot-right" />
-                  </span>
-                </div>
+                <PlayerAvatar
+                  direction={playerDirection}
+                  walking={isPlayerWalking}
+                  emote={localEmote}
+                  isLocal
+                  x={playerPosition.x}
+                  y={playerPosition.y}
+                />
 
                 {remotePlayers.map((rp) => (
-                  <div
+                  <PlayerAvatar
                     key={rp.player_id}
-                    className={`remote-player ${rp.direction}${rp.walking ? " walking" : ""}`}
-                    style={{
-                      left: `${rp.x}%`,
-                      top: `${rp.y}%`,
-                      "--rp-body": rp.color,
-                      "--rp-accent": `${rp.color}66`,
-                    } as CSSProperties}
-                    aria-label={rp.name}
-                  >
-                    <span className="remote-player-name">{rp.name}</span>
-                    {remoteEmotes[rp.player_id] && (
-                      <span className="emote-bubble" aria-label={`Emote: ${remoteEmotes[rp.player_id]}`}>
-                        {EMOTE_MAP[remoteEmotes[rp.player_id]]}
-                      </span>
-                    )}
-                    <span className="human-shadow" />
-                    <span className="human-body">
-                      <span className="human-helmet" />
-                      <span className="human-helmet-light" />
-                      <span className="human-visor" />
-                      <span className="human-visor-shine" />
-                      <span className="human-torso" />
-                      <span className="human-belt" />
-                      <span className="human-buckle" />
-                      <span className="human-arm human-arm-left" />
-                      <span className="human-glove human-glove-left" />
-                      <span className="human-arm human-arm-right" />
-                      <span className="human-glove human-glove-right" />
-                      <span className="human-leg human-leg-left" />
-                      <span className="human-boot human-boot-left" />
-                      <span className="human-leg human-leg-right" />
-                      <span className="human-boot human-boot-right" />
-                    </span>
-                  </div>
+                    direction={rp.direction}
+                    walking={rp.walking}
+                    name={rp.name}
+                    emote={remoteEmotes[rp.player_id]}
+                    color={rp.color}
+                    x={rp.x}
+                    y={rp.y}
+                  />
                 ))}
 
                 {sceneWorkerEntries.map((worker) => {

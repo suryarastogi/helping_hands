@@ -12,7 +12,7 @@ import {
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   PLAYER_COLORS,
-} from "../App";
+} from "../constants";
 import type { PlayerDirection } from "../types";
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,10 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-(none)
+- [2026-03-23 v280](exec-plans/active/v280-extract-constants-player-avatar.md) —
+  Extract `constants.ts` module and `PlayerAvatar` component to decouple
+  multiplayer constants from App.tsx and deduplicate player sprite markup;
+  11 new tests (233 frontend passed)
 
 ## Completed plans
 

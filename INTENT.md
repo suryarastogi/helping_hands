@@ -4,7 +4,15 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-(none)
+### Frontend Code Quality — Constants & Component Extraction (2026-03-23)
+
+**User request:** Continue improving multiplayer Hand World — better modularisation and code reuse.
+
+**In progress (v280):**
+- Extracted `constants.ts` — emote, colour, and scene-geometry constants decoupled from App.tsx
+- Extracted `PlayerAvatar` component — shared sprite tree for local and remote players
+- `useMultiplayer.ts` no longer imports from `App.tsx`
+- 11 new tests (233 total, up from 222)
 
 ## Recently Completed
 

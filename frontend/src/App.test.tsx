@@ -2,6 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 
 import App from "./App";
+import PlayerAvatar from "./components/PlayerAvatar";
+import {
+  DESK_SIZE,
+  EMOTE_DISPLAY_MS,
+  EMOTE_KEY_BINDINGS,
+  EMOTE_MAP,
+  FACTORY_COLLISION,
+  FACTORY_POS,
+  INCINERATOR_COLLISION,
+  INCINERATOR_POS,
+  OFFICE_BOUNDS,
+  PLAYER_COLORS,
+  PLAYER_MOVE_STEP,
+  PLAYER_SIZE,
+} from "./constants";
 import { loadPlayerName, savePlayerName, useMultiplayer } from "./hooks/useMultiplayer";
 
 // Build a mock Response-like object with clone() support.
@@ -1894,5 +1909,137 @@ describe("useMultiplayer hook", () => {
     expect(result.current.localEmote).toBeNull();
 
     vi.useRealTimers();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Constants module — ensure all expected exports exist and have correct shapes
+// ---------------------------------------------------------------------------
+
+describe("constants module", () => {
+  it("exports EMOTE_DISPLAY_MS as a positive number", () => {
+    expect(typeof EMOTE_DISPLAY_MS).toBe("number");
+    expect(EMOTE_DISPLAY_MS).toBeGreaterThan(0);
+  });
+
+  it("exports EMOTE_MAP with all four emotes", () => {
+    expect(Object.keys(EMOTE_MAP)).toEqual(
+      expect.arrayContaining(["wave", "celebrate", "thumbsup", "sparkle"])
+    );
+    for (const emoji of Object.values(EMOTE_MAP)) {
+      expect(emoji.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("exports EMOTE_KEY_BINDINGS mapping keys 1-4", () => {
+    expect(EMOTE_KEY_BINDINGS["1"]).toBe("wave");
+    expect(EMOTE_KEY_BINDINGS["2"]).toBe("celebrate");
+    expect(EMOTE_KEY_BINDINGS["3"]).toBe("thumbsup");
+    expect(EMOTE_KEY_BINDINGS["4"]).toBe("sparkle");
+  });
+
+  it("exports PLAYER_COLORS with at least 10 entries", () => {
+    expect(PLAYER_COLORS.length).toBeGreaterThanOrEqual(10);
+    for (const c of PLAYER_COLORS) {
+      expect(c).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it("exports scene geometry constants with correct shapes", () => {
+    expect(PLAYER_MOVE_STEP).toBeGreaterThan(0);
+    expect(PLAYER_SIZE).toHaveProperty("width");
+    expect(PLAYER_SIZE).toHaveProperty("height");
+    expect(DESK_SIZE).toHaveProperty("width");
+    expect(DESK_SIZE).toHaveProperty("height");
+    expect(FACTORY_POS).toHaveProperty("left");
+    expect(FACTORY_POS).toHaveProperty("top");
+    expect(INCINERATOR_POS).toHaveProperty("left");
+    expect(INCINERATOR_POS).toHaveProperty("top");
+    expect(FACTORY_COLLISION).toHaveProperty("width");
+    expect(INCINERATOR_COLLISION).toHaveProperty("width");
+    expect(OFFICE_BOUNDS).toHaveProperty("minX");
+    expect(OFFICE_BOUNDS).toHaveProperty("maxX");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PlayerAvatar component
+// ---------------------------------------------------------------------------
+
+describe("PlayerAvatar component", () => {
+  it("renders local player with correct class and aria-label", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal x={50} y={50} />
+    );
+    const el = container.querySelector(".human-player.down");
+    expect(el).toBeTruthy();
+    expect(el?.getAttribute("aria-label")).toBe("You (player character)");
+    // Should NOT have remote-player-name
+    expect(container.querySelector(".remote-player-name")).toBeNull();
+  });
+
+  it("renders remote player with name and colour CSS variables", () => {
+    const { container } = render(
+      <PlayerAvatar
+        direction="left"
+        walking={true}
+        name="Alice"
+        color="#e11d48"
+        x={30}
+        y={40}
+      />
+    );
+    const el = container.querySelector(".remote-player.left.walking");
+    expect(el).toBeTruthy();
+    expect(el?.getAttribute("aria-label")).toBe("Alice");
+    // Name label rendered
+    const nameEl = container.querySelector(".remote-player-name");
+    expect(nameEl?.textContent).toBe("Alice");
+    // CSS variables set
+    expect((el as HTMLElement).style.getPropertyValue("--rp-body")).toBe(
+      "#e11d48"
+    );
+  });
+
+  it("renders emote bubble when emote prop is set", () => {
+    const { container } = render(
+      <PlayerAvatar direction="up" walking={false} isLocal emote="wave" x={50} y={50} />
+    );
+    const bubble = container.querySelector(".emote-bubble");
+    expect(bubble).toBeTruthy();
+    expect(bubble?.textContent).toBe(EMOTE_MAP.wave);
+  });
+
+  it("does not render emote bubble when emote is null", () => {
+    const { container } = render(
+      <PlayerAvatar direction="right" walking={false} isLocal emote={null} x={50} y={50} />
+    );
+    expect(container.querySelector(".emote-bubble")).toBeNull();
+  });
+
+  it("renders the full human-body sprite tree", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal x={50} y={50} />
+    );
+    const body = container.querySelector(".human-body");
+    expect(body).toBeTruthy();
+    expect(body?.querySelector(".human-helmet")).toBeTruthy();
+    expect(body?.querySelector(".human-visor")).toBeTruthy();
+    expect(body?.querySelector(".human-torso")).toBeTruthy();
+    expect(body?.querySelector(".human-arm.human-arm-left")).toBeTruthy();
+    expect(body?.querySelector(".human-arm.human-arm-right")).toBeTruthy();
+    expect(body?.querySelector(".human-leg.human-leg-left")).toBeTruthy();
+    expect(body?.querySelector(".human-leg.human-leg-right")).toBeTruthy();
+    expect(body?.querySelector(".human-boot.human-boot-left")).toBeTruthy();
+    expect(body?.querySelector(".human-boot.human-boot-right")).toBeTruthy();
+  });
+
+  it("sets position via inline styles", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal x={25} y={75} />
+    );
+    const el = container.querySelector(".human-player") as HTMLElement;
+    expect(el.style.left).toBe("25%");
+    expect(el.style.top).toBe("75%");
   });
 });

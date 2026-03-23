@@ -31,14 +31,20 @@ The React frontend is organized as a single-page application:
 
 ```
 frontend/src/
-├── main.tsx          # Entry point, renders <App />
-├── App.tsx           # Main component (form, task list, monitors)
-├── App.test.tsx      # Component render tests (@testing-library/react)
-├── App.utils.test.ts # Unit tests for utility functions
-├── styles.css        # Global styles
-├── vite-env.d.ts     # Vite type declarations
+├── main.tsx              # Entry point, renders <App />
+├── App.tsx               # Main component (form, task list, monitors)
+├── App.test.tsx          # Component render + unit tests
+├── App.utils.test.ts     # Utility function unit tests
+├── constants.ts          # Shared constants (emotes, colours, scene geometry)
+├── types.ts              # Shared types (PlayerDirection)
+├── styles.css            # Global styles
+├── vite-env.d.ts         # Vite type declarations
+├── components/
+│   └── PlayerAvatar.tsx  # Reusable human-player sprite component
+├── hooks/
+│   └── useMultiplayer.ts # Yjs awareness multiplayer hook
 └── test/
-    └── setup.ts      # Vitest setup (jsdom environment)
+    └── setup.ts          # Vitest setup (jsdom environment)
 ```
 
 ### State management
