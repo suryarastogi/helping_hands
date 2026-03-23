@@ -23,7 +23,7 @@ uncovered branches identified in the coverage report.
 ### HandWorldScene.tsx (89% → 92%+ branches)
 - **Lines 361-363:** "Click ↻ to load" Claude usage placeholder (no data, not loading)
 
-## Plan
+## Tasks
 
 1. Add tests to `useMultiplayer.test.tsx` for dedupe cleanup, name fallback, emote awareness path
 2. Add tests to `useMovement.test.tsx` for left movement and animation cleanup
