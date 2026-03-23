@@ -41,6 +41,7 @@ frontend/src/
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
 ├── components/
+│   ├── HandWorldScene.tsx # Full zen-garden scene (factory, desks, players, workers, HUD)
 │   ├── PlayerAvatar.tsx  # Reusable human-player sprite component
 │   └── WorkerSprite.tsx  # Worker sprite (bot + goose variants) with caption & floating numbers
 ├── hooks/

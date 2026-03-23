@@ -4,11 +4,15 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [2026-03-23 v282](exec-plans/active/v282-extract-app-types-utils.md) —
-  Extract 25 types to `types.ts` and ~850 lines of utilities/constants to
-  new `App.utils.ts`; App.tsx reduced from 3,590 to 2,691 lines (245 tests)
+- [2026-03-23 v283](exec-plans/active/v283-extract-hand-world-scene.md) —
+  Extract `HandWorldScene` component (~250 lines of scene JSX) from App.tsx;
+  App.tsx reduced from 2,691 to 2,462 lines; 15 tests (260 frontend passed)
 
 ## Completed plans
+
+- [2026-03-23 v282](exec-plans/completed/2026/v282-extract-app-types-utils.md) —
+  Extract 25 types to `types.ts` and ~850 lines of utilities/constants to
+  new `App.utils.ts`; App.tsx reduced from 3,590 to 2,691 lines (245 tests)
 
 - [2026-03-23 v281](exec-plans/completed/2026/v281-extract-worker-sprite.md) —
   Extract `WorkerSprite` component (goose + bot variants) from App.tsx and
