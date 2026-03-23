@@ -12,6 +12,8 @@ import logging
 import os
 import subprocess
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -72,6 +74,11 @@ from helping_hands.server.constants import (
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
 from helping_hands.server.multiplayer import world_websocket_endpoint
+from helping_hands.server.multiplayer_yjs import (
+    create_yjs_app,
+    start_yjs_server,
+    stop_yjs_server,
+)
 from helping_hands.server.task_result import normalize_task_result
 
 if TYPE_CHECKING:
@@ -136,14 +143,29 @@ leaking a disproportionate fraction of the secret.  At the default values
 _SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
 """HTTP 404 detail message for missing schedule resources."""
 
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Manage server lifecycle — start/stop the Yjs WebSocket server."""
+    await start_yjs_server()
+    yield
+    await stop_yjs_server()
+
+
 app = FastAPI(
     title="helping_hands",
     description="AI-powered repo builder — app mode.",
     version="0.1.0",
+    lifespan=_lifespan,
 )
 
 # --- Multiplayer Hand World WebSocket ---
 app.add_api_websocket_route("/ws/world", world_websocket_endpoint)
+
+# --- Yjs-based multiplayer WebSocket (awareness protocol) ---
+_yjs_app = create_yjs_app()
+if _yjs_app is not None:
+    app.mount("/ws/yjs", _yjs_app)
 
 
 class _ToolSkillValidatorMixin(BaseModel):

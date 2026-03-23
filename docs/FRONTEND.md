@@ -126,52 +126,65 @@ To verify both surfaces offer the same features:
 | `/tasks/current` | GET | List active/queued tasks |
 | `/monitor/{task_id}` | GET | HTML auto-refresh monitor |
 | `/workers/capacity` | GET | Celery worker pool info |
-| `/ws/world` | WebSocket | Multiplayer Hand World sync |
+| `/ws/world` | WebSocket | Multiplayer Hand World sync (legacy) |
+| `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync (primary) |
 
 ## Multiplayer Hand World
 
 The Hand World view supports multiplayer — multiple users can walk around the
 same scene and see each other's avatars in real-time.
 
-### Architecture
+### Architecture (Yjs — primary)
 
 ```
-Browser A  ──WebSocket──┐
-                         │
-Browser B  ──WebSocket──▶  FastAPI (/ws/world)
-                         │   WorldConnectionManager
-Browser C  ──WebSocket──┘     (in-memory player state)
+Browser A  ──y-websocket──┐
+                           │
+Browser B  ──y-websocket──▶  pycrdt-websocket ASGIServer
+                           │   mounted at /ws/yjs
+Browser C  ──y-websocket──┘   room: "hand-world"
 ```
 
-**Backend** (`server/multiplayer.py`):
-- `WorldConnectionManager` tracks connected players in memory
-- On connect: assigns unique ID, name, and colour from a palette
-- Sends `players_sync` with full state to the newcomer
-- Broadcasts `player_joined` / `player_left` / `player_moved` / `player_emoted` to others
-- Validates emote names against `_VALID_EMOTES` before broadcasting
-- Clamps positions to scene bounds server-side
-- Caps connections at 20 to prevent resource exhaustion
+Multiplayer sync uses **Yjs awareness** — the CRDT awareness protocol carries
+ephemeral player presence (position, direction, walking state, emotes) while
+the Y.Doc itself remains empty.
+
+**Backend** (`server/multiplayer_yjs.py`):
+- `pycrdt-websocket` `WebsocketServer` + `ASGIServer` mounted at `/ws/yjs`
+- Handles Yjs sync and awareness protocol automatically
+- Graceful fallback: if `pycrdt-websocket` is not installed, the Yjs endpoint
+  is not mounted and only the legacy `/ws/world` endpoint is available
+- Started/stopped via FastAPI lifespan context manager
 
 **Frontend** (`App.tsx`):
-- Opens WebSocket when `dashboardView === "world"`
-- Sends throttled (50ms) position updates on player movement
-- Renders `RemotePlayer` avatars with per-player colours via CSS custom properties
-- Auto-reconnects on disconnect (3s delay)
-- Shows online player count in the Factory Floor status panel
+- Uses `yjs` Y.Doc + `y-websocket` WebsocketProvider for room `hand-world`
+- Sets local awareness state: `{ player_id, name, color, x, y, direction, walking, emote }`
+- Derives player colour and name client-side from `Y.Doc.clientID`
+- Maps remote awareness states to `remotePlayers` array for rendering
+- Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
 - Emote bubbles float up and fade out over 2 seconds above the avatar
 
-### Protocol messages
+### Legacy architecture (backward-compatible)
 
-| Direction | Type | Payload |
-|---|---|---|
-| S→C | `players_sync` | `{ your_id, players: [...] }` |
-| S→C | `player_joined` | `{ player_id, name, color, x, y, direction, walking }` |
-| S→C | `player_left` | `{ player_id }` |
-| S→C | `player_moved` | `{ player_id, x, y, direction, walking }` |
-| S→C | `player_emoted` | `{ player_id, emote }` |
-| C→S | `position` | `{ x, y, direction, walking }` |
-| C→S | `emote` | `{ emote }` |
+The legacy `/ws/world` endpoint (`server/multiplayer.py`) is still available.
+It uses a bespoke JSON-over-WebSocket protocol with server-assigned player IDs
+and colours. The frontend no longer connects to it by default.
+
+### Awareness state per client
+
+```json
+{
+  "player": {
+    "player_id": "42",
+    "name": "Player 43",
+    "color": "#e11d48",
+    "x": 50, "y": 50,
+    "direction": "down",
+    "walking": false,
+    "emote": null
+  }
+}
+```
 
 ### Testing multiplayer locally
 

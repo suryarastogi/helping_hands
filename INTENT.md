@@ -4,7 +4,23 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-_No active intents._
+### Yjs Multiplayer Synchronisation (2026-03-23) — Completed
+
+**User request:** Migrate Hand World multiplayer sync to use Yjs. The user likes frontends that use Yjs for real-time collaboration. Synchronisation should flow through the Python backend.
+
+**Requirements:**
+- Replace custom WebSocket protocol with Yjs awareness protocol
+- Use `yjs` + `y-websocket` on the frontend
+- Use `pycrdt-websocket` on the Python backend
+- Multiple browser windows should still see each other's avatars and emotes
+- Testable by opening multiple browsers
+
+**Technical direction:**
+- Backend: `pycrdt-websocket` ASGIServer mounted at `/ws/yjs`
+- Frontend: Yjs awareness for ephemeral player presence (position, emotes)
+- Color/name derived client-side from Yjs clientID
+
+**Implementation:** v276
 
 ## Completed Intents
 

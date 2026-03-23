@@ -7,6 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
 
 type Backend =
   | "e2e"
@@ -211,10 +213,13 @@ type RemotePlayer = {
   walking: boolean;
 };
 
-const MULTIPLAYER_RECONNECT_MS = 3000;
-const MULTIPLAYER_THROTTLE_MS = 50;
-
 const EMOTE_DISPLAY_MS = 2000;
+
+/** Player avatar colour palette — matches backend palette, indexed by Yjs clientID. */
+const PLAYER_COLORS = [
+  "#e11d48", "#2563eb", "#16a34a", "#d97706", "#7c3aed",
+  "#0891b2", "#dc2626", "#4f46e5", "#059669", "#c026d3",
+];
 const EMOTE_MAP: Record<string, string> = {
   wave: "\u{1F44B}",
   celebrate: "\u{1F389}",
@@ -1079,8 +1084,8 @@ export default function App() {
 
   const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const lastSentRef = useRef(0);
+  const yjsDocRef = useRef<Y.Doc | null>(null);
+  const yjsProviderRef = useRef<WebsocketProvider | null>(null);
   const [localEmote, setLocalEmote] = useState<string | null>(null);
   const [remoteEmotes, setRemoteEmotes] = useState<Record<string, string>>({});
 
@@ -1731,120 +1736,107 @@ export default function App() {
     };
   }, [dashboardView, deskSlots]);
 
-  // --- Multiplayer WebSocket connection ---
+  // --- Yjs multiplayer connection (awareness protocol) ---
   useEffect(() => {
     if (dashboardView !== "world") {
       // Disconnect when leaving world view.
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
+      if (yjsProviderRef.current) {
+        yjsProviderRef.current.destroy();
+        yjsProviderRef.current = null;
+      }
+      if (yjsDocRef.current) {
+        yjsDocRef.current.destroy();
+        yjsDocRef.current = null;
       }
       setRemotePlayers([]);
       setMyPlayerId(null);
       return;
     }
 
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let alive = true;
+    const doc = new Y.Doc();
+    yjsDocRef.current = doc;
 
-    function connect() {
-      if (!alive) return;
-      const ws = new WebSocket(wsUrl("/ws/world"));
-      wsRef.current = ws;
+    // Derive deterministic color and name from Yjs clientID.
+    const myColor = PLAYER_COLORS[doc.clientID % PLAYER_COLORS.length];
+    const myName = `Player ${(doc.clientID % 1000) + 1}`;
+    const myId = String(doc.clientID);
+    setMyPlayerId(myId);
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data as string);
-          const msgType = data.type as string;
+    // Connect to the Yjs WebSocket server via y-websocket provider.
+    const wsBase = wsUrl("/ws/yjs").replace(/\/$/, "");
+    const provider = new WebsocketProvider(wsBase, "hand-world", doc);
+    yjsProviderRef.current = provider;
 
-          if (msgType === "players_sync") {
-            setMyPlayerId(data.your_id as string);
-            const others = (data.players as RemotePlayer[]).filter(
-              (p: RemotePlayer) => p.player_id !== (data.your_id as string)
-            );
-            setRemotePlayers(others);
-          } else if (msgType === "player_joined") {
-            setRemotePlayers((prev) => {
-              if (prev.some((p) => p.player_id === data.player_id)) return prev;
-              return [...prev, data as RemotePlayer];
-            });
-          } else if (msgType === "player_left") {
-            setRemotePlayers((prev) =>
-              prev.filter((p) => p.player_id !== data.player_id)
-            );
-          } else if (msgType === "player_moved") {
-            setRemotePlayers((prev) =>
-              prev.map((p) =>
-                p.player_id === data.player_id
-                  ? { ...p, x: data.x, y: data.y, direction: data.direction, walking: data.walking }
-                  : p
-              )
-            );
-          } else if (msgType === "player_emoted") {
-            const pid = data.player_id as string;
-            const emote = data.emote as string;
-            setRemoteEmotes((prev) => ({ ...prev, [pid]: emote }));
-            setTimeout(() => {
-              setRemoteEmotes((prev) => {
-                const next = { ...prev };
-                delete next[pid];
-                return next;
-              });
-            }, EMOTE_DISPLAY_MS);
-          }
-        } catch {
-          // Ignore malformed messages.
+    // Set initial local awareness state.
+    provider.awareness.setLocalStateField("player", {
+      player_id: myId,
+      name: myName,
+      color: myColor,
+      x: 50,
+      y: 50,
+      direction: "down",
+      walking: false,
+      emote: null,
+    });
+
+    // Listen for awareness changes and derive remotePlayers.
+    const onAwarenessChange = () => {
+      const states = provider.awareness.getStates();
+      const others: RemotePlayer[] = [];
+      const newEmotes: Record<string, string> = {};
+
+      states.forEach((state, clientId) => {
+        if (clientId === doc.clientID) return;
+        const p = state.player as RemotePlayer & { emote?: string | null } | undefined;
+        if (!p) return;
+        others.push({
+          player_id: p.player_id ?? String(clientId),
+          name: p.name ?? `Player ${(clientId % 1000) + 1}`,
+          color: p.color ?? PLAYER_COLORS[clientId % PLAYER_COLORS.length],
+          x: p.x ?? 50,
+          y: p.y ?? 50,
+          direction: (p.direction ?? "down") as PlayerDirection,
+          walking: p.walking ?? false,
+        });
+        if (p.emote) {
+          newEmotes[p.player_id ?? String(clientId)] = p.emote;
         }
-      };
+      });
 
-      ws.onclose = () => {
-        wsRef.current = null;
-        setRemotePlayers([]);
-        setMyPlayerId(null);
-        if (alive) {
-          reconnectTimer = setTimeout(connect, MULTIPLAYER_RECONNECT_MS);
-        }
-      };
+      setRemotePlayers(others);
+      setRemoteEmotes(newEmotes);
+    };
 
-      ws.onerror = () => {
-        ws.close();
-      };
-    }
-
-    connect();
+    provider.awareness.on("change", onAwarenessChange);
 
     return () => {
-      alive = false;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      provider.awareness.off("change", onAwarenessChange);
+      provider.destroy();
+      doc.destroy();
+      yjsProviderRef.current = null;
+      yjsDocRef.current = null;
     };
   }, [dashboardView]);
 
-  // --- Send local position updates via WebSocket ---
+  // --- Send local position updates via Yjs awareness ---
   useEffect(() => {
     if (dashboardView !== "world") return;
-    const now = Date.now();
-    if (now - lastSentRef.current < MULTIPLAYER_THROTTLE_MS) return;
-    lastSentRef.current = now;
+    const provider = yjsProviderRef.current;
+    if (!provider) return;
 
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({
-          type: "position",
-          x: playerPosition.x,
-          y: playerPosition.y,
-          direction: playerDirection,
-          walking: isPlayerWalking,
-        })
-      );
-    }
+    const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+    if (!current) return;
+
+    provider.awareness.setLocalStateField("player", {
+      ...current,
+      x: playerPosition.x,
+      y: playerPosition.y,
+      direction: playerDirection,
+      walking: isPlayerWalking,
+    });
   }, [dashboardView, playerPosition, playerDirection, isPlayerWalking]);
 
-  // --- Emote key bindings (1-4) ---
+  // --- Emote key bindings (1-4) via Yjs awareness ---
   useEffect(() => {
     if (dashboardView !== "world") return;
 
@@ -1862,9 +1854,20 @@ export default function App() {
       setLocalEmote(emote);
       setTimeout(() => setLocalEmote(null), EMOTE_DISPLAY_MS);
 
-      const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "emote", emote }));
+      // Broadcast emote via Yjs awareness.
+      const provider = yjsProviderRef.current;
+      if (provider) {
+        const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+        if (current) {
+          provider.awareness.setLocalStateField("player", { ...current, emote });
+          // Clear emote from awareness after display period.
+          setTimeout(() => {
+            const latest = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+            if (latest) {
+              provider.awareness.setLocalStateField("player", { ...latest, emote: null });
+            }
+          }, EMOTE_DISPLAY_MS);
+        }
       }
     };
 

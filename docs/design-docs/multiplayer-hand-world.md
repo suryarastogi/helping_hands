@@ -56,8 +56,24 @@ bubbles above the avatar that float up and fade out over 2 seconds.
 Server-side validation ensures only `_VALID_EMOTES` are broadcast. Invalid
 emote names are silently dropped.
 
+## Yjs migration (v276)
+
+The multiplayer sync layer was migrated from a bespoke JSON-over-WebSocket
+protocol to **Yjs awareness**. Key changes:
+
+- **Frontend:** Uses `yjs` Y.Doc + `y-websocket` `WebsocketProvider` connected
+  to room `hand-world`. The awareness protocol carries ephemeral player state
+  (position, direction, walking, emote). Colour and name are derived client-side
+  from `Y.Doc.clientID` rather than being server-assigned.
+- **Backend:** `pycrdt-websocket` `ASGIServer` mounted at `/ws/yjs` handles the
+  Yjs sync and awareness protocol. The existing `/ws/world` endpoint is kept for
+  backward compatibility but is no longer the primary connection target.
+- **Benefits:** Built-in reconnect handling, automatic peer cleanup on
+  disconnect (~30s timeout), CRDT-based state that auto-merges, and alignment
+  with the user's preference for Yjs-powered frontends.
+
 ## Future extensions
 
 - Chat bubbles above player avatars
-- Redis-backed state for multi-worker deployments
+- Shared Y.Doc state for persistent world features (e.g. placed objects)
 - Player names from server auth context

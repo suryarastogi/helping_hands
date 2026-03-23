@@ -1456,71 +1456,71 @@ describe("Hand World factory and incinerator", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Multiplayer WebSocket tests
+// Yjs Multiplayer Awareness tests
 // ---------------------------------------------------------------------------
 
 /**
- * Minimal mock WebSocket that tracks calls and allows simulating server messages.
+ * Mock Yjs awareness that tracks state and fires change events.
  */
-class MockWebSocket {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
+class MockAwareness {
+  private _localState: Record<string, unknown> = {};
+  private _states = new Map<number, Record<string, unknown>>();
+  private _listeners: Record<string, Array<() => void>> = {};
 
-  url: string;
-  readyState = MockWebSocket.CONNECTING;
-  onopen: ((ev: Event) => void) | null = null;
-  onclose: ((ev: CloseEvent) => void) | null = null;
-  onmessage: ((ev: MessageEvent) => void) | null = null;
-  onerror: ((ev: Event) => void) | null = null;
-  sentMessages: string[] = [];
+  getLocalState() { return this._localState; }
+  getStates() { return this._states; }
 
-  constructor(url: string) {
-    this.url = url;
-    // Auto-open on next tick so useEffect handlers attach first.
-    setTimeout(() => {
-      this.readyState = MockWebSocket.OPEN;
-      this.onopen?.(new Event("open"));
-    }, 0);
+  setLocalStateField(field: string, value: unknown) {
+    this._localState[field] = value;
   }
 
-  send(data: string) {
-    this.sentMessages.push(data);
+  on(event: string, cb: () => void) {
+    (this._listeners[event] ??= []).push(cb);
   }
 
-  close() {
-    this.readyState = MockWebSocket.CLOSED;
-    this.onclose?.(new CloseEvent("close"));
-  }
-
-  /** Simulate a server message arriving. */
-  _receive(data: unknown) {
-    this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(data) }));
-  }
-}
-
-/** All MockWebSocket instances created during a test. */
-let mockWsInstances: MockWebSocket[] = [];
-
-function installWebSocketMock() {
-  mockWsInstances = [];
-  vi.stubGlobal("WebSocket", class extends MockWebSocket {
-    constructor(url: string) {
-      super(url);
-      mockWsInstances.push(this);
+  off(event: string, cb: () => void) {
+    const arr = this._listeners[event];
+    if (arr) {
+      const idx = arr.indexOf(cb);
+      if (idx >= 0) arr.splice(idx, 1);
     }
-  });
-  // Expose OPEN etc. on the stub constructor so readyState checks work.
-  (globalThis as Record<string, unknown>).WebSocket = Object.assign(
-    (globalThis as Record<string, unknown>).WebSocket as object,
-    { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 }
-  );
+  }
+
+  /** Simulate remote awareness states and fire change event. */
+  _setRemoteStates(states: Map<number, Record<string, unknown>>) {
+    this._states = states;
+    (this._listeners["change"] ?? []).forEach((cb) => cb());
+  }
 }
 
-describe("Multiplayer WebSocket", () => {
+/** Most-recently created mock awareness instance. */
+let mockAwareness: MockAwareness;
+let mockProviderDestroyCalled: boolean;
+let mockDocDestroyCalled: boolean;
+const MOCK_CLIENT_ID = 42;
+
+vi.mock("yjs", () => ({
+  Doc: class MockDoc {
+    clientID = MOCK_CLIENT_ID;
+    destroy() { mockDocDestroyCalled = true; }
+  },
+}));
+
+vi.mock("y-websocket", () => ({
+  WebsocketProvider: class MockProvider {
+    awareness: MockAwareness;
+    constructor() {
+      mockAwareness = new MockAwareness();
+      this.awareness = mockAwareness;
+    }
+    destroy() { mockProviderDestroyCalled = true; }
+  },
+}));
+
+describe("Yjs Multiplayer Awareness", () => {
   beforeEach(() => {
-    installWebSocketMock();
+    mockProviderDestroyCalled = false;
+    mockDocDestroyCalled = false;
   });
 
   function switchToWorld() {
@@ -1528,208 +1528,110 @@ describe("Multiplayer WebSocket", () => {
     fireEvent.click(screen.getByText("Hand world"));
   }
 
-  it("opens a WebSocket connection when entering world view", async () => {
+  it("creates Yjs provider when entering world view", async () => {
     switchToWorld();
     await vi.waitFor(() => {
-      expect(mockWsInstances.length).toBeGreaterThanOrEqual(1);
+      expect(mockAwareness).toBeDefined();
     });
-    expect(mockWsInstances[0].url).toContain("/ws/world");
+    // Should set local awareness state with player info.
+    const local = mockAwareness.getLocalState();
+    expect(local.player).toBeDefined();
+    const player = local.player as Record<string, unknown>;
+    expect(player.player_id).toBe(String(MOCK_CLIENT_ID));
   });
 
-  it("renders remote players after players_sync message", async () => {
+  it("renders remote players from awareness state", async () => {
     switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
 
-    const ws = mockWsInstances[0];
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState()); // self
+    remoteStates.set(999, {
+      player: {
+        player_id: "999",
+        name: "Remote Player",
+        color: "#2563eb",
+        x: 30,
+        y: 40,
+        direction: "left",
+        walking: true,
+        emote: null,
+      },
+    });
+
     act(() => {
-      ws._receive({
-        type: "players_sync",
-        your_id: "me123",
-        players: [
-          { player_id: "me123", name: "Me", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
-          { player_id: "other1", name: "Player 2", color: "#2563eb", x: 30, y: 40, direction: "left", walking: true },
-        ],
-      });
+      mockAwareness._setRemoteStates(remoteStates);
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Player 2")).toBeInTheDocument();
+      expect(screen.getByLabelText("Remote Player")).toBeInTheDocument();
     });
-
-    // Should not render self as a remote player.
-    expect(screen.queryByLabelText("Me")).toBeNull();
   });
 
-  it("adds a remote player on player_joined message", async () => {
+  it("removes remote player when awareness state is cleared", async () => {
     switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
 
-    const ws = mockWsInstances[0];
-    act(() => {
-      ws._receive({ type: "players_sync", your_id: "me1", players: [] });
-    });
-    act(() => {
-      ws._receive({
-        type: "player_joined",
-        player_id: "newcomer",
-        name: "New Player",
-        color: "#16a34a",
-        x: 60,
-        y: 70,
-        direction: "right",
+    // Add remote player.
+    const states1 = new Map<number, Record<string, unknown>>();
+    states1.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states1.set(888, {
+      player: {
+        player_id: "888",
+        name: "Leaving",
+        color: "#d97706",
+        x: 50,
+        y: 50,
+        direction: "down",
         walking: false,
-      });
+        emote: null,
+      },
     });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText("New Player")).toBeInTheDocument();
-    });
-  });
-
-  it("removes a remote player on player_left message", async () => {
-    switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
-
-    const ws = mockWsInstances[0];
-    act(() => {
-      ws._receive({
-        type: "players_sync",
-        your_id: "me1",
-        players: [
-          { player_id: "leaver", name: "Leaving", color: "#d97706", x: 50, y: 50, direction: "down", walking: false },
-        ],
-      });
-    });
-
+    act(() => { mockAwareness._setRemoteStates(states1); });
     await waitFor(() => expect(screen.getByLabelText("Leaving")).toBeInTheDocument());
 
-    act(() => {
-      ws._receive({ type: "player_left", player_id: "leaver" });
-    });
+    // Remove remote player (awareness cleanup).
+    const states2 = new Map<number, Record<string, unknown>>();
+    states2.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    act(() => { mockAwareness._setRemoteStates(states2); });
 
     await waitFor(() => expect(screen.queryByLabelText("Leaving")).toBeNull());
   });
 
-  it("updates remote player position on player_moved message", async () => {
-    switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
-
-    const ws = mockWsInstances[0];
-    act(() => {
-      ws._receive({
-        type: "players_sync",
-        your_id: "me1",
-        players: [
-          { player_id: "mover", name: "Mover", color: "#7c3aed", x: 20, y: 20, direction: "down", walking: false },
-        ],
-      });
-    });
-
-    await waitFor(() => expect(screen.getByLabelText("Mover")).toBeInTheDocument());
-
-    act(() => {
-      ws._receive({
-        type: "player_moved",
-        player_id: "mover",
-        x: 80,
-        y: 75,
-        direction: "up",
-        walking: true,
-      });
-    });
-
-    await waitFor(() => {
-      const el = screen.getByLabelText("Mover");
-      expect(el.style.left).toBe("80%");
-      expect(el.style.top).toBe("75%");
-      expect(el.className).toContain("up");
-      expect(el.className).toContain("walking");
-    });
-  });
-
   it("shows player count when remote players are present", async () => {
     switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
 
-    const ws = mockWsInstances[0];
-    act(() => {
-      ws._receive({
-        type: "players_sync",
-        your_id: "me1",
-        players: [
-          { player_id: "p2", name: "P2", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
-          { player_id: "p3", name: "P3", color: "#2563eb", x: 30, y: 30, direction: "left", walking: false },
-        ],
-      });
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    remoteStates.set(100, {
+      player: { player_id: "100", name: "P2", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false, emote: null },
     });
+    remoteStates.set(200, {
+      player: { player_id: "200", name: "P3", color: "#2563eb", x: 30, y: 30, direction: "left", walking: false, emote: null },
+    });
+
+    act(() => { mockAwareness._setRemoteStates(remoteStates); });
 
     await waitFor(() => {
       expect(screen.getByText("3 Players online")).toBeInTheDocument();
     });
   });
 
-  it("does not duplicate a player on repeated player_joined", async () => {
+  it("cleans up Yjs provider when leaving world view", async () => {
     switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
 
-    const ws = mockWsInstances[0];
-    const joinMsg = {
-      type: "player_joined",
-      player_id: "dupe",
-      name: "Dupe",
-      color: "#0891b2",
-      x: 50,
-      y: 50,
-      direction: "down" as const,
-      walking: false,
-    };
-    act(() => {
-      ws._receive({ type: "players_sync", your_id: "me1", players: [] });
-    });
-    act(() => { ws._receive(joinMsg); });
-    act(() => { ws._receive(joinMsg); });
-
-    await waitFor(() => {
-      const els = screen.getAllByLabelText("Dupe");
-      expect(els).toHaveLength(1);
-    });
-  });
-
-  it("cleans up WebSocket when leaving world view", async () => {
-    switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
-
-    const ws = mockWsInstances[0];
-    const closeSpy = vi.spyOn(ws, "close");
-
-    // Switch back to classic view
+    // Switch back to classic view.
     fireEvent.click(screen.getByText("Classic view"));
 
-    expect(closeSpy).toHaveBeenCalled();
-  });
-
-  it("ignores malformed WebSocket messages", async () => {
-    switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
-
-    const ws = mockWsInstances[0];
-    // Send invalid JSON — should not crash.
-    act(() => {
-      ws.onmessage?.(new MessageEvent("message", { data: "not-json{{{" }));
-    });
-
-    // The world scene should still be visible and functional.
-    expect(screen.getByRole("heading", { name: "Hand World" })).toBeInTheDocument();
+    expect(mockProviderDestroyCalled).toBe(true);
+    expect(mockDocDestroyCalled).toBe(true);
   });
 
   it("shows local emote bubble when pressing emote key", async () => {
     switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
-
-    const ws = mockWsInstances[0];
-    act(() => {
-      ws._receive({ type: "players_sync", your_id: "me1", players: [] });
-    });
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
 
     act(() => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "2", bubbles: true }));
@@ -1740,29 +1642,39 @@ describe("Multiplayer WebSocket", () => {
     });
   });
 
-  it("shows remote emote bubble on player_emoted message", async () => {
+  it("shows remote emote via awareness state", async () => {
     switchToWorld();
-    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
 
-    const ws = mockWsInstances[0];
-    act(() => {
-      ws._receive({
-        type: "players_sync",
-        your_id: "me1",
-        players: [
-          { player_id: "remote1", name: "Remote", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
-        ],
-      });
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    remoteStates.set(777, {
+      player: {
+        player_id: "777",
+        name: "Emoter",
+        color: "#e11d48",
+        x: 50,
+        y: 50,
+        direction: "down",
+        walking: false,
+        emote: "sparkle",
+      },
     });
 
-    await waitFor(() => expect(screen.getByLabelText("Remote")).toBeInTheDocument());
-
-    act(() => {
-      ws._receive({ type: "player_emoted", player_id: "remote1", emote: "sparkle" });
-    });
+    act(() => { mockAwareness._setRemoteStates(remoteStates); });
 
     await waitFor(() => {
+      expect(screen.getByLabelText("Emoter")).toBeInTheDocument();
       expect(screen.getByLabelText("Emote: sparkle")).toBeInTheDocument();
+    });
+  });
+
+  it("sets multiplayer active hint when connected", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+
+    await waitFor(() => {
+      expect(screen.getByText(/Multiplayer active/)).toBeInTheDocument();
     });
   });
 });
