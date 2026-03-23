@@ -15,7 +15,7 @@ Index of execution plans for helping_hands development.
   Legacy WebSocket cleanup & connection status UI: deleted `multiplayer.py` and
   `test_multiplayer.py`, removed `/ws/world` route, added Yjs connection status
   indicator (green/yellow/red dot), removed unused `myPlayerId` state;
-  4 new tests (211 frontend passed)
+  4 tests (211 frontend passed)
 
 - [2026-03-23 v277](exec-plans/completed/2026/v277-multiplayer-test-coverage.md) —
   Multiplayer test coverage hardening: 7 backend edge-case tests (unknown player,

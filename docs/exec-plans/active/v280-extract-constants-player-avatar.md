@@ -1,6 +1,6 @@
 # v280 — Extract constants module & PlayerAvatar component
 
-**Date:** 2026-03-23
+**Created:** 2026-03-23
 **Status:** Active
 
 ## Goal
@@ -19,22 +19,22 @@ the player avatar markup that is copy-pasted between local and remote players.
 
 ## Tasks
 
-1. **Create `frontend/src/constants.ts`** — move `EMOTE_DISPLAY_MS`,
-   `EMOTE_MAP`, `EMOTE_KEY_BINDINGS`, `PLAYER_COLORS`, `PLAYER_MOVE_STEP`,
-   `PLAYER_SIZE`, `DESK_SIZE`, `FACTORY_POS`, `INCINERATOR_POS`,
-   `FACTORY_COLLISION`, `INCINERATOR_COLLISION`, `OFFICE_BOUNDS` out of
-   `App.tsx`.
-2. **Create `frontend/src/components/PlayerAvatar.tsx`** — shared component
-   for the human-body sprite tree, accepting `direction`, `walking`, `name`,
-   `emote`, `color`, and `isLocal` props.
-3. **Update `App.tsx`** — import constants from `constants.ts`, use
-   `<PlayerAvatar>` for both local and remote players.
-4. **Update `useMultiplayer.ts`** — import from `constants.ts` instead of
-   `App.tsx`.
-5. **Add tests** for `PlayerAvatar` rendering and constants exports.
-6. **Update docs** — `PLANS.md`, `INTENT.md`, `FRONTEND.md`.
+- [x] **Create `frontend/src/constants.ts`** — move `EMOTE_DISPLAY_MS`,
+  `EMOTE_MAP`, `EMOTE_KEY_BINDINGS`, `PLAYER_COLORS`, `PLAYER_MOVE_STEP`,
+  `PLAYER_SIZE`, `DESK_SIZE`, `FACTORY_POS`, `INCINERATOR_POS`,
+  `FACTORY_COLLISION`, `INCINERATOR_COLLISION`, `OFFICE_BOUNDS` out of
+  `App.tsx`.
+- [x] **Create `frontend/src/components/PlayerAvatar.tsx`** — shared component
+  for the human-body sprite tree, accepting `direction`, `walking`, `name`,
+  `emote`, `color`, and `isLocal` props.
+- [x] **Update `App.tsx`** — import constants from `constants.ts`, use
+  `<PlayerAvatar>` for both local and remote players.
+- [x] **Update `useMultiplayer.ts`** — import from `constants.ts` instead of
+  `App.tsx`.
+- [x] **Add tests** for `PlayerAvatar` rendering and constants exports.
+- [x] **Update docs** — `PLANS.md`, `INTENT.md`, `FRONTEND.md`.
 
-## Acceptance criteria
+## Completion criteria
 
 - `npm --prefix frontend run lint` passes
 - `npm --prefix frontend run typecheck` passes
