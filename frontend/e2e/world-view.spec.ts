@@ -26,7 +26,7 @@ test("world view shows factory status summary", async ({ page }) => {
 
   await expect(page.getByText("Factory Floor")).toBeVisible();
   await expect(page.locator(".zen-status-summary").getByText("Stations")).toBeVisible();
-  await expect(page.getByText("Use arrow keys to walk")).toBeVisible();
+  await expect(page.getByText("Arrow keys: walk")).toBeVisible();
 });
 
 test("switching back to classic view hides the factory", async ({ page }) => {
