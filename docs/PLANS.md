@@ -4,12 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [2026-03-23 v284](exec-plans/active/v284-decompose-test-files.md) —
+- [2026-03-23 v285](exec-plans/active/v285-extract-use-schedules-hook.md) —
+  Extract `useSchedules` hook from App.tsx — schedule CRUD state and handlers;
+  App.tsx reduced from 2,462 to 2,275 lines; 13 tests (273 frontend passed)
+
+## Completed plans
+
+- [2026-03-23 v284](exec-plans/completed/v284-decompose-test-files.md) —
   Decompose monolithic `App.test.tsx` into co-located test files matching
   component structure; App.test.tsx reduced from 2,395 to 1,804 lines;
   260 tests across 7 files
-
-## Completed plans
 
 - [2026-03-23 v283](exec-plans/completed/v283-extract-hand-world-scene.md) —
   Extract `HandWorldScene` component (~250 lines of scene JSX) from App.tsx;

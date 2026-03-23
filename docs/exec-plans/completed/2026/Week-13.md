@@ -104,6 +104,14 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 
 ---
 
+## Mar 23 — Extract useSchedules Hook (v285)
+
+**Hook extraction:** Extracted `useSchedules` hook — all schedule CRUD state (5 state vars) and 8 handler functions (load, save, delete, toggle, trigger, edit, cancel, updateField) moved from App.tsx. App.tsx reduced from 2,462 to 2,275 lines (-187 lines).
+
+**13 new tests, 273 total passing.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -118,3 +126,4 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 - `v282-extract-app-types-utils.md`
 - `v283-extract-hand-world-scene.md`
 - `v284-decompose-test-files.md`
+- `v285-extract-use-schedules-hook.md`

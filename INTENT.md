@@ -4,17 +4,24 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Frontend Code Quality — Test File Decomposition (2026-03-23)
+### Frontend Code Quality — Schedule Hook Extraction (2026-03-23)
 
 **User request:** Continue improving multiplayer Hand World — better modularisation and code reuse.
+
+**Implemented (v285):**
+- Extracted `useSchedules` hook — schedule CRUD state (5 state vars) and 8 handler functions
+- App.tsx reduced from 2,462 to 2,275 lines (-187 lines)
+- 13 new tests for schedule hook (273 total, up from 260)
+
+## Recently Completed
+
+### Frontend Code Quality — Test File Decomposition (2026-03-23) — Completed
 
 **Implemented (v284):**
 - Split monolithic `App.test.tsx` (2,395 lines) into 7 co-located test files
 - New files: `constants.test.ts`, `PlayerAvatar.test.tsx`, `WorkerSprite.test.tsx`, `HandWorldScene.test.tsx`, `useMultiplayer.test.tsx`
 - App.test.tsx reduced from 2,395 to 1,804 lines (-591 lines, App-level + Yjs awareness tests only)
 - 260 tests across 7 files (no regressions)
-
-## Recently Completed
 
 ### Frontend Code Quality — HandWorldScene Extraction (2026-03-23) — Completed
 

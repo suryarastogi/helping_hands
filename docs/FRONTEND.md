@@ -50,7 +50,9 @@ frontend/src/
 │   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/
 │   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook
-│   └── useMultiplayer.test.tsx # Hook lifecycle + player name persistence tests
+│   ├── useMultiplayer.test.tsx # Hook lifecycle + player name persistence tests
+│   ├── useSchedules.ts        # Schedule CRUD state + operations hook
+│   └── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
 └── test/
     └── setup.ts          # Vitest setup (jsdom environment)
 ```
