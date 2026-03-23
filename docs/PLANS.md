@@ -12,7 +12,7 @@ Index of execution plans for helping_hands development.
 
 - [2026-03-23 v281](exec-plans/completed/2026/v281-extract-worker-sprite.md) —
   Extract `WorkerSprite` component (goose + bot variants) from App.tsx and
-  move worker types to `types.ts`; 12 new tests (245 frontend passed)
+  move worker types to `types.ts`; 12 tests (245 frontend passed)
 
 
 - [2026-03-23 v280](exec-plans/completed/2026/v280-extract-constants-player-avatar.md) —
