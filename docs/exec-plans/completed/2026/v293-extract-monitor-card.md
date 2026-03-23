@@ -11,6 +11,13 @@ Extract the inline `monitorCard` JSX block from `App.tsx` into a dedicated
 `MonitorCard` component. Continues the component extraction trajectory
 (v280–v286) that reduced App.tsx from 3,590 to 2,189 lines.
 
+## Tasks
+
+- [x] Create `MonitorCard.tsx` with typed props extracted from App.tsx inline block
+- [x] Create `MonitorCard.test.tsx` with 19 component tests
+- [x] Replace inline monitorCard JSX in App.tsx with `<MonitorCard />` component
+- [x] Update `docs/FRONTEND.md` component tree and `INTENT.md`
+
 ## Changes
 
 ### New files
