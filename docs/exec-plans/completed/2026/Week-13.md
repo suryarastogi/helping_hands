@@ -72,6 +72,38 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 
 ---
 
+## Mar 23 — Extract WorkerSprite Component (v281)
+
+**Component extraction:** Extracted `WorkerSprite` component with goose + bot sprite variants and internal `GooseBody`/`BotBody` sub-components. Moved `WorkerVariant`, `CharacterStyle`, `SceneWorkerPhase`, `FloatingNumber` types to `types.ts`. Removed ~220 lines of inline sprite markup from App.tsx.
+
+**12 new tests, 245 total passing.**
+
+---
+
+## Mar 23 — Extract App Types & Utils (v282)
+
+**Major extraction:** Moved 25 types from `App.tsx` to `types.ts`. Created `App.utils.ts` (~851 lines) with 30 pure functions and 15 constants. App.tsx reduced from 3,590 to 2,691 lines (-899 lines).
+
+**245 tests passing.**
+
+---
+
+## Mar 23 — Extract HandWorldScene Component (v283)
+
+**Scene extraction:** Extracted `HandWorldScene` component (~250 lines of scene JSX) from App.tsx. App.tsx reduced from 2,691 to 2,462 lines (-229 lines).
+
+**15 new tests, 260 total passing.**
+
+---
+
+## Mar 23 — Decompose Test Files (v284)
+
+**Test co-location:** Split monolithic `App.test.tsx` (2,395 lines) into 7 co-located test files matching component structure. New files: `constants.test.ts`, `PlayerAvatar.test.tsx`, `WorkerSprite.test.tsx`, `HandWorldScene.test.tsx`, `useMultiplayer.test.tsx`. App.test.tsx reduced to 1,804 lines (App-level + Yjs awareness tests only).
+
+**260 tests across 7 files (no regressions).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -82,3 +114,7 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 - `v278-legacy-ws-cleanup-connection-status.md`
 - `v279-multiplayer-ux-improvements.md`
 - `v280-extract-constants-player-avatar.md`
+- `v281-extract-worker-sprite.md`
+- `v282-extract-app-types-utils.md`
+- `v283-extract-hand-world-scene.md`
+- `v284-decompose-test-files.md`

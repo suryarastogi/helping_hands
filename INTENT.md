@@ -4,18 +4,25 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Frontend Code Quality — HandWorldScene Extraction (2026-03-23)
+### Frontend Code Quality — Test File Decomposition (2026-03-23)
 
 **User request:** Continue improving multiplayer Hand World — better modularisation and code reuse.
+
+**Implemented (v284):**
+- Split monolithic `App.test.tsx` (2,395 lines) into 7 co-located test files
+- New files: `constants.test.ts`, `PlayerAvatar.test.tsx`, `WorkerSprite.test.tsx`, `HandWorldScene.test.tsx`, `useMultiplayer.test.tsx`
+- App.test.tsx reduced from 2,395 to 1,804 lines (-591 lines, App-level + Yjs awareness tests only)
+- 260 tests across 7 files (no regressions)
+
+## Recently Completed
+
+### Frontend Code Quality — HandWorldScene Extraction (2026-03-23) — Completed
 
 **Implemented (v283):**
 - Extracted `HandWorldScene` component (~250 lines of scene JSX) from `App.tsx`
 - Scene renders zen garden, factory, incinerator, desks, player avatars, worker sprites, and HUD panels
-- Removed unused `PlayerAvatar`, `WorkerSprite`, `savePlayerName` imports from `App.tsx`
 - App.tsx reduced from 2,691 to 2,462 lines (-229 lines)
 - 15 new tests (260 total, up from 245)
-
-## Recently Completed
 
 ### Frontend Code Quality — Types & Utils Extraction (2026-03-23) — Completed
 

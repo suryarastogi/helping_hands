@@ -34,18 +34,23 @@ frontend/src/
 ├── main.tsx              # Entry point, renders <App />
 ├── App.tsx               # Main component (form, task list, monitors, world scene)
 ├── App.utils.ts          # Pure utility functions, fetch helpers, app-level constants
-├── App.test.tsx          # Component render + unit tests
+├── App.test.tsx          # App-level integration tests + Yjs awareness tests
 ├── App.utils.test.ts     # Utility function unit tests
+├── constants.test.ts     # Constants module tests
 ├── constants.ts          # Shared constants (emotes, colours, scene geometry)
 ├── types.ts              # Shared types (25+ types: Backend, FormState, TaskStatus, etc.)
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
 ├── components/
-│   ├── HandWorldScene.tsx # Full zen-garden scene (factory, desks, players, workers, HUD)
-│   ├── PlayerAvatar.tsx  # Reusable human-player sprite component
-│   └── WorkerSprite.tsx  # Worker sprite (bot + goose variants) with caption & floating numbers
+│   ├── HandWorldScene.tsx      # Full zen-garden scene (factory, desks, players, workers, HUD)
+│   ├── HandWorldScene.test.tsx # HandWorldScene render tests
+│   ├── PlayerAvatar.tsx        # Reusable human-player sprite component
+│   ├── PlayerAvatar.test.tsx   # PlayerAvatar render tests
+│   ├── WorkerSprite.tsx        # Worker sprite (bot + goose variants) with caption & floating numbers
+│   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/
-│   └── useMultiplayer.ts # Yjs awareness multiplayer hook
+│   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook
+│   └── useMultiplayer.test.tsx # Hook lifecycle + player name persistence tests
 └── test/
     └── setup.ts          # Vitest setup (jsdom environment)
 ```
