@@ -34,8 +34,33 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 
 ---
 
+---
+
+## Mar 23 — Yjs Multiplayer Sync (v276)
+
+**Awareness protocol migration:** Replaced custom WebSocket protocol with Yjs awareness. Backend: `pycrdt-websocket` ASGIServer at `/ws/yjs`. Frontend: `yjs` + `y-websocket` WebsocketProvider. Ephemeral player presence via awareness layer, color/name from `Y.Doc.clientID`.
+
+---
+
+## Mar 23 — Multiplayer Test Coverage (v277)
+
+**Edge-case hardening:** Backend tests for unknown player noop, missing fields, boundary values, double disconnect, dead connection cleanup, Yjs globals. Frontend Yjs awareness mock tests for all multiplayer interactions.
+
+---
+
+## Mar 23 — Legacy WebSocket Cleanup & Connection Status (v278)
+
+**Dead code removal:** Deleted `multiplayer.py` and `test_multiplayer.py`. Removed `/ws/world` route — Yjs is now sole sync mechanism.
+
+**Connection status UI:** Yjs provider status tracking with green/yellow/red indicator dot. Removed unused `myPlayerId` state. **4 new tests, 211 total passing.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
 - `v274-multiplayer-testing-consolidation.md`
 - `v275-multiplayer-emotes.md`
+- `v276-yjs-multiplayer-sync.md`
+- `v277-multiplayer-test-coverage.md`
+- `v278-legacy-ws-cleanup-connection-status.md`

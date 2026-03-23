@@ -1497,6 +1497,7 @@ class MockAwareness {
 let mockAwareness: MockAwareness;
 let mockProviderDestroyCalled: boolean;
 let mockDocDestroyCalled: boolean;
+let mockProviderInstance: { _listeners: Record<string, Array<(arg: unknown) => void>>; _fireStatus: (status: string) => void } | null = null;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => ({
@@ -1509,9 +1510,25 @@ vi.mock("yjs", () => ({
 vi.mock("y-websocket", () => ({
   WebsocketProvider: class MockProvider {
     awareness: MockAwareness;
+    _listeners: Record<string, Array<(arg: unknown) => void>> = {};
     constructor() {
       mockAwareness = new MockAwareness();
       this.awareness = mockAwareness;
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      mockProviderInstance = this as unknown as typeof mockProviderInstance;
+    }
+    on(event: string, cb: (arg: unknown) => void) {
+      (this._listeners[event] ??= []).push(cb);
+    }
+    off(event: string, cb: (arg: unknown) => void) {
+      const arr = this._listeners[event];
+      if (arr) {
+        const idx = arr.indexOf(cb);
+        if (idx >= 0) arr.splice(idx, 1);
+      }
+    }
+    _fireStatus(status: string) {
+      (this._listeners["status"] ?? []).forEach((cb) => cb({ status }));
     }
     destroy() { mockProviderDestroyCalled = true; }
   },
@@ -1669,12 +1686,49 @@ describe("Yjs Multiplayer Awareness", () => {
     });
   });
 
-  it("sets multiplayer active hint when connected", async () => {
+  it("shows Multiplayer active when provider fires connected status", async () => {
     switchToWorld();
-    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("connected"); });
 
     await waitFor(() => {
       expect(screen.getByText(/Multiplayer active/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows Connecting when provider fires connecting status", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("connecting"); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Connecting/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows Disconnected when provider fires disconnected status", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("disconnected"); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Disconnected/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders connection status dot with correct class", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
+
+    act(() => { mockProviderInstance!._fireStatus("connected"); });
+
+    await waitFor(() => {
+      const dot = screen.getByLabelText("Connection: connected");
+      expect(dot).toBeInTheDocument();
+      expect(dot.classList.contains("conn-status-connected")).toBe(true);
     });
   });
 });

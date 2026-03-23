@@ -1083,11 +1083,11 @@ export default function App() {
   );
 
   const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
-  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
   const [localEmote, setLocalEmote] = useState<string | null>(null);
   const [remoteEmotes, setRemoteEmotes] = useState<Record<string, string>>({});
+  const [yjsConnStatus, setYjsConnStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
@@ -1749,7 +1749,7 @@ export default function App() {
         yjsDocRef.current = null;
       }
       setRemotePlayers([]);
-      setMyPlayerId(null);
+      setYjsConnStatus("disconnected");
       return;
     }
 
@@ -1760,12 +1760,17 @@ export default function App() {
     const myColor = PLAYER_COLORS[doc.clientID % PLAYER_COLORS.length];
     const myName = `Player ${(doc.clientID % 1000) + 1}`;
     const myId = String(doc.clientID);
-    setMyPlayerId(myId);
 
     // Connect to the Yjs WebSocket server via y-websocket provider.
     const wsBase = wsUrl("/ws/yjs").replace(/\/$/, "");
     const provider = new WebsocketProvider(wsBase, "hand-world", doc);
     yjsProviderRef.current = provider;
+
+    // Track connection status.
+    const onStatus = ({ status }: { status: string }) => {
+      setYjsConnStatus(status as "disconnected" | "connecting" | "connected");
+    };
+    provider.on("status", onStatus);
 
     // Set initial local awareness state.
     provider.awareness.setLocalStateField("player", {
@@ -1810,11 +1815,13 @@ export default function App() {
     provider.awareness.on("change", onAwarenessChange);
 
     return () => {
+      provider.off("status", onStatus);
       provider.awareness.off("change", onAwarenessChange);
       provider.destroy();
       doc.destroy();
       yjsProviderRef.current = null;
       yjsDocRef.current = null;
+      setYjsConnStatus("disconnected");
     };
   }, [dashboardView]);
 
@@ -3585,7 +3592,12 @@ export default function App() {
                     </div>
                   )}
                   <div className="status-summary-hint">
-                    {myPlayerId ? "Multiplayer active \u00b7 Arrow keys: walk \u00b7 1-4: emote" : "Use arrow keys to walk"}
+                    <span className={`conn-status-dot conn-status-${yjsConnStatus}`} aria-label={`Connection: ${yjsConnStatus}`} />
+                    {yjsConnStatus === "connected"
+                      ? "Multiplayer active \u00b7 Arrow keys: walk \u00b7 1-4: emote"
+                      : yjsConnStatus === "connecting"
+                        ? "Connecting\u2026"
+                        : "Disconnected \u00b7 Arrow keys: walk"}
                   </div>
                 </div>
 

@@ -73,7 +73,6 @@ from helping_hands.server.constants import (
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
-from helping_hands.server.multiplayer import world_websocket_endpoint
 from helping_hands.server.multiplayer_yjs import (
     create_yjs_app,
     start_yjs_server,
@@ -158,9 +157,6 @@ app = FastAPI(
     version="0.1.0",
     lifespan=_lifespan,
 )
-
-# --- Multiplayer Hand World WebSocket ---
-app.add_api_websocket_route("/ws/world", world_websocket_endpoint)
 
 # --- Yjs-based multiplayer WebSocket (awareness protocol) ---
 _yjs_app = create_yjs_app()

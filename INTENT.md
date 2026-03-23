@@ -24,7 +24,7 @@ User intents and desires for the helping-hands project.
 - Frontend: Yjs awareness for ephemeral player presence (position, emotes)
 - Color/name derived client-side from Yjs clientID
 
-**Implementation:** v276
+**Implementation:** v276, v278 (legacy cleanup + connection status)
 
 ## Completed Intents
 

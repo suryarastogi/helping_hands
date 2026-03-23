@@ -72,6 +72,13 @@ protocol to **Yjs awareness**. Key changes:
   disconnect (~30s timeout), CRDT-based state that auto-merges, and alignment
   with the user's preference for Yjs-powered frontends.
 
+## Legacy endpoint removal (v278)
+
+The original `/ws/world` custom WebSocket endpoint and `multiplayer.py` module were
+deleted. The Yjs awareness endpoint at `/ws/yjs` is now the sole multiplayer sync
+mechanism. A connection status indicator (green/yellow/red dot) was added to the
+Hand World UI showing Yjs provider connection health.
+
 ## Future extensions
 
 - Chat bubbles above player avatars
