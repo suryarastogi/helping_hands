@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import HandWorldScene from "./components/HandWorldScene";
+import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName } from "./hooks/useMultiplayer";
 import { useSchedules } from "./hooks/useSchedules";
 import type {
@@ -23,8 +24,6 @@ import type {
   InputItem,
   MainView,
   OutputTab,
-  PlayerDirection,
-  PlayerPosition,
   PrefixFilterMode,
   ScheduleItem,
   SceneWorker,
@@ -36,17 +35,12 @@ import type {
   WorkerVariant,
 } from "./types";
 import {
-  OFFICE_BOUNDS,
-  PLAYER_MOVE_STEP,
-} from "./constants";
-import {
   accumulateUsage,
   apiUrl,
   asRecord,
   BACKEND_OPTIONS,
   backendDisplayName,
   buildDeskSlots,
-  checkDeskCollision,
   CRON_PRESETS,
   DASHBOARD_VIEW_STORAGE_KEY,
   DEFAULT_CHARACTER_STYLE,
@@ -139,9 +133,6 @@ export default function App() {
   const [dashboardView, setDashboardView] = useState<DashboardView>("classic");
   const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
-  const [playerPosition, setPlayerPosition] = useState<PlayerPosition>({ x: 50, y: 50 });
-  const [playerDirection, setPlayerDirection] = useState<PlayerDirection>("down");
-  const [isPlayerWalking, setIsPlayerWalking] = useState(false);
   const slotByTaskRef = useRef<Record<string, number>>({});
   const sceneRef = useRef<HTMLDivElement>(null);
   const [serviceHealthState, setServiceHealthState] = useState<ServiceHealthState | null>(null);
@@ -171,6 +162,14 @@ export default function App() {
   );
 
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
+
+  const deskSlots = useMemo(() => buildDeskSlots(maxOfficeWorkers), [maxOfficeWorkers]);
+
+  const {
+    playerPosition,
+    playerDirection,
+    isPlayerWalking,
+  } = useMovement({ active: dashboardView === "world", deskSlots });
 
   const {
     remotePlayers,
@@ -380,8 +379,6 @@ export default function App() {
     }
     return map;
   }, [taskHistory]);
-
-  const deskSlots = useMemo(() => buildDeskSlots(maxOfficeWorkers), [maxOfficeWorkers]);
 
   const claimSlotForTask = useCallback(
     (activeTaskId: string, occupiedSlots: Set<number>): number => {
@@ -736,102 +733,7 @@ export default function App() {
     };
   }, [sceneWorkers.length]);
 
-  useEffect(() => {
-    if (dashboardView !== "world") {
-      return;
-    }
-
-    const keysPressed = new Set<string>();
-    let animationFrame: number | null = null;
-
-    const movePlayer = () => {
-      if (keysPressed.size === 0) {
-        setIsPlayerWalking(false);
-        animationFrame = null;
-        return;
-      }
-
-      setIsPlayerWalking(true);
-
-      setPlayerPosition((current) => {
-        let newX = current.x;
-        let newY = current.y;
-
-        if (keysPressed.has("ArrowUp") || keysPressed.has("w")) {
-          newY -= PLAYER_MOVE_STEP;
-          setPlayerDirection("up");
-        }
-        if (keysPressed.has("ArrowDown") || keysPressed.has("s")) {
-          newY += PLAYER_MOVE_STEP;
-          setPlayerDirection("down");
-        }
-        if (keysPressed.has("ArrowLeft") || keysPressed.has("a")) {
-          newX -= PLAYER_MOVE_STEP;
-          setPlayerDirection("left");
-        }
-        if (keysPressed.has("ArrowRight") || keysPressed.has("d")) {
-          newX += PLAYER_MOVE_STEP;
-          setPlayerDirection("right");
-        }
-
-        newX = Math.max(OFFICE_BOUNDS.minX, Math.min(OFFICE_BOUNDS.maxX, newX));
-        newY = Math.max(OFFICE_BOUNDS.minY, Math.min(OFFICE_BOUNDS.maxY, newY));
-
-        if (checkDeskCollision(newX, newY, deskSlots)) {
-          return current;
-        }
-
-        return { x: newX, y: newY };
-      });
-
-      animationFrame = requestAnimationFrame(movePlayer);
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const key = event.key;
-      const target = event.target as HTMLElement | null;
-      const isTyping =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable;
-
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
-        event.preventDefault();
-        if (!keysPressed.has(key)) {
-          keysPressed.add(key);
-          if (animationFrame === null) {
-            animationFrame = requestAnimationFrame(movePlayer);
-          }
-        }
-      } else if (["w", "a", "s", "d"].includes(key) && !isTyping) {
-        event.preventDefault();
-        if (!keysPressed.has(key)) {
-          keysPressed.add(key);
-          if (animationFrame === null) {
-            animationFrame = requestAnimationFrame(movePlayer);
-          }
-        }
-      }
-    };
-
-    const handleKeyUp = (event: KeyboardEvent) => {
-      keysPressed.delete(event.key);
-      if (keysPressed.size === 0) {
-        setIsPlayerWalking(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      if (animationFrame !== null) {
-        cancelAnimationFrame(animationFrame);
-      }
-    };
-  }, [dashboardView, deskSlots]);
+  // Player movement is handled by useMovement (keyboard input, collision, clamping).
 
   useEffect(() => {
     let cancelled = false;

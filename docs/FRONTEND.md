@@ -49,6 +49,8 @@ frontend/src/
 │   ├── WorkerSprite.tsx        # Worker sprite (bot + goose variants) with caption & floating numbers
 │   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/
+│   ├── useMovement.ts          # Keyboard-driven player movement hook
+│   ├── useMovement.test.tsx    # Movement, collision, keyboard binding tests
 │   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook
 │   ├── useMultiplayer.test.tsx # Hook lifecycle + player name persistence tests
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
@@ -142,8 +144,7 @@ To verify both surfaces offer the same features:
 | `/tasks/current` | GET | List active/queued tasks |
 | `/monitor/{task_id}` | GET | HTML auto-refresh monitor |
 | `/workers/capacity` | GET | Celery worker pool info |
-| `/ws/world` | WebSocket | Multiplayer Hand World sync (legacy) |
-| `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync (primary) |
+| `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync |
 
 ## Multiplayer Hand World
 
@@ -179,12 +180,6 @@ the Y.Doc itself remains empty.
 - Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
 - Emote bubbles float up and fade out over 2 seconds above the avatar
-
-### Legacy architecture (backward-compatible)
-
-The legacy `/ws/world` endpoint (`server/multiplayer.py`) is still available.
-It uses a bespoke JSON-over-WebSocket protocol with server-assigned player IDs
-and colours. The frontend no longer connects to it by default.
 
 ### Awareness state per client
 

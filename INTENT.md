@@ -4,16 +4,24 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Frontend Code Quality — Schedule Hook Extraction (2026-03-23)
+(No active intents — all plans completed.)
 
-**User request:** Continue improving multiplayer Hand World — better modularisation and code reuse.
+## Recently Completed
+
+### Frontend Code Quality — Movement Hook Extraction (2026-03-23) — Completed
+
+**Implemented (v286):**
+- Extracted `useMovement` hook — keyboard input, position clamping, collision detection, direction/walking state
+- App.tsx reduced from 2,275 to 2,179 lines (-96 lines)
+- 8 new tests for movement hook (281 total, up from 273)
+- Fixed stale legacy `/ws/world` references in FRONTEND.md
+
+### Frontend Code Quality — Schedule Hook Extraction (2026-03-23) — Completed
 
 **Implemented (v285):**
 - Extracted `useSchedules` hook — schedule CRUD state (5 state vars) and 8 handler functions
 - App.tsx reduced from 2,462 to 2,275 lines (-187 lines)
 - 13 new tests for schedule hook (273 total, up from 260)
-
-## Recently Completed
 
 ### Frontend Code Quality — Test File Decomposition (2026-03-23) — Completed
 

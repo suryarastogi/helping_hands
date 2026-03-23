@@ -112,6 +112,14 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 
 ---
 
+## Mar 23 — Extract useMovement Hook (v286)
+
+**Hook extraction:** Extracted `useMovement` hook — keyboard input (arrow keys + WASD), position clamping within office bounds, desk collision detection, direction and walking state. App.tsx reduced from 2,275 to 2,179 lines (-96 lines). Fixed stale legacy `/ws/world` references in FRONTEND.md.
+
+**8 new tests, 281 total passing.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -127,3 +135,4 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 - `v283-extract-hand-world-scene.md`
 - `v284-decompose-test-files.md`
 - `v285-extract-use-schedules-hook.md`
+- `v286-extract-use-movement-hook.md`
