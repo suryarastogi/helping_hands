@@ -31,14 +31,17 @@ The React frontend is organized as a single-page application:
 
 ```
 frontend/src/
-├── main.tsx          # Entry point, renders <App />
-├── App.tsx           # Main component (form, task list, monitors)
-├── App.test.tsx      # Component render tests (@testing-library/react)
-├── App.utils.test.ts # Unit tests for utility functions
-├── styles.css        # Global styles
-├── vite-env.d.ts     # Vite type declarations
+├── main.tsx                         # Entry point, renders <App />
+├── App.tsx                          # Main component (form, task list, monitors)
+├── App.test.tsx                     # Component render tests (@testing-library/react)
+├── App.utils.test.ts                # Unit tests for utility functions
+├── styles.css                       # Global styles
+├── vite-env.d.ts                    # Vite type declarations
+├── hooks/
+│   ├── useMultiplayer.ts            # Yjs multiplayer presence hook
+│   └── useMultiplayer.test.ts       # Unit tests for multiplayer hook
 └── test/
-    └── setup.ts      # Vitest setup (jsdom environment)
+    └── setup.ts                     # Vitest setup (jsdom environment)
 ```
 
 ### State management
@@ -126,8 +129,7 @@ To verify both surfaces offer the same features:
 | `/tasks/current` | GET | List active/queued tasks |
 | `/monitor/{task_id}` | GET | HTML auto-refresh monitor |
 | `/workers/capacity` | GET | Celery worker pool info |
-| `/ws/world` | WebSocket | Multiplayer Hand World sync (legacy) |
-| `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync (primary) |
+| `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync |
 
 ## Multiplayer Hand World
 
@@ -152,10 +154,11 @@ the Y.Doc itself remains empty.
 - `pycrdt-websocket` `WebsocketServer` + `ASGIServer` mounted at `/ws/yjs`
 - Handles Yjs sync and awareness protocol automatically
 - Graceful fallback: if `pycrdt-websocket` is not installed, the Yjs endpoint
-  is not mounted and only the legacy `/ws/world` endpoint is available
+  is not mounted and multiplayer is disabled
 - Started/stopped via FastAPI lifespan context manager
 
-**Frontend** (`App.tsx`):
+**Frontend** (`hooks/useMultiplayer.ts`):
+- Custom `useMultiplayer` React hook encapsulates all Yjs logic
 - Uses `yjs` Y.Doc + `y-websocket` WebsocketProvider for room `hand-world`
 - Sets local awareness state: `{ player_id, name, color, x, y, direction, walking, emote }`
 - Derives player colour and name client-side from `Y.Doc.clientID`
@@ -163,12 +166,6 @@ the Y.Doc itself remains empty.
 - Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
 - Emote bubbles float up and fade out over 2 seconds above the avatar
-
-### Legacy architecture (backward-compatible)
-
-The legacy `/ws/world` endpoint (`server/multiplayer.py`) is still available.
-It uses a bespoke JSON-over-WebSocket protocol with server-assigned player IDs
-and colours. The frontend no longer connects to it by default.
 
 ### Awareness state per client
 

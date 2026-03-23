@@ -2,15 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DESK_SIZE,
-  EMOTE_DISPLAY_MS,
-  EMOTE_KEY_BINDINGS,
-  EMOTE_MAP,
   FACTORY_COLLISION,
   FACTORY_POS,
   INCINERATOR_COLLISION,
   INCINERATOR_POS,
   OFFICE_BOUNDS,
-  PLAYER_COLORS,
   PLAYER_MOVE_STEP,
   PLAYER_SIZE,
   TASK_HISTORY_STORAGE_KEY,
@@ -38,6 +34,12 @@ import {
   upsertTaskHistory,
   wsUrl,
 } from "./App";
+import {
+  EMOTE_DISPLAY_MS,
+  EMOTE_KEY_BINDINGS,
+  EMOTE_MAP,
+  PLAYER_COLORS,
+} from "./hooks/useMultiplayer";
 
 describe("apiUrl", () => {
   it("returns the path unchanged when API_BASE is empty", () => {
