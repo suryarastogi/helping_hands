@@ -10,12 +10,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-23 v284](exec-plans/completed/v284-decompose-test-files.md) —
+- [2026-03-23 v284](exec-plans/completed/2026/v284-decompose-test-files.md) —
   Decompose monolithic `App.test.tsx` into co-located test files matching
   component structure; App.test.tsx reduced from 2,395 to 1,804 lines;
   260 tests across 7 files
 
-- [2026-03-23 v283](exec-plans/completed/v283-extract-hand-world-scene.md) —
+- [2026-03-23 v283](exec-plans/completed/2026/v283-extract-hand-world-scene.md) —
   Extract `HandWorldScene` component (~250 lines of scene JSX) from App.tsx;
   App.tsx reduced from 2,691 to 2,462 lines; 15 tests (260 frontend passed)
 
