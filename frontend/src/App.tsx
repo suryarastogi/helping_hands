@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import HandWorldScene from "./components/HandWorldScene";
+import MonitorCard from "./components/MonitorCard";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName } from "./hooks/useMultiplayer";
 import { useSchedules } from "./hooks/useSchedules";
@@ -65,7 +66,6 @@ import {
   readSkillsValue,
   readStringValue,
   shortTaskId,
-  statusBlinkerColor,
   statusTone,
   TASK_HISTORY_STORAGE_KEY,
   upsertTaskHistory,
@@ -1255,13 +1255,11 @@ export default function App() {
     }
   };
 
-  const blinkerColor = statusBlinkerColor(status);
-  const isBlinkerAnimated = statusTone(status) === "run";
-
   // Live elapsed-time timer for running tasks; stored runtime for completed tasks.
   const payloadResult = (payload as Record<string, unknown> | null)?.result as Record<string, unknown> | undefined;
   const startedAtRaw = payloadResult?.started_at;
   const storedRuntime = typeof payloadResult?.runtime === "string" ? payloadResult.runtime : null;
+  const isTaskRunning = statusTone(status) === "run";
   const startedAtMs = useMemo(() => {
     if (typeof startedAtRaw === "string") {
       const ms = Date.parse(startedAtRaw);
@@ -1273,7 +1271,7 @@ export default function App() {
   const [elapsedStr, setElapsedStr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!startedAtMs || !isBlinkerAnimated) {
+    if (!startedAtMs || !isTaskRunning) {
       setElapsedStr(null);
       return;
     }
@@ -1286,7 +1284,7 @@ export default function App() {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [startedAtMs, isBlinkerAnimated]);
+  }, [startedAtMs, isTaskRunning]);
 
   const runtimeDisplay = elapsedStr ?? storedRuntime;
 
@@ -1533,168 +1531,24 @@ export default function App() {
   );
 
   const monitorCard = (
-    <section className="card status-card compact-monitor">
-      <div className="monitor-bar">
-        <div className="monitor-bar-left">
-          <h2 className="monitor-title">Output{taskId ? `: ${shortTaskId(taskId)}` : ""}</h2>
-          <div className="pane-tabs" role="tablist" aria-label="Output mode">
-            <button
-              type="button"
-              role="tab"
-              className={`tab-btn${outputTab === "updates" ? " active" : ""}`}
-              aria-selected={outputTab === "updates"}
-              onClick={() => setOutputTab("updates")}
-            >
-              Updates
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={`tab-btn${outputTab === "raw" ? " active" : ""}`}
-              aria-selected={outputTab === "raw"}
-              onClick={() => setOutputTab("raw")}
-            >
-              Raw
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={`tab-btn${outputTab === "payload" ? " active" : ""}`}
-              aria-selected={outputTab === "payload"}
-              onClick={() => setOutputTab("payload")}
-            >
-              Payload
-            </button>
-          </div>
-        </div>
-        <div className="monitor-bar-right">
-          {taskId && !isTerminalTaskStatus(status) && (
-            <button
-              type="button"
-              className="secondary cancel-task-btn"
-              style={{ fontSize: "0.7rem", padding: "2px 8px", color: "#fca5a5", borderColor: "#7f1d1d" }}
-              title="Cancel this task"
-              onClick={async () => {
-                if (!confirm("Cancel this task?")) return;
-                try {
-                  await fetch(apiUrl(`/tasks/${taskId}/cancel`), { method: "POST" });
-                } catch {
-                  /* swallow — next poll picks up REVOKED */
-                }
-              }}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            type="button"
-            className="secondary"
-            style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-            title="Copy output to clipboard"
-            onClick={() => {
-              navigator.clipboard.writeText(activeOutputText).catch(() => {});
-            }}
-          >
-            Copy
-          </button>
-          <span
-            className={`status-blinker${isBlinkerAnimated ? " pulse" : ""}`}
-            style={{ backgroundColor: blinkerColor }}
-            title={`${status}${isPolling ? " (polling)" : ""}`}
-          />
-          {runtimeDisplay && (
-            <span className="elapsed-timer" title="Elapsed runtime">
-              {runtimeDisplay}
-            </span>
-          )}
-          <span className="info-badge" title={taskId || "No task selected"}>
-            i
-          </span>
-        </div>
-      </div>
-      {(accUsage || (detectedPrefixes.length > 0 && outputTab !== "payload")) && (
-        <div className="prefix-filters">
-          {detectedPrefixes.length > 0 && outputTab !== "payload" && (
-            <>
-              <span className="prefix-filters-label">Filter:</span>
-              {detectedPrefixes.map((prefix) => {
-                const mode = prefixFilters[prefix] ?? "show";
-                return (
-                  <button
-                    key={prefix}
-                    type="button"
-                    className={`prefix-chip ${mode}`}
-                    title={`[${prefix}] — ${mode === "show" ? "Showing (click to hide)" : mode === "hide" ? "Hidden (click for only)" : "Only (click to reset)"}`}
-                    onClick={() => {
-                      setPrefixFilters((prev) => {
-                        const current = prev[prefix] ?? "show";
-                        const next: PrefixFilterMode =
-                          current === "show" ? "hide" : current === "hide" ? "only" : "show";
-                        const updated = { ...prev };
-                        if (next === "show") {
-                          delete updated[prefix];
-                        } else {
-                          updated[prefix] = next;
-                        }
-                        return updated;
-                      });
-                    }}
-                  >
-                    <span className="prefix-chip-icon">
-                      {mode === "show" ? "●" : mode === "hide" ? "○" : "◉"}
-                    </span>
-                    [{prefix}]
-                  </button>
-                );
-              })}
-              {Object.keys(prefixFilters).length > 0 && (
-                <button
-                  type="button"
-                  className="prefix-chip reset"
-                  title="Reset all filters"
-                  onClick={() => setPrefixFilters({})}
-                >
-                  Reset
-                </button>
-              )}
-            </>
-          )}
-          {accUsage && (
-            <span
-              className="usage-total"
-              title={`${accUsage.count} API call${accUsage.count !== 1 ? "s" : ""}, ${Math.round(accUsage.totalSeconds)}s, in=${accUsage.totalIn.toLocaleString()} out=${accUsage.totalOut.toLocaleString()}`}
-            >
-              api: ${accUsage.totalCost.toFixed(4)}, {Math.round(accUsage.totalSeconds)}s, in={accUsage.totalIn.toLocaleString()} out={accUsage.totalOut.toLocaleString()}
-            </span>
-          )}
-        </div>
-      )}
-      <pre
-        ref={monitorOutputRef}
-        className="monitor-output"
-        onScroll={handleMonitorScroll}
-        style={monitorHeight != null ? { height: monitorHeight, minHeight: 60, maxHeight: "none" } : undefined}
-      >{activeOutputText}</pre>
-      <div className="monitor-resize-handle" onMouseDown={handleResizeStart} title="Drag to resize" />
-
-      <details className="compact-advanced monitor-inputs">
-        <summary>Task inputs</summary>
-        <div className="compact-advanced-body">
-          {taskInputs.length === 0 ? (
-            <p className="inputs-empty">Inputs not available yet.</p>
-          ) : (
-            <dl className="inputs-grid">
-              {taskInputs.map((item) => (
-                <div key={item.label} className="input-item">
-                  <dt>{item.label}</dt>
-                  <dd>{item.value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </div>
-      </details>
-    </section>
+    <MonitorCard
+      taskId={taskId}
+      status={status}
+      isPolling={isPolling}
+      outputTab={outputTab}
+      onOutputTabChange={setOutputTab}
+      prefixFilters={prefixFilters}
+      onPrefixFiltersChange={setPrefixFilters}
+      activeOutputText={activeOutputText}
+      detectedPrefixes={detectedPrefixes}
+      accUsage={accUsage}
+      taskInputs={taskInputs}
+      runtimeDisplay={runtimeDisplay}
+      monitorOutputRef={monitorOutputRef}
+      monitorHeight={monitorHeight}
+      onMonitorScroll={handleMonitorScroll}
+      onResizeStart={handleResizeStart}
+    />
   );
 
   const scheduleFormFields = (

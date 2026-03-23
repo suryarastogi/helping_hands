@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Extract MonitorCard Component (2026-03-23) — Completed
+
+**Implemented (v293):**
+- Extracted `MonitorCard` component from inline `monitorCard` JSX in App.tsx (~146 lines)
+- Component handles output tabs, prefix filters, accumulated usage, cancel button, resize, task inputs
+- Props interface: `MonitorCardProps` with 17 typed props
+- App.tsx reduced from 2,189 to 2,043 lines (-146 lines)
+- 19 new tests in `MonitorCard.test.tsx` (tab rendering, selection, callbacks, cancel visibility, prefix filters, usage, blinker states, resize)
+- 361 frontend tests total (up from 342)
+
 ### Multiplayer Observability & UX Polish (2026-03-23) — Completed
 
 **Implemented (v292):**

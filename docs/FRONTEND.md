@@ -46,6 +46,8 @@ frontend/src/
 │   ├── HandWorldScene.test.tsx # HandWorldScene render tests
 │   ├── PlayerAvatar.tsx        # Reusable human-player sprite component
 │   ├── PlayerAvatar.test.tsx   # PlayerAvatar render tests
+│   ├── MonitorCard.tsx         # Task output monitor card (tabs, filters, usage, resize)
+│   ├── MonitorCard.test.tsx   # MonitorCard render + interaction tests
 │   ├── WorkerSprite.tsx        # Worker sprite (bot + goose variants) with caption & floating numbers
 │   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/
