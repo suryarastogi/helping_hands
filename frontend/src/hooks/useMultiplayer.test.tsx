@@ -188,4 +188,43 @@ describe("useMultiplayer hook", () => {
 
     vi.useRealTimers();
   });
+
+  it("sendChat sets and clears local chat message", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.sendChat("Hello!"));
+    expect(result.current.localChat).toBe("Hello!");
+
+    // Awareness state should have the chat
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.chat).toBe("Hello!");
+
+    // After CHAT_DISPLAY_MS, chat clears
+    act(() => vi.advanceTimersByTime(4000));
+    expect(result.current.localChat).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it("sendChat ignores empty/whitespace messages", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.sendChat("   "));
+    expect(result.current.localChat).toBeNull();
+  });
+
+  it("tracks remote chat messages from awareness", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(200, {
+      player: { player_id: "200", name: "ChatBot", color: "#2563eb", x: 60, y: 60, direction: "right", walking: false, emote: null, chat: "Hi there" },
+    });
+
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.remoteChats["200"]).toBe("Hi there");
+  });
 });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CHAT_DISPLAY_MS,
+  CHAT_MAX_LENGTH,
   DESK_SIZE,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
@@ -19,6 +21,16 @@ describe("constants module", () => {
   it("exports EMOTE_DISPLAY_MS as a positive number", () => {
     expect(typeof EMOTE_DISPLAY_MS).toBe("number");
     expect(EMOTE_DISPLAY_MS).toBeGreaterThan(0);
+  });
+
+  it("exports CHAT_DISPLAY_MS as a positive number", () => {
+    expect(typeof CHAT_DISPLAY_MS).toBe("number");
+    expect(CHAT_DISPLAY_MS).toBeGreaterThan(0);
+  });
+
+  it("exports CHAT_MAX_LENGTH as a positive number", () => {
+    expect(typeof CHAT_MAX_LENGTH).toBe("number");
+    expect(CHAT_MAX_LENGTH).toBeGreaterThan(0);
   });
 
   it("exports EMOTE_MAP with all four emotes", () => {

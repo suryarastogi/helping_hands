@@ -19,6 +19,8 @@ export type PlayerAvatarProps = {
   name?: string;
   /** Current emote key (e.g. "wave") — rendered as a floating bubble. */
   emote?: string | null;
+  /** Current chat message — rendered as a speech bubble above the avatar. */
+  chat?: string | null;
   /** Avatar accent colour (used for remote-player CSS variables). */
   color?: string;
   /** True for the local (controlled) player; false for remote peers. */
@@ -33,6 +35,7 @@ export default function PlayerAvatar({
   walking,
   name,
   emote,
+  chat,
   color,
   isLocal = false,
   x,
@@ -61,6 +64,11 @@ export default function PlayerAvatar({
       {emote && (
         <span className="emote-bubble" aria-label={`Emote: ${emote}`}>
           {EMOTE_MAP[emote]}
+        </span>
+      )}
+      {chat && (
+        <span className="chat-bubble" aria-label={`Chat: ${chat}`}>
+          {chat}
         </span>
       )}
       <span className="human-shadow" />

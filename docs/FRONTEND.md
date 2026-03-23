@@ -169,17 +169,19 @@ the Y.Doc itself remains empty.
 - `pycrdt-websocket` `WebsocketServer` + `ASGIServer` mounted at `/ws/yjs`
 - Handles Yjs sync and awareness protocol automatically
 - Graceful fallback: if `pycrdt-websocket` is not installed, the Yjs endpoint
-  is not mounted and only the legacy `/ws/world` endpoint is available
+  is not mounted and multiplayer is disabled
 - Started/stopped via FastAPI lifespan context manager
 
 **Frontend** (`App.tsx`):
 - Uses `yjs` Y.Doc + `y-websocket` WebsocketProvider for room `hand-world`
-- Sets local awareness state: `{ player_id, name, color, x, y, direction, walking, emote }`
+- Sets local awareness state: `{ player_id, name, color, x, y, direction, walking, emote, chat }`
 - Derives player colour and name client-side from `Y.Doc.clientID`
 - Maps remote awareness states to `remotePlayers` array for rendering
 - Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
 - Emote bubbles float up and fade out over 2 seconds above the avatar
+- Chat system: type a message in the chat input and press Enter to send
+- Chat bubbles appear above the sender's avatar and fade after 4 seconds
 
 ### Awareness state per client
 
@@ -192,7 +194,8 @@ the Y.Doc itself remains empty.
     "x": 50, "y": 50,
     "direction": "down",
     "walking": false,
-    "emote": null
+    "emote": null,
+    "chat": null
   }
 }
 ```

@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Multiplayer Chat Bubbles (2026-03-23) — Completed
+
+**Implemented (v287):**
+- Added text chat to Hand World — players send messages via input field, displayed as speech bubbles above avatars
+- Chat broadcast via Yjs awareness `chat` field (no new backend endpoints)
+- `CHAT_DISPLAY_MS` (4s) auto-clear, `CHAT_MAX_LENGTH` (120 chars)
+- Chat input appears in Factory Floor panel when connected
+- 13 new tests across constants, PlayerAvatar, HandWorldScene, and useMultiplayer
+
 ### Frontend Code Quality — Movement Hook Extraction (2026-03-23) — Completed
 
 **Implemented (v286):**

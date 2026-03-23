@@ -76,6 +76,8 @@ import {
 export type { PlayerDirection } from "./types";
 export type { AccumulatedUsage, DeskSlot } from "./types";
 export {
+  CHAT_DISPLAY_MS,
+  CHAT_MAX_LENGTH,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   EMOTE_MAP,
@@ -174,8 +176,11 @@ export default function App() {
   const {
     remotePlayers,
     remoteEmotes,
+    remoteChats,
     localEmote,
+    localChat,
     connectionStatus: yjsConnStatus,
+    sendChat,
   } = useMultiplayer({
     active: dashboardView === "world",
     playerPosition,
@@ -2134,7 +2139,10 @@ export default function App() {
               localEmote={localEmote}
               remotePlayers={remotePlayers}
               remoteEmotes={remoteEmotes}
+              remoteChats={remoteChats}
+              localChat={localChat}
               connectionStatus={yjsConnStatus}
+              onSendChat={sendChat}
               playerNameInput={playerNameInput}
               onPlayerNameChange={setPlayerNameInput}
               claudeUsage={claudeUsage}

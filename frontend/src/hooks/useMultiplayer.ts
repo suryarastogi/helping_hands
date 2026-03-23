@@ -9,6 +9,7 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 
 import {
+  CHAT_DISPLAY_MS,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   PLAYER_COLORS,
@@ -49,10 +50,14 @@ export type UseMultiplayerOptions = {
 export type UseMultiplayerReturn = {
   remotePlayers: RemotePlayer[];
   remoteEmotes: Record<string, string>;
+  remoteChats: Record<string, string>;
   localEmote: string | null;
+  localChat: string | null;
   connectionStatus: ConnectionStatus;
   /** Trigger a local emote by key ("1"–"4"). */
   triggerEmote: (key: string) => void;
+  /** Send a chat message that appears as a bubble above the local player. */
+  sendChat: (message: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -95,7 +100,9 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
 
   const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
   const [remoteEmotes, setRemoteEmotes] = useState<Record<string, string>>({});
+  const [remoteChats, setRemoteChats] = useState<Record<string, string>>({});
   const [localEmote, setLocalEmote] = useState<string | null>(null);
+  const [localChat, setLocalChat] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
@@ -143,19 +150,22 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       direction: "down",
       walking: false,
       emote: null,
+      chat: null,
     });
 
     const onAwarenessChange = () => {
       const states = provider.awareness.getStates();
       const others: RemotePlayer[] = [];
       const newEmotes: Record<string, string> = {};
+      const newChats: Record<string, string> = {};
 
       states.forEach((state: Record<string, unknown>, clientId: number) => {
         if (clientId === doc.clientID) return;
-        const p = state.player as (RemotePlayer & { emote?: string | null }) | undefined;
+        const p = state.player as (RemotePlayer & { emote?: string | null; chat?: string | null }) | undefined;
         if (!p) return;
+        const pid = p.player_id ?? String(clientId);
         others.push({
-          player_id: p.player_id ?? String(clientId),
+          player_id: pid,
           name: p.name ?? `Player ${(clientId % 1000) + 1}`,
           color: p.color ?? PLAYER_COLORS[clientId % PLAYER_COLORS.length],
           x: p.x ?? 50,
@@ -164,12 +174,16 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
           walking: p.walking ?? false,
         });
         if (p.emote) {
-          newEmotes[p.player_id ?? String(clientId)] = p.emote;
+          newEmotes[pid] = p.emote;
+        }
+        if (p.chat) {
+          newChats[pid] = p.chat;
         }
       });
 
       setRemotePlayers(others);
       setRemoteEmotes(newEmotes);
+      setRemoteChats(newChats);
     };
 
     provider.awareness.on("change", onAwarenessChange);
@@ -251,6 +265,32 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     [],
   );
 
+  // --- Chat send callback ---
+  const sendChat = useCallback(
+    (message: string) => {
+      const text = message.trim();
+      if (!text) return;
+
+      setLocalChat(text);
+      setTimeout(() => setLocalChat(null), CHAT_DISPLAY_MS);
+
+      const provider = yjsProviderRef.current;
+      if (provider) {
+        const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+        if (current) {
+          provider.awareness.setLocalStateField("player", { ...current, chat: text });
+          setTimeout(() => {
+            const latest = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+            if (latest) {
+              provider.awareness.setLocalStateField("player", { ...latest, chat: null });
+            }
+          }, CHAT_DISPLAY_MS);
+        }
+      }
+    },
+    [],
+  );
+
   // --- Emote key bindings ---
   useEffect(() => {
     if (!active) return;
@@ -275,8 +315,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   return {
     remotePlayers,
     remoteEmotes,
+    remoteChats,
     localEmote,
+    localChat,
     connectionStatus,
     triggerEmote,
+    sendChat,
   };
 }

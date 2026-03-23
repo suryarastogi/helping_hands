@@ -80,4 +80,21 @@ describe("PlayerAvatar component", () => {
     expect(el.style.left).toBe("25%");
     expect(el.style.top).toBe("75%");
   });
+
+  it("renders chat bubble when chat prop is set", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal chat="Hello!" x={50} y={50} />
+    );
+    const bubble = container.querySelector(".chat-bubble");
+    expect(bubble).toBeTruthy();
+    expect(bubble?.textContent).toBe("Hello!");
+    expect(bubble?.getAttribute("aria-label")).toBe("Chat: Hello!");
+  });
+
+  it("does not render chat bubble when chat is null", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal chat={null} x={50} y={50} />
+    );
+    expect(container.querySelector(".chat-bubble")).toBeNull();
+  });
 });

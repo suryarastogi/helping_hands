@@ -95,8 +95,24 @@ Additional features:
 - **Shared types** — `PlayerDirection` moved to `frontend/src/types.ts` for
   reuse across App and the hook.
 
+## Chat bubbles (v287)
+
+Players can send text chat messages that appear as speech bubbles above their
+avatars. Chat is broadcast via the Yjs awareness `chat` field — no new backend
+endpoints are required.
+
+**Frontend flow:**
+1. A chat input appears in the Factory Floor panel when connected
+2. Player types a message and presses Enter to send
+3. `sendChat(text)` sets the awareness `chat` field
+4. After `CHAT_DISPLAY_MS` (4 seconds), the `chat` field is cleared to `null`
+5. Both local and remote players see the chat bubble above the sender's avatar
+6. Chat bubbles have a float-up fade animation similar to emotes
+
+**Constants:** `CHAT_DISPLAY_MS` (4000ms), `CHAT_MAX_LENGTH` (120 chars).
+
 ## Future extensions
 
-- Chat bubbles above player avatars
 - Shared Y.Doc state for persistent world features (e.g. placed objects)
 - Player names from server auth context
+- Chat history panel

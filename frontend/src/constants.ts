@@ -13,6 +13,12 @@
 /** How long (ms) an emote bubble is displayed above a player. */
 export const EMOTE_DISPLAY_MS = 2000;
 
+/** How long (ms) a chat bubble is displayed above a player. */
+export const CHAT_DISPLAY_MS = 4000;
+
+/** Maximum length of a chat message. */
+export const CHAT_MAX_LENGTH = 120;
+
 /** Mapping from emote name to emoji character. */
 export const EMOTE_MAP: Record<string, string> = {
   wave: "\u{1F44B}",

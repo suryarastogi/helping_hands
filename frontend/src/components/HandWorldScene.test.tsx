@@ -48,7 +48,10 @@ const BASE_SCENE_PROPS = {
   localEmote: null as string | null,
   remotePlayers: [] as RemotePlayer[],
   remoteEmotes: {} as Record<string, string>,
+  remoteChats: {} as Record<string, string>,
+  localChat: null as string | null,
   connectionStatus: "connected" as const,
+  onSendChat: vi.fn(),
   playerNameInput: "Tester",
   onPlayerNameChange: vi.fn(),
   claudeUsage: null as ClaudeUsageResponse | null,
@@ -194,5 +197,65 @@ describe("HandWorldScene component", () => {
     const input = container.querySelector(".player-name-input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "NewName" } });
     expect(onNameChange).toHaveBeenCalledWith("NewName");
+  });
+
+  it("renders chat input when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const chatInput = container.querySelector(".chat-input");
+    expect(chatInput).toBeTruthy();
+    expect(chatInput?.getAttribute("aria-label")).toBe("Chat message");
+  });
+
+  it("hides chat input when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".chat-input")).toBeNull();
+  });
+
+  it("calls onSendChat on chat form submit", () => {
+    const onSendChat = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSendChat={onSendChat} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Hello world" } });
+    fireEvent.submit(container.querySelector(".chat-input-form")!);
+    expect(onSendChat).toHaveBeenCalledWith("Hello world");
+    expect(input.value).toBe("");
+  });
+
+  it("does not call onSendChat for empty messages", () => {
+    const onSendChat = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSendChat={onSendChat} />
+    );
+    fireEvent.submit(container.querySelector(".chat-input-form")!);
+    expect(onSendChat).not.toHaveBeenCalled();
+  });
+
+  it("passes localChat to local player avatar", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} localChat="Hi there" />
+    );
+    const bubble = container.querySelector(".human-player .chat-bubble");
+    expect(bubble).toBeTruthy();
+    expect(bubble?.textContent).toBe("Hi there");
+  });
+
+  it("passes remoteChats to remote player avatars", () => {
+    const props = {
+      ...BASE_SCENE_PROPS,
+      remotePlayers: [
+        { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false },
+      ],
+      remoteChats: { r1: "Hey!" },
+    };
+    const { container } = render(<HandWorldScene {...props} />);
+    const bubble = container.querySelector(".remote-player .chat-bubble");
+    expect(bubble).toBeTruthy();
+    expect(bubble?.textContent).toBe("Hey!");
   });
 });

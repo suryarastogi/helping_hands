@@ -5,7 +5,9 @@
  * work desks, player avatars (local + remote), worker sprites, and the
  * two HUD panels (status summary + Claude usage).
  */
-import type { CSSProperties, Ref } from "react";
+import { type CSSProperties, type Ref, useRef, useState } from "react";
+
+import { CHAT_MAX_LENGTH } from "../constants";
 
 import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
@@ -72,7 +74,10 @@ export type HandWorldSceneProps = {
   // -- Multiplayer state --
   remotePlayers: RemotePlayer[];
   remoteEmotes: Record<string, string>;
+  remoteChats: Record<string, string>;
+  localChat: string | null;
   connectionStatus: ConnectionStatus;
+  onSendChat: (message: string) => void;
 
   // -- Player name --
   playerNameInput: string;
@@ -105,7 +110,10 @@ export default function HandWorldScene({
   localEmote,
   remotePlayers,
   remoteEmotes,
+  remoteChats,
+  localChat,
   connectionStatus,
+  onSendChat,
   playerNameInput,
   onPlayerNameChange,
   claudeUsage,
@@ -113,6 +121,18 @@ export default function HandWorldScene({
   onRefreshClaudeUsage,
   floatingNumbers,
 }: HandWorldSceneProps) {
+  const [chatInput, setChatInput] = useState("");
+  const chatInputRef = useRef<HTMLInputElement>(null);
+
+  const handleChatSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = chatInput.trim();
+    if (!text) return;
+    onSendChat(text);
+    setChatInput("");
+    chatInputRef.current?.blur();
+  };
+
   return (
     <section className="card hand-world-card">
       <header className="header">
@@ -273,6 +293,20 @@ export default function HandWorldScene({
                 ? "Connecting\u2026"
                 : "Disconnected \u00b7 Arrow keys: walk"}
           </div>
+          {connectionStatus === "connected" && (
+            <form className="chat-input-form" onSubmit={handleChatSubmit}>
+              <input
+                ref={chatInputRef}
+                type="text"
+                className="chat-input"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Press Enter to chat..."
+                maxLength={CHAT_MAX_LENGTH}
+                aria-label="Chat message"
+              />
+            </form>
+          )}
         </div>
 
         <div className="zen-usage-summary">
@@ -319,6 +353,7 @@ export default function HandWorldScene({
           direction={playerDirection}
           walking={isPlayerWalking}
           emote={localEmote}
+          chat={localChat}
           isLocal
           x={playerPosition.x}
           y={playerPosition.y}
@@ -331,6 +366,7 @@ export default function HandWorldScene({
             walking={rp.walking}
             name={rp.name}
             emote={remoteEmotes[rp.player_id]}
+            chat={remoteChats[rp.player_id]}
             color={rp.color}
             x={rp.x}
             y={rp.y}
