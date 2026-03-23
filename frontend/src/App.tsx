@@ -9,14 +9,19 @@ import {
 } from "react";
 
 import PlayerAvatar from "./components/PlayerAvatar";
+import WorkerSprite from "./components/WorkerSprite";
 import { useMultiplayer, loadPlayerName, savePlayerName } from "./hooks/useMultiplayer";
-import type { PlayerDirection } from "./types";
+import type {
+  CharacterStyle,
+  FloatingNumber,
+  PlayerDirection,
+  SceneWorkerPhase,
+  WorkerVariant,
+} from "./types";
 import {
   DESK_SIZE,
   FACTORY_COLLISION,
-  FACTORY_POS,
   INCINERATOR_COLLISION,
-  INCINERATOR_POS,
   OFFICE_BOUNDS,
   PLAYER_MOVE_STEP,
   PLAYER_SIZE,
@@ -182,30 +187,11 @@ type PrefixFilterMode = "show" | "hide" | "only";
 type MainView = "submission" | "monitor" | "schedules";
 type DashboardView = "classic" | "world";
 
-type WorkerVariant = "bot-alpha" | "bot-round" | "bot-heavy" | "goose";
-
-type CharacterStyle = {
-  bodyColor: string;
-  accentColor: string;
-  skinColor: string;
-  outlineColor: string;
-  variant: WorkerVariant;
-};
-
-type SceneWorkerPhase = "at-factory" | "walking-to-desk" | "active" | "walking-to-exit" | "at-exit";
-
 type SceneWorker = {
   taskId: string;
   slot: number;
   phase: SceneWorkerPhase;
   phaseChangedAt: number;
-};
-
-type FloatingNumber = {
-  id: number;
-  taskId: string;
-  value: number;
-  createdAt: number;
 };
 
 type PlayerPosition = {
@@ -3542,243 +3528,30 @@ export default function App() {
                   />
                 ))}
 
-                {sceneWorkerEntries.map((worker) => {
-                  const isAtFactory = worker.phase === "at-factory";
-                  const isAtExit = worker.phase === "walking-to-exit" || worker.phase === "at-exit";
-                  const posLeft = isAtFactory ? FACTORY_POS.left : isAtExit ? INCINERATOR_POS.left : worker.desk.left;
-                  const posTop = isAtFactory ? FACTORY_POS.top : isAtExit ? INCINERATOR_POS.top : worker.desk.top;
-                  return (
-                    <button
-                      key={worker.taskId}
-                      type="button"
-                      role="listitem"
-                      className={`worker-sprite ${worker.phase}${
-                        taskId === worker.taskId ? " selected" : ""
-                      }`}
-                      style={{
-                        left: `${posLeft}%`,
-                        top: `${posTop}%`,
-                      }}
-                      onClick={() => selectTask(worker.taskId)}
-                      title={`${worker.task?.backend ?? "unknown"} • ${worker.taskId}${worker.task?.repoPath ? ` • ${worker.task.repoPath}` : ""}${worker.schedule ? ` • ${worker.schedule.name} (${worker.schedule.cron_expression})` : ""}`}
-                      disabled={!worker.isActive}
-                    >
-                      <span className={`worker-art ${worker.spriteVariant}`} aria-hidden="true">
-                        <span className="sprite-shadow" />
-                        {worker.spriteVariant === "goose" ? (
-                          <>
-                            <span
-                              className="goose-tail"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-body"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-wing"
-                              style={{
-                                backgroundColor: worker.style.skinColor,
-                              }}
-                            />
-                            <span
-                              className="goose-wing-tip"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                              }}
-                            />
-                            <span
-                              className="goose-neck"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-head"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="goose-beak"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-eye"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span className="goose-brow" style={{ backgroundColor: worker.style.outlineColor }} />
-                            <span className="goose-cheek" />
-                            <span
-                              className="goose-leg goose-leg-left"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-leg goose-leg-right"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-foot goose-foot-left"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="goose-foot goose-foot-right"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <span
-                              className="bot-antenna"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-antenna-tip"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-ear bot-ear-left"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-ear bot-ear-right"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-head"
-                              style={{
-                                backgroundColor: worker.style.skinColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-eye bot-eye-left"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-eye bot-eye-right"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-mouth"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-torso"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-core"
-                              style={{
-                                backgroundColor: worker.style.accentColor,
-                              }}
-                            />
-                            <span
-                              className="bot-arm bot-arm-left"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-arm bot-arm-right"
-                              style={{
-                                backgroundColor: worker.style.bodyColor,
-                                borderColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-leg bot-leg-left"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-leg bot-leg-right"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-foot bot-foot-left"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                            <span
-                              className="bot-foot bot-foot-right"
-                              style={{
-                                backgroundColor: worker.style.outlineColor,
-                              }}
-                            />
-                          </>
-                        )}
-                      </span>
-                      {floatingNumbers
-                        .filter((f) => f.taskId === worker.taskId)
-                        .map((f) => (
-                          <span key={f.id} className="floating-number" aria-hidden="true">
-                            +{f.value}
-                          </span>
-                        ))}
-                      <span className="worker-caption">
-                        {worker.task?.repoPath && (
-                          <span className="worker-repo">{repoName(worker.task.repoPath)}</span>
-                        )}
-                        <span>
-                          {formatProviderName(worker.provider)} • {worker.task?.status ?? "unknown"}
-                        </span>
-                        {worker.schedule && (() => {
-                          const freq = cronFrequency(worker.schedule.cron_expression);
-                          return freq ? (
-                            <span className="worker-cron" title={`Schedule: ${worker.schedule.name} (${worker.schedule.cron_expression})`}>
-                              {freq.symbol} {freq.label}
-                            </span>
-                          ) : null;
-                        })()}
-                      </span>
-                    </button>
-                  );
-                })}
+                {sceneWorkerEntries.map((worker) => (
+                  <WorkerSprite
+                    key={worker.taskId}
+                    taskId={worker.taskId}
+                    phase={worker.phase}
+                    style={worker.style}
+                    spriteVariant={worker.spriteVariant}
+                    isActive={worker.isActive}
+                    isSelected={taskId === worker.taskId}
+                    provider={worker.provider}
+                    deskLeft={worker.desk.left}
+                    deskTop={worker.desk.top}
+                    task={{
+                      backend: worker.task?.backend,
+                      repoPath: worker.task?.repoPath,
+                      status: worker.task?.status,
+                    }}
+                    schedule={worker.schedule}
+                    floatingNumbers={floatingNumbers.filter(
+                      (f) => f.taskId === worker.taskId,
+                    )}
+                    onSelect={selectTask}
+                  />
+                ))}
               </div>
 
             </section>

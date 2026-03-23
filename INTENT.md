@@ -4,17 +4,25 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Frontend Code Quality — Constants & Component Extraction (2026-03-23)
+### Frontend Code Quality — WorkerSprite Component Extraction (2026-03-23)
 
 **User request:** Continue improving multiplayer Hand World — better modularisation and code reuse.
 
-**In progress (v280):**
+**Implemented (v281):**
+- Extracted `WorkerSprite` component — goose + bot sprite variants with internal `GooseBody`/`BotBody` sub-components
+- Moved `WorkerVariant`, `CharacterStyle`, `SceneWorkerPhase`, `FloatingNumber` types to `types.ts`
+- Removed ~220 lines of inline sprite markup from `App.tsx`
+- 12 new tests (245 total, up from 233)
+
+## Recently Completed
+
+### Frontend Code Quality — Constants & Component Extraction (2026-03-23) — Completed
+
+**Implemented (v280):**
 - Extracted `constants.ts` — emote, colour, and scene-geometry constants decoupled from App.tsx
 - Extracted `PlayerAvatar` component — shared sprite tree for local and remote players
 - `useMultiplayer.ts` no longer imports from `App.tsx`
 - 11 new tests (233 total, up from 222)
-
-## Recently Completed
 
 ### Multiplayer UX Improvements (2026-03-23) — Completed
 

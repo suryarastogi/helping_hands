@@ -36,11 +36,12 @@ frontend/src/
 ├── App.test.tsx          # Component render + unit tests
 ├── App.utils.test.ts     # Utility function unit tests
 ├── constants.ts          # Shared constants (emotes, colours, scene geometry)
-├── types.ts              # Shared types (PlayerDirection)
+├── types.ts              # Shared types (PlayerDirection, WorkerVariant, CharacterStyle, etc.)
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
 ├── components/
-│   └── PlayerAvatar.tsx  # Reusable human-player sprite component
+│   ├── PlayerAvatar.tsx  # Reusable human-player sprite component
+│   └── WorkerSprite.tsx  # Worker sprite (bot + goose variants) with caption & floating numbers
 ├── hooks/
 │   └── useMultiplayer.ts # Yjs awareness multiplayer hook
 └── test/

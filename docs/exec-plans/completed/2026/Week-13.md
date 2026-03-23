@@ -56,6 +56,22 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 
 ---
 
+## Mar 23 — Multiplayer UX Improvements (v279)
+
+**Hook extraction:** Extracted `useMultiplayer` hook from monolithic App.tsx (~150 lines of inline multiplayer logic). Player name customization with localStorage persistence. Connected players presence panel showing online users with colour indicators.
+
+**11 new tests, 222 total passing.**
+
+---
+
+## Mar 23 — Extract Constants & PlayerAvatar Component (v280)
+
+**Module decoupling:** Extracted `constants.ts` with emote, colour, and scene-geometry constants — `useMultiplayer.ts` no longer imports from `App.tsx`. Created shared `PlayerAvatar` component eliminating duplicate human-body sprite tree between local and remote player renders.
+
+**11 new tests, 233 total passing.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -64,3 +80,5 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 - `v276-yjs-multiplayer-sync.md`
 - `v277-multiplayer-test-coverage.md`
 - `v278-legacy-ws-cleanup-connection-status.md`
+- `v279-multiplayer-ux-improvements.md`
+- `v280-extract-constants-player-avatar.md`
