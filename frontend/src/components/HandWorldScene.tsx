@@ -5,7 +5,7 @@
  * work desks, player avatars (local + remote), worker sprites, and the
  * two HUD panels (status summary + Claude usage).
  */
-import { type CSSProperties, type Ref, useRef, useState } from "react";
+import { type CSSProperties, type Ref, useEffect, useRef, useState } from "react";
 
 import { CHAT_MAX_LENGTH } from "../constants";
 
@@ -14,6 +14,7 @@ import type { ConnectionStatus } from "../hooks/useMultiplayer";
 import { savePlayerName } from "../hooks/useMultiplayer";
 import type {
   CharacterStyle,
+  ChatMessage,
   ClaudeUsageResponse,
   DeskSlot,
   FloatingNumber,
@@ -77,6 +78,7 @@ export type HandWorldSceneProps = {
   remoteChats: Record<string, string>;
   localChat: string | null;
   connectionStatus: ConnectionStatus;
+  chatHistory: ChatMessage[];
   onSendChat: (message: string) => void;
 
   // -- Player name --
@@ -113,6 +115,7 @@ export default function HandWorldScene({
   remoteChats,
   localChat,
   connectionStatus,
+  chatHistory,
   onSendChat,
   playerNameInput,
   onPlayerNameChange,
@@ -123,6 +126,15 @@ export default function HandWorldScene({
 }: HandWorldSceneProps) {
   const [chatInput, setChatInput] = useState("");
   const chatInputRef = useRef<HTMLInputElement>(null);
+  const chatHistoryRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat history to bottom when new messages arrive.
+  useEffect(() => {
+    const el = chatHistoryRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [chatHistory.length]);
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -306,6 +318,25 @@ export default function HandWorldScene({
                 aria-label="Chat message"
               />
             </form>
+          )}
+          {chatHistory.length > 0 && (
+            <div
+              ref={chatHistoryRef}
+              className="chat-history-panel"
+              aria-label="Chat history"
+            >
+              {chatHistory.map((msg) => (
+                <div key={msg.id} className="chat-history-message">
+                  <span
+                    className="chat-history-name"
+                    style={{ color: msg.playerColor }}
+                  >
+                    {msg.playerName}
+                  </span>
+                  <span className="chat-history-text">{msg.text}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

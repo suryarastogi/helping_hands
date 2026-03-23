@@ -8,6 +8,18 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Chat History Panel (2026-03-23) — Completed
+
+**Implemented (v289):**
+- Added `ChatMessage` type and `CHAT_HISTORY_MAX` (50) constant
+- `useMultiplayer` hook now tracks chat history (local + remote messages via Yjs awareness)
+- Deduplication of repeated awareness updates for the same message
+- Scrollable chat history panel in HandWorldScene with auto-scroll, player-colored names
+- History cleared on world view deactivation
+- 8 new tests (311 total, up from 303)
+
+## Recently Completed
+
 ### useSchedules Branch Coverage (2026-03-23) — Completed
 
 **Implemented (v288):**

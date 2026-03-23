@@ -111,8 +111,23 @@ endpoints are required.
 
 **Constants:** `CHAT_DISPLAY_MS` (4000ms), `CHAT_MAX_LENGTH` (120 chars).
 
+## Chat history panel (v289)
+
+A scrollable chat history panel below the chat input retains all messages sent
+during the current session. Messages are captured in the `useMultiplayer` hook
+and stored in a `chatHistory` state array (capped at `CHAT_HISTORY_MAX = 50`).
+
+**Local messages** are recorded immediately in `sendChat()`. **Remote messages**
+are captured from Yjs awareness change events with deduplication — the hook
+tracks `clientId:text` pairs to avoid recording the same bubble twice while it
+remains in the awareness state.
+
+The panel renders inside the Factory Floor HUD with auto-scroll to the newest
+message. Each entry shows the player name (colored) and message text.
+
+History is cleared when the player leaves the world view (hook deactivation).
+
 ## Future extensions
 
 - Shared Y.Doc state for persistent world features (e.g. placed objects)
 - Player names from server auth context
-- Chat history panel

@@ -180,6 +180,7 @@ export default function App() {
     localEmote,
     localChat,
     connectionStatus: yjsConnStatus,
+    chatHistory,
     sendChat,
   } = useMultiplayer({
     active: dashboardView === "world",
@@ -2142,6 +2143,7 @@ export default function App() {
               remoteChats={remoteChats}
               localChat={localChat}
               connectionStatus={yjsConnStatus}
+              chatHistory={chatHistory}
               onSendChat={sendChat}
               playerNameInput={playerNameInput}
               onPlayerNameChange={setPlayerNameInput}

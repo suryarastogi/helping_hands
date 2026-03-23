@@ -4,11 +4,25 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [2026-03-23 v285](exec-plans/active/v285-extract-use-schedules-hook.md) —
-  Extract `useSchedules` hook from App.tsx — schedule CRUD state and handlers;
-  App.tsx reduced from 2,462 to 2,275 lines; 13 tests (273 frontend passed)
+(No active plans.)
 
 ## Completed plans
+
+- [2026-03-23 v289](exec-plans/completed/2026/v289-chat-history-panel.md) —
+  Chat history panel for Hand World multiplayer — scrollable message log,
+  tracks local + remote chat messages via Yjs awareness; 8 new tests (311 total)
+
+- [2026-03-23 v288](exec-plans/completed/2026/v288-use-schedules-branch-coverage.md) —
+  useSchedules branch coverage: 9 tests, 100% statements, 95% branches
+
+- [2026-03-23 v287](exec-plans/completed/2026/v287-multiplayer-chat-bubbles.md) —
+  Multiplayer chat bubbles via Yjs awareness; 13 tests
+
+- [2026-03-23 v286](exec-plans/completed/2026/v286-extract-use-movement-hook.md) —
+  Extract useMovement hook — keyboard input, collision detection; 8 tests
+
+- [2026-03-23 v285](exec-plans/completed/2026/v285-extract-use-schedules-hook.md) —
+  Extract useSchedules hook — schedule CRUD state and handlers; 13 tests
 
 - [2026-03-23 v284](exec-plans/completed/2026/v284-decompose-test-files.md) —
   Decompose monolithic `App.test.tsx` into co-located test files matching

@@ -1,6 +1,8 @@
 # Week 13 (Mar 20 – Mar 26, 2026)
 
-Multiplayer Hand World feature implementation, testing/consolidation, and emotes.
+Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
+migration, frontend decomposition, chat bubbles, schedule hook coverage, and chat
+history panel.
 
 ---
 
@@ -120,6 +122,30 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 
 ---
 
+## Mar 23 — Multiplayer Chat Bubbles (v287)
+
+**Chat feature:** Players send text messages via input field, displayed as speech bubbles above avatars. Chat broadcast via Yjs awareness `chat` field — no new backend endpoints. `CHAT_DISPLAY_MS` (4s) auto-clear, `CHAT_MAX_LENGTH` (120 chars). Chat input appears in Factory Floor panel when connected.
+
+**13 new tests, 294 total passing.**
+
+---
+
+## Mar 23 — useSchedules Branch Coverage (v288)
+
+**Coverage hardening:** Added 9 tests covering error paths, edit mode, and optional fields in `useSchedules` hook. Coverage: 81% → 100% statements, 60% → 95% branches. Overall frontend: 88.46% → 89.57% statements, 80.26% → 82.67% branches.
+
+**9 new tests, 303 total passing.**
+
+---
+
+## Mar 23 — Chat History Panel (v289)
+
+**Chat history:** Added scrollable chat history panel to Hand World so players can review past messages. `ChatMessage` type, `CHAT_HISTORY_MAX` (50) constant. `useMultiplayer` hook tracks both local and remote messages with deduplication. Panel renders in Factory Floor HUD with auto-scroll and player-colored names. History cleared on deactivation.
+
+**8 new tests, 311 total passing.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -136,3 +162,6 @@ Multiplayer Hand World feature implementation, testing/consolidation, and emotes
 - `v284-decompose-test-files.md`
 - `v285-extract-use-schedules-hook.md`
 - `v286-extract-use-movement-hook.md`
+- `v287-multiplayer-chat-bubbles.md`
+- `v288-use-schedules-branch-coverage.md`
+- `v289-chat-history-panel.md`

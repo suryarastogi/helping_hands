@@ -2328,6 +2328,37 @@ h2 {
   box-shadow: 0 0 0 1px #3b82f6;
 }
 
+.chat-history-panel {
+  margin-top: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  background: #0a1324;
+  padding: 4px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+
+.chat-history-message {
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 0;
+}
+
+.chat-history-name {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.chat-history-name::after {
+  content: ":";
+}
+
+.chat-history-text {
+  color: #cbd5e1;
+}
+
 button.worker-sprite {
   position: absolute;
   top: 0;

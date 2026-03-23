@@ -227,4 +227,69 @@ describe("useMultiplayer hook", () => {
 
     expect(result.current.remoteChats["200"]).toBe("Hi there");
   });
+
+  // --- Chat history ---
+
+  it("accumulates local chat messages in chatHistory", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.sendChat("First"));
+    expect(result.current.chatHistory).toHaveLength(1);
+    expect(result.current.chatHistory[0].text).toBe("First");
+    expect(result.current.chatHistory[0].playerName).toBeTruthy();
+
+    act(() => vi.advanceTimersByTime(5000));
+
+    act(() => result.current.sendChat("Second"));
+    expect(result.current.chatHistory).toHaveLength(2);
+    expect(result.current.chatHistory[1].text).toBe("Second");
+
+    vi.useRealTimers();
+  });
+
+  it("accumulates remote chat messages in chatHistory", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(300, {
+      player: { player_id: "300", name: "RemoteUser", color: "#16a34a", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "Hey!" },
+    });
+
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.chatHistory).toHaveLength(1);
+    expect(result.current.chatHistory[0].text).toBe("Hey!");
+    expect(result.current.chatHistory[0].playerName).toBe("RemoteUser");
+    expect(result.current.chatHistory[0].playerColor).toBe("#16a34a");
+  });
+
+  it("deduplicates repeated remote chat awareness updates", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(400, {
+      player: { player_id: "400", name: "Dup", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "Repeat" },
+    });
+
+    act(() => mockAwareness._setRemoteStates(states));
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.chatHistory).toHaveLength(1);
+  });
+
+  it("clears chatHistory when deactivated", () => {
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    act(() => result.current.sendChat("Before deactivate"));
+    expect(result.current.chatHistory).toHaveLength(1);
+
+    rerender({ ...defaultOpts(), active: false });
+    expect(result.current.chatHistory).toHaveLength(0);
+  });
 });

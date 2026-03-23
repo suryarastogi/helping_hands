@@ -5,7 +5,7 @@ import { fireEvent, render } from "@testing-library/react";
 import HandWorldScene from "./HandWorldScene";
 import type { SceneWorkerEntry } from "./HandWorldScene";
 import type { RemotePlayer } from "../hooks/useMultiplayer";
-import type { ClaudeUsageResponse, FloatingNumber } from "../types";
+import type { ChatMessage, ClaudeUsageResponse, FloatingNumber } from "../types";
 
 const BOT_STYLE = {
   bodyColor: "#10a37f",
@@ -51,6 +51,7 @@ const BASE_SCENE_PROPS = {
   remoteChats: {} as Record<string, string>,
   localChat: null as string | null,
   connectionStatus: "connected" as const,
+  chatHistory: [] as ChatMessage[],
   onSendChat: vi.fn(),
   playerNameInput: "Tester",
   onPlayerNameChange: vi.fn(),
@@ -257,5 +258,49 @@ describe("HandWorldScene component", () => {
     const bubble = container.querySelector(".remote-player .chat-bubble");
     expect(bubble).toBeTruthy();
     expect(bubble?.textContent).toBe("Hey!");
+  });
+
+  // --- Chat history panel ---
+
+  it("renders chat history panel when messages exist", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", playerName: "Alice", playerColor: "#e11d48", text: "Hello!", timestamp: 1000 },
+      { id: "m2", playerName: "Bob", playerColor: "#2563eb", text: "Hi Alice!", timestamp: 2000 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatHistory={messages} />
+    );
+    const panel = container.querySelector(".chat-history-panel");
+    expect(panel).toBeTruthy();
+    expect(panel?.getAttribute("aria-label")).toBe("Chat history");
+
+    const msgElements = container.querySelectorAll(".chat-history-message");
+    expect(msgElements).toHaveLength(2);
+
+    const names = container.querySelectorAll(".chat-history-name");
+    expect(names[0].textContent).toBe("Alice");
+    expect(names[1].textContent).toBe("Bob");
+
+    const texts = container.querySelectorAll(".chat-history-text");
+    expect(texts[0].textContent).toBe("Hello!");
+    expect(texts[1].textContent).toBe("Hi Alice!");
+  });
+
+  it("hides chat history panel when no messages", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatHistory={[]} />
+    );
+    expect(container.querySelector(".chat-history-panel")).toBeNull();
+  });
+
+  it("applies player color to chat history names", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", playerName: "ColorTest", playerColor: "#16a34a", text: "Green", timestamp: 1000 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatHistory={messages} />
+    );
+    const name = container.querySelector(".chat-history-name") as HTMLElement;
+    expect(name.style.color).toBe("rgb(22, 163, 74)");
   });
 });

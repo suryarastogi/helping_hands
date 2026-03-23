@@ -10,11 +10,12 @@ import { WebsocketProvider } from "y-websocket";
 
 import {
   CHAT_DISPLAY_MS,
+  CHAT_HISTORY_MAX,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   PLAYER_COLORS,
 } from "../constants";
-import type { PlayerDirection } from "../types";
+import type { ChatMessage, PlayerDirection } from "../types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,6 +55,8 @@ export type UseMultiplayerReturn = {
   localEmote: string | null;
   localChat: string | null;
   connectionStatus: ConnectionStatus;
+  /** Accumulated chat history (local + remote), newest last. */
+  chatHistory: ChatMessage[];
   /** Trigger a local emote by key ("1"–"4"). */
   triggerEmote: (key: string) => void;
   /** Send a chat message that appears as a bubble above the local player. */
@@ -104,9 +107,12 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [localEmote, setLocalEmote] = useState<string | null>(null);
   const [localChat, setLocalChat] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
+  /** Track which remote chat texts we have already recorded, keyed by `clientId:text`. */
+  const seenRemoteChatsRef = useRef<Set<string>>(new Set());
 
   // --- Connection lifecycle ---
   useEffect(() => {
@@ -120,6 +126,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         yjsDocRef.current = null;
       }
       setRemotePlayers([]);
+      setChatHistory([]);
+      seenRemoteChatsRef.current.clear();
       setConnectionStatus("disconnected");
       return;
     }
@@ -184,6 +192,34 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setRemotePlayers(others);
       setRemoteEmotes(newEmotes);
       setRemoteChats(newChats);
+
+      // Record new remote chat messages into history.
+      for (const [pid, text] of Object.entries(newChats)) {
+        const dedupeKey = `${pid}:${text}`;
+        if (!seenRemoteChatsRef.current.has(dedupeKey)) {
+          seenRemoteChatsRef.current.add(dedupeKey);
+          const sender = others.find((o) => o.player_id === pid);
+          setChatHistory((prev) => {
+            const msg: ChatMessage = {
+              id: `${pid}-${Date.now()}`,
+              playerName: sender?.name ?? `Player ${pid}`,
+              playerColor: sender?.color ?? PLAYER_COLORS[0],
+              text,
+              timestamp: Date.now(),
+            };
+            const next = [...prev, msg];
+            return next.length > CHAT_HISTORY_MAX ? next.slice(-CHAT_HISTORY_MAX) : next;
+          });
+        }
+      }
+
+      // Clean dedupe keys for chats that are no longer active.
+      for (const key of seenRemoteChatsRef.current) {
+        const [pid] = key.split(":");
+        if (!newChats[pid]) {
+          seenRemoteChatsRef.current.delete(key);
+        }
+      }
     };
 
     provider.awareness.on("change", onAwarenessChange);
@@ -275,6 +311,22 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setTimeout(() => setLocalChat(null), CHAT_DISPLAY_MS);
 
       const provider = yjsProviderRef.current;
+
+      // Record local message in chat history.
+      const doc = yjsDocRef.current;
+      const myId = doc ? String(doc.clientID) : "local";
+      const localState = provider?.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+      setChatHistory((prev) => {
+        const msg: ChatMessage = {
+          id: `${myId}-${Date.now()}`,
+          playerName: (localState?.name as string) ?? "You",
+          playerColor: (localState?.color as string) ?? PLAYER_COLORS[0],
+          text,
+          timestamp: Date.now(),
+        };
+        const next = [...prev, msg];
+        return next.length > CHAT_HISTORY_MAX ? next.slice(-CHAT_HISTORY_MAX) : next;
+      });
       if (provider) {
         const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
         if (current) {
@@ -319,6 +371,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     localEmote,
     localChat,
     connectionStatus,
+    chatHistory,
     triggerEmote,
     sendChat,
   };

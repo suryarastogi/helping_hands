@@ -2,6 +2,14 @@
 
 export type PlayerDirection = "down" | "up" | "left" | "right";
 
+export type ChatMessage = {
+  id: string;
+  playerName: string;
+  playerColor: string;
+  text: string;
+  timestamp: number;
+};
+
 export type WorkerVariant = "bot-alpha" | "bot-round" | "bot-heavy" | "goose";
 
 export type CharacterStyle = {
