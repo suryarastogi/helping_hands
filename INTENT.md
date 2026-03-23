@@ -8,6 +8,14 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### useSchedules Branch Coverage (2026-03-23) — Completed
+
+**Implemented (v288):**
+- Added 9 tests to `useSchedules.test.tsx` covering error paths, edit mode, optional fields
+- `useSchedules.ts` coverage: 81% → 100% statements, 60% → 95% branches
+- Overall frontend coverage: 88.46% → 89.57% statements, 80.26% → 82.67% branches
+- 303 tests total (up from 294)
+
 ### Multiplayer Chat Bubbles (2026-03-23) — Completed
 
 **Implemented (v287):**

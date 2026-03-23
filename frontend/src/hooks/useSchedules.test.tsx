@@ -214,4 +214,143 @@ describe("useSchedules", () => {
 
     expect(fetchSpy.mock.calls[0][0]).toContain("/schedules/sched-1/trigger");
   });
+
+  it("triggerSchedule does nothing when confirm is cancelled", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const { result } = renderHook(() => useSchedules());
+    await act(() => result.current.triggerSchedule("sched-1"));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("triggerSchedule sets error on API failure", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      errorResponse("trigger failed", 500),
+    );
+
+    const { result } = renderHook(() => useSchedules());
+    await act(() => result.current.triggerSchedule("sched-1"));
+
+    expect(result.current.scheduleError).toContain("trigger failed");
+  });
+
+  it("toggleSchedule sets error on API failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      errorResponse("toggle failed", 500),
+    );
+
+    const { result } = renderHook(() => useSchedules());
+    await act(() => result.current.toggleSchedule("sched-1", true));
+
+    expect(result.current.scheduleError).toContain("toggle failed");
+  });
+
+  it("toggleSchedule calls enable endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ ok: true }))
+      .mockResolvedValueOnce(jsonResponse({ schedules: [], total: 0 }));
+
+    const { result } = renderHook(() => useSchedules());
+    await act(() => result.current.toggleSchedule("sched-1", true));
+
+    expect(fetchSpy.mock.calls[0][0]).toContain("/schedules/sched-1/enable");
+  });
+
+  it("openEditScheduleForm sets error on fetch failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      errorResponse("not found", 404),
+    );
+
+    const { result } = renderHook(() => useSchedules());
+    await act(() => result.current.openEditScheduleForm("bad-id"));
+
+    expect(result.current.scheduleError).toContain("not found");
+    expect(result.current.editingScheduleId).toBeNull();
+  });
+
+  it("deleteSchedule sets error on fetch failure", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      errorResponse("delete failed", 500),
+    );
+
+    const { result } = renderHook(() => useSchedules());
+    await act(() => result.current.deleteSchedule("sched-1"));
+
+    expect(result.current.scheduleError).toContain("delete failed");
+  });
+
+  it("saveSchedule uses PUT when editing an existing schedule", async () => {
+    // First, load a schedule for editing
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse(SAMPLE_SCHEDULE));
+
+    const { result } = renderHook(() => useSchedules());
+    await act(() => result.current.openEditScheduleForm("sched-1"));
+
+    // Now save — should use PUT
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ schedule_id: "sched-1" }))
+      .mockResolvedValueOnce(jsonResponse({ schedules: [SAMPLE_SCHEDULE], total: 1 }));
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.saveSchedule(fakeEvent));
+
+    const [url, opts] = fetchSpy.mock.calls[0];
+    expect(url).toContain("/schedules/sched-1");
+    expect((opts as RequestInit).method).toBe("PUT");
+  });
+
+  it("saveSchedule sets error on API failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      errorResponse("save failed", 500),
+    );
+
+    const { result } = renderHook(() => useSchedules());
+    act(() => {
+      result.current.updateScheduleField("name", "Test");
+      result.current.updateScheduleField("cron_expression", "0 0 * * *");
+      result.current.updateScheduleField("repo_path", "owner/repo");
+      result.current.updateScheduleField("prompt", "Do stuff");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.saveSchedule(fakeEvent));
+
+    expect(result.current.scheduleError).toContain("save failed");
+  });
+
+  it("saveSchedule includes optional fields when populated", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ schedule_id: "new-2" }))
+      .mockResolvedValueOnce(jsonResponse({ schedules: [], total: 0 }));
+
+    const { result } = renderHook(() => useSchedules());
+    act(() => {
+      result.current.updateScheduleField("name", "Full");
+      result.current.updateScheduleField("cron_expression", "0 0 * * *");
+      result.current.updateScheduleField("repo_path", "owner/repo");
+      result.current.updateScheduleField("prompt", "Do stuff");
+      result.current.updateScheduleField("model", "gpt-5.2");
+      result.current.updateScheduleField("pr_number", "42");
+      result.current.updateScheduleField("github_token", "ghp_abc");
+      result.current.updateScheduleField("reference_repos", "foo/bar, baz/qux");
+      result.current.updateScheduleField("tools", "read, write");
+      result.current.updateScheduleField("skills", "docs, test");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.saveSchedule(fakeEvent));
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.model).toBe("gpt-5.2");
+    expect(body.pr_number).toBe(42);
+    expect(body.github_token).toBe("ghp_abc");
+    expect(body.reference_repos).toEqual(["foo/bar", "baz/qux"]);
+    expect(body.tools).toEqual(["read", "write"]);
+    expect(body.skills).toEqual(["docs", "test"]);
+  });
 });
