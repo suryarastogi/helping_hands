@@ -8,6 +8,13 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-23 v297](exec-plans/completed/2026/v297-extract-app-overlays.md) —
+  Extract AppOverlays component (service health bar, toasts, notification banner)
+  from App.tsx; ~132 lines removed; 8 tests
+
+- [2026-03-23 v296](exec-plans/completed/2026/v296-extract-task-list-sidebar.md) —
+  Extract TaskListSidebar component from App.tsx; ~69 lines removed; 7 tests
+
 - [2026-03-23 v292](exec-plans/completed/2026/v292-multiplayer-stats-player-count.md) —
   Multiplayer stats endpoint & player count badge — `/health/multiplayer` API,
   live player-count badge in Hand World header; 13 tests (337 total)

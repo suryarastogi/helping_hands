@@ -1,5 +1,8 @@
 # v297: Extract AppOverlays Component
 
+**Date:** 2026-03-23
+**Status:** Completed
+
 ## Goal
 
 Extract the overlay UI elements (service health bar, toast notifications, notification permission banner) from App.tsx into a dedicated `AppOverlays` component.
@@ -16,7 +19,7 @@ App.tsx is 1,506 lines. The overlay elements at the bottom of the render are sel
 - [x] Write tests for AppOverlays
 - [x] Update FRONTEND.md component listing
 - [x] Update INTENT.md
-- [ ] Verify lint, typecheck, all tests pass
+- [x] Verify lint, typecheck, all tests pass
 
 ## Scope
 
