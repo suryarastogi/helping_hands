@@ -1721,4 +1721,48 @@ describe("Multiplayer WebSocket", () => {
     // The world scene should still be visible and functional.
     expect(screen.getByRole("heading", { name: "Hand World" })).toBeInTheDocument();
   });
+
+  it("shows local emote bubble when pressing emote key", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      ws._receive({ type: "players_sync", your_id: "me1", players: [] });
+    });
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "2", bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Emote: celebrate")).toBeInTheDocument();
+    });
+  });
+
+  it("shows remote emote bubble on player_emoted message", async () => {
+    switchToWorld();
+    await vi.waitFor(() => expect(mockWsInstances.length).toBeGreaterThanOrEqual(1));
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      ws._receive({
+        type: "players_sync",
+        your_id: "me1",
+        players: [
+          { player_id: "remote1", name: "Remote", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
+        ],
+      });
+    });
+
+    await waitFor(() => expect(screen.getByLabelText("Remote")).toBeInTheDocument());
+
+    act(() => {
+      ws._receive({ type: "player_emoted", player_id: "remote1", emote: "sparkle" });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Emote: sparkle")).toBeInTheDocument();
+    });
+  });
 });

@@ -214,6 +214,20 @@ type RemotePlayer = {
 const MULTIPLAYER_RECONNECT_MS = 3000;
 const MULTIPLAYER_THROTTLE_MS = 50;
 
+const EMOTE_DISPLAY_MS = 2000;
+const EMOTE_MAP: Record<string, string> = {
+  wave: "\u{1F44B}",
+  celebrate: "\u{1F389}",
+  thumbsup: "\u{1F44D}",
+  sparkle: "\u{2728}",
+};
+const EMOTE_KEY_BINDINGS: Record<string, string> = {
+  "1": "wave",
+  "2": "celebrate",
+  "3": "thumbsup",
+  "4": "sparkle",
+};
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
 const TASK_HISTORY_LIMIT = 60;
@@ -1067,6 +1081,8 @@ export default function App() {
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const lastSentRef = useRef(0);
+  const [localEmote, setLocalEmote] = useState<string | null>(null);
+  const [remoteEmotes, setRemoteEmotes] = useState<Record<string, string>>({});
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
@@ -1764,6 +1780,17 @@ export default function App() {
                   : p
               )
             );
+          } else if (msgType === "player_emoted") {
+            const pid = data.player_id as string;
+            const emote = data.emote as string;
+            setRemoteEmotes((prev) => ({ ...prev, [pid]: emote }));
+            setTimeout(() => {
+              setRemoteEmotes((prev) => {
+                const next = { ...prev };
+                delete next[pid];
+                return next;
+              });
+            }, EMOTE_DISPLAY_MS);
           }
         } catch {
           // Ignore malformed messages.
@@ -1816,6 +1843,34 @@ export default function App() {
       );
     }
   }, [dashboardView, playerPosition, playerDirection, isPlayerWalking]);
+
+  // --- Emote key bindings (1-4) ---
+  useEffect(() => {
+    if (dashboardView !== "world") return;
+
+    const handleEmoteKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable;
+      if (isTyping) return;
+
+      const emote = EMOTE_KEY_BINDINGS[event.key];
+      if (!emote) return;
+
+      setLocalEmote(emote);
+      setTimeout(() => setLocalEmote(null), EMOTE_DISPLAY_MS);
+
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "emote", emote }));
+      }
+    };
+
+    window.addEventListener("keydown", handleEmoteKey);
+    return () => window.removeEventListener("keydown", handleEmoteKey);
+  }, [dashboardView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3527,7 +3582,7 @@ export default function App() {
                     </div>
                   )}
                   <div className="status-summary-hint">
-                    {myPlayerId ? "Multiplayer active \u00b7 Use arrow keys to walk" : "Use arrow keys to walk"}
+                    {myPlayerId ? "Multiplayer active \u00b7 Arrow keys: walk \u00b7 1-4: emote" : "Use arrow keys to walk"}
                   </div>
                 </div>
 
@@ -3579,6 +3634,11 @@ export default function App() {
                   }}
                   aria-label="You (player character)"
                 >
+                  {localEmote && (
+                    <span className="emote-bubble" aria-label={`Emote: ${localEmote}`}>
+                      {EMOTE_MAP[localEmote]}
+                    </span>
+                  )}
                   <span className="human-shadow" />
                   <span className="human-body">
                     <span className="human-helmet" />
@@ -3612,6 +3672,11 @@ export default function App() {
                     aria-label={rp.name}
                   >
                     <span className="remote-player-name">{rp.name}</span>
+                    {remoteEmotes[rp.player_id] && (
+                      <span className="emote-bubble" aria-label={`Emote: ${remoteEmotes[rp.player_id]}`}>
+                        {EMOTE_MAP[remoteEmotes[rp.player_id]]}
+                      </span>
+                    )}
                     <span className="human-shadow" />
                     <span className="human-body">
                       <span className="human-helmet" />

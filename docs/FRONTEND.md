@@ -147,7 +147,8 @@ Browser C  ──WebSocket──┘     (in-memory player state)
 - `WorldConnectionManager` tracks connected players in memory
 - On connect: assigns unique ID, name, and colour from a palette
 - Sends `players_sync` with full state to the newcomer
-- Broadcasts `player_joined` / `player_left` / `player_moved` to others
+- Broadcasts `player_joined` / `player_left` / `player_moved` / `player_emoted` to others
+- Validates emote names against `_VALID_EMOTES` before broadcasting
 - Clamps positions to scene bounds server-side
 - Caps connections at 20 to prevent resource exhaustion
 
@@ -157,6 +158,8 @@ Browser C  ──WebSocket──┘     (in-memory player state)
 - Renders `RemotePlayer` avatars with per-player colours via CSS custom properties
 - Auto-reconnects on disconnect (3s delay)
 - Shows online player count in the Factory Floor status panel
+- Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
+- Emote bubbles float up and fade out over 2 seconds above the avatar
 
 ### Protocol messages
 
@@ -166,7 +169,9 @@ Browser C  ──WebSocket──┘     (in-memory player state)
 | S→C | `player_joined` | `{ player_id, name, color, x, y, direction, walking }` |
 | S→C | `player_left` | `{ player_id }` |
 | S→C | `player_moved` | `{ player_id, x, y, direction, walking }` |
+| S→C | `player_emoted` | `{ player_id, emote }` |
 | C→S | `position` | `{ x, y, direction, walking }` |
+| C→S | `emote` | `{ emote }` |
 
 ### Testing multiplayer locally
 

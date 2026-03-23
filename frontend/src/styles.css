@@ -2126,6 +2126,32 @@ h2 {
   animation: arm-walk-right 0.25s steps(2, end) infinite;
 }
 
+.emote-bubble {
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  pointer-events: none;
+  z-index: 10;
+  animation: emote-float 2s ease-out forwards;
+}
+
+@keyframes emote-float {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
 button.worker-sprite {
   position: absolute;
   top: 0;

@@ -1,6 +1,6 @@
 # Week 13 (Mar 20 – Mar 26, 2026)
 
-Multiplayer Hand World feature implementation and follow-up testing/consolidation.
+Multiplayer Hand World feature implementation, testing/consolidation, and emotes.
 
 ---
 
@@ -26,7 +26,16 @@ Multiplayer Hand World feature implementation and follow-up testing/consolidatio
 
 ---
 
+## Mar 23 — Multiplayer Emotes (v275)
+
+**Emote system:** Players press keys 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle). Backend validates against `_VALID_EMOTES` and broadcasts `player_emoted` to others. Frontend renders emoji bubbles with float-up + fade-out CSS animation (2s duration). Emote hint shown in multiplayer status panel.
+
+**7 backend tests + 2 frontend tests.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
 - `v274-multiplayer-testing-consolidation.md`
+- `v275-multiplayer-emotes.md`

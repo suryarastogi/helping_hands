@@ -38,6 +38,9 @@ _POSITION_KEYS = {"x", "y", "direction", "walking"}
 
 _VALID_DIRECTIONS = {"up", "down", "left", "right"}
 
+_VALID_EMOTES = frozenset({"wave", "celebrate", "thumbsup", "sparkle"})
+"""Allowed emote names that clients can trigger."""
+
 _BOUNDS_MIN_X = 4.0
 _BOUNDS_MAX_X = 96.0
 _BOUNDS_MIN_Y = 6.0
@@ -183,6 +186,25 @@ class WorldConnectionManager:
             exclude=player_id,
         )
 
+    async def handle_emote(self, player_id: str, data: dict[str, Any]) -> None:
+        """Validate and broadcast an emote from *player_id*."""
+        player = self._players.get(player_id)
+        if player is None:
+            return
+
+        emote = data.get("emote", "")
+        if emote not in _VALID_EMOTES:
+            return
+
+        await self._broadcast(
+            {
+                "type": "player_emoted",
+                "player_id": player_id,
+                "emote": emote,
+            },
+            exclude=player_id,
+        )
+
     async def _broadcast(
         self, message: dict[str, Any], *, exclude: str | None = None
     ) -> None:
@@ -223,7 +245,8 @@ async def world_websocket_endpoint(websocket: WebSocket) -> None:
             msg_type = data.get("type")
             if msg_type == "position":
                 await world_manager.handle_position(player.player_id, data)
-            # Future message types (e.g. chat, emotes) can be added here.
+            elif msg_type == "emote":
+                await world_manager.handle_emote(player.player_id, data)
     except WebSocketDisconnect:
         pass
     finally:

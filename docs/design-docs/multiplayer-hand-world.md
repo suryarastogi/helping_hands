@@ -40,9 +40,24 @@ out-of-bounds positions.
 - **No authentication** — any WebSocket connection gets a player. Fine for
   internal/dev tool; would need auth for public deployment.
 
+## Emote system (v275)
+
+Players can trigger emotes by pressing number keys 1–4. The emote is broadcast
+to all other players via a `player_emoted` message. Emotes appear as emoji
+bubbles above the avatar that float up and fade out over 2 seconds.
+
+| Key | Emote     | Emoji |
+|-----|-----------|-------|
+| 1   | wave      | 👋    |
+| 2   | celebrate | 🎉    |
+| 3   | thumbsup  | 👍    |
+| 4   | sparkle   | ✨    |
+
+Server-side validation ensures only `_VALID_EMOTES` are broadcast. Invalid
+emote names are silently dropped.
+
 ## Future extensions
 
 - Chat bubbles above player avatars
-- Emote animations (wave, point, celebrate)
 - Redis-backed state for multi-worker deployments
 - Player names from server auth context

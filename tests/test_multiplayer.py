@@ -12,6 +12,7 @@ from helping_hands.server.multiplayer import (
     _BOUNDS_MIN_Y,
     _MAX_PLAYERS,
     _PLAYER_COLORS,
+    _VALID_EMOTES,
     PlayerState,
     WorldConnectionManager,
     world_websocket_endpoint,
@@ -235,6 +236,111 @@ class TestWorldConnectionManager:
 
 
 # ---------------------------------------------------------------------------
+# Emote handling
+# ---------------------------------------------------------------------------
+
+
+class TestEmoteHandling:
+    """Unit tests for emote broadcast logic."""
+
+    @pytest.mark.asyncio
+    async def test_valid_emote_broadcasts_to_others(self) -> None:
+        mgr = WorldConnectionManager()
+        ws1 = _make_ws()
+        ws2 = _make_ws()
+
+        p1 = await mgr.connect(ws1)
+        p2 = await mgr.connect(ws2)
+        assert p1 is not None and p2 is not None
+
+        ws2.send_text.reset_mock()
+
+        await mgr.handle_emote(p1.player_id, {"emote": "wave"})
+
+        broadcast_calls = ws2.send_text.call_args_list
+        assert len(broadcast_calls) == 1
+        msg = json.loads(broadcast_calls[0][0][0])
+        assert msg["type"] == "player_emoted"
+        assert msg["player_id"] == p1.player_id
+        assert msg["emote"] == "wave"
+
+    @pytest.mark.asyncio
+    async def test_invalid_emote_is_silently_ignored(self) -> None:
+        mgr = WorldConnectionManager()
+        ws1 = _make_ws()
+        ws2 = _make_ws()
+
+        p1 = await mgr.connect(ws1)
+        p2 = await mgr.connect(ws2)
+        assert p1 is not None and p2 is not None
+
+        ws2.send_text.reset_mock()
+
+        await mgr.handle_emote(p1.player_id, {"emote": "invalid_emote"})
+
+        # No broadcast should have been sent.
+        ws2.send_text.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_emote_from_unknown_player_is_noop(self) -> None:
+        mgr = WorldConnectionManager()
+        ws = _make_ws()
+        await mgr.connect(ws)
+
+        # Should not raise.
+        await mgr.handle_emote("nonexistent", {"emote": "wave"})
+
+    @pytest.mark.asyncio
+    async def test_emote_not_sent_back_to_sender(self) -> None:
+        mgr = WorldConnectionManager()
+        ws1 = _make_ws()
+
+        p1 = await mgr.connect(ws1)
+        assert p1 is not None
+
+        ws1.send_text.reset_mock()
+
+        await mgr.handle_emote(p1.player_id, {"emote": "celebrate"})
+
+        # Sender should not receive their own emote.
+        ws1.send_text.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_all_valid_emotes_are_accepted(self) -> None:
+        mgr = WorldConnectionManager()
+        ws1 = _make_ws()
+        ws2 = _make_ws()
+
+        p1 = await mgr.connect(ws1)
+        p2 = await mgr.connect(ws2)
+        assert p1 is not None and p2 is not None
+
+        for emote in _VALID_EMOTES:
+            ws2.send_text.reset_mock()
+            await mgr.handle_emote(p1.player_id, {"emote": emote})
+            assert ws2.send_text.call_count == 1
+            msg = json.loads(ws2.send_text.call_args[0][0])
+            assert msg["emote"] == emote
+
+    @pytest.mark.asyncio
+    async def test_emote_missing_key_is_ignored(self) -> None:
+        mgr = WorldConnectionManager()
+        ws1 = _make_ws()
+        ws2 = _make_ws()
+
+        p1 = await mgr.connect(ws1)
+        p2 = await mgr.connect(ws2)
+        assert p1 is not None and p2 is not None
+
+        ws2.send_text.reset_mock()
+
+        # No "emote" key in data.
+        await mgr.handle_emote(p1.player_id, {})
+
+        ws2.send_text.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
 # WebSocket endpoint integration
 # ---------------------------------------------------------------------------
 
@@ -259,6 +365,20 @@ class TestWorldWebSocketEndpoint:
             await world_websocket_endpoint(ws)
 
         # Player should have been cleaned up.
+        assert fresh_mgr.player_count == 0
+
+    @pytest.mark.asyncio
+    async def test_endpoint_handles_emote_then_disconnect(self) -> None:
+        ws = _make_ws()
+        emote_msg = json.dumps({"type": "emote", "emote": "sparkle"})
+        from fastapi import WebSocketDisconnect
+
+        ws.receive_text = AsyncMock(side_effect=[emote_msg, WebSocketDisconnect()])
+
+        fresh_mgr = WorldConnectionManager()
+        with patch("helping_hands.server.multiplayer.world_manager", fresh_mgr):
+            await world_websocket_endpoint(ws)
+
         assert fresh_mgr.player_count == 0
 
     @pytest.mark.asyncio
