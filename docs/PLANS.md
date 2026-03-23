@@ -12,8 +12,8 @@ Index of execution plans for helping_hands development.
   Multiplayer test coverage hardening: 7 backend edge-case tests (unknown player,
   missing fields, boundary values, capacity rejection in endpoint, dead connection
   cleanup with 3 players), 4 Yjs module-global tests, 16 frontend multiplayer
-  constant/collision tests; exports multiplayer constants for testability
-  (208 frontend tests passed, 36 backend multiplayer tests passed)
+  constant/collision tests; exports multiplayer constants for testability;
+  27 tests (7388 passed, 7 skipped)
 
 - [2026-03-17 v272](exec-plans/completed/2026/v272-mcp-path-error-cli-overrides-narrow-exception.md) —
   MCP `_reraise_path_error()` helper, CLI `_build_config_overrides()` DRY,
