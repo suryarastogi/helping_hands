@@ -3,7 +3,7 @@
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
 history panel, and continued component extraction (MonitorCard, SubmissionForm,
-ScheduleCard).
+ScheduleCard, TaskListSidebar).
 
 ---
 
@@ -195,6 +195,14 @@ ScheduleCard).
 
 ---
 
+## Mar 23 — Extract TaskListSidebar Component (v296)
+
+**Component extraction:** Moved inline `<aside>` sidebar block (~69 lines) into `TaskListSidebar` component. Renders dashboard view toggle (classic/world), navigation buttons, and submitted task list with status pills. 9 typed props. App.tsx: 1,575 → 1,506 lines. Updated FRONTEND.md with complete component listing.
+
+**18 new tests, 416 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -220,3 +228,4 @@ ScheduleCard).
 - `v293-extract-monitor-card.md`
 - `v294-extract-submission-form.md`
 - `v295-extract-schedule-card.md`
+- `v296-extract-task-list-sidebar.md`

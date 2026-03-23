@@ -44,10 +44,16 @@ frontend/src/
 ├── components/
 │   ├── HandWorldScene.tsx      # Full zen-garden scene (factory, desks, players, workers, HUD)
 │   ├── HandWorldScene.test.tsx # HandWorldScene render tests
+│   ├── MonitorCard.tsx         # Task output monitor card (tabs, filters, usage, resize)
+│   ├── MonitorCard.test.tsx    # MonitorCard render + interaction tests
 │   ├── PlayerAvatar.tsx        # Reusable human-player sprite component
 │   ├── PlayerAvatar.test.tsx   # PlayerAvatar render tests
-│   ├── MonitorCard.tsx         # Task output monitor card (tabs, filters, usage, resize)
-│   ├── MonitorCard.test.tsx   # MonitorCard render + interaction tests
+│   ├── ScheduleCard.tsx        # Schedule form + list (cron presets, CRUD, toggle enable)
+│   ├── ScheduleCard.test.tsx   # ScheduleCard render + interaction tests
+│   ├── SubmissionForm.tsx      # Build submission form (repo, prompt, advanced settings)
+│   ├── SubmissionForm.test.tsx # SubmissionForm render + field change tests
+│   ├── TaskListSidebar.tsx     # Left sidebar (view toggle, nav buttons, task list)
+│   ├── TaskListSidebar.test.tsx# TaskListSidebar render + interaction tests
 │   ├── WorkerSprite.tsx        # Worker sprite (bot + goose variants) with caption & floating numbers
 │   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/

@@ -12,6 +12,7 @@ import HandWorldScene from "./components/HandWorldScene";
 import MonitorCard from "./components/MonitorCard";
 import ScheduleCard from "./components/ScheduleCard";
 import SubmissionForm from "./components/SubmissionForm";
+import TaskListSidebar from "./components/TaskListSidebar";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName } from "./hooks/useMultiplayer";
 import { useSchedules } from "./hooks/useSchedules";
@@ -1420,85 +1421,17 @@ export default function App() {
   return (
     <>
     <main className="page">
-      <aside className="card task-list-card">
-        <div className="view-toggle" role="tablist" aria-label="Dashboard view">
-          <button
-            type="button"
-            role="tab"
-            className={`view-toggle-btn${dashboardView === "classic" ? " active" : ""}`}
-            aria-selected={dashboardView === "classic"}
-            onClick={() => setDashboardView("classic")}
-          >
-            Classic view
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={`view-toggle-btn${dashboardView === "world" ? " active" : ""}`}
-            aria-selected={dashboardView === "world"}
-            onClick={() => setDashboardView("world")}
-          >
-            Hand world
-          </button>
-        </div>
-        <button
-          type="button"
-          className={`new-submission-button${
-            dashboardView === "classic" && mainView === "submission" ? " active" : ""
-          }`}
-          onClick={openSubmissionView}
-        >
-          New submission
-        </button>
-        <button
-          type="button"
-          className={`new-submission-button${
-            mainView === "schedules" ? " active" : ""
-          }`}
-          style={{ marginTop: 0 }}
-          onClick={() => setMainView("schedules")}
-        >
-          Scheduled tasks
-        </button>
-        <div className="task-list-header">
-          <h2>Submitted tasks</h2>
-          <button
-            type="button"
-            className="text-button"
-            disabled={taskHistory.length === 0}
-            onClick={() => setTaskHistory([])}
-          >
-            Clear
-          </button>
-        </div>
-        {taskHistory.length === 0 ? (
-          <p className="empty-list">No tasks submitted yet.</p>
-        ) : (
-          <ul className="task-list">
-            {taskHistory.map((item) => (
-              <li key={item.taskId}>
-                <button
-                  type="button"
-                  className={`task-row${taskId === item.taskId ? " active" : ""}`}
-                  onClick={() => selectTask(item.taskId)}
-                  title={item.taskId}
-                >
-                  <span className="task-row-top">
-                    <code>{shortTaskId(item.taskId)}</code>
-                    <span className={`status-pill ${statusTone(item.status)}`}>
-                      {item.status}
-                    </span>
-                  </span>
-                  <span className="task-row-meta">
-                    {item.backend} • {item.repoPath || "manual"} •{" "}
-                    {new Date(item.lastUpdatedAt).toLocaleTimeString()}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
+      <TaskListSidebar
+        dashboardView={dashboardView}
+        onDashboardViewChange={setDashboardView}
+        mainView={mainView}
+        onNewSubmission={openSubmissionView}
+        onShowSchedules={() => setMainView("schedules")}
+        taskHistory={taskHistory}
+        selectedTaskId={taskId}
+        onSelectTask={selectTask}
+        onClearHistory={() => setTaskHistory([])}
+      />
 
       <div className="main-column">
         {dashboardView === "classic" ? (

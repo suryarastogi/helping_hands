@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Extract TaskListSidebar Component (2026-03-23) — Completed
+
+**Implemented (v296):**
+- Extracted `TaskListSidebar` component from inline sidebar JSX in App.tsx (~69 lines)
+- Component renders: view toggle (classic/world), nav buttons, submitted task list with status pills
+- Props interface: `TaskListSidebarProps` with 9 typed props
+- App.tsx reduced from 1,575 to 1,506 lines (-69 lines)
+- 18 new tests in `TaskListSidebar.test.tsx` (view toggle, button callbacks, task rendering, selection, clear)
+- 416 frontend tests total (up from 398)
+- Updated FRONTEND.md component listing with SubmissionForm, ScheduleCard, TaskListSidebar
+
 ### Extract ScheduleCard Component (2026-03-23) — Completed
 
 **Implemented (v295):**
