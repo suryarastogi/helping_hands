@@ -10,7 +10,7 @@ Index of execution plans for helping_hands development.
 
 - [2026-03-23 v289](exec-plans/completed/2026/v289-chat-history-panel.md) —
   Chat history panel for Hand World multiplayer — scrollable message log,
-  tracks local + remote chat messages via Yjs awareness; 8 new tests (311 total)
+  tracks local + remote chat messages via Yjs awareness; 8 tests (311 total)
 
 - [2026-03-23 v288](exec-plans/completed/2026/v288-use-schedules-branch-coverage.md) —
   useSchedules branch coverage: 9 tests, 100% statements, 95% branches

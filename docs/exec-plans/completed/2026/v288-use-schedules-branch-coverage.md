@@ -1,8 +1,16 @@
 # v288 — useSchedules Branch Coverage
 
+**Status:** Completed
 **Goal:** Raise `useSchedules.ts` branch coverage from 60% to >80%.
 
 **Result:** 100% statements, 94.59% branches. Overall frontend: 89.57% / 82.67%.
+
+## Tasks
+
+- [x] Add error-path tests for triggerSchedule, toggleSchedule, deleteSchedule, saveSchedule
+- [x] Add toggle enable path and edit mode tests
+- [x] Add optional fields coverage for saveSchedule
+- [x] Verify branch coverage >80%
 
 ## Tests added (9 new, 22 total)
 

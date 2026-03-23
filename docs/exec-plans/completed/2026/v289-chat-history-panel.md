@@ -41,6 +41,16 @@ messages from all participants. Currently chat bubbles appear above avatars for
 ### 7. Documentation
 - Update `docs/design-docs/multiplayer-hand-world.md` with chat history section
 
+## Tasks
+
+- [x] Add `ChatMessage` type to `types.ts`
+- [x] Add `CHAT_HISTORY_MAX` constant to `constants.ts`
+- [x] Add `chatHistory` state and capture logic in `useMultiplayer.ts`
+- [x] Add chat history panel UI in `HandWorldScene.tsx`
+- [x] Add CSS styles for chat history panel
+- [x] Add tests for chat history in useMultiplayer and HandWorldScene
+- [x] Update multiplayer design doc
+
 ## Metrics
 - Target: >80% branch coverage maintained
 - New tests: ~6-8
