@@ -10,10 +10,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-23 v280](exec-plans/completed/v280-extract-constants-player-avatar.md) —
+- [2026-03-23 v280](exec-plans/completed/2026/v280-extract-constants-player-avatar.md) —
   Extract `constants.ts` module and `PlayerAvatar` component to decouple
   multiplayer constants from App.tsx and deduplicate player sprite markup;
-  11 new tests (233 frontend passed)
+  12 tests (233 frontend passed)
 
 - [2026-03-23 v278](exec-plans/completed/2026/v278-legacy-ws-cleanup-connection-status.md) —
   Legacy WebSocket cleanup & connection status UI: deleted `multiplayer.py` and
