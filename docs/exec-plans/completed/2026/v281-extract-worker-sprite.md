@@ -1,7 +1,7 @@
 # v281 — Extract WorkerSprite component
 
 **Created:** 2026-03-23
-**Status:** Active
+**Status:** Completed (2026-03-23)
 
 ## Goal
 

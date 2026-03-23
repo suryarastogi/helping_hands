@@ -13,6 +13,8 @@ import {
   PLAYER_COLORS,
   PLAYER_MOVE_STEP,
   PLAYER_SIZE,
+} from "./constants";
+import {
   TASK_HISTORY_STORAGE_KEY,
   apiUrl,
   asRecord,
@@ -37,7 +39,7 @@ import {
   statusTone,
   upsertTaskHistory,
   wsUrl,
-} from "./App";
+} from "./App.utils";
 
 describe("apiUrl", () => {
   it("returns the path unchanged when API_BASE is empty", () => {

@@ -32,11 +32,12 @@ The React frontend is organized as a single-page application:
 ```
 frontend/src/
 ├── main.tsx              # Entry point, renders <App />
-├── App.tsx               # Main component (form, task list, monitors)
+├── App.tsx               # Main component (form, task list, monitors, world scene)
+├── App.utils.ts          # Pure utility functions, fetch helpers, app-level constants
 ├── App.test.tsx          # Component render + unit tests
 ├── App.utils.test.ts     # Utility function unit tests
 ├── constants.ts          # Shared constants (emotes, colours, scene geometry)
-├── types.ts              # Shared types (PlayerDirection, WorkerVariant, CharacterStyle, etc.)
+├── types.ts              # Shared types (25+ types: Backend, FormState, TaskStatus, etc.)
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
 ├── components/

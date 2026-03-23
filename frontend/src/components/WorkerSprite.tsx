@@ -13,7 +13,7 @@ import type {
   SceneWorkerPhase,
   WorkerVariant,
 } from "../types";
-import { cronFrequency, formatProviderName, repoName } from "../App";
+import { cronFrequency, formatProviderName, repoName } from "../App.utils";
 
 export type WorkerSpriteProps = {
   taskId: string;
