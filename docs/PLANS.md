@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-23 v292](exec-plans/completed/2026/v292-multiplayer-stats-player-count.md) —
+  Multiplayer stats endpoint & player count badge — `/health/multiplayer` API,
+  live player-count badge in Hand World header
+
 - [2026-03-23 v290](exec-plans/completed/2026/v290-player-idle-detection.md) —
   Player idle/AFK detection — floating zzz indicator after 30s of inactivity,
   idle status in presence panel; 13 tests (324 total)
