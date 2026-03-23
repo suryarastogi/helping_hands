@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Extract SubmissionForm Component (2026-03-23) — Completed
+
+**Implemented (v294):**
+- Extracted `SubmissionForm` component from inline `submissionCard` JSX in App.tsx (~152 lines)
+- Component renders repo path, prompt, Run button, and Advanced settings panel (backend, model, iterations, checkboxes, token, reference repos)
+- Props interface: `SubmissionFormProps` with `form`, `onFieldChange`, `onSubmit`
+- App.tsx reduced from 2,043 to 1,891 lines (-152 lines)
+- 17 new tests in `SubmissionForm.test.tsx` (rendering, field change callbacks, form submission, checkbox toggles, backend select)
+- 378 frontend tests total (up from 361)
+
 ### Extract MonitorCard Component (2026-03-23) — Completed
 
 **Implemented (v293):**

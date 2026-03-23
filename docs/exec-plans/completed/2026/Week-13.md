@@ -1,8 +1,8 @@
 # Week 13 (Mar 20 – Mar 26, 2026)
 
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
-migration, frontend decomposition, chat bubbles, schedule hook coverage, and chat
-history panel.
+migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
+history panel, and continued component extraction (MonitorCard, SubmissionForm).
 
 ---
 
@@ -170,6 +170,22 @@ history panel.
 
 ---
 
+## Mar 23 — Extract MonitorCard Component (v293)
+
+**Component extraction:** Moved inline `monitorCard` JSX (~146 lines) into `MonitorCard` component. Output tabs, prefix filters, usage display, cancel button, resizable pane, task inputs.
+
+**19 new tests, 361 frontend tests total.**
+
+---
+
+## Mar 23 — Extract SubmissionForm Component (v294)
+
+**Component extraction:** Moved inline `submissionCard` JSX (~152 lines) into `SubmissionForm` component. Repo path, prompt, Run button, Advanced settings (backend, model, iterations, checkboxes, token, reference repos). Props: `form`, `onFieldChange`, `onSubmit`. App.tsx: 2,043 → 1,891 lines.
+
+**17 new tests, 378 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -192,3 +208,5 @@ history panel.
 - `v290-player-idle-detection.md`
 - `v291-multiplayer-hook-branch-coverage.md`
 - `v292-multiplayer-stats-player-count.md`
+- `v293-extract-monitor-card.md`
+- `v294-extract-submission-form.md`
