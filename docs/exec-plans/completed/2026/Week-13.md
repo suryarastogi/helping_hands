@@ -203,6 +203,14 @@ ScheduleCard, TaskListSidebar).
 
 ---
 
+## Mar 23 — Extract AppOverlays Component (v297)
+
+**Component extraction:** Moved overlay UI (~132 lines) into `AppOverlays` component. Service health bar (4 indicators + test notification button), toast container with dismiss callbacks, notification permission banner with enable/dismiss. Service worker registration and notification permission state moved into component. 3 typed props. App.tsx: 1,506 → 1,374 lines.
+
+**15 new tests, 431 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -229,3 +237,4 @@ ScheduleCard, TaskListSidebar).
 - `v294-extract-submission-form.md`
 - `v295-extract-schedule-card.md`
 - `v296-extract-task-list-sidebar.md`
+- `v297-extract-app-overlays.md`

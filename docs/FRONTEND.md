@@ -48,6 +48,8 @@ frontend/src/
 │   ├── MonitorCard.test.tsx    # MonitorCard render + interaction tests
 │   ├── PlayerAvatar.tsx        # Reusable human-player sprite component
 │   ├── PlayerAvatar.test.tsx   # PlayerAvatar render tests
+│   ├── AppOverlays.tsx          # Notification banner, toast container, service health bar
+│   ├── AppOverlays.test.tsx    # AppOverlays render + interaction tests
 │   ├── ScheduleCard.tsx        # Schedule form + list (cron presets, CRUD, toggle enable)
 │   ├── ScheduleCard.test.tsx   # ScheduleCard render + interaction tests
 │   ├── SubmissionForm.tsx      # Build submission form (repo, prompt, advanced settings)

@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Extract AppOverlays Component (2026-03-23) — Completed
+
+**Implemented (v297):**
+- Extracted `AppOverlays` component from App.tsx (~132 lines)
+- Component handles: service health bar, toast notifications, notification permission banner, test notification button
+- Moved service worker registration and notification permission state into AppOverlays
+- Props interface: `AppOverlaysProps` with 3 typed props
+- App.tsx reduced from 1,506 to 1,374 lines (-132 lines)
+- 15 new tests in `AppOverlays.test.tsx` (health bar states, toasts, notification banner)
+- 431 frontend tests total (up from 416)
+
 ### Extract TaskListSidebar Component (2026-03-23) — Completed
 
 **Implemented (v296):**
