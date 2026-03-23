@@ -2303,6 +2303,31 @@ h2 {
   }
 }
 
+.idle-indicator {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  color: #94a3b8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  letter-spacing: 2px;
+  animation: idle-bob 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes idle-bob {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-6px);
+    opacity: 1;
+  }
+}
+
 .chat-input-form {
   margin-top: 6px;
 }

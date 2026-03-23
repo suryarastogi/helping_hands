@@ -77,6 +77,7 @@ export type HandWorldSceneProps = {
   remoteEmotes: Record<string, string>;
   remoteChats: Record<string, string>;
   localChat: string | null;
+  isLocalIdle: boolean;
   connectionStatus: ConnectionStatus;
   chatHistory: ChatMessage[];
   onSendChat: (message: string) => void;
@@ -114,6 +115,7 @@ export default function HandWorldScene({
   remoteEmotes,
   remoteChats,
   localChat,
+  isLocalIdle,
   connectionStatus,
   chatHistory,
   onSendChat,
@@ -291,7 +293,9 @@ export default function HandWorldScene({
                       className="presence-dot"
                       style={{ backgroundColor: rp.color }}
                     />
-                    <span className="presence-name">{rp.name}</span>
+                    <span className="presence-name">
+                      {rp.name}{rp.idle ? " (idle)" : ""}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -385,6 +389,7 @@ export default function HandWorldScene({
           walking={isPlayerWalking}
           emote={localEmote}
           chat={localChat}
+          idle={isLocalIdle}
           isLocal
           x={playerPosition.x}
           y={playerPosition.y}
@@ -398,6 +403,7 @@ export default function HandWorldScene({
             name={rp.name}
             emote={remoteEmotes[rp.player_id]}
             chat={remoteChats[rp.player_id]}
+            idle={rp.idle}
             color={rp.color}
             x={rp.x}
             y={rp.y}

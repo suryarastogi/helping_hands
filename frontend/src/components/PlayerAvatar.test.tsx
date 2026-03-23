@@ -97,4 +97,37 @@ describe("PlayerAvatar component", () => {
     );
     expect(container.querySelector(".chat-bubble")).toBeNull();
   });
+
+  it("renders idle indicator when idle is true", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal idle={true} x={50} y={50} />
+    );
+    const indicator = container.querySelector(".idle-indicator");
+    expect(indicator).toBeTruthy();
+    expect(indicator?.textContent).toBe("zzz");
+    expect(indicator?.getAttribute("aria-label")).toBe("Idle");
+  });
+
+  it("does not render idle indicator when idle is false", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal idle={false} x={50} y={50} />
+    );
+    expect(container.querySelector(".idle-indicator")).toBeNull();
+  });
+
+  it("hides idle indicator when emote is active", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal idle={true} emote="wave" x={50} y={50} />
+    );
+    expect(container.querySelector(".idle-indicator")).toBeNull();
+    expect(container.querySelector(".emote-bubble")).toBeTruthy();
+  });
+
+  it("hides idle indicator when chat is active", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal idle={true} chat="Hello!" x={50} y={50} />
+    );
+    expect(container.querySelector(".idle-indicator")).toBeNull();
+    expect(container.querySelector(".chat-bubble")).toBeTruthy();
+  });
 });

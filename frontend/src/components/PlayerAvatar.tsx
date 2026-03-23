@@ -21,6 +21,8 @@ export type PlayerAvatarProps = {
   emote?: string | null;
   /** Current chat message — rendered as a speech bubble above the avatar. */
   chat?: string | null;
+  /** Whether the player is idle/AFK. */
+  idle?: boolean;
   /** Avatar accent colour (used for remote-player CSS variables). */
   color?: string;
   /** True for the local (controlled) player; false for remote peers. */
@@ -36,6 +38,7 @@ export default function PlayerAvatar({
   name,
   emote,
   chat,
+  idle = false,
   color,
   isLocal = false,
   x,
@@ -69,6 +72,11 @@ export default function PlayerAvatar({
       {chat && (
         <span className="chat-bubble" aria-label={`Chat: ${chat}`}>
           {chat}
+        </span>
+      )}
+      {idle && !emote && !chat && (
+        <span className="idle-indicator" aria-label="Idle">
+          zzz
         </span>
       )}
       <span className="human-shadow" />

@@ -127,6 +127,25 @@ message. Each entry shows the player name (colored) and message text.
 
 History is cleared when the player leaves the world view (hook deactivation).
 
+## Idle/AFK detection (v290)
+
+Players who haven't moved for `IDLE_TIMEOUT_MS` (30 seconds) are
+automatically marked as idle. The idle state is broadcast via the Yjs
+awareness `idle` field.
+
+**Visual indicators:**
+- A floating "zzz" label with a gentle bob animation appears above idle
+  players (suppressed while an emote or chat bubble is active)
+- The presence panel appends "(idle)" after idle players' names
+
+**Implementation:**
+- `useMultiplayer` tracks `lastActivityRef` (reset on any position/direction
+  change) and runs a 5-second `setInterval` check
+- `isLocalIdle` state is exposed for the local player and broadcast via
+  awareness
+- `RemotePlayer` type includes `idle: boolean` parsed from remote awareness
+- `PlayerAvatar` renders `.idle-indicator` when `idle && !emote && !chat`
+
 ## Future extensions
 
 - Shared Y.Doc state for persistent world features (e.g. placed objects)

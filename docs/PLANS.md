@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-23 v290](exec-plans/completed/2026/v290-player-idle-detection.md) —
+  Player idle/AFK detection — floating zzz indicator after 30s of inactivity,
+  idle status in presence panel; 13 tests (324 total)
+
 - [2026-03-23 v289](exec-plans/completed/2026/v289-chat-history-panel.md) —
   Chat history panel for Hand World multiplayer — scrollable message log,
   tracks local + remote chat messages via Yjs awareness; 8 tests (311 total)

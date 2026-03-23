@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Player Idle/AFK Detection (2026-03-23) — Completed
+
+**Implemented (v290):**
+- Added `IDLE_TIMEOUT_MS` (30s) constant — players marked idle after 30s of no movement
+- `useMultiplayer` hook tracks `lastActivityRef` and broadcasts `idle` via Yjs awareness
+- `PlayerAvatar` renders floating "zzz" indicator (suppressed when emote/chat active)
+- Presence panel shows "(idle)" suffix next to idle remote players
+- CSS bob animation for idle indicator
+- 13 new tests (324 total, up from 311)
+
 ### Chat History Panel (2026-03-23) — Completed
 
 **Implemented (v289):**

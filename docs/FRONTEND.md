@@ -182,6 +182,8 @@ the Y.Doc itself remains empty.
 - Emote bubbles float up and fade out over 2 seconds above the avatar
 - Chat system: type a message in the chat input and press Enter to send
 - Chat bubbles appear above the sender's avatar and fade after 4 seconds
+- Idle detection: players with no movement for 30s show a floating "zzz" indicator
+- Presence panel shows "(idle)" suffix next to idle players
 
 ### Awareness state per client
 
@@ -194,6 +196,7 @@ the Y.Doc itself remains empty.
     "x": 50, "y": 50,
     "direction": "down",
     "walking": false,
+    "idle": false,
     "emote": null,
     "chat": null
   }

@@ -13,6 +13,7 @@ import {
   CHAT_HISTORY_MAX,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
+  IDLE_TIMEOUT_MS,
   PLAYER_COLORS,
 } from "../constants";
 import type { ChatMessage, PlayerDirection } from "../types";
@@ -31,6 +32,7 @@ export type RemotePlayer = {
   y: number;
   direction: PlayerDirection;
   walking: boolean;
+  idle: boolean;
 };
 
 export type UseMultiplayerOptions = {
@@ -54,6 +56,8 @@ export type UseMultiplayerReturn = {
   remoteChats: Record<string, string>;
   localEmote: string | null;
   localChat: string | null;
+  /** Whether the local player is idle (no movement for IDLE_TIMEOUT_MS). */
+  isLocalIdle: boolean;
   connectionStatus: ConnectionStatus;
   /** Accumulated chat history (local + remote), newest last. */
   chatHistory: ChatMessage[];
@@ -108,11 +112,14 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [localChat, setLocalChat] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [isLocalIdle, setIsLocalIdle] = useState(false);
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
   /** Track which remote chat texts we have already recorded, keyed by `clientId:text`. */
   const seenRemoteChatsRef = useRef<Set<string>>(new Set());
+  /** Timestamp of last local movement activity. */
+  const lastActivityRef = useRef<number>(Date.now());
 
   // --- Connection lifecycle ---
   useEffect(() => {
@@ -129,6 +136,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setChatHistory([]);
       seenRemoteChatsRef.current.clear();
       setConnectionStatus("disconnected");
+      setIsLocalIdle(false);
       return;
     }
 
@@ -157,6 +165,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       y: 50,
       direction: "down",
       walking: false,
+      idle: false,
       emote: null,
       chat: null,
     });
@@ -180,6 +189,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
           y: p.y ?? 50,
           direction: (p.direction ?? "down") as PlayerDirection,
           walking: p.walking ?? false,
+          idle: p.idle ?? false,
         });
         if (p.emote) {
           newEmotes[pid] = p.emote;
@@ -257,7 +267,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     }
   }, [active, playerName]);
 
-  // --- Send local position updates ---
+  // --- Send local position updates & track activity ---
   useEffect(() => {
     if (!active) return;
     const provider = yjsProviderRef.current;
@@ -266,14 +276,48 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
     if (!current) return;
 
+    // Any position/direction/walking change counts as activity.
+    lastActivityRef.current = Date.now();
+    if (isLocalIdle) {
+      setIsLocalIdle(false);
+    }
+
     provider.awareness.setLocalStateField("player", {
       ...current,
       x: playerPosition.x,
       y: playerPosition.y,
       direction: playerDirection,
       walking: isPlayerWalking,
+      idle: false,
     });
-  }, [active, playerPosition, playerDirection, isPlayerWalking]);
+  }, [active, playerPosition, playerDirection, isPlayerWalking]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // --- Idle detection timer ---
+  useEffect(() => {
+    if (!active) return;
+
+    const checkIdle = () => {
+      const elapsed = Date.now() - lastActivityRef.current;
+      const idle = elapsed >= IDLE_TIMEOUT_MS;
+
+      setIsLocalIdle((prev) => {
+        if (prev === idle) return prev;
+
+        // Broadcast idle state change.
+        const provider = yjsProviderRef.current;
+        if (provider) {
+          const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+          if (current) {
+            provider.awareness.setLocalStateField("player", { ...current, idle });
+          }
+        }
+        return idle;
+      });
+    };
+
+    const intervalId = setInterval(checkIdle, 5000);
+    return () => clearInterval(intervalId);
+  }, [active]);
 
   // --- Emote trigger callback ---
   const triggerEmote = useCallback(
@@ -370,6 +414,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     remoteChats,
     localEmote,
     localChat,
+    isLocalIdle,
     connectionStatus,
     chatHistory,
     triggerEmote,

@@ -10,6 +10,7 @@ import {
   EMOTE_MAP,
   FACTORY_COLLISION,
   FACTORY_POS,
+  IDLE_TIMEOUT_MS,
   INCINERATOR_COLLISION,
   INCINERATOR_POS,
   OFFICE_BOUNDS,
@@ -37,6 +38,11 @@ describe("constants module", () => {
   it("exports CHAT_HISTORY_MAX as a positive number", () => {
     expect(typeof CHAT_HISTORY_MAX).toBe("number");
     expect(CHAT_HISTORY_MAX).toBeGreaterThan(0);
+  });
+
+  it("exports IDLE_TIMEOUT_MS as a positive number", () => {
+    expect(typeof IDLE_TIMEOUT_MS).toBe("number");
+    expect(IDLE_TIMEOUT_MS).toBeGreaterThan(0);
   });
 
   it("exports EMOTE_MAP with all four emotes", () => {

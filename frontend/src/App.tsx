@@ -179,6 +179,7 @@ export default function App() {
     remoteChats,
     localEmote,
     localChat,
+    isLocalIdle,
     connectionStatus: yjsConnStatus,
     chatHistory,
     sendChat,
@@ -2142,6 +2143,7 @@ export default function App() {
               remoteEmotes={remoteEmotes}
               remoteChats={remoteChats}
               localChat={localChat}
+              isLocalIdle={isLocalIdle}
               connectionStatus={yjsConnStatus}
               chatHistory={chatHistory}
               onSendChat={sendChat}

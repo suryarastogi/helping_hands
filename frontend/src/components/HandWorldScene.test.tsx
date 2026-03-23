@@ -50,6 +50,7 @@ const BASE_SCENE_PROPS = {
   remoteEmotes: {} as Record<string, string>,
   remoteChats: {} as Record<string, string>,
   localChat: null as string | null,
+  isLocalIdle: false,
   connectionStatus: "connected" as const,
   chatHistory: [] as ChatMessage[],
   onSendChat: vi.fn(),
@@ -107,7 +108,7 @@ describe("HandWorldScene component", () => {
     const props = {
       ...BASE_SCENE_PROPS,
       remotePlayers: [
-        { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false },
+        { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false, idle: false },
       ],
     };
     const { container } = render(<HandWorldScene {...props} />);
@@ -137,7 +138,7 @@ describe("HandWorldScene component", () => {
     const props = {
       ...BASE_SCENE_PROPS,
       remotePlayers: [
-        { player_id: "r1", name: "Bob", color: "#2563eb", x: 60, y: 60, direction: "right" as const, walking: true },
+        { player_id: "r1", name: "Bob", color: "#2563eb", x: 60, y: 60, direction: "right" as const, walking: true, idle: false },
       ],
     };
     const { container } = render(<HandWorldScene {...props} />);
@@ -250,7 +251,7 @@ describe("HandWorldScene component", () => {
     const props = {
       ...BASE_SCENE_PROPS,
       remotePlayers: [
-        { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false },
+        { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false, idle: false },
       ],
       remoteChats: { r1: "Hey!" },
     };
@@ -302,5 +303,40 @@ describe("HandWorldScene component", () => {
     );
     const name = container.querySelector(".chat-history-name") as HTMLElement;
     expect(name.style.color).toBe("rgb(22, 163, 74)");
+  });
+
+  // --- Idle detection ---
+
+  it("shows idle suffix in presence panel for idle remote players", () => {
+    const props = {
+      ...BASE_SCENE_PROPS,
+      remotePlayers: [
+        { player_id: "r1", name: "IdleAlice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false, idle: true },
+      ],
+    };
+    const { container } = render(<HandWorldScene {...props} />);
+    const presenceName = container.querySelector(".presence-name");
+    expect(presenceName?.textContent).toBe("IdleAlice (idle)");
+  });
+
+  it("does not show idle suffix for active remote players", () => {
+    const props = {
+      ...BASE_SCENE_PROPS,
+      remotePlayers: [
+        { player_id: "r1", name: "ActiveBob", color: "#2563eb", x: 60, y: 60, direction: "right" as const, walking: false, idle: false },
+      ],
+    };
+    const { container } = render(<HandWorldScene {...props} />);
+    const presenceName = container.querySelector(".presence-name");
+    expect(presenceName?.textContent).toBe("ActiveBob");
+  });
+
+  it("passes isLocalIdle to local player avatar", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} isLocalIdle={true} />
+    );
+    const indicator = container.querySelector(".human-player .idle-indicator");
+    expect(indicator).toBeTruthy();
+    expect(indicator?.textContent).toBe("zzz");
   });
 });

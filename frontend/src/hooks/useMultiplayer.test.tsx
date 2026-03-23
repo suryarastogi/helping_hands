@@ -292,4 +292,82 @@ describe("useMultiplayer hook", () => {
     rerender({ ...defaultOpts(), active: false });
     expect(result.current.chatHistory).toHaveLength(0);
   });
+
+  // --- Idle detection ---
+
+  it("starts as not idle", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    expect(result.current.isLocalIdle).toBe(false);
+  });
+
+  it("becomes idle after IDLE_TIMEOUT_MS of inactivity", () => {
+    vi.useFakeTimers();
+
+    // Use stable object references so position effect doesn't re-run on re-render.
+    const stablePos = { x: 50, y: 50 };
+    const opts = { ...defaultOpts(), playerPosition: stablePos };
+    const { result } = renderHook(() => useMultiplayer(opts));
+    expect(result.current.isLocalIdle).toBe(false);
+
+    // Advance past the idle timeout (30s) + one check interval (5s).
+    act(() => vi.advanceTimersByTime(35_000));
+
+    expect(result.current.isLocalIdle).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it("resets idle state on position change", () => {
+    vi.useFakeTimers();
+    const stablePos = { x: 50, y: 50 };
+    const opts = { ...defaultOpts(), playerPosition: stablePos };
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: opts },
+    );
+
+    // Go idle
+    act(() => vi.advanceTimersByTime(35_000));
+    expect(result.current.isLocalIdle).toBe(true);
+
+    // Move — should reset idle
+    const newPos = { x: 60, y: 70 };
+    rerender({ ...opts, playerPosition: newPos });
+    expect(result.current.isLocalIdle).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("tracks idle state of remote players from awareness", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(500, {
+      player: { player_id: "500", name: "IdlePlayer", color: "#7c3aed", x: 50, y: 50, direction: "down", walking: false, idle: true, emote: null, chat: null },
+    });
+
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.remotePlayers).toHaveLength(1);
+    expect(result.current.remotePlayers[0].idle).toBe(true);
+  });
+
+  it("clears idle state when deactivated", () => {
+    vi.useFakeTimers();
+    const stablePos = { x: 50, y: 50 };
+    const opts = { ...defaultOpts(), playerPosition: stablePos };
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: opts },
+    );
+
+    act(() => vi.advanceTimersByTime(35_000));
+    expect(result.current.isLocalIdle).toBe(true);
+
+    rerender({ ...opts, active: false });
+    expect(result.current.isLocalIdle).toBe(false);
+
+    vi.useRealTimers();
+  });
 });

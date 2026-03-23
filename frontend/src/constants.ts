@@ -22,6 +22,9 @@ export const CHAT_MAX_LENGTH = 120;
 /** Maximum number of messages retained in the chat history panel. */
 export const CHAT_HISTORY_MAX = 50;
 
+/** How long (ms) of no movement before a player is considered idle/AFK. */
+export const IDLE_TIMEOUT_MS = 30_000;
+
 /** Mapping from emote name to emoji character. */
 export const EMOTE_MAP: Record<string, string> = {
   wave: "\u{1F44B}",
