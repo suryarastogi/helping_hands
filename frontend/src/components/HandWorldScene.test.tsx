@@ -331,6 +331,72 @@ describe("HandWorldScene component", () => {
     expect(presenceName?.textContent).toBe("ActiveBob");
   });
 
+  it("renders usage loading placeholder when loading and no data", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} claudeUsageLoading={true} claudeUsage={null} />
+    );
+    expect(container.querySelector(".usage-placeholder")?.textContent).toBe("Loading...");
+  });
+
+  it("renders usage error message", () => {
+    const usage = { levels: [], error: "API key missing", fetched_at: "" };
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} claudeUsage={usage} />
+    );
+    expect(container.querySelector(".usage-error")?.textContent).toBe("API key missing");
+  });
+
+  it("renders click-to-load placeholder when no data and not loading", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} claudeUsage={null} claudeUsageLoading={false} />
+    );
+    const placeholder = container.querySelector(".usage-placeholder");
+    expect(placeholder).toBeTruthy();
+    expect(placeholder?.textContent).toContain("Click");
+    expect(placeholder?.textContent).toContain("to load");
+  });
+
+  it("applies warn/crit classes to usage meters based on percentage", () => {
+    const usage = {
+      levels: [
+        { name: "Low", percent_used: 40, detail: "" },
+        { name: "Warn", percent_used: 75, detail: "" },
+        { name: "Crit", percent_used: 95, detail: "" },
+      ],
+      error: null,
+      fetched_at: "2026-03-23T00:00:00Z",
+    };
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} claudeUsage={usage} />
+    );
+    const fills = container.querySelectorAll(".usage-meter-fill");
+    expect(fills).toHaveLength(3);
+    expect(fills[0].classList.contains("warn")).toBe(false);
+    expect(fills[0].classList.contains("crit")).toBe(false);
+    expect(fills[1].classList.contains("warn")).toBe(true);
+    expect(fills[2].classList.contains("crit")).toBe(true);
+  });
+
+  it("shows connecting status hint", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connecting" />
+    );
+    const hint = container.querySelector(".status-summary-hint");
+    expect(hint?.textContent).toContain("Connecting");
+  });
+
+  it("renders desk monitor for walking-to-desk phase", () => {
+    const walkingEntry: SceneWorkerEntry = {
+      ...SCENE_WORKER_ENTRY,
+      phase: "walking-to-desk",
+    };
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} workerEntries={[walkingEntry]} />
+    );
+    expect(container.querySelector(".desk-monitor")).toBeTruthy();
+    expect(container.querySelector(".desk-monitor.monitor-on")).toBeNull();
+  });
+
   it("passes isLocalIdle to local player avatar", () => {
     const { container } = render(
       <HandWorldScene {...BASE_SCENE_PROPS} isLocalIdle={true} />

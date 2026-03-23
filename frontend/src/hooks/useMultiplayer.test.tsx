@@ -353,6 +353,106 @@ describe("useMultiplayer hook", () => {
     expect(result.current.remotePlayers[0].idle).toBe(true);
   });
 
+  it("cleans up dedupe keys when remote chat clears", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Remote sends a chat
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(600, {
+      player: { player_id: "600", name: "ChatterBox", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "First msg" },
+    });
+    act(() => mockAwareness._setRemoteStates(states));
+    expect(result.current.chatHistory).toHaveLength(1);
+
+    // Remote clears their chat (chat becomes null)
+    const clearedStates = new Map<number, Record<string, unknown>>();
+    clearedStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    clearedStates.set(600, {
+      player: { player_id: "600", name: "ChatterBox", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: null },
+    });
+    act(() => mockAwareness._setRemoteStates(clearedStates));
+
+    // Now remote sends a new message — should NOT be deduped since key was cleaned
+    const newStates = new Map<number, Record<string, unknown>>();
+    newStates.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    newStates.set(600, {
+      player: { player_id: "600", name: "ChatterBox", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "Second msg" },
+    });
+    act(() => mockAwareness._setRemoteStates(newStates));
+    expect(result.current.chatHistory).toHaveLength(2);
+    expect(result.current.chatHistory[1].text).toBe("Second msg");
+  });
+
+  it("falls back to defaults for remote players with missing fields", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    // Remote player with minimal fields — triggers all ?? fallbacks
+    states.set(700, {
+      player: { x: 10, y: 20 },
+    });
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.remotePlayers).toHaveLength(1);
+    const rp = result.current.remotePlayers[0];
+    expect(rp.player_id).toBe(String(700));
+    expect(rp.name).toBe(`Player ${(700 % 1000) + 1}`);
+    expect(rp.direction).toBe("down");
+    expect(rp.walking).toBe(false);
+    expect(rp.idle).toBe(false);
+  });
+
+  it("skips awareness entries without player field", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    // Client with no player field at all
+    states.set(800, { cursor: { x: 10, y: 10 } });
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.remotePlayers).toHaveLength(0);
+  });
+
+  it("emote key bindings only fire when world is active", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), active: false } },
+    );
+
+    // Press emote key while inactive — should not trigger
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", bubbles: true }));
+    });
+    expect(result.current.localEmote).toBeNull();
+
+    // Activate and press emote key
+    rerender(defaultOpts());
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", bubbles: true }));
+    });
+    expect(result.current.localEmote).toBe("wave");
+
+    act(() => vi.advanceTimersByTime(2000));
+    vi.useRealTimers();
+  });
+
+  it("emote key bindings ignore input fields", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Simulate emote key from within an input
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "1", bubbles: true }));
+    });
+    expect(result.current.localEmote).toBeNull();
+    document.body.removeChild(input);
+  });
+
   it("clears idle state when deactivated", () => {
     vi.useFakeTimers();
     const stablePos = { x: 50, y: 50 };

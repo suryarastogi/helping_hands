@@ -146,6 +146,22 @@ history panel.
 
 ---
 
+## Mar 23 — Player Idle/AFK Detection (v290)
+
+**Idle detection:** Players with no movement for 30s marked idle. Floating "zzz" indicator above idle avatars with bob animation (suppressed when emote/chat active). Presence panel shows "(idle)" suffix. `useMultiplayer` tracks `lastActivityRef` with 5s interval check. Broadcast via Yjs awareness `idle` field.
+
+**13 new tests, 324 total passing.**
+
+---
+
+## Mar 23 — Multiplayer Hook Branch Coverage (v291)
+
+**Coverage hardening:** Targeted uncovered branches across multiplayer hooks and HandWorldScene. HandWorldScene: 89% → 100% branches (fully covered). useMovement: 89% → 96.5% branches. useMultiplayer: 72% → 81% branches. Overall frontend: 84.1% branches, 90.1% statements.
+
+**14 new tests, 338 total passing.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -165,3 +181,5 @@ history panel.
 - `v287-multiplayer-chat-bubbles.md`
 - `v288-use-schedules-branch-coverage.md`
 - `v289-chat-history-panel.md`
+- `v290-player-idle-detection.md`
+- `v291-multiplayer-hook-branch-coverage.md`

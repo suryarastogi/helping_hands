@@ -192,6 +192,73 @@ describe("useMovement hook", () => {
     vi.useRealTimers();
   });
 
+  it("moves player left on ArrowLeft", () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      setTimeout(cb, 16);
+      return 1;
+    });
+
+    const { result } = renderHook(() =>
+      useMovement({ active: true, deskSlots: emptyDesks }),
+    );
+
+    pressKey("ArrowLeft");
+    expect(result.current.playerDirection).toBe("left");
+    expect(result.current.playerPosition.x).toBeLessThan(50);
+    releaseKey("ArrowLeft");
+
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("moves player left on 'a' key", () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      setTimeout(cb, 16);
+      return 1;
+    });
+
+    const { result } = renderHook(() =>
+      useMovement({ active: true, deskSlots: emptyDesks }),
+    );
+
+    pressKey("a");
+    expect(result.current.playerDirection).toBe("left");
+    expect(result.current.playerPosition.x).toBeLessThan(50);
+    releaseKey("a");
+
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("cancels pending animation frame on cleanup", () => {
+    vi.useFakeTimers();
+    const cancelSpy = vi.spyOn(window, "cancelAnimationFrame");
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      // Return a frame id but don't execute the callback yet
+      setTimeout(cb, 16);
+      return 42;
+    });
+
+    const { unmount } = renderHook(() =>
+      useMovement({ active: true, deskSlots: emptyDesks }),
+    );
+
+    // Start movement so an animation frame is pending
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    });
+
+    // Unmount while animation frame is still pending
+    unmount();
+
+    expect(cancelSpy).toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
   it("cleans up event listeners on deactivation", () => {
     vi.useFakeTimers();
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {

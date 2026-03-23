@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Multiplayer Hook Branch Coverage (2026-03-23) — Completed
+
+**Implemented (v291):**
+- Targeted uncovered branches in useMovement, useMultiplayer, and HandWorldScene
+- HandWorldScene.tsx: 89% → 100% branch coverage (fully covered)
+- useMovement.ts: 89% → 96.5% branch coverage
+- useMultiplayer.ts: 72% → 81% branch coverage
+- Overall frontend: 82.5% → 84.1% branches
+- 14 new tests (338 total, up from 324)
+
 ### Player Idle/AFK Detection (2026-03-23) — Completed
 
 **Implemented (v290):**
