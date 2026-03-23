@@ -8,6 +8,12 @@
 Extract the inline `submissionCard` JSX block (~152 lines) from `App.tsx` into a
 dedicated `SubmissionForm` component, continuing the frontend decomposition effort.
 
+## Tasks
+
+- [x] Create `SubmissionForm.tsx` with typed props extracted from App.tsx inline block
+- [x] Create `SubmissionForm.test.tsx` with 17 component tests
+- [x] Replace inline submissionCard JSX in App.tsx with `<SubmissionForm />` component
+
 ## Changes
 
 ### New files
