@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => {
           target,
           changeOrigin: true,
         },
+        "/ws": {
+          target,
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
   };

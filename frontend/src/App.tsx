@@ -201,6 +201,19 @@ type PlayerPosition = {
 
 type PlayerDirection = "down" | "up" | "left" | "right";
 
+type RemotePlayer = {
+  player_id: string;
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+  direction: PlayerDirection;
+  walking: boolean;
+};
+
+const MULTIPLAYER_RECONNECT_MS = 3000;
+const MULTIPLAYER_THROTTLE_MS = 50;
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
 const TASK_HISTORY_LIMIT = 60;
@@ -424,6 +437,15 @@ export function apiUrl(path: string): string {
     return path;
   }
   return `${API_BASE.replace(/\/$/, "")}${path}`;
+}
+
+export function wsUrl(path: string): string {
+  if (API_BASE) {
+    const base = API_BASE.replace(/\/$/, "").replace(/^http/, "ws");
+    return `${base}${path}`;
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}${path}`;
 }
 
 export function shortTaskId(value: string): string {
@@ -1040,6 +1062,11 @@ export default function App() {
   const [notifPerm, setNotifPerm] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "denied"
   );
+
+  const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const lastSentRef = useRef(0);
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
@@ -1687,6 +1714,108 @@ export default function App() {
       }
     };
   }, [dashboardView, deskSlots]);
+
+  // --- Multiplayer WebSocket connection ---
+  useEffect(() => {
+    if (dashboardView !== "world") {
+      // Disconnect when leaving world view.
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setRemotePlayers([]);
+      setMyPlayerId(null);
+      return;
+    }
+
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let alive = true;
+
+    function connect() {
+      if (!alive) return;
+      const ws = new WebSocket(wsUrl("/ws/world"));
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data as string);
+          const msgType = data.type as string;
+
+          if (msgType === "players_sync") {
+            setMyPlayerId(data.your_id as string);
+            const others = (data.players as RemotePlayer[]).filter(
+              (p: RemotePlayer) => p.player_id !== (data.your_id as string)
+            );
+            setRemotePlayers(others);
+          } else if (msgType === "player_joined") {
+            setRemotePlayers((prev) => {
+              if (prev.some((p) => p.player_id === data.player_id)) return prev;
+              return [...prev, data as RemotePlayer];
+            });
+          } else if (msgType === "player_left") {
+            setRemotePlayers((prev) =>
+              prev.filter((p) => p.player_id !== data.player_id)
+            );
+          } else if (msgType === "player_moved") {
+            setRemotePlayers((prev) =>
+              prev.map((p) =>
+                p.player_id === data.player_id
+                  ? { ...p, x: data.x, y: data.y, direction: data.direction, walking: data.walking }
+                  : p
+              )
+            );
+          }
+        } catch {
+          // Ignore malformed messages.
+        }
+      };
+
+      ws.onclose = () => {
+        wsRef.current = null;
+        setRemotePlayers([]);
+        setMyPlayerId(null);
+        if (alive) {
+          reconnectTimer = setTimeout(connect, MULTIPLAYER_RECONNECT_MS);
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    }
+
+    connect();
+
+    return () => {
+      alive = false;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [dashboardView]);
+
+  // --- Send local position updates via WebSocket ---
+  useEffect(() => {
+    if (dashboardView !== "world") return;
+    const now = Date.now();
+    if (now - lastSentRef.current < MULTIPLAYER_THROTTLE_MS) return;
+    lastSentRef.current = now;
+
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: "position",
+          x: playerPosition.x,
+          y: playerPosition.y,
+          direction: playerDirection,
+          walking: isPlayerWalking,
+        })
+      );
+    }
+  }, [dashboardView, playerPosition, playerDirection, isPlayerWalking]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3391,7 +3520,15 @@ export default function App() {
                     <span className="stat-icon">&#128100;</span>
                     <span>You: ({Math.round(playerPosition.x)}, {Math.round(playerPosition.y)})</span>
                   </div>
-                  <div className="status-summary-hint">Use arrow keys to walk</div>
+                  {remotePlayers.length > 0 && (
+                    <div className="status-summary-stat">
+                      <span className="stat-icon">&#128101;</span>
+                      <span>{remotePlayers.length + 1} Players online</span>
+                    </div>
+                  )}
+                  <div className="status-summary-hint">
+                    {myPlayerId ? "Multiplayer active \u00b7 Use arrow keys to walk" : "Use arrow keys to walk"}
+                  </div>
                 </div>
 
                 <div className="zen-usage-summary">
@@ -3461,6 +3598,40 @@ export default function App() {
                     <span className="human-boot human-boot-right" />
                   </span>
                 </div>
+
+                {remotePlayers.map((rp) => (
+                  <div
+                    key={rp.player_id}
+                    className={`remote-player ${rp.direction}${rp.walking ? " walking" : ""}`}
+                    style={{
+                      left: `${rp.x}%`,
+                      top: `${rp.y}%`,
+                      "--rp-body": rp.color,
+                      "--rp-accent": `${rp.color}66`,
+                    } as CSSProperties}
+                    aria-label={rp.name}
+                  >
+                    <span className="remote-player-name">{rp.name}</span>
+                    <span className="human-shadow" />
+                    <span className="human-body">
+                      <span className="human-helmet" />
+                      <span className="human-helmet-light" />
+                      <span className="human-visor" />
+                      <span className="human-visor-shine" />
+                      <span className="human-torso" />
+                      <span className="human-belt" />
+                      <span className="human-buckle" />
+                      <span className="human-arm human-arm-left" />
+                      <span className="human-glove human-glove-left" />
+                      <span className="human-arm human-arm-right" />
+                      <span className="human-glove human-glove-right" />
+                      <span className="human-leg human-leg-left" />
+                      <span className="human-boot human-boot-left" />
+                      <span className="human-leg human-leg-right" />
+                      <span className="human-boot human-boot-right" />
+                    </span>
+                  </div>
+                ))}
 
                 {sceneWorkerEntries.map((worker) => {
                   const isAtFactory = worker.phase === "at-factory";

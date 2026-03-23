@@ -2030,6 +2030,102 @@ h2 {
   background: linear-gradient(135deg, #2d3748 0%, #4a5568 50%, #2d3748 100%);
 }
 
+/* --- Remote multiplayer players --- */
+
+.remote-player {
+  position: absolute;
+  width: 36px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  z-index: 7;
+  pointer-events: none;
+  transition: left 0.08s linear, top 0.08s linear;
+}
+
+.remote-player .human-helmet {
+  background: var(--rp-body, #e11d48);
+  border-color: color-mix(in srgb, var(--rp-body, #e11d48) 70%, #000);
+}
+
+.remote-player .human-torso {
+  background: var(--rp-body, #e11d48);
+  border-color: color-mix(in srgb, var(--rp-body, #e11d48) 70%, #000);
+}
+
+.remote-player .human-arm {
+  background: var(--rp-body, #e11d48);
+  border-color: color-mix(in srgb, var(--rp-body, #e11d48) 70%, #000);
+}
+
+.remote-player .human-glove {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 60%, #fff);
+}
+
+.remote-player .human-belt {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 50%, #000);
+}
+
+.remote-player .human-leg {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 40%, #000);
+}
+
+.remote-player .human-boot {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 30%, #000);
+}
+
+.remote-player.left {
+  transform: translate(-50%, -50%) scaleX(-1);
+}
+
+.remote-player.up .human-visor,
+.remote-player.up .human-visor-shine {
+  visibility: hidden;
+}
+
+.remote-player.up .human-helmet {
+  background: color-mix(in srgb, var(--rp-body, #e11d48) 80%, #000);
+}
+
+.remote-player-name {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.remote-player.left .remote-player-name {
+  transform: translateX(-50%) scaleX(-1);
+}
+
+.remote-player.walking .human-leg-left,
+.remote-player.walking .human-boot-left {
+  animation: leg-walk-left 0.25s steps(2, end) infinite;
+}
+
+.remote-player.walking .human-leg-right,
+.remote-player.walking .human-boot-right {
+  animation: leg-walk-right 0.25s steps(2, end) infinite;
+}
+
+.remote-player.walking .human-arm-left,
+.remote-player.walking .human-glove-left {
+  animation: arm-walk-left 0.25s steps(2, end) infinite;
+}
+
+.remote-player.walking .human-arm-right,
+.remote-player.walking .human-glove-right {
+  animation: arm-walk-right 0.25s steps(2, end) infinite;
+}
+
 button.worker-sprite {
   position: absolute;
   top: 0;

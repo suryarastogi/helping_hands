@@ -126,3 +126,52 @@ To verify both surfaces offer the same features:
 | `/tasks/current` | GET | List active/queued tasks |
 | `/monitor/{task_id}` | GET | HTML auto-refresh monitor |
 | `/workers/capacity` | GET | Celery worker pool info |
+| `/ws/world` | WebSocket | Multiplayer Hand World sync |
+
+## Multiplayer Hand World
+
+The Hand World view supports multiplayer — multiple users can walk around the
+same scene and see each other's avatars in real-time.
+
+### Architecture
+
+```
+Browser A  ──WebSocket──┐
+                         │
+Browser B  ──WebSocket──▶  FastAPI (/ws/world)
+                         │   WorldConnectionManager
+Browser C  ──WebSocket──┘     (in-memory player state)
+```
+
+**Backend** (`server/multiplayer.py`):
+- `WorldConnectionManager` tracks connected players in memory
+- On connect: assigns unique ID, name, and colour from a palette
+- Sends `players_sync` with full state to the newcomer
+- Broadcasts `player_joined` / `player_left` / `player_moved` to others
+- Clamps positions to scene bounds server-side
+- Caps connections at 20 to prevent resource exhaustion
+
+**Frontend** (`App.tsx`):
+- Opens WebSocket when `dashboardView === "world"`
+- Sends throttled (50ms) position updates on player movement
+- Renders `RemotePlayer` avatars with per-player colours via CSS custom properties
+- Auto-reconnects on disconnect (3s delay)
+- Shows online player count in the Factory Floor status panel
+
+### Protocol messages
+
+| Direction | Type | Payload |
+|---|---|---|
+| S→C | `players_sync` | `{ your_id, players: [...] }` |
+| S→C | `player_joined` | `{ player_id, name, color, x, y, direction, walking }` |
+| S→C | `player_left` | `{ player_id }` |
+| S→C | `player_moved` | `{ player_id, x, y, direction, walking }` |
+| C→S | `position` | `{ x, y, direction, walking }` |
+
+### Testing multiplayer locally
+
+1. Start the backend: `docker compose up --build` or `./scripts/run-local-stack.sh start`
+2. Start the dev frontend: `npm --prefix frontend run dev`
+3. Open two browser windows to `http://localhost:5173`
+4. Switch both to "Hand world" tab
+5. Move with arrow keys — each window should show the other's avatar

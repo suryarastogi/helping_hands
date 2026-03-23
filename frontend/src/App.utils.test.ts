@@ -24,6 +24,7 @@ import {
   statusBlinkerColor,
   statusTone,
   upsertTaskHistory,
+  wsUrl,
 } from "./App";
 
 describe("apiUrl", () => {
@@ -31,6 +32,16 @@ describe("apiUrl", () => {
     // API_BASE is "" by default in test env (no VITE_API_BASE_URL)
     expect(apiUrl("/health")).toBe("/health");
     expect(apiUrl("/api/tasks")).toBe("/api/tasks");
+  });
+});
+
+describe("wsUrl", () => {
+  it("builds a ws:// URL from window.location when API_BASE is empty", () => {
+    // In test env, API_BASE is "" and window.location is localhost-ish.
+    const url = wsUrl("/ws/world");
+    // Should contain the path and use ws: protocol.
+    expect(url).toContain("/ws/world");
+    expect(url).toMatch(/^wss?:\/\//);
   });
 });
 

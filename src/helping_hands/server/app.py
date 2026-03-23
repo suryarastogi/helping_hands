@@ -71,6 +71,7 @@ from helping_hands.server.constants import (
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
 )
+from helping_hands.server.multiplayer import world_websocket_endpoint
 from helping_hands.server.task_result import normalize_task_result
 
 if TYPE_CHECKING:
@@ -140,6 +141,9 @@ app = FastAPI(
     description="AI-powered repo builder — app mode.",
     version="0.1.0",
 )
+
+# --- Multiplayer Hand World WebSocket ---
+app.add_api_websocket_route("/ws/world", world_websocket_endpoint)
 
 
 class _ToolSkillValidatorMixin(BaseModel):
