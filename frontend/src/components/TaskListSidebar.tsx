@@ -5,7 +5,7 @@ export type TaskListSidebarProps = {
   mainView: MainView;
   showSubmissionOverlay: boolean;
   onNewSubmission: () => void;
-  onShowSchedules: () => void;
+  onToggleSchedules: () => void;
   taskHistory: TaskHistoryItem[];
   selectedTaskId: string | null;
   onSelectTask: (taskId: string) => void;
@@ -16,7 +16,7 @@ export default function TaskListSidebar({
   mainView,
   showSubmissionOverlay,
   onNewSubmission,
-  onShowSchedules,
+  onToggleSchedules,
   taskHistory,
   selectedTaskId,
   onSelectTask,
@@ -37,7 +37,7 @@ export default function TaskListSidebar({
           mainView === "schedules" ? " active" : ""
         }`}
         style={{ marginTop: 0 }}
-        onClick={onShowSchedules}
+        onClick={onToggleSchedules}
       >
         Scheduled tasks
       </button>

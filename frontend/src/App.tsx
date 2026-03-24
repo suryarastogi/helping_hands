@@ -1288,7 +1288,7 @@ export default function App() {
         mainView={mainView}
         showSubmissionOverlay={showSubmissionOverlay}
         onNewSubmission={openSubmissionView}
-        onShowSchedules={() => setMainView("schedules")}
+        onToggleSchedules={() => setMainView(v => v === "schedules" ? "submission" : "schedules")}
         taskHistory={taskHistory}
         selectedTaskId={taskId}
         onSelectTask={selectTask}

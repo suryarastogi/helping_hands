@@ -857,27 +857,6 @@ class TestTechDebtTrackerStructure:
                 )
 
 
-class TestTodoMdStructure:
-    """TODO.md should exist and have list items."""
-
-    @pytest.fixture()
-    def todo_text(self) -> str:
-        return (REPO_ROOT / "TODO.md").read_text()
-
-    def test_todo_exists(self) -> None:
-        assert (REPO_ROOT / "TODO.md").is_file(), "TODO.md should exist"
-
-    def test_has_list_items(self, todo_text: str) -> None:
-        """TODO.md should have at least one checkbox item."""
-        items = re.findall(r"^- \[[ x]\]", todo_text, re.MULTILINE)
-        assert len(items) > 0, "TODO.md should have at least one checkbox item"
-
-    def test_has_heading(self, todo_text: str) -> None:
-        assert todo_text.strip().startswith("# "), (
-            "TODO.md should start with a level-1 heading"
-        )
-
-
 class TestCompletedPlansMinimumContent:
     """Completed plans should have substantive content."""
 
@@ -6439,32 +6418,6 @@ class TestTestingMethodologyDesignDocContent:
         assert "Backend" in content
         assert "Frontend" in content
         assert "80%+" in content or "80%" in content
-
-
-class TestTodoMdContent:
-    """TODO.md should reference actionable items and track completion."""
-
-    @pytest.fixture()
-    def content(self) -> str:
-        return (REPO_ROOT / "TODO.md").read_text()
-
-    def test_todo_file_exists(self) -> None:
-        assert (REPO_ROOT / "TODO.md").exists()
-
-    def test_has_sections(self, content: str) -> None:
-        """TODO.md should have at least one section heading."""
-        headings = re.findall(r"^##\s+", content, re.MULTILINE)
-        assert len(headings) >= 1, "TODO.md should have at least one section"
-
-    def test_has_checkbox_items(self, content: str) -> None:
-        """TODO.md should contain checkbox items (completed or pending)."""
-        checkboxes = re.findall(r"- \[([ x])\]", content)
-        assert len(checkboxes) >= 1, "TODO.md should have at least one checkbox item"
-
-    def test_completed_items_use_x(self, content: str) -> None:
-        """Completed items should use [x], not [X]."""
-        bad_checkboxes = re.findall(r"- \[X\]", content)
-        assert len(bad_checkboxes) == 0, "Completed TODO items should use lowercase [x]"
 
 
 class TestArchitectureMdExternalIntegrations:

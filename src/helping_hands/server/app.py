@@ -2484,8 +2484,12 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
 
       // Schedule management functions
       schedulesBtn.addEventListener("click", () => {
-        setView("schedules");
-        loadSchedules();
+        if (schedulesView.classList.contains("is-hidden")) {
+          setView("schedules");
+          loadSchedules();
+        } else {
+          setView("submission");
+        }
       });
 
       schedulePreset.addEventListener("change", (e) => {

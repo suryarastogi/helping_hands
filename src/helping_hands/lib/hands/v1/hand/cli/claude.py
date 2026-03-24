@@ -180,6 +180,8 @@ class _StreamJsonEmitter:
             # Claude Code stream-json: message is a full Anthropic API message
             # with message.content[] array of {type: "text"} / {type: "tool_use"}.
             for block in self._extract_message_blocks(event):
+                if not isinstance(block, dict):
+                    continue
                 block_type = block.get("type", "")
                 if block_type == _BLOCK_TYPE_TOOL_USE:
                     name = block.get("name", "unknown")
@@ -200,6 +202,8 @@ class _StreamJsonEmitter:
         elif event_type == _EVENT_TYPE_USER:
             # Tool results: message.content[] array of {type: "tool_result"}.
             for block in self._extract_message_blocks(event):
+                if not isinstance(block, dict):
+                    continue
                 if block.get("type") != _BLOCK_TYPE_TOOL_RESULT:
                     continue
                 content = block.get("content", "")

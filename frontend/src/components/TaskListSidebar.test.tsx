@@ -19,7 +19,7 @@ function defaultProps(overrides?: Partial<TaskListSidebarProps>): TaskListSideba
     mainView: "submission",
     showSubmissionOverlay: false,
     onNewSubmission: vi.fn(),
-    onShowSchedules: vi.fn(),
+    onToggleSchedules: vi.fn(),
     taskHistory: [],
     selectedTaskId: null,
     onSelectTask: vi.fn(),
@@ -42,11 +42,11 @@ describe("TaskListSidebar", () => {
     expect(onNewSubmission).toHaveBeenCalledOnce();
   });
 
-  it("calls onShowSchedules when clicking Scheduled tasks", () => {
-    const onShowSchedules = vi.fn();
-    render(<TaskListSidebar {...defaultProps({ onShowSchedules })} />);
+  it("calls onToggleSchedules when clicking Scheduled tasks", () => {
+    const onToggleSchedules = vi.fn();
+    render(<TaskListSidebar {...defaultProps({ onToggleSchedules })} />);
     fireEvent.click(screen.getByText("Scheduled tasks"));
-    expect(onShowSchedules).toHaveBeenCalledOnce();
+    expect(onToggleSchedules).toHaveBeenCalledOnce();
   });
 
   it("marks New Task button active when overlay is open", () => {
