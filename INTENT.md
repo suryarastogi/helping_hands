@@ -14,6 +14,17 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Polish: Minimap & Chat Cooldown (2026-03-24) — Completed
+
+**Implemented (v299):**
+- Minimap component: bird's-eye overlay showing local player (white), remote players (coloured), and active workers (amber) as positioned dots
+- Chat cooldown: 2-second rate limit (`CHAT_COOLDOWN_MS`) between messages, input disabled during cooldown with "Wait..." placeholder
+- `Minimap` component in `frontend/src/components/Minimap.tsx`
+- `chatOnCooldown` state in `useMultiplayer` hook, threaded through `HandWorldScene` props
+- 16 new tests: 6 Minimap, 3 useMultiplayer cooldown, 7 HandWorldScene (minimap + cooldown)
+- 449 frontend tests total (up from 433)
+- Updated design doc and FRONTEND.md
+
 ### Multiplayer Smooth Movement & Typing Indicator (2026-03-24) — Completed
 
 **Implemented (v298):**

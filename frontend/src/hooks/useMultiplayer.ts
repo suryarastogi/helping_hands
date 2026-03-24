@@ -9,6 +9,7 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 
 import {
+  CHAT_COOLDOWN_MS,
   CHAT_DISPLAY_MS,
   CHAT_HISTORY_MAX,
   EMOTE_DISPLAY_MS,
@@ -72,6 +73,8 @@ export type UseMultiplayerReturn = {
   sendChat: (message: string) => void;
   /** Update the local typing state (call on chat input focus/change/blur). */
   setTyping: (typing: boolean) => void;
+  /** Whether chat is on cooldown (true = cannot send yet). */
+  chatOnCooldown: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -122,6 +125,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [isLocalIdle, setIsLocalIdle] = useState(false);
   const [isLocalTyping, setIsLocalTyping] = useState(false);
   const [remoteTyping, setRemoteTyping] = useState<Record<string, boolean>>({});
+  const [chatOnCooldown, setChatOnCooldown] = useState(false);
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
@@ -366,6 +370,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     (message: string) => {
       const text = message.trim();
       if (!text) return;
+      if (chatOnCooldown) return;
+
+      // Start cooldown.
+      setChatOnCooldown(true);
+      setTimeout(() => setChatOnCooldown(false), CHAT_COOLDOWN_MS);
 
       setLocalChat(text);
       setTimeout(() => setLocalChat(null), CHAT_DISPLAY_MS);
@@ -400,7 +409,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         }
       }
     },
-    [],
+    [chatOnCooldown],
   );
 
   // --- Typing state callback ---
@@ -453,5 +462,6 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     triggerEmote,
     sendChat,
     setTyping,
+    chatOnCooldown,
   };
 }

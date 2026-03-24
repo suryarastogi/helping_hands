@@ -24,6 +24,8 @@ import type {
   ScheduleItem,
   WorkerVariant,
 } from "../types";
+import Minimap from "./Minimap";
+import type { MinimapWorker } from "./Minimap";
 import PlayerAvatar from "./PlayerAvatar";
 import WorkerSprite from "./WorkerSprite";
 
@@ -84,6 +86,8 @@ export type HandWorldSceneProps = {
   chatHistory: ChatMessage[];
   onSendChat: (message: string) => void;
   onSetTyping: (typing: boolean) => void;
+  /** Whether chat is on cooldown (disables send). */
+  chatOnCooldown: boolean;
 
   // -- Player name --
   playerNameInput: string;
@@ -125,6 +129,7 @@ export default function HandWorldScene({
   chatHistory,
   onSendChat,
   onSetTyping,
+  chatOnCooldown,
   playerNameInput,
   onPlayerNameChange,
   claudeUsage,
@@ -144,10 +149,15 @@ export default function HandWorldScene({
     }
   }, [chatHistory.length]);
 
+  // Build minimap worker positions from desk slot centers.
+  const minimapWorkers: MinimapWorker[] = workerEntries
+    .filter((w) => w.phase === "active" || w.phase === "walking-to-desk")
+    .map((w) => ({ taskId: w.taskId, x: w.desk.left + 4, y: w.desk.top + 3.5 }));
+
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = chatInput.trim();
-    if (!text) return;
+    if (!text || chatOnCooldown) return;
     onSendChat(text);
     setChatInput("");
     onSetTyping(false);
@@ -336,8 +346,9 @@ export default function HandWorldScene({
                 }}
                 onFocus={() => { if (chatInput.length > 0) onSetTyping(true); }}
                 onBlur={() => onSetTyping(false)}
-                placeholder="Press Enter to chat..."
+                placeholder={chatOnCooldown ? "Wait..." : "Press Enter to chat..."}
                 maxLength={CHAT_MAX_LENGTH}
+                disabled={chatOnCooldown}
                 aria-label="Chat message"
               />
             </form>
@@ -430,6 +441,14 @@ export default function HandWorldScene({
             y={rp.y}
           />
         ))}
+
+        {connectionStatus === "connected" && (
+          <Minimap
+            playerPosition={playerPosition}
+            remotePlayers={remotePlayers}
+            workers={minimapWorkers}
+          />
+        )}
 
         {workerEntries.map((worker) => (
           <WorkerSprite

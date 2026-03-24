@@ -22,6 +22,9 @@ export const CHAT_MAX_LENGTH = 120;
 /** Maximum number of messages retained in the chat history panel. */
 export const CHAT_HISTORY_MAX = 50;
 
+/** Cooldown (ms) between consecutive chat messages to prevent spam. */
+export const CHAT_COOLDOWN_MS = 2000;
+
 /** How long (ms) of no movement before a player is considered idle/AFK. */
 export const IDLE_TIMEOUT_MS = 30_000;
 

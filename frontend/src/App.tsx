@@ -182,6 +182,7 @@ export default function App() {
     chatHistory,
     sendChat,
     setTyping,
+    chatOnCooldown,
   } = useMultiplayer({
     active: true,
     playerPosition,
@@ -1322,6 +1323,7 @@ export default function App() {
           chatHistory={chatHistory}
           onSendChat={sendChat}
           onSetTyping={setTyping}
+          chatOnCooldown={chatOnCooldown}
           playerNameInput={playerNameInput}
           onPlayerNameChange={setPlayerNameInput}
           claudeUsage={claudeUsage}

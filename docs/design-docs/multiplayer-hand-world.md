@@ -172,6 +172,28 @@ their avatar. This is broadcast to all peers via the Yjs awareness `typing` fiel
 **Awareness state:** `typing: boolean` added alongside existing `idle`, `emote`,
 `chat` fields.
 
+## Minimap (v299)
+
+A compact bird's-eye overlay in the bottom-right corner of the scene shows all
+player and worker positions at a glance. The minimap renders only when the Yjs
+connection is active.
+
+**Dot types:**
+- **Local player** — white dot with glow (`minimap-dot-local`)
+- **Remote players** — coloured dots matching player palette (`minimap-dot-remote`)
+- **Active workers** — amber dots at desk positions (`minimap-dot-worker`)
+
+The `Minimap` component (`frontend/src/components/Minimap.tsx`) is pure — it
+receives positions as props and renders positioned `<span>` elements inside a
+120×80px container with `overflow: hidden`.
+
+## Chat cooldown (v299)
+
+A 2-second cooldown (`CHAT_COOLDOWN_MS`) between consecutive chat messages
+prevents spam. During cooldown, the chat input is disabled with a "Wait..."
+placeholder. The cooldown state (`chatOnCooldown`) is managed in the
+`useMultiplayer` hook and surfaced through `HandWorldScene`.
+
 ## Future extensions
 
 - Shared Y.Doc state for persistent world features (e.g. placed objects)

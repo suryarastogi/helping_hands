@@ -453,6 +453,52 @@ describe("useMultiplayer hook", () => {
     document.body.removeChild(input);
   });
 
+  // --- Chat cooldown ---
+
+  it("starts with chatOnCooldown as false", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    expect(result.current.chatOnCooldown).toBe(false);
+  });
+
+  it("sets chatOnCooldown after sending a message", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.sendChat("Hello!"));
+    expect(result.current.chatOnCooldown).toBe(true);
+    expect(result.current.localChat).toBe("Hello!");
+
+    // After cooldown period, should reset
+    act(() => vi.advanceTimersByTime(2000));
+    expect(result.current.chatOnCooldown).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("blocks chat messages during cooldown", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.sendChat("First"));
+    expect(result.current.localChat).toBe("First");
+    expect(result.current.chatHistory).toHaveLength(1);
+
+    // Try to send during cooldown — should be ignored
+    act(() => result.current.sendChat("Second"));
+    expect(result.current.chatHistory).toHaveLength(1);
+
+    // After cooldown expires, can send again
+    act(() => vi.advanceTimersByTime(2000));
+    // Also advance past CHAT_DISPLAY_MS to clear the first message
+    act(() => vi.advanceTimersByTime(2000));
+
+    act(() => result.current.sendChat("Third"));
+    expect(result.current.localChat).toBe("Third");
+    expect(result.current.chatHistory).toHaveLength(2);
+
+    vi.useRealTimers();
+  });
+
   it("clears idle state when deactivated", () => {
     vi.useFakeTimers();
     const stablePos = { x: 50, y: 50 };

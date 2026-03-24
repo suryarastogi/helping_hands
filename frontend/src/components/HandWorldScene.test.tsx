@@ -57,6 +57,7 @@ const BASE_SCENE_PROPS = {
   chatHistory: [] as ChatMessage[],
   onSendChat: vi.fn(),
   onSetTyping: vi.fn(),
+  chatOnCooldown: false,
   playerNameInput: "Tester",
   onPlayerNameChange: vi.fn(),
   claudeUsage: null as ClaudeUsageResponse | null,
@@ -506,5 +507,75 @@ describe("HandWorldScene component", () => {
     fireEvent.change(input, { target: { value: "Hello" } });
     fireEvent.submit(container.querySelector(".chat-input-form")!);
     expect(onSetTyping).toHaveBeenLastCalledWith(false);
+  });
+
+  // --- Minimap ---
+
+  it("renders minimap when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    expect(container.querySelector(".minimap")).toBeTruthy();
+  });
+
+  it("hides minimap when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".minimap")).toBeNull();
+  });
+
+  it("renders minimap with local player dot", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" playerPosition={{ x: 30, y: 70 }} />
+    );
+    const localDot = container.querySelector(".minimap-dot-local");
+    expect(localDot).toBeTruthy();
+    expect((localDot as HTMLElement).style.left).toBe("30%");
+    expect((localDot as HTMLElement).style.top).toBe("70%");
+  });
+
+  it("renders minimap with remote player dots", () => {
+    const remotes: RemotePlayer[] = [
+      { player_id: "r1", name: "Alice", color: "#e11d48", x: 20, y: 40, direction: "down", walking: false, idle: false },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" remotePlayers={remotes} />
+    );
+    const remoteDots = container.querySelectorAll(".minimap-dot-remote");
+    expect(remoteDots).toHaveLength(1);
+  });
+
+  it("renders minimap worker dots for active workers", () => {
+    const props = {
+      ...BASE_SCENE_PROPS,
+      connectionStatus: "connected" as const,
+      workerEntries: [SCENE_WORKER_ENTRY],
+    };
+    const { container } = render(<HandWorldScene {...props} />);
+    const workerDots = container.querySelectorAll(".minimap-dot-worker");
+    expect(workerDots).toHaveLength(1);
+  });
+
+  // --- Chat cooldown ---
+
+  it("disables chat input when chatOnCooldown is true", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatOnCooldown={true} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    expect(input.placeholder).toBe("Wait...");
+  });
+
+  it("does not call onSendChat when chatOnCooldown", () => {
+    const onSendChat = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatOnCooldown={true} onSendChat={onSendChat} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Blocked" } });
+    fireEvent.submit(container.querySelector(".chat-input-form")!);
+    expect(onSendChat).not.toHaveBeenCalled();
   });
 });

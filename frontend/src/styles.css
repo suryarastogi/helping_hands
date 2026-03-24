@@ -2405,6 +2405,52 @@ h2 {
   color: #cbd5e1;
 }
 
+/* ------------------------------------------------------------------ */
+/* Minimap                                                             */
+/* ------------------------------------------------------------------ */
+
+.minimap {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 120px;
+  height: 80px;
+  background: rgba(10, 19, 36, 0.85);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.minimap-dot {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.minimap-dot-local {
+  width: 6px;
+  height: 6px;
+  background: #ffffff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+  z-index: 3;
+}
+
+.minimap-dot-remote {
+  width: 5px;
+  height: 5px;
+  z-index: 2;
+}
+
+.minimap-dot-worker {
+  width: 4px;
+  height: 4px;
+  background: #d97706;
+  opacity: 0.7;
+  z-index: 1;
+}
+
 button.worker-sprite {
   position: absolute;
   top: 0;
