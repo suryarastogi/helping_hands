@@ -3359,3 +3359,110 @@ button.worker-sprite:disabled .worker-caption {
     transform: translateY(0);
   }
 }
+
+/* ── Player tooltip (hover on remote avatars) ── */
+
+.player-tooltip {
+  position: absolute;
+  bottom: calc(100% + 22px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  z-index: 20;
+  pointer-events: none;
+  font-size: 11px;
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.player-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(15, 23, 42, 0.92);
+}
+
+.player-tooltip-color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.player-tooltip-name {
+  font-weight: 600;
+}
+
+.player-tooltip-status {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.player-tooltip-status-typing {
+  color: #60a5fa;
+}
+
+.player-tooltip-status-idle {
+  color: #94a3b8;
+}
+
+.player-tooltip-status-walking {
+  color: #4ade80;
+}
+
+.player-tooltip-status-active {
+  color: #e2e8f0;
+}
+
+/* ── Reconnection banner ── */
+
+.reconnect-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(2, 8, 23, 0.65);
+  z-index: 30;
+  font-size: 15px;
+  font-weight: 600;
+  color: #e2e8f0;
+  pointer-events: none;
+  animation: reconnect-fade-in 0.3s ease;
+}
+
+.reconnect-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: reconnect-spin 0.8s linear infinite;
+}
+
+@keyframes reconnect-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes reconnect-spin {
+  to { transform: rotate(360deg); }
+}

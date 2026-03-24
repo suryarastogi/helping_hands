@@ -578,4 +578,31 @@ describe("HandWorldScene component", () => {
     fireEvent.submit(container.querySelector(".chat-input-form")!);
     expect(onSendChat).not.toHaveBeenCalled();
   });
+
+  // --- Reconnection banner ---
+
+  it("shows reconnect banner when connectionStatus is connecting", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connecting" />
+    );
+    const banner = container.querySelector(".reconnect-banner");
+    expect(banner).toBeTruthy();
+    expect(banner?.getAttribute("role")).toBe("alert");
+    expect(banner?.textContent).toContain("Reconnecting");
+    expect(container.querySelector(".reconnect-spinner")).toBeTruthy();
+  });
+
+  it("hides reconnect banner when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    expect(container.querySelector(".reconnect-banner")).toBeNull();
+  });
+
+  it("hides reconnect banner when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".reconnect-banner")).toBeNull();
+  });
 });

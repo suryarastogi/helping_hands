@@ -5,7 +5,7 @@
  * previously duplicated between the local-player and remote-player
  * sections of the Hand World scene.
  */
-import type { CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 
 import { EMOTE_MAP } from "../constants";
 import type { PlayerDirection } from "../types";
@@ -60,12 +60,36 @@ export default function PlayerAvatar({
         "--rp-accent": `${color}66`,
       } as CSSProperties;
 
+  const [showTooltip, setShowTooltip] = useState(false);
   const ariaLabel = isLocal ? "You (player character)" : name;
 
+  const statusLabel = typing
+    ? "typing"
+    : idle
+      ? "idle"
+      : walking
+        ? "walking"
+        : "active";
+
   return (
-    <div className={className} style={style} aria-label={ariaLabel}>
+    <div
+      className={className}
+      style={style}
+      aria-label={ariaLabel}
+      onMouseEnter={!isLocal ? () => setShowTooltip(true) : undefined}
+      onMouseLeave={!isLocal ? () => setShowTooltip(false) : undefined}
+    >
       {!isLocal && name && (
         <span className="remote-player-name">{name}</span>
+      )}
+      {!isLocal && showTooltip && (
+        <div className="player-tooltip" role="tooltip">
+          <span className="player-tooltip-color" style={{ backgroundColor: color }} />
+          <span className="player-tooltip-name">{name}</span>
+          <span className={`player-tooltip-status player-tooltip-status-${statusLabel}`}>
+            {statusLabel}
+          </span>
+        </div>
       )}
       {emote && (
         <span className="emote-bubble" aria-label={`Emote: ${emote}`}>

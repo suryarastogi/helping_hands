@@ -450,6 +450,13 @@ export default function HandWorldScene({
           />
         )}
 
+        {connectionStatus === "connecting" && (
+          <div className="reconnect-banner" role="alert" aria-label="Reconnecting">
+            <span className="reconnect-spinner" />
+            <span>Reconnecting&hellip;</span>
+          </div>
+        )}
+
         {workerEntries.map((worker) => (
           <WorkerSprite
             key={worker.taskId}

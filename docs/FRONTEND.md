@@ -208,6 +208,8 @@ the Y.Doc itself remains empty.
 - Player count badge: green pill badge in Hand World header showing online player count
 - Typing indicator: pulsing "..." bubble when a player is typing in chat
 - Smooth remote movement: CSS transitions for interpolated remote avatar motion
+- Player tooltips: hover over a remote avatar to see name, color, and status
+- Reconnection banner: translucent overlay with spinner when WebSocket is reconnecting
 
 ### Awareness state per client
 

@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-24 v298–v301](exec-plans/completed/2026/2026-03-24.md) —
+  Smooth remote movement, typing indicator, minimap, chat cooldown,
+  player list API, e2e multiplayer tests, player tooltips, reconnection
+  banner; 459 tests (frontend)
+
 - [2026-03-23 v273–v297](exec-plans/completed/2026/2026-03-23.md) —
   Multiplayer Hand World, Yjs migration, frontend decomposition (components,
   hooks, types, utils), test co-location, chat bubbles/history, idle detection,

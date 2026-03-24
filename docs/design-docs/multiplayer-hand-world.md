@@ -229,6 +229,30 @@ render the Hand World scene with a local player avatar. Tests live in
 - Player name inputs are independent per context
 - Keyboard movement updates player position
 
+## Player interaction tooltips (v301)
+
+Hovering over a remote player avatar shows a tooltip with their name, color
+indicator, and current status (active/idle/typing/walking). The tooltip appears
+above the avatar with an arrow pointer.
+
+**Implementation:**
+- `PlayerAvatar` gained `showTooltip` state, toggled via `onMouseEnter`/`onMouseLeave`
+- Status label derived from `typing > idle > walking > active` priority
+- Tooltip only renders for remote players (`isLocal=false`), never for the local player
+- CSS: `.player-tooltip` positioned above avatar with `.player-tooltip-status-{status}` color variants
+
+## Reconnection banner (v301)
+
+When the Yjs WebSocket connection drops and is reconnecting (`connectionStatus === "connecting"`),
+a translucent overlay with a spinner and "Reconnecting…" text appears over the
+entire scene. This gives clear visual feedback that sync is temporarily interrupted.
+
+**Implementation:**
+- `HandWorldScene` conditionally renders `.reconnect-banner` when connecting
+- Banner uses `role="alert"` for accessibility
+- CSS: translucent dark overlay (`rgba(2, 8, 23, 0.65)`) with spinner animation,
+  `pointer-events: none` so the scene remains interactive underneath
+
 ## Future extensions
 
 - Shared Y.Doc state for persistent world features (e.g. placed objects)

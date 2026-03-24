@@ -14,6 +14,17 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Player Tooltips & Reconnection Banner (2026-03-24) — Completed
+
+**Implemented (v301):**
+- Player interaction tooltips: hover over remote avatar shows name, color dot, and status (active/idle/typing/walking)
+- Reconnection banner: translucent overlay with spinner when WebSocket is reconnecting
+- Tooltip only renders for remote players, never local — with CSS arrow pointer
+- Banner uses `role="alert"` for accessibility, `pointer-events: none` to keep scene interactive
+- 10 new tests (7 PlayerAvatar tooltip, 3 HandWorldScene banner)
+- 459 frontend tests total (up from 449)
+- Updated design doc and FRONTEND.md
+
 ### Multiplayer Polish: Minimap & Chat Cooldown (2026-03-24) — Completed
 
 **Implemented (v299):**

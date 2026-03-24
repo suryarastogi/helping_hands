@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 
 import PlayerAvatar from "./PlayerAvatar";
 import { EMOTE_MAP } from "../constants";
@@ -170,5 +170,75 @@ describe("PlayerAvatar component", () => {
     );
     expect(container.querySelector(".typing-indicator")).toBeTruthy();
     expect(container.querySelector(".idle-indicator")).toBeNull();
+  });
+
+  // --- Tooltip tests ---
+
+  it("shows tooltip on hover for remote player", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="Alice" color="#e11d48" x={30} y={40} />
+    );
+    const el = container.querySelector(".remote-player")!;
+    expect(container.querySelector(".player-tooltip")).toBeNull();
+    fireEvent.mouseEnter(el);
+    const tooltip = container.querySelector(".player-tooltip");
+    expect(tooltip).toBeTruthy();
+    expect(container.querySelector(".player-tooltip-name")?.textContent).toBe("Alice");
+    expect(container.querySelector(".player-tooltip-status")?.textContent).toBe("active");
+  });
+
+  it("hides tooltip on mouse leave for remote player", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="Bob" color="#2563eb" x={50} y={50} />
+    );
+    const el = container.querySelector(".remote-player")!;
+    fireEvent.mouseEnter(el);
+    expect(container.querySelector(".player-tooltip")).toBeTruthy();
+    fireEvent.mouseLeave(el);
+    expect(container.querySelector(".player-tooltip")).toBeNull();
+  });
+
+  it("does not show tooltip for local player on hover", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal x={50} y={50} />
+    );
+    const el = container.querySelector(".human-player")!;
+    fireEvent.mouseEnter(el);
+    expect(container.querySelector(".player-tooltip")).toBeNull();
+  });
+
+  it("shows typing status in tooltip when player is typing", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="Typer" color="#16a34a" typing={true} x={30} y={40} />
+    );
+    fireEvent.mouseEnter(container.querySelector(".remote-player")!);
+    expect(container.querySelector(".player-tooltip-status")?.textContent).toBe("typing");
+    expect(container.querySelector(".player-tooltip-status-typing")).toBeTruthy();
+  });
+
+  it("shows idle status in tooltip when player is idle", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="Idler" color="#94a3b8" idle={true} x={30} y={40} />
+    );
+    fireEvent.mouseEnter(container.querySelector(".remote-player")!);
+    expect(container.querySelector(".player-tooltip-status")?.textContent).toBe("idle");
+  });
+
+  it("shows walking status in tooltip when player is walking", () => {
+    const { container } = render(
+      <PlayerAvatar direction="right" walking={true} name="Walker" color="#e74c3c" x={30} y={40} />
+    );
+    fireEvent.mouseEnter(container.querySelector(".remote-player")!);
+    expect(container.querySelector(".player-tooltip-status")?.textContent).toBe("walking");
+  });
+
+  it("renders color indicator in tooltip matching player color", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="ColorTest" color="#f59e0b" x={30} y={40} />
+    );
+    fireEvent.mouseEnter(container.querySelector(".remote-player")!);
+    const dot = container.querySelector(".player-tooltip-color") as HTMLElement;
+    expect(dot).toBeTruthy();
+    expect(dot.style.backgroundColor).toBe("rgb(245, 158, 11)");
   });
 });
