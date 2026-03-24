@@ -14,6 +14,17 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Emote Picker Panel (2026-03-24) — Completed
+
+**Implemented (v302):**
+- Visual emote picker panel: smiley button in HUD toggles a 2x2 grid of emote buttons
+- Each button shows emoji, name (wave/celebrate/thumbsup/sparkle), and keyboard shortcut (1–4)
+- Clicking an emote triggers it and auto-closes the panel
+- `onTriggerEmote` prop added to HandWorldScene, wired from useMultiplayer's triggerEmote
+- Panel and button hidden when disconnected
+- 5 new tests → 464 frontend tests total (up from 459)
+- Updated FRONTEND.md and daily consolidation
+
 ### Player Tooltips & Reconnection Banner (2026-03-24) — Completed
 
 **Implemented (v301):**

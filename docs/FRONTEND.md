@@ -200,6 +200,7 @@ the Y.Doc itself remains empty.
 - Maps remote awareness states to `remotePlayers` array for rendering
 - Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
+- Emote picker panel: click the smiley button in the HUD to see all emotes with names and key bindings
 - Emote bubbles float up and fade out over 2 seconds above the avatar
 - Chat system: type a message in the chat input and press Enter to send
 - Chat bubbles appear above the sender's avatar and fade after 4 seconds

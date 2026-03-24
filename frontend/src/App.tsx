@@ -180,6 +180,7 @@ export default function App() {
     isLocalTyping,
     connectionStatus: yjsConnStatus,
     chatHistory,
+    triggerEmote,
     sendChat,
     setTyping,
     chatOnCooldown,
@@ -1324,6 +1325,7 @@ export default function App() {
           onSendChat={sendChat}
           onSetTyping={setTyping}
           chatOnCooldown={chatOnCooldown}
+          onTriggerEmote={triggerEmote}
           playerNameInput={playerNameInput}
           onPlayerNameChange={setPlayerNameInput}
           claudeUsage={claudeUsage}

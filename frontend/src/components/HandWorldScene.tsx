@@ -7,7 +7,7 @@
  */
 import { type CSSProperties, type Ref, useEffect, useRef, useState } from "react";
 
-import { CHAT_MAX_LENGTH } from "../constants";
+import { CHAT_MAX_LENGTH, EMOTE_KEY_BINDINGS, EMOTE_MAP } from "../constants";
 
 import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
@@ -88,6 +88,8 @@ export type HandWorldSceneProps = {
   onSetTyping: (typing: boolean) => void;
   /** Whether chat is on cooldown (disables send). */
   chatOnCooldown: boolean;
+  /** Trigger an emote by key ("1"–"4"). */
+  onTriggerEmote: (key: string) => void;
 
   // -- Player name --
   playerNameInput: string;
@@ -130,6 +132,7 @@ export default function HandWorldScene({
   onSendChat,
   onSetTyping,
   chatOnCooldown,
+  onTriggerEmote,
   playerNameInput,
   onPlayerNameChange,
   claudeUsage,
@@ -138,6 +141,7 @@ export default function HandWorldScene({
   floatingNumbers,
 }: HandWorldSceneProps) {
   const [chatInput, setChatInput] = useState("");
+  const [emotePickerOpen, setEmotePickerOpen] = useState(false);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatHistoryRef = useRef<HTMLDivElement>(null);
 
@@ -328,11 +332,42 @@ export default function HandWorldScene({
           <div className="status-summary-hint">
             <span className={`conn-status-dot conn-status-${connectionStatus}`} aria-label={`Connection: ${connectionStatus}`} />
             {connectionStatus === "connected"
-              ? "Multiplayer active \u00b7 Arrow keys: walk \u00b7 1-4: emote"
+              ? "Multiplayer active \u00b7 Arrow keys: walk"
               : connectionStatus === "connecting"
                 ? "Connecting\u2026"
                 : "Disconnected \u00b7 Arrow keys: walk"}
+            {connectionStatus === "connected" && (
+              <button
+                type="button"
+                className="emote-picker-btn"
+                onClick={() => setEmotePickerOpen((v) => !v)}
+                aria-label="Toggle emote picker"
+                aria-expanded={emotePickerOpen}
+              >
+                {emotePickerOpen ? "\u2716" : "\u{1F60A}"}
+              </button>
+            )}
           </div>
+          {emotePickerOpen && connectionStatus === "connected" && (
+            <div className="emote-picker-panel" role="group" aria-label="Emote picker">
+              {Object.entries(EMOTE_KEY_BINDINGS).map(([key, emoteName]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="emote-picker-item"
+                  onClick={() => {
+                    onTriggerEmote(key);
+                    setEmotePickerOpen(false);
+                  }}
+                  aria-label={`Send ${emoteName} emote`}
+                >
+                  <span className="emote-picker-emoji">{EMOTE_MAP[emoteName]}</span>
+                  <span className="emote-picker-label">{emoteName}</span>
+                  <kbd className="emote-picker-key">{key}</kbd>
+                </button>
+              ))}
+            </div>
+          )}
           {connectionStatus === "connected" && (
             <form className="chat-input-form" onSubmit={handleChatSubmit}>
               <input

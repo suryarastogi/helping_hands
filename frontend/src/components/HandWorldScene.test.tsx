@@ -58,6 +58,7 @@ const BASE_SCENE_PROPS = {
   onSendChat: vi.fn(),
   onSetTyping: vi.fn(),
   chatOnCooldown: false,
+  onTriggerEmote: vi.fn(),
   playerNameInput: "Tester",
   onPlayerNameChange: vi.fn(),
   claudeUsage: null as ClaudeUsageResponse | null,
@@ -604,5 +605,67 @@ describe("HandWorldScene component", () => {
       <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
     );
     expect(container.querySelector(".reconnect-banner")).toBeNull();
+  });
+
+  // --- Emote picker ---
+
+  it("shows emote picker button when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const btn = container.querySelector(".emote-picker-btn");
+    expect(btn).toBeTruthy();
+    expect(btn?.getAttribute("aria-label")).toBe("Toggle emote picker");
+  });
+
+  it("hides emote picker button when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".emote-picker-btn")).toBeNull();
+  });
+
+  it("toggles emote picker panel on button click", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const btn = container.querySelector(".emote-picker-btn")!;
+    expect(container.querySelector(".emote-picker-panel")).toBeNull();
+    fireEvent.click(btn);
+    const panel = container.querySelector(".emote-picker-panel");
+    expect(panel).toBeTruthy();
+    expect(panel?.getAttribute("aria-label")).toBe("Emote picker");
+    // Shows 4 emote items
+    expect(container.querySelectorAll(".emote-picker-item")).toHaveLength(4);
+    // Click again to close
+    fireEvent.click(btn);
+    expect(container.querySelector(".emote-picker-panel")).toBeNull();
+  });
+
+  it("calls onTriggerEmote and closes panel when emote item clicked", () => {
+    const onTriggerEmote = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" onTriggerEmote={onTriggerEmote} />
+    );
+    fireEvent.click(container.querySelector(".emote-picker-btn")!);
+    const items = container.querySelectorAll(".emote-picker-item");
+    // Click first emote (key "1" = wave)
+    fireEvent.click(items[0]);
+    expect(onTriggerEmote).toHaveBeenCalledWith("1");
+    // Panel should be closed after clicking
+    expect(container.querySelector(".emote-picker-panel")).toBeNull();
+  });
+
+  it("shows emote name and key binding in picker items", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    fireEvent.click(container.querySelector(".emote-picker-btn")!);
+    const labels = container.querySelectorAll(".emote-picker-label");
+    expect(labels[0].textContent).toBe("wave");
+    expect(labels[1].textContent).toBe("celebrate");
+    const keys = container.querySelectorAll(".emote-picker-key");
+    expect(keys[0].textContent).toBe("1");
+    expect(keys[1].textContent).toBe("2");
   });
 });
