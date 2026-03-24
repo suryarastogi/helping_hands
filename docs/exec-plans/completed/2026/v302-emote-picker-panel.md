@@ -35,6 +35,14 @@ only accessible via keyboard shortcuts with no visual discoverability.
 - PLANS.md: add v302 entry
 - Exec plan: move to completed on success
 
+## Tasks
+- [x] Add `onTriggerEmote` callback prop to HandWorldScene
+- [x] Implement emote picker toggle button and floating panel UI
+- [x] Wire `triggerEmote` from `useMultiplayer` into App.tsx
+- [x] Add CSS styles for picker button, panel, and emote items
+- [x] Write tests for emote picker toggle, click callback, and disconnect visibility
+- [x] Update FRONTEND.md and PLANS.md documentation
+
 ## Acceptance Criteria
 - [x] Emote picker button visible when connected
 - [x] Clicking button toggles panel open/closed
