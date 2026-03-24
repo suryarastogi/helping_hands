@@ -194,6 +194,41 @@ prevents spam. During cooldown, the chat input is disabled with a "Wait..."
 placeholder. The cooldown state (`chatOnCooldown`) is managed in the
 `useMultiplayer` hook and surfaced through `HandWorldScene`.
 
+## Player list API (v300)
+
+A new REST endpoint `GET /health/multiplayer/players` exposes connected player
+details by reading Yjs awareness states server-side. This enables external tools,
+dashboards, and monitoring to query who's currently online without needing a
+WebSocket connection.
+
+**Backend:**
+- `get_connected_players()` in `multiplayer_yjs.py` iterates over rooms,
+  reads awareness state entries (dict or JSON bytes), and extracts player
+  metadata (`player_id`, `name`, `color`, `x`, `y`, `idle`)
+- `_parse_awareness_state()` helper handles both in-process dict and
+  JSON-encoded wire formats
+- Graceful fallback: empty list when pycrdt-websocket not installed or on error
+
+**Response:**
+```json
+{
+  "players": [
+    {"player_id": "abc", "name": "Alice", "color": "#e74c3c", "x": 50.0, "y": 50.0, "idle": false}
+  ],
+  "count": 1
+}
+```
+
+## E2E multiplayer tests (v300)
+
+Playwright multi-context tests verify that independent browser contexts each
+render the Hand World scene with a local player avatar. Tests live in
+`frontend/e2e/multiplayer.spec.ts` and cover:
+
+- Two browser contexts both render Hand World with local player
+- Player name inputs are independent per context
+- Keyboard movement updates player position
+
 ## Future extensions
 
 - Shared Y.Doc state for persistent world features (e.g. placed objects)

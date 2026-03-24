@@ -134,6 +134,13 @@ To verify both surfaces offer the same features:
 - Run with `npm --prefix frontend run test`
 - CI enforces: Vitest with coverage via `@vitest/coverage-v8`
 
+### E2E tests (Playwright)
+
+- Tests live in `frontend/e2e/` (e.g., `world-view.spec.ts`, `multiplayer.spec.ts`)
+- `multiplayer.spec.ts` — multi-context tests verifying two browser windows
+  each render Hand World with independent local player avatars
+- Run with `npx playwright test` from `frontend/`
+
 ### Lint and type safety
 
 - ESLint catches code quality issues: `npm --prefix frontend run lint`
@@ -158,6 +165,7 @@ To verify both surfaces offer the same features:
 | `/workers/capacity` | GET | Celery worker pool info |
 | `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync |
 | `/health/multiplayer` | GET | Multiplayer room/connection stats |
+| `/health/multiplayer/players` | GET | Connected player list with positions |
 
 ## Multiplayer Hand World
 

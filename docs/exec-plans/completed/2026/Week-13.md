@@ -2,8 +2,9 @@
 
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
-history panel, and continued component extraction (MonitorCard, SubmissionForm,
-ScheduleCard, TaskListSidebar).
+history panel, continued component extraction (MonitorCard, SubmissionForm,
+ScheduleCard, TaskListSidebar), smooth movement, typing indicators, minimap,
+chat cooldown, player list API, and Playwright e2e multiplayer tests.
 
 ---
 
@@ -211,6 +212,32 @@ ScheduleCard, TaskListSidebar).
 
 ---
 
+## Mar 24 — Smooth Movement & Typing Indicator (v298)
+
+**CSS smooth movement:** Added `transition: left 150ms linear, top 150ms linear` on `.remote-player` for smooth position interpolation between awareness updates. **Typing indicator:** Pulsing "..." bubble above players typing in chat. New `typing: boolean` awareness field with `setTyping()` hook API.
+
+**10 new tests, 433 frontend tests total.**
+
+---
+
+## Mar 24 — Minimap & Chat Cooldown (v299)
+
+**Minimap:** Bird's-eye overlay in bottom-right showing local (white), remote (coloured), and worker (amber) dots. **Chat cooldown:** `CHAT_COOLDOWN_MS` (2s) rate limit, input disabled during cooldown with "Wait..." placeholder.
+
+**16 new tests, 449 frontend tests total.**
+
+---
+
+## Mar 24 — Player List API & E2E Multiplayer Tests (v300)
+
+**Player list endpoint:** `GET /health/multiplayer/players` reads Yjs awareness states server-side to return connected player details (`player_id`, `name`, `color`, `x`, `y`, `idle`). New `get_connected_players()` and `_parse_awareness_state()` in `multiplayer_yjs.py`.
+
+**Playwright e2e tests:** Multi-context tests in `frontend/e2e/multiplayer.spec.ts` verify independent browser contexts each render Hand World with local player avatars, independent name inputs, and keyboard movement.
+
+**12 new backend tests, 3 new Playwright e2e tests.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -238,3 +265,6 @@ ScheduleCard, TaskListSidebar).
 - `v295-extract-schedule-card.md`
 - `v296-extract-task-list-sidebar.md`
 - `v297-extract-app-overlays.md`
+- `v298-multiplayer-smooth-movement-typing-indicator.md`
+- `v299-minimap-chat-cooldown.md`
+- `v300-multiplayer-e2e-and-player-list-api.md`

@@ -11,6 +11,7 @@ sentinels so the rest of the server can start without it.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -106,3 +107,71 @@ def get_multiplayer_stats() -> dict[str, object]:
     except Exception:
         logger.debug("Failed to read multiplayer stats", exc_info=True)
         return {"available": True, "rooms": 0, "connections": 0}
+
+
+def get_connected_players() -> dict[str, object]:
+    """Return a list of connected players with their awareness metadata.
+
+    Iterates over Yjs rooms, reads each client's awareness state, and
+    extracts player fields (``player_id``, ``name``, ``color``, ``x``,
+    ``y``, ``idle``).  Returns::
+
+        {
+            "players": [
+                {"player_id": "abc", "name": "Alice", "color": "#e74c3c",
+                 "x": 50.0, "y": 50.0, "idle": false},
+                ...
+            ],
+            "count": 1
+        }
+
+    When the Yjs server is unavailable, returns an empty player list.
+    """
+    if yjs_websocket_server is None:
+        return {"players": [], "count": 0}
+
+    players: list[dict[str, object]] = []
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        for room in rooms.values():
+            awareness = getattr(room, "awareness", None)
+            if awareness is None:
+                continue
+            # awareness.states is a dict[int, bytes] of encoded state per client
+            states: dict[int, bytes] = getattr(awareness, "states", {})
+            for _client_id, raw_state in states.items():
+                state = _parse_awareness_state(raw_state)
+                if state is None:
+                    continue
+                players.append(
+                    {
+                        "player_id": state.get("player_id", ""),
+                        "name": state.get("name", ""),
+                        "color": state.get("color", ""),
+                        "x": state.get("x", 0),
+                        "y": state.get("y", 0),
+                        "idle": state.get("idle", False),
+                    }
+                )
+    except Exception:
+        logger.debug("Failed to read connected players", exc_info=True)
+
+    return {"players": players, "count": len(players)}
+
+
+def _parse_awareness_state(raw: object) -> dict[str, Any] | None:
+    """Best-effort decode of an awareness state entry.
+
+    The state may already be a dict (pycrdt in-process) or a JSON-encoded
+    bytes/str blob (wire format).  Returns ``None`` on failure.
+    """
+    if isinstance(raw, dict):
+        return raw
+    try:
+        if isinstance(raw, (bytes, bytearray)):
+            return json.loads(raw.decode("utf-8", errors="replace"))  # type: ignore[no-any-return]
+        if isinstance(raw, str):
+            return json.loads(raw)  # type: ignore[no-any-return]
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        pass
+    return None

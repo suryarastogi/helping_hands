@@ -75,6 +75,7 @@ from helping_hands.server.constants import (
 )
 from helping_hands.server.multiplayer_yjs import (
     create_yjs_app,
+    get_connected_players,
     get_multiplayer_stats,
     start_yjs_server,
     stop_yjs_server,
@@ -2731,6 +2732,12 @@ def health() -> dict[str, str]:
 def health_multiplayer() -> dict[str, object]:
     """Return multiplayer room/connection statistics."""
     return get_multiplayer_stats()
+
+
+@app.get("/health/multiplayer/players")
+def health_multiplayer_players() -> dict[str, object]:
+    """Return list of currently connected players with positions."""
+    return get_connected_players()
 
 
 class ServiceHealthResponse(BaseModel):
