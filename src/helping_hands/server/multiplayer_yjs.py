@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ def _parse_awareness_state(raw: object) -> dict[str, Any] | None:
     bytes/str blob (wire format).  Returns ``None`` on failure.
     """
     if isinstance(raw, dict):
-        return raw
+        return cast(dict[str, Any], raw)
     try:
         if isinstance(raw, (bytes, bytearray)):
             return json.loads(raw.decode("utf-8", errors="replace"))  # type: ignore[no-any-return]
