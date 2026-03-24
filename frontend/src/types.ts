@@ -196,7 +196,6 @@ export type ClaudeUsageResponse = {
 export type OutputTab = "updates" | "raw" | "payload";
 export type PrefixFilterMode = "show" | "hide" | "only";
 export type MainView = "submission" | "monitor" | "schedules";
-export type DashboardView = "classic" | "world";
 
 export type SceneWorker = {
   taskId: string;

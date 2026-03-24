@@ -71,12 +71,13 @@ afterEach(() => {
 describe("App component", () => {
   it("renders without crashing", () => {
     render(<App />);
-    // The submit button is always visible
-    expect(screen.getByText("Run")).toBeInTheDocument();
+    // The "New Task" button is always visible
+    expect(screen.getByText("New Task")).toBeInTheDocument();
   });
 
   it("renders the repo path input with default value", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     const repoInput = screen.getByPlaceholderText("owner/repo");
     expect(repoInput).toBeInTheDocument();
     expect(repoInput).toHaveValue("suryarastogi/helping_hands");
@@ -84,6 +85,7 @@ describe("App component", () => {
 
   it("renders the prompt input with default value", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     const promptInput = screen.getByPlaceholderText("Prompt");
     expect(promptInput).toBeInTheDocument();
     expect(promptInput).toHaveValue(
@@ -93,6 +95,7 @@ describe("App component", () => {
 
   it("repo input has aria-label for accessibility", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     const repoInput = screen.getByLabelText("Repository path");
     expect(repoInput).toBeInTheDocument();
     expect(repoInput).toHaveAttribute("placeholder", "owner/repo");
@@ -100,6 +103,7 @@ describe("App component", () => {
 
   it("prompt input has aria-label for accessibility", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     const promptInput = screen.getByLabelText("Task prompt");
     expect(promptInput).toBeInTheDocument();
     expect(promptInput).toHaveAttribute("placeholder", "Prompt");
@@ -115,15 +119,9 @@ describe("App component", () => {
     expect(screen.getByLabelText("Service health")).toBeInTheDocument();
   });
 
-  it("renders the dashboard view toggle buttons", () => {
+  it("renders the new task and scheduled tasks buttons", () => {
     render(<App />);
-    expect(screen.getByText("Classic view")).toBeInTheDocument();
-    expect(screen.getByText("Hand world")).toBeInTheDocument();
-  });
-
-  it("renders the new submission and scheduled tasks buttons", () => {
-    render(<App />);
-    expect(screen.getByText("New submission")).toBeInTheDocument();
+    expect(screen.getByText("New Task")).toBeInTheDocument();
     expect(screen.getByText("Scheduled tasks")).toBeInTheDocument();
   });
 
@@ -134,29 +132,6 @@ describe("App component", () => {
 });
 
 describe("App interaction", () => {
-  it("switches to Hand world view when toggle is clicked", () => {
-    render(<App />);
-    const worldButton = screen.getByText("Hand world");
-    expect(worldButton).toHaveAttribute("aria-selected", "false");
-
-    fireEvent.click(worldButton);
-
-    expect(worldButton).toHaveAttribute("aria-selected", "true");
-    const classicButton = screen.getByText("Classic view");
-    expect(classicButton).toHaveAttribute("aria-selected", "false");
-  });
-
-  it("switches back to Classic view when toggle is clicked", () => {
-    render(<App />);
-    // Switch to world first
-    fireEvent.click(screen.getByText("Hand world"));
-    // Switch back
-    fireEvent.click(screen.getByText("Classic view"));
-
-    expect(screen.getByText("Classic view")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Hand world")).toHaveAttribute("aria-selected", "false");
-  });
-
   it("navigates to scheduled tasks view when button is clicked", () => {
     render(<App />);
     const scheduledBtn = screen.getByText("Scheduled tasks");
@@ -166,20 +141,21 @@ describe("App interaction", () => {
     expect(scheduledBtn.className).toContain("active");
   });
 
-  it("navigates back to submission view via New submission button", () => {
+  it("navigates back to submission view via New Task button", () => {
     render(<App />);
     // Navigate away first
     fireEvent.click(screen.getByText("Scheduled tasks"));
-    // Navigate back
-    const newSubmBtn = screen.getByText("New submission");
-    fireEvent.click(newSubmBtn);
+    // Navigate back — clicking "New Task" opens the overlay with the form
+    const newTaskBtn = screen.getByText("New Task");
+    fireEvent.click(newTaskBtn);
 
-    // The submission form should be visible (Run button present)
+    // The submission form should be visible (Run button present in overlay)
     expect(screen.getByText("Run")).toBeInTheDocument();
   });
 
   it("opens the Advanced settings panel in the submission form", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     const advancedSummary = screen.getByText("Advanced");
     expect(advancedSummary).toBeInTheDocument();
 
@@ -193,6 +169,7 @@ describe("App interaction", () => {
 
   it("changes the repo path input value", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     const repoInput = screen.getByPlaceholderText("owner/repo") as HTMLInputElement;
     fireEvent.change(repoInput, { target: { value: "other/repo" } });
     expect(repoInput.value).toBe("other/repo");
@@ -200,6 +177,7 @@ describe("App interaction", () => {
 
   it("changes the prompt input value", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     const promptInput = screen.getByPlaceholderText("Prompt") as HTMLInputElement;
     fireEvent.change(promptInput, { target: { value: "Fix all bugs" } });
     expect(promptInput.value).toBe("Fix all bugs");
@@ -207,6 +185,7 @@ describe("App interaction", () => {
 
   it("changes the backend select value in advanced settings", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     // Expand advanced
     fireEvent.click(screen.getByText("Advanced"));
 
@@ -234,6 +213,7 @@ describe("Form submission", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     // Submit the form
     const runButton = screen.getByText("Run");
@@ -263,6 +243,7 @@ describe("Form submission", () => {
     );
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -286,6 +267,7 @@ describe("Form submission", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -308,6 +290,7 @@ describe("Form submission", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     // Expand advanced and change model
     fireEvent.click(screen.getByText("Advanced"));
@@ -336,6 +319,7 @@ describe("Form submission", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     // Expand advanced and set tools/skills
     fireEvent.click(screen.getByText("Advanced"));
@@ -358,6 +342,7 @@ describe("Form submission", () => {
 
   it("toggles checkbox fields in advanced settings", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     fireEvent.click(screen.getByText("Advanced"));
 
     const noPrCheckbox = screen.getByLabelText("No PR") as HTMLInputElement;
@@ -388,6 +373,7 @@ describe("Form submission", () => {
 
   it("changes max iterations in advanced settings", () => {
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
     fireEvent.click(screen.getByText("Advanced"));
 
     const iterInput = screen.getByDisplayValue("6") as HTMLInputElement;
@@ -402,6 +388,7 @@ describe("Form validation", () => {
     vi.stubGlobal("fetch", fetchSpy);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     // Clear the default repo_path
     const repoInput = screen.getByDisplayValue(
@@ -425,6 +412,7 @@ describe("Form validation", () => {
     vi.stubGlobal("fetch", fetchSpy);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     // Clear the prompt textarea by finding it via its default value
     const promptTextarea = screen.getByDisplayValue(
@@ -455,6 +443,7 @@ describe("Monitor view", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -975,6 +964,7 @@ describe("Task selection and polling", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -987,7 +977,7 @@ describe("Task selection and polling", () => {
     });
 
     // Navigate to submission and back
-    fireEvent.click(screen.getByText("New submission"));
+    fireEvent.click(screen.getByText("New Task"));
 
     // The task should appear in the task list; click it
     const taskRows = document.querySelectorAll(".task-row");
@@ -1028,6 +1018,7 @@ describe("Task selection and polling", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -1071,6 +1062,7 @@ describe("Task selection and polling", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -1142,6 +1134,7 @@ describe("Notification and toast UI", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -1182,6 +1175,7 @@ describe("Notification and toast UI", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -1251,7 +1245,7 @@ describe("Task discovery from current tasks API", () => {
 
     // Should not crash — the app still renders
     await waitFor(() => {
-      expect(screen.getByText("Run")).toBeInTheDocument();
+      expect(screen.getByText("New Task")).toBeInTheDocument();
     });
   });
 });
@@ -1268,6 +1262,7 @@ describe("Monitor view resize and scroll", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -1292,6 +1287,7 @@ describe("Monitor view resize and scroll", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -1306,7 +1302,7 @@ describe("Monitor view resize and scroll", () => {
   });
 });
 
-describe("New submission button resets state", () => {
+describe("New Task button resets state", () => {
   it("resets to submission form from monitor view", async () => {
     const mockFetch = mockFetchResponses({
       "/build": mockResponse({
@@ -1318,6 +1314,7 @@ describe("New submission button resets state", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
@@ -1328,10 +1325,10 @@ describe("New submission button resets state", () => {
       expect(screen.getByText("Task inputs")).toBeInTheDocument();
     });
 
-    // Click New submission to reset
-    fireEvent.click(screen.getByText("New submission"));
+    // Click New Task to reset — opens overlay with form
+    fireEvent.click(screen.getByText("New Task"));
 
-    // Should be back in submission view with Run button
+    // Should show the submission form in the overlay with Run button
     expect(screen.getByText("Run")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("owner/repo")).toBeInTheDocument();
   });
@@ -1340,7 +1337,6 @@ describe("New submission button resets state", () => {
 describe("Hand World factory and incinerator", () => {
   function switchToHandWorld() {
     render(<App />);
-    fireEvent.click(screen.getByText("Hand world"));
   }
 
   it("renders the Hand World card header", () => {
@@ -1495,15 +1491,13 @@ class MockAwareness {
 
 /** Most-recently created mock awareness instance. */
 let mockAwareness: MockAwareness;
-let mockProviderDestroyCalled: boolean;
-let mockDocDestroyCalled: boolean;
 let mockProviderInstance: { _listeners: Record<string, Array<(arg: unknown) => void>>; _fireStatus: (status: string) => void } | null = null;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => ({
   Doc: class MockDoc {
     clientID = MOCK_CLIENT_ID;
-    destroy() { mockDocDestroyCalled = true; }
+    destroy() { /* no-op */ }
   },
 }));
 
@@ -1530,19 +1524,16 @@ vi.mock("y-websocket", () => ({
     _fireStatus(status: string) {
       (this._listeners["status"] ?? []).forEach((cb) => cb({ status }));
     }
-    destroy() { mockProviderDestroyCalled = true; }
+    destroy() { /* no-op */ }
   },
 }));
 
 describe("Yjs Multiplayer Awareness", () => {
   beforeEach(() => {
-    mockProviderDestroyCalled = false;
-    mockDocDestroyCalled = false;
   });
 
   function switchToWorld() {
     render(<App />);
-    fireEvent.click(screen.getByText("Hand world"));
   }
 
   it("creates Yjs provider when entering world view", async () => {
@@ -1633,17 +1624,6 @@ describe("Yjs Multiplayer Awareness", () => {
     await waitFor(() => {
       expect(screen.getByText("3 Online")).toBeInTheDocument();
     });
-  });
-
-  it("cleans up Yjs provider when leaving world view", async () => {
-    switchToWorld();
-    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
-
-    // Switch back to classic view.
-    fireEvent.click(screen.getByText("Classic view"));
-
-    expect(mockProviderDestroyCalled).toBe(true);
-    expect(mockDocDestroyCalled).toBe(true);
   });
 
   it("shows local emote bubble when pressing emote key", async () => {

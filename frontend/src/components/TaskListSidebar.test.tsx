@@ -16,9 +16,8 @@ const MOCK_TASK: TaskHistoryItem = {
 
 function defaultProps(overrides?: Partial<TaskListSidebarProps>): TaskListSidebarProps {
   return {
-    dashboardView: "classic",
-    onDashboardViewChange: vi.fn(),
     mainView: "submission",
+    showSubmissionOverlay: false,
     onNewSubmission: vi.fn(),
     onShowSchedules: vi.fn(),
     taskHistory: [],
@@ -30,43 +29,16 @@ function defaultProps(overrides?: Partial<TaskListSidebarProps>): TaskListSideba
 }
 
 describe("TaskListSidebar", () => {
-  it("renders view toggle with classic and world buttons", () => {
+  it("renders New Task and Scheduled tasks buttons", () => {
     render(<TaskListSidebar {...defaultProps()} />);
-    expect(screen.getByRole("tab", { name: "Classic view" })).toBeDefined();
-    expect(screen.getByRole("tab", { name: "Hand world" })).toBeDefined();
-  });
-
-  it("marks classic view tab as active when dashboardView is classic", () => {
-    render(<TaskListSidebar {...defaultProps({ dashboardView: "classic" })} />);
-    const classicTab = screen.getByRole("tab", { name: "Classic view" });
-    expect(classicTab.getAttribute("aria-selected")).toBe("true");
-    expect(classicTab.className).toContain("active");
-  });
-
-  it("marks world view tab as active when dashboardView is world", () => {
-    render(<TaskListSidebar {...defaultProps({ dashboardView: "world" })} />);
-    const worldTab = screen.getByRole("tab", { name: "Hand world" });
-    expect(worldTab.getAttribute("aria-selected")).toBe("true");
-    expect(worldTab.className).toContain("active");
-  });
-
-  it("calls onDashboardViewChange when toggling views", () => {
-    const onDashboardViewChange = vi.fn();
-    render(<TaskListSidebar {...defaultProps({ onDashboardViewChange })} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Hand world" }));
-    expect(onDashboardViewChange).toHaveBeenCalledWith("world");
-  });
-
-  it("renders New submission and Scheduled tasks buttons", () => {
-    render(<TaskListSidebar {...defaultProps()} />);
-    expect(screen.getByText("New submission")).toBeDefined();
+    expect(screen.getByText("New Task")).toBeDefined();
     expect(screen.getByText("Scheduled tasks")).toBeDefined();
   });
 
-  it("calls onNewSubmission when clicking New submission", () => {
+  it("calls onNewSubmission when clicking New Task", () => {
     const onNewSubmission = vi.fn();
     render(<TaskListSidebar {...defaultProps({ onNewSubmission })} />);
-    fireEvent.click(screen.getByText("New submission"));
+    fireEvent.click(screen.getByText("New Task"));
     expect(onNewSubmission).toHaveBeenCalledOnce();
   });
 
@@ -77,15 +49,15 @@ describe("TaskListSidebar", () => {
     expect(onShowSchedules).toHaveBeenCalledOnce();
   });
 
-  it("marks New submission button active in classic submission view", () => {
-    render(<TaskListSidebar {...defaultProps({ dashboardView: "classic", mainView: "submission" })} />);
-    const btn = screen.getByText("New submission");
+  it("marks New Task button active when overlay is open", () => {
+    render(<TaskListSidebar {...defaultProps({ showSubmissionOverlay: true })} />);
+    const btn = screen.getByText("New Task");
     expect(btn.className).toContain("active");
   });
 
-  it("does not mark New submission active in world view", () => {
-    render(<TaskListSidebar {...defaultProps({ dashboardView: "world", mainView: "submission" })} />);
-    const btn = screen.getByText("New submission");
+  it("does not mark New Task active when overlay is closed", () => {
+    render(<TaskListSidebar {...defaultProps({ showSubmissionOverlay: false })} />);
+    const btn = screen.getByText("New Task");
     expect(btn.className).not.toContain("active");
   });
 

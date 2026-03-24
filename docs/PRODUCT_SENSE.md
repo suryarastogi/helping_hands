@@ -39,6 +39,18 @@ server.
 - **Skill catalog** -- Built-in skills staged to a temp directory during CLI
   hand runs; extensible via `--skills` selection
 
+## Success looks like
+
+- A user clones any repo, runs `helping_hands <repo>` (CLI) or uses the app,
+  describes what they want in plain language, and gets coherent,
+  convention-following changes.
+
+## Non-goals (for now)
+
+- Replacing the human in the loop — the human reviews and approves.
+- Supporting non-git workflows.
+- Being a generic chatbot — the focus is repo building, not Q&A.
+
 ## Future directions
 
 - Multi-repo orchestration

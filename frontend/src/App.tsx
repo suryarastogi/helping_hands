@@ -23,7 +23,6 @@ import type {
   BuildResponse,
   ClaudeUsageResponse,
   CurrentTasksResponse,
-  DashboardView,
   FloatingNumber,
   FormState,
   InputItem,
@@ -45,7 +44,6 @@ import {
   asRecord,
   BACKEND_OPTIONS,
   buildDeskSlots,
-  DASHBOARD_VIEW_STORAGE_KEY,
   DEFAULT_CHARACTER_STYLE,
   DEFAULT_WORLD_MAX_WORKERS,
   extractPrefixes,
@@ -134,7 +132,7 @@ export default function App() {
   const [mainView, setMainView] = useState<MainView>("submission");
   const [isPolling, setIsPolling] = useState(false);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
-  const [dashboardView, setDashboardView] = useState<DashboardView>("classic");
+  const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
   const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
   const slotByTaskRef = useRef<Record<string, number>>({});
@@ -169,7 +167,7 @@ export default function App() {
     playerPosition,
     playerDirection,
     isPlayerWalking,
-  } = useMovement({ active: dashboardView === "world", deskSlots });
+  } = useMovement({ active: true, deskSlots });
 
   const {
     remotePlayers,
@@ -182,7 +180,7 @@ export default function App() {
     chatHistory,
     sendChat,
   } = useMultiplayer({
-    active: dashboardView === "world",
+    active: true,
     playerPosition,
     playerDirection,
     isPlayerWalking,
@@ -551,27 +549,6 @@ export default function App() {
     setTaskHistory(loadTaskHistory());
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const savedView = window.localStorage.getItem(DASHBOARD_VIEW_STORAGE_KEY);
-    if (savedView === "classic" || savedView === "world") {
-      setDashboardView(savedView);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    try {
-      window.localStorage.setItem(DASHBOARD_VIEW_STORAGE_KEY, dashboardView);
-    } catch {
-      // Ignore storage failures.
-    }
-  }, [dashboardView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1109,7 +1086,7 @@ export default function App() {
   };
 
   const openSubmissionView = () => {
-    setMainView("submission");
+    setShowSubmissionOverlay(true);
     setIsPolling(false);
     setStatus("idle");
     setPayload(null);
@@ -1146,6 +1123,7 @@ export default function App() {
     }
 
     setStatus("submitting");
+    setShowSubmissionOverlay(false);
     setMainView("monitor");
     setPayload(null);
     setUpdates([]);
@@ -1307,9 +1285,8 @@ export default function App() {
     <>
     <main className="page">
       <TaskListSidebar
-        dashboardView={dashboardView}
-        onDashboardViewChange={setDashboardView}
         mainView={mainView}
+        showSubmissionOverlay={showSubmissionOverlay}
         onNewSubmission={openSubmissionView}
         onShowSchedules={() => setMainView("schedules")}
         taskHistory={taskHistory}
@@ -1319,50 +1296,53 @@ export default function App() {
       />
 
       <div className="main-column">
-        {dashboardView === "classic" ? (
-          mainView === "submission" ? (
-            submissionCard
-          ) : mainView === "schedules" ? (
-            schedulesCard
-          ) : (
-            monitorCard
-          )
-        ) : (
-          <>
-            <HandWorldScene
-              sceneRef={sceneRef}
-              sceneStyle={worldSceneStyle}
-              maxWorkers={maxOfficeWorkers}
-              deskSlots={deskSlots}
-              workerEntries={sceneWorkerEntries}
-              selectedTaskId={taskId}
-              onSelectTask={selectTask}
-              playerDirection={playerDirection}
-              isPlayerWalking={isPlayerWalking}
-              playerPosition={playerPosition}
-              localEmote={localEmote}
-              remotePlayers={remotePlayers}
-              remoteEmotes={remoteEmotes}
-              remoteChats={remoteChats}
-              localChat={localChat}
-              isLocalIdle={isLocalIdle}
-              connectionStatus={yjsConnStatus}
-              chatHistory={chatHistory}
-              onSendChat={sendChat}
-              playerNameInput={playerNameInput}
-              onPlayerNameChange={setPlayerNameInput}
-              claudeUsage={claudeUsage}
-              claudeUsageLoading={claudeUsageLoading}
-              onRefreshClaudeUsage={() => void refreshClaudeUsage()}
-              floatingNumbers={floatingNumbers}
-            />
+        <HandWorldScene
+          sceneRef={sceneRef}
+          sceneStyle={worldSceneStyle}
+          maxWorkers={maxOfficeWorkers}
+          deskSlots={deskSlots}
+          workerEntries={sceneWorkerEntries}
+          selectedTaskId={taskId}
+          onSelectTask={selectTask}
+          playerDirection={playerDirection}
+          isPlayerWalking={isPlayerWalking}
+          playerPosition={playerPosition}
+          localEmote={localEmote}
+          remotePlayers={remotePlayers}
+          remoteEmotes={remoteEmotes}
+          remoteChats={remoteChats}
+          localChat={localChat}
+          isLocalIdle={isLocalIdle}
+          connectionStatus={yjsConnStatus}
+          chatHistory={chatHistory}
+          onSendChat={sendChat}
+          playerNameInput={playerNameInput}
+          onPlayerNameChange={setPlayerNameInput}
+          claudeUsage={claudeUsage}
+          claudeUsageLoading={claudeUsageLoading}
+          onRefreshClaudeUsage={() => void refreshClaudeUsage()}
+          floatingNumbers={floatingNumbers}
+        />
 
-            {mainView !== "schedules" && submissionCard}
-            {mainView === "monitor" && taskId && monitorCard}
-            {mainView === "schedules" && schedulesCard}
-          </>
-        )}
+        {mainView === "monitor" && taskId && monitorCard}
+        {mainView === "schedules" && schedulesCard}
       </div>
+
+      {showSubmissionOverlay && (
+        <div className="submission-overlay" onClick={() => setShowSubmissionOverlay(false)}>
+          <div className="submission-overlay-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="submission-overlay-close"
+              onClick={() => setShowSubmissionOverlay(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            {submissionCard}
+          </div>
+        </div>
+      )}
     </main>
     <AppOverlays
       serviceHealthState={serviceHealthState}

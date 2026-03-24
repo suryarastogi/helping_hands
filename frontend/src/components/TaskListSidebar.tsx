@@ -1,10 +1,9 @@
-import type { DashboardView, MainView, TaskHistoryItem } from "../types";
+import type { MainView, TaskHistoryItem } from "../types";
 import { shortTaskId, statusTone } from "../App.utils";
 
 export type TaskListSidebarProps = {
-  dashboardView: DashboardView;
-  onDashboardViewChange: (view: DashboardView) => void;
   mainView: MainView;
+  showSubmissionOverlay: boolean;
   onNewSubmission: () => void;
   onShowSchedules: () => void;
   taskHistory: TaskHistoryItem[];
@@ -14,9 +13,8 @@ export type TaskListSidebarProps = {
 };
 
 export default function TaskListSidebar({
-  dashboardView,
-  onDashboardViewChange,
   mainView,
+  showSubmissionOverlay,
   onNewSubmission,
   onShowSchedules,
   taskHistory,
@@ -26,34 +24,12 @@ export default function TaskListSidebar({
 }: TaskListSidebarProps) {
   return (
     <aside className="card task-list-card">
-      <div className="view-toggle" role="tablist" aria-label="Dashboard view">
-        <button
-          type="button"
-          role="tab"
-          className={`view-toggle-btn${dashboardView === "classic" ? " active" : ""}`}
-          aria-selected={dashboardView === "classic"}
-          onClick={() => onDashboardViewChange("classic")}
-        >
-          Classic view
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`view-toggle-btn${dashboardView === "world" ? " active" : ""}`}
-          aria-selected={dashboardView === "world"}
-          onClick={() => onDashboardViewChange("world")}
-        >
-          Hand world
-        </button>
-      </div>
       <button
         type="button"
-        className={`new-submission-button${
-          dashboardView === "classic" && mainView === "submission" ? " active" : ""
-        }`}
+        className={`new-submission-button${showSubmissionOverlay ? " active" : ""}`}
         onClick={onNewSubmission}
       >
-        New submission
+        New Task
       </button>
       <button
         type="button"
