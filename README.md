@@ -575,17 +575,22 @@ ANTHROPIC_API_KEY=sk-ant-... uv run helping-hands owner/repo --backend docker-sa
 
 Goose backend notes:
 
-- **Env vars:** Depends on `GOOSE_PROVIDER` — `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama, default). Always requires `GH_TOKEN` or `GITHUB_TOKEN`.
+- **Env vars:** Depends on `GOOSE_PROVIDER` — `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama). Always requires `GH_TOKEN` or `GITHUB_TOKEN`.
 - Default command: `goose run --with-builtin developer --text`
 - Override command via `HELPING_HANDS_GOOSE_CLI_CMD`
 - The backend auto-adds `--with-builtin developer` for `goose run` commands if
   missing, so local file editing tools are available.
-- Provider/model are auto-injected for automation:
-  - `GOOSE_PROVIDER` and `GOOSE_MODEL` are derived from `HELPING_HANDS_MODEL`
-    (or default to `ollama` + `llama3.2:latest`).
+- **Provider/model resolution priority:**
+  1. `--model provider/model` (from CLI or frontend) — highest priority
+  2. `GOOSE_PROVIDER` / `GOOSE_MODEL` environment variables
+  3. **Goose config YAML** (`~/.config/goose/config.yaml`) — the backend reads
+     `GOOSE_PROVIDER` and `GOOSE_MODEL` keys from this file automatically, so
+     `goose configure` settings are respected without extra env vars
+  4. Class defaults: `ollama` + `llama3.2:latest`
+- Goose-native providers like `codex` are passed through as-is (no API key
+  mapping needed — codex uses its own logged-in session).
 - For remote Ollama instances, set `OLLAMA_HOST` (e.g.
   `http://192.168.1.143:11434`).
-- Interactive `goose configure` is not required for helping_hands runs.
 - Goose runs require `GH_TOKEN` or `GITHUB_TOKEN`.
 - If only one of `GH_TOKEN` / `GITHUB_TOKEN` is set, runtime mirrors it to both
   variables so Goose/`gh` use token auth consistently.
@@ -594,11 +599,36 @@ Goose backend notes:
 Goose model examples:
 
 ```bash
+# Goose with provider/model from goose config YAML (no --model needed)
+uv run helping-hands owner/repo --backend goose --prompt "Implement X"
+
 # Goose + OpenAI (provider inferred from gpt-* model)
 uv run helping-hands owner/repo --backend goose --model gpt-5.2 --prompt "Implement X"
 
 # Goose + Claude (explicit provider/model form)
 uv run helping-hands owner/repo --backend goose --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
+```
+
+OpenCode backend notes:
+
+- **Model format:** `provider/model` (e.g. `litellm/claude-sonnet-4-6`). The
+  provider prefix is required — OpenCode uses it to route to the correct backend.
+- Default command: `opencode run`
+- Override command via `HELPING_HANDS_OPENCODE_CLI_CMD`
+- **Auth:** Provider-dependent. The resolved provider prefix (before `/`) is
+  mapped to the standard API key env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+  etc.). Configure providers in `~/.config/opencode/opencode.json`.
+- If no model is specified, OpenCode picks its own default.
+- No native-CLI-auth toggle — API keys are always forwarded.
+
+OpenCode model examples:
+
+```bash
+# OpenCode + LiteLLM/Claude
+uv run helping-hands owner/repo --backend opencodecli --model litellm/claude-sonnet-4-6 --prompt "Implement X"
+
+# OpenCode with default model (from opencode config)
+uv run helping-hands owner/repo --backend opencodecli --prompt "Implement X"
 ```
 
 Gemini CLI note:

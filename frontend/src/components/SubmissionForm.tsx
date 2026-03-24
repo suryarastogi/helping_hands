@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 
 import type { Backend, FormState } from "../types";
-import { backendDisplayName } from "../App.utils";
+import { backendDisplayName, defaultModelForBackend } from "../App.utils";
 
 export interface SubmissionFormProps {
   form: FormState;
@@ -61,7 +61,7 @@ export default function SubmissionForm({
                 <input
                   value={form.model}
                   onChange={(event) => onFieldChange("model", event.target.value)}
-                  placeholder="claude-opus-4-6"
+                  placeholder={defaultModelForBackend(form.backend) || "model"}
                 />
               </label>
             </div>
@@ -127,14 +127,6 @@ export default function SubmissionForm({
                   onChange={(event) => onFieldChange("enable_web", event.target.checked)}
                 />
                 Web
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.use_native_cli_auth}
-                  onChange={(event) => onFieldChange("use_native_cli_auth", event.target.checked)}
-                />
-                Native auth
               </label>
               <label className="check-row compact-check">
                 <input

@@ -45,6 +45,7 @@ import {
   BACKEND_OPTIONS,
   buildDeskSlots,
   filterEnabledBackends,
+  defaultModelForBackend,
   DEFAULT_CHARACTER_STYLE,
   DEFAULT_WORLD_MAX_WORKERS,
   extractPrefixes,
@@ -194,6 +195,7 @@ export default function App() {
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
+  const [showClaudeUsage, setShowClaudeUsage] = useState(true);
 
   const monitorOutputRef = useRef<HTMLPreElement>(null);
   const autoScrollRef = useRef(true);
@@ -921,6 +923,9 @@ export default function App() {
             return current;
           });
         }
+        if (config.claude_native_cli_auth === false) {
+          setShowClaudeUsage(false);
+        }
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, []);
@@ -1096,7 +1101,13 @@ export default function App() {
   }, [isPolling, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "backend") {
+        next.model = defaultModelForBackend(value as string);
+      }
+      return next;
+    });
   };
 
   const openSubmissionView = () => {
@@ -1336,6 +1347,7 @@ export default function App() {
           claudeUsage={claudeUsage}
           claudeUsageLoading={claudeUsageLoading}
           onRefreshClaudeUsage={() => void refreshClaudeUsage()}
+          showClaudeUsage={showClaudeUsage}
           floatingNumbers={floatingNumbers}
         />
 

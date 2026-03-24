@@ -119,6 +119,7 @@ export type ServerConfig = {
   in_docker: boolean;
   native_auth_default: boolean;
   enabled_backends?: string[];
+  claude_native_cli_auth?: boolean;
 };
 
 export type ServiceHealth = {

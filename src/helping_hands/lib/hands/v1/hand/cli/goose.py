@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
+from pathlib import Path
 from urllib.parse import urlparse
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
@@ -16,6 +18,8 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     PROVIDER_API_KEY_ENV,
 )
 from helping_hands.lib.validation import has_cli_flag
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["GooseCLIHand"]
 
@@ -34,6 +38,9 @@ class GooseCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_MODEL = ""
     _GOOSE_DEFAULT_PROVIDER = _PROVIDER_OLLAMA
     _GOOSE_DEFAULT_MODEL = "llama3.2:latest"
+    _GOOSE_CONFIG_PATHS = (
+        Path.home() / ".config" / "goose" / "config.yaml",
+    )
 
     def _pr_description_cmd(self) -> list[str] | None:
         """Return the CLI command used to generate PR descriptions.
@@ -223,8 +230,42 @@ class GooseCLIHand(_TwoPhaseCLIHand):
             return from_base_url
         return _OLLAMA_DEFAULT_HOST
 
+    @classmethod
+    def _read_goose_config(cls) -> tuple[str, str]:
+        """Read GOOSE_PROVIDER and GOOSE_MODEL from goose's config YAML.
+
+        Returns:
+            ``(provider, model)`` tuple from the config file, or
+            ``("", "")`` if not found or unreadable.
+        """
+        try:
+            import yaml
+        except ImportError:
+            return "", ""
+        for path in cls._GOOSE_CONFIG_PATHS:
+            if not path.is_file():
+                continue
+            try:
+                data = yaml.safe_load(path.read_text())
+                if not isinstance(data, dict):
+                    continue
+                provider = str(data.get("GOOSE_PROVIDER", "")).strip()
+                model = str(data.get("GOOSE_MODEL", "")).strip()
+                if provider or model:
+                    logger.debug(
+                        "goose config %s: provider=%r model=%r",
+                        path, provider, model,
+                    )
+                    return provider, model
+            except Exception:
+                logger.debug("failed to read goose config %s", path, exc_info=True)
+        return "", ""
+
     def _resolve_goose_provider_model_from_config(self) -> tuple[str, str]:
         """Resolve the Goose provider and model from the hand configuration.
+
+        Priority: ``config.model`` (user-supplied) → goose config YAML →
+        class defaults (ollama/llama3.2).
 
         Parses ``config.model`` using ``provider/model`` format when a
         slash is present, otherwise infers the provider from the model
@@ -236,6 +277,15 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         """
         raw_model = str(self.config.model).strip()
         if not raw_model or raw_model == "default":
+            cfg_provider, cfg_model = self._read_goose_config()
+            if cfg_provider or cfg_model:
+                provider = self._normalize_goose_provider(cfg_provider)
+                if not provider and cfg_model:
+                    provider = self._infer_goose_provider_from_model(cfg_model)
+                return (
+                    provider or self._GOOSE_DEFAULT_PROVIDER,
+                    cfg_model or self._GOOSE_DEFAULT_MODEL,
+                )
             return self._GOOSE_DEFAULT_PROVIDER, self._GOOSE_DEFAULT_MODEL
 
         provider = ""
@@ -283,8 +333,8 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         goose_model = env.get("GOOSE_MODEL", "").strip() or default_model
         goose_provider = self._normalize_goose_provider(env.get("GOOSE_PROVIDER", ""))
         if not goose_provider:
-            goose_provider = self._infer_goose_provider_from_model(goose_model)
-        resolved_provider = goose_provider or default_provider
+            goose_provider = default_provider
+        resolved_provider = goose_provider
         env["GOOSE_PROVIDER"] = resolved_provider
         env["GOOSE_MODEL"] = goose_model
         if resolved_provider == _PROVIDER_OLLAMA:

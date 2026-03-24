@@ -216,6 +216,14 @@ const API_COST_RE = /api:\s*\$([0-9]+(?:\.[0-9]+)?)/;
 // Pure utility functions
 // ---------------------------------------------------------------------------
 
+export function defaultModelForBackend(backend: string): string {
+  const normalized = backend.trim().toLowerCase();
+  if (normalized.includes("codex") || normalized.includes("openai")) return "gpt-5.2";
+  if (normalized.includes("claude")) return "claude-opus-4-6";
+  if (normalized.includes("gemini")) return "gemini-2.5-pro";
+  return "";
+}
+
 export function backendDisplayName(backend: string): string {
   if (backend === "e2e") return "Smoke Test (internal)";
   if (backend === "docker-sandbox-claude") return "Claude (Docker Sandbox)";

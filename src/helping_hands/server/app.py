@@ -343,6 +343,7 @@ class ServerConfig(BaseModel):
     in_docker: bool
     native_auth_default: bool
     enabled_backends: list[str]
+    claude_native_cli_auth: bool
 
 
 # --- Scheduled Task Models ---
@@ -2843,10 +2844,12 @@ def get_server_config() -> ServerConfig:
     from helping_hands.lib.hands.v1.hand.factory import get_enabled_backends
 
     in_docker = _is_running_in_docker()
+    claude_native = _is_truthy_env("HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH")
     return ServerConfig(
         in_docker=in_docker,
         native_auth_default=not in_docker,
         enabled_backends=get_enabled_backends(),
+        claude_native_cli_auth=claude_native,
     )
 
 

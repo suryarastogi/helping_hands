@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 
-import { backendDisplayName, CRON_PRESETS } from "../App.utils";
+import { backendDisplayName, CRON_PRESETS, defaultModelForBackend } from "../App.utils";
 import type { Backend, ScheduleFormState, ScheduleItem } from "../types";
 
 export interface ScheduleCardProps {
@@ -123,7 +123,7 @@ function ScheduleFormFields({
               <input
                 value={scheduleForm.model}
                 onChange={(e) => onUpdateField("model", e.target.value)}
-                placeholder="claude-opus-4-6"
+                placeholder={defaultModelForBackend(scheduleForm.backend) || "model"}
               />
             </label>
           </div>
@@ -189,14 +189,6 @@ function ScheduleFormFields({
                 onChange={(e) => onUpdateField("enable_web", e.target.checked)}
               />
               Web
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={scheduleForm.use_native_cli_auth}
-                onChange={(e) => onUpdateField("use_native_cli_auth", e.target.checked)}
-              />
-              Native auth
             </label>
             <label className="check-row">
               <input
