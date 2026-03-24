@@ -12,29 +12,28 @@ test("app renders with title", async ({ page }) => {
 
 test("sidebar buttons are visible", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "New submission" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New Task" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Scheduled tasks" })).toBeVisible();
 });
 
-test("view toggle tabs are visible", async ({ page }) => {
+test("Hand World scene is visible on load", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("tab", { name: "Classic view" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Hand world" })).toBeVisible();
+  await expect(page.locator(".hand-world-card")).toBeVisible();
 });
 
-test("clicking Scheduled tasks switches to schedule view", async ({ page }) => {
+test("clicking Scheduled tasks toggles schedule view", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Scheduled tasks" }).click();
   await expect(page.getByText("Create and manage recurring builds.")).toBeVisible();
+  // Click again to hide
+  await page.getByRole("button", { name: "Scheduled tasks" }).click();
+  await expect(page.getByText("Create and manage recurring builds.")).not.toBeVisible();
 });
 
-test("clicking New submission shows the form", async ({ page }) => {
+test("clicking New Task opens submission overlay", async ({ page }) => {
   await page.goto("/");
-  // Navigate away first
-  await page.getByRole("button", { name: "Scheduled tasks" }).click();
-  await expect(page.getByText("Create and manage recurring builds.")).toBeVisible();
-  // Navigate back
-  await page.getByRole("button", { name: "New submission" }).click();
+  await page.getByRole("button", { name: "New Task" }).click();
+  await expect(page.locator(".submission-overlay")).toBeVisible();
   await expect(page.locator("input.repo-input")).toBeVisible();
 });
 
