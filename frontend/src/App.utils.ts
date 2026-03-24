@@ -111,8 +111,6 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   enabled: true,
 };
 
-export const DASHBOARD_VIEW_STORAGE_KEY = "helping_hands_dashboard_view_v1";
-
 export const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
   "at-factory": 80,
   "walking-to-desk": 1500,

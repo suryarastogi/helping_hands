@@ -85,41 +85,6 @@ body {
   top: 14px;
 }
 
-.view-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin-bottom: 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 4px;
-  background: #0a1324;
-}
-
-button.view-toggle-btn {
-  border: 0;
-  border-radius: 8px;
-  padding: 8px 9px;
-  font-size: 0.76rem;
-  font-weight: 700;
-  background: transparent;
-  color: var(--muted);
-}
-
-button.view-toggle-btn:hover {
-  background: #182746;
-  color: var(--foreground);
-}
-
-button.view-toggle-btn.active {
-  background: #1d4ed8;
-  color: #dbeafe;
-}
-
-button.view-toggle-btn.active:hover {
-  background: #1e40af;
-}
-
 .new-submission-button {
   width: 100%;
   margin-bottom: 10px;
@@ -3247,5 +3212,66 @@ button.worker-sprite:disabled .worker-caption {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* ── Submission overlay / popup ── */
+.submission-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: overlay-fade-in 0.2s ease-out;
+}
+
+.submission-overlay-content {
+  position: relative;
+  width: min(560px, 90vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: overlay-slide-up 0.2s ease-out;
+}
+
+.submission-overlay-content > .card {
+  margin: 0;
+}
+
+.submission-overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.submission-overlay-close:hover {
+  background: var(--border);
+  color: var(--foreground);
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes overlay-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

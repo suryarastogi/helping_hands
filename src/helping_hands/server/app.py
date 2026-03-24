@@ -1236,7 +1236,7 @@ _UI_HTML = """<!doctype html>
           id="new-submission-btn"
           class="new-submission-button active"
         >
-          New submission
+          New Task
         </button>
         <button
           type="button"
