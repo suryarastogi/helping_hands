@@ -23,6 +23,8 @@ export type PlayerAvatarProps = {
   chat?: string | null;
   /** Whether the player is idle/AFK. */
   idle?: boolean;
+  /** Whether the player is currently typing a chat message. */
+  typing?: boolean;
   /** Avatar accent colour (used for remote-player CSS variables). */
   color?: string;
   /** True for the local (controlled) player; false for remote peers. */
@@ -39,6 +41,7 @@ export default function PlayerAvatar({
   emote,
   chat,
   idle = false,
+  typing = false,
   color,
   isLocal = false,
   x,
@@ -74,7 +77,12 @@ export default function PlayerAvatar({
           {chat}
         </span>
       )}
-      {idle && !emote && !chat && (
+      {typing && !emote && !chat && (
+        <span className="typing-indicator" aria-label="Typing">
+          ...
+        </span>
+      )}
+      {idle && !typing && !emote && !chat && (
         <span className="idle-indicator" aria-label="Idle">
           zzz
         </span>

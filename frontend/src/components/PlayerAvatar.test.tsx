@@ -130,4 +130,45 @@ describe("PlayerAvatar component", () => {
     expect(container.querySelector(".idle-indicator")).toBeNull();
     expect(container.querySelector(".chat-bubble")).toBeTruthy();
   });
+
+  it("renders typing indicator when typing is true", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal typing={true} x={50} y={50} />
+    );
+    const indicator = container.querySelector(".typing-indicator");
+    expect(indicator).toBeTruthy();
+    expect(indicator?.textContent).toBe("...");
+    expect(indicator?.getAttribute("aria-label")).toBe("Typing");
+  });
+
+  it("does not render typing indicator when typing is false", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal typing={false} x={50} y={50} />
+    );
+    expect(container.querySelector(".typing-indicator")).toBeNull();
+  });
+
+  it("hides typing indicator when emote is active", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal typing={true} emote="wave" x={50} y={50} />
+    );
+    expect(container.querySelector(".typing-indicator")).toBeNull();
+    expect(container.querySelector(".emote-bubble")).toBeTruthy();
+  });
+
+  it("hides typing indicator when chat is active", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal typing={true} chat="Hello!" x={50} y={50} />
+    );
+    expect(container.querySelector(".typing-indicator")).toBeNull();
+    expect(container.querySelector(".chat-bubble")).toBeTruthy();
+  });
+
+  it("typing indicator suppresses idle indicator", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} isLocal typing={true} idle={true} x={50} y={50} />
+    );
+    expect(container.querySelector(".typing-indicator")).toBeTruthy();
+    expect(container.querySelector(".idle-indicator")).toBeNull();
+  });
 });

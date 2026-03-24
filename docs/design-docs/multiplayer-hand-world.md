@@ -146,6 +146,32 @@ awareness `idle` field.
 - `RemotePlayer` type includes `idle: boolean` parsed from remote awareness
 - `PlayerAvatar` renders `.idle-indicator` when `idle && !emote && !chat`
 
+## Smooth remote movement (v298)
+
+Remote player avatars now use CSS transitions for smooth position interpolation
+instead of snapping between awareness updates. A `transition: left 150ms linear,
+top 150ms linear` rule on `.remote-player` provides ~9fps visual interpolation
+between Yjs awareness updates (which fire at ~6-10Hz). This is a pure CSS change
+with no JavaScript overhead.
+
+## Typing indicator (v298)
+
+When a player is typing in the chat input, a pulsing "..." bubble appears above
+their avatar. This is broadcast to all peers via the Yjs awareness `typing` field.
+
+**Implementation:**
+- `HandWorldScene` tracks chat input focus and content — sets `typing: true` when
+  the input has focus and non-empty text, `false` on blur/clear/send
+- `useMultiplayer` hook gained `setTyping()` callback, `isLocalTyping` state, and
+  `remoteTyping` record
+- `PlayerAvatar` renders `.typing-indicator` when `typing && !emote && !chat`
+  (typing indicator takes priority over idle indicator)
+- CSS: pulsing opacity animation (`typing-pulse`, 1.2s cycle) with speech-bubble
+  styling matching the chat bubble design
+
+**Awareness state:** `typing: boolean` added alongside existing `idle`, `emote`,
+`chat` fields.
+
 ## Future extensions
 
 - Shared Y.Doc state for persistent world features (e.g. placed objects)

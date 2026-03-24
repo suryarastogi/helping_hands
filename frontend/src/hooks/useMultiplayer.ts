@@ -33,6 +33,7 @@ export type RemotePlayer = {
   direction: PlayerDirection;
   walking: boolean;
   idle: boolean;
+  typing: boolean;
 };
 
 export type UseMultiplayerOptions = {
@@ -61,10 +62,16 @@ export type UseMultiplayerReturn = {
   connectionStatus: ConnectionStatus;
   /** Accumulated chat history (local + remote), newest last. */
   chatHistory: ChatMessage[];
+  /** Remote players' typing state keyed by player_id. */
+  remoteTyping: Record<string, boolean>;
+  /** Whether the local player is currently typing. */
+  isLocalTyping: boolean;
   /** Trigger a local emote by key ("1"–"4"). */
   triggerEmote: (key: string) => void;
   /** Send a chat message that appears as a bubble above the local player. */
   sendChat: (message: string) => void;
+  /** Update the local typing state (call on chat input focus/change/blur). */
+  setTyping: (typing: boolean) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -113,6 +120,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLocalIdle, setIsLocalIdle] = useState(false);
+  const [isLocalTyping, setIsLocalTyping] = useState(false);
+  const [remoteTyping, setRemoteTyping] = useState<Record<string, boolean>>({});
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
@@ -166,6 +175,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       direction: "down",
       walking: false,
       idle: false,
+      typing: false,
       emote: null,
       chat: null,
     });
@@ -175,10 +185,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       const others: RemotePlayer[] = [];
       const newEmotes: Record<string, string> = {};
       const newChats: Record<string, string> = {};
+      const newTyping: Record<string, boolean> = {};
 
       states.forEach((state: Record<string, unknown>, clientId: number) => {
         if (clientId === doc.clientID) return;
-        const p = state.player as (RemotePlayer & { emote?: string | null; chat?: string | null }) | undefined;
+        const p = state.player as (RemotePlayer & { emote?: string | null; chat?: string | null; typing?: boolean }) | undefined;
         if (!p) return;
         const pid = p.player_id ?? String(clientId);
         others.push({
@@ -190,7 +201,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
           direction: (p.direction ?? "down") as PlayerDirection,
           walking: p.walking ?? false,
           idle: p.idle ?? false,
+          typing: p.typing ?? false,
         });
+        if (p.typing) {
+          newTyping[pid] = true;
+        }
         if (p.emote) {
           newEmotes[pid] = p.emote;
         }
@@ -202,6 +217,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setRemotePlayers(others);
       setRemoteEmotes(newEmotes);
       setRemoteChats(newChats);
+      setRemoteTyping(newTyping);
 
       // Record new remote chat messages into history.
       for (const [pid, text] of Object.entries(newChats)) {
@@ -387,6 +403,21 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     [],
   );
 
+  // --- Typing state callback ---
+  const setTyping = useCallback(
+    (typing: boolean) => {
+      setIsLocalTyping(typing);
+      const provider = yjsProviderRef.current;
+      if (provider) {
+        const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+        if (current) {
+          provider.awareness.setLocalStateField("player", { ...current, typing });
+        }
+      }
+    },
+    [],
+  );
+
   // --- Emote key bindings ---
   useEffect(() => {
     if (!active) return;
@@ -412,12 +443,15 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     remotePlayers,
     remoteEmotes,
     remoteChats,
+    remoteTyping,
     localEmote,
     localChat,
     isLocalIdle,
+    isLocalTyping,
     connectionStatus,
     chatHistory,
     triggerEmote,
     sendChat,
+    setTyping,
   };
 }

@@ -14,6 +14,17 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Smooth Movement & Typing Indicator (2026-03-24) — Completed
+
+**Implemented (v298):**
+- CSS transition on `.remote-player` for smooth position interpolation (150ms linear)
+- Typing indicator: pulsing "..." bubble above players who are typing in chat
+- `typing` field added to Yjs awareness state
+- `useMultiplayer` hook gained `setTyping()`, `isLocalTyping`, `remoteTyping`
+- `PlayerAvatar` renders `.typing-indicator` (suppressed by emote/chat, takes priority over idle)
+- 10 new tests (433 frontend tests total, up from 423)
+- Updated design doc and FRONTEND.md
+
 ### Extract AppOverlays Component (2026-03-23) — Completed
 
 **Implemented (v297):**

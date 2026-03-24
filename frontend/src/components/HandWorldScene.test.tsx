@@ -49,11 +49,14 @@ const BASE_SCENE_PROPS = {
   remotePlayers: [] as RemotePlayer[],
   remoteEmotes: {} as Record<string, string>,
   remoteChats: {} as Record<string, string>,
+  remoteTyping: {} as Record<string, boolean>,
   localChat: null as string | null,
   isLocalIdle: false,
+  isLocalTyping: false,
   connectionStatus: "connected" as const,
   chatHistory: [] as ChatMessage[],
   onSendChat: vi.fn(),
+  onSetTyping: vi.fn(),
   playerNameInput: "Tester",
   onPlayerNameChange: vi.fn(),
   claudeUsage: null as ClaudeUsageResponse | null,
@@ -444,5 +447,64 @@ describe("HandWorldScene component", () => {
     );
     const badge = container.querySelector(".player-count-badge");
     expect(badge).toBeNull();
+  });
+
+  // --- Typing indicator ---
+
+  it("passes isLocalTyping to local player avatar", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} isLocalTyping={true} />
+    );
+    const indicator = container.querySelector(".human-player .typing-indicator");
+    expect(indicator).toBeTruthy();
+    expect(indicator?.textContent).toBe("...");
+  });
+
+  it("passes remoteTyping to remote player avatars", () => {
+    const props = {
+      ...BASE_SCENE_PROPS,
+      remotePlayers: [
+        { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false, idle: false, typing: false },
+      ],
+      remoteTyping: { r1: true },
+    };
+    const { container } = render(<HandWorldScene {...props} />);
+    const indicator = container.querySelector(".remote-player .typing-indicator");
+    expect(indicator).toBeTruthy();
+  });
+
+  it("calls onSetTyping when chat input text changes", () => {
+    const onSetTyping = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSetTyping={onSetTyping} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "typing..." } });
+    expect(onSetTyping).toHaveBeenCalledWith(true);
+  });
+
+  it("calls onSetTyping(false) when chat input is cleared", () => {
+    const onSetTyping = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSetTyping={onSetTyping} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    // First type something, then clear it
+    fireEvent.change(input, { target: { value: "hi" } });
+    expect(onSetTyping).toHaveBeenCalledWith(true);
+    onSetTyping.mockClear();
+    fireEvent.change(input, { target: { value: "" } });
+    expect(onSetTyping).toHaveBeenCalledWith(false);
+  });
+
+  it("calls onSetTyping(false) on chat submit", () => {
+    const onSetTyping = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSetTyping={onSetTyping} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Hello" } });
+    fireEvent.submit(container.querySelector(".chat-input-form")!);
+    expect(onSetTyping).toHaveBeenLastCalledWith(false);
   });
 });

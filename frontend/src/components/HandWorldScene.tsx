@@ -76,11 +76,14 @@ export type HandWorldSceneProps = {
   remotePlayers: RemotePlayer[];
   remoteEmotes: Record<string, string>;
   remoteChats: Record<string, string>;
+  remoteTyping: Record<string, boolean>;
   localChat: string | null;
   isLocalIdle: boolean;
+  isLocalTyping: boolean;
   connectionStatus: ConnectionStatus;
   chatHistory: ChatMessage[];
   onSendChat: (message: string) => void;
+  onSetTyping: (typing: boolean) => void;
 
   // -- Player name --
   playerNameInput: string;
@@ -114,11 +117,14 @@ export default function HandWorldScene({
   remotePlayers,
   remoteEmotes,
   remoteChats,
+  remoteTyping,
   localChat,
   isLocalIdle,
+  isLocalTyping,
   connectionStatus,
   chatHistory,
   onSendChat,
+  onSetTyping,
   playerNameInput,
   onPlayerNameChange,
   claudeUsage,
@@ -144,6 +150,7 @@ export default function HandWorldScene({
     if (!text) return;
     onSendChat(text);
     setChatInput("");
+    onSetTyping(false);
     chatInputRef.current?.blur();
   };
 
@@ -323,7 +330,12 @@ export default function HandWorldScene({
                 type="text"
                 className="chat-input"
                 value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
+                onChange={(e) => {
+                  setChatInput(e.target.value);
+                  onSetTyping(e.target.value.length > 0);
+                }}
+                onFocus={() => { if (chatInput.length > 0) onSetTyping(true); }}
+                onBlur={() => onSetTyping(false)}
                 placeholder="Press Enter to chat..."
                 maxLength={CHAT_MAX_LENGTH}
                 aria-label="Chat message"
@@ -397,6 +409,7 @@ export default function HandWorldScene({
           emote={localEmote}
           chat={localChat}
           idle={isLocalIdle}
+          typing={isLocalTyping}
           isLocal
           x={playerPosition.x}
           y={playerPosition.y}
@@ -411,6 +424,7 @@ export default function HandWorldScene({
             emote={remoteEmotes[rp.player_id]}
             chat={remoteChats[rp.player_id]}
             idle={rp.idle}
+            typing={remoteTyping[rp.player_id] ?? false}
             color={rp.color}
             x={rp.x}
             y={rp.y}

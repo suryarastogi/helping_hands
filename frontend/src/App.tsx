@@ -173,12 +173,15 @@ export default function App() {
     remotePlayers,
     remoteEmotes,
     remoteChats,
+    remoteTyping,
     localEmote,
     localChat,
     isLocalIdle,
+    isLocalTyping,
     connectionStatus: yjsConnStatus,
     chatHistory,
     sendChat,
+    setTyping,
   } = useMultiplayer({
     active: true,
     playerPosition,
@@ -1311,11 +1314,14 @@ export default function App() {
           remotePlayers={remotePlayers}
           remoteEmotes={remoteEmotes}
           remoteChats={remoteChats}
+          remoteTyping={remoteTyping}
           localChat={localChat}
           isLocalIdle={isLocalIdle}
+          isLocalTyping={isLocalTyping}
           connectionStatus={yjsConnStatus}
           chatHistory={chatHistory}
           onSendChat={sendChat}
+          onSetTyping={setTyping}
           playerNameInput={playerNameInput}
           onPlayerNameChange={setPlayerNameInput}
           claudeUsage={claudeUsage}

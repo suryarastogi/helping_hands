@@ -196,6 +196,8 @@ the Y.Doc itself remains empty.
 - Idle detection: players with no movement for 30s show a floating "zzz" indicator
 - Presence panel shows "(idle)" suffix next to idle players
 - Player count badge: green pill badge in Hand World header showing online player count
+- Typing indicator: pulsing "..." bubble when a player is typing in chat
+- Smooth remote movement: CSS transitions for interpolated remote avatar motion
 
 ### Awareness state per client
 
@@ -209,6 +211,7 @@ the Y.Doc itself remains empty.
     "direction": "down",
     "walking": false,
     "idle": false,
+    "typing": false,
     "emote": null,
     "chat": null
   }
