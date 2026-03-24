@@ -3,21 +3,19 @@ import { mockApiRoutes } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await mockApiRoutes(page);
+  await page.goto("/");
+  // Open the submission overlay
+  await page.getByRole("button", { name: "New Task" }).click();
+  await expect(page.locator(".submission-overlay")).toBeVisible();
 });
 
 test("submission form has required fields", async ({ page }) => {
-  await page.goto("/");
-  const repoInput = page.locator("input.repo-input");
-  const promptInput = page.locator("input.prompt-input");
-  const submitBtn = page.locator("button.submit-inline");
-
-  await expect(repoInput).toBeVisible();
-  await expect(promptInput).toBeVisible();
-  await expect(submitBtn).toBeVisible();
+  await expect(page.locator("input.repo-input")).toBeVisible();
+  await expect(page.locator("input.prompt-input")).toBeVisible();
+  await expect(page.locator("button.submit-inline")).toBeVisible();
 });
 
 test("advanced settings expand on click", async ({ page }) => {
-  await page.goto("/");
   const details = page.locator("details.compact-advanced");
   // Initially collapsed — backend select not visible
   await expect(details.locator("select")).not.toBeVisible();
@@ -51,25 +49,19 @@ test("submitting a run navigates to monitor view", async ({ page }) => {
       }),
     }),
   );
-  await mockApiRoutes(page);
 
-  await page.goto("/");
   await page.locator("input.repo-input").fill("owner/repo");
   await page.locator("input.prompt-input").fill("Fix the bug");
   await page.locator("button.submit-inline").click();
 
-  // Should switch to monitor view and show the task
+  // Overlay should close and monitor view should appear
   await expect(page.locator(".monitor-title")).toBeVisible();
 });
 
 test("repo input has required attribute", async ({ page }) => {
-  await page.goto("/");
-  const repoInput = page.locator("input.repo-input");
-  await expect(repoInput).toHaveAttribute("required", "");
+  await expect(page.locator("input.repo-input")).toHaveAttribute("required", "");
 });
 
 test("prompt input has required attribute", async ({ page }) => {
-  await page.goto("/");
-  const promptInput = page.locator("input.prompt-input");
-  await expect(promptInput).toHaveAttribute("required", "");
+  await expect(page.locator("input.prompt-input")).toHaveAttribute("required", "");
 });

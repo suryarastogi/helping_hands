@@ -3,28 +3,23 @@ import { mockApiRoutes } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await mockApiRoutes(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Scheduled tasks" }).click();
 });
 
 test("schedule view shows empty state", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Scheduled tasks" }).click();
   await expect(page.getByText("Create and manage recurring builds.")).toBeVisible();
 });
 
 test("New schedule button opens the form", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Scheduled tasks" }).click();
   await page.getByRole("button", { name: "New schedule" }).click();
   await expect(page.getByRole("heading", { name: "New schedule" })).toBeVisible();
   await expect(page.locator("input[placeholder='e.g. Daily docs update']")).toBeVisible();
 });
 
 test("schedule form has required fields", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Scheduled tasks" }).click();
   await page.getByRole("button", { name: "New schedule" }).click();
 
-  // Check key fields
   await expect(page.locator("input[placeholder='e.g. Daily docs update']")).toBeVisible();
   await expect(page.locator("input[placeholder*='midnight']")).toBeVisible();
   await expect(page.locator("input[placeholder='owner/repo']").last()).toBeVisible();
@@ -60,6 +55,7 @@ test("schedule list shows existing schedules", async ({ page }) => {
     });
   });
 
+  // Re-navigate to trigger fresh schedule load with the new mock
   await page.goto("/");
   await page.getByRole("button", { name: "Scheduled tasks" }).click();
   await expect(page.getByText("Nightly docs")).toBeVisible();
@@ -79,9 +75,9 @@ test("Refresh button reloads schedule list", async ({ page }) => {
     return route.continue();
   });
 
+  // Re-navigate to pick up the counting mock
   await page.goto("/");
   await page.getByRole("button", { name: "Scheduled tasks" }).click();
-  // Wait for initial load
   await page.waitForTimeout(300);
   const initialCount = callCount;
   await page.getByRole("button", { name: "Refresh" }).click();
