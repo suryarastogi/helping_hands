@@ -1,18 +1,20 @@
 import type { FormEvent } from "react";
 
 import type { Backend, FormState } from "../types";
-import { BACKEND_OPTIONS, backendDisplayName } from "../App.utils";
+import { backendDisplayName } from "../App.utils";
 
 export interface SubmissionFormProps {
   form: FormState;
   onFieldChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onSubmit: (event: FormEvent) => void;
+  backends: Backend[];
 }
 
 export default function SubmissionForm({
   form,
   onFieldChange,
   onSubmit,
+  backends,
 }: SubmissionFormProps) {
   return (
     <section className="card form-card compact-form">
@@ -47,7 +49,7 @@ export default function SubmissionForm({
                   value={form.backend}
                   onChange={(event) => onFieldChange("backend", event.target.value as Backend)}
                 >
-                  {BACKEND_OPTIONS.map((backend) => (
+                  {backends.map((backend) => (
                     <option key={backend} value={backend}>
                       {backendDisplayName(backend)}
                     </option>

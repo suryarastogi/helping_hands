@@ -44,6 +44,7 @@ import {
   asRecord,
   BACKEND_OPTIONS,
   buildDeskSlots,
+  filterEnabledBackends,
   DEFAULT_CHARACTER_STYLE,
   DEFAULT_WORLD_MAX_WORKERS,
   extractPrefixes,
@@ -132,12 +133,15 @@ export default function App() {
   const [mainView, setMainView] = useState<MainView>("submission");
   const [isPolling, setIsPolling] = useState(false);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
+  const taskHistoryRef = useRef(taskHistory);
+  taskHistoryRef.current = taskHistory;
   const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
   const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
   const slotByTaskRef = useRef<Record<string, number>>({});
   const sceneRef = useRef<HTMLDivElement>(null);
   const [serviceHealthState, setServiceHealthState] = useState<ServiceHealthState | null>(null);
+  const [enabledBackends, setEnabledBackends] = useState<Backend[]>(BACKEND_OPTIONS);
   const {
     schedules,
     scheduleForm,
@@ -907,6 +911,16 @@ export default function App() {
           ...current,
           use_native_cli_auth: config.native_auth_default,
         }));
+        const filtered = filterEnabledBackends(BACKEND_OPTIONS, config.enabled_backends);
+        if (filtered.length > 0) {
+          setEnabledBackends(filtered);
+          setForm((current) => {
+            if (!filtered.includes(current.backend)) {
+              return { ...current, backend: filtered[0] };
+            }
+            return current;
+          });
+        }
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, []);
@@ -992,7 +1006,7 @@ export default function App() {
     let cancelled = false;
 
     const pollTrackedTasks = async () => {
-      const pendingTaskIds = taskHistory
+      const pendingTaskIds = taskHistoryRef.current
         .filter((item) => !isTerminalTaskStatus(item.status))
         .map((item) => item.taskId)
         .filter((id) => !(isPolling && taskId === id));
@@ -1079,7 +1093,7 @@ export default function App() {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [isPolling, taskHistory, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
+  }, [isPolling, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1238,7 +1252,7 @@ export default function App() {
   const runtimeDisplay = elapsedStr ?? storedRuntime;
 
   const submissionCard = (
-    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} />
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} />
   );
 
   const monitorCard = (
@@ -1269,6 +1283,7 @@ export default function App() {
       editingScheduleId={editingScheduleId}
       showScheduleForm={showScheduleForm}
       scheduleError={scheduleError}
+      backends={enabledBackends}
       onUpdateField={updateScheduleField}
       onNewSchedule={openNewScheduleForm}
       onEditSchedule={openEditScheduleForm}

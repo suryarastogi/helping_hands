@@ -7,6 +7,7 @@ duplicating identical ``if/elif`` chains.
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ __all__ = [
     "BACKEND_OPENCODECLI",
     "SUPPORTED_BACKENDS",
     "create_hand",
+    "get_enabled_backends",
 ]
 
 # --- Backend name constants ---------------------------------------------------
@@ -76,6 +78,45 @@ SUPPORTED_BACKENDS: frozenset[str] = frozenset(
     }
 )
 """All recognised backend name strings."""
+
+_BACKEND_ENABLED_ENV_VARS: dict[str, str] = {
+    BACKEND_E2E: "HELPING_HANDS_E2E_ENABLED",
+    BACKEND_BASIC_LANGGRAPH: "HELPING_HANDS_LANGGRAPH_ENABLED",
+    BACKEND_BASIC_ATOMIC: "HELPING_HANDS_ATOMIC_ENABLED",
+    BACKEND_BASIC_AGENT: "HELPING_HANDS_ATOMIC_ENABLED",
+    BACKEND_CODEXCLI: "HELPING_HANDS_CODEXCLI_ENABLED",
+    BACKEND_CLAUDECODECLI: "HELPING_HANDS_CLAUDECODECLI_ENABLED",
+    BACKEND_DOCKER_SANDBOX_CLAUDE: "HELPING_HANDS_DOCKER_SANDBOX_CLAUDE_ENABLED",
+    BACKEND_GOOSE: "HELPING_HANDS_GOOSE_ENABLED",
+    BACKEND_GEMINICLI: "HELPING_HANDS_GEMINICLI_ENABLED",
+    BACKEND_OPENCODECLI: "HELPING_HANDS_OPENCODECLI_ENABLED",
+}
+"""Mapping of backend name to its ``*_ENABLED`` env var."""
+
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def get_enabled_backends() -> list[str]:
+    """Return the list of backends that are explicitly enabled via env vars.
+
+    If **no** ``*_ENABLED`` env var is set for any backend, all backends are
+    considered enabled (backwards-compatible default).  Otherwise only backends
+    whose env var resolves to a truthy value are returned.
+
+    Returns:
+        Sorted list of enabled backend name strings.
+    """
+    has_any = False
+    enabled: list[str] = []
+    for backend, env_var in _BACKEND_ENABLED_ENV_VARS.items():
+        raw = os.environ.get(env_var, "").strip().lower()
+        if raw:
+            has_any = True
+            if raw in _TRUTHY:
+                enabled.append(backend)
+    if not has_any:
+        return sorted(SUPPORTED_BACKENDS)
+    return sorted(enabled)
 
 
 def create_hand(

@@ -342,6 +342,7 @@ class ServerConfig(BaseModel):
 
     in_docker: bool
     native_auth_default: bool
+    enabled_backends: list[str]
 
 
 # --- Scheduled Task Models ---
@@ -2839,8 +2840,14 @@ def _is_running_in_docker() -> bool:
 @app.get("/config", response_model=ServerConfig)
 def get_server_config() -> ServerConfig:
     """Return runtime configuration used to seed frontend defaults."""
+    from helping_hands.lib.hands.v1.hand.factory import get_enabled_backends
+
     in_docker = _is_running_in_docker()
-    return ServerConfig(in_docker=in_docker, native_auth_default=not in_docker)
+    return ServerConfig(
+        in_docker=in_docker,
+        native_auth_default=not in_docker,
+        enabled_backends=get_enabled_backends(),
+    )
 
 
 def _enqueue_build_task(req: BuildRequest) -> BuildResponse:

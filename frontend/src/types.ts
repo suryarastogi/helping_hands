@@ -118,6 +118,7 @@ export type TaskHistoryPatch = {
 export type ServerConfig = {
   in_docker: boolean;
   native_auth_default: boolean;
+  enabled_backends?: string[];
 };
 
 export type ServiceHealth = {

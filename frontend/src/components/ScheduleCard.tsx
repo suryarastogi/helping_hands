@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 
-import { BACKEND_OPTIONS, backendDisplayName, CRON_PRESETS } from "../App.utils";
+import { backendDisplayName, CRON_PRESETS } from "../App.utils";
 import type { Backend, ScheduleFormState, ScheduleItem } from "../types";
 
 export interface ScheduleCardProps {
@@ -21,6 +21,7 @@ export interface ScheduleCardProps {
   onToggleSchedule: (scheduleId: string, enable: boolean) => Promise<void>;
   onCancelForm: () => void;
   onRefresh: () => Promise<void>;
+  backends: Backend[];
 }
 
 function ScheduleFormFields({
@@ -29,9 +30,10 @@ function ScheduleFormFields({
   onUpdateField,
   onSaveSchedule,
   onCancelForm,
+  backends,
 }: Pick<
   ScheduleCardProps,
-  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm"
+  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm" | "backends"
 >) {
   return (
     <form onSubmit={onSaveSchedule} className="form-grid" style={{ marginTop: 0 }}>
@@ -111,7 +113,7 @@ function ScheduleFormFields({
                 value={scheduleForm.backend}
                 onChange={(e) => onUpdateField("backend", e.target.value as Backend)}
               >
-                {BACKEND_OPTIONS.map((b) => (
+                {backends.map((b) => (
                   <option key={b} value={b}>{backendDisplayName(b)}</option>
                 ))}
               </select>
@@ -260,6 +262,7 @@ export default function ScheduleCard({
   editingScheduleId,
   showScheduleForm,
   scheduleError,
+  backends,
   onUpdateField,
   onNewSchedule,
   onEditSchedule,
@@ -276,6 +279,7 @@ export default function ScheduleCard({
     onUpdateField,
     onSaveSchedule,
     onCancelForm,
+    backends,
   };
 
   return (

@@ -16,6 +16,7 @@ function renderForm(overrides?: Partial<{
     form: overrides?.form ?? { ...INITIAL_FORM },
     onFieldChange: overrides?.onFieldChange ?? vi.fn(),
     onSubmit: overrides?.onSubmit ?? vi.fn(),
+    backends: BACKEND_OPTIONS,
   };
   return { ...render(<SubmissionForm {...props} />), ...props };
 }

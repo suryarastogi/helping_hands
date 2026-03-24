@@ -55,6 +55,15 @@ export const BACKEND_OPTIONS: Backend[] = [
   "opencodecli",
 ];
 
+export function filterEnabledBackends(
+  all: Backend[],
+  enabled?: string[],
+): Backend[] {
+  if (!enabled || enabled.length === 0) return all;
+  const set = new Set(enabled);
+  return all.filter((b) => set.has(b));
+}
+
 export const DEFAULT_PROMPT =
   "Update README.md with results of your smoke test. Keep changes minimal and safe.";
 

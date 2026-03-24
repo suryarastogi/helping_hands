@@ -297,6 +297,7 @@ class _TwoPhaseCLIHand(Hand):
     _DEFAULT_APPEND_ARGS: tuple[str, ...] = ()
     _CONTAINER_ENABLED_ENV_VAR = ""
     _CONTAINER_IMAGE_ENV_VAR = ""
+    _NATIVE_CLI_AUTH_ENV_VAR = ""
     _RETRY_ON_NO_CHANGES = False
     _VERBOSE_CLI_FLAGS: tuple[str, ...] = ()
     _SUMMARY_CHAR_LIMIT = 6000
@@ -570,9 +571,18 @@ class _TwoPhaseCLIHand(Hand):
     def _use_native_cli_auth(self) -> bool:
         """Check whether the backend should use its native CLI auth session.
 
+        Per-backend env var (e.g. ``HELPING_HANDS_CODEX_USE_NATIVE_CLI_AUTH``)
+        takes precedence when set; otherwise falls back to the global
+        ``config.use_native_cli_auth``.
+
         Returns:
-            True if ``config.use_native_cli_auth`` is set.
+            True if native CLI auth should be used for this backend.
         """
+        env_var = self._NATIVE_CLI_AUTH_ENV_VAR
+        if env_var:
+            raw = os.environ.get(env_var, "").strip().lower()
+            if raw:
+                return raw in ("1", "true", "yes", "on")
         return self.config.use_native_cli_auth
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
