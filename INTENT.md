@@ -4,7 +4,13 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-(No active intents — all plans completed.)
+Deeper GitHub integration - Features Wanted:
+- a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
+    - When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)
+    - Sync task status with GitHub issue with created PR
+- if pr number is empty on a scheduled task it should create the PR the first time and on subsequent runs it should update the same PR (this might be easiest to achieve by unscheduling and rescheduling the task with the same PR number)
+
+
 
 ## Recently Completed
 
