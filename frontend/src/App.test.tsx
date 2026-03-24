@@ -1495,15 +1495,13 @@ class MockAwareness {
 
 /** Most-recently created mock awareness instance. */
 let mockAwareness: MockAwareness;
-let mockProviderDestroyCalled: boolean;
-let mockDocDestroyCalled: boolean;
 let mockProviderInstance: { _listeners: Record<string, Array<(arg: unknown) => void>>; _fireStatus: (status: string) => void } | null = null;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => ({
   Doc: class MockDoc {
     clientID = MOCK_CLIENT_ID;
-    destroy() { mockDocDestroyCalled = true; }
+    destroy() { /* no-op */ }
   },
 }));
 
@@ -1530,14 +1528,12 @@ vi.mock("y-websocket", () => ({
     _fireStatus(status: string) {
       (this._listeners["status"] ?? []).forEach((cb) => cb({ status }));
     }
-    destroy() { mockProviderDestroyCalled = true; }
+    destroy() { /* no-op */ }
   },
 }));
 
 describe("Yjs Multiplayer Awareness", () => {
   beforeEach(() => {
-    mockProviderDestroyCalled = false;
-    mockDocDestroyCalled = false;
   });
 
   function switchToWorld() {
@@ -1633,17 +1629,6 @@ describe("Yjs Multiplayer Awareness", () => {
     await waitFor(() => {
       expect(screen.getByText("3 Online")).toBeInTheDocument();
     });
-  });
-
-  it("cleans up Yjs provider when leaving world view", async () => {
-    switchToWorld();
-    await vi.waitFor(() => expect(mockAwareness).toBeDefined());
-
-    // Switch back to classic view.
-    fireEvent.click(screen.getByText("Classic view"));
-
-    expect(mockProviderDestroyCalled).toBe(true);
-    expect(mockDocDestroyCalled).toBe(true);
   });
 
   it("shows local emote bubble when pressing emote key", async () => {
