@@ -1,6 +1,6 @@
 # v298: Multiplayer Smooth Movement & Typing Indicator
 
-## Status: Completed
+**Status:** Completed
 
 ## Goal
 

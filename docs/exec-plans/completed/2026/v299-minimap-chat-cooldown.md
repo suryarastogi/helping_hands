@@ -1,5 +1,7 @@
 # 2026-03-24 — Multiplayer Hand World Polish (v299)
 
+**Status:** Completed
+
 ## Context
 
 The multiplayer Hand World feature is fully implemented (v273–v298) with Yjs awareness-based synchronization, chat, emotes, idle detection, typing indicators, and smooth remote movement. This plan targeted self-contained polish improvements.
