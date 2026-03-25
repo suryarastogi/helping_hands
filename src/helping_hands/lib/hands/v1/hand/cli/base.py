@@ -319,6 +319,7 @@ class _TwoPhaseCLIHand(Hand):
         super().__init__(config, repo_index)
         self._active_process: asyncio.subprocess.Process | None = None
         self._skill_catalog_dir: Path | None = None
+        self._baseline_head: str = ""
 
     def _label_msg(self, msg: str) -> str:
         """Prefix *msg* with the CLI backend label.
@@ -956,21 +957,44 @@ class _TwoPhaseCLIHand(Hand):
             "Use only tools that are actually available in this runtime.\n"
             "If required write/edit tools are unavailable, report that briefly "
             "and stop instead of retrying unavailable tools.\n"
-            "Implement the task directly in the repository. "
+            "Implement the task directly in the repository by editing files. "
+            "Do not run git add, git commit, or git push — "
+            "the caller handles version control after you finish. "
             "Do not ask the user to paste files."
             f"{tool_section}"
             f"{skill_section}"
             f"{self._build_reference_repos_prompt_section()}"
         )
 
-    def _repo_has_changes(self) -> bool:
-        """Check whether the working tree has uncommitted changes.
+    def _current_head_sha(self) -> str:
+        """Return the current HEAD commit SHA, or empty string on failure."""
+        repo_root = self.repo_index.root.resolve()
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return ""
+        if result.returncode != 0:
+            return ""
+        return result.stdout.strip()
 
-        Runs ``git status --porcelain`` with a timeout.  Returns False
-        on timeout or non-zero exit (with a warning/debug log).
+    def _repo_has_changes(self) -> bool:
+        """Check whether the working tree has uncommitted changes or new commits.
+
+        Runs ``git status --porcelain`` to detect uncommitted changes.
+        Also compares the current HEAD against the baseline captured before
+        the backend ran, so that changes committed by the backend (e.g.
+        Devin running ``git commit``) are not missed.
 
         Returns:
-            True if the working tree has staged or unstaged changes.
+            True if the working tree has uncommitted changes or the HEAD
+            has advanced since the baseline was captured.
         """
         repo_root = self.repo_index.root.resolve()
         try:
@@ -994,7 +1018,29 @@ class _TwoPhaseCLIHand(Hand):
                 result.returncode,
             )
             return False
-        return bool(result.stdout.strip())
+        if result.stdout.strip():
+            return True
+
+        # Detect commits made by the backend itself.
+        if self._baseline_head:
+            current_head = self._current_head_sha()
+            if current_head and current_head != self._baseline_head:
+                logger.info(
+                    "HEAD advanced from %s to %s — backend committed changes",
+                    self._baseline_head[:8],
+                    current_head[:8],
+                )
+                return True
+
+        return False
+
+    def _has_pending_changes(self, repo_dir: Path) -> bool:
+        """Check for uncommitted changes or backend-made commits.
+
+        Overrides the base implementation to also detect commits that
+        the backend made directly (e.g. Devin running ``git commit``).
+        """
+        return self._repo_has_changes()
 
     @staticmethod
     def _looks_like_edit_request(prompt: str) -> bool:
@@ -1023,6 +1069,11 @@ class _TwoPhaseCLIHand(Hand):
             "write",
             "create",
             "change",
+            "improv",
+            "clean",
+            "delet",
+            "migrat",
+            "upgrad",
         )
         return any(marker in lowered for marker in action_markers)
 
@@ -1285,6 +1336,7 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
+        self._baseline_head = self._current_head_sha()
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""
         await emit(self._label_msg(f"isolation={self._execution_mode()}{auth_part}\n"))
