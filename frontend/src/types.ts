@@ -48,7 +48,8 @@ export type Backend =
   | "docker-sandbox-claude"
   | "goose"
   | "geminicli"
-  | "opencodecli";
+  | "opencodecli"
+  | "devincli";
 
 export type BuildResponse = {
   task_id: string;

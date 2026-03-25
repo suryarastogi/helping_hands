@@ -77,6 +77,7 @@ All hands extend `Hand` base class (`base.py`) and implement `run()`/`stream()`:
 | `GooseCLIHand` | `cli/goose.py` | CLI subprocess | Wraps `goose run` |
 | `GeminiCLIHand` | `cli/gemini.py` | CLI subprocess | Wraps `gemini -p` |
 | `OpenCodeCLIHand` | `cli/opencode.py` | CLI subprocess | Wraps `opencode run` |
+| `DevinCLIHand` | `cli/devin.py` | CLI subprocess | Wraps `devin -p` |
 | `DockerSandboxClaudeCodeHand` | `cli/docker_sandbox_claude.py` | CLI subprocess | Wraps `claude` inside Docker sandbox microVM |
 
 ### 4. Hand factory

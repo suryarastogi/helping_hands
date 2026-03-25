@@ -20,7 +20,7 @@
 
 - **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace, cleaned up on exit). You can index only, or run iterative backends plus external-CLI backends with streamed output:
   - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
-  - external CLI: `codexcli`, `claudecodecli`, `docker-sandbox-claude`, `goose`, `geminicli`, `opencodecli`
+  - external CLI: `codexcli`, `claudecodecli`, `docker-sandbox-claude`, `goose`, `geminicli`, `opencodecli`, `devincli`
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -105,6 +105,9 @@ uv run helping-hands owner/repo --backend goose --prompt "Implement X"
 
 # Run OpenCode CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend opencodecli --model litellm/claude-sonnet-4-6 --prompt "Implement X"
+
+# Run Devin CLI backend (two-phase: initialize repo context, then execute task)
+uv run helping-hands owner/repo --backend devincli --prompt "Implement X"
 
 # Disable final commit/push/PR step explicitly
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
@@ -418,10 +421,11 @@ Key CLI flags:
 - `--backend goose` — run Goose CLI backend (initialize/learn repo, then execute task)
 - `--backend geminicli` — run Gemini CLI backend (initialize/learn repo, then execute task)
 - `--backend opencodecli` — run OpenCode CLI backend (initialize/learn repo, then execute task)
+- `--backend devincli` — run Devin CLI backend (initialize/learn repo, then execute task)
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
-- `--use-native-cli-auth` — for `codexcli`/`claudecodecli`, ignore provider API key env vars and rely on local CLI auth/session
+- `--use-native-cli-auth` — for `codexcli`/`claudecodecli`/`devincli`, ignore provider API key env vars and rely on local CLI auth/session
 
 ### Backend environment variables
 
@@ -643,6 +647,26 @@ Gemini CLI note:
 - Override with `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS=<seconds>` when needed.
 - If Gemini rejects a deprecated/unavailable model, `geminicli` retries once
   without `--model` so Gemini CLI can pick a default available model.
+
+Devin CLI backend notes:
+
+- **Env vars:** `DEVIN_API_KEY` (required unless using native CLI auth)
+- Default command: `devin -p`
+- Default permission mode: `dangerous` (auto-approves all tools for non-interactive use)
+- Override with `HELPING_HANDS_DEVIN_PERMISSION_MODE=auto` to restrict to read-only auto-approval
+- Override command via `HELPING_HANDS_DEVIN_CLI_CMD`
+- Supports native CLI auth toggle via `HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH=1`
+  (strips `DEVIN_API_KEY` from subprocess env so Devin uses its own session auth).
+
+Devin CLI examples:
+
+```bash
+# Devin CLI
+uv run helping-hands owner/repo --backend devincli --prompt "Implement X"
+
+# Devin CLI with native auth (ignore DEVIN_API_KEY, use devin session)
+uv run helping-hands owner/repo --backend devincli --use-native-cli-auth --prompt "Implement X"
+```
 
 
 Backend command examples:

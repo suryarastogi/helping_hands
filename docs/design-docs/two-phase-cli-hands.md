@@ -1,7 +1,7 @@
 # Two-Phase CLI Hands
 
 Design document for the two-phase subprocess architecture used by CLI-backed
-hands (Claude Code, Codex, Goose, Gemini, OpenCode).
+hands (Claude Code, Codex, Devin, Goose, Gemini, OpenCode).
 
 ## Overview
 
@@ -35,7 +35,7 @@ _TwoPhaseCLIHand._run_two_phase()
     ├─ Phase 2: _invoke_backend(task_prompt + init_summary)
     │     └─ same subprocess flow
     │
-    ├─ Optional: retry enforcement pass (ClaudeCodeHand only)
+    ├─ Optional: retry enforcement pass (Claude Code, Devin)
     │     └─ if edit prompt produced no file changes, re-invoke with
     │        enforcement prompt
     │
@@ -90,7 +90,7 @@ After a non-zero exit from the subprocess:
 - **Gemini**: strips `--model` flag if model-not-found error is detected
 - Returns `None` to skip retry, or a modified command to retry with
 
-### No-change enforcement (Claude Code)
+### No-change enforcement (Claude Code, Devin)
 
 When `_RETRY_ON_NO_CHANGES = True` and the task prompt looks like an edit
 request but no files were modified:
@@ -116,6 +116,7 @@ request but no files were modified:
 |---|---|---|
 | Claude Code | `ANTHROPIC_API_KEY` | Optional (CLI has its own auth) |
 | Codex | `OPENAI_API_KEY` | Optional |
+| Devin | `DEVIN_API_KEY` | Optional (CLI has its own auth) |
 | Goose | `GH_TOKEN`/`GITHUB_TOKEN` + `GOOSE_PROVIDER` | Token required; provider inferred from model |
 | Gemini | `GEMINI_API_KEY` | Required (RuntimeError if missing) |
 | OpenCode | Provider-specific key | Optional |

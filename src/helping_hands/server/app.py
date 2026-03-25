@@ -32,6 +32,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_BASIC_LANGGRAPH,
     BACKEND_CLAUDECODECLI,
     BACKEND_CODEXCLI,
+    BACKEND_DEVINCLI,
     BACKEND_DOCKER_SANDBOX_CLAUDE,
     BACKEND_E2E,
     BACKEND_GEMINICLI,
@@ -251,6 +252,7 @@ BackendName = Literal[
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "devincli",
     "docker-sandbox-claude",
     "goose",
     "geminicli",
@@ -620,6 +622,7 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     BACKEND_GOOSE: "goose",
     BACKEND_GEMINICLI: "geminicli",
     BACKEND_OPENCODECLI: "opencodecli",
+    BACKEND_DEVINCLI: "devincli",
 }
 assert _TERMINAL_TASK_STATES.isdisjoint(_CURRENT_TASK_STATES), (
     "_TERMINAL_TASK_STATES and _CURRENT_TASK_STATES must be disjoint"
@@ -1301,6 +1304,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                       <option value="goose">goose</option>
                       <option value="geminicli">geminicli</option>
                       <option value="opencodecli">opencodecli</option>
+                      <option value="devincli">devincli</option>
                     </select>
                   </label>
 
@@ -1540,6 +1544,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                         <option value="goose">goose</option>
                         <option value="geminicli">geminicli</option>
                         <option value="opencodecli">opencodecli</option>
+                        <option value="devincli">devincli</option>
                       </select>
                     </label>
                     <label for="schedule_model">
@@ -3525,7 +3530,7 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
 
     Supports E2E and iterative backends (`basic-langgraph`, `basic-atomic`,
     `basic-agent`) plus CLI-driven backends (`codexcli`, `claudecodecli`,
-    `goose`, `geminicli`, `opencodecli`) using CLI-equivalent backend options.
+    `goose`, `geminicli`, `opencodecli`, `devincli`) using CLI-equivalent backend options.
     """
     return _enqueue_build_task(req)
 

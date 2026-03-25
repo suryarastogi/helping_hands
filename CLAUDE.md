@@ -60,7 +60,7 @@ Everything flows through the **Hand** base class (`src/helping_hands/lib/hands/v
 - **IterativeHand** (`iterative.py`) — base for loop-based hands with `@@READ`/`@@FILE` in-model file operations
 - **BasicLangGraphHand** (`langgraph.py`) — LangGraph agent loop (requires `--extra langchain`)
 - **BasicAtomicHand** (`atomic.py`) — Atomic Agents loop (requires `--extra atomic`)
-- **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`
+- **CLI Hands** (`cli/`) — subprocess wrappers around external CLIs: `codex.py`, `claude.py`, `goose.py`, `gemini.py`, `devin.py`
 
 Finalization (commit/push/PR) is centralized in the base `Hand` class. All hands attempt it by default; disable with `--no-pr`.
 

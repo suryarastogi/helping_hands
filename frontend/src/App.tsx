@@ -594,10 +594,44 @@ export default function App() {
       const activeIds = new Set(activeTasks.map((item) => item.taskId));
       const existingByTaskId = new Map(current.map((worker) => [worker.taskId, worker]));
       const occupiedSlots = new Set<number>();
-      const next: SceneWorker[] = [];
 
+      // First pass: lock in slots for workers already seated (not exiting).
+      // This ensures existing hands never move when a new hand spawns.
       for (const task of activeTasks) {
         const existing = existingByTaskId.get(task.taskId);
+        if (
+          existing &&
+          existing.phase !== "walking-to-exit" &&
+          existing.phase !== "at-exit" &&
+          typeof existing.slot === "number" &&
+          existing.slot >= 0 &&
+          existing.slot < maxOfficeWorkers
+        ) {
+          occupiedSlots.add(existing.slot);
+          slotByTaskRef.current[task.taskId] = existing.slot;
+        }
+      }
+
+      const next: SceneWorker[] = [];
+
+      // Second pass: build the next worker list.  Seated workers keep
+      // their locked slot; new or returning workers claim the next free
+      // desk via claimSlotForTask.
+      for (const task of activeTasks) {
+        const existing = existingByTaskId.get(task.taskId);
+        const isSeated =
+          existing &&
+          existing.phase !== "walking-to-exit" &&
+          existing.phase !== "at-exit" &&
+          occupiedSlots.has(existing.slot);
+
+        if (isSeated) {
+          // Worker already at a desk — keep it exactly where it is.
+          next.push(existing);
+          continue;
+        }
+
+        // New task or recycled (exiting) worker — claim next free desk.
         const slot = claimSlotForTask(task.taskId, occupiedSlots);
         if (!existing) {
           next.push({
@@ -606,25 +640,15 @@ export default function App() {
             phase: "at-factory",
             phaseChangedAt: now,
           });
-          continue;
-        }
-        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
+        } else {
+          // Was exiting, now re-entering.
           next.push({
             ...existing,
             slot,
             phase: "at-factory",
             phaseChangedAt: now,
           });
-          continue;
         }
-        if (existing.slot !== slot) {
-          next.push({
-            ...existing,
-            slot,
-          });
-          continue;
-        }
-        next.push(existing);
       }
 
       for (const existing of current) {

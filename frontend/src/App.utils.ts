@@ -53,6 +53,7 @@ export const BACKEND_OPTIONS: Backend[] = [
   "goose",
   "geminicli",
   "opencodecli",
+  "devincli",
 ];
 
 export function filterEnabledBackends(
@@ -202,6 +203,13 @@ export const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
     outlineColor: "#134e4a",
     variant: "bot-alpha",
   },
+  devin: {
+    bodyColor: "#6366f1",
+    accentColor: "#e0e7ff",
+    skinColor: "#eef2ff",
+    outlineColor: "#312e81",
+    variant: "bot-heavy",
+  },
   other: DEFAULT_CHARACTER_STYLE,
 };
 
@@ -244,6 +252,9 @@ export function providerFromBackend(backend: string): string {
   if (normalized.includes("opencode")) {
     return "opencode";
   }
+  if (normalized.includes("devin")) {
+    return "devin";
+  }
   if (normalized.includes("goose")) {
     return "goose";
   }
@@ -268,6 +279,9 @@ export function formatProviderName(provider: string): string {
   }
   if (provider === "opencode") {
     return "OpenCode";
+  }
+  if (provider === "devin") {
+    return "Devin";
   }
   if (provider === "e2e") {
     return "Smoke Test";
@@ -501,7 +515,7 @@ export function buildDeskSlots(capacity: number): DeskSlot[] {
   const leftStart = 14;
   const leftStep = 22;
   const topStart = 24;
-  const topEnd = 82;
+  const topEnd = 68;
   const rowStep = rows > 1 ? (topEnd - topStart) / (rows - 1) : 0;
 
   for (let index = 0; index < capacity; index += 1) {
@@ -733,8 +747,8 @@ export function parseOptimisticUpdates(rawUpdates: string[]): string[] {
       continue;
     }
 
-    if (trimmed.startsWith("[codexcli] still running") || trimmed.startsWith("[claudecodecli] still running")) {
-      pushUnique(trimmed.replace(/^\[(codexcli|claudecodecli)\] /, ""));
+    if (trimmed.startsWith("[codexcli] still running") || trimmed.startsWith("[claudecodecli] still running") || trimmed.startsWith("[devincli] still running")) {
+      pushUnique(trimmed.replace(/^\[(codexcli|claudecodecli|devincli)\] /, ""));
       continue;
     }
 

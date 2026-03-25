@@ -21,6 +21,7 @@ __all__ = [
     "BACKEND_BASIC_LANGGRAPH",
     "BACKEND_CLAUDECODECLI",
     "BACKEND_CODEXCLI",
+    "BACKEND_DEVINCLI",
     "BACKEND_DOCKER_SANDBOX_CLAUDE",
     "BACKEND_E2E",
     "BACKEND_GEMINICLI",
@@ -63,6 +64,9 @@ BACKEND_GEMINICLI = "geminicli"
 BACKEND_OPENCODECLI = "opencodecli"
 """OpenCode CLI backend."""
 
+BACKEND_DEVINCLI = "devincli"
+"""Devin CLI backend."""
+
 SUPPORTED_BACKENDS: frozenset[str] = frozenset(
     {
         BACKEND_E2E,
@@ -71,6 +75,7 @@ SUPPORTED_BACKENDS: frozenset[str] = frozenset(
         BACKEND_BASIC_AGENT,
         BACKEND_CODEXCLI,
         BACKEND_CLAUDECODECLI,
+        BACKEND_DEVINCLI,
         BACKEND_DOCKER_SANDBOX_CLAUDE,
         BACKEND_GOOSE,
         BACKEND_GEMINICLI,
@@ -90,6 +95,7 @@ _BACKEND_ENABLED_ENV_VARS: dict[str, str] = {
     BACKEND_GOOSE: "HELPING_HANDS_GOOSE_ENABLED",
     BACKEND_GEMINICLI: "HELPING_HANDS_GEMINICLI_ENABLED",
     BACKEND_OPENCODECLI: "HELPING_HANDS_OPENCODECLI_ENABLED",
+    BACKEND_DEVINCLI: "HELPING_HANDS_DEVINCLI_ENABLED",
 }
 """Mapping of backend name to its ``*_ENABLED`` env var."""
 
@@ -182,6 +188,11 @@ def create_hand(
         from helping_hands.lib.hands.v1.hand.cli.opencode import OpenCodeCLIHand
 
         return OpenCodeCLIHand(config, repo_index)
+
+    if backend == BACKEND_DEVINCLI:
+        from helping_hands.lib.hands.v1.hand.cli.devin import DevinCLIHand
+
+        return DevinCLIHand(config, repo_index)
 
     if backend in {BACKEND_BASIC_ATOMIC, BACKEND_BASIC_AGENT}:
         from helping_hands.lib.hands.v1.hand.iterative import BasicAtomicHand
