@@ -22,6 +22,7 @@ class TestCLIPackageAll:
         expected = {
             "ClaudeCodeHand",
             "CodexCLIHand",
+            "DevinCLIHand",
             "DockerSandboxClaudeCodeHand",
             "GeminiCLIHand",
             "GooseCLIHand",

@@ -45,6 +45,7 @@ class _Stub(_TwoPhaseCLIHand):
         )
         self.auto_pr = True
         self._baseline_head = ""
+        self._ci_fix_mode = False
 
 
 # ---------------------------------------------------------------------------
