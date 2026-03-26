@@ -16,6 +16,7 @@ import SubmissionForm from "./components/SubmissionForm";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
+import { useSceneWorkers } from "./hooks/useSceneWorkers";
 import { useSchedules } from "./hooks/useSchedules";
 import type {
   AccumulatedUsage,
@@ -23,20 +24,15 @@ import type {
   BuildResponse,
   ClaudeUsageResponse,
   CurrentTasksResponse,
-  FloatingNumber,
   FormState,
   InputItem,
   MainView,
   OutputTab,
   PrefixFilterMode,
-  ScheduleItem,
-  SceneWorker,
-  SceneWorkerPhase,
   ServiceHealthState,
   TaskHistoryItem,
   TaskHistoryPatch,
   TaskStatus,
-  WorkerVariant,
 } from "./types";
 import {
   accumulateUsage,
@@ -44,7 +40,6 @@ import {
   asRecord,
   BACKEND_OPTIONS,
   buildDeskSlots,
-  DEFAULT_CHARACTER_STYLE,
   DEFAULT_WORLD_MAX_WORKERS,
   extractPrefixes,
   extractUpdates,
@@ -59,9 +54,6 @@ import {
   parseBool,
   parseError,
   parseOptimisticUpdates,
-  PHASE_DURATION,
-  providerFromBackend,
-  PROVIDER_CHARACTER_DEFAULTS,
   readBoolishValue,
   readSkillsValue,
   readStringValue,
@@ -133,9 +125,7 @@ export default function App() {
   const [isPolling, setIsPolling] = useState(false);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
   const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
-  const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
-  const slotByTaskRef = useRef<Record<string, number>>({});
   const sceneRef = useRef<HTMLDivElement>(null);
   const [serviceHealthState, setServiceHealthState] = useState<ServiceHealthState | null>(null);
   const {
@@ -154,8 +144,6 @@ export default function App() {
     toggleSchedule,
     cancelScheduleForm,
   } = useSchedules();
-  const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
-  const floatingIdRef = useRef(0);
   const updateCountsRef = useRef<Map<string, number>>(new Map());
   const [toasts, setToasts] = useState<{ id: number; taskId: string; status: string }[]>([]);
   const toastIdRef = useRef(0);
@@ -198,22 +186,29 @@ export default function App() {
     playerColor: playerColorInput,
   });
 
+  const activeTasks = useMemo(
+    () => taskHistory.filter((item) => !isTerminalTaskStatus(item.status)),
+    [taskHistory],
+  );
+
+  const {
+    sceneWorkerEntries,
+    floatingNumbers,
+    spawnFloatingNumber,
+  } = useSceneWorkers({
+    activeTasks,
+    maxOfficeWorkers,
+    deskSlots,
+    taskHistory,
+    schedules,
+  });
+
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
 
   const monitorOutputRef = useRef<HTMLPreElement>(null);
   const autoScrollRef = useRef(true);
   const [monitorHeight, setMonitorHeight] = useState<number | null>(null);
-
-  const spawnFloatingNumber = useCallback((forTaskId: string, delta: number) => {
-    if (delta <= 0) return;
-    const id = ++floatingIdRef.current;
-    const now = Date.now();
-    setFloatingNumbers((prev) => [...prev, { id, taskId: forTaskId, value: delta, createdAt: now }]);
-    setTimeout(() => {
-      setFloatingNumbers((prev) => prev.filter((f) => f.id !== id));
-    }, 1200);
-  }, []);
 
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -347,89 +342,7 @@ export default function App() {
     [taskHistory, taskId]
   );
 
-  const activeTasks = useMemo(
-    () => taskHistory.filter((item) => !isTerminalTaskStatus(item.status)),
-    [taskHistory]
-  );
-
   const [fetchedCapacity, setFetchedCapacity] = useState<number | null>(null);
-
-  const activeTaskIds = useMemo(() => new Set(activeTasks.map((task) => task.taskId)), [
-    activeTasks,
-  ]);
-
-  const taskById = useMemo(() => {
-    const map = new Map<string, TaskHistoryItem>();
-    for (const task of taskHistory) {
-      map.set(task.taskId, task);
-    }
-    return map;
-  }, [taskHistory]);
-
-  const claimSlotForTask = useCallback(
-    (activeTaskId: string, occupiedSlots: Set<number>): number => {
-      const existing = slotByTaskRef.current[activeTaskId];
-      if (
-        typeof existing === "number" &&
-        existing >= 0 &&
-        existing < maxOfficeWorkers &&
-        !occupiedSlots.has(existing)
-      ) {
-        occupiedSlots.add(existing);
-        return existing;
-      }
-
-      for (let slot = 0; slot < maxOfficeWorkers; slot += 1) {
-        if (!occupiedSlots.has(slot)) {
-          occupiedSlots.add(slot);
-          slotByTaskRef.current[activeTaskId] = slot;
-          return slot;
-        }
-      }
-
-      slotByTaskRef.current[activeTaskId] = 0;
-      occupiedSlots.add(0);
-      return 0;
-    },
-    [maxOfficeWorkers]
-  );
-
-  const scheduleByTaskId = useMemo(() => {
-    const map = new Map<string, ScheduleItem>();
-    for (const s of schedules) {
-      if (s.last_run_task_id) {
-        map.set(s.last_run_task_id, s);
-      }
-    }
-    return map;
-  }, [schedules]);
-
-  const sceneWorkerEntries = useMemo(() => {
-    return sceneWorkers.flatMap((worker) => {
-      const task = taskById.get(worker.taskId);
-      const desk = deskSlots[worker.slot];
-      if (!task || !desk) {
-        return [];
-      }
-
-      const provider = providerFromBackend(task.backend);
-      const style =
-        PROVIDER_CHARACTER_DEFAULTS[provider] ?? PROVIDER_CHARACTER_DEFAULTS.other ?? DEFAULT_CHARACTER_STYLE;
-
-      return [
-        {
-          ...worker,
-          task,
-          desk,
-          isActive: activeTaskIds.has(worker.taskId),
-          provider,
-          style,
-          spriteVariant: provider === "goose" ? ("goose" as WorkerVariant) : style.variant,
-          schedule: scheduleByTaskId.get(worker.taskId) ?? null,
-        },
-      ];
-    });
-  }, [activeTaskIds, deskSlots, scheduleByTaskId, sceneWorkers, taskById]);
 
   const officeDeskRows = useMemo(() => Math.max(1, Math.ceil(maxOfficeWorkers / 2)), [
     maxOfficeWorkers,
@@ -592,113 +505,8 @@ export default function App() {
     );
   }, [activeTasks.length, fetchedCapacity]);
 
-  useEffect(() => {
-    const now = Date.now();
-    setSceneWorkers((current) => {
-      const activeIds = new Set(activeTasks.map((item) => item.taskId));
-      const existingByTaskId = new Map(current.map((worker) => [worker.taskId, worker]));
-      const occupiedSlots = new Set<number>();
-      const next: SceneWorker[] = [];
-
-      for (const task of activeTasks) {
-        const existing = existingByTaskId.get(task.taskId);
-        const slot = claimSlotForTask(task.taskId, occupiedSlots);
-        if (!existing) {
-          next.push({
-            taskId: task.taskId,
-            slot,
-            phase: "at-factory",
-            phaseChangedAt: now,
-          });
-          continue;
-        }
-        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
-          next.push({
-            ...existing,
-            slot,
-            phase: "at-factory",
-            phaseChangedAt: now,
-          });
-          continue;
-        }
-        if (existing.slot !== slot) {
-          next.push({
-            ...existing,
-            slot,
-          });
-          continue;
-        }
-        next.push(existing);
-      }
-
-      for (const existing of current) {
-        if (activeIds.has(existing.taskId)) {
-          continue;
-        }
-        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
-          next.push(existing);
-          continue;
-        }
-        next.push({
-          ...existing,
-          phase: "walking-to-exit",
-          phaseChangedAt: now,
-        });
-      }
-
-      return next.sort((a, b) => a.slot - b.slot);
-    });
-  }, [activeTasks, claimSlotForTask]);
-
-  useEffect(() => {
-    if (sceneWorkers.length === 0) {
-      return;
-    }
-
-    const NEXT_PHASE: Partial<Record<SceneWorkerPhase, SceneWorkerPhase | null>> = {
-      "at-factory": "walking-to-desk",
-      "walking-to-desk": "active",
-      "walking-to-exit": "at-exit",
-      "at-exit": null,
-    };
-
-    const handle = window.setInterval(() => {
-      const now = Date.now();
-      setSceneWorkers((current) => {
-        let hasChanges = false;
-        const next: SceneWorker[] = [];
-
-        for (const worker of current) {
-          const elapsed = now - worker.phaseChangedAt;
-          const duration = PHASE_DURATION[worker.phase];
-          if (duration !== Infinity && elapsed >= duration) {
-            const nextPhase = NEXT_PHASE[worker.phase];
-            if (nextPhase === null || nextPhase === undefined) {
-              delete slotByTaskRef.current[worker.taskId];
-              hasChanges = true;
-              continue;
-            }
-            next.push({
-              ...worker,
-              phase: nextPhase,
-              phaseChangedAt: now,
-            });
-            hasChanges = true;
-            continue;
-          }
-          next.push(worker);
-        }
-
-        return hasChanges ? next : current;
-      });
-    }, 100);
-
-    return () => {
-      window.clearInterval(handle);
-    };
-  }, [sceneWorkers.length]);
-
-  // Player movement is handled by useMovement (keyboard input, collision, clamping).
+  // Scene worker lifecycle (spawn, phase transitions, cleanup) is handled
+  // by useSceneWorkers. Player movement is handled by useMovement.
 
   useEffect(() => {
     let cancelled = false;

@@ -67,6 +67,8 @@ frontend/src/
 │   ├── useMovement.test.tsx    # Movement, collision, keyboard binding, spawn tests
 │   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook (join/leave notifications)
 │   ├── useMultiplayer.test.tsx # Hook lifecycle, player name, join/leave notification tests
+│   ├── useSceneWorkers.ts      # Scene worker lifecycle hook (spawn, phases, floating numbers)
+│   ├── useSceneWorkers.test.tsx # Scene worker spawning, entries, deactivation, floating numbers
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
 │   └── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
 └── test/

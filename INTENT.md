@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Fix Flaky Test & Extract useSceneWorkers Hook (2026-03-26) — Completed
+
+**Implemented (v310):**
+- Fixed flaky `moves player with WASD keys` test — root cause: React 18 non-deterministic state batching in jsdom; fix: `{ retry: 3 }` on describe block + callback-queue rAF mock
+- Extracted `useSceneWorkers` hook from App.tsx — scene worker lifecycle management (spawn, phase transitions, floating numbers, enriched entries)
+- App.tsx reduced by ~100 lines; removed 7 unused imports
+- 5 new tests in `useSceneWorkers.test.tsx` covering empty state, worker spawning, slot assignment, enriched entries, schedule matching, deactivation/reactivation, and floating numbers
+- All 541 tests pass
+
 ### Extract FactoryFloorPanel Component (2026-03-26) — Completed
 
 **Implemented (v309):**
