@@ -4,9 +4,10 @@ Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yj
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
 history panel, continued component extraction (MonitorCard, SubmissionForm,
 ScheduleCard, TaskListSidebar), smooth movement, typing indicators, minimap,
-chat cooldown, player list API, Playwright e2e multiplayer tests, and schedule
+chat cooldown, player list API, Playwright e2e multiplayer tests, schedule
 PR auto-persist, shared world decorations via Y.Map, join/leave notifications,
-spawn randomization, and player color customization.
+spawn randomization, player color customization, and multiplayer hardening
+(awareness validation + reconnection resilience).
 
 ---
 
@@ -286,6 +287,16 @@ spawn randomization, and player color customization.
 
 ---
 
+## Mar 26 — Multiplayer Hardening (v308)
+
+**Awareness validation:** Server-side `validate_awareness_state()` clamps positions [0,100], coerces types, truncates names/chat, strips control chars, validates direction enum. `get_player_activity_summary()` returns active/idle breakdown. `get_connected_players()` now validates states. New `GET /health/multiplayer/activity` endpoint.
+
+**Reconnection resilience:** Frontend tracks reconnect attempts; after 10 consecutive failures, transitions to "failed" terminal state and disconnects provider. "Connection failed" banner with red overlay.
+
+**30 new backend tests, 7 new frontend tests. 500 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -323,3 +334,4 @@ spawn randomization, and player color customization.
 - `v305-shared-world-decorations.md`
 - `v306-join-leave-notifications-spawn-randomization.md`
 - `v307-player-color-customization.md`
+- `v308-multiplayer-hardening.md`

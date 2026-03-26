@@ -143,20 +143,148 @@ def get_connected_players() -> dict[str, object]:
                 state = _parse_awareness_state(raw_state)
                 if state is None:
                     continue
+                validated = validate_awareness_state(state)
                 players.append(
                     {
-                        "player_id": state.get("player_id", ""),
-                        "name": state.get("name", ""),
-                        "color": state.get("color", ""),
-                        "x": state.get("x", 0),
-                        "y": state.get("y", 0),
-                        "idle": state.get("idle", False),
+                        "player_id": validated["player_id"],
+                        "name": validated["name"],
+                        "color": validated["color"],
+                        "x": validated["x"],
+                        "y": validated["y"],
+                        "idle": validated["idle"],
                     }
                 )
     except Exception:
         logger.debug("Failed to read connected players", exc_info=True)
 
     return {"players": players, "count": len(players)}
+
+
+# ---------------------------------------------------------------------------
+# Awareness state validation
+# ---------------------------------------------------------------------------
+
+_MAX_NAME_LENGTH = 50
+_MAX_CHAT_LENGTH = 120
+_MAX_EMOTE_LENGTH = 20
+_VALID_POSITION_RANGE = (0.0, 100.0)
+
+
+def validate_awareness_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Validate and sanitise an awareness state dict.
+
+    Clamps positions to [0, 100], coerces types, truncates overly long
+    strings, and strips control characters from text fields.  Returns a
+    clean copy — the original dict is not mutated.
+    """
+    clean: dict[str, Any] = {}
+
+    # player_id — must be a non-empty string.
+    pid = state.get("player_id", "")
+    clean["player_id"] = str(pid) if pid else ""
+
+    # name — string, truncated.
+    name = state.get("name", "")
+    name = str(name) if name else ""
+    name = _strip_control_chars(name[:_MAX_NAME_LENGTH])
+    clean["name"] = name
+
+    # color — string (hex or named).
+    color = state.get("color", "")
+    clean["color"] = str(color) if color else ""
+
+    # x, y — float clamped to [0, 100].
+    clean["x"] = _clamp_float(state.get("x", 50), *_VALID_POSITION_RANGE)
+    clean["y"] = _clamp_float(state.get("y", 50), *_VALID_POSITION_RANGE)
+
+    # idle — boolean.
+    clean["idle"] = bool(state.get("idle", False))
+
+    # direction — one of the four cardinal values.
+    direction = state.get("direction", "down")
+    clean["direction"] = (
+        direction if direction in ("up", "down", "left", "right") else "down"
+    )
+
+    # walking — boolean.
+    clean["walking"] = bool(state.get("walking", False))
+
+    # typing — boolean.
+    clean["typing"] = bool(state.get("typing", False))
+
+    # emote — optional short string.
+    emote = state.get("emote")
+    if emote:
+        emote = _strip_control_chars(str(emote)[:_MAX_EMOTE_LENGTH])
+    clean["emote"] = emote or None
+
+    # chat — optional truncated string.
+    chat = state.get("chat")
+    if chat:
+        chat = _strip_control_chars(str(chat)[:_MAX_CHAT_LENGTH])
+    clean["chat"] = chat or None
+
+    return clean
+
+
+def _clamp_float(value: object, lo: float, hi: float) -> float:
+    """Coerce *value* to float and clamp to [lo, hi]."""
+    try:
+        v = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return (lo + hi) / 2
+    return max(lo, min(hi, v))
+
+
+def _strip_control_chars(text: str) -> str:
+    """Remove ASCII control characters (0x00-0x1F) except space."""
+    return "".join(c for c in text if c == " " or (ord(c) > 0x1F))
+
+
+def get_player_activity_summary() -> dict[str, object]:
+    """Return a summary of player activity across all rooms.
+
+    Returns::
+
+        {
+            "total": 3,
+            "active": 2,
+            "idle": 1,
+            "players": [
+                {"player_id": "abc", "name": "Alice", "idle": false, ...},
+                ...
+            ]
+        }
+    """
+    if yjs_websocket_server is None:
+        return {"total": 0, "active": 0, "idle": 0, "players": []}
+
+    players: list[dict[str, object]] = []
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        for room in rooms.values():
+            awareness = getattr(room, "awareness", None)
+            if awareness is None:
+                continue
+            states: dict[int, bytes] = getattr(awareness, "states", {})
+            for _client_id, raw_state in states.items():
+                state = _parse_awareness_state(raw_state)
+                if state is None:
+                    continue
+                validated = validate_awareness_state(state)
+                players.append(validated)
+    except Exception:
+        logger.debug("Failed to read player activity", exc_info=True)
+
+    active_count = sum(1 for p in players if not p.get("idle", False))
+    idle_count = sum(1 for p in players if p.get("idle", False))
+
+    return {
+        "total": len(players),
+        "active": active_count,
+        "idle": idle_count,
+        "players": players,
+    }
 
 
 def _parse_awareness_state(raw: object) -> dict[str, Any] | None:

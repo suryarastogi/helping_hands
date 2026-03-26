@@ -3507,6 +3507,14 @@ button.worker-sprite:disabled .worker-caption {
   to { transform: rotate(360deg); }
 }
 
+.reconnect-failed {
+  background: rgba(127, 29, 29, 0.7);
+}
+
+.conn-status-failed {
+  background: #ef4444;
+}
+
 /* ── Emote picker ── */
 
 .emote-picker-btn {

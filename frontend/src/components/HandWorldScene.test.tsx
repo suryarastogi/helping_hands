@@ -626,6 +626,24 @@ describe("HandWorldScene component", () => {
     expect(container.querySelector(".reconnect-banner")).toBeNull();
   });
 
+  it("shows connection failed banner when status is failed", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="failed" />
+    );
+    const banner = container.querySelector(".reconnect-banner.reconnect-failed");
+    expect(banner).toBeTruthy();
+    expect(banner?.getAttribute("role")).toBe("alert");
+    expect(banner?.textContent).toContain("Connection failed");
+  });
+
+  it("shows 'Connection failed' in status hint when status is failed", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="failed" />
+    );
+    const hint = container.querySelector(".status-summary-hint");
+    expect(hint?.textContent).toContain("Connection failed");
+  });
+
   // --- Emote picker ---
 
   it("shows emote picker button when connected", () => {

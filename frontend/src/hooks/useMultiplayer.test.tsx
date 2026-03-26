@@ -80,7 +80,9 @@ class MockYMap {
 
 let mockAwareness: MockAwareness;
 let mockProviderDestroyCalled: boolean;
+let mockProviderDisconnectCalled: boolean;
 let mockDocDestroyCalled: boolean;
+let latestMockProvider: { _listeners: Record<string, Array<(arg: unknown) => void>> } | null = null;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => ({
@@ -105,6 +107,7 @@ vi.mock("y-websocket", () => ({
     constructor() {
       mockAwareness = new MockAwareness();
       this.awareness = mockAwareness;
+      latestMockProvider = this;
     }
     on(event: string, cb: (arg: unknown) => void) {
       (this._listeners[event] ??= []).push(cb);
@@ -116,6 +119,7 @@ vi.mock("y-websocket", () => ({
         if (idx >= 0) arr.splice(idx, 1);
       }
     }
+    disconnect() { mockProviderDisconnectCalled = true; }
     destroy() { mockProviderDestroyCalled = true; }
   },
 }));
@@ -176,7 +180,9 @@ describe("useMultiplayer hook", () => {
 
   beforeEach(() => {
     mockProviderDestroyCalled = false;
+    mockProviderDisconnectCalled = false;
     mockDocDestroyCalled = false;
+    latestMockProvider = null;
   });
 
   it("manages connection lifecycle and awareness state", () => {
@@ -768,5 +774,84 @@ describe("useMultiplayer hook", () => {
 
     const systemMsgs = result.current.chatHistory.filter((m) => m.isSystem);
     expect(systemMsgs).toHaveLength(0);
+  });
+
+  // --- Reconnection resilience ---
+
+  it("resets reconnectAttempts on successful connection", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Simulate disconnect then connect
+    const provider = latestMockProvider!;
+    act(() => {
+      (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+    });
+    expect(result.current.reconnectAttempts).toBe(1);
+
+    act(() => {
+      (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "connected" }));
+    });
+    expect(result.current.reconnectAttempts).toBe(0);
+    expect(result.current.connectionStatus).toBe("connected");
+  });
+
+  it("increments reconnectAttempts on each disconnect", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    const provider = latestMockProvider!;
+
+    act(() => {
+      (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+    });
+    expect(result.current.reconnectAttempts).toBe(1);
+
+    act(() => {
+      (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+    });
+    expect(result.current.reconnectAttempts).toBe(2);
+  });
+
+  it("transitions to 'failed' status after MAX_RECONNECT_ATTEMPTS disconnects", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    const provider = latestMockProvider!;
+
+    // Simulate MAX_RECONNECT_ATTEMPTS disconnects (10)
+    for (let i = 0; i < 10; i++) {
+      act(() => {
+        (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+      });
+    }
+
+    expect(result.current.connectionStatus).toBe("failed");
+    expect(mockProviderDisconnectCalled).toBe(true);
+  });
+
+  it("shows 'connecting' status during reconnection attempts below threshold", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    const provider = latestMockProvider!;
+
+    act(() => {
+      (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+    });
+    expect(result.current.connectionStatus).toBe("connecting");
+    expect(result.current.reconnectAttempts).toBe(1);
+  });
+
+  it("resets reconnectAttempts when deactivated", () => {
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+    const provider = latestMockProvider!;
+
+    // Trigger a disconnect to bump attempts
+    act(() => {
+      (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+    });
+    expect(result.current.reconnectAttempts).toBe(1);
+
+    // Deactivate
+    rerender({ ...defaultOpts(), active: false });
+    expect(result.current.reconnectAttempts).toBe(0);
+    expect(result.current.connectionStatus).toBe("disconnected");
   });
 });

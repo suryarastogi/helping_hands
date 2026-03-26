@@ -16,6 +16,7 @@ import {
   EMOTE_KEY_BINDINGS,
   IDLE_TIMEOUT_MS,
   MAX_DECORATIONS,
+  MAX_RECONNECT_ATTEMPTS,
   PLAYER_COLORS,
 } from "../constants";
 import type { ChatMessage, PlayerDirection, WorldDecoration } from "../types";
@@ -24,7 +25,7 @@ import type { ChatMessage, PlayerDirection, WorldDecoration } from "../types";
 // Types
 // ---------------------------------------------------------------------------
 
-export type ConnectionStatus = "disconnected" | "connecting" | "connected";
+export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "failed";
 
 export type RemotePlayer = {
   player_id: string;
@@ -78,6 +79,8 @@ export type UseMultiplayerReturn = {
   setTyping: (typing: boolean) => void;
   /** Whether chat is on cooldown (true = cannot send yet). */
   chatOnCooldown: boolean;
+  /** Number of reconnection attempts since last successful connection. */
+  reconnectAttempts: number;
   /** Shared world decorations (persisted via Y.Map). */
   decorations: WorldDecoration[];
   /** Place an emoji decoration at a scene position. */
@@ -155,6 +158,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [isLocalTyping, setIsLocalTyping] = useState(false);
   const [remoteTyping, setRemoteTyping] = useState<Record<string, boolean>>({});
   const [chatOnCooldown, setChatOnCooldown] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [decorations, setDecorations] = useState<WorldDecoration[]>([]);
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
@@ -181,6 +185,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       seenRemoteChatsRef.current.clear();
       setConnectionStatus("disconnected");
       setIsLocalIdle(false);
+      setReconnectAttempts(0);
       return;
     }
 
@@ -198,7 +203,23 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     yjsProviderRef.current = provider;
 
     const onStatus = ({ status }: { status: string }) => {
-      setConnectionStatus(status as ConnectionStatus);
+      if (status === "connected") {
+        setReconnectAttempts(0);
+        setConnectionStatus("connected");
+      } else if (status === "disconnected") {
+        setReconnectAttempts((prev) => {
+          const next = prev + 1;
+          if (next >= MAX_RECONNECT_ATTEMPTS) {
+            provider.disconnect();
+            setConnectionStatus("failed");
+            return next;
+          }
+          setConnectionStatus("connecting");
+          return next;
+        });
+      } else {
+        setConnectionStatus(status as ConnectionStatus);
+      }
     };
     provider.on("status", onStatus);
 
@@ -353,6 +374,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       yjsProviderRef.current = null;
       yjsDocRef.current = null;
       setConnectionStatus("disconnected");
+      setReconnectAttempts(0);
     };
     // playerName is intentionally omitted — name updates are handled by the
     // separate effect below to avoid reconnecting the provider on every keystroke.
@@ -610,6 +632,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     sendChat,
     setTyping,
     chatOnCooldown,
+    reconnectAttempts,
     decorations,
     placeDecoration,
     clearDecorations,

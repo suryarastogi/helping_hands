@@ -1718,14 +1718,14 @@ describe("Yjs Multiplayer Awareness", () => {
     });
   });
 
-  it("shows Disconnected when provider fires disconnected status", async () => {
+  it("shows Connecting when provider fires disconnected status (reconnection mode)", async () => {
     switchToWorld();
     await vi.waitFor(() => expect(mockProviderInstance).toBeDefined());
 
     act(() => { mockProviderInstance!._fireStatus("disconnected"); });
 
     await waitFor(() => {
-      expect(screen.getByText(/Disconnected/)).toBeInTheDocument();
+      expect(screen.getByText(/Connecting/)).toBeInTheDocument();
     });
   });
 

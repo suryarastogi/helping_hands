@@ -12,6 +12,18 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Hardening — Awareness Validation & Reconnection Resilience (2026-03-26) — Completed
+
+**Implemented (v308):**
+- Server-side `validate_awareness_state()` utility — clamps positions to [0,100], coerces types, truncates names (50 chars) and chat (120 chars), strips control characters, validates direction enum
+- `get_player_activity_summary()` endpoint (`GET /health/multiplayer/activity`) — returns active/idle breakdown with fully validated player states
+- `get_connected_players()` now uses validation pipeline for hardened player list API
+- Frontend reconnection resilience: tracks reconnect attempts, transitions to "failed" terminal state after 10 consecutive failures, disconnects provider to prevent infinite retry loops
+- "Connection failed" banner with red overlay in HandWorldScene
+- `reconnectAttempts` exposed in `useMultiplayer` return value
+- 30 new backend tests (validation, clamping, sanitization, activity summary)
+- 7 new frontend tests (5 reconnection hook, 2 scene failed banner) — 500 frontend tests total
+
 ### Player Avatar Color Customization (2026-03-26) — Completed
 
 **Implemented (v307):**

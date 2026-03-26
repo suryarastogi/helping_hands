@@ -94,3 +94,10 @@ export const MAX_DECORATIONS = 20;
 
 /** Padding (%) from office bounds edges for spawn randomization. */
 export const SPAWN_PADDING = 10;
+
+// ---------------------------------------------------------------------------
+// Connection resilience
+// ---------------------------------------------------------------------------
+
+/** Maximum number of reconnection attempts before giving up. */
+export const MAX_RECONNECT_ATTEMPTS = 10;

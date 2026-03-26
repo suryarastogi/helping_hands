@@ -376,7 +376,9 @@ export default function HandWorldScene({
               ? "Multiplayer active \u00b7 Arrow keys: walk"
               : connectionStatus === "connecting"
                 ? "Connecting\u2026"
-                : "Disconnected \u00b7 Arrow keys: walk"}
+                : connectionStatus === "failed"
+                  ? "Connection failed"
+                  : "Disconnected \u00b7 Arrow keys: walk"}
             {connectionStatus === "connected" && (
               <button
                 type="button"
@@ -577,6 +579,12 @@ export default function HandWorldScene({
           <div className="reconnect-banner" role="alert" aria-label="Reconnecting">
             <span className="reconnect-spinner" />
             <span>Reconnecting&hellip;</span>
+          </div>
+        )}
+
+        {connectionStatus === "failed" && (
+          <div className="reconnect-banner reconnect-failed" role="alert" aria-label="Connection failed">
+            <span>Connection failed after multiple attempts</span>
           </div>
         )}
 
