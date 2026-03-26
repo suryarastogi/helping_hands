@@ -71,6 +71,10 @@ frontend/src/
 │   ├── useSceneWorkers.test.tsx # Worker creation, phase transitions, slot assignment, style enrichment
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
 │   ├── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
+│   ├── useServiceHealth.ts    # Service health polling hook (15s interval)
+│   ├── useServiceHealth.test.tsx # Service health hook tests
+│   ├── useClaudeUsage.ts      # Claude Code usage polling hook (1h interval + manual refresh)
+│   ├── useClaudeUsage.test.tsx # Claude usage hook tests
 │   ├── useTaskManager.ts      # Task submission, polling, history, output, and toasts hook
 │   └── useTaskManager.test.tsx# Task manager hook tests (submit, select, poll, history, output)
 └── test/
@@ -89,6 +93,8 @@ State is managed via React's built-in `useState` hooks, organized into custom ho
 - **`useSchedules`** — Schedule CRUD state and operations
 - **`useMovement`** — Keyboard-driven player movement, collision detection
 - **`useMultiplayer`** — Yjs awareness multiplayer presence, chat, decorations
+- **`useServiceHealth`** — Service health polling (15-second interval)
+- **`useClaudeUsage`** — Claude Code usage polling (hourly) + manual force-refresh
 
 No external state library (Redux, Zustand, etc.) is used. State flows
 top-down from hooks through `App.tsx` via props to child components.

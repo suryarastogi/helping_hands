@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AppOverlays from "./components/AppOverlays";
 import HandWorldScene from "./components/HandWorldScene";
@@ -6,18 +6,14 @@ import MonitorCard from "./components/MonitorCard";
 import ScheduleCard from "./components/ScheduleCard";
 import SubmissionForm from "./components/SubmissionForm";
 import TaskListSidebar from "./components/TaskListSidebar";
+import { useClaudeUsage } from "./hooks/useClaudeUsage";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
 import { useSceneWorkers } from "./hooks/useSceneWorkers";
 import { useSchedules } from "./hooks/useSchedules";
+import { useServiceHealth } from "./hooks/useServiceHealth";
 import { useTaskManager } from "./hooks/useTaskManager";
-import type { ClaudeUsageResponse, ServiceHealthState } from "./types";
-import {
-  fetchClaudeUsage,
-  fetchServerConfig,
-  fetchServiceHealth,
-  wsUrl,
-} from "./App.utils";
+import { fetchServerConfig, wsUrl } from "./App.utils";
 
 export default function App() {
   const {
@@ -59,7 +55,8 @@ export default function App() {
   } = useTaskManager();
 
   const sceneRef = useRef<HTMLDivElement>(null);
-  const [serviceHealthState, setServiceHealthState] = useState<ServiceHealthState | null>(null);
+  const serviceHealthState = useServiceHealth();
+  const { claudeUsage, claudeUsageLoading, refreshClaudeUsage } = useClaudeUsage();
   const {
     schedules,
     scheduleForm,
@@ -125,46 +122,6 @@ export default function App() {
     playerName: playerNameInput,
     playerColor: playerColorInput,
   });
-
-  const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
-  const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
-
-  // -- Service health polling -----------------------------------------------
-  useEffect(() => {
-    let cancelled = false;
-    const check = async () => {
-      const result = await fetchServiceHealth();
-      if (!cancelled) setServiceHealthState(result);
-    };
-    void check();
-    const handle = window.setInterval(() => void check(), 15_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(handle);
-    };
-  }, []);
-
-  // -- Claude Code usage polling (hourly) -----------------------------------
-  useEffect(() => {
-    let cancelled = false;
-    const refresh = async () => {
-      const data = await fetchClaudeUsage();
-      if (!cancelled) setClaudeUsage(data);
-    };
-    void refresh();
-    const handle = window.setInterval(() => void refresh(), 3_600_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(handle);
-    };
-  }, []);
-
-  const refreshClaudeUsage = useCallback(async () => {
-    setClaudeUsageLoading(true);
-    const data = await fetchClaudeUsage(true);
-    setClaudeUsage(data);
-    setClaudeUsageLoading(false);
-  }, []);
 
   // -- Load schedules on view switch ----------------------------------------
   useEffect(() => {

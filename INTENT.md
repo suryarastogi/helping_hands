@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Extract useServiceHealth & useClaudeUsage Hooks (2026-03-26) — Completed
+
+**Implemented (v312):**
+- Extracted `useServiceHealth` hook — 15-second polling interval, returns `ServiceHealthState | null`
+- Extracted `useClaudeUsage` hook — 1-hour polling interval + manual `refreshClaudeUsage()` callback
+- App.tsx reduced from 313 to 271 lines (-42 lines, -13%)
+- Both new hooks at 100% statement and branch coverage
+- 10 new tests (4 useServiceHealth, 6 useClaudeUsage)
+- All 579 frontend tests pass (up from 569)
+
 ### Extract useSceneWorkers Hook (2026-03-26) — Completed
 
 **Implemented (v311):**
