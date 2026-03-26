@@ -10,7 +10,7 @@ Index of execution plans for helping_hands development.
 
 - [2026-03-26 v303–v304](exec-plans/completed/2026/Week-13.md) —
   Multiplayer coverage hardening, fix player list awareness parsing;
-  26 backend multiplayer tests
+  26 tests (backend multiplayer)
 
 
 - [2026-03-24 v298–v302](exec-plans/completed/2026/2026-03-24.md) —

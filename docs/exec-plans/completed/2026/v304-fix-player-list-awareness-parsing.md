@@ -14,6 +14,14 @@ endpoint would return empty strings for all fields when reading real Yjs clients
 The existing tests passed because they used flat (un-nested) state dicts that
 didn't match the real wire format.
 
+## Tasks
+
+- [x] Fix `get_connected_players()` to parse nested `{"player": {...}}` awareness state
+- [x] Add guard for non-dict player fields
+- [x] Update tests to use realistic nested awareness format
+- [x] Add backwards-compatibility test for flat state dicts
+- [x] Add test for non-dict player field guard branch
+
 ## Changes
 
 ### Backend (`src/helping_hands/server/multiplayer_yjs.py`)
