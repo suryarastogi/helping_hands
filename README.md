@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 26, 2026
 
 ## What is this?
 
@@ -704,6 +704,16 @@ services if they are not set in `.env`:
 - `CELERY_RESULT_BACKEND=redis://redis:6379/1`
 - `HELPING_HANDS_FLOWER_API_URL=http://flower:5555` (server-side `/tasks/current`
   discovery path)
+
+## Smoke Test Results
+
+Last run: **March 26, 2026** (Python 3.14.3, macOS/arm64)
+
+| Check | Result |
+|-------|--------|
+| `ruff check .` | All checks passed |
+| `pytest -v` | 6 304 passed, 273 skipped, 1 warning |
+| Coverage | 78.99% (threshold 75%) |
 
 ## License
 
