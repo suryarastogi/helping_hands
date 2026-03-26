@@ -1,6 +1,6 @@
 import { type FormEvent, useMemo } from "react";
 
-import { BACKEND_OPTIONS, backendDisplayName, CRON_PRESETS } from "../App.utils";
+import { backendDisplayName, CRON_PRESETS, defaultModelForBackend } from "../App.utils";
 import type { Backend, ScheduleFormState, ScheduleItem } from "../types";
 import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
@@ -23,6 +23,7 @@ export interface ScheduleCardProps {
   onToggleSchedule: (scheduleId: string, enable: boolean) => Promise<void>;
   onCancelForm: () => void;
   onRefresh: () => Promise<void>;
+  backends: Backend[];
   recentRepos?: string[];
 }
 
@@ -32,10 +33,11 @@ function ScheduleFormFields({
   onUpdateField,
   onSaveSchedule,
   onCancelForm,
+  backends,
   recentRepos = [],
 }: Pick<
   ScheduleCardProps,
-  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm" | "recentRepos"
+  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm" | "backends" | "recentRepos"
 >) {
   const referenceChips = useMemo(
     () =>
@@ -130,7 +132,7 @@ function ScheduleFormFields({
                 value={scheduleForm.backend}
                 onChange={(e) => onUpdateField("backend", e.target.value as Backend)}
               >
-                {BACKEND_OPTIONS.map((b) => (
+                {backends.map((b) => (
                   <option key={b} value={b}>{backendDisplayName(b)}</option>
                 ))}
               </select>
@@ -140,7 +142,7 @@ function ScheduleFormFields({
               <input
                 value={scheduleForm.model}
                 onChange={(e) => onUpdateField("model", e.target.value)}
-                placeholder="claude-opus-4-6"
+                placeholder={defaultModelForBackend(scheduleForm.backend) || "model"}
               />
             </label>
           </div>
@@ -210,14 +212,6 @@ function ScheduleFormFields({
             <label className="check-row">
               <input
                 type="checkbox"
-                checked={scheduleForm.use_native_cli_auth}
-                onChange={(e) => onUpdateField("use_native_cli_auth", e.target.checked)}
-              />
-              Native auth
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
                 checked={scheduleForm.fix_ci}
                 onChange={(e) => onUpdateField("fix_ci", e.target.checked)}
               />
@@ -280,6 +274,7 @@ export default function ScheduleCard({
   editingScheduleId,
   showScheduleForm,
   scheduleError,
+  backends,
   onUpdateField,
   onNewSchedule,
   onEditSchedule,
@@ -297,6 +292,7 @@ export default function ScheduleCard({
     onUpdateField,
     onSaveSchedule,
     onCancelForm,
+    backends,
     recentRepos,
   };
 

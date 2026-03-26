@@ -16,6 +16,7 @@ function renderForm(overrides?: Partial<{
     form: overrides?.form ?? { ...INITIAL_FORM },
     onFieldChange: overrides?.onFieldChange ?? vi.fn(),
     onSubmit: overrides?.onSubmit ?? vi.fn(),
+    backends: BACKEND_OPTIONS,
   };
   return { ...render(<SubmissionForm {...props} />), ...props };
 }
@@ -105,13 +106,6 @@ describe("SubmissionForm", () => {
     renderForm({ onFieldChange });
     fireEvent.click(screen.getByLabelText("Web"));
     expect(onFieldChange).toHaveBeenCalledWith("enable_web", true);
-  });
-
-  it("calls onFieldChange for native auth checkbox", () => {
-    const onFieldChange = vi.fn();
-    renderForm({ onFieldChange });
-    fireEvent.click(screen.getByLabelText("Native auth"));
-    expect(onFieldChange).toHaveBeenCalledWith("use_native_cli_auth", true);
   });
 
   it("calls onFieldChange for fix CI checkbox", () => {

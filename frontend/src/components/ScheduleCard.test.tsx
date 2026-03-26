@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
 import ScheduleCard, { type ScheduleCardProps } from "./ScheduleCard";
-import { INITIAL_SCHEDULE_FORM } from "../App.utils";
+import { BACKEND_OPTIONS, INITIAL_SCHEDULE_FORM } from "../App.utils";
 import type { ScheduleItem } from "../types";
 
 afterEach(cleanup);
@@ -51,6 +51,7 @@ function defaultProps(overrides?: Partial<ScheduleCardProps>): ScheduleCardProps
     onToggleSchedule: vi.fn(),
     onCancelForm: vi.fn(),
     onRefresh: vi.fn(),
+    backends: BACKEND_OPTIONS,
     ...overrides,
   };
 }

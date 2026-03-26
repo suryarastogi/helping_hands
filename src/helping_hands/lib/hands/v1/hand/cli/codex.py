@@ -28,6 +28,7 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_SKIP_GIT_REPO_CHECK = "1"
     _CONTAINER_ENABLED_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER"
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER_IMAGE"
+    _NATIVE_CLI_AUTH_ENV_VAR = "HELPING_HANDS_CODEX_USE_NATIVE_CLI_AUTH"
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         """Return env var names used for native Codex CLI authentication.

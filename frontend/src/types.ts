@@ -48,7 +48,8 @@ export type Backend =
   | "docker-sandbox-claude"
   | "goose"
   | "geminicli"
-  | "opencodecli";
+  | "opencodecli"
+  | "devincli";
 
 export type BuildResponse = {
   task_id: string;
@@ -118,6 +119,8 @@ export type TaskHistoryPatch = {
 export type ServerConfig = {
   in_docker: boolean;
   native_auth_default: boolean;
+  enabled_backends?: string[];
+  claude_native_cli_auth?: boolean;
 };
 
 export type ServiceHealth = {

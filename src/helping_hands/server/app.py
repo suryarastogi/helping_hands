@@ -32,6 +32,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_BASIC_LANGGRAPH,
     BACKEND_CLAUDECODECLI,
     BACKEND_CODEXCLI,
+    BACKEND_DEVINCLI,
     BACKEND_DOCKER_SANDBOX_CLAUDE,
     BACKEND_E2E,
     BACKEND_GEMINICLI,
@@ -251,6 +252,7 @@ BackendName = Literal[
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "devincli",
     "docker-sandbox-claude",
     "goose",
     "geminicli",
@@ -342,6 +344,8 @@ class ServerConfig(BaseModel):
 
     in_docker: bool
     native_auth_default: bool
+    enabled_backends: list[str]
+    claude_native_cli_auth: bool
 
 
 # --- Scheduled Task Models ---
@@ -618,6 +622,7 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     BACKEND_GOOSE: "goose",
     BACKEND_GEMINICLI: "geminicli",
     BACKEND_OPENCODECLI: "opencodecli",
+    BACKEND_DEVINCLI: "devincli",
 }
 assert _TERMINAL_TASK_STATES.isdisjoint(_CURRENT_TASK_STATES), (
     "_TERMINAL_TASK_STATES and _CURRENT_TASK_STATES must be disjoint"
@@ -1362,6 +1367,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                       <option value="goose">goose</option>
                       <option value="geminicli">geminicli</option>
                       <option value="opencodecli">opencodecli</option>
+                      <option value="devincli">devincli</option>
                     </select>
                   </label>
 
@@ -1614,6 +1620,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                         <option value="goose">goose</option>
                         <option value="geminicli">geminicli</option>
                         <option value="opencodecli">opencodecli</option>
+                        <option value="devincli">devincli</option>
                       </select>
                     </label>
                     <label for="schedule_model">
@@ -3089,8 +3096,16 @@ def _is_running_in_docker() -> bool:
 @app.get("/config", response_model=ServerConfig)
 def get_server_config() -> ServerConfig:
     """Return runtime configuration used to seed frontend defaults."""
+    from helping_hands.lib.hands.v1.hand.factory import get_enabled_backends
+
     in_docker = _is_running_in_docker()
-    return ServerConfig(in_docker=in_docker, native_auth_default=not in_docker)
+    claude_native = _is_truthy_env("HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH")
+    return ServerConfig(
+        in_docker=in_docker,
+        native_auth_default=not in_docker,
+        enabled_backends=get_enabled_backends(),
+        claude_native_cli_auth=claude_native,
+    )
 
 
 def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
@@ -3765,7 +3780,7 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
 
     Supports E2E and iterative backends (`basic-langgraph`, `basic-atomic`,
     `basic-agent`) plus CLI-driven backends (`codexcli`, `claudecodecli`,
-    `goose`, `geminicli`, `opencodecli`) using CLI-equivalent backend options.
+    `goose`, `geminicli`, `opencodecli`, `devincli`) using CLI-equivalent backend options.
     """
     return _enqueue_build_task(req)
 

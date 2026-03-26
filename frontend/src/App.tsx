@@ -45,6 +45,8 @@ import {
   asRecord,
   BACKEND_OPTIONS,
   buildDeskSlots,
+  filterEnabledBackends,
+  defaultModelForBackend,
   DEFAULT_CHARACTER_STYLE,
   DEFAULT_WORLD_MAX_WORKERS,
   extractPrefixes,
@@ -133,12 +135,15 @@ export default function App() {
   const [mainView, setMainView] = useState<MainView>("submission");
   const [isPolling, setIsPolling] = useState(false);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
+  const taskHistoryRef = useRef(taskHistory);
+  taskHistoryRef.current = taskHistory;
   const [showSubmissionOverlay, setShowSubmissionOverlay] = useState(false);
   const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
   const slotByTaskRef = useRef<Record<string, number>>({});
   const sceneRef = useRef<HTMLDivElement>(null);
   const [serviceHealthState, setServiceHealthState] = useState<ServiceHealthState | null>(null);
+  const [enabledBackends, setEnabledBackends] = useState<Backend[]>(BACKEND_OPTIONS);
   const {
     schedules,
     scheduleForm,
@@ -192,6 +197,7 @@ export default function App() {
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
   const [claudeUsageLoading, setClaudeUsageLoading] = useState(false);
+  const [showClaudeUsage, setShowClaudeUsage] = useState(true);
 
   const monitorOutputRef = useRef<HTMLPreElement>(null);
   const autoScrollRef = useRef(true);
@@ -590,10 +596,44 @@ export default function App() {
       const activeIds = new Set(activeTasks.map((item) => item.taskId));
       const existingByTaskId = new Map(current.map((worker) => [worker.taskId, worker]));
       const occupiedSlots = new Set<number>();
-      const next: SceneWorker[] = [];
 
+      // First pass: lock in slots for workers already seated (not exiting).
+      // This ensures existing hands never move when a new hand spawns.
       for (const task of activeTasks) {
         const existing = existingByTaskId.get(task.taskId);
+        if (
+          existing &&
+          existing.phase !== "walking-to-exit" &&
+          existing.phase !== "at-exit" &&
+          typeof existing.slot === "number" &&
+          existing.slot >= 0 &&
+          existing.slot < maxOfficeWorkers
+        ) {
+          occupiedSlots.add(existing.slot);
+          slotByTaskRef.current[task.taskId] = existing.slot;
+        }
+      }
+
+      const next: SceneWorker[] = [];
+
+      // Second pass: build the next worker list.  Seated workers keep
+      // their locked slot; new or returning workers claim the next free
+      // desk via claimSlotForTask.
+      for (const task of activeTasks) {
+        const existing = existingByTaskId.get(task.taskId);
+        const isSeated =
+          existing &&
+          existing.phase !== "walking-to-exit" &&
+          existing.phase !== "at-exit" &&
+          occupiedSlots.has(existing.slot);
+
+        if (isSeated) {
+          // Worker already at a desk — keep it exactly where it is.
+          next.push(existing);
+          continue;
+        }
+
+        // New task or recycled (exiting) worker — claim next free desk.
         const slot = claimSlotForTask(task.taskId, occupiedSlots);
         if (!existing) {
           next.push({
@@ -602,25 +642,15 @@ export default function App() {
             phase: "at-factory",
             phaseChangedAt: now,
           });
-          continue;
-        }
-        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
+        } else {
+          // Was exiting, now re-entering.
           next.push({
             ...existing,
             slot,
             phase: "at-factory",
             phaseChangedAt: now,
           });
-          continue;
         }
-        if (existing.slot !== slot) {
-          next.push({
-            ...existing,
-            slot,
-          });
-          continue;
-        }
-        next.push(existing);
       }
 
       for (const existing of current) {
@@ -640,7 +670,7 @@ export default function App() {
 
       return next.sort((a, b) => a.slot - b.slot);
     });
-  }, [activeTasks, claimSlotForTask]);
+  }, [activeTasks, claimSlotForTask, maxOfficeWorkers]);
 
   useEffect(() => {
     if (sceneWorkers.length === 0) {
@@ -909,6 +939,19 @@ export default function App() {
           ...current,
           use_native_cli_auth: config.native_auth_default,
         }));
+        const filtered = filterEnabledBackends(BACKEND_OPTIONS, config.enabled_backends);
+        if (filtered.length > 0) {
+          setEnabledBackends(filtered);
+          setForm((current) => {
+            if (!filtered.includes(current.backend)) {
+              return { ...current, backend: filtered[0] };
+            }
+            return current;
+          });
+        }
+        if (config.claude_native_cli_auth === false) {
+          setShowClaudeUsage(false);
+        }
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, []);
@@ -994,7 +1037,7 @@ export default function App() {
     let cancelled = false;
 
     const pollTrackedTasks = async () => {
-      const pendingTaskIds = taskHistory
+      const pendingTaskIds = taskHistoryRef.current
         .filter((item) => !isTerminalTaskStatus(item.status))
         .map((item) => item.taskId)
         .filter((id) => !(isPolling && taskId === id));
@@ -1081,10 +1124,16 @@ export default function App() {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [isPolling, taskHistory, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
+  }, [isPolling, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "backend") {
+        next.model = defaultModelForBackend(value as string);
+      }
+      return next;
+    });
   };
 
   const openSubmissionView = () => {
@@ -1256,7 +1305,7 @@ export default function App() {
   }, [status, payload]);
 
   const submissionCard = (
-    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} recentRepos={recentRepos} />
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} />
   );
 
   const monitorCard = (
@@ -1288,6 +1337,7 @@ export default function App() {
       editingScheduleId={editingScheduleId}
       showScheduleForm={showScheduleForm}
       scheduleError={scheduleError}
+      backends={enabledBackends}
       onUpdateField={updateScheduleField}
       onNewSchedule={openNewScheduleForm}
       onEditSchedule={openEditScheduleForm}
@@ -1341,6 +1391,7 @@ export default function App() {
           claudeUsage={claudeUsage}
           claudeUsageLoading={claudeUsageLoading}
           onRefreshClaudeUsage={() => void refreshClaudeUsage()}
+          showClaudeUsage={showClaudeUsage}
           floatingNumbers={floatingNumbers}
         />
 

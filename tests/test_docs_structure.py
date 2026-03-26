@@ -7254,6 +7254,7 @@ class TestReadmeSections:
             "goose",
             "geminicli",
             "opencodecli",
+            "devincli",
         ]
         for backend in backends:
             assert backend in content, f"Missing backend mention: {backend}"

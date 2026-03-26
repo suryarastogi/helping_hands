@@ -297,6 +297,7 @@ class _TwoPhaseCLIHand(Hand):
     _DEFAULT_APPEND_ARGS: tuple[str, ...] = ()
     _CONTAINER_ENABLED_ENV_VAR = ""
     _CONTAINER_IMAGE_ENV_VAR = ""
+    _NATIVE_CLI_AUTH_ENV_VAR = ""
     _RETRY_ON_NO_CHANGES = False
     _VERBOSE_CLI_FLAGS: tuple[str, ...] = ()
     _SUMMARY_CHAR_LIMIT = 6000
@@ -304,6 +305,7 @@ class _TwoPhaseCLIHand(Hand):
     _DEFAULT_HEARTBEAT_SECONDS = 20.0
     _DEFAULT_HEARTBEAT_SECONDS_VERBOSE = 5.0
     _DEFAULT_IDLE_TIMEOUT_SECONDS = 900.0
+    _DEFAULT_CI_FIX_IDLE_TIMEOUT_SECONDS = 300.0
 
     class _Emitter(Protocol):
         async def __call__(self, chunk: str) -> None: ...
@@ -317,7 +319,9 @@ class _TwoPhaseCLIHand(Hand):
         """
         super().__init__(config, repo_index)
         self._active_process: asyncio.subprocess.Process | None = None
+        self._ci_fix_mode: bool = False
         self._skill_catalog_dir: Path | None = None
+        self._baseline_head: str = ""
 
     def _label_msg(self, msg: str) -> str:
         """Prefix *msg* with the CLI backend label.
@@ -570,9 +574,18 @@ class _TwoPhaseCLIHand(Hand):
     def _use_native_cli_auth(self) -> bool:
         """Check whether the backend should use its native CLI auth session.
 
+        Per-backend env var (e.g. ``HELPING_HANDS_CODEX_USE_NATIVE_CLI_AUTH``)
+        takes precedence when set; otherwise falls back to the global
+        ``config.use_native_cli_auth``.
+
         Returns:
-            True if ``config.use_native_cli_auth`` is set.
+            True if native CLI auth should be used for this backend.
         """
+        env_var = self._NATIVE_CLI_AUTH_ENV_VAR
+        if env_var:
+            raw = os.environ.get(env_var, "").strip().lower()
+            if raw:
+                return raw in ("1", "true", "yes", "on")
         return self.config.use_native_cli_auth
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
@@ -753,9 +766,18 @@ class _TwoPhaseCLIHand(Hand):
     def _idle_timeout_seconds(self) -> float:
         """Return the idle timeout before the subprocess is terminated.
 
+        When :attr:`_ci_fix_mode` is active, returns a shorter timeout
+        from ``HELPING_HANDS_CLI_CI_FIX_IDLE_TIMEOUT_SECONDS`` (default 300s)
+        so CI fix subprocesses don't block for 15 minutes.
+
         Returns:
             Seconds of silence before termination (from env or class default).
         """
+        if self._ci_fix_mode:
+            return self._float_env(
+                "HELPING_HANDS_CLI_CI_FIX_IDLE_TIMEOUT_SECONDS",
+                default=self._DEFAULT_CI_FIX_IDLE_TIMEOUT_SECONDS,
+            )
         return self._float_env(
             "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS",
             default=self._DEFAULT_IDLE_TIMEOUT_SECONDS,
@@ -946,21 +968,44 @@ class _TwoPhaseCLIHand(Hand):
             "Use only tools that are actually available in this runtime.\n"
             "If required write/edit tools are unavailable, report that briefly "
             "and stop instead of retrying unavailable tools.\n"
-            "Implement the task directly in the repository. "
+            "Implement the task directly in the repository by editing files. "
+            "Do not run git add, git commit, or git push — "
+            "the caller handles version control after you finish. "
             "Do not ask the user to paste files."
             f"{tool_section}"
             f"{skill_section}"
             f"{self._build_reference_repos_prompt_section()}"
         )
 
-    def _repo_has_changes(self) -> bool:
-        """Check whether the working tree has uncommitted changes.
+    def _current_head_sha(self) -> str:
+        """Return the current HEAD commit SHA, or empty string on failure."""
+        repo_root = self.repo_index.root.resolve()
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return ""
+        if result.returncode != 0:
+            return ""
+        return result.stdout.strip()
 
-        Runs ``git status --porcelain`` with a timeout.  Returns False
-        on timeout or non-zero exit (with a warning/debug log).
+    def _repo_has_changes(self) -> bool:
+        """Check whether the working tree has uncommitted changes or new commits.
+
+        Runs ``git status --porcelain`` to detect uncommitted changes.
+        Also compares the current HEAD against the baseline captured before
+        the backend ran, so that changes committed by the backend (e.g.
+        Devin running ``git commit``) are not missed.
 
         Returns:
-            True if the working tree has staged or unstaged changes.
+            True if the working tree has uncommitted changes or the HEAD
+            has advanced since the baseline was captured.
         """
         repo_root = self.repo_index.root.resolve()
         try:
@@ -984,7 +1029,29 @@ class _TwoPhaseCLIHand(Hand):
                 result.returncode,
             )
             return False
-        return bool(result.stdout.strip())
+        if result.stdout.strip():
+            return True
+
+        # Detect commits made by the backend itself.
+        if self._baseline_head:
+            current_head = self._current_head_sha()
+            if current_head and current_head != self._baseline_head:
+                logger.info(
+                    "HEAD advanced from %s to %s — backend committed changes",
+                    self._baseline_head[:8],
+                    current_head[:8],
+                )
+                return True
+
+        return False
+
+    def _has_pending_changes(self, repo_dir: Path) -> bool:
+        """Check for uncommitted changes or backend-made commits.
+
+        Overrides the base implementation to also detect commits that
+        the backend made directly (e.g. Devin running ``git commit``).
+        """
+        return self._repo_has_changes()
 
     @staticmethod
     def _looks_like_edit_request(prompt: str) -> bool:
@@ -1013,6 +1080,11 @@ class _TwoPhaseCLIHand(Hand):
             "write",
             "create",
             "change",
+            "improv",
+            "clean",
+            "delet",
+            "migrat",
+            "upgrad",
         )
         return any(marker in lowered for marker in action_markers)
 
@@ -1275,6 +1347,7 @@ class _TwoPhaseCLIHand(Hand):
         *,
         emit: _Emitter,
     ) -> str:
+        self._baseline_head = self._current_head_sha()
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""
         await emit(self._label_msg(f"isolation={self._execution_mode()}{auth_part}\n"))
@@ -1453,11 +1526,97 @@ class _TwoPhaseCLIHand(Hand):
         return gh.get_check_runs(repo, ref)
 
     @staticmethod
+    def _fetch_failed_check_logs(
+        gh: Any,
+        full_name: str,
+        check_result: dict[str, Any],
+        *,
+        max_chars: int = 8000,
+        max_lines: int = 200,
+    ) -> str:
+        """Fetch log output for failed CI checks via ``gh run view``.
+
+        Parses the ``html_url`` from each failed check run to extract
+        the GitHub Actions run ID, then fetches the failed log output.
+        Returns the last *max_lines* lines, capped at *max_chars*.
+
+        Args:
+            gh: GitHubClient instance (unused — logs come from ``gh`` CLI).
+            full_name: ``owner/repo`` string.
+            check_result: Dict from :meth:`_poll_ci_checks`.
+            max_chars: Maximum characters to return.
+            max_lines: Maximum trailing lines to return.
+
+        Returns:
+            Concatenated failed log output, or empty string on error.
+        """
+        failed = [
+            r
+            for r in check_result.get("check_runs", [])
+            if r.get("conclusion") in _CI_RUN_FAILURE_CONCLUSIONS
+        ]
+        if not failed:
+            return ""
+
+        log_parts: list[str] = []
+        seen_runs: set[str] = set()
+        for run in failed:
+            url = run.get("html_url", "")
+            if not url:
+                continue
+            # Extract run_id from URL like:
+            # https://github.com/owner/repo/actions/runs/12345/job/67890
+            parts = url.rstrip("/").split("/")
+            run_id = ""
+            for i, part in enumerate(parts):
+                if part == "runs" and i + 1 < len(parts):
+                    run_id = parts[i + 1]
+                    break
+            if not run_id or run_id in seen_runs:
+                continue
+            seen_runs.add(run_id)
+
+            try:
+                result = subprocess.run(
+                    [
+                        "gh",
+                        "run",
+                        "view",
+                        run_id,
+                        "--repo",
+                        full_name,
+                        "--log-failed",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    log_parts.append(result.stdout.strip())
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                continue
+
+        if not log_parts:
+            return ""
+
+        combined = "\n\n".join(log_parts)
+        # Tail to max_lines
+        lines = combined.splitlines()
+        if len(lines) > max_lines:
+            lines = lines[-max_lines:]
+        combined = "\n".join(lines)
+        # Truncate to max_chars
+        if len(combined) > max_chars:
+            combined = "..." + combined[-(max_chars - 3) :]
+        return combined
+
+    @staticmethod
     def _build_ci_fix_prompt(
         *,
         check_result: dict[str, Any],
         original_prompt: str,
         attempt: int,
+        log_output: str = "",
     ) -> str:
         """Build a prompt telling the AI to fix CI failures."""
         failed = [
@@ -1474,20 +1633,24 @@ class _TwoPhaseCLIHand(Hand):
 
         failure_summary = "\n".join(failure_lines) or "  (no details available)"
 
-        return (
+        parts = [
             f"CI fix attempt {attempt}.\n\n"
             "The following CI checks failed after pushing changes:\n"
-            f"{failure_summary}\n\n"
-            "Original task was:\n"
-            f"{original_prompt}\n\n"
-            "Please investigate the CI failures by:\n"
-            "1. Reading the relevant source files and test files\n"
-            "2. Running the failing checks locally if possible "
-            "(e.g. lint, test, typecheck commands)\n"
-            "3. Fixing the issues in the repository\n\n"
+            f"{failure_summary}\n",
+        ]
+
+        if log_output.strip():
+            parts.append(f"\nFailed check log output:\n```\n{log_output}\n```\n")
+
+        parts.append(
+            "\nPlease fix the CI failures using the log output above. "
+            "Run the failing checks locally if needed "
+            "(e.g. lint, format, test, typecheck commands). "
             "Focus only on fixing the CI failures. "
             "Do not make unrelated changes."
         )
+
+        return "".join(parts)
 
     async def _ci_fix_loop(
         self,
@@ -1516,6 +1679,10 @@ class _TwoPhaseCLIHand(Hand):
 
         from helping_hands.lib.github import GitHubClient
 
+        # Allow env var override for max retries (useful for CLI mode).
+        env_retries = os.environ.get("HELPING_HANDS_CI_MAX_RETRIES", "").strip()
+        max_retries = int(env_retries) if env_retries.isdigit() else self.ci_max_retries
+
         initial_wait = self.ci_check_wait_minutes * 60
         max_poll = initial_wait * 2
 
@@ -1525,7 +1692,7 @@ class _TwoPhaseCLIHand(Hand):
         try:
             with GitHubClient(token=self.config.github_token) as gh:
                 current_ref = pr_commit
-                for attempt in range(1, self.ci_max_retries + 1):
+                for attempt in range(1, max_retries + 1):
                     if self._is_interrupted():
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.INTERRUPTED
                         return metadata
@@ -1577,18 +1744,25 @@ class _TwoPhaseCLIHand(Hand):
                         "\n"
                         + self._label_msg(
                             f"CI failed (attempt "
-                            f"{attempt}/{self.ci_max_retries}). "
+                            f"{attempt}/{max_retries}). "
                             f"Invoking backend to fix...\n"
                         )
                     )
+
+                    log_output = self._fetch_failed_check_logs(gh, repo, check_result)
 
                     fix_prompt = self._build_ci_fix_prompt(
                         check_result=check_result,
                         original_prompt=prompt,
                         attempt=attempt,
+                        log_output=log_output,
                     )
 
-                    await self._invoke_backend(fix_prompt, emit=emit)
+                    self._ci_fix_mode = True
+                    try:
+                        await self._invoke_backend(fix_prompt, emit=emit)
+                    finally:
+                        self._ci_fix_mode = False
 
                     if self._is_interrupted():
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.INTERRUPTED
@@ -1626,8 +1800,7 @@ class _TwoPhaseCLIHand(Hand):
                 metadata[_META_CI_FIX_STATUS] = CIFixStatus.EXHAUSTED
                 await emit(
                     self._label_msg(
-                        f"CI fix retries exhausted "
-                        f"after {self.ci_max_retries} attempts.\n"
+                        f"CI fix retries exhausted after {max_retries} attempts.\n"
                     )
                 )
 

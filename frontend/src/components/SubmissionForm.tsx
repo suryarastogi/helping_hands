@@ -1,7 +1,7 @@
 import { type FormEvent, useMemo } from "react";
 
 import type { Backend, FormState } from "../types";
-import { BACKEND_OPTIONS, backendDisplayName } from "../App.utils";
+import { backendDisplayName, defaultModelForBackend } from "../App.utils";
 import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
 
@@ -9,6 +9,7 @@ export interface SubmissionFormProps {
   form: FormState;
   onFieldChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onSubmit: (event: FormEvent) => void;
+  backends: Backend[];
   recentRepos?: string[];
 }
 
@@ -16,6 +17,7 @@ export default function SubmissionForm({
   form,
   onFieldChange,
   onSubmit,
+  backends,
   recentRepos = [],
 }: SubmissionFormProps) {
   const referenceChips = useMemo(
@@ -65,7 +67,7 @@ export default function SubmissionForm({
                   value={form.backend}
                   onChange={(event) => onFieldChange("backend", event.target.value as Backend)}
                 >
-                  {BACKEND_OPTIONS.map((backend) => (
+                  {backends.map((backend) => (
                     <option key={backend} value={backend}>
                       {backendDisplayName(backend)}
                     </option>
@@ -77,7 +79,7 @@ export default function SubmissionForm({
                 <input
                   value={form.model}
                   onChange={(event) => onFieldChange("model", event.target.value)}
-                  placeholder="claude-opus-4-6"
+                  placeholder={defaultModelForBackend(form.backend) || "model"}
                 />
               </label>
             </div>
@@ -143,14 +145,6 @@ export default function SubmissionForm({
                   onChange={(event) => onFieldChange("enable_web", event.target.checked)}
                 />
                 Web
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.use_native_cli_auth}
-                  onChange={(event) => onFieldChange("use_native_cli_auth", event.target.checked)}
-                />
-                Native auth
               </label>
               <label className="check-row compact-check">
                 <input

@@ -44,6 +44,8 @@ class _Stub(_TwoPhaseCLIHand):
             use_native_cli_auth=use_native_cli_auth,
         )
         self.auto_pr = True
+        self._baseline_head = ""
+        self._ci_fix_mode = False
 
 
 # ---------------------------------------------------------------------------
