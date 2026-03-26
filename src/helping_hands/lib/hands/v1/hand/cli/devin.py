@@ -28,9 +28,7 @@ class DevinCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_PERMISSION_MODE = "dangerous"
     _RETRY_ON_NO_CHANGES = True
 
-    def _inject_prompt_argument(
-        self, cmd: list[str], prompt: str
-    ) -> bool:
+    def _inject_prompt_argument(self, cmd: list[str], prompt: str) -> bool:
         """Append ``-- <prompt>`` to the command.
 
         Devin's ``-p`` is ``--print`` (a boolean flag), not a prompt
@@ -148,9 +146,7 @@ class DevinCLIHand(_TwoPhaseCLIHand):
             return_code=return_code,
             output=output,
             env_var_hint="DEVIN_API_KEY",
-            auth_guidance=(
-                "Ensure DEVIN_API_KEY is set or run 'devin auth login'."
-            ),
+            auth_guidance=("Ensure DEVIN_API_KEY is set or run 'devin auth login'."),
         )
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:

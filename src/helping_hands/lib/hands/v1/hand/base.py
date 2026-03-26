@@ -826,9 +826,7 @@ class Hand(abc.ABC):
         pr_url = str(pr_info["url"])
 
         if self._working_tree_is_clean(repo_dir):
-            commit_sha = self._run_git_read(
-                repo_dir, "rev-parse", "--short", "HEAD"
-            )
+            commit_sha = self._run_git_read(repo_dir, "rev-parse", "--short", "HEAD")
         else:
             from helping_hands.lib.hands.v1.hand.pr_description import (
                 generate_commit_message,
@@ -1083,9 +1081,7 @@ class Hand(abc.ABC):
         # If the backend already committed (clean tree but HEAD advanced),
         # skip add+commit and use the existing HEAD SHA.
         if self._working_tree_is_clean(repo_dir):
-            commit_sha = self._run_git_read(
-                repo_dir, "rev-parse", "--short", "HEAD"
-            )
+            commit_sha = self._run_git_read(repo_dir, "rev-parse", "--short", "HEAD")
         else:
             from helping_hands.lib.hands.v1.hand.pr_description import (
                 generate_commit_message,

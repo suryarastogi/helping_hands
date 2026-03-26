@@ -668,7 +668,7 @@ export default function App() {
 
       return next.sort((a, b) => a.slot - b.slot);
     });
-  }, [activeTasks, claimSlotForTask]);
+  }, [activeTasks, claimSlotForTask, maxOfficeWorkers]);
 
   useEffect(() => {
     if (sceneWorkers.length === 0) {
