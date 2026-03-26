@@ -14,6 +14,14 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Coverage Hardening (2026-03-26) — Completed
+
+**Implemented (v303):**
+- Added 2 tests for `setTyping` callback and remote typing state tracking in `useMultiplayer` hook
+- `useMultiplayer.ts` branch coverage: 81.18% → 82.35%
+- Overall frontend: 466 tests (up from 464), 86.89% branches (up from 86.78%)
+- Updated Week-13 consolidation with v301–v303
+
 ### Emote Picker Panel (2026-03-24) — Completed
 
 **Implemented (v302):**

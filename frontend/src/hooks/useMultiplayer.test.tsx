@@ -499,6 +499,42 @@ describe("useMultiplayer hook", () => {
     vi.useRealTimers();
   });
 
+  // --- Typing state ---
+
+  it("setTyping updates local typing state and broadcasts via awareness", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    expect(result.current.isLocalTyping).toBe(false);
+
+    act(() => result.current.setTyping(true));
+    expect(result.current.isLocalTyping).toBe(true);
+
+    // Awareness should reflect typing=true
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.typing).toBe(true);
+
+    act(() => result.current.setTyping(false));
+    expect(result.current.isLocalTyping).toBe(false);
+
+    const playerAfter = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(playerAfter.typing).toBe(false);
+  });
+
+  it("tracks remote typing state from awareness", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(900, {
+      player: { player_id: "900", name: "Typer", color: "#7c3aed", x: 50, y: 50, direction: "down", walking: false, idle: false, typing: true, emote: null, chat: null },
+    });
+
+    act(() => mockAwareness._setRemoteStates(states));
+
+    expect(result.current.remoteTyping["900"]).toBe(true);
+    expect(result.current.remotePlayers[0].typing).toBe(true);
+  });
+
   it("clears idle state when deactivated", () => {
     vi.useFakeTimers();
     const stablePos = { x: 50, y: 50 };

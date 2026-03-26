@@ -238,6 +238,28 @@ chat cooldown, player list API, and Playwright e2e multiplayer tests.
 
 ---
 
+## Mar 24 — Player Tooltips & Reconnection Banner (v301)
+
+**Player tooltips:** Hovering over remote player avatars shows tooltip with name, color indicator, and status (active/idle/typing/walking). CSS arrow pointer, remote-only rendering. **Reconnection banner:** Translucent overlay with spinner when WebSocket reconnecting. `role="alert"` accessibility, `pointer-events: none` keeps scene interactive.
+
+**10 new tests, 459 frontend tests total.**
+
+---
+
+## Mar 24 — Emote Picker Panel (v302)
+
+**Emote picker:** Smiley button in HUD toggles 2×2 grid of emote buttons (emoji, name, shortcut). Click triggers `onTriggerEmote(key)` and auto-closes. Hidden when disconnected.
+
+**5 new tests, 464 frontend tests total.**
+
+---
+
+## Mar 26 — Multiplayer Coverage Hardening (v303)
+
+**Coverage improvement:** Added 2 tests for `setTyping` callback and remote typing state tracking in `useMultiplayer` hook. Branch coverage: 81% → 82.35%. Overall: 466 frontend tests.
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -268,3 +290,6 @@ chat cooldown, player list API, and Playwright e2e multiplayer tests.
 - `v298-multiplayer-smooth-movement-typing-indicator.md`
 - `v299-minimap-chat-cooldown.md`
 - `v300-multiplayer-e2e-and-player-list-api.md`
+- `v301-player-tooltips-reconnect-banner.md`
+- `v302-emote-picker-panel.md`
+- `v303-multiplayer-coverage-hardening.md`
