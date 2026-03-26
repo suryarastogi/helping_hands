@@ -11,18 +11,15 @@ import { MAX_DECORATIONS } from "../constants";
 
 import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
+import type { SceneWorkerEntry } from "../hooks/useSceneWorkers";
 import type {
-  CharacterStyle,
   ChatMessage,
   ClaudeUsageResponse,
   DeskSlot,
   FloatingNumber,
   PlayerDirection,
   PlayerPosition,
-  SceneWorkerPhase,
-  ScheduleItem,
   WorldDecoration,
-  WorkerVariant,
 } from "../types";
 import FactoryFloorPanel from "./FactoryFloorPanel";
 import Minimap from "./Minimap";
@@ -34,24 +31,7 @@ import WorkerSprite from "./WorkerSprite";
 // Types
 // ---------------------------------------------------------------------------
 
-/** Enriched worker entry with task/desk/style data, as computed in App.tsx. */
-export type SceneWorkerEntry = {
-  taskId: string;
-  slot: number;
-  phase: SceneWorkerPhase;
-  phaseChangedAt: number;
-  task: {
-    backend?: string;
-    repoPath?: string;
-    status?: string;
-  } | null;
-  desk: DeskSlot;
-  isActive: boolean;
-  provider: string;
-  style: CharacterStyle;
-  spriteVariant: WorkerVariant;
-  schedule: ScheduleItem | null;
-};
+export type { SceneWorkerEntry } from "../hooks/useSceneWorkers";
 
 export type HandWorldSceneProps = {
   /** Ref forwarded onto the scene container div (used for focus/keyboard). */

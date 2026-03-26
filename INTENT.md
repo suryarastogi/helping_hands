@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Extract useSceneWorkers Hook (2026-03-26) — Completed
+
+**Implemented (v311):**
+- Extracted `useSceneWorkers` hook (~210 lines) from App.tsx — scene worker lifecycle, desk slot allocation, phase timer, provider style enrichment, schedule annotation
+- App.tsx reduced from 538 to 313 lines (-225 lines, -42%)
+- Removed 48 lines of dead re-exports from App.tsx (nothing imported them from `"./App"`)
+- `SceneWorkerEntry` type consolidated: defined in hook, re-exported from HandWorldScene
+- 16 new tests in `useSceneWorkers.test.tsx`
+- All 569 frontend tests pass (up from 553)
+
 ### Extract useTaskManager Hook (2026-03-26) — Completed
 
 **Implemented (v310):**

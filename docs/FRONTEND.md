@@ -67,6 +67,8 @@ frontend/src/
 │   ├── useMovement.test.tsx    # Movement, collision, keyboard binding, spawn tests
 │   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook (join/leave notifications)
 │   ├── useMultiplayer.test.tsx # Hook lifecycle, player name, join/leave notification tests
+│   ├── useSceneWorkers.ts     # Scene worker lifecycle, desk slot allocation, phase timer
+│   ├── useSceneWorkers.test.tsx # Worker creation, phase transitions, slot assignment, style enrichment
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
 │   ├── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
 │   ├── useTaskManager.ts      # Task submission, polling, history, output, and toasts hook
@@ -82,6 +84,8 @@ State is managed via React's built-in `useState` hooks, organized into custom ho
 - **`useTaskManager`** — Task submission, polling (primary 3s + background 10s),
   task history (localStorage persistence), form state, output tabs, floating
   numbers, toasts, worker capacity, and all derived task state
+- **`useSceneWorkers`** — Scene worker lifecycle (task→worker mapping, desk slot
+  allocation, phase transitions, provider style enrichment, schedule annotation)
 - **`useSchedules`** — Schedule CRUD state and operations
 - **`useMovement`** — Keyboard-driven player movement, collision detection
 - **`useMultiplayer`** — Yjs awareness multiplayer presence, chat, decorations

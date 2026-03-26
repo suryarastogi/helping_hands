@@ -8,7 +8,8 @@ chat cooldown, player list API, Playwright e2e multiplayer tests, schedule
 PR auto-persist, shared world decorations via Y.Map, join/leave notifications,
 spawn randomization, player color customization, multiplayer hardening
 (awareness validation + reconnection resilience), FactoryFloorPanel extraction,
-and useTaskManager hook extraction (App.tsx -61%).
+useTaskManager hook extraction (App.tsx -61%), and useSceneWorkers hook
+extraction (App.tsx -47%, dead re-export cleanup).
 
 ---
 
@@ -322,6 +323,14 @@ and useTaskManager hook extraction (App.tsx -61%).
 
 ---
 
+## Mar 26 — Extract useSceneWorkers Hook (v311)
+
+**Final App.tsx decomposition:** Extracted scene worker lifecycle management (~210 lines) into `useSceneWorkers` hook. Manages worker state, desk slot allocation, phase timer, provider style enrichment, and schedule annotation. Removed 48 lines of dead re-exports. App.tsx reduced from 538 to 313 lines (-42%).
+
+**16 new tests in `useSceneWorkers.test.tsx`. 569 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -362,3 +371,4 @@ and useTaskManager hook extraction (App.tsx -61%).
 - `v308-multiplayer-hardening.md`
 - `v309-factory-floor-panel-extraction.md`
 - `v310-extract-use-task-manager.md`
+- `v311-extract-use-scene-workers.md`
