@@ -65,22 +65,34 @@ class TestResolveCliModel:
         hand = make_cli_hand(DevinCLIHand, model="claude-sonnet-4-5")
         assert hand._resolve_cli_model() == "claude-sonnet-4-5"
 
-    def test_default_model_returns_empty(self, make_cli_hand) -> None:
+    def test_default_model_returns_opus(self, make_cli_hand) -> None:
         hand = make_cli_hand(DevinCLIHand, model="default")
-        assert hand._resolve_cli_model() == ""
+        assert hand._resolve_cli_model() == "claude-opus-4-6"
 
-    def test_empty_model_returns_empty(self, make_cli_hand) -> None:
+    def test_empty_model_returns_opus(self, make_cli_hand) -> None:
         hand = make_cli_hand(DevinCLIHand, model="")
-        assert hand._resolve_cli_model() == ""
+        assert hand._resolve_cli_model() == "claude-opus-4-6"
 
-    def test_whitespace_model_returns_empty(self, make_cli_hand) -> None:
+    def test_whitespace_model_returns_opus(self, make_cli_hand) -> None:
         hand = make_cli_hand(DevinCLIHand, model="  ")
-        assert hand._resolve_cli_model() == ""
+        assert hand._resolve_cli_model() == "claude-opus-4-6"
 
-    def test_none_model_returns_empty(self, make_cli_hand) -> None:
+    def test_none_model_returns_opus(self, make_cli_hand) -> None:
         """str(None) produces 'None'; should fall back to _DEFAULT_MODEL."""
         hand = make_cli_hand(DevinCLIHand, model=None)
-        assert hand._resolve_cli_model() == ""
+        assert hand._resolve_cli_model() == "claude-opus-4-6"
+
+    def test_env_var_overrides_config(self, make_cli_hand, monkeypatch) -> None:
+        """HELPING_HANDS_DEVIN_MODEL env var takes precedence."""
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_MODEL", "openai/gpt-5.4")
+        hand = make_cli_hand(DevinCLIHand, model="claude-sonnet-4-6")
+        assert hand._resolve_cli_model() == "openai/gpt-5.4"
+
+    def test_env_var_empty_falls_through(self, make_cli_hand, monkeypatch) -> None:
+        """Empty env var defers to config model."""
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_MODEL", "")
+        hand = make_cli_hand(DevinCLIHand, model="claude-sonnet-4-6")
+        assert hand._resolve_cli_model() == "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------

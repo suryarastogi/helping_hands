@@ -22,7 +22,8 @@ class DevinCLIHand(_TwoPhaseCLIHand):
     _CLI_DISPLAY_NAME = "Devin CLI"
     _COMMAND_ENV_VAR = "HELPING_HANDS_DEVIN_CLI_CMD"
     _DEFAULT_CLI_CMD = "devin -p"
-    _DEFAULT_MODEL = ""
+    _DEFAULT_MODEL = "claude-opus-4-6"
+    _MODEL_ENV_VAR = "HELPING_HANDS_DEVIN_MODEL"
     _NATIVE_CLI_AUTH_ENV_VAR = "HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH"
     _DEFAULT_PERMISSION_MODE = "dangerous"
     _RETRY_ON_NO_CHANGES = True
@@ -67,7 +68,19 @@ class DevinCLIHand(_TwoPhaseCLIHand):
         return ("DEVIN_API_KEY",)
 
     def _resolve_cli_model(self) -> str:
-        """Preserve provider/model format (e.g. anthropic/claude-sonnet-4-6)."""
+        """Resolve model with per-backend env var override.
+
+        Checks ``HELPING_HANDS_DEVIN_MODEL`` first, then falls back to the
+        config model, preserving provider/model format
+        (e.g. ``anthropic/claude-sonnet-4-6``).  Falls back to
+        :attr:`_DEFAULT_MODEL` (``claude-opus-4-6``) when unset.
+
+        Returns:
+            Resolved model name string.
+        """
+        env_model = os.environ.get(self._MODEL_ENV_VAR, "").strip()
+        if env_model and env_model not in _EMPTY_MODEL_MARKERS:
+            return env_model
         model = str(self.config.model).strip()
         if not model or model in _EMPTY_MODEL_MARKERS:
             return self._DEFAULT_MODEL

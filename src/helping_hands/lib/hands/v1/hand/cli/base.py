@@ -305,6 +305,7 @@ class _TwoPhaseCLIHand(Hand):
     _DEFAULT_HEARTBEAT_SECONDS = 20.0
     _DEFAULT_HEARTBEAT_SECONDS_VERBOSE = 5.0
     _DEFAULT_IDLE_TIMEOUT_SECONDS = 900.0
+    _DEFAULT_CI_FIX_IDLE_TIMEOUT_SECONDS = 300.0
 
     class _Emitter(Protocol):
         async def __call__(self, chunk: str) -> None: ...
@@ -318,6 +319,7 @@ class _TwoPhaseCLIHand(Hand):
         """
         super().__init__(config, repo_index)
         self._active_process: asyncio.subprocess.Process | None = None
+        self._ci_fix_mode: bool = False
         self._skill_catalog_dir: Path | None = None
         self._baseline_head: str = ""
 
@@ -764,9 +766,18 @@ class _TwoPhaseCLIHand(Hand):
     def _idle_timeout_seconds(self) -> float:
         """Return the idle timeout before the subprocess is terminated.
 
+        When :attr:`_ci_fix_mode` is active, returns a shorter timeout
+        from ``HELPING_HANDS_CLI_CI_FIX_IDLE_TIMEOUT_SECONDS`` (default 300s)
+        so CI fix subprocesses don't block for 15 minutes.
+
         Returns:
             Seconds of silence before termination (from env or class default).
         """
+        if self._ci_fix_mode:
+            return self._float_env(
+                "HELPING_HANDS_CLI_CI_FIX_IDLE_TIMEOUT_SECONDS",
+                default=self._DEFAULT_CI_FIX_IDLE_TIMEOUT_SECONDS,
+            )
         return self._float_env(
             "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS",
             default=self._DEFAULT_IDLE_TIMEOUT_SECONDS,
@@ -1515,11 +1526,97 @@ class _TwoPhaseCLIHand(Hand):
         return gh.get_check_runs(repo, ref)
 
     @staticmethod
+    def _fetch_failed_check_logs(
+        gh: Any,
+        full_name: str,
+        check_result: dict[str, Any],
+        *,
+        max_chars: int = 8000,
+        max_lines: int = 200,
+    ) -> str:
+        """Fetch log output for failed CI checks via ``gh run view``.
+
+        Parses the ``html_url`` from each failed check run to extract
+        the GitHub Actions run ID, then fetches the failed log output.
+        Returns the last *max_lines* lines, capped at *max_chars*.
+
+        Args:
+            gh: GitHubClient instance (unused — logs come from ``gh`` CLI).
+            full_name: ``owner/repo`` string.
+            check_result: Dict from :meth:`_poll_ci_checks`.
+            max_chars: Maximum characters to return.
+            max_lines: Maximum trailing lines to return.
+
+        Returns:
+            Concatenated failed log output, or empty string on error.
+        """
+        failed = [
+            r
+            for r in check_result.get("check_runs", [])
+            if r.get("conclusion") in _CI_RUN_FAILURE_CONCLUSIONS
+        ]
+        if not failed:
+            return ""
+
+        log_parts: list[str] = []
+        seen_runs: set[str] = set()
+        for run in failed:
+            url = run.get("html_url", "")
+            if not url:
+                continue
+            # Extract run_id from URL like:
+            # https://github.com/owner/repo/actions/runs/12345/job/67890
+            parts = url.rstrip("/").split("/")
+            run_id = ""
+            for i, part in enumerate(parts):
+                if part == "runs" and i + 1 < len(parts):
+                    run_id = parts[i + 1]
+                    break
+            if not run_id or run_id in seen_runs:
+                continue
+            seen_runs.add(run_id)
+
+            try:
+                result = subprocess.run(
+                    [
+                        "gh",
+                        "run",
+                        "view",
+                        run_id,
+                        "--repo",
+                        full_name,
+                        "--log-failed",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    log_parts.append(result.stdout.strip())
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                continue
+
+        if not log_parts:
+            return ""
+
+        combined = "\n\n".join(log_parts)
+        # Tail to max_lines
+        lines = combined.splitlines()
+        if len(lines) > max_lines:
+            lines = lines[-max_lines:]
+        combined = "\n".join(lines)
+        # Truncate to max_chars
+        if len(combined) > max_chars:
+            combined = "..." + combined[-(max_chars - 3) :]
+        return combined
+
+    @staticmethod
     def _build_ci_fix_prompt(
         *,
         check_result: dict[str, Any],
         original_prompt: str,
         attempt: int,
+        log_output: str = "",
     ) -> str:
         """Build a prompt telling the AI to fix CI failures."""
         failed = [
@@ -1536,20 +1633,24 @@ class _TwoPhaseCLIHand(Hand):
 
         failure_summary = "\n".join(failure_lines) or "  (no details available)"
 
-        return (
+        parts = [
             f"CI fix attempt {attempt}.\n\n"
             "The following CI checks failed after pushing changes:\n"
-            f"{failure_summary}\n\n"
-            "Original task was:\n"
-            f"{original_prompt}\n\n"
-            "Please investigate the CI failures by:\n"
-            "1. Reading the relevant source files and test files\n"
-            "2. Running the failing checks locally if possible "
-            "(e.g. lint, test, typecheck commands)\n"
-            "3. Fixing the issues in the repository\n\n"
+            f"{failure_summary}\n",
+        ]
+
+        if log_output.strip():
+            parts.append(f"\nFailed check log output:\n```\n{log_output}\n```\n")
+
+        parts.append(
+            "\nPlease fix the CI failures using the log output above. "
+            "Run the failing checks locally if needed "
+            "(e.g. lint, format, test, typecheck commands). "
             "Focus only on fixing the CI failures. "
             "Do not make unrelated changes."
         )
+
+        return "".join(parts)
 
     async def _ci_fix_loop(
         self,
@@ -1578,6 +1679,10 @@ class _TwoPhaseCLIHand(Hand):
 
         from helping_hands.lib.github import GitHubClient
 
+        # Allow env var override for max retries (useful for CLI mode).
+        env_retries = os.environ.get("HELPING_HANDS_CI_MAX_RETRIES", "").strip()
+        max_retries = int(env_retries) if env_retries.isdigit() else self.ci_max_retries
+
         initial_wait = self.ci_check_wait_minutes * 60
         max_poll = initial_wait * 2
 
@@ -1587,7 +1692,7 @@ class _TwoPhaseCLIHand(Hand):
         try:
             with GitHubClient(token=self.config.github_token) as gh:
                 current_ref = pr_commit
-                for attempt in range(1, self.ci_max_retries + 1):
+                for attempt in range(1, max_retries + 1):
                     if self._is_interrupted():
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.INTERRUPTED
                         return metadata
@@ -1639,18 +1744,25 @@ class _TwoPhaseCLIHand(Hand):
                         "\n"
                         + self._label_msg(
                             f"CI failed (attempt "
-                            f"{attempt}/{self.ci_max_retries}). "
+                            f"{attempt}/{max_retries}). "
                             f"Invoking backend to fix...\n"
                         )
                     )
+
+                    log_output = self._fetch_failed_check_logs(gh, repo, check_result)
 
                     fix_prompt = self._build_ci_fix_prompt(
                         check_result=check_result,
                         original_prompt=prompt,
                         attempt=attempt,
+                        log_output=log_output,
                     )
 
-                    await self._invoke_backend(fix_prompt, emit=emit)
+                    self._ci_fix_mode = True
+                    try:
+                        await self._invoke_backend(fix_prompt, emit=emit)
+                    finally:
+                        self._ci_fix_mode = False
 
                     if self._is_interrupted():
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.INTERRUPTED
@@ -1688,8 +1800,7 @@ class _TwoPhaseCLIHand(Hand):
                 metadata[_META_CI_FIX_STATUS] = CIFixStatus.EXHAUSTED
                 await emit(
                     self._label_msg(
-                        f"CI fix retries exhausted "
-                        f"after {self.ci_max_retries} attempts.\n"
+                        f"CI fix retries exhausted after {max_retries} attempts.\n"
                     )
                 )
 
