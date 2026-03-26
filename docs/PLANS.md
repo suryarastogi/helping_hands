@@ -10,7 +10,7 @@ Index of execution plans for helping_hands development.
 
 - [2026-03-26 v303–v305](exec-plans/completed/2026/2026-03-26.md) —
   Multiplayer coverage hardening, schedule PR auto-persist, shared world
-  decorations via Y.Map; 482 frontend tests, 6321 backend tests
+  decorations via Y.Map; 482 frontend tests, 6321 backend tests, 6803 tests total
 
 - [2026-03-24 v298–v302](exec-plans/completed/2026/2026-03-24.md) —
   Smooth remote movement, typing indicator, minimap, chat cooldown,

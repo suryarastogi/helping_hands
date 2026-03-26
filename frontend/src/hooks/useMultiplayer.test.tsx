@@ -63,7 +63,6 @@ class MockYMap {
 let mockAwareness: MockAwareness;
 let mockProviderDestroyCalled: boolean;
 let mockDocDestroyCalled: boolean;
-let mockDecoMap: MockYMap;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => ({
@@ -72,9 +71,7 @@ vi.mock("yjs", () => ({
     private _maps = new Map<string, MockYMap>();
     getMap(name: string) {
       if (!this._maps.has(name)) {
-        const map = new MockYMap();
-        this._maps.set(name, map);
-        if (name === "decorations") mockDecoMap = map;
+        this._maps.set(name, new MockYMap());
       }
       return this._maps.get(name)!;
     }
