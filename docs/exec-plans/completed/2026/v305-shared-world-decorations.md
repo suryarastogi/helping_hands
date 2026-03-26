@@ -48,6 +48,16 @@ type WorldDecoration = {
 
 None — `pycrdt-websocket` already syncs the full Y.Doc including Y.Map.
 
+## Tasks
+
+- [x] Add `WorldDecoration` type and decoration constants
+- [x] Create Y.Map `"decorations"` in `useMultiplayer` hook
+- [x] Implement observe/sync/place/clear decoration logic
+- [x] Add decoration toolbar with emoji palette to Factory Floor panel
+- [x] Implement double-click scene to place decoration
+- [x] Add positioned emoji rendering with animation
+- [x] Write hook and scene tests (16 total)
+
 ## Result
 
 - `WorldDecoration` type in `types.ts`, `DECORATION_EMOJIS` and `MAX_DECORATIONS` in `constants.ts`
