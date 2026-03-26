@@ -42,6 +42,8 @@ frontend/src/
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
 ├── components/
+│   ├── FactoryFloorPanel.tsx   # Left HUD panel (name, color, presence, chat, emotes, decorations)
+│   ├── FactoryFloorPanel.test.tsx # FactoryFloorPanel render + interaction tests
 │   ├── HandWorldScene.tsx      # Full zen-garden scene (factory, desks, players, workers, HUD)
 │   ├── HandWorldScene.test.tsx # HandWorldScene render tests
 │   ├── Minimap.tsx             # Bird's-eye minimap overlay (player/worker dots)

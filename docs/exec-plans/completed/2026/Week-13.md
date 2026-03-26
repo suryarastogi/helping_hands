@@ -7,7 +7,7 @@ ScheduleCard, TaskListSidebar), smooth movement, typing indicators, minimap,
 chat cooldown, player list API, Playwright e2e multiplayer tests, schedule
 PR auto-persist, shared world decorations via Y.Map, join/leave notifications,
 spawn randomization, player color customization, and multiplayer hardening
-(awareness validation + reconnection resilience).
+(awareness validation + reconnection resilience), and FactoryFloorPanel extraction.
 
 ---
 
@@ -335,3 +335,4 @@ spawn randomization, player color customization, and multiplayer hardening
 - `v306-join-leave-notifications-spawn-randomization.md`
 - `v307-player-color-customization.md`
 - `v308-multiplayer-hardening.md`
+- `v309-factory-floor-panel-extraction.md`

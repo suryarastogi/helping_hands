@@ -12,6 +12,17 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Extract FactoryFloorPanel Component (2026-03-26) — Completed
+
+**Implemented (v309):**
+- Extracted `FactoryFloorPanel` component (~180 lines) from HandWorldScene — contains player name/color customization, presence panel, connection status, emote picker, chat input/history, and decoration toolbar
+- HandWorldScene.tsx reduced from 618 to 437 lines (-181 lines)
+- `FactoryFloorPanelProps` typed interface with 18 props
+- Chat input state, emote picker state, auto-scroll, and form submit logic moved into panel
+- `selectedDecoEmoji` state remains in HandWorldScene (needed for scene `deco-placing` class + double-click handler)
+- 36 new tests in `FactoryFloorPanel.test.tsx`
+- All 535 existing tests pass (1 pre-existing flaky WASD test excluded)
+
 ### Multiplayer Hardening — Awareness Validation & Reconnection Resilience (2026-03-26) — Completed
 
 **Implemented (v308):**
