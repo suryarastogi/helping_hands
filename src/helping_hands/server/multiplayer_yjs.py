@@ -230,7 +230,7 @@ def validate_awareness_state(state: dict[str, Any]) -> dict[str, Any]:
 def _clamp_float(value: object, lo: float, hi: float) -> float:
     """Coerce *value* to float and clamp to [lo, hi]."""
     try:
-        v = float(value)  # type: ignore[arg-type]
+        v = float(cast(Any, value))
     except (TypeError, ValueError):
         return (lo + hi) / 2
     return max(lo, min(hi, v))

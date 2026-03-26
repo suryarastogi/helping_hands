@@ -100,29 +100,30 @@ vi.mock("yjs", () => ({
   },
 }));
 
-vi.mock("y-websocket", () => ({
-  WebsocketProvider: class MockProvider {
-    awareness: MockAwareness;
-    _listeners: Record<string, Array<(arg: unknown) => void>> = {};
-    constructor() {
-      mockAwareness = new MockAwareness();
-      this.awareness = mockAwareness;
-      latestMockProvider = this;
-    }
-    on(event: string, cb: (arg: unknown) => void) {
-      (this._listeners[event] ??= []).push(cb);
-    }
-    off(event: string, cb: (arg: unknown) => void) {
-      const arr = this._listeners[event];
-      if (arr) {
-        const idx = arr.indexOf(cb);
-        if (idx >= 0) arr.splice(idx, 1);
-      }
-    }
-    disconnect() { mockProviderDisconnectCalled = true; }
-    destroy() { mockProviderDestroyCalled = true; }
-  },
-}));
+vi.mock("y-websocket", () => {
+  function MockProvider() {
+    mockAwareness = new MockAwareness();
+    const instance = {
+      awareness: mockAwareness,
+      _listeners: {} as Record<string, Array<(arg: unknown) => void>>,
+      on(event: string, cb: (arg: unknown) => void) {
+        (instance._listeners[event] ??= []).push(cb);
+      },
+      off(event: string, cb: (arg: unknown) => void) {
+        const arr = instance._listeners[event];
+        if (arr) {
+          const idx = arr.indexOf(cb);
+          if (idx >= 0) arr.splice(idx, 1);
+        }
+      },
+      disconnect() { mockProviderDisconnectCalled = true; },
+      destroy() { mockProviderDestroyCalled = true; },
+    };
+    latestMockProvider = instance;
+    return instance;
+  }
+  return { WebsocketProvider: MockProvider };
+});
 
 // ---------------------------------------------------------------------------
 // loadPlayerName / savePlayerName
