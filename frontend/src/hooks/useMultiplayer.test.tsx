@@ -37,14 +37,48 @@ class MockAwareness {
   }
 }
 
+class MockYMap {
+  private _data = new Map<string, unknown>();
+  private _observers: Array<() => void> = [];
+
+  get size() { return this._data.size; }
+  get(key: string) { return this._data.get(key); }
+  set(key: string, value: unknown) {
+    this._data.set(key, value);
+    this._observers.forEach((cb) => cb());
+  }
+  delete(key: string) {
+    this._data.delete(key);
+    this._observers.forEach((cb) => cb());
+  }
+  keys() { return this._data.keys(); }
+  forEach(cb: (value: unknown, key: string) => void) { this._data.forEach(cb); }
+  observe(cb: () => void) { this._observers.push(cb); }
+  unobserve(cb: () => void) {
+    const idx = this._observers.indexOf(cb);
+    if (idx >= 0) this._observers.splice(idx, 1);
+  }
+}
+
 let mockAwareness: MockAwareness;
 let mockProviderDestroyCalled: boolean;
 let mockDocDestroyCalled: boolean;
+let mockDecoMap: MockYMap;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => ({
   Doc: class MockDoc {
     clientID = MOCK_CLIENT_ID;
+    private _maps = new Map<string, MockYMap>();
+    getMap(name: string) {
+      if (!this._maps.has(name)) {
+        const map = new MockYMap();
+        this._maps.set(name, map);
+        if (name === "decorations") mockDecoMap = map;
+      }
+      return this._maps.get(name)!;
+    }
+    transact(fn: () => void) { fn(); }
     destroy() { mockDocDestroyCalled = true; }
   },
 }));
@@ -551,5 +585,78 @@ describe("useMultiplayer hook", () => {
     expect(result.current.isLocalIdle).toBe(false);
 
     vi.useRealTimers();
+  });
+
+  // --- Shared decorations (Y.Map) ---
+
+  it("starts with empty decorations", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    expect(result.current.decorations).toEqual([]);
+  });
+
+  it("placeDecoration adds a decoration to Y.Map and state", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{1F338}", 30, 40));
+
+    expect(result.current.decorations).toHaveLength(1);
+    expect(result.current.decorations[0].emoji).toBe("\u{1F338}");
+    expect(result.current.decorations[0].x).toBe(30);
+    expect(result.current.decorations[0].y).toBe(40);
+    expect(result.current.decorations[0].placedBy).toBeTruthy();
+  });
+
+  it("clearDecorations removes all decorations", () => {
+    vi.useFakeTimers({ now: 1000 });
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{2B50}", 10, 20));
+    vi.advanceTimersByTime(1);
+    act(() => result.current.placeDecoration("\u{1F525}", 50, 60));
+    expect(result.current.decorations).toHaveLength(2);
+
+    act(() => result.current.clearDecorations());
+    expect(result.current.decorations).toHaveLength(0);
+    vi.useRealTimers();
+  });
+
+  it("respects MAX_DECORATIONS limit", () => {
+    vi.useFakeTimers({ now: 1000 });
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Fill up to max
+    for (let i = 0; i < 20; i++) {
+      act(() => result.current.placeDecoration("\u{1F338}", i * 4, 50));
+      vi.advanceTimersByTime(1);
+    }
+    expect(result.current.decorations).toHaveLength(20);
+
+    // 21st should be rejected
+    act(() => result.current.placeDecoration("\u{2B50}", 90, 90));
+    expect(result.current.decorations).toHaveLength(20);
+    vi.useRealTimers();
+  });
+
+  it("clears decorations when deactivated", () => {
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    act(() => result.current.placeDecoration("\u{1F338}", 50, 50));
+    expect(result.current.decorations).toHaveLength(1);
+
+    rerender({ ...defaultOpts(), active: false });
+    expect(result.current.decorations).toHaveLength(0);
+  });
+
+  it("placeDecoration is no-op when inactive", () => {
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), active: false } },
+    );
+
+    act(() => result.current.placeDecoration("\u{1F338}", 50, 50));
+    expect(result.current.decorations).toHaveLength(0);
   });
 });

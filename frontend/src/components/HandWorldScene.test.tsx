@@ -5,7 +5,7 @@ import { fireEvent, render } from "@testing-library/react";
 import HandWorldScene from "./HandWorldScene";
 import type { SceneWorkerEntry } from "./HandWorldScene";
 import type { RemotePlayer } from "../hooks/useMultiplayer";
-import type { ChatMessage, ClaudeUsageResponse, FloatingNumber } from "../types";
+import type { ChatMessage, ClaudeUsageResponse, FloatingNumber, WorldDecoration } from "../types";
 
 const BOT_STYLE = {
   bodyColor: "#10a37f",
@@ -65,6 +65,9 @@ const BASE_SCENE_PROPS = {
   claudeUsageLoading: false,
   onRefreshClaudeUsage: vi.fn(),
   floatingNumbers: [] as FloatingNumber[],
+  decorations: [] as WorldDecoration[],
+  onPlaceDecoration: vi.fn(),
+  onClearDecorations: vi.fn(),
 };
 
 describe("HandWorldScene component", () => {
@@ -667,5 +670,114 @@ describe("HandWorldScene component", () => {
     const keys = container.querySelectorAll(".emote-picker-key");
     expect(keys[0].textContent).toBe("1");
     expect(keys[1].textContent).toBe("2");
+  });
+
+  // --- Shared decorations ---
+
+  it("renders decoration toolbar when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const toolbar = container.querySelector(".decoration-toolbar");
+    expect(toolbar).toBeTruthy();
+    expect(toolbar?.getAttribute("aria-label")).toBe("Decoration toolbar");
+  });
+
+  it("hides decoration toolbar when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".decoration-toolbar")).toBeNull();
+  });
+
+  it("renders decoration emoji palette with correct count", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    expect(buttons.length).toBe(8);
+  });
+
+  it("shows decoration count in toolbar header", () => {
+    const decos: WorldDecoration[] = [
+      { id: "d1", emoji: "\u{1F338}", x: 30, y: 40, placedBy: "Alice", color: "#e11d48", placedAt: 1000 },
+      { id: "d2", emoji: "\u{2B50}", x: 50, y: 60, placedBy: "Bob", color: "#2563eb", placedAt: 2000 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decorations={decos} />
+    );
+    const header = container.querySelector(".decoration-toolbar-header");
+    expect(header?.textContent).toContain("2/20");
+  });
+
+  it("renders world decoration elements at correct positions", () => {
+    const decos: WorldDecoration[] = [
+      { id: "d1", emoji: "\u{1F338}", x: 25, y: 45, placedBy: "Alice", color: "#e11d48", placedAt: 1000 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} decorations={decos} />
+    );
+    const deco = container.querySelector(".world-decoration") as HTMLElement;
+    expect(deco).toBeTruthy();
+    expect(deco.textContent).toBe("\u{1F338}");
+    expect(deco.style.left).toBe("25%");
+    expect(deco.style.top).toBe("45%");
+    expect(deco.title).toBe("Placed by Alice");
+  });
+
+  it("shows clear button when decorations exist", () => {
+    const decos: WorldDecoration[] = [
+      { id: "d1", emoji: "\u{1F338}", x: 30, y: 40, placedBy: "Alice", color: "#e11d48", placedAt: 1000 },
+    ];
+    const onClear = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decorations={decos} onClearDecorations={onClear} />
+    );
+    const clearBtn = container.querySelector(".decoration-clear-btn");
+    expect(clearBtn).toBeTruthy();
+    fireEvent.click(clearBtn!);
+    expect(onClear).toHaveBeenCalled();
+  });
+
+  it("hides clear button when no decorations", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decorations={[]} />
+    );
+    expect(container.querySelector(".decoration-clear-btn")).toBeNull();
+  });
+
+  it("selects emoji and shows placement hint on click", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    fireEvent.click(buttons[0]);
+    expect(buttons[0].classList.contains("selected")).toBe(true);
+    expect(buttons[0].getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector(".decoration-hint")).toBeTruthy();
+    expect(container.querySelector(".decoration-hint")?.textContent).toContain("Double-click");
+  });
+
+  it("deselects emoji on second click", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    fireEvent.click(buttons[0]);
+    expect(buttons[0].classList.contains("selected")).toBe(true);
+    fireEvent.click(buttons[0]);
+    expect(buttons[0].classList.contains("selected")).toBe(false);
+    expect(container.querySelector(".decoration-hint")).toBeNull();
+  });
+
+  it("adds deco-placing class to scene when emoji selected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const scene = container.querySelector(".world-scene");
+    expect(scene?.classList.contains("deco-placing")).toBe(false);
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    fireEvent.click(buttons[0]);
+    expect(scene?.classList.contains("deco-placing")).toBe(true);
   });
 });

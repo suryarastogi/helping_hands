@@ -7,7 +7,7 @@
  */
 import { type CSSProperties, type Ref, useEffect, useRef, useState } from "react";
 
-import { CHAT_MAX_LENGTH, EMOTE_KEY_BINDINGS, EMOTE_MAP } from "../constants";
+import { CHAT_MAX_LENGTH, DECORATION_EMOJIS, EMOTE_KEY_BINDINGS, EMOTE_MAP, MAX_DECORATIONS } from "../constants";
 
 import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
@@ -22,6 +22,7 @@ import type {
   PlayerPosition,
   SceneWorkerPhase,
   ScheduleItem,
+  WorldDecoration,
   WorkerVariant,
 } from "../types";
 import Minimap from "./Minimap";
@@ -102,6 +103,11 @@ export type HandWorldSceneProps = {
 
   // -- Floating numbers --
   floatingNumbers: FloatingNumber[];
+
+  // -- Shared decorations --
+  decorations: WorldDecoration[];
+  onPlaceDecoration: (emoji: string, x: number, y: number) => void;
+  onClearDecorations: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -139,9 +145,13 @@ export default function HandWorldScene({
   claudeUsageLoading,
   onRefreshClaudeUsage,
   floatingNumbers,
+  decorations,
+  onPlaceDecoration,
+  onClearDecorations,
 }: HandWorldSceneProps) {
   const [chatInput, setChatInput] = useState("");
   const [emotePickerOpen, setEmotePickerOpen] = useState(false);
+  const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatHistoryRef = useRef<HTMLDivElement>(null);
 
@@ -168,6 +178,16 @@ export default function HandWorldScene({
     chatInputRef.current?.blur();
   };
 
+  const handleSceneDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!selectedDecoEmoji || connectionStatus !== "connected") return;
+    if (decorations.length >= MAX_DECORATIONS) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    onPlaceDecoration(selectedDecoEmoji, x, y);
+    setSelectedDecoEmoji(null);
+  };
+
   return (
     <section className="card hand-world-card">
       <header className="header">
@@ -184,11 +204,12 @@ export default function HandWorldScene({
 
       <div
         ref={sceneRef}
-        className="world-scene office-scene"
+        className={`world-scene office-scene${selectedDecoEmoji ? " deco-placing" : ""}`}
         role="list"
         aria-label="Current factory workers"
         style={sceneStyle}
         tabIndex={0}
+        onDoubleClick={handleSceneDoubleClick}
       >
         <div className="zen-border" aria-hidden="true" />
         <div className="zen-sand-floor" aria-hidden="true" />
@@ -407,6 +428,41 @@ export default function HandWorldScene({
               ))}
             </div>
           )}
+          {connectionStatus === "connected" && (
+            <div className="decoration-toolbar" aria-label="Decoration toolbar">
+              <div className="decoration-toolbar-header">
+                <span>Decorations ({decorations.length}/{MAX_DECORATIONS})</span>
+                {decorations.length > 0 && (
+                  <button
+                    type="button"
+                    className="decoration-clear-btn"
+                    onClick={onClearDecorations}
+                    aria-label="Clear all decorations"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="decoration-palette" role="group" aria-label="Decoration emoji palette">
+                {DECORATION_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className={`decoration-emoji-btn${selectedDecoEmoji === emoji ? " selected" : ""}`}
+                    onClick={() => setSelectedDecoEmoji(selectedDecoEmoji === emoji ? null : emoji)}
+                    disabled={decorations.length >= MAX_DECORATIONS}
+                    aria-label={`Select ${emoji} decoration`}
+                    aria-pressed={selectedDecoEmoji === emoji}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              {selectedDecoEmoji && (
+                <div className="decoration-hint">Double-click the scene to place {selectedDecoEmoji}</div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="zen-usage-summary">
@@ -475,6 +531,18 @@ export default function HandWorldScene({
             x={rp.x}
             y={rp.y}
           />
+        ))}
+
+        {decorations.map((d) => (
+          <span
+            key={d.id}
+            className="world-decoration"
+            style={{ left: `${d.x}%`, top: `${d.y}%` }}
+            title={`Placed by ${d.placedBy}`}
+            aria-label={`${d.emoji} decoration by ${d.placedBy}`}
+          >
+            {d.emoji}
+          </span>
         ))}
 
         {connectionStatus === "connected" && (

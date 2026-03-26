@@ -12,6 +12,18 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Shared World Decorations (2026-03-26) — Completed
+
+**Implemented (v305):**
+- Persistent shared decorations in multiplayer Hand World using Y.Map document state
+- 8-emoji palette (🌸⭐🔥💡🎵❤️🌱💎), 20 decoration max
+- Decoration toolbar in Factory Floor panel with count, emoji selection, and clear button
+- Double-click scene to place selected emoji at click position
+- Pop animation on placement, crosshair cursor during placement mode
+- Y.Map observation syncs decorations to all connected players in real-time
+- No backend changes needed (pycrdt-websocket auto-syncs Y.Doc)
+- 16 new tests (6 hook, 10 scene) — 482 frontend tests total
+
 ### Schedule PR Auto-Persist (2026-03-26) — Completed
 
 **Implemented (v304):**

@@ -253,7 +253,31 @@ entire scene. This gives clear visual feedback that sync is temporarily interrup
 - CSS: translucent dark overlay (`rgba(2, 8, 23, 0.65)`) with spinner animation,
   `pointer-events: none` so the scene remains interactive underneath
 
+## Shared world decorations (v305)
+
+Players can place emoji decorations in the scene that all connected players
+see in real-time. This is the first use of persistent Y.Doc state (Y.Map)
+rather than ephemeral awareness.
+
+**Data model:** Each decoration is a Y.Map entry with `id`, `emoji`, `x`, `y`,
+`placedBy`, `color`, and `placedAt`. The map is named `"decorations"` in the
+Y.Doc and is automatically synced by `pycrdt-websocket` — no backend changes
+required.
+
+**Frontend flow:**
+1. Player clicks an emoji in the decoration palette (8 options: 🌸⭐🔥💡🎵❤️🌱💎)
+2. Scene enters placement mode (crosshair cursor, `deco-placing` class)
+3. Player double-clicks the scene to place the emoji at the click position
+4. `placeDecoration()` writes to Y.Map → observer fires → `decorations` state updates
+5. All connected clients see the decoration appear with a pop animation
+
+**Limits:** `MAX_DECORATIONS = 20` prevents unbounded growth. A "Clear" button
+removes all decorations (transactional delete of all keys).
+
+**CSS:** `.world-decoration` is positioned absolutely with `deco-pop` keyframe
+animation, drop shadow, and `pointer-events: none`.
+
 ## Future extensions
 
-- Shared Y.Doc state for persistent world features (e.g. placed objects)
 - Player names from server auth context
+- Multi-process/Redis pub/sub for horizontal scaling

@@ -1490,12 +1490,29 @@ let mockAwareness: MockAwareness;
 let mockProviderInstance: { _listeners: Record<string, Array<(arg: unknown) => void>>; _fireStatus: (status: string) => void } | null = null;
 const MOCK_CLIENT_ID = 42;
 
-vi.mock("yjs", () => ({
-  Doc: class MockDoc {
-    clientID = MOCK_CLIENT_ID;
-    destroy() { /* no-op */ }
-  },
-}));
+vi.mock("yjs", () => {
+  class SimpleYMap {
+    _data = new Map<string, unknown>();
+    _observers: Array<() => void> = [];
+    get size() { return this._data.size; }
+    get(key: string) { return this._data.get(key); }
+    set(key: string, value: unknown) { this._data.set(key, value); this._observers.forEach(cb => cb()); }
+    delete(key: string) { this._data.delete(key); this._observers.forEach(cb => cb()); }
+    keys() { return this._data.keys(); }
+    forEach(cb: (value: unknown, key: string) => void) { this._data.forEach(cb); }
+    observe(cb: () => void) { this._observers.push(cb); }
+    unobserve(cb: () => void) { const i = this._observers.indexOf(cb); if (i >= 0) this._observers.splice(i, 1); }
+  }
+  return {
+    Doc: class MockDoc {
+      clientID = MOCK_CLIENT_ID;
+      private _maps = new Map<string, SimpleYMap>();
+      getMap(name: string) { if (!this._maps.has(name)) this._maps.set(name, new SimpleYMap()); return this._maps.get(name)!; }
+      transact(fn: () => void) { fn(); }
+      destroy() { /* no-op */ }
+    },
+  };
+});
 
 vi.mock("y-websocket", () => ({
   WebsocketProvider: class MockProvider {

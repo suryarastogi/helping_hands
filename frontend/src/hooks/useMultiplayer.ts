@@ -15,9 +15,10 @@ import {
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   IDLE_TIMEOUT_MS,
+  MAX_DECORATIONS,
   PLAYER_COLORS,
 } from "../constants";
-import type { ChatMessage, PlayerDirection } from "../types";
+import type { ChatMessage, PlayerDirection, WorldDecoration } from "../types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,6 +76,12 @@ export type UseMultiplayerReturn = {
   setTyping: (typing: boolean) => void;
   /** Whether chat is on cooldown (true = cannot send yet). */
   chatOnCooldown: boolean;
+  /** Shared world decorations (persisted via Y.Map). */
+  decorations: WorldDecoration[];
+  /** Place an emoji decoration at a scene position. */
+  placeDecoration: (emoji: string, x: number, y: number) => void;
+  /** Remove all decorations from the world. */
+  clearDecorations: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -126,6 +133,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [isLocalTyping, setIsLocalTyping] = useState(false);
   const [remoteTyping, setRemoteTyping] = useState<Record<string, boolean>>({});
   const [chatOnCooldown, setChatOnCooldown] = useState(false);
+  const [decorations, setDecorations] = useState<WorldDecoration[]>([]);
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
@@ -147,6 +155,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       }
       setRemotePlayers([]);
       setChatHistory([]);
+      setDecorations([]);
       seenRemoteChatsRef.current.clear();
       setConnectionStatus("disconnected");
       setIsLocalIdle(false);
@@ -254,7 +263,24 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
 
     provider.awareness.on("change", onAwarenessChange);
 
+    // --- Shared decoration map (persistent Y.Doc state) ---
+    const decoMap = doc.getMap("decorations");
+    const syncDecorations = () => {
+      const items: WorldDecoration[] = [];
+      decoMap.forEach((value: unknown, key: string) => {
+        const d = value as WorldDecoration | undefined;
+        if (d && d.emoji) {
+          items.push({ ...d, id: key });
+        }
+      });
+      items.sort((a, b) => a.placedAt - b.placedAt);
+      setDecorations(items);
+    };
+    decoMap.observe(syncDecorations);
+    syncDecorations();
+
     return () => {
+      decoMap.unobserve(syncDecorations);
       provider.off("status", onStatus);
       provider.awareness.off("change", onAwarenessChange);
       provider.destroy();
@@ -427,6 +453,43 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     [],
   );
 
+  // --- Place decoration callback ---
+  const placeDecoration = useCallback(
+    (emoji: string, x: number, y: number) => {
+      const doc = yjsDocRef.current;
+      if (!doc) return;
+      const decoMap = doc.getMap("decorations");
+      if (decoMap.size >= MAX_DECORATIONS) return;
+
+      const provider = yjsProviderRef.current;
+      const localState = provider?.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+      const id = `${doc.clientID}-${Date.now()}`;
+      decoMap.set(id, {
+        id,
+        emoji,
+        x,
+        y,
+        placedBy: (localState?.name as string) ?? "Unknown",
+        color: (localState?.color as string) ?? PLAYER_COLORS[0],
+        placedAt: Date.now(),
+      });
+    },
+    [],
+  );
+
+  // --- Clear decorations callback ---
+  const clearDecorations = useCallback(() => {
+    const doc = yjsDocRef.current;
+    if (!doc) return;
+    const decoMap = doc.getMap("decorations");
+    doc.transact(() => {
+      const keys = Array.from(decoMap.keys());
+      for (const key of keys) {
+        decoMap.delete(key);
+      }
+    });
+  }, []);
+
   // --- Emote key bindings ---
   useEffect(() => {
     if (!active) return;
@@ -463,5 +526,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     sendChat,
     setTyping,
     chatOnCooldown,
+    decorations,
+    placeDecoration,
+    clearDecorations,
   };
 }

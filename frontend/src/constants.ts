@@ -81,3 +81,13 @@ export const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 
 
 /** Walkable area bounds (% of scene). */
 export const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
+
+// ---------------------------------------------------------------------------
+// World decorations
+// ---------------------------------------------------------------------------
+
+/** Emoji palette for placing decorations in the world. */
+export const DECORATION_EMOJIS = ["\u{1F338}", "\u{2B50}", "\u{1F525}", "\u{1F4A1}", "\u{1F3B5}", "\u{2764}\u{FE0F}", "\u{1F331}", "\u{1F48E}"];
+
+/** Maximum number of shared decorations in the world. */
+export const MAX_DECORATIONS = 20;

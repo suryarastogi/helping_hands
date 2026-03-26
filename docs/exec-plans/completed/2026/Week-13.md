@@ -5,7 +5,7 @@ migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
 history panel, continued component extraction (MonitorCard, SubmissionForm,
 ScheduleCard, TaskListSidebar), smooth movement, typing indicators, minimap,
 chat cooldown, player list API, Playwright e2e multiplayer tests, and schedule
-PR auto-persist.
+PR auto-persist, and shared world decorations via Y.Map.
 
 ---
 
@@ -269,6 +269,14 @@ PR auto-persist.
 
 ---
 
+## Mar 26 — Shared World Decorations via Y.Map (v305)
+
+**Persistent shared state:** First use of Y.Map document state in the multiplayer world. Players can place emoji decorations (8 emoji palette, 20 cap) that all connected players see in real-time. Decoration toolbar in Factory Floor panel with emoji selection, count, and clear button. Double-click scene to place. Pop animation on placement.
+
+**16 new tests (6 hook, 10 scene). 482 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -303,3 +311,4 @@ PR auto-persist.
 - `v302-emote-picker-panel.md`
 - `v303-multiplayer-coverage-hardening.md`
 - `v304-schedule-pr-auto-persist.md`
+- `v305-shared-world-decorations.md`

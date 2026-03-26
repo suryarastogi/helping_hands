@@ -2,6 +2,16 @@
 
 export type PlayerDirection = "down" | "up" | "left" | "right";
 
+export type WorldDecoration = {
+  id: string;
+  emoji: string;
+  x: number;
+  y: number;
+  placedBy: string;
+  color: string;
+  placedAt: number;
+};
+
 export type ChatMessage = {
   id: string;
   playerName: string;

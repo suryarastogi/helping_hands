@@ -184,6 +184,9 @@ export default function App() {
     sendChat,
     setTyping,
     chatOnCooldown,
+    decorations,
+    placeDecoration,
+    clearDecorations,
   } = useMultiplayer({
     active: true,
     playerPosition,
@@ -1332,6 +1335,9 @@ export default function App() {
           claudeUsageLoading={claudeUsageLoading}
           onRefreshClaudeUsage={() => void refreshClaudeUsage()}
           floatingNumbers={floatingNumbers}
+          decorations={decorations}
+          onPlaceDecoration={placeDecoration}
+          onClearDecorations={clearDecorations}
         />
 
         {mainView === "monitor" && taskId && monitorCard}
