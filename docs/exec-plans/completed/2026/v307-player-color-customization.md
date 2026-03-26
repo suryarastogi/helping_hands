@@ -33,9 +33,12 @@ persists across sessions via localStorage.
 - `.color-picker-row` — flex row with 3px gap
 - `.color-swatch` — 16px round buttons with hover scale and selected border
 
-## Tests (6 new, 493 total)
+## Tasks
 
-| File | Tests | Description |
-|---|---|---|
-| `useMultiplayer.test.tsx` | 3 | loadPlayerColor/savePlayerColor persistence + hook color broadcast |
-| `HandWorldScene.test.tsx` | 3 | swatch rendering, selected state, click callback |
+- [x] Add `loadPlayerColor()` / `savePlayerColor()` localStorage helpers
+- [x] Add `playerColor` optional prop to `UseMultiplayerOptions`
+- [x] Broadcast color changes via awareness without reconnecting
+- [x] Render color picker swatches in `HandWorldScene`
+- [x] Wire color state through `App.tsx`
+- [x] Add `.color-picker-row` and `.color-swatch` CSS
+- [x] Add 6 tests (3 hook, 3 scene)

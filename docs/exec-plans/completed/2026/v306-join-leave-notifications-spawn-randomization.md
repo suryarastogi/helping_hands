@@ -1,5 +1,8 @@
 # v306: Join/Leave Notifications & Spawn Randomization
 
+**Status:** Completed
+**Created:** 2026-03-26
+
 ## Goal
 
 Improve the multiplayer Hand World experience with two self-contained
@@ -42,6 +45,16 @@ and inject system messages into the chat history.
 - `frontend/src/components/HandWorldScene.tsx` — system message styling in chat history
 - `frontend/src/styles.css` — `.chat-history-system` styling
 - Tests for all changes
+
+## Tasks
+
+- [x] Add `isSystem` optional field to `ChatMessage` type
+- [x] Add `SYSTEM_MESSAGE_COLOR` constant
+- [x] Detect join/leave via awareness `change` event in `useMultiplayer`
+- [x] Randomize initial spawn position in `useMovement`
+- [x] Style system messages in `HandWorldScene` chat history
+- [x] Add `.chat-history-system` CSS styling
+- [x] Add tests for all changes
 
 ## Out of scope
 

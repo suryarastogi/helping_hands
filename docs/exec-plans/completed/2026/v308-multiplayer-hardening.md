@@ -50,6 +50,17 @@ server-side awareness state validation and frontend reconnection resilience.
 - Status hint shows "Connection failed" text.
 - CSS: `.reconnect-failed` background and `.conn-status-failed` dot color.
 
+## Tasks
+
+- [x] Add `validate_awareness_state()` server-side validation
+- [x] Add `_clamp_float()` and `_strip_control_chars()` helpers
+- [x] Add `get_player_activity_summary()` endpoint
+- [x] Integrate validation into `get_connected_players()`
+- [x] Add `"failed"` terminal state to frontend `ConnectionStatus`
+- [x] Add reconnection attempt tracking with `MAX_RECONNECT_ATTEMPTS`
+- [x] Add "Connection failed" banner UI
+- [x] Add 30 backend tests and 7 frontend tests
+
 ## Tests
 
 ### Backend (30 new tests):
