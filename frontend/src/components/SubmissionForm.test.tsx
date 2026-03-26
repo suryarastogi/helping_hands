@@ -122,10 +122,10 @@ describe("SubmissionForm", () => {
     expect(tokenInputs[0]).toHaveAttribute("type", "password");
   });
 
-  it("renders reference repos input", () => {
+  it("renders reference repos chip input", () => {
     renderForm();
     expect(
-      screen.getByPlaceholderText("owner/repo, owner/repo2 (optional, read-only)")
+      screen.getByLabelText("Reference repos")
     ).toBeInTheDocument();
   });
 

@@ -243,6 +243,9 @@ start_all() {
   set_defaults
   adjust_docker_redis_hosts_for_local
 
+  echo "Syncing dependencies..."
+  (cd "${REPO_ROOT}" && uv sync --extra server)
+
   echo "Using Celery broker: ${CELERY_BROKER_URL}"
   echo "Using Celery result backend: ${CELERY_RESULT_BACKEND}"
   echo "Server port: ${SERVER_PORT}, Flower port: ${FLOWER_PORT}"

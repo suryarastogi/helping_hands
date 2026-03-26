@@ -16,6 +16,7 @@ import SubmissionForm from "./components/SubmissionForm";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName } from "./hooks/useMultiplayer";
+import { useRecentRepos } from "./hooks/useRecentRepos";
 import { useSchedules } from "./hooks/useSchedules";
 import type {
   AccumulatedUsage,
@@ -159,6 +160,7 @@ export default function App() {
     toggleSchedule,
     cancelScheduleForm,
   } = useSchedules();
+  const { recentRepos, addRepo } = useRecentRepos();
   const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
   const floatingIdRef = useRef(0);
   const updateCountsRef = useRef<Map<string, number>>(new Map());
@@ -1245,6 +1247,13 @@ export default function App() {
           repoPath,
         })
       );
+      // Remember repos for autocomplete
+      addRepo(repoPath);
+      if (form.reference_repos.trim()) {
+        for (const r of form.reference_repos.split(",").map((s) => s.trim()).filter((s) => s.length > 0)) {
+          addRepo(r);
+        }
+      }
     } catch (error) {
       setStatus("error");
       setPayload({ error: String(error) });
@@ -1286,14 +1295,24 @@ export default function App() {
 
   const runtimeDisplay = elapsedStr ?? storedRuntime;
 
+  const taskError = useMemo<{ error: string; errorType: string } | null>(() => {
+    if (statusTone(status) !== "fail") return null;
+    const result = asRecord((payload as Record<string, unknown> | null)?.result);
+    const error = typeof result?.error === "string" ? result.error : null;
+    const errorType = typeof result?.error_type === "string" ? result.error_type : null;
+    if (!error) return null;
+    return { error, errorType: errorType ?? "Error" };
+  }, [status, payload]);
+
   const submissionCard = (
-    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} />
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} />
   );
 
   const monitorCard = (
     <MonitorCard
       taskId={taskId}
       status={status}
+      taskError={taskError}
       isPolling={isPolling}
       outputTab={outputTab}
       onOutputTabChange={setOutputTab}
@@ -1328,6 +1347,7 @@ export default function App() {
       onToggleSchedule={toggleSchedule}
       onCancelForm={cancelScheduleForm}
       onRefresh={loadSchedules}
+      recentRepos={recentRepos}
     />
   );
 
