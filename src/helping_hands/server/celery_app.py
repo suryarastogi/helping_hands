@@ -1096,7 +1096,7 @@ def ensure_usage_schedule() -> None:
         )
 
 
-@celery_app.on_after_finalize.connect  # type: ignore[union-attr]
+@celery_app.on_after_finalize.connect  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 def _setup_periodic_tasks(sender: Any, **_kwargs: Any) -> None:
     """Register periodic tasks after Celery app finalization.
 
