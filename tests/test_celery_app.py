@@ -729,3 +729,63 @@ class TestLogClaudeUsage:
 
         assert result["status"] == "error"
         assert "No OAuth token" in result["message"]
+
+
+# ---------------------------------------------------------------------------
+# _maybe_persist_pr_to_schedule (v304)
+# ---------------------------------------------------------------------------
+
+
+class TestMaybePersistPrToSchedule:
+    """Tests for the _maybe_persist_pr_to_schedule helper."""
+
+    def test_skips_when_no_schedule_id(self) -> None:
+        """No-op when schedule_id is None (non-scheduled build)."""
+        with patch(
+            "helping_hands.server.schedules.get_schedule_manager"
+        ) as mock_get_mgr:
+            celery_app._maybe_persist_pr_to_schedule(None, None, "42")
+        mock_get_mgr.assert_not_called()
+
+    def test_skips_when_input_pr_already_set(self) -> None:
+        """No-op when input pr_number was already set on the schedule."""
+        with patch(
+            "helping_hands.server.schedules.get_schedule_manager"
+        ) as mock_get_mgr:
+            celery_app._maybe_persist_pr_to_schedule("sched_abc", 10, "42")
+        mock_get_mgr.assert_not_called()
+
+    def test_skips_when_result_pr_empty(self) -> None:
+        """No-op when the hand did not create a PR (empty string)."""
+        with patch(
+            "helping_hands.server.schedules.get_schedule_manager"
+        ) as mock_get_mgr:
+            celery_app._maybe_persist_pr_to_schedule("sched_abc", None, "")
+        mock_get_mgr.assert_not_called()
+
+    def test_skips_when_result_pr_non_digit(self) -> None:
+        """No-op when result PR number is not a digit string."""
+        with patch(
+            "helping_hands.server.schedules.get_schedule_manager"
+        ) as mock_get_mgr:
+            celery_app._maybe_persist_pr_to_schedule("sched_abc", None, "abc")
+        mock_get_mgr.assert_not_called()
+
+    def test_persists_newly_created_pr(self) -> None:
+        """Should call update_pr_number when a new PR was created."""
+        mock_mgr = MagicMock()
+        with patch(
+            "helping_hands.server.schedules.get_schedule_manager",
+            return_value=mock_mgr,
+        ):
+            celery_app._maybe_persist_pr_to_schedule("sched_abc", None, "42")
+        mock_mgr.update_pr_number.assert_called_once_with("sched_abc", 42)
+
+    def test_exception_does_not_propagate(self) -> None:
+        """Errors during persist are swallowed (logged, not re-raised)."""
+        with patch(
+            "helping_hands.server.schedules.get_schedule_manager",
+            side_effect=RuntimeError("Redis down"),
+        ):
+            # Should not raise
+            celery_app._maybe_persist_pr_to_schedule("sched_abc", None, "42")

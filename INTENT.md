@@ -8,11 +8,21 @@ Deeper GitHub integration - Features Wanted:
 - a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
     - When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)
     - Sync task status with GitHub issue with created PR
-- if pr number is empty on a scheduled task it should create the PR the first time and on subsequent runs it should update the same PR (this might be easiest to achieve by unscheduling and rescheduling the task with the same PR number)
-
 
 
 ## Recently Completed
+
+### Schedule PR Auto-Persist (2026-03-26) — Completed
+
+**Implemented (v304):**
+- When a scheduled task with no `pr_number` creates a new PR, the PR number is
+  auto-persisted back to the schedule for subsequent runs
+- `Hand.last_pr_metadata` attribute on base class
+- `ScheduleManager.update_pr_number()` focused write method
+- `_maybe_persist_pr_to_schedule()` helper with guard conditions
+- `build_feature` task gains optional `schedule_id` parameter
+- Non-E2E hand results now include PR metadata (`**hand.last_pr_metadata`)
+- 18 new tests (4 ScheduleManager, 7 celery helper, 7 hand instantiation)
 
 ### Multiplayer Coverage Hardening (2026-03-26) — Completed
 

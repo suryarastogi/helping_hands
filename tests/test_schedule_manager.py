@@ -788,3 +788,61 @@ class TestListMetaKeysRedisError:
         mgr, mock_redis, _ = _build_manager()
         mock_redis.keys.side_effect = ConnectionError("Redis unavailable")
         assert mgr.list_schedules() == []
+
+
+# ---------------------------------------------------------------------------
+# update_pr_number (v304)
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleManagerUpdatePrNumber:
+    """Tests for the update_pr_number method."""
+
+    def test_update_pr_number_happy_path(self) -> None:
+        """update_pr_number should persist the PR number to the schedule."""
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(pr_number=None)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        result = mgr.update_pr_number("sched_test123456", 42)
+
+        assert result is True
+        call_args = mock_redis.set.call_args[0]
+        saved_data = json.loads(call_args[1])
+        assert saved_data["pr_number"] == 42
+
+    def test_update_pr_number_missing_schedule(self) -> None:
+        """update_pr_number should return False for unknown schedule."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = None
+
+        result = mgr.update_pr_number("nonexistent", 42)
+
+        assert result is False
+        mock_redis.set.assert_not_called()
+
+    def test_update_pr_number_overwrites_existing(self) -> None:
+        """update_pr_number should overwrite a previously set PR number."""
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(pr_number=10)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        result = mgr.update_pr_number("sched_test123456", 99)
+
+        assert result is True
+        call_args = mock_redis.set.call_args[0]
+        saved_data = json.loads(call_args[1])
+        assert saved_data["pr_number"] == 99
+
+    def test_update_pr_number_logs_info(self, caplog) -> None:
+        """update_pr_number should log when it persists a PR number."""
+        import logging
+
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(pr_number=None)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        with caplog.at_level(logging.INFO, logger="helping_hands.server.schedules"):
+            mgr.update_pr_number("sched_test123456", 42)
+
+        assert any("Auto-persisted PR #42" in m for m in caplog.messages)

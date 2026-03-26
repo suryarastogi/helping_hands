@@ -4,7 +4,8 @@ Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yj
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
 history panel, continued component extraction (MonitorCard, SubmissionForm,
 ScheduleCard, TaskListSidebar), smooth movement, typing indicators, minimap,
-chat cooldown, player list API, and Playwright e2e multiplayer tests.
+chat cooldown, player list API, Playwright e2e multiplayer tests, and schedule
+PR auto-persist.
 
 ---
 
@@ -260,6 +261,14 @@ chat cooldown, player list API, and Playwright e2e multiplayer tests.
 
 ---
 
+## Mar 26 — Schedule PR Auto-Persist (v304)
+
+**Auto-persist newly created PRs:** When a scheduled task with no `pr_number` creates a new PR, the PR number is automatically saved back to the schedule so subsequent runs push to the same PR instead of creating new ones. `Hand.last_pr_metadata` attribute stores finalization metadata. `ScheduleManager.update_pr_number()` for focused writes. `_maybe_persist_pr_to_schedule()` helper with guard conditions. Non-E2E results now include PR metadata.
+
+**18 new tests (4 ScheduleManager, 7 celery helper, 7 hand instantiation).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -293,3 +302,4 @@ chat cooldown, player list API, and Playwright e2e multiplayer tests.
 - `v301-player-tooltips-reconnect-banner.md`
 - `v302-emote-picker-panel.md`
 - `v303-multiplayer-coverage-hardening.md`
+- `v304-schedule-pr-auto-persist.md`

@@ -267,6 +267,7 @@ class Hand(abc.ABC):
         self.fix_ci: bool = False
         self.ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
         self.ci_max_retries: int = _DEFAULT_CI_MAX_RETRIES
+        self.last_pr_metadata: dict[str, str] = {}
 
         # Resolve TOOLS (callable capabilities) — independent axis.
         tool_selection = tool_registry.normalize_tool_selection(
@@ -1197,6 +1198,7 @@ class Hand(abc.ABC):
 
         result = self._validate_finalization_preconditions(metadata)
         if result is None:
+            self.last_pr_metadata = metadata
             return metadata
         repo_dir, repo = result
 
@@ -1217,7 +1219,7 @@ class Hand(abc.ABC):
                     self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
 
                 if self.pr_number is not None:
-                    return self._push_to_existing_pr(
+                    metadata = self._push_to_existing_pr(
                         gh=gh,
                         repo=repo,
                         repo_dir=repo_dir,
@@ -1226,8 +1228,10 @@ class Hand(abc.ABC):
                         summary=summary,
                         metadata=metadata,
                     )
+                    self.last_pr_metadata = metadata
+                    return metadata
 
-                return self._create_new_pr(
+                metadata = self._create_new_pr(
                     gh=gh,
                     repo=repo,
                     repo_dir=repo_dir,
@@ -1236,16 +1240,21 @@ class Hand(abc.ABC):
                     summary=summary,
                     metadata=metadata,
                 )
+                self.last_pr_metadata = metadata
+                return metadata
         except ValueError as exc:
             metadata[_META_PR_STATUS] = PRStatus.MISSING_TOKEN
             metadata[_META_PR_ERROR] = str(exc)
+            self.last_pr_metadata = metadata
             return metadata
         except RuntimeError as exc:
             metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
             metadata[_META_PR_ERROR] = str(exc)
+            self.last_pr_metadata = metadata
             return metadata
         except _GITHUB_ERRORS as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
             metadata[_META_PR_STATUS] = PRStatus.ERROR
             metadata[_META_PR_ERROR] = str(exc)
+            self.last_pr_metadata = metadata
             return metadata
