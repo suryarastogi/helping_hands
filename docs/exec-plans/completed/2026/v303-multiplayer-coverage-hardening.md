@@ -1,5 +1,6 @@
 # v303 — Multiplayer Coverage Hardening
 
+**Status:** Completed
 **Date:** 2026-03-26
 **Theme:** Targeted test coverage improvements for useMultiplayer hook
 
