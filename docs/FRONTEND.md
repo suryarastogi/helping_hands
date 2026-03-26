@@ -68,22 +68,26 @@ frontend/src/
 │   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook (join/leave notifications)
 │   ├── useMultiplayer.test.tsx # Hook lifecycle, player name, join/leave notification tests
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
-│   └── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
+│   ├── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
+│   ├── useTaskManager.ts      # Task submission, polling, history, output, and toasts hook
+│   └── useTaskManager.test.tsx# Task manager hook tests (submit, select, poll, history, output)
 └── test/
     └── setup.ts          # Vitest setup (jsdom environment)
 ```
 
 ### State management
 
-State is managed via React's built-in `useState` hooks within `App.tsx`:
+State is managed via React's built-in `useState` hooks, organized into custom hooks:
 
-- **FormState** — All form fields (repo path, prompt, backend, model, toggles)
-- **TaskHistoryItem[]** — Local task history with status polling
-- **WorkerCapacityResponse** — Celery worker availability
-- **CurrentTasksResponse** — Active/queued tasks from server
+- **`useTaskManager`** — Task submission, polling (primary 3s + background 10s),
+  task history (localStorage persistence), form state, output tabs, floating
+  numbers, toasts, worker capacity, and all derived task state
+- **`useSchedules`** — Schedule CRUD state and operations
+- **`useMovement`** — Keyboard-driven player movement, collision detection
+- **`useMultiplayer`** — Yjs awareness multiplayer presence, chat, decorations
 
 No external state library (Redux, Zustand, etc.) is used. State flows
-top-down within `App.tsx` via props to inline sub-components.
+top-down from hooks through `App.tsx` via props to child components.
 
 ### Key TypeScript types
 

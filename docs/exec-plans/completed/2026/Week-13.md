@@ -6,8 +6,9 @@ history panel, continued component extraction (MonitorCard, SubmissionForm,
 ScheduleCard, TaskListSidebar), smooth movement, typing indicators, minimap,
 chat cooldown, player list API, Playwright e2e multiplayer tests, schedule
 PR auto-persist, shared world decorations via Y.Map, join/leave notifications,
-spawn randomization, player color customization, and multiplayer hardening
-(awareness validation + reconnection resilience), and FactoryFloorPanel extraction.
+spawn randomization, player color customization, multiplayer hardening
+(awareness validation + reconnection resilience), FactoryFloorPanel extraction,
+and useTaskManager hook extraction (App.tsx -61%).
 
 ---
 
@@ -297,6 +298,30 @@ spawn randomization, player color customization, and multiplayer hardening
 
 ---
 
+## Mar 26 — Join/Leave Notifications & Spawn Randomization (v306)
+
+**Multiplayer UX:** System messages in chat history for player join/leave events. Randomized spawn positions within padded bounds to prevent avatar overlap.
+
+**5 new tests. 487 frontend tests total.**
+
+---
+
+## Mar 26 — Extract FactoryFloorPanel Component (v309)
+
+**Component extraction:** Extracted `FactoryFloorPanel` (~180 lines) from HandWorldScene — contains player name/color customization, presence panel, connection status, emote picker, chat input/history, and decoration toolbar. HandWorldScene: 618 → 437 lines.
+
+**36 new tests in `FactoryFloorPanel.test.tsx`. 535 frontend tests total.**
+
+---
+
+## Mar 26 — Extract useTaskManager Hook (v310)
+
+**Major App.tsx decomposition:** Extracted task submission, polling, history management, output tab, floating numbers, toasts, and all derived task state into a dedicated `useTaskManager` hook (~500 lines). App.tsx reduced from 1,374 to 538 lines (-836 lines, -61%). This is the single largest extraction in the decomposition series.
+
+**17 new tests in `useTaskManager.test.tsx`. 553 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -336,3 +361,4 @@ spawn randomization, player color customization, and multiplayer hardening
 - `v307-player-color-customization.md`
 - `v308-multiplayer-hardening.md`
 - `v309-factory-floor-panel-extraction.md`
+- `v310-extract-use-task-manager.md`

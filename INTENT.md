@@ -12,6 +12,14 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Extract useTaskManager Hook (2026-03-26) — Completed
+
+**Implemented (v310):**
+- Extracted `useTaskManager` hook (~500 lines) from App.tsx — task submission, polling, history, output, toasts
+- App.tsx reduced from 1,374 to 538 lines (-836 lines, -61%)
+- 17 new tests in `useTaskManager.test.tsx`
+- All 553 existing frontend tests pass
+
 ### Extract FactoryFloorPanel Component (2026-03-26) — Completed
 
 **Implemented (v309):**
