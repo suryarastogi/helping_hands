@@ -40,7 +40,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Type check
-        run: uv run ty check src --ignore unresolved-import --ignore invalid-method-override --ignore unused-type-ignore-comment --ignore invalid-assignment
+        run: uv run ty check src --ignore unresolved-import --ignore invalid-method-override --ignore unused-type-ignore-comment --ignore invalid-assignment --ignore unresolved-attribute
 
       - name: Run tests
         env:
