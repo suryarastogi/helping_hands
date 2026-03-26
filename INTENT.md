@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Player Avatar Color Customization (2026-03-26) — Completed
+
+**Implemented (v307):**
+- Color picker in Factory Floor panel with 10-color swatch palette
+- Players choose their avatar color instead of auto-assignment from clientID
+- Color persists in localStorage via `loadPlayerColor()` / `savePlayerColor()`
+- Color changes broadcast via Yjs awareness without reconnecting
+- 6 new tests (3 hook, 3 scene) — 493 frontend tests total
+
 ### Join/Leave Notifications & Spawn Randomization (2026-03-26) — Completed
 
 **Implemented (v306):**

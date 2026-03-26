@@ -199,6 +199,7 @@ the Y.Doc itself remains empty.
 - Derives player colour and name client-side from `Y.Doc.clientID`
 - Maps remote awareness states to `remotePlayers` array for rendering
 - Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
+- Player color customization: click a color swatch in the Factory Floor panel to pick your avatar color (persisted in localStorage)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
 - Emote picker panel: click the smiley button in the HUD to see all emotes with names and key bindings
 - Emote bubbles float up and fade out over 2 seconds above the avatar

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
-import { loadPlayerName, savePlayerName, useMultiplayer } from "./useMultiplayer";
+import { loadPlayerColor, loadPlayerName, savePlayerColor, savePlayerName, useMultiplayer } from "./useMultiplayer";
 
 // ---------------------------------------------------------------------------
 // Yjs / y-websocket mocks
@@ -140,6 +140,23 @@ describe("loadPlayerName / savePlayerName", () => {
     savePlayerName("Alice");
     savePlayerName("Bob");
     expect(loadPlayerName()).toBe("Bob");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// loadPlayerColor / savePlayerColor
+// ---------------------------------------------------------------------------
+
+describe("loadPlayerColor / savePlayerColor", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("returns empty string when nothing saved", () => {
+    expect(loadPlayerColor()).toBe("");
+  });
+
+  it("persists and loads a color", () => {
+    savePlayerColor("#e11d48");
+    expect(loadPlayerColor()).toBe("#e11d48");
   });
 });
 
@@ -723,6 +740,22 @@ describe("useMultiplayer hook", () => {
     expect(leaveMsg).toBeDefined();
     expect(leaveMsg!.text).toContain("left");
     expect(leaveMsg!.isSystem).toBe(true);
+  });
+
+  it("supports custom player color and broadcasts changes without reconnecting", () => {
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), playerColor: "#2563eb" } },
+    );
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.color).toBe("#2563eb");
+
+    // Color change does NOT trigger reconnect
+    mockProviderDestroyCalled = false;
+    rerender({ ...defaultOpts(), playerColor: "#16a34a" });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.color).toBe("#16a34a");
+    expect(mockProviderDestroyCalled).toBe(false);
   });
 
   it("does not add join/leave messages for the local client", () => {

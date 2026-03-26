@@ -1704,6 +1704,33 @@ h2 {
   color: rgba(148, 163, 184, 0.5);
 }
 
+/* ── Player Color Picker ── */
+.color-picker-row {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  padding: 2px 0;
+}
+
+.color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.color-swatch.selected {
+  border-color: #e2e8f0;
+  box-shadow: 0 0 4px rgba(226, 232, 240, 0.5);
+}
+
 /* ── Presence Panel ── */
 .presence-panel {
   margin-top: 4px;

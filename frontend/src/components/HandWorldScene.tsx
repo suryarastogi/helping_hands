@@ -7,11 +7,11 @@
  */
 import { type CSSProperties, type Ref, useEffect, useRef, useState } from "react";
 
-import { CHAT_MAX_LENGTH, DECORATION_EMOJIS, EMOTE_KEY_BINDINGS, EMOTE_MAP, MAX_DECORATIONS } from "../constants";
+import { CHAT_MAX_LENGTH, DECORATION_EMOJIS, EMOTE_KEY_BINDINGS, EMOTE_MAP, MAX_DECORATIONS, PLAYER_COLORS } from "../constants";
 
 import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
-import { savePlayerName } from "../hooks/useMultiplayer";
+import { savePlayerColor, savePlayerName } from "../hooks/useMultiplayer";
 import type {
   CharacterStyle,
   ChatMessage,
@@ -92,9 +92,11 @@ export type HandWorldSceneProps = {
   /** Trigger an emote by key ("1"–"4"). */
   onTriggerEmote: (key: string) => void;
 
-  // -- Player name --
+  // -- Player name & color --
   playerNameInput: string;
   onPlayerNameChange: (name: string) => void;
+  playerColorInput: string;
+  onPlayerColorChange: (color: string) => void;
 
   // -- Claude usage --
   claudeUsage: ClaudeUsageResponse | null;
@@ -141,6 +143,8 @@ export default function HandWorldScene({
   onTriggerEmote,
   playerNameInput,
   onPlayerNameChange,
+  playerColorInput,
+  onPlayerColorChange,
   claudeUsage,
   claudeUsageLoading,
   onRefreshClaudeUsage,
@@ -328,6 +332,22 @@ export default function HandWorldScene({
               maxLength={24}
               aria-label="Player name"
             />
+          </div>
+          <div className="color-picker-row" aria-label="Player color">
+            {PLAYER_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`color-swatch${playerColorInput === c ? " selected" : ""}`}
+                style={{ backgroundColor: c }}
+                onClick={() => {
+                  onPlayerColorChange(c);
+                  savePlayerColor(c);
+                }}
+                aria-label={`Select color ${c}`}
+                aria-pressed={playerColorInput === c}
+              />
+            ))}
           </div>
           {remotePlayers.length > 0 && (
             <div className="presence-panel" aria-label="Connected players">

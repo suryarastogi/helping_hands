@@ -15,7 +15,7 @@ import ScheduleCard from "./components/ScheduleCard";
 import SubmissionForm from "./components/SubmissionForm";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useMovement } from "./hooks/useMovement";
-import { useMultiplayer, loadPlayerName } from "./hooks/useMultiplayer";
+import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
 import { useSchedules } from "./hooks/useSchedules";
 import type {
   AccumulatedUsage,
@@ -160,6 +160,7 @@ export default function App() {
   const [toasts, setToasts] = useState<{ id: number; taskId: string; status: string }[]>([]);
   const toastIdRef = useRef(0);
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
+  const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
 
   const deskSlots = useMemo(() => buildDeskSlots(maxOfficeWorkers), [maxOfficeWorkers]);
 
@@ -194,6 +195,7 @@ export default function App() {
     isPlayerWalking,
     wsUrlBuilder: wsUrl,
     playerName: playerNameInput,
+    playerColor: playerColorInput,
   });
 
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageResponse | null>(null);
@@ -1331,6 +1333,8 @@ export default function App() {
           onTriggerEmote={triggerEmote}
           playerNameInput={playerNameInput}
           onPlayerNameChange={setPlayerNameInput}
+          playerColorInput={playerColorInput}
+          onPlayerColorChange={setPlayerColorInput}
           claudeUsage={claudeUsage}
           claudeUsageLoading={claudeUsageLoading}
           onRefreshClaudeUsage={() => void refreshClaudeUsage()}

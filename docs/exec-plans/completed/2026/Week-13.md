@@ -5,7 +5,8 @@ migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
 history panel, continued component extraction (MonitorCard, SubmissionForm,
 ScheduleCard, TaskListSidebar), smooth movement, typing indicators, minimap,
 chat cooldown, player list API, Playwright e2e multiplayer tests, and schedule
-PR auto-persist, and shared world decorations via Y.Map.
+PR auto-persist, shared world decorations via Y.Map, join/leave notifications,
+spawn randomization, and player color customization.
 
 ---
 
@@ -277,6 +278,14 @@ PR auto-persist, and shared world decorations via Y.Map.
 
 ---
 
+## Mar 26 — Player Avatar Color Customization (v307)
+
+**Color picker:** Players can choose their avatar color from the 10-color palette instead of auto-assignment from clientID. Color persists in localStorage. Broadcast via Yjs awareness without reconnecting. Color picker row with swatch buttons in Factory Floor panel.
+
+**6 new tests (3 hook, 3 scene). 493 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -312,3 +321,5 @@ PR auto-persist, and shared world decorations via Y.Map.
 - `v303-multiplayer-coverage-hardening.md`
 - `v304-schedule-pr-auto-persist.md`
 - `v305-shared-world-decorations.md`
+- `v306-join-leave-notifications-spawn-randomization.md`
+- `v307-player-color-customization.md`

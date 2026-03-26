@@ -305,6 +305,22 @@ spawning at the centre (50, 50). This prevents avatar overlap on first load.
   position, computed once per mount
 - `SPAWN_PADDING` constant exported from `constants.ts`
 
+## Player color customization (v307)
+
+Players can choose their avatar color from the 10-color `PLAYER_COLORS` palette
+instead of being auto-assigned based on `Y.Doc.clientID`. The chosen color is
+persisted to `localStorage` via `savePlayerColor()` and loaded on mount via
+`loadPlayerColor()`.
+
+**Implementation:**
+- `playerColor` optional prop on `UseMultiplayerOptions` — if set, overrides the
+  `clientID`-based default. Empty string falls back to auto-assignment.
+- A dedicated `useEffect` broadcasts color changes via `setLocalStateField`
+  without reconnecting the WebSocket (same pattern as player name).
+- `HandWorldScene` renders a `.color-picker-row` with 10 `.color-swatch` buttons
+  below the player name input. Clicking a swatch calls `onPlayerColorChange` and
+  `savePlayerColor`. The selected swatch has a white border glow.
+
 ## Future extensions
 
 - Player names from server auth context

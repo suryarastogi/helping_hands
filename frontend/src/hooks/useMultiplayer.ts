@@ -51,6 +51,8 @@ export type UseMultiplayerOptions = {
   wsUrlBuilder: (path: string) => string;
   /** Optional player name override (persisted externally). */
   playerName?: string;
+  /** Optional player color override (persisted externally). Empty = auto from clientID. */
+  playerColor?: string;
 };
 
 export type UseMultiplayerReturn = {
@@ -89,6 +91,7 @@ export type UseMultiplayerReturn = {
 // ---------------------------------------------------------------------------
 
 const PLAYER_NAME_STORAGE_KEY = "helping_hands_player_name_v1";
+const PLAYER_COLOR_STORAGE_KEY = "helping_hands_player_color_v1";
 
 /** Read persisted player name from localStorage. */
 export function loadPlayerName(): string {
@@ -108,6 +111,24 @@ export function savePlayerName(name: string): void {
   }
 }
 
+/** Read persisted player color from localStorage. Empty string means use default. */
+export function loadPlayerColor(): string {
+  try {
+    return localStorage.getItem(PLAYER_COLOR_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** Persist player color to localStorage. */
+export function savePlayerColor(color: string): void {
+  try {
+    localStorage.setItem(PLAYER_COLOR_STORAGE_KEY, color);
+  } catch {
+    // Ignore storage errors (private browsing, quota, etc.)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -120,6 +141,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     isPlayerWalking,
     wsUrlBuilder,
     playerName,
+    playerColor,
   } = options;
 
   const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
@@ -165,7 +187,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     const doc = new Y.Doc();
     yjsDocRef.current = doc;
 
-    const myColor = PLAYER_COLORS[doc.clientID % PLAYER_COLORS.length];
+    const defaultColor = PLAYER_COLORS[doc.clientID % PLAYER_COLORS.length];
+    const myColor = playerColor?.trim() || defaultColor;
     const defaultName = `Player ${(doc.clientID % 1000) + 1}`;
     const myName = playerName?.trim() || defaultName;
     const myId = String(doc.clientID);
@@ -354,6 +377,25 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       provider.awareness.setLocalStateField("player", { ...current, name });
     }
   }, [active, playerName]);
+
+  // --- Broadcast player color changes without reconnecting ---
+  useEffect(() => {
+    if (!active) return;
+    const provider = yjsProviderRef.current;
+    if (!provider) return;
+
+    const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+    if (!current) return;
+
+    const defaultColor = yjsDocRef.current
+      ? PLAYER_COLORS[yjsDocRef.current.clientID % PLAYER_COLORS.length]
+      : PLAYER_COLORS[0];
+    const color = playerColor?.trim() || defaultColor;
+
+    if (current.color !== color) {
+      provider.awareness.setLocalStateField("player", { ...current, color });
+    }
+  }, [active, playerColor]);
 
   // --- Send local position updates & track activity ---
   useEffect(() => {

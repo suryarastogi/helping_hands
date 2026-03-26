@@ -61,6 +61,8 @@ const BASE_SCENE_PROPS = {
   onTriggerEmote: vi.fn(),
   playerNameInput: "Tester",
   onPlayerNameChange: vi.fn(),
+  playerColorInput: "#e11d48",
+  onPlayerColorChange: vi.fn(),
   claudeUsage: null as ClaudeUsageResponse | null,
   claudeUsageLoading: false,
   onRefreshClaudeUsage: vi.fn(),
@@ -793,5 +795,38 @@ describe("HandWorldScene component", () => {
     const buttons = container.querySelectorAll(".decoration-emoji-btn");
     fireEvent.click(buttons[0]);
     expect(scene?.classList.contains("deco-placing")).toBe(true);
+  });
+
+  // --- Color picker ---
+
+  it("renders color swatches in the color picker row", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const swatches = container.querySelectorAll(".color-swatch");
+    expect(swatches.length).toBe(10);
+  });
+
+  it("marks the selected color swatch", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} playerColorInput="#e11d48" />
+    );
+    const swatches = container.querySelectorAll(".color-swatch");
+    expect(swatches[0].classList.contains("selected")).toBe(true);
+    expect(swatches[1].classList.contains("selected")).toBe(false);
+  });
+
+  it("calls onPlayerColorChange when a swatch is clicked", () => {
+    const onColorChange = vi.fn();
+    const { container } = render(
+      <HandWorldScene
+        {...BASE_SCENE_PROPS}
+        playerColorInput=""
+        onPlayerColorChange={onColorChange}
+      />
+    );
+    const swatches = container.querySelectorAll(".color-swatch");
+    fireEvent.click(swatches[2]);
+    expect(onColorChange).toHaveBeenCalledWith("#16a34a");
   });
 });
