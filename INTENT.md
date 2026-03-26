@@ -12,6 +12,14 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Doc Accuracy & Backend Coverage (2026-03-26) — Completed
+
+**Implemented (v306):**
+- Fixed stale `multiplayer_yjs.py` module docstring — now reflects Y.Map decorations in Y.Doc
+- Updated design doc approach section — replaced outdated "no external libraries" with Yjs migration history
+- 3 new backend tests: missing-field defaults, bytearray awareness state, unparseable state skipping
+- Backend multiplayer tests: 27 total (up from 24), `multiplayer_yjs.py` coverage: 99%
+
 ### Shared World Decorations (2026-03-26) — Completed
 
 **Implemented (v305):**

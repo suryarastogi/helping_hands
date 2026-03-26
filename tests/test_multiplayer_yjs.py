@@ -200,6 +200,11 @@ class TestParseAwarenessState:
         result = _parse_awareness_state(raw)
         assert result == {"player_id": "xyz"}
 
+    def test_parses_json_bytearray(self) -> None:
+        raw = bytearray(b'{"player_id": "ba", "name": "ByteArray"}')
+        result = _parse_awareness_state(raw)
+        assert result == {"player_id": "ba", "name": "ByteArray"}
+
     def test_returns_none_for_invalid_json(self) -> None:
         assert _parse_awareness_state(b"not-json") is None
 
@@ -289,6 +294,58 @@ class TestGetConnectedPlayers:
             result = get_connected_players()
             assert result["count"] == 1
             assert result["players"][0]["name"] == "Charlie"
+
+    def test_uses_defaults_for_missing_player_fields(self) -> None:
+        """Awareness state with no optional fields uses .get() defaults."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {},  # no player fields at all
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_connected_players()
+            # _parse_awareness_state returns {} which has no "player_id" etc.
+            # but the function still builds a player dict with defaults.
+            assert result["count"] == 1
+            p = result["players"][0]
+            assert p["player_id"] == ""
+            assert p["name"] == ""
+            assert p["color"] == ""
+            assert p["x"] == 0
+            assert p["y"] == 0
+            assert p["idle"] is False
+
+    def test_skips_unparseable_awareness_states(self) -> None:
+        """States that _parse_awareness_state cannot decode are skipped."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {
+                "player_id": "p1",
+                "name": "Valid",
+                "color": "#abc",
+                "x": 10,
+                "y": 20,
+                "idle": False,
+            },
+            2: 42,  # non-dict, non-string, non-bytes → returns None
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_connected_players()
+            assert result["count"] == 1
+            assert result["players"][0]["name"] == "Valid"
 
     def test_handles_exception_gracefully(self) -> None:
         mock_server = MagicMock()

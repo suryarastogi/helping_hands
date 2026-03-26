@@ -2,8 +2,9 @@
 
 Uses ``pycrdt-websocket`` to provide a standards-compliant Yjs WebSocket
 server.  The Yjs *awareness* layer carries ephemeral player presence
-(position, direction, walking state, emotes) while the Y.Doc itself stays
-empty — we only need presence, not persistent shared state.
+(position, direction, walking state, emotes, chat, typing, idle) while
+the Y.Doc carries persistent shared state such as the ``"decorations"``
+Y.Map (emoji markers placed by players in the scene).
 
 If ``pycrdt-websocket`` is not installed the module exposes ``None``
 sentinels so the rest of the server can start without it.

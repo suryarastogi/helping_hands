@@ -17,19 +17,23 @@ can see each other's avatars walking around the scene simultaneously.
 HTTP polling would be too slow and wasteful. A persistent WebSocket connection
 provides sub-100ms latency for position broadcasts.
 
-**Server-side state:** The `WorldConnectionManager` in `server/multiplayer.py`
-keeps an in-memory dict of connected players. This is simpler and faster than
-using Redis pub/sub for a feature that only needs session-scoped state (no
-persistence required).
+**Yjs awareness + Y.Doc:** The sync layer uses Yjs (`yjs` + `y-websocket` on
+the frontend, `pycrdt-websocket` on the backend). Ephemeral player presence
+(position, direction, walking, emotes, chat, typing, idle) flows through the Yjs
+awareness protocol, while persistent shared state (world decorations) uses a
+Y.Map in the Y.Doc. This replaced an earlier bespoke JSON-over-WebSocket
+protocol (v276).
 
-**No external libraries:** The implementation uses FastAPI's built-in WebSocket
-support and the browser's native `WebSocket` API. This avoids adding
-dependencies like `socket.io` or `yjs` for what is a straightforward
-position-broadcast use case.
+**Server-side state:** The `pycrdt-websocket` `WebsocketServer` manages rooms
+and connections in-memory. This is simpler and faster than Redis pub/sub for a
+feature that only needs session-scoped state.
 
-**Position clamping:** The server validates and clamps all incoming coordinates
-to the scene bounds before broadcasting, preventing clients from spoofing
-out-of-bounds positions.
+> **Historical note:** The original v273 implementation used a custom
+> `WorldConnectionManager` with FastAPI's built-in WebSocket support and no
+> external libraries. The Yjs migration (v276) replaced this with a
+> standards-compliant CRDT sync protocol, gaining automatic reconnection,
+> peer cleanup, and alignment with the user's preference for Yjs-powered
+> frontends.
 
 ## Trade-offs
 
