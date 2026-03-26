@@ -260,6 +260,14 @@ chat cooldown, player list API, and Playwright e2e multiplayer tests.
 
 ---
 
+## Mar 26 — Fix Player List Awareness Parsing (v304)
+
+**Bug fix:** `get_connected_players()` read player fields from top-level awareness state, but frontend nests them under `"player"` key via `setLocalStateField("player", {...})`. Fixed to extract nested player object with flat-dict fallback. Added guard for non-dict `player` field.
+
+**Tests:** Renamed existing test to use realistic nested format. Added flat-state backwards-compat test, JSON bytes nested test, non-dict guard test. **26 backend multiplayer tests** (up from 24).
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -293,3 +301,4 @@ chat cooldown, player list API, and Playwright e2e multiplayer tests.
 - `v301-player-tooltips-reconnect-banner.md`
 - `v302-emote-picker-panel.md`
 - `v303-multiplayer-coverage-hardening.md`
+- `v304-fix-player-list-awareness-parsing.md`

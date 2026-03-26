@@ -14,6 +14,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Fix Player List Awareness Parsing (2026-03-26) — Completed
+
+**Implemented (v304):**
+- Fixed `get_connected_players()` bug: was reading flat state keys but frontend nests under `"player"` key
+- Added nested-state extraction with flat-dict fallback for backwards compatibility
+- Added guard for non-dict `player` field entries
+- Updated tests to use realistic nested awareness state format
+- 26 backend multiplayer tests (up from 24)
+
 ### Multiplayer Coverage Hardening (2026-03-26) — Completed
 
 **Implemented (v303):**

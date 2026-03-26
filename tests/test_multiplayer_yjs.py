@@ -215,24 +215,29 @@ class TestGetConnectedPlayers:
             result = get_connected_players()
             assert result == {"players": [], "count": 0}
 
-    def test_returns_players_from_awareness_states(self) -> None:
+    def test_returns_players_from_nested_awareness_states(self) -> None:
+        """Frontend sets awareness via setLocalStateField('player', {...})."""
         mock_awareness = MagicMock()
         mock_awareness.states = {
             1: {
-                "player_id": "p1",
-                "name": "Alice",
-                "color": "#e74c3c",
-                "x": 25.0,
-                "y": 50.0,
-                "idle": False,
+                "player": {
+                    "player_id": "p1",
+                    "name": "Alice",
+                    "color": "#e74c3c",
+                    "x": 25.0,
+                    "y": 50.0,
+                    "idle": False,
+                },
             },
             2: {
-                "player_id": "p2",
-                "name": "Bob",
-                "color": "#3498db",
-                "x": 75.0,
-                "y": 30.0,
-                "idle": True,
+                "player": {
+                    "player_id": "p2",
+                    "name": "Bob",
+                    "color": "#3498db",
+                    "x": 75.0,
+                    "y": 30.0,
+                    "idle": True,
+                },
             },
         }
         mock_room = MagicMock()
@@ -249,6 +254,31 @@ class TestGetConnectedPlayers:
             assert len(result["players"]) == 2
             names = {p["name"] for p in result["players"]}
             assert names == {"Alice", "Bob"}
+
+    def test_returns_players_from_flat_awareness_states(self) -> None:
+        """Backwards compatibility: flat state dicts without 'player' key."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {
+                "player_id": "p1",
+                "name": "Carol",
+                "color": "#2ecc71",
+                "x": 10.0,
+                "y": 20.0,
+                "idle": False,
+            },
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_connected_players()
+            assert result["count"] == 1
+            assert result["players"][0]["name"] == "Carol"
 
     def test_returns_empty_when_no_rooms(self) -> None:
         mock_server = MagicMock()
@@ -273,10 +303,10 @@ class TestGetConnectedPlayers:
             assert result == {"players": [], "count": 0}
 
     def test_handles_json_bytes_states(self) -> None:
-        """Awareness states may arrive as JSON-encoded bytes."""
+        """Awareness states may arrive as JSON-encoded bytes with nested player key."""
         mock_awareness = MagicMock()
         mock_awareness.states = {
-            1: b'{"player_id": "p1", "name": "Charlie", "color": "#2ecc71", "x": 10, "y": 20, "idle": false}',
+            1: b'{"player": {"player_id": "p1", "name": "Charlie", "color": "#2ecc71", "x": 10, "y": 20, "idle": false}}',
         }
         mock_room = MagicMock()
         mock_room.awareness = mock_awareness
@@ -289,6 +319,23 @@ class TestGetConnectedPlayers:
             result = get_connected_players()
             assert result["count"] == 1
             assert result["players"][0]["name"] == "Charlie"
+
+    def test_skips_non_dict_player_field(self) -> None:
+        """If 'player' field is not a dict, skip the entry."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {"player": "not-a-dict"},
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_connected_players()
+            assert result == {"players": [], "count": 0}
 
     def test_handles_exception_gracefully(self) -> None:
         mock_server = MagicMock()

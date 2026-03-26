@@ -143,14 +143,20 @@ def get_connected_players() -> dict[str, object]:
                 state = _parse_awareness_state(raw_state)
                 if state is None:
                     continue
+                # The frontend sets awareness via setLocalStateField("player", {...})
+                # which nests player data under a "player" key.  Fall back to
+                # reading top-level keys for backwards compatibility.
+                player = state.get("player", state)
+                if not isinstance(player, dict):
+                    continue
                 players.append(
                     {
-                        "player_id": state.get("player_id", ""),
-                        "name": state.get("name", ""),
-                        "color": state.get("color", ""),
-                        "x": state.get("x", 0),
-                        "y": state.get("y", 0),
-                        "idle": state.get("idle", False),
+                        "player_id": player.get("player_id", ""),
+                        "name": player.get("name", ""),
+                        "color": player.get("color", ""),
+                        "x": player.get("x", 0),
+                        "y": player.get("y", 0),
+                        "idle": player.get("idle", False),
                     }
                 )
     except Exception:
