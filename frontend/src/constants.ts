@@ -91,3 +91,6 @@ export const DECORATION_EMOJIS = ["\u{1F338}", "\u{2B50}", "\u{1F525}", "\u{1F4A
 
 /** Maximum number of shared decorations in the world. */
 export const MAX_DECORATIONS = 20;
+
+/** Padding (%) from office bounds edges for spawn randomization. */
+export const SPAWN_PADDING = 10;

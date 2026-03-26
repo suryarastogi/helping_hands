@@ -277,6 +277,34 @@ removes all decorations (transactional delete of all keys).
 **CSS:** `.world-decoration` is positioned absolutely with `deco-pop` keyframe
 animation, drop shadow, and `pointer-events: none`.
 
+## Join/leave notifications (v306)
+
+System messages appear in the chat history when remote players join or leave.
+This uses the Yjs awareness `change` event's `added` and `removed` arrays —
+no new protocol messages or backend endpoints.
+
+**Implementation:**
+- `onAwarenessChange` handler now receives `{added, updated, removed}` from
+  the awareness `change` event
+- For each `added` client ID (excluding local), a system `ChatMessage` with
+  `isSystem: true` is appended to `chatHistory` (e.g. "Alice joined")
+- For each `removed` client ID, a "Player N left" message is added (state is
+  already cleared so name falls back to `Player ${clientID % 1000 + 1}`)
+- System messages render with `.chat-history-system` class: italic, muted
+  colour, player name hidden (the text includes the name itself)
+
+## Randomized spawn positions (v306)
+
+Players now start at a random position within the walkable area instead of all
+spawning at the centre (50, 50). This prevents avatar overlap on first load.
+
+**Implementation:**
+- `randomSpawnPosition()` utility in `useMovement.ts` generates a position
+  within `OFFICE_BOUNDS` minus `SPAWN_PADDING` (10%) on each edge
+- `useMovement` initializes `playerPosition` with a `useRef`-stable random
+  position, computed once per mount
+- `SPAWN_PADDING` constant exported from `constants.ts`
+
 ## Future extensions
 
 - Player names from server auth context

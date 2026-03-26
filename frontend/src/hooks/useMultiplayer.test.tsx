@@ -7,10 +7,15 @@ import { loadPlayerName, savePlayerName, useMultiplayer } from "./useMultiplayer
 // Yjs / y-websocket mocks
 // ---------------------------------------------------------------------------
 
+type AwarenessChanges = { added: number[]; updated: number[]; removed: number[] };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AwarenessListener = (changes: AwarenessChanges, ...rest: any[]) => void;
+
 class MockAwareness {
   private _localState: Record<string, unknown> = {};
   private _states = new Map<number, Record<string, unknown>>();
-  private _listeners: Record<string, Array<() => void>> = {};
+  private _listeners: Record<string, AwarenessListener[]> = {};
+  private _prevClientIds = new Set<number>();
 
   getLocalState() { return this._localState; }
   getStates() { return this._states; }
@@ -19,11 +24,11 @@ class MockAwareness {
     this._localState[field] = value;
   }
 
-  on(event: string, cb: () => void) {
+  on(event: string, cb: AwarenessListener) {
     (this._listeners[event] ??= []).push(cb);
   }
 
-  off(event: string, cb: () => void) {
+  off(event: string, cb: AwarenessListener) {
     const arr = this._listeners[event];
     if (arr) {
       const idx = arr.indexOf(cb);
@@ -32,8 +37,21 @@ class MockAwareness {
   }
 
   _setRemoteStates(states: Map<number, Record<string, unknown>>) {
+    const newIds = new Set(states.keys());
+    const added: number[] = [];
+    const removed: number[] = [];
+    const updated: number[] = [];
+    for (const id of newIds) {
+      if (!this._prevClientIds.has(id)) added.push(id);
+      else updated.push(id);
+    }
+    for (const id of this._prevClientIds) {
+      if (!newIds.has(id)) removed.push(id);
+    }
     this._states = states;
-    (this._listeners["change"] ?? []).forEach((cb) => cb());
+    this._prevClientIds = newIds;
+    const changes: AwarenessChanges = { added, updated, removed };
+    (this._listeners["change"] ?? []).forEach((cb) => cb(changes));
   }
 }
 
@@ -290,10 +308,12 @@ describe("useMultiplayer hook", () => {
 
     act(() => mockAwareness._setRemoteStates(states));
 
-    expect(result.current.chatHistory).toHaveLength(1);
-    expect(result.current.chatHistory[0].text).toBe("Hey!");
-    expect(result.current.chatHistory[0].playerName).toBe("RemoteUser");
-    expect(result.current.chatHistory[0].playerColor).toBe("#16a34a");
+    // 1 system join message + 1 chat message
+    expect(result.current.chatHistory).toHaveLength(2);
+    expect(result.current.chatHistory[0].isSystem).toBe(true);
+    expect(result.current.chatHistory[1].text).toBe("Hey!");
+    expect(result.current.chatHistory[1].playerName).toBe("RemoteUser");
+    expect(result.current.chatHistory[1].playerColor).toBe("#16a34a");
   });
 
   it("deduplicates repeated remote chat awareness updates", () => {
@@ -308,7 +328,10 @@ describe("useMultiplayer hook", () => {
     act(() => mockAwareness._setRemoteStates(states));
     act(() => mockAwareness._setRemoteStates(states));
 
-    expect(result.current.chatHistory).toHaveLength(1);
+    // 1 system join + 1 chat (second awareness update is deduped)
+    expect(result.current.chatHistory).toHaveLength(2);
+    expect(result.current.chatHistory[0].isSystem).toBe(true);
+    expect(result.current.chatHistory[1].text).toBe("Repeat");
   });
 
   it("clears chatHistory when deactivated", () => {
@@ -394,7 +417,8 @@ describe("useMultiplayer hook", () => {
       player: { player_id: "600", name: "ChatterBox", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "First msg" },
     });
     act(() => mockAwareness._setRemoteStates(states));
-    expect(result.current.chatHistory).toHaveLength(1);
+    // 1 system join + 1 chat
+    expect(result.current.chatHistory).toHaveLength(2);
 
     // Remote clears their chat (chat becomes null)
     const clearedStates = new Map<number, Record<string, unknown>>();
@@ -411,8 +435,9 @@ describe("useMultiplayer hook", () => {
       player: { player_id: "600", name: "ChatterBox", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "Second msg" },
     });
     act(() => mockAwareness._setRemoteStates(newStates));
-    expect(result.current.chatHistory).toHaveLength(2);
-    expect(result.current.chatHistory[1].text).toBe("Second msg");
+    // 1 system join + 2 chat messages
+    expect(result.current.chatHistory).toHaveLength(3);
+    expect(result.current.chatHistory[2].text).toBe("Second msg");
   });
 
   it("falls back to defaults for remote players with missing fields", () => {
@@ -655,5 +680,60 @@ describe("useMultiplayer hook", () => {
 
     act(() => result.current.placeDecoration("\u{1F338}", 50, 50));
     expect(result.current.decorations).toHaveLength(0);
+  });
+
+  // --- Join/leave notifications ---
+
+  it("adds a system message when a remote player joins", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // First awareness update with a new remote player
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(150, {
+      player: { player_id: "150", name: "Newcomer", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
+    });
+
+    act(() => mockAwareness._setRemoteStates(states));
+
+    // Should have a system join message
+    const joinMsg = result.current.chatHistory.find((m) => m.isSystem && m.text.includes("joined"));
+    expect(joinMsg).toBeDefined();
+    expect(joinMsg!.text).toBe("Newcomer joined");
+    expect(joinMsg!.isSystem).toBe(true);
+  });
+
+  it("adds a system message when a remote player leaves", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Add a remote player
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(160, {
+      player: { player_id: "160", name: "Leaver", color: "#2563eb", x: 50, y: 50, direction: "down", walking: false },
+    });
+    act(() => mockAwareness._setRemoteStates(states));
+
+    // Remove the remote player
+    const statesAfter = new Map<number, Record<string, unknown>>();
+    statesAfter.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    act(() => mockAwareness._setRemoteStates(statesAfter));
+
+    const leaveMsg = result.current.chatHistory.find((m) => m.isSystem && m.text.includes("left"));
+    expect(leaveMsg).toBeDefined();
+    expect(leaveMsg!.text).toContain("left");
+    expect(leaveMsg!.isSystem).toBe(true);
+  });
+
+  it("does not add join/leave messages for the local client", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Simulate awareness update with only the local client
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    act(() => mockAwareness._setRemoteStates(states));
+
+    const systemMsgs = result.current.chatHistory.filter((m) => m.isSystem);
+    expect(systemMsgs).toHaveLength(0);
   });
 });

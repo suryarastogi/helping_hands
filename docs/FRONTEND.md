@@ -61,10 +61,10 @@ frontend/src/
 │   ├── WorkerSprite.tsx        # Worker sprite (bot + goose variants) with caption & floating numbers
 │   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/
-│   ├── useMovement.ts          # Keyboard-driven player movement hook
-│   ├── useMovement.test.tsx    # Movement, collision, keyboard binding tests
-│   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook
-│   ├── useMultiplayer.test.tsx # Hook lifecycle + player name persistence tests
+│   ├── useMovement.ts          # Keyboard-driven player movement hook (randomized spawn)
+│   ├── useMovement.test.tsx    # Movement, collision, keyboard binding, spawn tests
+│   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook (join/leave notifications)
+│   ├── useMultiplayer.test.tsx # Hook lifecycle, player name, join/leave notification tests
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
 │   └── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
 └── test/

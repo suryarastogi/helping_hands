@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Join/Leave Notifications & Spawn Randomization (2026-03-26) — Completed
+
+**Implemented (v306):**
+- Join/leave system messages in chat history via Yjs awareness `change` event `added`/`removed` arrays
+- System messages render with italic/muted styling (`.chat-history-system` class)
+- Randomized player spawn positions within padded `OFFICE_BOUNDS` to prevent avatar overlap
+- `randomSpawnPosition()` utility + `SPAWN_PADDING` constant
+- 5 new tests (3 multiplayer join/leave, 1 spawn bounds, 1 scene system message) — 487 frontend tests total
+
 ### Shared World Decorations (2026-03-26) — Completed
 
 **Implemented (v305):**

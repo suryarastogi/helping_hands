@@ -18,6 +18,8 @@ export type ChatMessage = {
   playerColor: string;
   text: string;
   timestamp: number;
+  /** True for system messages (join/leave notifications). */
+  isSystem?: boolean;
 };
 
 export type WorkerVariant = "bot-alpha" | "bot-round" | "bot-heavy" | "goose";

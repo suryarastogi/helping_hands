@@ -1457,7 +1457,9 @@ describe("Hand World factory and incinerator", () => {
 class MockAwareness {
   private _localState: Record<string, unknown> = {};
   private _states = new Map<number, Record<string, unknown>>();
-  private _listeners: Record<string, Array<() => void>> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _listeners: Record<string, Array<(...args: any[]) => void>> = {};
+  private _prevClientIds = new Set<number>();
 
   getLocalState() { return this._localState; }
   getStates() { return this._states; }
@@ -1466,11 +1468,13 @@ class MockAwareness {
     this._localState[field] = value;
   }
 
-  on(event: string, cb: () => void) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, cb: (...args: any[]) => void) {
     (this._listeners[event] ??= []).push(cb);
   }
 
-  off(event: string, cb: () => void) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  off(event: string, cb: (...args: any[]) => void) {
     const arr = this._listeners[event];
     if (arr) {
       const idx = arr.indexOf(cb);
@@ -1480,8 +1484,21 @@ class MockAwareness {
 
   /** Simulate remote awareness states and fire change event. */
   _setRemoteStates(states: Map<number, Record<string, unknown>>) {
+    const newIds = new Set(states.keys());
+    const added: number[] = [];
+    const removed: number[] = [];
+    const updated: number[] = [];
+    for (const id of newIds) {
+      if (!this._prevClientIds.has(id)) added.push(id);
+      else updated.push(id);
+    }
+    for (const id of this._prevClientIds) {
+      if (!newIds.has(id)) removed.push(id);
+    }
     this._states = states;
-    (this._listeners["change"] ?? []).forEach((cb) => cb());
+    this._prevClientIds = newIds;
+    const changes = { added, updated, removed };
+    (this._listeners["change"] ?? []).forEach((cb) => cb(changes));
   }
 }
 

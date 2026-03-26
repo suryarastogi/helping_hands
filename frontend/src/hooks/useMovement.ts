@@ -4,9 +4,9 @@
  * Encapsulates arrow-key / WASD input handling, position clamping within
  * office bounds, desk collision detection, and direction/walking state.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { OFFICE_BOUNDS, PLAYER_MOVE_STEP } from "../constants";
+import { OFFICE_BOUNDS, PLAYER_MOVE_STEP, SPAWN_PADDING } from "../constants";
 import type { DeskSlot, PlayerDirection, PlayerPosition } from "../types";
 import { checkDeskCollision } from "../App.utils";
 
@@ -31,10 +31,24 @@ export type UseMovementReturn = {
 // Hook
 // ---------------------------------------------------------------------------
 
+/** Generate a random spawn position within office bounds, avoiding edges. */
+export function randomSpawnPosition(): PlayerPosition {
+  const minX = OFFICE_BOUNDS.minX + SPAWN_PADDING;
+  const maxX = OFFICE_BOUNDS.maxX - SPAWN_PADDING;
+  const minY = OFFICE_BOUNDS.minY + SPAWN_PADDING;
+  const maxY = OFFICE_BOUNDS.maxY - SPAWN_PADDING;
+  return {
+    x: minX + Math.random() * (maxX - minX),
+    y: minY + Math.random() * (maxY - minY),
+  };
+}
+
 export function useMovement(options: UseMovementOptions): UseMovementReturn {
   const { active, deskSlots } = options;
 
-  const [playerPosition, setPlayerPosition] = useState<PlayerPosition>({ x: 50, y: 50 });
+  // Compute a stable random spawn position once per mount.
+  const spawnRef = useRef<PlayerPosition>(randomSpawnPosition());
+  const [playerPosition, setPlayerPosition] = useState<PlayerPosition>(spawnRef.current);
   const [playerDirection, setPlayerDirection] = useState<PlayerDirection>("down");
   const [isPlayerWalking, setIsPlayerWalking] = useState(false);
 

@@ -416,7 +416,7 @@ export default function HandWorldScene({
               aria-label="Chat history"
             >
               {chatHistory.map((msg) => (
-                <div key={msg.id} className="chat-history-message">
+                <div key={msg.id} className={`chat-history-message${msg.isSystem ? " chat-history-system" : ""}`}>
                   <span
                     className="chat-history-name"
                     style={{ color: msg.playerColor }}

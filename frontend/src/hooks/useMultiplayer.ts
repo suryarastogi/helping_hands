@@ -193,7 +193,9 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       chat: null,
     });
 
-    const onAwarenessChange = () => {
+    const onAwarenessChange = (
+      changes: { added: number[]; updated: number[]; removed: number[] },
+    ) => {
       const states = provider.awareness.getStates();
       const others: RemotePlayer[] = [];
       const newEmotes: Record<string, string> = {};
@@ -231,6 +233,46 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setRemoteEmotes(newEmotes);
       setRemoteChats(newChats);
       setRemoteTyping(newTyping);
+
+      // --- Join/leave system messages ---
+      for (const clientId of changes.added) {
+        if (clientId === doc.clientID) continue;
+        const state = states.get(clientId) as Record<string, unknown> | undefined;
+        const p = state?.player as Record<string, unknown> | undefined;
+        const name = (p?.name as string) ?? `Player ${(clientId % 1000) + 1}`;
+        const color = (p?.color as string) ?? PLAYER_COLORS[clientId % PLAYER_COLORS.length];
+        setChatHistory((prev) => {
+          const msg: ChatMessage = {
+            id: `sys-join-${clientId}-${Date.now()}`,
+            playerName: name,
+            playerColor: color,
+            text: `${name} joined`,
+            timestamp: Date.now(),
+            isSystem: true,
+          };
+          const next = [...prev, msg];
+          return next.length > CHAT_HISTORY_MAX ? next.slice(-CHAT_HISTORY_MAX) : next;
+        });
+      }
+
+      for (const clientId of changes.removed) {
+        if (clientId === doc.clientID) continue;
+        // State is already removed, so derive name from clientID.
+        const name = `Player ${(clientId % 1000) + 1}`;
+        const color = PLAYER_COLORS[clientId % PLAYER_COLORS.length];
+        setChatHistory((prev) => {
+          const msg: ChatMessage = {
+            id: `sys-leave-${clientId}-${Date.now()}`,
+            playerName: name,
+            playerColor: color,
+            text: `${name} left`,
+            timestamp: Date.now(),
+            isSystem: true,
+          };
+          const next = [...prev, msg];
+          return next.length > CHAT_HISTORY_MAX ? next.slice(-CHAT_HISTORY_MAX) : next;
+        });
+      }
 
       // Record new remote chat messages into history.
       for (const [pid, text] of Object.entries(newChats)) {

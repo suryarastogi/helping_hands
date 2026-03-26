@@ -313,6 +313,20 @@ describe("HandWorldScene component", () => {
     expect(name.style.color).toBe("rgb(22, 163, 74)");
   });
 
+  it("renders system messages with chat-history-system class", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", playerName: "Alice", playerColor: "#e11d48", text: "Hello!", timestamp: 1000 },
+      { id: "sys1", playerName: "Bot", playerColor: "#6b7280", text: "Player 42 joined", timestamp: 2000, isSystem: true },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatHistory={messages} />
+    );
+    const msgElements = container.querySelectorAll(".chat-history-message");
+    expect(msgElements).toHaveLength(2);
+    expect(msgElements[0].classList.contains("chat-history-system")).toBe(false);
+    expect(msgElements[1].classList.contains("chat-history-system")).toBe(true);
+  });
+
   // --- Idle detection ---
 
   it("shows idle suffix in presence panel for idle remote players", () => {

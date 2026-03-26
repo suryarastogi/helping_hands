@@ -2405,6 +2405,19 @@ h2 {
   color: #cbd5e1;
 }
 
+.chat-history-system {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.chat-history-system .chat-history-name {
+  display: none;
+}
+
+.chat-history-system .chat-history-text {
+  color: #6b7280;
+}
+
 /* ------------------------------------------------------------------ */
 /* Minimap                                                             */
 /* ------------------------------------------------------------------ */
