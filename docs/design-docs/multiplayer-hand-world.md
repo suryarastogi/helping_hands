@@ -381,6 +381,28 @@ position broadcasts. Three tests verify the throttle behavior:
    pending trailing broadcast and sends `null` immediately, preventing stale
    cursor positions from appearing after the mouse has left.
 
+## Timer lifecycle hardening (v321)
+
+The `useMultiplayer` hook uses `setTimeout` in `triggerEmote` and `sendChat` for
+display/awareness clear timers. Prior to v321, these were fire-and-forget — if the
+hook deactivated (user switched away from world view) before the timers fired, the
+callbacks would attempt to update unmounted component state.
+
+**Fix:** Five new refs track all timer handles:
+- `emoteTimerRef` — local emote display clear
+- `emoteAwarenessTimerRef` — awareness emote field clear
+- `chatCooldownTimerRef` — chat cooldown reset
+- `chatDisplayTimerRef` — local chat display clear
+- `chatAwarenessTimerRef` — awareness chat field clear
+
+All refs are cleared in both the `!active` deactivation branch and the effect
+cleanup return. Previous timers are cancelled before starting new ones (e.g.,
+rapid emote re-triggers). The deactivation branch also explicitly resets
+`localEmote`, `localChat`, and `chatOnCooldown` state.
+
+This follows the same pattern already used for `broadcastTimerRef` (position
+throttle) and `cursorBroadcastTimerRef` (cursor throttle).
+
 ## Future extensions
 
 - Player names from server auth context

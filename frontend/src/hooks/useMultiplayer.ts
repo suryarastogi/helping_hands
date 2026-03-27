@@ -194,6 +194,16 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const lastCursorBroadcastRef = useRef<number>(0);
   /** Handle for the pending throttled cursor broadcast. */
   const cursorBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the local emote display timer. */
+  const emoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the awareness emote clear timer. */
+  const emoteAwarenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the chat cooldown timer. */
+  const chatCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the local chat display timer. */
+  const chatDisplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the awareness chat clear timer. */
+  const chatAwarenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Connection lifecycle ---
   useEffect(() => {
@@ -216,6 +226,15 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setConnectionStatus("disconnected");
       setIsLocalIdle(false);
       setReconnectAttempts(0);
+      // Clear any orphaned emote/chat/cooldown timers.
+      if (emoteTimerRef.current) { clearTimeout(emoteTimerRef.current); emoteTimerRef.current = null; }
+      if (emoteAwarenessTimerRef.current) { clearTimeout(emoteAwarenessTimerRef.current); emoteAwarenessTimerRef.current = null; }
+      if (chatCooldownTimerRef.current) { clearTimeout(chatCooldownTimerRef.current); chatCooldownTimerRef.current = null; }
+      if (chatDisplayTimerRef.current) { clearTimeout(chatDisplayTimerRef.current); chatDisplayTimerRef.current = null; }
+      if (chatAwarenessTimerRef.current) { clearTimeout(chatAwarenessTimerRef.current); chatAwarenessTimerRef.current = null; }
+      setLocalEmote(null);
+      setLocalChat(null);
+      setChatOnCooldown(false);
       return;
     }
 
@@ -428,6 +447,12 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       yjsDocRef.current = null;
       setConnectionStatus("disconnected");
       setReconnectAttempts(0);
+      // Clear orphaned emote/chat/cooldown timers on cleanup.
+      if (emoteTimerRef.current) { clearTimeout(emoteTimerRef.current); emoteTimerRef.current = null; }
+      if (emoteAwarenessTimerRef.current) { clearTimeout(emoteAwarenessTimerRef.current); emoteAwarenessTimerRef.current = null; }
+      if (chatCooldownTimerRef.current) { clearTimeout(chatCooldownTimerRef.current); chatCooldownTimerRef.current = null; }
+      if (chatDisplayTimerRef.current) { clearTimeout(chatDisplayTimerRef.current); chatDisplayTimerRef.current = null; }
+      if (chatAwarenessTimerRef.current) { clearTimeout(chatAwarenessTimerRef.current); chatAwarenessTimerRef.current = null; }
     };
     // playerName is intentionally omitted — name updates are handled by the
     // separate effect below to avoid reconnecting the provider on every keystroke.
@@ -556,14 +581,20 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       if (!emote) return;
 
       setLocalEmote(emote);
-      setTimeout(() => setLocalEmote(null), EMOTE_DISPLAY_MS);
+      if (emoteTimerRef.current) clearTimeout(emoteTimerRef.current);
+      emoteTimerRef.current = setTimeout(() => {
+        emoteTimerRef.current = null;
+        setLocalEmote(null);
+      }, EMOTE_DISPLAY_MS);
 
       const provider = yjsProviderRef.current;
       if (provider) {
         const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
         if (current) {
           provider.awareness.setLocalStateField("player", { ...current, emote });
-          setTimeout(() => {
+          if (emoteAwarenessTimerRef.current) clearTimeout(emoteAwarenessTimerRef.current);
+          emoteAwarenessTimerRef.current = setTimeout(() => {
+            emoteAwarenessTimerRef.current = null;
             const latest = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
             if (latest) {
               provider.awareness.setLocalStateField("player", { ...latest, emote: null });
@@ -584,10 +615,18 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
 
       // Start cooldown.
       setChatOnCooldown(true);
-      setTimeout(() => setChatOnCooldown(false), CHAT_COOLDOWN_MS);
+      if (chatCooldownTimerRef.current) clearTimeout(chatCooldownTimerRef.current);
+      chatCooldownTimerRef.current = setTimeout(() => {
+        chatCooldownTimerRef.current = null;
+        setChatOnCooldown(false);
+      }, CHAT_COOLDOWN_MS);
 
       setLocalChat(text);
-      setTimeout(() => setLocalChat(null), CHAT_DISPLAY_MS);
+      if (chatDisplayTimerRef.current) clearTimeout(chatDisplayTimerRef.current);
+      chatDisplayTimerRef.current = setTimeout(() => {
+        chatDisplayTimerRef.current = null;
+        setLocalChat(null);
+      }, CHAT_DISPLAY_MS);
 
       const provider = yjsProviderRef.current;
 
@@ -610,7 +649,9 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
         if (current) {
           provider.awareness.setLocalStateField("player", { ...current, chat: text });
-          setTimeout(() => {
+          if (chatAwarenessTimerRef.current) clearTimeout(chatAwarenessTimerRef.current);
+          chatAwarenessTimerRef.current = setTimeout(() => {
+            chatAwarenessTimerRef.current = null;
             const latest = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
             if (latest) {
               provider.awareness.setLocalStateField("player", { ...latest, chat: null });

@@ -1257,4 +1257,105 @@ describe("useMultiplayer hook", () => {
     rerender({ ...defaultOpts(), active: false });
     expect(result.current.remoteCursors).toEqual([]);
   });
+
+  // ---- Timer lifecycle hardening (v321) ----
+
+  it("clears emote timers when deactivated mid-emote", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Trigger an emote (sets a timer to clear it after EMOTE_DISPLAY_MS)
+    act(() => result.current.triggerEmote("1"));
+    expect(result.current.localEmote).toBe("wave");
+
+    // Deactivate before the emote timer fires
+    rerender({ ...defaultOpts(), active: false });
+
+    // localEmote should be cleared immediately by deactivation
+    expect(result.current.localEmote).toBeNull();
+
+    // Advance past EMOTE_DISPLAY_MS — no state update errors (timers were cancelled)
+    act(() => vi.advanceTimersByTime(3000));
+    expect(result.current.localEmote).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it("clears chat timers when deactivated mid-chat", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Send a chat (sets display + cooldown + awareness timers)
+    act(() => result.current.sendChat("Hello!"));
+    expect(result.current.localChat).toBe("Hello!");
+    expect(result.current.chatOnCooldown).toBe(true);
+
+    // Deactivate before any timer fires
+    rerender({ ...defaultOpts(), active: false });
+
+    // Chat state should be cleared immediately by deactivation
+    expect(result.current.localChat).toBeNull();
+    expect(result.current.chatOnCooldown).toBe(false);
+
+    // Advance past CHAT_DISPLAY_MS and CHAT_COOLDOWN_MS — no state update errors
+    act(() => vi.advanceTimersByTime(5000));
+    expect(result.current.localChat).toBeNull();
+    expect(result.current.chatOnCooldown).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("clears cooldown timer when deactivated during cooldown", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Send chat to start cooldown
+    act(() => result.current.sendChat("Hi"));
+    expect(result.current.chatOnCooldown).toBe(true);
+
+    // Advance past chat display time but not cooldown time
+    act(() => vi.advanceTimersByTime(1500));
+
+    // Deactivate — cooldown should be cleared
+    rerender({ ...defaultOpts(), active: false });
+    expect(result.current.chatOnCooldown).toBe(false);
+
+    // Re-activate and send another chat — cooldown should work fresh
+    rerender(defaultOpts());
+    act(() => result.current.sendChat("Again"));
+    expect(result.current.chatOnCooldown).toBe(true);
+    expect(result.current.localChat).toBe("Again");
+
+    vi.useRealTimers();
+  });
+
+  it("cancels emote awareness timer on deactivation", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Trigger emote — awareness state should have emote
+    act(() => result.current.triggerEmote("2"));
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.emote).toBe("celebrate");
+
+    // Deactivate before awareness clear timer fires
+    rerender({ ...defaultOpts(), active: false });
+
+    // Advance past EMOTE_DISPLAY_MS — no errors from orphaned timer
+    act(() => vi.advanceTimersByTime(3000));
+
+    vi.useRealTimers();
+  });
 });

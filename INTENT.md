@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Timer Lifecycle Hardening (2026-03-27) — Completed
+
+**Implemented (v321):**
+- Fixed 5 orphaned `setTimeout` memory leaks in `useMultiplayer` hook — emote display, emote awareness clear, chat cooldown, chat display, and chat awareness clear timers were not tracked or cancelled on deactivation
+- Added 5 new timer refs (`emoteTimerRef`, `emoteAwarenessTimerRef`, `chatCooldownTimerRef`, `chatDisplayTimerRef`, `chatAwarenessTimerRef`) following the existing `broadcastTimerRef` pattern
+- All timer refs cleaned up in both the `!active` deactivation branch and the effect cleanup return
+- `localEmote`, `localChat`, and `chatOnCooldown` state now explicitly reset on deactivation
+- 4 new frontend tests verifying timer cleanup mid-emote and mid-chat
+- 685 frontend tests total (up from 681)
+
 ### Multiplayer Hardening & Edge Case Coverage (2026-03-27) — Completed
 
 **Implemented (v320):**
