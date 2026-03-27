@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
 import { loadPlayerColor, loadPlayerName, savePlayerColor, savePlayerName, useMultiplayer } from "./useMultiplayer";
+// Constants are available but not needed by current tests — the hook uses
+// magic numbers (70ms, 100ms) that match the constants.
 
 // ---------------------------------------------------------------------------
 // Yjs / y-websocket mocks
@@ -16,12 +18,15 @@ class MockAwareness {
   private _states = new Map<number, Record<string, unknown>>();
   private _listeners: Record<string, AwarenessListener[]> = {};
   private _prevClientIds = new Set<number>();
+  /** Tracks how many times setLocalStateField has been called. */
+  _setFieldCallCount = 0;
 
   getLocalState() { return this._localState; }
   getStates() { return this._states; }
 
   setLocalStateField(field: string, value: unknown) {
     this._localState[field] = value;
+    this._setFieldCallCount++;
   }
 
   on(event: string, cb: AwarenessListener) {
@@ -837,6 +842,35 @@ describe("useMultiplayer hook", () => {
     expect(player.x).toBe(70);
 
     vi.useRealTimers();
+  });
+
+  it("does not re-broadcast name when it already matches awareness state", () => {
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), playerName: "Alice" } },
+    );
+
+    // Name is set to "Alice" on initial connection. Re-render with same name
+    // should be a no-op — setLocalStateField should not be called again for name.
+    const callsBefore = mockAwareness._setFieldCallCount;
+    rerender({ ...defaultOpts(), playerName: "Alice" });
+    // Name unchanged → no extra broadcast
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.name).toBe("Alice");
+    expect(mockAwareness._setFieldCallCount).toBe(callsBefore);
+  });
+
+  it("does not re-broadcast color when it already matches awareness state", () => {
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), playerColor: "#e11d48" } },
+    );
+
+    const callsBefore = mockAwareness._setFieldCallCount;
+    rerender({ ...defaultOpts(), playerColor: "#e11d48" });
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.color).toBe("#e11d48");
+    expect(mockAwareness._setFieldCallCount).toBe(callsBefore);
   });
 
   it("supports custom player color and broadcasts changes without reconnecting", () => {

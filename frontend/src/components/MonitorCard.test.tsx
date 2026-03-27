@@ -10,6 +10,7 @@ function makeProps(overrides: Partial<MonitorCardProps> = {}): MonitorCardProps 
   return {
     taskId: null,
     status: "idle",
+    taskError: null,
     isPolling: false,
     outputTab: "updates",
     onOutputTabChange: vi.fn(),
@@ -164,5 +165,92 @@ describe("MonitorCard", () => {
       outputTab: "updates",
     });
     expect(card.getByText("Reset")).toBeTruthy();
+  });
+
+  it("cycles prefix filter show → hide on click", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["INFO"],
+      prefixFilters: {},
+      outputTab: "updates",
+      onPrefixFiltersChange: handler,
+    });
+    const chip = card.getByText("[INFO]").closest("button")!;
+    fireEvent.click(chip);
+    expect(handler).toHaveBeenCalled();
+    // The handler receives a function updater — call it to verify the transition
+    const updater = handler.mock.calls[0][0] as (prev: Record<string, string>) => Record<string, string>;
+    const result = updater({});
+    expect(result).toEqual({ INFO: "hide" });
+  });
+
+  it("cycles prefix filter hide → only on click", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["WARN"],
+      prefixFilters: { WARN: "hide" },
+      outputTab: "updates",
+      onPrefixFiltersChange: handler,
+    });
+    const chip = card.getByText("[WARN]").closest("button")!;
+    fireEvent.click(chip);
+    const updater = handler.mock.calls[0][0] as (prev: Record<string, string>) => Record<string, string>;
+    const result = updater({ WARN: "hide" });
+    expect(result).toEqual({ WARN: "only" });
+  });
+
+  it("cycles prefix filter only → show (removes key) on click", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["ERR"],
+      prefixFilters: { ERR: "only" },
+      outputTab: "updates",
+      onPrefixFiltersChange: handler,
+    });
+    const chip = card.getByText("[ERR]").closest("button")!;
+    fireEvent.click(chip);
+    const updater = handler.mock.calls[0][0] as (prev: Record<string, string>) => Record<string, string>;
+    const result = updater({ ERR: "only" });
+    expect(result).toEqual({});
+  });
+
+  it("reset button clears all prefix filters", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["INFO"],
+      prefixFilters: { INFO: "hide" },
+      outputTab: "updates",
+      onPrefixFiltersChange: handler,
+    });
+    const resetBtn = card.getByText("Reset");
+    fireEvent.click(resetBtn);
+    expect(handler).toHaveBeenCalledWith({});
+  });
+
+  it("shows prefix chip icons per mode", () => {
+    const { card } = renderCard({
+      detectedPrefixes: ["A", "B", "C"],
+      prefixFilters: { B: "hide", C: "only" },
+      outputTab: "updates",
+    });
+    const chips = card.getAllByText(/\[.\]/).map((el) => el.closest("button")!);
+    // A = show (●), B = hide (○), C = only (◉)
+    expect(chips[0].querySelector(".prefix-chip-icon")!.textContent).toBe("●");
+    expect(chips[1].querySelector(".prefix-chip-icon")!.textContent).toBe("○");
+    expect(chips[2].querySelector(".prefix-chip-icon")!.textContent).toBe("◉");
+  });
+
+  it("renders task error banner with error type and message", () => {
+    const { card, container } = renderCard({
+      taskError: { errorType: "RuntimeError", error: "Something went wrong" },
+    });
+    expect(card.getByText("RuntimeError")).toBeTruthy();
+    expect(card.getByText("Something went wrong")).toBeTruthy();
+    expect(container.querySelector(".task-error-banner")).toBeTruthy();
+  });
+
+  it("does not render error banner when taskError is null", () => {
+    const { container } = renderCard({ taskError: null });
+    expect(container.querySelector(".task-error-banner")).toBeNull();
   });
 });

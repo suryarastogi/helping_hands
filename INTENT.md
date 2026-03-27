@@ -12,6 +12,17 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Frontend Coverage Hardening (2026-03-27) — Completed
+
+**Implemented (v322):**
+- 6 new AppOverlays tests: testNotification branches (API unavailable, permission request, SW showNotification, fallback Notification constructor, constructor throw, permission rejection)
+- 7 new MonitorCard tests: prefix filter cycling (show→hide→only→show), reset button, chip icon rendering per mode, task error banner
+- 2 new useMultiplayer tests: name/color broadcast no-op when value unchanged
+- Documented 4 unreachable branches in tech-debt-tracker (throttle timer guards, name/color fallbacks)
+- AppOverlays.tsx: 83.53% → 100% statements
+- MonitorCard.tsx: 90.24% → 98.11% branch coverage
+- 706 frontend tests total (up from 691)
+
 ### Design Doc Refresh & Multiplayer Resilience (2026-03-27) — Completed
 
 **Implemented (v321):**

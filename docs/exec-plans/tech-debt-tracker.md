@@ -13,6 +13,8 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | `_decode_bytes` latin-1 fallback | None | `web.py` | latin-1 accepts all byte values; fallback marked `pragma: no cover` as defensive-only |
 | `if __name__ == "__main__"` guard (MCP) | None | `mcp_server.py` | Line 393: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
 | `_commit_message_from_prompt` unreachable branch | None | `pr_description.py` | Branch 581→583: `if not candidate` False path is unreachable — candidate starts as `""` and `break` always fires on first non-boilerplate line (v173) |
+| useMultiplayer throttle timer guards | None | `useMultiplayer.ts` | Lines 522–525 (position) and 740–743 (cursor): defensive `if (timerRef.current)` guards inside `elapsed >= interval` branch. Unreachable because React's effect cleanup always clears the timer ref before the next effect runs. |
+| useMultiplayer fallback name/color | None | `useMultiplayer.ts` | Lines 466 and 485: ternary fallbacks for when `yjsDocRef.current` is null in name/color effects. Unreachable because effects only fire when `active` is true and doc ref is always set at that point. |
 
 ## Resolved items
 
