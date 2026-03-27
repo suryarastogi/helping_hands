@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### AppOverlays & MonitorCard Branch Coverage (2026-03-27) — Completed
+
+**Implemented (v323):**
+- Added 6 `AppOverlays` tests covering `testNotification()` branches: Notification API unavailable (alert fallback), permission not granted (requests permission), permission granted without SW reg (new Notification constructor), Notification constructor throws, requestPermission rejection, Enable button calls requestPermission
+- Added 13 `MonitorCard` tests: prefix filter cycling (show→hide→only→show), Reset button, task error banner rendering, cancel button (confirm+fetch, decline, fetch error swallowed), copy to clipboard, prefix chip icons for show/hide/only modes
+- AppOverlays.tsx: 83.53% → 98.17% statements
+- MonitorCard.tsx: 85.46% → 100% statements
+- 717 frontend tests total (up from 698), overall 97.06% statements, 90.47% branches
+
 ### Decoration Placement Cooldown & Decoration Query Endpoint (2026-03-27) — Completed
 
 **Implemented (v322):**

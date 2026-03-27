@@ -165,4 +165,166 @@ describe("MonitorCard", () => {
     });
     expect(card.getByText("Reset")).toBeTruthy();
   });
+
+  describe("prefix filter cycling", () => {
+    it("cycles show → hide on first click", () => {
+      const handler = vi.fn();
+      const { card } = renderCard({
+        detectedPrefixes: ["INFO"],
+        prefixFilters: {},
+        outputTab: "updates",
+        onPrefixFiltersChange: handler,
+      });
+      fireEvent.click(card.getByText("[INFO]"));
+      expect(handler).toHaveBeenCalled();
+      // Invoke the updater function to verify state transition
+      const updater = handler.mock.calls[0][0];
+      const result = typeof updater === "function" ? updater({}) : updater;
+      expect(result).toEqual({ INFO: "hide" });
+    });
+
+    it("cycles hide → only on second click", () => {
+      const handler = vi.fn();
+      const { card } = renderCard({
+        detectedPrefixes: ["INFO"],
+        prefixFilters: { INFO: "hide" },
+        outputTab: "updates",
+        onPrefixFiltersChange: handler,
+      });
+      fireEvent.click(card.getByText("[INFO]"));
+      const updater = handler.mock.calls[0][0];
+      const result = typeof updater === "function" ? updater({ INFO: "hide" }) : updater;
+      expect(result).toEqual({ INFO: "only" });
+    });
+
+    it("cycles only → show (removes key) on third click", () => {
+      const handler = vi.fn();
+      const { card } = renderCard({
+        detectedPrefixes: ["INFO"],
+        prefixFilters: { INFO: "only" },
+        outputTab: "updates",
+        onPrefixFiltersChange: handler,
+      });
+      fireEvent.click(card.getByText("[INFO]"));
+      const updater = handler.mock.calls[0][0];
+      const result = typeof updater === "function" ? updater({ INFO: "only" }) : updater;
+      expect(result).toEqual({});
+    });
+
+    it("resets all filters on Reset click", () => {
+      const handler = vi.fn();
+      const { card } = renderCard({
+        detectedPrefixes: ["INFO", "WARN"],
+        prefixFilters: { INFO: "hide", WARN: "only" },
+        outputTab: "updates",
+        onPrefixFiltersChange: handler,
+      });
+      fireEvent.click(card.getByText("Reset"));
+      expect(handler).toHaveBeenCalledWith({});
+    });
+  });
+
+  describe("task error banner", () => {
+    it("renders task error banner when taskError is present", () => {
+      const { card } = renderCard({
+        taskId: "task-1",
+        status: "FAILURE",
+        taskError: { error: "Something went wrong", errorType: "RuntimeError" },
+      });
+      expect(card.getByText("RuntimeError")).toBeTruthy();
+      expect(card.getByText("Something went wrong")).toBeTruthy();
+    });
+
+    it("does not render task error banner when taskError is null", () => {
+      const { container } = renderCard({
+        taskId: "task-1",
+        status: "FAILURE",
+        taskError: null,
+      });
+      expect(container.querySelector(".task-error-banner")).toBeNull();
+    });
+  });
+
+  describe("cancel button", () => {
+    it("calls fetch on cancel confirmation", async () => {
+      const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response());
+      const { card } = renderCard({ taskId: "task-1", status: "STARTED" });
+      fireEvent.click(card.getByTitle("Cancel this task"));
+      expect(confirmSpy).toHaveBeenCalledWith("Cancel this task?");
+      // Wait for async fetch
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalled();
+      });
+      const url = fetchSpy.mock.calls[0][0] as string;
+      expect(url).toContain("/tasks/task-1/cancel");
+      confirmSpy.mockRestore();
+      fetchSpy.mockRestore();
+    });
+
+    it("does not call fetch when cancel is declined", () => {
+      const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response());
+      const { card } = renderCard({ taskId: "task-1", status: "STARTED" });
+      fireEvent.click(card.getByTitle("Cancel this task"));
+      expect(fetchSpy).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+      fetchSpy.mockRestore();
+    });
+
+    it("swallows fetch errors silently", async () => {
+      const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network"));
+      const { card } = renderCard({ taskId: "task-1", status: "STARTED" });
+      // Should not throw
+      fireEvent.click(card.getByTitle("Cancel this task"));
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalled();
+      });
+      confirmSpy.mockRestore();
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe("copy button", () => {
+    it("copies output text to clipboard on click", () => {
+      const writeTextSpy = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText: writeTextSpy } });
+      const { card } = renderCard({ activeOutputText: "test output" });
+      fireEvent.click(card.getByTitle("Copy output to clipboard"));
+      expect(writeTextSpy).toHaveBeenCalledWith("test output");
+    });
+  });
+
+  describe("prefix chip icons", () => {
+    it("shows filled circle for show mode", () => {
+      const { card } = renderCard({
+        detectedPrefixes: ["INFO"],
+        prefixFilters: {},
+        outputTab: "updates",
+      });
+      const icon = card.getByText("[INFO]").querySelector(".prefix-chip-icon");
+      expect(icon?.textContent).toBe("●");
+    });
+
+    it("shows empty circle for hide mode", () => {
+      const { card } = renderCard({
+        detectedPrefixes: ["INFO"],
+        prefixFilters: { INFO: "hide" },
+        outputTab: "updates",
+      });
+      const icon = card.getByText("[INFO]").querySelector(".prefix-chip-icon");
+      expect(icon?.textContent).toBe("○");
+    });
+
+    it("shows bullseye for only mode", () => {
+      const { card } = renderCard({
+        detectedPrefixes: ["INFO"],
+        prefixFilters: { INFO: "only" },
+        outputTab: "updates",
+      });
+      const icon = card.getByText("[INFO]").querySelector(".prefix-chip-icon");
+      expect(icon?.textContent).toBe("◉");
+    });
+  });
 });

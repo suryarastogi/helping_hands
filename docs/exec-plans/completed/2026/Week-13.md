@@ -17,8 +17,9 @@ improvement (both raised from below 80% to above 80%), and multiplayer
 hardening edge case coverage (_clamp_float NaN/Infinity fix, client-side
 cursor clamping, localStorage error handling tests, backend partial
 failure tests), design doc refresh + timer cleanup + accessibility
-improvements, and decoration placement cooldown with backend decoration
-query endpoint.
+improvements, decoration placement cooldown with backend decoration
+query endpoint, and AppOverlays/MonitorCard branch coverage hardening
+(component stmts: 96.45% → 99.08%).
 
 ---
 
@@ -424,6 +425,16 @@ query endpoint.
 
 ---
 
+## Mar 27 — AppOverlays & MonitorCard Branch Coverage (v323)
+
+**AppOverlays coverage (83.53% → 98.17% stmts):** 6 new tests covering the `testNotification()` function: Notification API unavailable triggers alert, permission not granted triggers requestPermission, permission granted without SW reg uses new Notification() constructor, constructor throws triggers alert, requestPermission rejection handled gracefully, Enable button calls requestPermission.
+
+**MonitorCard coverage (85.46% → 100% stmts):** 13 new tests covering prefix filter chip cycling (show→hide→only→show), Reset button, task error banner rendering, cancel button (confirm+fetch, decline, error swallowed), copy to clipboard, prefix chip icons.
+
+**19 new frontend tests (717 total). Overall: 97.06% stmts, 90.47% branches.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -476,3 +487,4 @@ query endpoint.
 - `v320-multiplayer-hardening-edge-cases.md`
 - `v321-design-doc-refresh-timer-cleanup.md` (→ `2026-03-27-design-doc-refresh.md`)
 - `v322-decoration-cooldown-and-decoration-endpoint.md`
+- `v323-appoverlays-monitorcard-coverage.md`
