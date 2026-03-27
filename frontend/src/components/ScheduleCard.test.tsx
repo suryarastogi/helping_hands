@@ -27,6 +27,7 @@ const MOCK_SCHEDULE: ScheduleItem = {
   reference_repos: [],
   tools: [],
   skills: [],
+  project_management: false,
   enabled: true,
   created_at: "2026-03-23T00:00:00Z",
   last_run_at: "2026-03-23T01:00:00Z",

@@ -36,6 +36,7 @@ class _FakeScheduledTask:
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
+    project_management: bool = False
     enabled: bool = True
     created_at: str = "2026-03-10T00:00:00"
     last_run_at: str | None = None

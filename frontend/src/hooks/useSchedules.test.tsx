@@ -47,6 +47,7 @@ const SAMPLE_SCHEDULE = {
   reference_repos: [],
   tools: [],
   skills: ["docs"],
+  project_management: false,
   enabled: true,
   created_at: "2026-03-23T00:00:00Z",
   last_run_at: null,

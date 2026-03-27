@@ -617,6 +617,7 @@ def build_feature(
     github_token: str | None = None,
     reference_repos: list[str] | None = None,
     schedule_id: str | None = None,
+    project_management: bool = False,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Async task: run a hand against a GitHub repo with a user prompt.
 
@@ -849,6 +850,33 @@ def build_feature(
         hand.pr_number = pr_number
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
+
+        # Project management: create a GitHub issue from the task prompt
+        issue_meta: dict[str, str] = {}
+        if project_management and cloned_from and not no_pr:
+            try:
+                from helping_hands.lib.github import GitHubClient as _GHClient
+
+                with _GHClient(token=config.github_token or "") as _gh:
+                    _issue_title = prompt[:120].split("\n")[0]
+                    _issue = _gh.create_issue(
+                        cloned_from,
+                        title=_issue_title,
+                        body=prompt,
+                    )
+                    hand.issue_number = _issue.number
+                    issue_meta["issue_number"] = str(_issue.number)
+                    issue_meta["issue_url"] = _issue.url
+                    _append_update(
+                        updates,
+                        f"Created GitHub issue #{_issue.number}: {_issue.url}",
+                    )
+            except Exception as exc:
+                _append_update(
+                    updates,
+                    f"Could not create GitHub issue: {exc}",
+                )
+
         hand_start = time.monotonic()
         emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
         message = asyncio.run(
@@ -887,6 +915,7 @@ def build_feature(
             "runtime": runtime_str,
             "message": message,
             "updates": updates,
+            **issue_meta,
             **hand.last_pr_metadata,
         }
     finally:

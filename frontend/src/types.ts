@@ -110,6 +110,7 @@ export type FormState = {
   ci_check_wait_minutes: number;
   github_token: string;
   reference_repos: string;
+  project_management: boolean;
 };
 
 export type TaskHistoryItem = {
@@ -166,6 +167,7 @@ export type ScheduleItem = {
   reference_repos: string[];
   tools: string[];
   skills: string[];
+  project_management: boolean;
   enabled: boolean;
   created_at: string;
   last_run_at: string | null;
@@ -193,6 +195,7 @@ export type ScheduleFormState = {
   reference_repos: string;
   tools: string;
   skills: string;
+  project_management: boolean;
   enabled: boolean;
 };
 

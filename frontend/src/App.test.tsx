@@ -735,6 +735,7 @@ describe("Schedule list CRUD operations", () => {
     ci_check_wait_minutes: 3,
     tools: [],
     skills: [],
+    project_management: false,
     enabled: true,
     created_at: "2026-01-01T00:00:00Z",
     last_run_at: null,

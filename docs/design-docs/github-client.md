@@ -99,6 +99,26 @@ via the `draft` parameter.
 The upsert pattern ensures repeated runs update the same comment rather than
 creating duplicate status comments.
 
+## Issue lifecycle
+
+### Creation
+
+`create_issue()` calls the PyGithub API to create an issue, returning an
+`IssueResult` dataclass with number, URL, and title. Optional `labels` can be
+applied at creation time. This is used by the **Project Management** feature
+to auto-create a tracking issue from the task prompt before hand execution.
+
+### Inspection
+
+`get_issue()` retrieves issue details including number, title, body, state,
+labels, and user.
+
+### PR-issue linking
+
+When `Hand.issue_number` is set (by the celery task when `project_management`
+is enabled), `_create_new_pr()` prepends `Closes #N` to the PR body so the
+issue is auto-closed when the PR is merged.
+
 ## CI check aggregation
 
 `get_check_runs()` aggregates individual GitHub check runs into a single

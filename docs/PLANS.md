@@ -4,9 +4,12 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+(none)
 
 ## Completed plans
+
+- [2026-03-27 v322](exec-plans/completed/2026/v322-github-issues-integration.md) —
+  GitHub Issues integration: Project Management checkbox, issue auto-creation, PR-issue linking via Closes #N; 22 tests (19 backend + 3 frontend)
 
 - [2026-03-27 v313–v321](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +

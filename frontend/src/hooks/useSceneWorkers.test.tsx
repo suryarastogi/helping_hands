@@ -41,6 +41,7 @@ function makeSchedule(scheduleId: string, lastRunTaskId: string | null): Schedul
     reference_repos: [],
     tools: [],
     skills: [],
+    project_management: false,
     enabled: true,
     created_at: "2026-03-26T00:00:00Z",
     last_run_at: null,

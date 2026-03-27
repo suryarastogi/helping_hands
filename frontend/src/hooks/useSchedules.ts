@@ -87,6 +87,7 @@ export function useSchedules(): UseSchedulesReturn {
         reference_repos: (item.reference_repos ?? []).join(", "),
         tools: (item.tools ?? []).join(", "),
         skills: item.skills.join(", "),
+        project_management: item.project_management ?? false,
         enabled: item.enabled,
       });
       setEditingScheduleId(scheduleId);

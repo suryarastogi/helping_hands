@@ -289,6 +289,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     reference_repos: list[str] = Field(
         default_factory=list, max_length=_MAX_REFERENCE_REPOS
     )
+    project_management: bool = False
 
 
 class BuildResponse(BaseModel):
@@ -386,6 +387,7 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     reference_repos: list[str] = Field(
         default_factory=list, max_length=_MAX_REFERENCE_REPOS
     )
+    project_management: bool = False
     enabled: bool = True
 
 
@@ -411,6 +413,7 @@ class ScheduleResponse(BaseModel):
     reference_repos: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
+    project_management: bool = False
     enabled: bool = True
     created_at: str
     last_run_at: str | None = None
@@ -3141,6 +3144,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         ci_check_wait_minutes=req.ci_check_wait_minutes,
         github_token=req.github_token,
         reference_repos=req.reference_repos,
+        project_management=req.project_management,
     )
     return BuildResponse(task_id=task.id, status="queued", backend=req.backend)
 
@@ -4173,6 +4177,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         reference_repos=task.reference_repos,
         tools=task.tools,
         skills=task.skills,
+        project_management=task.project_management,
         enabled=task.enabled,
         created_at=task.created_at,
         last_run_at=task.last_run_at,
@@ -4230,6 +4235,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         reference_repos=request.reference_repos,
         tools=request.tools,
         skills=request.skills,
+        project_management=request.project_management,
         enabled=request.enabled,
     )
 
@@ -4290,6 +4296,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         reference_repos=request.reference_repos,
         tools=request.tools,
         skills=request.skills,
+        project_management=request.project_management,
         enabled=request.enabled,
     )
 

@@ -4,13 +4,28 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-Deeper GitHub integration - Features Wanted:
-- a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
-    - When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)
-    - Sync task status with GitHub issue with created PR
+Deeper GitHub integration - Features Wanted (remaining):
+- ~~a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration~~ ✅ Done (v322)
+    - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ ✅ Done (v322)
+    - When creating a task, option to link to an *existing* GitHub issue (requires issue search UI)
+    - Sync task status with GitHub issue comments (progress updates)
+    - GitHub Projects board integration
 
 
 ## Recently Completed
+
+### GitHub Issues Integration — Project Management Checkbox (2026-03-27) — Completed
+
+**Implemented (v322):**
+- Added `project_management` boolean flag to BuildRequest, ScheduleRequest, ScheduleResponse, and ScheduledTask
+- Added `IssueResult` dataclass and `create_issue()`/`get_issue()` methods to `GitHubClient`
+- When "Project Mgmt" is checked and a GitHub token is available, a GitHub issue is auto-created from the task prompt before hand execution begins
+- PR body auto-prepends `Closes #N` to link and auto-close the issue on merge
+- Frontend: "Project Mgmt" checkbox in SubmissionForm and ScheduleCard check grids
+- Wired through celery `build_feature` task and schedule dispatch
+- 19 new backend tests (IssueResult, create_issue, get_issue, Hand.issue_number, PR body Closes #N, BuildRequest/ScheduledTask project_management)
+- 3 new frontend tests (checkbox render, toggle, checked state)
+- 694 frontend tests total (up from 691)
 
 ### Design Doc Refresh & Multiplayer Resilience (2026-03-27) — Completed
 

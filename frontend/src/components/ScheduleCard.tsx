@@ -220,6 +220,14 @@ function ScheduleFormFields({
             <label className="check-row">
               <input
                 type="checkbox"
+                checked={scheduleForm.project_management}
+                onChange={(e) => onUpdateField("project_management", e.target.checked)}
+              />
+              Project Mgmt
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
                 checked={scheduleForm.enabled}
                 onChange={(e) => onUpdateField("enabled", e.target.checked)}
               />

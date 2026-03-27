@@ -26,7 +26,7 @@ from helping_hands.lib.github_url import (
 )
 from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
-__all__ = ["CIConclusion", "GitHubClient", "PRResult"]
+__all__ = ["CIConclusion", "GitHubClient", "IssueResult", "PRResult"]
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +135,21 @@ def _validate_branch_name(branch_name: str) -> None:
 def _redact_sensitive(text: str) -> str:
     """Redact token-bearing GitHub URLs in logs/errors."""
     return _redact_credentials(text)
+
+
+@dataclass
+class IssueResult:
+    """Result of creating a GitHub issue.
+
+    Attributes:
+        number: Issue number on GitHub.
+        url: Full HTML URL of the issue.
+        title: Issue title as submitted.
+    """
+
+    number: int
+    url: str
+    title: str
 
 
 @dataclass
@@ -606,6 +621,72 @@ class GitHubClient:
 
         created = issue.create_comment(comment_body)
         return int(created.id)
+
+    # ------------------------------------------------------------------
+    # Issues
+    # ------------------------------------------------------------------
+
+    def create_issue(
+        self,
+        full_name: str,
+        *,
+        title: str,
+        body: str = "",
+        labels: list[str] | None = None,
+    ) -> IssueResult:
+        """Create a GitHub issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            title: Issue title.
+            body: Issue body (markdown).
+            labels: Optional list of label names to apply.
+
+        Returns:
+            An ``IssueResult`` with the issue number, URL, and title.
+
+        Raises:
+            ValueError: If *title* is empty or whitespace-only.
+        """
+        require_non_empty_string(title, "title")
+        repo = self.get_repo(full_name)
+        kwargs: dict[str, Any] = {"title": title, "body": body}
+        if labels:
+            kwargs["labels"] = labels
+        issue = repo.create_issue(**kwargs)
+        logger.info("Created issue #%d: %s", issue.number, issue.html_url)
+        return IssueResult(
+            number=issue.number,
+            url=issue.html_url,
+            title=issue.title,
+        )
+
+    def get_issue(self, full_name: str, number: int) -> dict[str, Any]:
+        """Get details of a single issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, ``labels``, and ``user``.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
+        require_positive_int(number, "issue number")
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        return {
+            "number": issue.number,
+            "title": issue.title,
+            "body": issue.body,
+            "url": issue.html_url,
+            "state": issue.state,
+            "labels": [label.name for label in issue.labels],
+            "user": issue.user.login if issue.user else "",
+        }
 
     # ------------------------------------------------------------------
     # Cleanup

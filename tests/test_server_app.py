@@ -110,6 +110,7 @@ class TestBuildForm:
             "skills": [],
             "github_token": None,
             "reference_repos": [],
+            "project_management": False,
         }
 
     def test_enqueues_codexcli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -156,6 +157,7 @@ class TestBuildForm:
             "skills": [],
             "github_token": None,
             "reference_repos": [],
+            "project_management": False,
         }
 
     def test_enqueues_claudecodecli_backend(
@@ -204,6 +206,7 @@ class TestBuildForm:
             "skills": [],
             "github_token": None,
             "reference_repos": [],
+            "project_management": False,
         }
 
     def test_enqueues_goose_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -249,6 +252,7 @@ class TestBuildForm:
             "skills": [],
             "github_token": None,
             "reference_repos": [],
+            "project_management": False,
         }
 
     def test_enqueues_geminicli_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -295,6 +299,7 @@ class TestBuildForm:
             "skills": [],
             "github_token": None,
             "reference_repos": [],
+            "project_management": False,
         }
 
     def test_enqueues_with_tools_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:

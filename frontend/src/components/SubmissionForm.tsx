@@ -154,6 +154,14 @@ export default function SubmissionForm({
                 />
                 Fix CI
               </label>
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.project_management}
+                  onChange={(event) => onFieldChange("project_management", event.target.checked)}
+                />
+                Project Mgmt
+              </label>
             </div>
             <div className="row">
               <label>

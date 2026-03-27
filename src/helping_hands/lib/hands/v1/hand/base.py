@@ -264,6 +264,7 @@ class Hand(abc.ABC):
         self._interrupt_event = Event()
         self.auto_pr = True
         self.pr_number: int | None = None
+        self.issue_number: int | None = None
         self.fix_ci: bool = False
         self.ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
         self.ci_max_retries: int = _DEFAULT_CI_MAX_RETRIES
@@ -1124,6 +1125,9 @@ class Hand(abc.ABC):
             summary=summary,
             commit_sha=commit_sha,
         )
+
+        if self.issue_number is not None:
+            pr_body = f"Closes #{self.issue_number}\n\n{pr_body}"
 
         pr = gh.create_pr(
             repo,

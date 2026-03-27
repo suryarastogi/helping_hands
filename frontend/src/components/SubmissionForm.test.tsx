@@ -115,6 +115,26 @@ describe("SubmissionForm", () => {
     expect(onFieldChange).toHaveBeenCalledWith("fix_ci", true);
   });
 
+  it("calls onFieldChange for project management checkbox", () => {
+    const onFieldChange = vi.fn();
+    renderForm({ onFieldChange });
+    fireEvent.click(screen.getByLabelText("Project Mgmt"));
+    expect(onFieldChange).toHaveBeenCalledWith("project_management", true);
+  });
+
+  it("renders project management checkbox unchecked by default", () => {
+    renderForm();
+    const checkbox = screen.getByLabelText("Project Mgmt") as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+  });
+
+  it("renders project management checkbox checked when form value is true", () => {
+    const form = { ...INITIAL_FORM, project_management: true };
+    renderForm({ form });
+    const checkbox = screen.getByLabelText("Project Mgmt") as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+  });
+
   it("renders password input for GitHub token", () => {
     renderForm();
     const tokenInputs = screen.getAllByPlaceholderText("ghp_... (optional)");

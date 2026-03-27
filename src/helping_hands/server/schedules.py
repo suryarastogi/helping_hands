@@ -139,6 +139,7 @@ class ScheduledTask:
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
+    project_management: bool = False
     enabled: bool = True
     created_at: str = ""
     last_run_at: str | None = None
@@ -171,6 +172,7 @@ class ScheduledTask:
             "reference_repos": self.reference_repos,
             "tools": self.tools,
             "skills": self.skills,
+            "project_management": self.project_management,
             "enabled": self.enabled,
             "created_at": self.created_at,
             "last_run_at": self.last_run_at,
@@ -227,6 +229,7 @@ class ScheduledTask:
             reference_repos=data.get("reference_repos", []),
             tools=data.get("tools", []),
             skills=data.get("skills", []),
+            project_management=data.get("project_management", False),
             enabled=data.get("enabled", True),
             created_at=data.get("created_at", ""),
             last_run_at=data.get("last_run_at"),
@@ -682,6 +685,7 @@ class ScheduleManager:
             github_token=task.github_token,
             reference_repos=task.reference_repos,
             schedule_id=task.schedule_id,
+            project_management=task.project_management,
         )
 
         self.record_run(schedule_id, result.id)

@@ -276,6 +276,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       use_native_cli_auth: form.use_native_cli_auth,
       fix_ci: form.fix_ci,
       ci_check_wait_minutes: form.ci_check_wait_minutes,
+      project_management: form.project_management,
     };
 
     if (form.github_token.trim()) {

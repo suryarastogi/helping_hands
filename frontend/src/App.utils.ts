@@ -85,6 +85,7 @@ export const INITIAL_FORM: FormState = {
   ci_check_wait_minutes: 3,
   github_token: "",
   reference_repos: "",
+  project_management: false,
 };
 
 export const CRON_PRESETS: Record<string, string> = {
@@ -118,6 +119,7 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   reference_repos: "",
   tools: "",
   skills: "",
+  project_management: false,
   enabled: true,
 };
 
