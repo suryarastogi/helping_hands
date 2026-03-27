@@ -13,7 +13,7 @@ Index of execution plans for helping_hands development.
   decorations, join/leave notifications, player color customization,
   multiplayer hardening, FactoryFloorPanel extraction, useTaskManager hook,
   useSceneWorkers hook, useServiceHealth + useClaudeUsage hook extraction;
-  579 frontend tests, 88.25% branch coverage
+  7462 tests passed, 579 frontend tests, 88.25% branch coverage
 
 - [2026-03-24 v298–v302](exec-plans/completed/2026/2026-03-24.md) —
   Smooth remote movement, typing indicator, minimap, chat cooldown,

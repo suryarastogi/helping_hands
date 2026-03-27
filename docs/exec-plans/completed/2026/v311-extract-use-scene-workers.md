@@ -9,6 +9,13 @@
 Extracted scene worker lifecycle management from App.tsx into a dedicated
 `useSceneWorkers` hook, continuing the decomposition series.
 
+## Tasks
+
+- [x] Create `frontend/src/hooks/useSceneWorkers.ts` with worker lifecycle logic
+- [x] Update App.tsx to consume the hook
+- [x] Add tests in `useSceneWorkers.test.tsx`
+- [x] Remove dead re-exports and consolidate types
+
 ## Changes
 
 - New `frontend/src/hooks/useSceneWorkers.ts` (~210 lines)

@@ -1,5 +1,8 @@
 # v310: Extract useTaskManager Hook
 
+**Status:** Completed
+**Date:** 2026-03-26
+
 **Goal:** Extract task polling, submission, and history management from App.tsx
 into a dedicated `useTaskManager` hook, continuing the App.tsx decomposition
 series (v280–v309).
@@ -45,6 +48,13 @@ subsystems (those are already extracted).
    - Thread returned values to existing component props
 
 4. Run full test suite to verify no regressions
+
+## Tasks
+
+- [x] Create `frontend/src/hooks/useTaskManager.ts` with task-related state and logic
+- [x] Create `frontend/src/hooks/useTaskManager.test.tsx` with hook tests
+- [x] Update App.tsx to consume the hook
+- [x] Run full test suite to verify no regressions
 
 ## Acceptance criteria
 
