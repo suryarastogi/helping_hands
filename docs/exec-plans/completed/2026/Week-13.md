@@ -1,4 +1,4 @@
-# Week 13 (Mar 20 – Mar 26, 2026)
+# Week 13 (Mar 20 – Mar 27, 2026)
 
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
@@ -331,6 +331,16 @@ extraction (App.tsx -47%, dead re-export cleanup).
 
 ---
 
+## Mar 27 — Multiplayer Perf & Backend Awareness Fix (v313)
+
+**Backend fix:** `get_connected_players()` and `get_player_activity_summary()` now correctly extract the `player` sub-dict from nested Yjs awareness state before validation. Health endpoints were returning empty/default values. New `_extract_player_state()` helper with flat-format fallback. Fixed lifecycle tests for pycrdt-websocket >= 0.16 API.
+
+**Frontend perf:** `POSITION_BROADCAST_INTERVAL_MS` (60ms) throttle on position broadcasts — leading+trailing pattern reduces network traffic for multi-user sessions.
+
+**8 new backend tests, 2 new frontend tests. 580 frontend tests, 63 backend multiplayer tests.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -372,3 +382,5 @@ extraction (App.tsx -47%, dead re-export cleanup).
 - `v309-factory-floor-panel-extraction.md`
 - `v310-extract-use-task-manager.md`
 - `v311-extract-use-scene-workers.md`
+- `v312-extract-polling-hooks.md`
+- `v313-multiplayer-perf-and-backend-fix.md`

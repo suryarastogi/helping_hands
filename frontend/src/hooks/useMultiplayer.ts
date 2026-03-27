@@ -18,6 +18,7 @@ import {
   MAX_DECORATIONS,
   MAX_RECONNECT_ATTEMPTS,
   PLAYER_COLORS,
+  POSITION_BROADCAST_INTERVAL_MS,
 } from "../constants";
 import type { ChatMessage, PlayerDirection, WorldDecoration } from "../types";
 
@@ -167,6 +168,10 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const seenRemoteChatsRef = useRef<Set<string>>(new Set());
   /** Timestamp of last local movement activity. */
   const lastActivityRef = useRef<number>(Date.now());
+  /** Timestamp of last position broadcast (for throttling). */
+  const lastBroadcastRef = useRef<number>(0);
+  /** Handle for the pending throttled broadcast. */
+  const broadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Connection lifecycle ---
   useEffect(() => {
@@ -419,14 +424,9 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     }
   }, [active, playerColor]);
 
-  // --- Send local position updates & track activity ---
+  // --- Send local position updates & track activity (throttled) ---
   useEffect(() => {
     if (!active) return;
-    const provider = yjsProviderRef.current;
-    if (!provider) return;
-
-    const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
-    if (!current) return;
 
     // Any position/direction/walking change counts as activity.
     lastActivityRef.current = Date.now();
@@ -434,14 +434,44 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setIsLocalIdle(false);
     }
 
-    provider.awareness.setLocalStateField("player", {
-      ...current,
-      x: playerPosition.x,
-      y: playerPosition.y,
-      direction: playerDirection,
-      walking: isPlayerWalking,
-      idle: false,
-    });
+    const doBroadcast = () => {
+      const provider = yjsProviderRef.current;
+      if (!provider) return;
+      const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+      if (!current) return;
+      provider.awareness.setLocalStateField("player", {
+        ...current,
+        x: playerPosition.x,
+        y: playerPosition.y,
+        direction: playerDirection,
+        walking: isPlayerWalking,
+        idle: false,
+      });
+      lastBroadcastRef.current = Date.now();
+    };
+
+    const elapsed = Date.now() - lastBroadcastRef.current;
+    if (elapsed >= POSITION_BROADCAST_INTERVAL_MS) {
+      // Enough time has passed — broadcast immediately.
+      if (broadcastTimerRef.current) {
+        clearTimeout(broadcastTimerRef.current);
+        broadcastTimerRef.current = null;
+      }
+      doBroadcast();
+    } else if (!broadcastTimerRef.current) {
+      // Schedule a trailing broadcast for the remaining interval.
+      broadcastTimerRef.current = setTimeout(() => {
+        broadcastTimerRef.current = null;
+        doBroadcast();
+      }, POSITION_BROADCAST_INTERVAL_MS - elapsed);
+    }
+
+    return () => {
+      if (broadcastTimerRef.current) {
+        clearTimeout(broadcastTimerRef.current);
+        broadcastTimerRef.current = null;
+      }
+    };
   }, [active, playerPosition, playerDirection, isPlayerWalking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Idle detection timer ---

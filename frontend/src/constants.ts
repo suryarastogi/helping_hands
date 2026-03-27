@@ -101,3 +101,6 @@ export const SPAWN_PADDING = 10;
 
 /** Maximum number of reconnection attempts before giving up. */
 export const MAX_RECONNECT_ATTEMPTS = 10;
+
+/** Minimum interval (ms) between position broadcasts via Yjs awareness. */
+export const POSITION_BROADCAST_INTERVAL_MS = 60;

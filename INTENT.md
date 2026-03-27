@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Performance & Backend Awareness Fix (2026-03-27) — Completed
+
+**Implemented (v313):**
+- Fixed backend awareness state extraction bug: `get_connected_players()` and `get_player_activity_summary()` now correctly extract the `player` sub-dict from nested Yjs awareness state (`{player: {player_id, name, ...}}`) before validation — health endpoints were previously returning empty/default values for all players
+- Added `_extract_player_state()` helper with backwards-compatible flat-format fallback
+- Fixed lifecycle tests to match pycrdt-websocket >= 0.16 (`__aenter__`/`__aexit__`)
+- Added frontend position broadcast throttling (`POSITION_BROADCAST_INTERVAL_MS = 60ms`) — leading+trailing throttle reduces network traffic for multi-user sessions without visible lag
+- 8 new backend tests (63 total, up from 61)
+- 2 new frontend tests, 580 frontend tests total (up from 579)
+
 ### Extract useServiceHealth & useClaudeUsage Hooks (2026-03-26) — Completed
 
 **Implemented (v312):**

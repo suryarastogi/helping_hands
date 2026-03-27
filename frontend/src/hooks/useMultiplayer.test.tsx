@@ -208,25 +208,33 @@ describe("useMultiplayer hook", () => {
   });
 
   it("supports custom player name and position updates", () => {
+    vi.useFakeTimers();
+    const stablePos = { x: 50, y: 50 };
+    const baseOpts = { ...defaultOpts(), playerPosition: stablePos };
     const { rerender } = renderHook(
       (props) => useMultiplayer(props),
-      { initialProps: { ...defaultOpts(), playerName: "Zara" } },
+      { initialProps: { ...baseOpts, playerName: "Zara" } },
     );
     let player = mockAwareness.getLocalState().player as Record<string, unknown>;
     expect(player.name).toBe("Zara");
 
     // Name change does NOT trigger reconnect
     mockProviderDestroyCalled = false;
-    rerender({ ...defaultOpts(), playerName: "Bob" });
+    rerender({ ...baseOpts, playerName: "Bob" });
     player = mockAwareness.getLocalState().player as Record<string, unknown>;
     expect(player.name).toBe("Bob");
     expect(mockProviderDestroyCalled).toBe(false);
 
+    // Advance past throttle window so position update broadcasts immediately.
+    act(() => vi.advanceTimersByTime(70));
+
     // Position update
-    rerender({ ...defaultOpts(), playerName: "Bob", playerPosition: { x: 70, y: 80 } });
+    rerender({ ...baseOpts, playerName: "Bob", playerPosition: { x: 70, y: 80 } });
     player = mockAwareness.getLocalState().player as Record<string, unknown>;
     expect(player.x).toBe(70);
     expect(player.y).toBe(80);
+
+    vi.useRealTimers();
   });
 
   it("tracks remote players and emotes from awareness", () => {
@@ -747,6 +755,56 @@ describe("useMultiplayer hook", () => {
     expect(leaveMsg).toBeDefined();
     expect(leaveMsg!.text).toContain("left");
     expect(leaveMsg!.isSystem).toBe(true);
+  });
+
+  // --- Position throttling ---
+
+  it("throttles position broadcasts to POSITION_BROADCAST_INTERVAL_MS", () => {
+    vi.useFakeTimers();
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Initial render broadcasts at x=50. Wait past throttle window.
+    act(() => vi.advanceTimersByTime(70));
+
+    // First explicit update broadcasts immediately (window elapsed).
+    rerender({ ...defaultOpts(), playerPosition: { x: 55, y: 55 } });
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(55);
+
+    // Rapid second update within throttle window — should NOT broadcast yet.
+    rerender({ ...defaultOpts(), playerPosition: { x: 60, y: 60 } });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    // Still at 55 because throttle hasn't fired yet
+    expect(player.x).toBe(55);
+
+    // Advance past the throttle interval — trailing update fires.
+    act(() => vi.advanceTimersByTime(70));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(60);
+
+    vi.useRealTimers();
+  });
+
+  it("broadcasts immediately after throttle window passes", () => {
+    vi.useFakeTimers();
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Initial render broadcasts x=50. Advance past two throttle windows
+    // so the next position update will broadcast immediately.
+    act(() => vi.advanceTimersByTime(150));
+
+    // Update should go through immediately since window has long passed.
+    rerender({ ...defaultOpts(), playerPosition: { x: 70, y: 70 } });
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(70);
+
+    vi.useRealTimers();
   });
 
   it("supports custom player color and broadcasts changes without reconnecting", () => {

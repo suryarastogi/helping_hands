@@ -156,7 +156,10 @@ def get_connected_players() -> dict[str, object]:
                 state = _parse_awareness_state(raw_state)
                 if state is None:
                     continue
-                validated = validate_awareness_state(state)
+                player_state = _extract_player_state(state)
+                if player_state is None:
+                    continue
+                validated = validate_awareness_state(player_state)
                 players.append(
                     {
                         "player_id": validated["player_id"],
@@ -284,7 +287,10 @@ def get_player_activity_summary() -> dict[str, object]:
                 state = _parse_awareness_state(raw_state)
                 if state is None:
                     continue
-                validated = validate_awareness_state(state)
+                player_state = _extract_player_state(state)
+                if player_state is None:
+                    continue
+                validated = validate_awareness_state(player_state)
                 players.append(validated)
     except Exception:
         logger.debug("Failed to read player activity", exc_info=True)
@@ -298,6 +304,27 @@ def get_player_activity_summary() -> dict[str, object]:
         "idle": idle_count,
         "players": players,
     }
+
+
+def _extract_player_state(state: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract the ``player`` sub-dict from a Yjs awareness state.
+
+    The frontend stores player data under ``{player: {player_id, name, ...}}``.
+    This helper unwraps that nesting so that ``validate_awareness_state`` receives
+    a flat dict.  If the state is already flat (has ``player_id`` at top level)
+    it is returned as-is for backwards compatibility.
+
+    Returns ``None`` if neither a ``player`` sub-dict nor a flat ``player_id``
+    field is found.
+    """
+    # Nested format: {player: {player_id: ..., name: ..., ...}}
+    player = state.get("player")
+    if isinstance(player, dict):
+        return cast(dict[str, Any], player)
+    # Flat format (legacy/direct): {player_id: ..., name: ..., ...}
+    if "player_id" in state or "name" in state:
+        return state
+    return None
 
 
 def _parse_awareness_state(raw: object) -> dict[str, Any] | None:

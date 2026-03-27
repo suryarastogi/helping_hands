@@ -8,6 +8,7 @@ import pytest
 
 from helping_hands.server.multiplayer_yjs import (
     _clamp_float,
+    _extract_player_state,
     _parse_awareness_state,
     _strip_control_chars,
     create_yjs_app,
@@ -57,13 +58,13 @@ class TestYjsServerLifecycle:
     """Tests for start/stop lifecycle functions."""
 
     @pytest.mark.asyncio
-    async def test_start_calls_server_start(self) -> None:
+    async def test_start_calls_server_aenter(self) -> None:
         mock_server = AsyncMock()
         with patch(
             "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
         ):
             await start_yjs_server()
-            mock_server.start.assert_awaited_once()
+            mock_server.__aenter__.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_start_noop_when_server_is_none(self) -> None:
@@ -71,13 +72,13 @@ class TestYjsServerLifecycle:
             await start_yjs_server()  # Should not raise.
 
     @pytest.mark.asyncio
-    async def test_stop_calls_server_stop(self) -> None:
+    async def test_stop_calls_server_aexit(self) -> None:
         mock_server = AsyncMock()
         with patch(
             "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
         ):
             await stop_yjs_server()
-            mock_server.stop.assert_awaited_once()
+            mock_server.__aexit__.assert_awaited_once_with(None, None, None)
 
     @pytest.mark.asyncio
     async def test_stop_noop_when_server_is_none(self) -> None:
@@ -223,20 +224,24 @@ class TestGetConnectedPlayers:
         mock_awareness = MagicMock()
         mock_awareness.states = {
             1: {
-                "player_id": "p1",
-                "name": "Alice",
-                "color": "#e74c3c",
-                "x": 25.0,
-                "y": 50.0,
-                "idle": False,
+                "player": {
+                    "player_id": "p1",
+                    "name": "Alice",
+                    "color": "#e74c3c",
+                    "x": 25.0,
+                    "y": 50.0,
+                    "idle": False,
+                },
             },
             2: {
-                "player_id": "p2",
-                "name": "Bob",
-                "color": "#3498db",
-                "x": 75.0,
-                "y": 30.0,
-                "idle": True,
+                "player": {
+                    "player_id": "p2",
+                    "name": "Bob",
+                    "color": "#3498db",
+                    "x": 75.0,
+                    "y": 30.0,
+                    "idle": True,
+                },
             },
         }
         mock_room = MagicMock()
@@ -277,10 +282,10 @@ class TestGetConnectedPlayers:
             assert result == {"players": [], "count": 0}
 
     def test_handles_json_bytes_states(self) -> None:
-        """Awareness states may arrive as JSON-encoded bytes."""
+        """Awareness states may arrive as JSON-encoded bytes with nested player."""
         mock_awareness = MagicMock()
         mock_awareness.states = {
-            1: b'{"player_id": "p1", "name": "Charlie", "color": "#2ecc71", "x": 10, "y": 20, "idle": false}',
+            1: b'{"player": {"player_id": "p1", "name": "Charlie", "color": "#2ecc71", "x": 10, "y": 20, "idle": false}}',
         }
         mock_room = MagicMock()
         mock_room.awareness = mock_awareness
@@ -306,17 +311,61 @@ class TestGetConnectedPlayers:
             result = get_connected_players()
             assert result == {"players": [], "count": 0}
 
+    def test_skips_states_without_player_data(self) -> None:
+        """States without a player sub-dict or flat player_id are skipped."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {"cursor": {"x": 10, "y": 10}},  # No player data
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_connected_players()
+            assert result == {"players": [], "count": 0}
+
+    def test_handles_flat_legacy_states(self) -> None:
+        """Flat awareness states (no player sub-dict) still work."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {
+                "player_id": "p1",
+                "name": "Legacy",
+                "color": "#e74c3c",
+                "x": 25.0,
+                "y": 50.0,
+                "idle": False,
+            },
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_connected_players()
+            assert result["count"] == 1
+            assert result["players"][0]["name"] == "Legacy"
+
     def test_uses_validated_state_for_position_clamping(self) -> None:
         """Positions outside [0, 100] should be clamped in the response."""
         mock_awareness = MagicMock()
         mock_awareness.states = {
             1: {
-                "player_id": "p1",
-                "name": "Alice",
-                "color": "#e74c3c",
-                "x": -20.0,
-                "y": 150.0,
-                "idle": False,
+                "player": {
+                    "player_id": "p1",
+                    "name": "Alice",
+                    "color": "#e74c3c",
+                    "x": -20.0,
+                    "y": 150.0,
+                    "idle": False,
+                },
             },
         }
         mock_room = MagicMock()
@@ -484,28 +533,34 @@ class TestGetPlayerActivitySummary:
         mock_awareness = MagicMock()
         mock_awareness.states = {
             1: {
-                "player_id": "p1",
-                "name": "Alice",
-                "color": "#e74c3c",
-                "x": 25.0,
-                "y": 50.0,
-                "idle": False,
+                "player": {
+                    "player_id": "p1",
+                    "name": "Alice",
+                    "color": "#e74c3c",
+                    "x": 25.0,
+                    "y": 50.0,
+                    "idle": False,
+                },
             },
             2: {
-                "player_id": "p2",
-                "name": "Bob",
-                "color": "#3498db",
-                "x": 75.0,
-                "y": 30.0,
-                "idle": True,
+                "player": {
+                    "player_id": "p2",
+                    "name": "Bob",
+                    "color": "#3498db",
+                    "x": 75.0,
+                    "y": 30.0,
+                    "idle": True,
+                },
             },
             3: {
-                "player_id": "p3",
-                "name": "Charlie",
-                "color": "#2ecc71",
-                "x": 50.0,
-                "y": 50.0,
-                "idle": False,
+                "player": {
+                    "player_id": "p3",
+                    "name": "Charlie",
+                    "color": "#2ecc71",
+                    "x": 50.0,
+                    "y": 50.0,
+                    "idle": False,
+                },
             },
         }
         mock_room = MagicMock()
@@ -527,12 +582,14 @@ class TestGetPlayerActivitySummary:
         mock_awareness = MagicMock()
         mock_awareness.states = {
             1: {
-                "player_id": "p1",
-                "name": "Hacker",
-                "color": "#000",
-                "x": -999,
-                "y": 9999,
-                "idle": False,
+                "player": {
+                    "player_id": "p1",
+                    "name": "Hacker",
+                    "color": "#000",
+                    "x": -999,
+                    "y": 9999,
+                    "idle": False,
+                },
             },
         }
         mock_room = MagicMock()
@@ -559,3 +616,64 @@ class TestGetPlayerActivitySummary:
         ):
             result = get_player_activity_summary()
             assert result == {"total": 0, "active": 0, "idle": 0, "players": []}
+
+    def test_skips_states_without_player_data(self) -> None:
+        """States without player data are ignored in activity summary."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {"cursor": {"x": 10, "y": 10}},
+            2: {
+                "player": {
+                    "player_id": "p1",
+                    "name": "Alice",
+                    "color": "#e74c3c",
+                    "x": 50.0,
+                    "y": 50.0,
+                    "idle": False,
+                },
+            },
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_player_activity_summary()
+            assert result["total"] == 1
+            assert result["active"] == 1
+
+
+class TestExtractPlayerState:
+    """Tests for the ``_extract_player_state`` helper."""
+
+    def test_extracts_nested_player_dict(self) -> None:
+        state = {"player": {"player_id": "p1", "name": "Alice", "x": 50, "y": 50}}
+        result = _extract_player_state(state)
+        assert result == {"player_id": "p1", "name": "Alice", "x": 50, "y": 50}
+
+    def test_returns_flat_state_with_player_id(self) -> None:
+        state = {"player_id": "p1", "name": "Alice", "x": 50, "y": 50}
+        result = _extract_player_state(state)
+        assert result is state
+
+    def test_returns_flat_state_with_name_only(self) -> None:
+        state = {"name": "Alice", "x": 50, "y": 50}
+        result = _extract_player_state(state)
+        assert result is state
+
+    def test_returns_none_for_unrelated_state(self) -> None:
+        state = {"cursor": {"x": 10, "y": 10}}
+        result = _extract_player_state(state)
+        assert result is None
+
+    def test_returns_none_for_empty_state(self) -> None:
+        result = _extract_player_state({})
+        assert result is None
+
+    def test_ignores_non_dict_player_field(self) -> None:
+        state = {"player": "not a dict"}
+        result = _extract_player_state(state)
+        assert result is None
