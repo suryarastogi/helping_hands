@@ -541,3 +541,97 @@ class TestDivergedBranchDelegation:
         assert "pr body" in create_call["body"]
         assert "Follow-up to #10" in create_call["body"]
         assert metadata[_META_PR_STATUS] == PRStatus.CREATED
+
+
+# ---------------------------------------------------------------------------
+# issue_number → "Closes #N" in PR body
+# ---------------------------------------------------------------------------
+
+
+class TestIssueNumberInPrBody:
+    """Tests for issue_number appending 'Closes #N' to PR bodies."""
+
+    def test_issue_number_appended_to_generic_body(self, repo_index: RepoIndex) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        hand.issue_number = 42
+
+        with (
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description"
+                ".generate_pr_description",
+                return_value=None,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description"
+                "._commit_message_from_prompt",
+                return_value="feat: fix bug",
+            ),
+            patch.object(hand, "_build_generic_pr_body", return_value="generic body"),
+        ):
+            _, body = hand._generate_pr_title_and_body(
+                repo_dir=repo_index.root,
+                base_branch="main",
+                backend="test",
+                prompt="fix the bug",
+                summary="fixed",
+                commit_sha="abc123",
+            )
+
+        assert body.endswith("\n\nCloses #42")
+
+    def test_issue_number_appended_to_rich_body(self, repo_index: RepoIndex) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        hand.issue_number = 7
+
+        rich = MagicMock()
+        rich.title = "feat: title"
+        rich.body = "Rich description"
+
+        with patch(
+            "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",
+            return_value=rich,
+        ):
+            _, body = hand._generate_pr_title_and_body(
+                repo_dir=repo_index.root,
+                base_branch="main",
+                backend="test",
+                prompt="fix it",
+                summary="done",
+                commit_sha="abc123",
+            )
+
+        assert "Rich description" in body
+        assert body.endswith("\n\nCloses #7")
+
+    def test_no_closes_line_when_issue_number_is_none(
+        self, repo_index: RepoIndex
+    ) -> None:
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        assert hand.issue_number is None
+
+        with (
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description"
+                ".generate_pr_description",
+                return_value=None,
+            ),
+            patch(
+                "helping_hands.lib.hands.v1.hand.pr_description"
+                "._commit_message_from_prompt",
+                return_value="feat: title",
+            ),
+            patch.object(hand, "_build_generic_pr_body", return_value="generic body"),
+        ):
+            _, body = hand._generate_pr_title_and_body(
+                repo_dir=repo_index.root,
+                base_branch="main",
+                backend="test",
+                prompt="do thing",
+                summary="done",
+                commit_sha="abc123",
+            )
+
+        assert "Closes #" not in body

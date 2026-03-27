@@ -77,6 +77,7 @@ export function useSchedules(): UseSchedulesReturn {
         model: item.model ?? "",
         max_iterations: item.max_iterations,
         pr_number: item.pr_number != null ? String(item.pr_number) : "",
+        issue_number: item.issue_number != null ? String(item.issue_number) : "",
         no_pr: item.no_pr,
         enable_execution: item.enable_execution,
         enable_web: item.enable_web,
@@ -135,6 +136,12 @@ export function useSchedules(): UseSchedulesReturn {
       const parsed = Number(scheduleForm.pr_number.trim());
       if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
         body.pr_number = parsed;
+      }
+    }
+    if (scheduleForm.issue_number.trim()) {
+      const parsed = Number(scheduleForm.issue_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.issue_number = parsed;
       }
     }
     if (scheduleForm.tools.trim()) {

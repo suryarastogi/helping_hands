@@ -488,6 +488,80 @@ class GitHubClient:
             "user": pr.user.login if pr.user else "",
         }
 
+    # ------------------------------------------------------------------
+    # Issue helpers
+    # ------------------------------------------------------------------
+
+    def get_issue(self, full_name: str, number: int) -> dict[str, Any]:
+        """Get details of a single GitHub issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, ``user``, and ``labels``.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
+        require_positive_int(number, "issue number")
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        return {
+            "number": issue.number,
+            "title": issue.title,
+            "body": issue.body,
+            "url": issue.html_url,
+            "state": issue.state,
+            "user": issue.user.login if issue.user else "",
+            "labels": [label.name for label in issue.labels],
+        }
+
+    _VALID_ISSUE_STATES = frozenset({"open", "closed", "all"})
+
+    def list_issues(
+        self,
+        full_name: str,
+        *,
+        state: str = "open",
+        limit: int = 30,
+    ) -> list[dict[str, Any]]:
+        """List issues for a repo (excludes pull requests).
+
+        Args:
+            full_name: ``owner/repo`` string.
+            state: ``"open"``, ``"closed"``, or ``"all"``.
+            limit: Maximum number of issues to return.
+
+        Raises:
+            ValueError: If *state* is invalid or *limit* is not positive.
+        """
+        require_positive_int(limit, "limit")
+        if state not in self._VALID_ISSUE_STATES:
+            raise ValueError(
+                f"state must be one of {sorted(self._VALID_ISSUE_STATES)}, got {state!r}"
+            )
+        repo = self.get_repo(full_name)
+        issues = repo.get_issues(state=state, sort="created", direction="desc")
+        result: list[dict[str, Any]] = []
+        for issue in issues:
+            if issue.pull_request is not None:
+                continue  # skip PRs (GitHub API returns PRs as issues)
+            result.append(
+                {
+                    "number": issue.number,
+                    "title": issue.title,
+                    "url": issue.html_url,
+                    "state": issue.state,
+                    "labels": [label.name for label in issue.labels],
+                }
+            )
+            if len(result) >= limit:
+                break
+        return result
+
     def default_branch(self, full_name: str) -> str:
         """Return the repository's default branch name.
 

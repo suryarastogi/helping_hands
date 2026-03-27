@@ -135,4 +135,25 @@ describe("SubmissionForm", () => {
     const input = screen.getByDisplayValue("10");
     expect(input).toHaveAttribute("type", "number");
   });
+
+  it("renders issue number input with placeholder", () => {
+    renderForm();
+    const input = screen.getByPlaceholderText("Link PR to issue");
+    expect(input).toHaveAttribute("type", "number");
+  });
+
+  it("calls onFieldChange when issue number changes", () => {
+    const onFieldChange = vi.fn();
+    renderForm({ onFieldChange });
+    fireEvent.change(screen.getByPlaceholderText("Link PR to issue"), {
+      target: { value: "42" },
+    });
+    expect(onFieldChange).toHaveBeenCalledWith("issue_number", "42");
+  });
+
+  it("displays issue number from form state", () => {
+    const form = { ...INITIAL_FORM, issue_number: "99" };
+    renderForm({ form });
+    expect(screen.getByPlaceholderText("Link PR to issue")).toHaveValue(99);
+  });
 });

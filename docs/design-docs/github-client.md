@@ -87,6 +87,9 @@ via the `draft` parameter.
 
 - `get_pr()` -- full PR details including mergeable/merged state
 - `list_prs()` -- paginated PR listing with state filter
+- `get_issue()` -- full issue details (number, title, body, state, user, labels)
+- `list_issues()` -- paginated issue listing with state filter; excludes pull
+  requests (GitHub API returns PRs as issues) and validates state/limit args
 - `default_branch()` -- queries the repo's default branch name
 - `get_check_runs()` -- CI status aggregation (success/failure/pending/mixed/no_checks)
 

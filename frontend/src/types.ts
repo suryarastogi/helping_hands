@@ -100,6 +100,7 @@ export type FormState = {
   model: string;
   max_iterations: number;
   pr_number: string;
+  issue_number: string;
   tools: string;
   skills: string;
   no_pr: boolean;
@@ -156,6 +157,7 @@ export type ScheduleItem = {
   model: string | null;
   max_iterations: number;
   pr_number: number | null;
+  issue_number: number | null;
   no_pr: boolean;
   enable_execution: boolean;
   enable_web: boolean;
@@ -183,6 +185,7 @@ export type ScheduleFormState = {
   model: string;
   max_iterations: number;
   pr_number: string;
+  issue_number: string;
   no_pr: boolean;
   enable_execution: boolean;
   enable_web: boolean;

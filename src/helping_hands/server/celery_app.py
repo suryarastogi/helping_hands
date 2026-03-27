@@ -603,6 +603,7 @@ def build_feature(
     repo_path: str,
     prompt: str,
     pr_number: int | None = None,
+    issue_number: int | None = None,
     backend: str = BACKEND_CLAUDECODECLI,
     model: str | None = None,
     max_iterations: int = _DEFAULT_MAX_ITERATIONS,
@@ -847,6 +848,7 @@ def build_feature(
 
         hand.auto_pr = not no_pr
         hand.pr_number = pr_number
+        hand.issue_number = issue_number
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
         hand_start = time.monotonic()

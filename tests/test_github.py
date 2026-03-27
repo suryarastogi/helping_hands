@@ -840,3 +840,97 @@ class TestUpsertPrCommentInputValidation:
     def test_rejects_whitespace_body(self, client: GitHubClient) -> None:
         with pytest.raises(ValueError, match="comment body must not be empty"):
             client.upsert_pr_comment("owner/repo", 1, body="   ")
+
+
+# ---------------------------------------------------------------------------
+# Issue helpers
+# ---------------------------------------------------------------------------
+
+
+class TestGetIssue:
+    def test_get_issue(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.number = 42
+        issue.title = "Bug report"
+        issue.body = "Details here"
+        issue.html_url = "https://github.com/owner/repo/issues/42"
+        issue.state = "open"
+        issue.user.login = "alice"
+        label = MagicMock()
+        label.name = "bug"
+        issue.labels = [label]
+        mock_repo.get_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_issue("owner/repo", 42)
+        assert result["number"] == 42
+        assert result["title"] == "Bug report"
+        assert result["body"] == "Details here"
+        assert result["state"] == "open"
+        assert result["user"] == "alice"
+        assert result["labels"] == ["bug"]
+        mock_repo.get_issue.assert_called_once_with(number=42)
+
+    def test_rejects_zero_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="issue number must be positive"):
+            client.get_issue("owner/repo", 0)
+
+    def test_rejects_negative_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="issue number must be positive"):
+            client.get_issue("owner/repo", -1)
+
+
+class TestListIssues:
+    def test_list_issues_excludes_prs(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue1 = MagicMock()
+        issue1.number, issue1.title = 1, "Bug"
+        issue1.html_url, issue1.state = "url1", "open"
+        issue1.pull_request = None
+        label1 = MagicMock()
+        label1.name = "bug"
+        issue1.labels = [label1]
+
+        pr_as_issue = MagicMock()
+        pr_as_issue.number, pr_as_issue.title = 2, "PR"
+        pr_as_issue.pull_request = MagicMock()  # not None → is a PR
+
+        issue3 = MagicMock()
+        issue3.number, issue3.title = 3, "Feature"
+        issue3.html_url, issue3.state = "url3", "open"
+        issue3.pull_request = None
+        issue3.labels = []
+
+        mock_repo.get_issues.return_value = [issue1, pr_as_issue, issue3]
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.list_issues("owner/repo", limit=10)
+        assert len(result) == 2
+        assert result[0]["number"] == 1
+        assert result[0]["labels"] == ["bug"]
+        assert result[1]["number"] == 3
+
+    def test_list_issues_respects_limit(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issues = []
+        for i in range(5):
+            issue = MagicMock()
+            issue.number, issue.title = i + 1, f"Issue {i + 1}"
+            issue.html_url, issue.state = f"url{i + 1}", "open"
+            issue.pull_request = None
+            issue.labels = []
+            issues.append(issue)
+        mock_repo.get_issues.return_value = issues
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.list_issues("owner/repo", limit=3)
+        assert len(result) == 3
+
+    def test_list_issues_rejects_invalid_state(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="state must be one of"):
+            client.list_issues("owner/repo", state="invalid")
+
+    def test_list_issues_rejects_zero_limit(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="limit must be positive"):
+            client.list_issues("owner/repo", limit=0)

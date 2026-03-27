@@ -168,6 +168,18 @@ function ScheduleFormFields({
               />
             </label>
           </div>
+          <div className="row two-col">
+            <label>
+              Issue number
+              <input
+                type="number"
+                min={1}
+                value={scheduleForm.issue_number}
+                onChange={(e) => onUpdateField("issue_number", e.target.value)}
+                placeholder="Link PR to issue"
+              />
+            </label>
+          </div>
           <label>
             Tools
             <input

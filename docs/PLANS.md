@@ -4,18 +4,20 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [Multiplayer Hardening](exec-plans/active/2026-03-27-multiplayer-hardening.md) —
-  Edge case coverage, client-side cursor validation, NaN/Infinity fix,
-  localStorage error handling tests, backend partial failure tests;
-  681 frontend tests, 84 backend multiplayer tests
+_(none)_
 
 ## Completed plans
 
-- [2026-03-27 v313–v319](exec-plans/completed/2026/2026-03-27.md) —
+- [v321 GitHub Issue Linking](exec-plans/completed/2026/v321-github-issue-linking.md) —
+  Full-stack `issue_number` field: frontend form → API → celery task → Hand.
+  PRs include "Closes #N" when linked. GitHubClient gains `get_issue()`
+  and `list_issues()` methods. 684 frontend tests, 13 new backend tests.
+
+- [2026-03-27 v313–v320](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +
   chat dedup fix, cursor sharing, cursor/hook/component test coverage,
-  App.tsx + useTaskManager branch coverage improvement;
-  674 frontend tests, 90.23% branch coverage
+  App.tsx + useTaskManager branch coverage, multiplayer hardening edge cases;
+  681 frontend tests, 90.23% branch coverage
 
 - [2026-03-26 v303–v312](exec-plans/completed/2026/2026-03-26.md) —
   Multiplayer coverage hardening, schedule PR auto-persist, shared world

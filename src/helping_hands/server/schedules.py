@@ -103,6 +103,7 @@ class ScheduledTask:
         model: AI model identifier, or ``None`` for the backend default.
         max_iterations: Maximum iterative hand loop iterations.
         pr_number: Existing PR number to update, or ``None`` for new PRs.
+        issue_number: GitHub issue number to link via "Closes #N", or ``None``.
         no_pr: If ``True``, skip PR creation after changes.
         enable_execution: Enable runtime execution tools.
         enable_web: Enable web search/browse tools.
@@ -129,6 +130,7 @@ class ScheduledTask:
     model: str | None = None
     max_iterations: int = _DEFAULT_MAX_ITERATIONS
     pr_number: int | None = None
+    issue_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
@@ -161,6 +163,7 @@ class ScheduledTask:
             "model": self.model,
             "max_iterations": self.max_iterations,
             "pr_number": self.pr_number,
+            "issue_number": self.issue_number,
             "no_pr": self.no_pr,
             "enable_execution": self.enable_execution,
             "enable_web": self.enable_web,
@@ -215,6 +218,7 @@ class ScheduledTask:
             model=data.get("model"),
             max_iterations=data.get("max_iterations", _DEFAULT_MAX_ITERATIONS),
             pr_number=data.get("pr_number"),
+            issue_number=data.get("issue_number"),
             no_pr=data.get("no_pr", False),
             enable_execution=data.get("enable_execution", False),
             enable_web=data.get("enable_web", False),
@@ -668,6 +672,7 @@ class ScheduleManager:
             repo_path=task.repo_path,
             prompt=task.prompt,
             pr_number=task.pr_number,
+            issue_number=task.issue_number,
             backend=task.backend,
             model=task.model,
             max_iterations=task.max_iterations,

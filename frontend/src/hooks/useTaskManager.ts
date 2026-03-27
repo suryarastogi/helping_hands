@@ -293,6 +293,12 @@ export function useTaskManager(): UseTaskManagerReturn {
         body.pr_number = parsed;
       }
     }
+    if (form.issue_number.trim()) {
+      const parsed = Number(form.issue_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.issue_number = parsed;
+      }
+    }
     if (form.tools.trim()) {
       body.tools = form.tools
         .split(",")
@@ -443,6 +449,7 @@ export function useTaskManager(): UseTaskManagerReturn {
     const model = readString(["model"]);
     const maxIterations = readString(["max_iterations"]);
     const prNumber = readString(["pr_number"]);
+    const issueNumber = readString(["issue_number"]);
     const noPr = readBoolish(["no_pr"]);
     const enableExecution = readBoolish(["enable_execution"]);
     const enableWeb = readBoolish(["enable_web"]);
@@ -459,6 +466,7 @@ export function useTaskManager(): UseTaskManagerReturn {
     if (model) items.push({ label: "Model", value: model });
     if (maxIterations) items.push({ label: "Max iterations", value: maxIterations });
     if (prNumber) items.push({ label: "PR number", value: prNumber });
+    if (issueNumber) items.push({ label: "Issue number", value: issueNumber });
     if (noPr) items.push({ label: "No PR", value: noPr });
     if (enableExecution) items.push({ label: "Execution tools", value: enableExecution });
     if (enableWeb) items.push({ label: "Web tools", value: enableWeb });
@@ -654,6 +662,8 @@ export function useTaskManager(): UseTaskManagerReturn {
       }
       const prNumber = params.get("pr_number");
       if (prNumber) next.pr_number = prNumber;
+      const issueNumber = params.get("issue_number");
+      if (issueNumber) next.issue_number = issueNumber;
       const tools = params.get("tools");
       if (tools) next.tools = tools;
       const skills = params.get("skills");

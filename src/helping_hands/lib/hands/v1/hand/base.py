@@ -264,6 +264,7 @@ class Hand(abc.ABC):
         self._interrupt_event = Event()
         self.auto_pr = True
         self.pr_number: int | None = None
+        self.issue_number: int | None = None
         self.fix_ci: bool = False
         self.ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
         self.ci_max_retries: int = _DEFAULT_CI_MAX_RETRIES
@@ -943,23 +944,28 @@ class Hand(abc.ABC):
             summary=summary,
         )
         if rich_desc is not None:
-            return rich_desc.title, rich_desc.body
+            pr_title, pr_body = rich_desc.title, rich_desc.body
+        else:
+            from helping_hands.lib.hands.v1.hand.pr_description import (
+                _commit_message_from_prompt,
+            )
 
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            _commit_message_from_prompt,
-        )
+            pr_title = _commit_message_from_prompt(
+                prompt, summary
+            ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
+            stamp = _utc_stamp()
+            pr_body = self._build_generic_pr_body(
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+                commit_sha=commit_sha,
+                stamp_utc=stamp,
+            )
 
-        pr_title = _commit_message_from_prompt(
-            prompt, summary
-        ) or _DEFAULT_PR_TITLE_TEMPLATE.format(backend=backend)
-        stamp = _utc_stamp()
-        pr_body = self._build_generic_pr_body(
-            backend=backend,
-            prompt=prompt,
-            summary=summary,
-            commit_sha=commit_sha,
-            stamp_utc=stamp,
-        )
+        # Append "Closes #N" when an issue is linked.
+        if self.issue_number is not None:
+            pr_body += f"\n\nCloses #{self.issue_number}"
+
         return pr_title, pr_body
 
     def _update_pr_description(

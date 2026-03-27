@@ -9,6 +9,21 @@ Deeper GitHub integration - Features Wanted:
     - When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)
     - Sync task status with GitHub issue with created PR
 
+### GitHub Issue Linking (2026-03-27) — Complete
+
+**Phase 1 — `issue_number` field (v321):**
+- Full-stack `issue_number` field: `FormState` → `BuildRequest`/`ScheduleRequest` → `build_feature` celery task → `Hand.issue_number`
+- PRs include "Closes #N" in body when `issue_number` is set
+- `GitHubClient.get_issue()` and `GitHubClient.list_issues()` methods added
+- Both inline HTML and React frontends support the field
+- 3 new frontend tests, 10 new backend tests
+- 684 frontend tests total
+
+**Remaining (Phase 2):**
+- "Create new issue from task" option (auto-creates GitHub issue from task prompt)
+- Issue status sync (update issue labels/state when task completes)
+- GitHub Projects integration
+
 
 ## Recently Completed
 

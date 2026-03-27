@@ -279,6 +279,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     enable_web: bool = False
     use_native_cli_auth: bool = False
     pr_number: int | None = None
+    issue_number: int | None = None
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(
         default=_DEFAULT_CI_WAIT_MINUTES,
@@ -372,6 +373,7 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
         le=_MAX_ITERATIONS_UPPER_BOUND,
     )
     pr_number: int | None = None
+    issue_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
@@ -401,6 +403,7 @@ class ScheduleResponse(BaseModel):
     model: str | None = None
     max_iterations: int = _DEFAULT_MAX_ITERATIONS
     pr_number: int | None = None
+    issue_number: int | None = None
     no_pr: bool = False
     enable_execution: bool = False
     enable_web: bool = False
@@ -1397,6 +1400,13 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                   </label>
                 </div>
 
+                <div class="row two-col">
+                  <label for="issue_number">
+                    Issue number (optional)
+                    <input id="issue_number" name="issue_number" type="number" min="1" placeholder="Link PR to issue" />
+                  </label>
+                </div>
+
                 <label for="tools">
                   Tools (comma-separated, optional)
                   <input
@@ -1633,6 +1643,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                   <label for="schedule_pr_number">
                     PR number (optional)
                     <input id="schedule_pr_number" name="pr_number" type="number" min="1" />
+                  </label>
+                  <label for="schedule_issue_number">
+                    Issue number (optional)
+                    <input id="schedule_issue_number" name="issue_number" type="number" min="1" placeholder="Link PR to issue" />
                   </label>
                   <div class="row check-grid">
                     <label class="check-row" for="schedule_no_pr">
@@ -2459,6 +2473,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         if (prNumber) {
           document.getElementById("pr_number").value = prNumber;
         }
+        const issueNumber = params.get("issue_number");
+        if (issueNumber) {
+          document.getElementById("issue_number").value = issueNumber;
+        }
         if (tools) {
           document.getElementById("tools").value = tools;
         }
@@ -2647,6 +2665,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const model = document.getElementById("model").value.trim();
         const maxIterationsRaw = document.getElementById("max_iterations").value.trim();
         const prRaw = document.getElementById("pr_number").value.trim();
+        const issueRaw = document.getElementById("issue_number").value.trim();
         const toolsRaw = document.getElementById("tools").value.trim();
         const skillsRaw = document.getElementById("skills").value.trim();
         const noPr = document.getElementById("no_pr").checked;
@@ -2672,6 +2691,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (prRaw) {
           payload.pr_number = Number(prRaw);
+        }
+        if (issueRaw) {
+          payload.issue_number = Number(issueRaw);
         }
         if (toolsRaw) {
           payload.tools = toolsRaw
@@ -2839,6 +2861,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           backend: document.getElementById("schedule_backend").value,
           model: document.getElementById("schedule_model").value || null,
           pr_number: document.getElementById("schedule_pr_number").value ? Number(document.getElementById("schedule_pr_number").value) : null,
+          issue_number: document.getElementById("schedule_issue_number").value ? Number(document.getElementById("schedule_issue_number").value) : null,
           no_pr: document.getElementById("schedule_no_pr").checked,
           enabled: document.getElementById("schedule_enabled").checked,
           fix_ci: document.getElementById("schedule_fix_ci").checked
@@ -2888,6 +2911,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           document.getElementById("schedule_backend").value = s.backend;
           document.getElementById("schedule_model").value = s.model || "";
           document.getElementById("schedule_pr_number").value = s.pr_number != null ? s.pr_number : "";
+          document.getElementById("schedule_issue_number").value = s.issue_number != null ? s.issue_number : "";
           document.getElementById("schedule_no_pr").checked = s.no_pr;
           document.getElementById("schedule_enabled").checked = s.enabled;
           document.getElementById("schedule_fix_ci").checked = s.fix_ci || false;
@@ -3128,6 +3152,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         repo_path=req.repo_path,
         prompt=req.prompt,
         pr_number=req.pr_number,
+        issue_number=req.issue_number,
         backend=req.backend,
         model=req.model,
         max_iterations=req.max_iterations,
@@ -3837,6 +3862,7 @@ def _build_form_redirect_query(
     fix_ci: bool = False,
     ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES,
     pr_number: int | None = None,
+    issue_number: int | None = None,
     tools: str | None = None,
     skills: str | None = None,
 ) -> dict[str, str]:
@@ -3864,6 +3890,8 @@ def _build_form_redirect_query(
         query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
     if pr_number is not None:
         query["pr_number"] = str(pr_number)
+    if issue_number is not None:
+        query["issue_number"] = str(issue_number)
     if tools and tools.strip():
         query["tools"] = tools
     if skills and skills.strip():
@@ -3883,6 +3911,7 @@ def enqueue_build_form(
     enable_web: bool = Form(False),
     use_native_cli_auth: bool = Form(False),
     pr_number: int | None = Form(None),
+    issue_number: int | None = Form(None),
     tools: str | None = Form(None),
     skills: str | None = Form(None),
     fix_ci: bool = Form(False),
@@ -3908,6 +3937,7 @@ def enqueue_build_form(
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
             pr_number=pr_number,
+            issue_number=issue_number,
             tools=tools,
             skills=skills,
         )
@@ -3925,6 +3955,7 @@ def enqueue_build_form(
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
             pr_number=pr_number,
+            issue_number=issue_number,
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
             tools=list(meta_tools.normalize_tool_selection(tools)),
@@ -3951,6 +3982,7 @@ def enqueue_build_form(
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
             pr_number=pr_number,
+            issue_number=issue_number,
             tools=tools,
             skills=skills,
         )
@@ -3979,6 +4011,8 @@ def enqueue_build_form(
         query["fix_ci"] = "1"
     if req.pr_number is not None:
         query["pr_number"] = str(req.pr_number)
+    if req.issue_number is not None:
+        query["issue_number"] = str(req.issue_number)
     if req.tools:
         query["tools"] = ",".join(req.tools)
     if req.skills:
@@ -4163,6 +4197,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         model=task.model,
         max_iterations=task.max_iterations,
         pr_number=task.pr_number,
+        issue_number=task.issue_number,
         no_pr=task.no_pr,
         enable_execution=task.enable_execution,
         enable_web=task.enable_web,
@@ -4220,6 +4255,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         model=request.model,
         max_iterations=request.max_iterations,
         pr_number=request.pr_number,
+        issue_number=request.issue_number,
         no_pr=request.no_pr,
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,
@@ -4280,6 +4316,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         model=request.model,
         max_iterations=request.max_iterations,
         pr_number=request.pr_number,
+        issue_number=request.issue_number,
         no_pr=request.no_pr,
         enable_execution=request.enable_execution,
         enable_web=request.enable_web,
