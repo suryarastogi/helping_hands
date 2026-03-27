@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### App.tsx & useTaskManager Branch Coverage (2026-03-27) — Completed
+
+**Implemented (v319):**
+- Added 4 tests for `App.tsx` server config effect branches — `native_auth_default`, `enabled_backends` filtering, backend replacement when current not in filtered list, `claude_native_cli_auth === false` hiding usage panel, and URL param skip
+- Added 13 tests for `useTaskManager.ts` — submit body optional fields, poll error handling, terminal status toast, query-string initialization (`task_id`, `status`, `error`, form params), output tab modes, current tasks discovery, runtime display, task inputs derivation
+- `App.tsx` branch coverage: 69.23% → 81.25%
+- `useTaskManager.ts` branch coverage: 72.03% → 82.68%
+- Overall frontend branch coverage: 88.55% → 90.23%
+- 674 frontend tests total (up from 657)
+
 ### RepoChipInput & RepoSuggestInput Test Coverage (2026-03-27) — Completed
 
 **Implemented (v318):**

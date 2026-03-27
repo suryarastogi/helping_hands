@@ -11,8 +11,9 @@ spawn randomization, player color customization, multiplayer hardening
 useTaskManager hook extraction (App.tsx -61%), useSceneWorkers hook
 extraction (App.tsx -47%, dead re-export cleanup), and multiplayer leave
 name resolution + chat dedup fix, multiplayer cursor sharing,
-useRecentRepos hook test coverage, and RepoChipInput/RepoSuggestInput
-component test coverage.
+useRecentRepos hook test coverage, RepoChipInput/RepoSuggestInput
+component test coverage, and App.tsx/useTaskManager branch coverage
+improvement (both raised from below 80% to above 80%).
 
 ---
 

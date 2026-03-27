@@ -264,4 +264,323 @@ describe("useTaskManager", () => {
     // Before the capacity poll resolves, fetchedCapacity is null
     expect(result.current.fetchedCapacity).toBeNull();
   });
+
+  it("fetchedCapacity is set after polling resolves", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/workers/capacity")) {
+        return jsonResponse({ max_workers: 8 });
+      }
+      return defaultFetchMock(input);
+    });
+    const { result } = renderHook(() => useTaskManager());
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(result.current.fetchedCapacity).toBe(8);
+  });
+
+  it("submitRun includes optional body fields when form has them", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/build")) {
+        return jsonResponse({ task_id: "t-opts", status: "queued", backend: "e2e" });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.updateField("repo_path", "owner/repo");
+      result.current.updateField("prompt", "Do the thing");
+      result.current.updateField("github_token", "  ghp_abc  ");
+      result.current.updateField("reference_repos", "a/b, c/d");
+      result.current.updateField("model", " gpt-4 ");
+      result.current.updateField("pr_number", " 42 ");
+      result.current.updateField("tools", "tool1, tool2");
+      result.current.updateField("skills", "skill1, skill2");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.submitRun(fakeEvent));
+
+    const buildCall = fetchSpy.mock.calls.find(([input]) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("/build");
+    });
+    expect(buildCall).toBeDefined();
+    const bodyStr = (buildCall![1] as RequestInit).body as string;
+    const body = JSON.parse(bodyStr);
+    expect(body.github_token).toBe("ghp_abc");
+    expect(body.reference_repos).toEqual(["a/b", "c/d"]);
+    expect(body.model).toBe("gpt-4");
+    expect(body.pr_number).toBe(42);
+    expect(body.tools).toEqual(["tool1", "tool2"]);
+    expect(body.skills).toEqual(["skill1", "skill2"]);
+  });
+
+  it("submitRun skips pr_number when not a valid number", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/build")) {
+        return jsonResponse({ task_id: "t-nan", status: "queued", backend: "e2e" });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.updateField("repo_path", "owner/repo");
+      result.current.updateField("prompt", "Do it");
+      result.current.updateField("pr_number", "not-a-number");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.submitRun(fakeEvent));
+
+    const buildCall = fetchSpy.mock.calls.find(([input]) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("/build");
+    });
+    const body = JSON.parse((buildCall![1] as RequestInit).body as string);
+    expect(body.pr_number).toBeUndefined();
+  });
+
+  it("primary polling updates status and stops on terminal status", async () => {
+    vi.useFakeTimers();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    let pollCount = 0;
+
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/tasks/") && !url.includes("/current")) {
+        pollCount++;
+        if (pollCount >= 2) {
+          return jsonResponse({
+            task_id: "t-poll",
+            status: "SUCCESS",
+            result: { updates: ["done"] },
+          });
+        }
+        return jsonResponse({
+          task_id: "t-poll",
+          status: "running",
+          result: { updates: ["working..."] },
+        });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+
+    // Select a task to start polling
+    act(() => result.current.selectTask("t-poll"));
+
+    // Let the first poll resolve
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+
+    expect(result.current.isPolling).toBe(true);
+
+    // Advance to next poll interval (3s)
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+
+    // After terminal status, polling should stop
+    expect(result.current.status).toBe("SUCCESS");
+    expect(result.current.isPolling).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("primary polling handles poll error gracefully", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/tasks/") && !url.includes("/current")) {
+        return errorResponse("server error", 500);
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => result.current.selectTask("t-err"));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+
+    expect(result.current.status).toBe("poll_error");
+    expect(result.current.isPolling).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("query-string initializes task_id and status", async () => {
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "?task_id=qs-task&status=running&repo_path=a/b" },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    await act(() => new Promise((r) => setTimeout(r, 0)));
+
+    expect(result.current.taskId).toBe("qs-task");
+    expect(result.current.mainView).toBe("monitor");
+    // Polling was started; it may have already completed if the mock resolved terminal
+    expect(result.current.taskHistory).toEqual(
+      expect.arrayContaining([expect.objectContaining({ taskId: "qs-task" })])
+    );
+
+    // Restore
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "" },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it("query-string error param sets error status", async () => {
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "?error=Something+failed" },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    await act(() => new Promise((r) => setTimeout(r, 0)));
+
+    expect(result.current.status).toBe("error");
+
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "" },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it("query-string sets form fields from URL params", async () => {
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        search: "?repo_path=custom/repo&prompt=custom+prompt&backend=e2e&model=gpt-5&max_iterations=10",
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    await act(() => new Promise((r) => setTimeout(r, 0)));
+
+    expect(result.current.form.repo_path).toBe("custom/repo");
+    expect(result.current.form.prompt).toBe("custom prompt");
+    expect(result.current.form.backend).toBe("e2e");
+    expect(result.current.form.model).toBe("gpt-5");
+    expect(result.current.form.max_iterations).toBe(10);
+
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "" },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it("outputTab raw shows raw updates text", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/build")) {
+        return jsonResponse({ task_id: "t-raw", status: "queued", backend: "e2e" });
+      }
+      if (url.includes("/tasks/") && !url.includes("/current")) {
+        return jsonResponse({
+          task_id: "t-raw",
+          status: "SUCCESS",
+          result: { updates: ["line1", "line2"] },
+        });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+
+    // Submit to get some output
+    act(() => {
+      result.current.updateField("repo_path", "a/b");
+      result.current.updateField("prompt", "test");
+    });
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.submitRun(fakeEvent));
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+
+    // Switch to raw tab
+    act(() => result.current.setOutputTab("raw"));
+    expect(result.current.activeOutputText).toContain("line1");
+  });
+
+  it("outputTab payload shows JSON payload", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => result.current.setOutputTab("payload"));
+    // When payload is null, should show "{}"
+    expect(result.current.activeOutputText).toBe("{}");
+  });
+
+  it("current tasks discovery merges discovered tasks", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/tasks/current")) {
+        return jsonResponse({
+          tasks: [
+            { task_id: "discovered-1", status: "running", backend: "e2e", repo_path: "o/r" },
+          ],
+        });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+
+    // The task should be discovered and added to history
+    expect(result.current.taskHistory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ taskId: "discovered-1" }),
+      ])
+    );
+  });
+
+  it("runtimeDisplay returns null when no task is running", () => {
+    const { result } = renderHook(() => useTaskManager());
+    expect(result.current.runtimeDisplay).toBeNull();
+  });
+
+  it("taskInputs derives input items from payload", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/tasks/") && !url.includes("/current")) {
+        return jsonResponse({
+          task_id: "t-inputs",
+          status: "SUCCESS",
+          result: {
+            repo_path: "owner/repo",
+            prompt: "fix bug",
+            backend: "e2e",
+            model: "gpt-4",
+            max_iterations: "5",
+            no_pr: true,
+            enable_execution: false,
+            tools: ["tool1"],
+            skills: ["sk1"],
+          },
+        });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => result.current.selectTask("t-inputs"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+
+    const labels = result.current.taskInputs.map((i) => i.label);
+    expect(labels).toContain("Repo");
+
+    vi.useRealTimers();
+  });
 });

@@ -1786,3 +1786,177 @@ describe("Yjs Multiplayer Awareness", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Server config effect tests
+// ---------------------------------------------------------------------------
+
+describe("Server config effect", () => {
+  it("applies native_auth_default and enabled_backends from server config", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/config")) {
+        return Promise.resolve(
+          mockResponse({
+            ok: true,
+            status: 200,
+            jsonData: {
+              in_docker: true,
+              native_auth_default: true,
+              enabled_backends: ["claudecodecli", "e2e"],
+            },
+          })
+        );
+      }
+      if (url.includes("/tasks/current")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { tasks: [] } }));
+      }
+      if (url.includes("/workers/capacity")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { max_workers: 4 } }));
+      }
+      return Promise.resolve(mockResponse({ ok: false, status: 503 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    // Wait for server config to be fetched
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/config"),
+        expect.anything()
+      );
+    });
+
+    // Allow state updates to settle
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+
+    // Verify enabled_backends were applied — open the submission overlay
+    fireEvent.click(screen.getByText("New Task"));
+    // The backend select is inside Advanced details — expand it
+    const advancedSummary = screen.getByText("Advanced");
+    fireEvent.click(advancedSummary);
+    const backendSelect = screen.getByLabelText("Backend");
+    const options = backendSelect.querySelectorAll("option");
+    const values = Array.from(options).map((o) => o.getAttribute("value"));
+    expect(values).toContain("claudecodecli");
+    expect(values).toContain("e2e");
+    // Backends not in the enabled list should be filtered out
+    expect(values).not.toContain("goose");
+  });
+
+  it("replaces current backend when not in filtered enabled_backends", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/config")) {
+        return Promise.resolve(
+          mockResponse({
+            ok: true,
+            status: 200,
+            jsonData: {
+              in_docker: true,
+              native_auth_default: false,
+              // Does NOT include the default backend "claudecodecli"
+              enabled_backends: ["e2e", "basic-langgraph"],
+            },
+          })
+        );
+      }
+      if (url.includes("/tasks/current")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { tasks: [] } }));
+      }
+      if (url.includes("/workers/capacity")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { max_workers: 4 } }));
+      }
+      return Promise.resolve(mockResponse({ ok: false, status: 503 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/config"),
+        expect.anything()
+      );
+    });
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+
+    // Open submission and check the backend was replaced with first enabled
+    fireEvent.click(screen.getByText("New Task"));
+    const advancedSummary = screen.getByText("Advanced");
+    fireEvent.click(advancedSummary);
+    const backendSelect = screen.getByLabelText("Backend") as HTMLSelectElement;
+    expect(backendSelect.value).toBe("e2e");
+  });
+
+  it("hides claude usage panel when claude_native_cli_auth is false", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/config")) {
+        return Promise.resolve(
+          mockResponse({
+            ok: true,
+            status: 200,
+            jsonData: {
+              in_docker: true,
+              native_auth_default: false,
+              claude_native_cli_auth: false,
+            },
+          })
+        );
+      }
+      if (url.includes("/tasks/current")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { tasks: [] } }));
+      }
+      if (url.includes("/workers/capacity")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { max_workers: 4 } }));
+      }
+      return Promise.resolve(mockResponse({ ok: false, status: 503 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/config"),
+        expect.anything()
+      );
+    });
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+
+    // The claude usage section should be hidden
+    expect(screen.queryByText("Claude Usage")).not.toBeInTheDocument();
+  });
+
+  it("skips server config when use_native_cli_auth is in URL params", async () => {
+    // Set a query string with the explicit param
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "?use_native_cli_auth=true" },
+      writable: true,
+      configurable: true,
+    });
+
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/tasks/current")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { tasks: [] } }));
+      }
+      if (url.includes("/workers/capacity")) {
+        return Promise.resolve(mockResponse({ ok: true, status: 200, jsonData: { max_workers: 4 } }));
+      }
+      return Promise.resolve(mockResponse({ ok: false, status: 503 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+
+    // /config should NOT have been called because URL param was explicit
+    const configCalls = fetchMock.mock.calls.filter(
+      ([url]: [string]) => typeof url === "string" && url.includes("/config")
+    );
+    expect(configCalls.length).toBe(0);
+
+    // Restore location
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, search: "" },
+      writable: true,
+      configurable: true,
+    });
+  });
+});
+

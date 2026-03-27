@@ -8,10 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [2026-03-27 v313–v316](exec-plans/completed/2026/2026-03-27.md) —
+- [2026-03-27 v313–v319](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +
-  chat dedup fix, cursor sharing, cursor throttle coverage;
-  7464 tests passed, 596 frontend tests
+  chat dedup fix, cursor sharing, cursor/hook/component test coverage,
+  App.tsx + useTaskManager branch coverage improvement;
+  674 frontend tests, 90.23% branch coverage
 
 - [2026-03-26 v303–v312](exec-plans/completed/2026/2026-03-26.md) —
   Multiplayer coverage hardening, schedule PR auto-persist, shared world
