@@ -1597,7 +1597,7 @@ describe("Yjs Multiplayer Awareness", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Remote Player")).toBeInTheDocument();
+      expect(screen.getByLabelText("Remote Player (walking)")).toBeInTheDocument();
     });
   });
 
@@ -1621,14 +1621,14 @@ describe("Yjs Multiplayer Awareness", () => {
       },
     });
     act(() => { mockAwareness._setRemoteStates(states1); });
-    await waitFor(() => expect(screen.getByLabelText("Leaving")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Leaving (active)")).toBeInTheDocument());
 
     // Remove remote player (awareness cleanup).
     const states2 = new Map<number, Record<string, unknown>>();
     states2.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
     act(() => { mockAwareness._setRemoteStates(states2); });
 
-    await waitFor(() => expect(screen.queryByLabelText("Leaving")).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText("Leaving (active)")).toBeNull());
   });
 
   it("shows player count when remote players are present", async () => {
@@ -1686,7 +1686,7 @@ describe("Yjs Multiplayer Awareness", () => {
     act(() => { mockAwareness._setRemoteStates(remoteStates); });
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Emoter")).toBeInTheDocument();
+      expect(screen.getByLabelText("Emoter (active)")).toBeInTheDocument();
       expect(screen.getByLabelText("Emote: sparkle")).toBeInTheDocument();
     });
   });
@@ -1770,7 +1770,7 @@ describe("Yjs Multiplayer Awareness", () => {
     // The remote player appears in the world (aria-label on the sprite)
     // and the presence list shows their name.
     await waitFor(() => {
-      expect(screen.getByLabelText("PresenceTestUser")).toBeInTheDocument();
+      expect(screen.getByLabelText("PresenceTestUser (active)")).toBeInTheDocument();
     });
     // Presence list should render names in the sidebar panel.
     const nameElements = screen.getAllByText("PresenceTestUser");

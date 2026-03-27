@@ -37,7 +37,7 @@ export default function Minimap({
   workers,
 }: MinimapProps) {
   return (
-    <div className="minimap" aria-label="Minimap">
+    <div className="minimap" aria-label="Minimap: players and workers overview">
       {/* Local player — white dot */}
       <span
         className="minimap-dot minimap-dot-local"

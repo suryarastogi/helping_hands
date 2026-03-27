@@ -12,8 +12,11 @@ useTaskManager hook extraction (App.tsx -61%), useSceneWorkers hook
 extraction (App.tsx -47%, dead re-export cleanup), and multiplayer leave
 name resolution + chat dedup fix, multiplayer cursor sharing,
 useRecentRepos hook test coverage, RepoChipInput/RepoSuggestInput
-component test coverage, and App.tsx/useTaskManager branch coverage
-improvement (both raised from below 80% to above 80%).
+component test coverage, App.tsx/useTaskManager branch coverage
+improvement (both raised from below 80% to above 80%), and multiplayer
+hardening edge case coverage (_clamp_float NaN/Infinity fix, client-side
+cursor clamping, localStorage error handling tests, backend partial
+failure tests).
 
 ---
 
@@ -385,6 +388,22 @@ improvement (both raised from below 80% to above 80%).
 
 ---
 
+## Mar 27 — App.tsx & useTaskManager Branch Coverage (v319)
+
+**App.tsx (69.23% → 81.25% branch):** 4 new tests covering `fetchServerConfig()` effect branches. **useTaskManager.ts (72.03% → 82.68% branch):** 13 new tests covering submit body, poll error handling, terminal status toast, query-string initialization, output tab modes, current tasks discovery. Overall branch coverage: 88.55% → 90.23%.
+
+**17 new frontend tests. 674 frontend tests total.**
+
+---
+
+## Mar 27 — Multiplayer Hardening & Edge Case Coverage (v320)
+
+**Frontend:** 4 localStorage error handling tests, client-side cursor position clamping (coordinates clamped to [0,100] before broadcasting), 1 decoration null-guard test. **Backend:** 10 edge case tests (_clamp_float NaN/Infinity, _strip_control_chars emoji preservation, _parse_awareness_state invalid UTF-8, _extract_player_state empty/list, partial iteration failures). **Bug fix:** `_clamp_float` now returns midpoint for NaN, clamps ±Infinity to bounds.
+
+**7 new frontend tests (681 total), 10 new backend tests (84 total).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -433,3 +452,5 @@ improvement (both raised from below 80% to above 80%).
 - `v316-cursor-throttle-coverage.md`
 - `v317-use-recent-repos-coverage.md`
 - `v318-repo-input-components-test-coverage.md`
+- `v319-app-task-manager-coverage.md`
+- `v320-multiplayer-hardening-edge-cases.md`

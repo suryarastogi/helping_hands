@@ -34,4 +34,12 @@ describe("RemoteCursor component", () => {
     const path = svg?.querySelector("path");
     expect(path?.getAttribute("fill")).toBe("#16a34a");
   });
+
+  it("SVG arrow is aria-hidden to avoid redundant announcements", () => {
+    const { container } = render(
+      <RemoteCursor name="Alice" color="#e11d48" x={30} y={40} />
+    );
+    const svg = container.querySelector(".remote-cursor-arrow");
+    expect(svg?.getAttribute("aria-hidden")).toBe("true");
+  });
 });

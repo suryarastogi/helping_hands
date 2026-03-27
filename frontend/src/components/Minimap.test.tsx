@@ -12,7 +12,7 @@ describe("Minimap", () => {
 
   it("renders with aria-label", () => {
     const { container } = render(<Minimap {...defaultProps} />);
-    expect(container.querySelector("[aria-label='Minimap']")).toBeTruthy();
+    expect(container.querySelector("[aria-label='Minimap: players and workers overview']")).toBeTruthy();
   });
 
   it("renders the local player dot", () => {

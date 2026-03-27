@@ -13,29 +13,33 @@ can see each other's avatars walking around the scene simultaneously.
 
 ## Approach
 
-**WebSocket over polling:** Position updates happen at 60fps during movement, so
+**WebSocket over polling:** Position updates happen at ~17Hz during movement, so
 HTTP polling would be too slow and wasteful. A persistent WebSocket connection
 provides sub-100ms latency for position broadcasts.
 
-**Server-side state:** The `WorldConnectionManager` in `server/multiplayer.py`
-keeps an in-memory dict of connected players. This is simpler and faster than
-using Redis pub/sub for a feature that only needs session-scoped state (no
-persistence required).
+**Yjs awareness protocol:** The sync layer uses `yjs` + `y-websocket` on the
+frontend and `pycrdt-websocket` (ASGIServer) on the backend, mounted at
+`/ws/yjs`. Ephemeral player state (position, direction, emotes, chat, cursor)
+is carried via the Yjs awareness protocol. Persistent shared state (world
+decorations) uses Y.Map in the Y.Doc, auto-synced by pycrdt-websocket.
 
-**No external libraries:** The implementation uses FastAPI's built-in WebSocket
-support and the browser's native `WebSocket` API. This avoids adding
-dependencies like `socket.io` or `yjs` for what is a straightforward
-position-broadcast use case.
+**Server-side validation:** `validate_awareness_state()` in
+`server/multiplayer_yjs.py` clamps positions to [0, 100], truncates names
+(50 chars) and chat (120 chars), strips control characters, validates direction
+enum, and coerces types. `_clamp_float` handles NaN (→ midpoint) and ±Infinity
+(→ bounds). Health endpoints (`/health/multiplayer`, `/health/multiplayer/players`,
+`/health/multiplayer/activity`) expose room/connection stats and validated player
+state for external monitoring.
 
-**Position clamping:** The server validates and clamps all incoming coordinates
-to the scene bounds before broadcasting, preventing clients from spoofing
-out-of-bounds positions.
+**Position broadcast throttling:** Client-side 60ms leading+trailing throttle on
+position broadcasts and 100ms throttle on cursor broadcasts. Client-side cursor
+clamping to [0, 100] before broadcasting mirrors backend validation.
 
 ## Trade-offs
 
 - **In-memory state** means player data is lost on server restart. This is
   acceptable since multiplayer sessions are ephemeral.
-- **Single-server only** — the in-memory manager doesn't support multi-process
+- **Single-server only** — the in-memory Yjs rooms don't support multi-process
   deployments. If needed later, a Redis pub/sub layer can be added.
 - **No authentication** — any WebSocket connection gets a player. Fine for
   internal/dev tool; would need auth for public deployment.

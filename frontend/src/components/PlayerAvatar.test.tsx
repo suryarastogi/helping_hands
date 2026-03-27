@@ -29,7 +29,7 @@ describe("PlayerAvatar component", () => {
     );
     const el = container.querySelector(".remote-player.left.walking");
     expect(el).toBeTruthy();
-    expect(el?.getAttribute("aria-label")).toBe("Alice");
+    expect(el?.getAttribute("aria-label")).toBe("Alice (walking)");
     // Name label rendered
     const nameEl = container.querySelector(".remote-player-name");
     expect(nameEl?.textContent).toBe("Alice");
@@ -240,5 +240,29 @@ describe("PlayerAvatar component", () => {
     const dot = container.querySelector(".player-tooltip-color") as HTMLElement;
     expect(dot).toBeTruthy();
     expect(dot.style.backgroundColor).toBe("rgb(245, 158, 11)");
+  });
+
+  it("remote player aria-label includes status when idle", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="Idle" idle x={50} y={50} />
+    );
+    const el = container.querySelector(".remote-player");
+    expect(el?.getAttribute("aria-label")).toBe("Idle (idle)");
+  });
+
+  it("remote player aria-label includes status when typing", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="Typer" typing x={50} y={50} />
+    );
+    const el = container.querySelector(".remote-player");
+    expect(el?.getAttribute("aria-label")).toBe("Typer (typing)");
+  });
+
+  it("remote player aria-label shows active for non-walking non-idle non-typing", () => {
+    const { container } = render(
+      <PlayerAvatar direction="down" walking={false} name="Active" x={50} y={50} />
+    );
+    const el = container.querySelector(".remote-player");
+    expect(el?.getAttribute("aria-label")).toBe("Active (active)");
   });
 });

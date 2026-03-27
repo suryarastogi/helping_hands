@@ -61,7 +61,6 @@ export default function PlayerAvatar({
       } as CSSProperties;
 
   const [showTooltip, setShowTooltip] = useState(false);
-  const ariaLabel = isLocal ? "You (player character)" : name;
 
   const statusLabel = typing
     ? "typing"
@@ -70,6 +69,8 @@ export default function PlayerAvatar({
       : walking
         ? "walking"
         : "active";
+
+  const ariaLabel = isLocal ? "You (player character)" : `${name} (${statusLabel})`;
 
   return (
     <div

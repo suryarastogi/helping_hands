@@ -321,6 +321,7 @@ export default function HandWorldScene({
               onClick={onRefreshClaudeUsage}
               disabled={claudeUsageLoading}
               title="Refresh usage"
+              aria-label="Refresh Claude usage"
             >
               &#8635;
             </button>
@@ -412,14 +413,14 @@ export default function HandWorldScene({
         )}
 
         {connectionStatus === "connecting" && (
-          <div className="reconnect-banner" role="alert" aria-label="Reconnecting">
+          <div className="reconnect-banner" role="alert" aria-live="polite" aria-label="Reconnecting">
             <span className="reconnect-spinner" />
             <span>Reconnecting&hellip;</span>
           </div>
         )}
 
         {connectionStatus === "failed" && (
-          <div className="reconnect-banner reconnect-failed" role="alert" aria-label="Connection failed">
+          <div className="reconnect-banner reconnect-failed" role="alert" aria-live="assertive" aria-label="Connection failed">
             <span>Connection failed after multiple attempts</span>
           </div>
         )}

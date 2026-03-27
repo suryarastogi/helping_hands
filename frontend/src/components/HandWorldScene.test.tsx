@@ -904,4 +904,32 @@ describe("HandWorldScene component", () => {
     fireEvent.mouseLeave(scene);
     expect(onCursorMove).toHaveBeenCalledWith(null);
   });
+
+  // -------------------------------------------------------------------------
+  // Accessibility — aria-live on banners, aria-label on refresh button
+  // -------------------------------------------------------------------------
+
+  it("reconnect banner has aria-live=polite for screen reader announcements", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connecting" />
+    );
+    const banner = container.querySelector(".reconnect-banner");
+    expect(banner?.getAttribute("aria-live")).toBe("polite");
+  });
+
+  it("connection failed banner has aria-live=assertive", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="failed" />
+    );
+    const banner = container.querySelector(".reconnect-banner.reconnect-failed");
+    expect(banner?.getAttribute("aria-live")).toBe("assertive");
+  });
+
+  it("refresh usage button has aria-label", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} showClaudeUsage />
+    );
+    const btn = container.querySelector(".usage-refresh-btn");
+    expect(btn?.getAttribute("aria-label")).toBe("Refresh Claude usage");
+  });
 });

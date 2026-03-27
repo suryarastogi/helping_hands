@@ -27,6 +27,7 @@ export default function RemoteCursor({ name, color, x, y }: RemoteCursorProps) {
         viewBox="0 0 16 20"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
       >
         <path
           d="M1 1L6 18L8.5 10.5L15 8.5L1 1Z"

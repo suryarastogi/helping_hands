@@ -1257,4 +1257,86 @@ describe("useMultiplayer hook", () => {
     rerender({ ...defaultOpts(), active: false });
     expect(result.current.remoteCursors).toEqual([]);
   });
+
+  // -------------------------------------------------------------------------
+  // Timer cleanup on deactivation
+  // -------------------------------------------------------------------------
+
+  it("clears emote timer on deactivation — timer does not fire after cleanup", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Trigger emote — starts timeouts that would clear localEmote
+    act(() => result.current.triggerEmote("1"));
+    expect(result.current.localEmote).toBe("wave");
+
+    // Deactivate before the timer fires — cleanup should cancel emote timers.
+    // The provider and awareness are destroyed here.
+    rerender({ ...defaultOpts(), active: false });
+
+    // Advance past EMOTE_DISPLAY_MS. If the timer wasn't cancelled it would
+    // call setLocalStateField on the destroyed provider — this should not
+    // throw. The emote display timer was also cancelled.
+    act(() => vi.advanceTimersByTime(3000));
+
+    // localEmote still has its value (React state is independent of timers),
+    // but the provider-side timer was cancelled so no awareness update fires.
+    expect(result.current.localEmote).toBe("wave");
+
+    vi.useRealTimers();
+  });
+
+  it("clears chat timers on deactivation — timers do not fire after cleanup", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Send chat — starts cooldown + display + awareness timers
+    act(() => result.current.sendChat("Hello!"));
+    expect(result.current.localChat).toBe("Hello!");
+    expect(result.current.chatOnCooldown).toBe(true);
+
+    // Deactivate before timers fire — cleanup should cancel all chat timers
+    rerender({ ...defaultOpts(), active: false });
+
+    // Advance past both CHAT_DISPLAY_MS and CHAT_COOLDOWN_MS.
+    // Cancelled timers should not fire on destroyed provider.
+    act(() => vi.advanceTimersByTime(5000));
+
+    // React state persists (chat/cooldown) but awareness timers are cancelled.
+    expect(result.current.localChat).toBe("Hello!");
+    expect(result.current.chatOnCooldown).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it("rapid emote triggers cancel previous emote timer", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.triggerEmote("1"));
+    expect(result.current.localEmote).toBe("wave");
+
+    // Advance partway through
+    act(() => vi.advanceTimersByTime(1000));
+
+    // Trigger again — should cancel previous timer
+    act(() => result.current.triggerEmote("2"));
+    expect(result.current.localEmote).toBe("celebrate");
+
+    // Original timer at 2000ms should NOT have fired (was cancelled)
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.localEmote).toBe("celebrate");
+
+    // New timer fires at 2000ms from second trigger
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.localEmote).toBeNull();
+
+    vi.useRealTimers();
+  });
 });

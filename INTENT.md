@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Design Doc Refresh & Multiplayer Resilience (2026-03-27) — Completed
+
+**Implemented (v321):**
+- Refreshed multiplayer design doc "Approach" section — removed references to deleted `WorldConnectionManager` and "No external libraries", updated to reflect Yjs architecture
+- Fixed timer cleanup in `useMultiplayer` hook — 5 new timeout refs (emoteTimerRef, emoteAwarenessTimerRef, chatDisplayTimerRef, chatAwarenessTimerRef, chatCooldownTimerRef) tracked and cleared on connection lifecycle cleanup, preventing state updates on destroyed providers
+- Rapid emote triggers now cancel previous emote timer instead of leaving orphaned timeouts
+- Accessibility improvements across 6 components: `aria-live="polite"` on reconnection banner, `aria-live="assertive"` on failed banner, `aria-label` on refresh button, `aria-hidden` on RemoteCursor SVG, PlayerAvatar remote aria-label includes status (e.g. "Alice (walking)"), improved Minimap aria-label
+- 691 frontend tests total (up from 681), all passing
+
 ### Multiplayer Hardening & Edge Case Coverage (2026-03-27) — Completed
 
 **Implemented (v320):**

@@ -4,18 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [Multiplayer Hardening](exec-plans/active/2026-03-27-multiplayer-hardening.md) —
-  Edge case coverage, client-side cursor validation, NaN/Infinity fix,
-  localStorage error handling tests, backend partial failure tests;
-  681 frontend tests, 84 backend multiplayer tests
+*(none)*
 
 ## Completed plans
 
-- [2026-03-27 v313–v319](exec-plans/completed/2026/2026-03-27.md) —
+- [2026-03-27 v313–v321](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +
   chat dedup fix, cursor sharing, cursor/hook/component test coverage,
-  App.tsx + useTaskManager branch coverage improvement;
-  674 tests (frontend), 90.23% branch coverage
+  App.tsx + useTaskManager branch coverage, multiplayer hardening edge cases,
+  design doc refresh, timer cleanup, accessibility improvements;
+  691 tests (frontend), 84 backend multiplayer tests
 
 - [2026-03-26 v303–v312](exec-plans/completed/2026/2026-03-26.md) —
   Multiplayer coverage hardening, schedule PR auto-persist, shared world
