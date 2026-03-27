@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Cursor Broadcast Throttle Coverage (2026-03-27) — Completed
+
+**Implemented (v316):**
+- Added 3 new tests for `updateCursor()` throttle behavior in `useMultiplayer` hook
+- Test: rapid cursor updates within `CURSOR_BROADCAST_INTERVAL_MS` are throttled with trailing broadcast
+- Test: cursor broadcasts immediately when throttle window has elapsed
+- Test: `updateCursor(null)` cancels pending throttle timer and broadcasts immediately
+- 596 frontend tests total (up from 593)
+
 ### Multiplayer Cursor Sharing (2026-03-27) — Completed
 
 **Implemented (v315):**

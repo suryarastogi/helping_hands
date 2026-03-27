@@ -1066,6 +1066,80 @@ describe("useMultiplayer hook", () => {
     vi.useRealTimers();
   });
 
+  it("throttles rapid cursor broadcasts to CURSOR_BROADCAST_INTERVAL_MS", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // First cursor update broadcasts immediately (no prior broadcast).
+    act(() => result.current.updateCursor({ x: 10, y: 20 }));
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 10, y: 20 });
+
+    // Rapid second update within throttle window — should NOT broadcast yet.
+    act(() => result.current.updateCursor({ x: 30, y: 40 }));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 10, y: 20 }); // still at first position
+
+    // Advance past the throttle interval — trailing update fires.
+    act(() => vi.advanceTimersByTime(110));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 30, y: 40 });
+
+    vi.useRealTimers();
+  });
+
+  it("broadcasts cursor immediately after throttle window passes", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // First broadcast
+    act(() => result.current.updateCursor({ x: 10, y: 20 }));
+
+    // Wait well past the throttle window
+    act(() => vi.advanceTimersByTime(200));
+
+    // Next update should broadcast immediately since window has passed
+    act(() => result.current.updateCursor({ x: 50, y: 60 }));
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 50, y: 60 });
+
+    vi.useRealTimers();
+  });
+
+  it("updateCursor(null) cancels pending throttle timer and broadcasts immediately", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // First broadcast to set the baseline
+    act(() => result.current.updateCursor({ x: 10, y: 20 }));
+
+    // Rapid second update — schedules a trailing broadcast
+    act(() => result.current.updateCursor({ x: 30, y: 40 }));
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 10, y: 20 }); // still throttled
+
+    // Mouse leaves scene — null should cancel the pending timer and broadcast immediately
+    act(() => result.current.updateCursor(null));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toBeNull();
+
+    // Advance past the interval — no stale trailing broadcast should fire
+    act(() => vi.advanceTimersByTime(110));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toBeNull(); // still null, not { x: 30, y: 40 }
+
+    vi.useRealTimers();
+  });
+
   it("clears remoteCursors when deactivated", () => {
     const { result, rerender } = renderHook(
       (props) => useMultiplayer(props),

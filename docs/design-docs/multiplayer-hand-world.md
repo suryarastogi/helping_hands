@@ -367,6 +367,20 @@ position/emote/chat — the `cursor` field carries `{ x, y } | null`.
   handlers and converts to scene-relative percentages
 - CSS: smooth 80ms transitions on `.remote-cursor` for visual interpolation
 
+## Cursor throttle coverage (v316)
+
+The `updateCursor()` callback uses the same leading+trailing throttle pattern as
+position broadcasts. Three tests verify the throttle behavior:
+
+1. **Throttle window:** Rapid cursor moves within `CURSOR_BROADCAST_INTERVAL_MS`
+   (100ms) are coalesced — only the first broadcasts immediately; the latest
+   position fires as a trailing broadcast after the interval.
+2. **Elapsed window:** When the throttle window has fully elapsed, the next
+   cursor update broadcasts immediately.
+3. **Null cancels timer:** `updateCursor(null)` (mouse leaving scene) cancels any
+   pending trailing broadcast and sends `null` immediately, preventing stale
+   cursor positions from appearing after the mouse has left.
+
 ## Future extensions
 
 - Player names from server auth context
