@@ -13,6 +13,8 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | `_decode_bytes` latin-1 fallback | None | `web.py` | latin-1 accepts all byte values; fallback marked `pragma: no cover` as defensive-only |
 | `if __name__ == "__main__"` guard (MCP) | None | `mcp_server.py` | Line 393: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
 | `_commit_message_from_prompt` unreachable branch | None | `pr_description.py` | Branch 581→583: `if not candidate` False path is unreachable — candidate starts as `""` and `break` always fires on first non-boilerplate line (v173) |
+| Position throttle timer-clear guard | None | `useMultiplayer.ts` | Lines 522–525: `if (broadcastTimerRef.current)` inside `elapsed >= threshold` branch is unreachable — React's effect cleanup always nullifies the timer before re-invocation. Defensive-only. |
+| Cursor throttle timer-clear guard | None | `useMultiplayer.ts` | Lines 740–743: same pattern for cursor throttle — unreachable for the same reason as position throttle. |
 
 ## Resolved items
 

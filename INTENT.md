@@ -12,6 +12,18 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Coverage Hardening: MonitorCard, AppOverlays, useMultiplayer (2026-03-27) — Completed
+
+**Implemented (v322):**
+- 6 new MonitorCard tests: prefix filter chip cycling (show → hide → only → show), `taskError` error banner rendering/absence, cancel button confirm/fetch interaction, confirm-decline early return, prefix chip icon rendering for all three modes
+- 4 new AppOverlays tests: Notification API unavailable alert fallback, permission request on not-granted, `new Notification` fallback when no service worker, Notification constructor error handling
+- 2 new useMultiplayer tests: position throttle timer behaviour with advanced system time, cursor throttle timer behaviour with advanced system time
+- Documented position/cursor throttle timer-clear guards (lines 522–525, 740–743) as structurally unreachable in tech-debt-tracker — React effect cleanup always nullifies the timer before re-invocation
+- MonitorCard.tsx: 85.46% → 98.25% statements, 90.24% → 96.36% branches
+- AppOverlays.tsx: 83.53% → 98.17% statements
+- Overall: 96.03% → 97.07% statements, 90.19% → 90.51% branches
+- 703 frontend tests total (up from 691)
+
 ### Design Doc Refresh & Multiplayer Resilience (2026-03-27) — Completed
 
 **Implemented (v321):**

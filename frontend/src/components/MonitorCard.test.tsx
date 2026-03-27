@@ -165,4 +165,115 @@ describe("MonitorCard", () => {
     });
     expect(card.getByText("Reset")).toBeTruthy();
   });
+
+  it("cycles prefix filter: show → hide → only → show", () => {
+    const handler = vi.fn();
+    const { card, rerender } = renderCard({
+      detectedPrefixes: ["INFO"],
+      prefixFilters: {},
+      outputTab: "updates",
+      onPrefixFiltersChange: handler,
+    });
+
+    // Click the INFO chip — should cycle from show → hide
+    fireEvent.click(card.getByText("[INFO]"));
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    // Invoke the updater function to verify state transitions
+    const updater1 = handler.mock.calls[0][0];
+    const result1 = updater1({});
+    expect(result1).toEqual({ INFO: "hide" });
+
+    // Click again with hide state — should cycle hide → only
+    handler.mockClear();
+    rerender(
+      <MonitorCard
+        {...makeProps({
+          detectedPrefixes: ["INFO"],
+          prefixFilters: { INFO: "hide" },
+          outputTab: "updates",
+          onPrefixFiltersChange: handler,
+        })}
+      />,
+    );
+    fireEvent.click(card.getByText("[INFO]"));
+    const updater2 = handler.mock.calls[0][0];
+    const result2 = updater2({ INFO: "hide" });
+    expect(result2).toEqual({ INFO: "only" });
+
+    // Click again with only state — should cycle only → show (deletes key)
+    handler.mockClear();
+    rerender(
+      <MonitorCard
+        {...makeProps({
+          detectedPrefixes: ["INFO"],
+          prefixFilters: { INFO: "only" },
+          outputTab: "updates",
+          onPrefixFiltersChange: handler,
+        })}
+      />,
+    );
+    fireEvent.click(card.getByText("[INFO]"));
+    const updater3 = handler.mock.calls[0][0];
+    const result3 = updater3({ INFO: "only" });
+    expect(result3).toEqual({});
+  });
+
+  it("renders task error banner when taskError is set", () => {
+    const { container } = renderCard({
+      taskError: { errorType: "RuntimeError", error: "something broke" },
+    });
+    const banner = container.querySelector(".task-error-banner");
+    expect(banner).toBeTruthy();
+    expect(banner!.querySelector("strong")!.textContent).toBe("RuntimeError");
+    expect(banner!.querySelector("code")!.textContent).toBe("something broke");
+  });
+
+  it("hides task error banner when taskError is null", () => {
+    const { container } = renderCard({ taskError: null });
+    expect(container.querySelector(".task-error-banner")).toBeNull();
+  });
+
+  it("cancel button calls fetch and confirms", async () => {
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response());
+    const { card } = renderCard({ taskId: "task-42", status: "STARTED" });
+
+    await fireEvent.click(card.getByTitle("Cancel this task"));
+
+    expect(confirmSpy).toHaveBeenCalledWith("Cancel this task?");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/tasks/task-42/cancel"),
+      { method: "POST" },
+    );
+
+    confirmSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
+  it("cancel button does nothing when user declines confirm", async () => {
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response());
+    const { card } = renderCard({ taskId: "task-42", status: "STARTED" });
+
+    await fireEvent.click(card.getByTitle("Cancel this task"));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
+  it("renders prefix chip icons for each filter mode", () => {
+    const { card } = renderCard({
+      detectedPrefixes: ["INFO", "WARN", "DEBUG"],
+      prefixFilters: { WARN: "hide", DEBUG: "only" },
+      outputTab: "updates",
+    });
+    const chips = card.getAllByRole("button").filter((b) => b.className.includes("prefix-chip"));
+    // INFO=show (●), WARN=hide (○), DEBUG=only (◉)
+    const icons = chips.filter((c) => !c.textContent?.includes("Reset")).map((c) => c.querySelector(".prefix-chip-icon")?.textContent);
+    expect(icons).toEqual(["●", "○", "◉"]);
+  });
 });

@@ -1339,4 +1339,80 @@ describe("useMultiplayer hook", () => {
 
     vi.useRealTimers();
   });
+
+  // -------------------------------------------------------------------------
+  // Throttle timer-clearing when broadcasting immediately
+  // -------------------------------------------------------------------------
+
+  it("clears pending position throttle timer when broadcasting immediately after window elapses", () => {
+    vi.useFakeTimers();
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Advance past initial throttle window so next update broadcasts immediately.
+    act(() => vi.advanceTimersByTime(70));
+
+    // Update 1 — broadcasts immediately (window elapsed).
+    rerender({ ...defaultOpts(), playerPosition: { x: 55, y: 55 } });
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(55);
+
+    // Update 2 — within throttle window, schedules a trailing timer.
+    rerender({ ...defaultOpts(), playerPosition: { x: 60, y: 60 } });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(55); // still throttled
+
+    // Advance clock WITHOUT firing timers so elapsed >= threshold but
+    // the trailing timer is still pending.
+    vi.setSystemTime(new Date(Date.now() + 70));
+
+    // Update 3 — elapsed >= threshold AND a pending timer exists.
+    // This should clear the old timer and broadcast immediately.
+    rerender({ ...defaultOpts(), playerPosition: { x: 65, y: 65 } });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(65);
+
+    // Advance past where the old trailing timer would have fired — should be no-op.
+    act(() => vi.advanceTimersByTime(100));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(65); // unchanged — old timer was cleared
+
+    vi.useRealTimers();
+  });
+
+  it("clears pending cursor throttle timer when broadcasting immediately after window elapses", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Initial cursor update — broadcasts immediately.
+    act(() => result.current.updateCursor({ x: 10, y: 20 }));
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 10, y: 20 });
+
+    // Second cursor update within throttle window — schedules trailing timer.
+    act(() => result.current.updateCursor({ x: 30, y: 40 }));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 10, y: 20 }); // still throttled
+
+    // Advance clock without firing timers past the cursor throttle window.
+    vi.setSystemTime(new Date(Date.now() + 110));
+
+    // Third cursor update — elapsed >= threshold AND pending timer exists.
+    // Should clear old timer and broadcast immediately.
+    act(() => result.current.updateCursor({ x: 50, y: 60 }));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 50, y: 60 });
+
+    // Advance past where old trailing timer would fire — should be no-op.
+    act(() => vi.advanceTimersByTime(200));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 50, y: 60 }); // unchanged
+
+    vi.useRealTimers();
+  });
 });
