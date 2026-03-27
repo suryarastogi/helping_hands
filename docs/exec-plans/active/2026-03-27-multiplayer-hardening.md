@@ -1,6 +1,7 @@
 # Execution Plan: Multiplayer Hardening & Edge Case Coverage
 
-**Date:** 2026-03-27
+**Created:** 2026-03-27
+**Status:** complete
 **Branch:** helping-hands/claudecodecli-9f34267c
 **Goal:** Harden the multiplayer Hand World implementation with edge case coverage, client-side validation, and semantically meaningful tests targeting untested branches.
 
@@ -10,31 +11,17 @@ The multiplayer Hand World feature (Yjs awareness + pycrdt-websocket backend) is
 
 ## Tasks
 
-### 1. Frontend: localStorage error handling tests
-- **Status:** completed
-- **What:** Test the `catch` blocks in `loadPlayerName()`, `savePlayerName()`, `loadPlayerColor()`, `savePlayerColor()` for storage failures (private browsing, quota exceeded)
-- **Tests added:** 4 (SecurityError on getItem, QuotaExceededError on setItem, for both name and color)
+- [x] **Frontend: localStorage error handling tests** — Test the `catch` blocks in `loadPlayerName()`, `savePlayerName()`, `loadPlayerColor()`, `savePlayerColor()` for storage failures (private browsing, quota exceeded). Tests added: 4
+- [x] **Frontend: Client-side cursor position validation** — Clamp cursor positions to [0, 100] on the client side before broadcasting, matching the backend's validation. `updateCursor` now applies `Math.max(0, Math.min(100, ...))` before broadcasting. Tests added: 2
+- [x] **Backend: Edge case tests for validation helpers** — Test `_clamp_float` with Infinity/NaN, `_strip_control_chars` with emoji preservation, `_parse_awareness_state` with invalid UTF-8/bytearray, `_extract_player_state` with empty/list values, partial iteration failures. Bug fix: `_clamp_float` now handles NaN (→ midpoint) and ±Infinity (→ lo/hi) instead of propagating. Tests added: 10
+- [x] **Frontend: Decoration callback null-guard tests** — Test `clearDecorations` when doc is null (inactive state). Tests added: 1
+- [x] **Documentation updates** — Updated INTENT.md, PLANS.md, active execution plan
 
-### 2. Frontend: Client-side cursor position validation
-- **Status:** completed
-- **What:** Clamp cursor positions to [0, 100] on the client side before broadcasting, matching the backend's validation
-- **Code change:** `updateCursor` now applies `Math.max(0, Math.min(100, ...))` before broadcasting
-- **Tests added:** 2 (clamping out-of-range coords, filtering non-numeric cursor coords)
+## Completion criteria
 
-### 3. Backend: Edge case tests for validation helpers
-- **Status:** completed
-- **What:** Test `_clamp_float` with Infinity/NaN, `_strip_control_chars` with emoji preservation, `_parse_awareness_state` with invalid UTF-8/bytearray, `_extract_player_state` with empty/list values, partial iteration failures
-- **Code fix:** `_clamp_float` now handles NaN (→ midpoint) and ±Infinity (→ lo/hi) instead of propagating
-- **Tests added:** 10
-
-### 4. Frontend: Decoration callback null-guard tests
-- **Status:** completed
-- **What:** Test `clearDecorations` when doc is null (inactive state)
-- **Tests added:** 1
-
-### 5. Documentation updates
-- **Status:** completed
-- **What:** Updated INTENT.md, PLANS.md, active execution plan
+- All five task areas above are checked off
+- Frontend and backend tests pass with no regressions
+- `_clamp_float` correctly handles NaN and Infinity inputs
 
 ## Results
 
