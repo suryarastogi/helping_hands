@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import AppOverlays from "./components/AppOverlays";
 import HandWorldScene from "./components/HandWorldScene";
@@ -9,11 +9,20 @@ import TaskListSidebar from "./components/TaskListSidebar";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
+import { useRecentRepos } from "./hooks/useRecentRepos";
 import { useSceneWorkers } from "./hooks/useSceneWorkers";
 import { useSchedules } from "./hooks/useSchedules";
 import { useServiceHealth } from "./hooks/useServiceHealth";
 import { useTaskManager } from "./hooks/useTaskManager";
-import { fetchServerConfig, wsUrl } from "./App.utils";
+import type { Backend } from "./types";
+import {
+  asRecord,
+  BACKEND_OPTIONS,
+  fetchServerConfig,
+  filterEnabledBackends,
+  statusTone,
+  wsUrl,
+} from "./App.utils";
 
 export default function App() {
   const {
@@ -22,6 +31,7 @@ export default function App() {
     setForm,
     taskId,
     status,
+    payload,
     isPolling,
     outputTab,
     setOutputTab,
@@ -73,6 +83,9 @@ export default function App() {
     toggleSchedule,
     cancelScheduleForm,
   } = useSchedules();
+  const { recentRepos } = useRecentRepos();
+  const [enabledBackends, setEnabledBackends] = useState<Backend[]>(BACKEND_OPTIONS);
+  const [showClaudeUsage, setShowClaudeUsage] = useState(true);
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
 
@@ -128,7 +141,7 @@ export default function App() {
     if (mainView === "schedules") void loadSchedules();
   }, [mainView, loadSchedules]);
 
-  // -- Server config (native auth default) ----------------------------------
+  // -- Server config (native auth default, enabled backends) ----------------
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const hasExplicitNativeAuth = params.get("use_native_cli_auth") !== null;
@@ -139,18 +152,41 @@ export default function App() {
           ...current,
           use_native_cli_auth: config.native_auth_default,
         }));
+        const filtered = filterEnabledBackends(BACKEND_OPTIONS, config.enabled_backends);
+        if (filtered.length > 0) {
+          setEnabledBackends(filtered);
+          setForm((current) => {
+            if (!filtered.includes(current.backend)) {
+              return { ...current, backend: filtered[0] };
+            }
+            return current;
+          });
+        }
+        if (config.claude_native_cli_auth === false) {
+          setShowClaudeUsage(false);
+        }
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, [setForm]);
 
+  const taskError = useMemo<{ error: string; errorType: string } | null>(() => {
+    if (statusTone(status) !== "fail") return null;
+    const result = asRecord((payload as Record<string, unknown> | null)?.result);
+    const error = typeof result?.error === "string" ? result.error : null;
+    const errorType = typeof result?.error_type === "string" ? result.error_type : null;
+    if (!error) return null;
+    return { error, errorType: errorType ?? "Error" };
+  }, [status, payload]);
+
   const submissionCard = (
-    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} />
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} />
   );
 
   const monitorCard = (
     <MonitorCard
       taskId={taskId}
       status={status}
+      taskError={taskError}
       isPolling={isPolling}
       outputTab={outputTab}
       onOutputTabChange={setOutputTab}
@@ -175,6 +211,7 @@ export default function App() {
       editingScheduleId={editingScheduleId}
       showScheduleForm={showScheduleForm}
       scheduleError={scheduleError}
+      backends={enabledBackends}
       onUpdateField={updateScheduleField}
       onNewSchedule={openNewScheduleForm}
       onEditSchedule={openEditScheduleForm}
@@ -184,6 +221,7 @@ export default function App() {
       onToggleSchedule={toggleSchedule}
       onCancelForm={cancelScheduleForm}
       onRefresh={loadSchedules}
+      recentRepos={recentRepos}
     />
   );
 
@@ -234,6 +272,7 @@ export default function App() {
           claudeUsage={claudeUsage}
           claudeUsageLoading={claudeUsageLoading}
           onRefreshClaudeUsage={() => void refreshClaudeUsage()}
+          showClaudeUsage={showClaudeUsage}
           floatingNumbers={floatingNumbers}
           decorations={decorations}
           onPlaceDecoration={placeDecoration}
@@ -253,7 +292,7 @@ export default function App() {
               onClick={() => setShowSubmissionOverlay(false)}
               aria-label="Close"
             >
-              ×
+              &times;
             </button>
             {submissionCard}
           </div>

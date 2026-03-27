@@ -54,6 +54,7 @@ class TestParseBackend:
             "goose",
             "geminicli",
             "opencodecli",
+            "devincli",
         ):
             assert _parse_backend(name) == name
 

@@ -31,6 +31,7 @@ class _Stub(_TwoPhaseCLIHand):
         self.config = MagicMock()
         self.config.model = "test-model"
         self.config.verbose = False
+        self._ci_fix_mode = False
 
 
 def _run(coro):

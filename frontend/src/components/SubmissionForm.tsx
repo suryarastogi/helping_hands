@@ -1,30 +1,50 @@
-import type { FormEvent } from "react";
+import { type FormEvent, useMemo } from "react";
 
 import type { Backend, FormState } from "../types";
-import { BACKEND_OPTIONS, backendDisplayName } from "../App.utils";
+import { backendDisplayName, defaultModelForBackend } from "../App.utils";
+import RepoChipInput from "./RepoChipInput";
+import RepoSuggestInput from "./RepoSuggestInput";
 
 export interface SubmissionFormProps {
   form: FormState;
   onFieldChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onSubmit: (event: FormEvent) => void;
+  backends: Backend[];
+  recentRepos?: string[];
 }
 
 export default function SubmissionForm({
   form,
   onFieldChange,
   onSubmit,
+  backends,
+  recentRepos = [],
 }: SubmissionFormProps) {
+  const referenceChips = useMemo(
+    () =>
+      form.reference_repos
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    [form.reference_repos],
+  );
+
+  const setReferenceChips = (repos: string[]) => {
+    onFieldChange("reference_repos", repos.join(", "));
+  };
+
   return (
     <section className="card form-card compact-form">
       <form onSubmit={onSubmit} className="form-grid-compact">
         <div className="form-inline-row">
-          <input
+          <RepoSuggestInput
             className="repo-input"
             value={form.repo_path}
-            onChange={(event) => onFieldChange("repo_path", event.target.value)}
+            onChange={(val) => onFieldChange("repo_path", val)}
+            suggestions={recentRepos}
             required
             placeholder="owner/repo"
-            aria-label="Repository path"
+            ariaLabel="Repository path"
           />
           <input
             className="prompt-input"
@@ -47,7 +67,7 @@ export default function SubmissionForm({
                   value={form.backend}
                   onChange={(event) => onFieldChange("backend", event.target.value as Backend)}
                 >
-                  {BACKEND_OPTIONS.map((backend) => (
+                  {backends.map((backend) => (
                     <option key={backend} value={backend}>
                       {backendDisplayName(backend)}
                     </option>
@@ -59,7 +79,7 @@ export default function SubmissionForm({
                 <input
                   value={form.model}
                   onChange={(event) => onFieldChange("model", event.target.value)}
-                  placeholder="claude-opus-4-6"
+                  placeholder={defaultModelForBackend(form.backend) || "model"}
                 />
               </label>
             </div>
@@ -129,14 +149,6 @@ export default function SubmissionForm({
               <label className="check-row compact-check">
                 <input
                   type="checkbox"
-                  checked={form.use_native_cli_auth}
-                  onChange={(event) => onFieldChange("use_native_cli_auth", event.target.checked)}
-                />
-                Native auth
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
                   checked={form.fix_ci}
                   onChange={(event) => onFieldChange("fix_ci", event.target.checked)}
                 />
@@ -157,11 +169,12 @@ export default function SubmissionForm({
             <div className="row">
               <label>
                 Reference Repos
-                <input
-                  type="text"
-                  value={form.reference_repos}
-                  onChange={(event) => onFieldChange("reference_repos", event.target.value)}
-                  placeholder="owner/repo, owner/repo2 (optional, read-only)"
+                <RepoChipInput
+                  value={referenceChips}
+                  onChange={setReferenceChips}
+                  suggestions={recentRepos}
+                  placeholder="owner/repo (optional, read-only)"
+                  ariaLabel="Reference repos"
                 />
               </label>
             </div>

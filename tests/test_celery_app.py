@@ -218,6 +218,11 @@ class TestNormalizeBackend:
         assert requested == "opencodecli"
         assert runtime == "opencodecli"
 
+    def test_devincli_is_supported(self) -> None:
+        requested, runtime = celery_app._normalize_backend("devincli")
+        assert requested == "devincli"
+        assert runtime == "devincli"
+
     def test_e2e_is_supported(self) -> None:
         requested, runtime = celery_app._normalize_backend("e2e")
         assert requested == "e2e"

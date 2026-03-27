@@ -17,6 +17,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_BASIC_LANGGRAPH,
     BACKEND_CLAUDECODECLI,
     BACKEND_CODEXCLI,
+    BACKEND_DEVINCLI,
     BACKEND_DOCKER_SANDBOX_CLAUDE,
     BACKEND_E2E,
     BACKEND_GEMINICLI,
@@ -80,6 +81,9 @@ class TestBackendNameConstants:
     def test_opencodecli_value(self) -> None:
         assert BACKEND_OPENCODECLI == "opencodecli"
 
+    def test_devincli_value(self) -> None:
+        assert BACKEND_DEVINCLI == "devincli"
+
 
 # ---------------------------------------------------------------------------
 # SUPPORTED_BACKENDS frozenset
@@ -102,11 +106,12 @@ class TestSupportedBackends:
             BACKEND_GOOSE,
             BACKEND_GEMINICLI,
             BACKEND_OPENCODECLI,
+            BACKEND_DEVINCLI,
         }
         assert expected == SUPPORTED_BACKENDS
 
     def test_count(self) -> None:
-        assert len(SUPPORTED_BACKENDS) == 10
+        assert len(SUPPORTED_BACKENDS) == 11
 
     def test_all_strings(self) -> None:
         for name in SUPPORTED_BACKENDS:
@@ -168,6 +173,12 @@ class TestCreateHandCLIBackends:
 
         hand = create_hand(BACKEND_OPENCODECLI, _config, _repo_index)
         assert isinstance(hand, OpenCodeCLIHand)
+
+    def test_devincli(self, _config: Config, _repo_index: RepoIndex) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.devin import DevinCLIHand
+
+        hand = create_hand(BACKEND_DEVINCLI, _config, _repo_index)
+        assert isinstance(hand, DevinCLIHand)
 
 
 class TestCreateHandIterativeBackends:

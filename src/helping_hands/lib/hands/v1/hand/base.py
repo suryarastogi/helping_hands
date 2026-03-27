@@ -384,6 +384,42 @@ class Hand(abc.ABC):
         return os.environ.get("HELPING_HANDS_BASE_BRANCH", _DEFAULT_BASE_BRANCH)
 
     @staticmethod
+    def _working_tree_is_clean(repo_dir: Path) -> bool:
+        """Return True only when git status ran successfully and is empty.
+
+        Returns False on any error (e.g. not a git repo), so callers can
+        safely fall through to the normal commit path.
+        """
+        try:
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GIT_READ_TIMEOUT_S,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return False
+        if result.returncode != 0:
+            return False
+        return not result.stdout.strip()
+
+    def _has_pending_changes(self, repo_dir: Path) -> bool:
+        """Check whether the repo has uncommitted changes.
+
+        Subclasses (e.g. ``_TwoPhaseCLIHand``) override this to also
+        detect commits made by the backend itself.
+
+        Args:
+            repo_dir: Path to the repository working directory.
+
+        Returns:
+            True if there are staged/unstaged changes to commit.
+        """
+        return bool(self._run_git_read(repo_dir, "status", "--porcelain"))
+
+    @staticmethod
     def _run_git_read(repo_dir: Path, *args: str) -> str:
         """Run a read-only git command and return its stripped stdout.
 
@@ -790,23 +826,26 @@ class Hand(abc.ABC):
         base_branch = str(pr_info["base"])
         pr_url = str(pr_info["url"])
 
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            generate_commit_message,
-        )
+        if self._working_tree_is_clean(repo_dir):
+            commit_sha = self._run_git_read(repo_dir, "rev-parse", "--short", "HEAD")
+        else:
+            from helping_hands.lib.hands.v1.hand.pr_description import (
+                generate_commit_message,
+            )
 
-        commit_msg = generate_commit_message(
-            cmd=self._pr_description_cmd(),
-            repo_dir=repo_dir,
-            backend=backend,
-            prompt=prompt,
-            summary=summary,
-        ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
+            commit_msg = generate_commit_message(
+                cmd=self._pr_description_cmd(),
+                repo_dir=repo_dir,
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+            ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
-        commit_sha = self._add_and_commit_with_hook_retry(
-            gh,
-            repo_dir,
-            commit_msg,
-        )
+            commit_sha = self._add_and_commit_with_hook_retry(
+                gh,
+                repo_dir,
+                commit_msg,
+            )
 
         try:
             self._push_noninteractive(gh, repo_dir, branch)
@@ -1040,23 +1079,28 @@ class Hand(abc.ABC):
         branch = f"{_BRANCH_PREFIX}{backend}-{uuid4().hex[:_UUID_HEX_LENGTH]}"
         gh.create_branch(repo_dir, branch)
 
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            generate_commit_message,
-        )
+        # If the backend already committed (clean tree but HEAD advanced),
+        # skip add+commit and use the existing HEAD SHA.
+        if self._working_tree_is_clean(repo_dir):
+            commit_sha = self._run_git_read(repo_dir, "rev-parse", "--short", "HEAD")
+        else:
+            from helping_hands.lib.hands.v1.hand.pr_description import (
+                generate_commit_message,
+            )
 
-        commit_msg = generate_commit_message(
-            cmd=self._pr_description_cmd(),
-            repo_dir=repo_dir,
-            backend=backend,
-            prompt=prompt,
-            summary=summary,
-        ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
+            commit_msg = generate_commit_message(
+                cmd=self._pr_description_cmd(),
+                repo_dir=repo_dir,
+                backend=backend,
+                prompt=prompt,
+                summary=summary,
+            ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
-        commit_sha = self._add_and_commit_with_hook_retry(
-            gh,
-            repo_dir,
-            commit_msg,
-        )
+            commit_sha = self._add_and_commit_with_hook_retry(
+                gh,
+                repo_dir,
+                commit_msg,
+            )
         self._push_noninteractive(gh, repo_dir, branch)
 
         base_branch = self._default_base_branch()
@@ -1132,8 +1176,7 @@ class Hand(abc.ABC):
             metadata[_META_PR_STATUS] = PRStatus.NOT_GIT_REPO
             return None
 
-        has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
-        if not has_changes:
+        if not self._has_pending_changes(repo_dir):
             metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
             return None
 
@@ -1149,8 +1192,7 @@ class Hand(abc.ABC):
                 metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
                 metadata[_META_PR_ERROR] = str(exc)
                 return None
-            has_changes = self._run_git_read(repo_dir, "status", "--porcelain")
-            if not has_changes:
+            if not self._has_pending_changes(repo_dir):
                 metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
                 return None
 

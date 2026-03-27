@@ -311,6 +311,108 @@ button.submit-inline {
   border-radius: 8px;
 }
 
+/* --- Repo suggest / chip input --- */
+
+.repo-suggest-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.form-inline-row .repo-suggest-wrapper {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.repo-chip-wrapper {
+  position: relative;
+}
+
+.repo-chip-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg, #0b1326);
+  cursor: text;
+}
+
+.repo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent-soft, rgba(99, 102, 241, 0.18));
+  border: 1px solid var(--accent, #6366f1);
+  color: var(--fg);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.repo-chip-remove {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  opacity: 0.6;
+  padding: 0 1px;
+}
+
+.repo-chip-remove:hover {
+  opacity: 1;
+}
+
+.repo-chip-input {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font-size: 0.8rem;
+  padding: 2px 0;
+}
+
+.repo-chip-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--card-bg, #0f1729);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.repo-chip-dropdown-up {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 2px;
+}
+
+.repo-chip-option {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--fg);
+}
+
+.repo-chip-option.highlighted {
+  background: var(--accent-soft, rgba(99, 102, 241, 0.18));
+}
+
 /* --- Compact monitor --- */
 
 .compact-monitor {
@@ -344,6 +446,29 @@ h2.monitor-title {
   margin: 0;
   font-size: 0.88rem;
   white-space: nowrap;
+}
+
+.task-error-banner {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: var(--danger-soft);
+  color: #fca5a5;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.task-error-banner strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #fecaca;
+}
+
+.task-error-banner code {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: #fca5a5;
 }
 
 pre.monitor-output {

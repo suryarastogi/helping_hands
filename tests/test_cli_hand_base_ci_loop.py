@@ -24,6 +24,7 @@ class _Stub(_TwoPhaseCLIHand):
         self._interrupt_event = MagicMock()
         self._interrupt_event.is_set.return_value = False
         self._active_process = None
+        self._ci_fix_mode = False
         self.fix_ci = fix_ci
         self.ci_check_wait_minutes = 0.001  # near-instant for tests
         self.ci_max_retries = 2
@@ -184,6 +185,11 @@ class TestCiFixLoopConclusions:
             ),
             patch.object(stub, "_invoke_backend", new=AsyncMock(return_value="")),
             patch.object(stub, "_repo_has_changes", return_value=False),
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_fetch_failed_check_logs",
+                return_value="",
+            ),
         ):
             result = _run(stub._ci_fix_loop(prompt="p", metadata=meta, emit=emit))
         assert result["ci_fix_status"] == "exhausted"
@@ -226,6 +232,11 @@ class TestCiFixLoopConclusions:
             patch.object(stub, "_invoke_backend", new=AsyncMock(return_value="")),
             patch.object(stub, "_repo_has_changes", return_value=True),
             patch.object(_TwoPhaseCLIHand, "_push_noninteractive", return_value=None),
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_fetch_failed_check_logs",
+                return_value="",
+            ),
         ):
             mock_gh.add_and_commit = MagicMock(return_value="newsha123")
             result = _run(stub._ci_fix_loop(prompt="p", metadata=meta, emit=emit))
@@ -293,6 +304,11 @@ class TestCiFixLoopInterrupt:
                 stub, "_poll_ci_checks", new=AsyncMock(return_value=poll_result)
             ),
             patch.object(stub, "_invoke_backend", new=AsyncMock(return_value="")),
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_fetch_failed_check_logs",
+                return_value="",
+            ),
         ):
             result = _run(
                 stub._ci_fix_loop(prompt="p", metadata=meta, emit=_noop_emit())

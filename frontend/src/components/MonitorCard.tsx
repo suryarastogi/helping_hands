@@ -17,6 +17,7 @@ import {
 export interface MonitorCardProps {
   taskId: string | null;
   status: string;
+  taskError: { error: string; errorType: string } | null;
   isPolling: boolean;
   outputTab: OutputTab;
   onOutputTabChange: (tab: OutputTab) => void;
@@ -36,6 +37,7 @@ export interface MonitorCardProps {
 export default function MonitorCard({
   taskId,
   status,
+  taskError,
   isPolling,
   outputTab,
   onOutputTabChange,
@@ -189,6 +191,12 @@ export default function MonitorCard({
               api: ${accUsage.totalCost.toFixed(4)}, {Math.round(accUsage.totalSeconds)}s, in={accUsage.totalIn.toLocaleString()} out={accUsage.totalOut.toLocaleString()}
             </span>
           )}
+        </div>
+      )}
+      {taskError && (
+        <div className="task-error-banner">
+          <strong>{taskError.errorType}</strong>
+          <code>{taskError.error}</code>
         </div>
       )}
       <pre

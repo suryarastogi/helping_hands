@@ -1,7 +1,9 @@
-import type { FormEvent } from "react";
+import { type FormEvent, useMemo } from "react";
 
-import { BACKEND_OPTIONS, backendDisplayName, CRON_PRESETS } from "../App.utils";
+import { backendDisplayName, CRON_PRESETS, defaultModelForBackend } from "../App.utils";
 import type { Backend, ScheduleFormState, ScheduleItem } from "../types";
+import RepoChipInput from "./RepoChipInput";
+import RepoSuggestInput from "./RepoSuggestInput";
 
 export interface ScheduleCardProps {
   schedules: ScheduleItem[];
@@ -21,6 +23,8 @@ export interface ScheduleCardProps {
   onToggleSchedule: (scheduleId: string, enable: boolean) => Promise<void>;
   onCancelForm: () => void;
   onRefresh: () => Promise<void>;
+  backends: Backend[];
+  recentRepos?: string[];
 }
 
 function ScheduleFormFields({
@@ -29,10 +33,25 @@ function ScheduleFormFields({
   onUpdateField,
   onSaveSchedule,
   onCancelForm,
+  backends,
+  recentRepos = [],
 }: Pick<
   ScheduleCardProps,
-  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm"
+  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm" | "backends" | "recentRepos"
 >) {
+  const referenceChips = useMemo(
+    () =>
+      scheduleForm.reference_repos
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    [scheduleForm.reference_repos],
+  );
+
+  const setReferenceChips = (repos: string[]) => {
+    onUpdateField("reference_repos", repos.join(", "));
+  };
+
   return (
     <form onSubmit={onSaveSchedule} className="form-grid" style={{ marginTop: 0 }}>
       <label>
@@ -82,11 +101,13 @@ function ScheduleFormFields({
 
       <label>
         Repo path (owner/repo)
-        <input
+        <RepoSuggestInput
           value={scheduleForm.repo_path}
-          onChange={(e) => onUpdateField("repo_path", e.target.value)}
+          onChange={(val) => onUpdateField("repo_path", val)}
+          suggestions={recentRepos}
           required
           placeholder="owner/repo"
+          ariaLabel="Schedule repo path"
         />
       </label>
 
@@ -111,7 +132,7 @@ function ScheduleFormFields({
                 value={scheduleForm.backend}
                 onChange={(e) => onUpdateField("backend", e.target.value as Backend)}
               >
-                {BACKEND_OPTIONS.map((b) => (
+                {backends.map((b) => (
                   <option key={b} value={b}>{backendDisplayName(b)}</option>
                 ))}
               </select>
@@ -121,7 +142,7 @@ function ScheduleFormFields({
               <input
                 value={scheduleForm.model}
                 onChange={(e) => onUpdateField("model", e.target.value)}
-                placeholder="claude-opus-4-6"
+                placeholder={defaultModelForBackend(scheduleForm.backend) || "model"}
               />
             </label>
           </div>
@@ -191,14 +212,6 @@ function ScheduleFormFields({
             <label className="check-row">
               <input
                 type="checkbox"
-                checked={scheduleForm.use_native_cli_auth}
-                onChange={(e) => onUpdateField("use_native_cli_auth", e.target.checked)}
-              />
-              Native auth
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
                 checked={scheduleForm.fix_ci}
                 onChange={(e) => onUpdateField("fix_ci", e.target.checked)}
               />
@@ -227,11 +240,12 @@ function ScheduleFormFields({
           <div className="row">
             <label>
               Reference Repos
-              <input
-                type="text"
-                value={scheduleForm.reference_repos}
-                onChange={(e) => onUpdateField("reference_repos", e.target.value)}
-                placeholder="owner/repo, owner/repo2 (optional, read-only)"
+              <RepoChipInput
+                value={referenceChips}
+                onChange={setReferenceChips}
+                suggestions={recentRepos}
+                placeholder="owner/repo (optional, read-only)"
+                ariaLabel="Schedule reference repos"
               />
             </label>
           </div>
@@ -260,6 +274,7 @@ export default function ScheduleCard({
   editingScheduleId,
   showScheduleForm,
   scheduleError,
+  backends,
   onUpdateField,
   onNewSchedule,
   onEditSchedule,
@@ -269,6 +284,7 @@ export default function ScheduleCard({
   onToggleSchedule,
   onCancelForm,
   onRefresh,
+  recentRepos = [],
 }: ScheduleCardProps) {
   const formFieldsProps = {
     scheduleForm,
@@ -276,6 +292,8 @@ export default function ScheduleCard({
     onUpdateField,
     onSaveSchedule,
     onCancelForm,
+    backends,
+    recentRepos,
   };
 
   return (

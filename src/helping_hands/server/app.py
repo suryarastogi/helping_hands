@@ -32,6 +32,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_BASIC_LANGGRAPH,
     BACKEND_CLAUDECODECLI,
     BACKEND_CODEXCLI,
+    BACKEND_DEVINCLI,
     BACKEND_DOCKER_SANDBOX_CLAUDE,
     BACKEND_E2E,
     BACKEND_GEMINICLI,
@@ -253,6 +254,7 @@ BackendName = Literal[
     "basic-agent",
     "codexcli",
     "claudecodecli",
+    "devincli",
     "docker-sandbox-claude",
     "goose",
     "geminicli",
@@ -344,6 +346,8 @@ class ServerConfig(BaseModel):
 
     in_docker: bool
     native_auth_default: bool
+    enabled_backends: list[str]
+    claude_native_cli_auth: bool
 
 
 # --- Scheduled Task Models ---
@@ -620,6 +624,7 @@ _BACKEND_LOOKUP: dict[str, BackendName] = {
     BACKEND_GOOSE: "goose",
     BACKEND_GEMINICLI: "geminicli",
     BACKEND_OPENCODECLI: "opencodecli",
+    BACKEND_DEVINCLI: "devincli",
 }
 assert _TERMINAL_TASK_STATES.isdisjoint(_CURRENT_TASK_STATES), (
     "_TERMINAL_TASK_STATES and _CURRENT_TASK_STATES must be disjoint"
@@ -1057,6 +1062,26 @@ _UI_HTML = """<!doctype html>
         line-height: 1.45;
         white-space: pre;
       }
+      .task-error-banner {
+        margin: 0 0 8px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        background: var(--danger-soft);
+        color: #fca5a5;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+      .task-error-banner strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #fecaca;
+      }
+      .task-error-banner code {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: #fca5a5;
+      }
       .prefix-filters {
         display: flex;
         align-items: center;
@@ -1228,6 +1253,45 @@ _UI_HTML = """<!doctype html>
         from { opacity: 0; transform: translateX(100%); }
         to { opacity: 1; transform: translateX(0); }
       }
+      /* --- Repo suggest / chip input --- */
+      .repo-suggest-wrapper { position: relative; }
+      .repo-chip-wrapper { position: relative; }
+      .repo-chip-container {
+        display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+        padding: 4px 8px; min-height: 34px;
+        border: 1px solid #2a3553; border-radius: 8px;
+        background: #0d1527; cursor: text;
+      }
+      .repo-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 8px; border-radius: 6px;
+        background: rgba(99,102,241,0.18); border: 1px solid #6366f1;
+        font-size: 0.82rem; white-space: nowrap;
+      }
+      .repo-chip-remove {
+        all: unset; cursor: pointer; font-size: 0.85rem;
+        line-height: 1; opacity: 0.6; padding: 0 1px;
+      }
+      .repo-chip-remove:hover { opacity: 1; }
+      .repo-chip-input-el {
+        flex: 1; min-width: 80px; border: none; outline: none;
+        background: transparent; color: #e2e8f0; font-size: 0.82rem; padding: 2px 0;
+      }
+      .repo-dropdown {
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+        margin: 2px 0 0; padding: 4px 0; list-style: none;
+        background: #0f1729; border: 1px solid #2a3553; border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4); max-height: 200px; overflow-y: auto;
+      }
+      .repo-dropdown-up {
+        top: auto; bottom: 100%; margin: 0 0 2px;
+      }
+      .repo-dropdown li {
+        padding: 6px 10px; font-size: 0.82rem; cursor: pointer;
+      }
+      .repo-dropdown li.highlighted {
+        background: rgba(99,102,241,0.18);
+      }
     </style>
   </head>
   <body>
@@ -1271,12 +1335,16 @@ _UI_HTML = """<!doctype html>
           <form id="run-form" method="post" action="/build/form" class="form-grid">
             <label for="repo_path">
               Repo path (owner/repo)
-              <input
-                id="repo_path"
-                name="repo_path"
-                value="suryarastogi/helping_hands"
-                required
-              />
+              <div class="repo-suggest-wrapper">
+                <input
+                  id="repo_path"
+                  name="repo_path"
+                  value="suryarastogi/helping_hands"
+                  required
+                  autocomplete="off"
+                />
+                <ul id="repo_path_dropdown" class="repo-dropdown" style="display:none"></ul>
+              </div>
             </label>
 
             <label for="prompt">
@@ -1301,6 +1369,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                       <option value="goose">goose</option>
                       <option value="geminicli">geminicli</option>
                       <option value="opencodecli">opencodecli</option>
+                      <option value="devincli">devincli</option>
                     </select>
                   </label>
 
@@ -1386,8 +1455,14 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                   </label>
                 </div>
                 <div class="row">
-                  <label for="reference_repos">Reference Repos
-                    <input id="reference_repos" name="reference_repos" type="text" placeholder="owner/repo, owner/repo2 (optional, read-only)" />
+                  <label>Reference Repos
+                    <div class="repo-chip-wrapper" id="ref_repos_wrapper">
+                      <div class="repo-chip-container" id="ref_repos_chips">
+                        <input class="repo-chip-input-el" id="ref_repos_input" placeholder="owner/repo (optional, read-only)" autocomplete="off" />
+                      </div>
+                      <ul id="ref_repos_dropdown" class="repo-dropdown repo-dropdown-up" style="display:none"></ul>
+                    </div>
+                    <input id="reference_repos" name="reference_repos" type="hidden" />
                   </label>
                 </div>
               </div>
@@ -1450,6 +1525,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                 style="font-size:0.7rem;padding:2px 8px;" title="Copy output to clipboard">Copy</button>
             </div>
             <div id="prefix_filters" class="prefix-filters" style="display:none;"></div>
+            <div id="task_error_banner" class="task-error-banner" style="display:none;">
+              <strong id="task_error_type"></strong>
+              <code id="task_error_msg"></code>
+            </div>
             <pre id="output_text">No updates yet.</pre>
           </article>
         </section>
@@ -1518,7 +1597,10 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
 
               <label for="schedule_repo">
                 Repo path (owner/repo)
-                <input id="schedule_repo" name="repo_path" required placeholder="owner/repo" />
+                <div class="repo-suggest-wrapper">
+                  <input id="schedule_repo" name="repo_path" required placeholder="owner/repo" autocomplete="off" />
+                  <ul id="schedule_repo_dropdown" class="repo-dropdown" style="display:none"></ul>
+                </div>
               </label>
 
               <label for="schedule_prompt">
@@ -1540,6 +1622,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                         <option value="goose">goose</option>
                         <option value="geminicli">geminicli</option>
                         <option value="opencodecli">opencodecli</option>
+                        <option value="devincli">devincli</option>
                       </select>
                     </label>
                     <label for="schedule_model">
@@ -1571,8 +1654,14 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     </label>
                   </div>
                   <div class="row">
-                    <label for="schedule_reference_repos">Reference Repos
-                      <input id="schedule_reference_repos" name="reference_repos" type="text" placeholder="owner/repo, owner/repo2 (optional, read-only)" />
+                    <label>Reference Repos
+                      <div class="repo-chip-wrapper" id="sched_ref_repos_wrapper">
+                        <div class="repo-chip-container" id="sched_ref_repos_chips">
+                          <input class="repo-chip-input-el" id="sched_ref_repos_input" placeholder="owner/repo (optional, read-only)" autocomplete="off" />
+                        </div>
+                        <ul id="sched_ref_repos_dropdown" class="repo-dropdown repo-dropdown-up" style="display:none"></ul>
+                      </div>
+                      <input id="schedule_reference_repos" name="reference_repos" type="hidden" />
                     </label>
                   </div>
                 </div>
@@ -1589,6 +1678,135 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
     </main>
 
     <script>
+      // --- Recent repos (localStorage) ---
+      const RECENT_REPOS_KEY = "hh_recent_repos";
+      const MAX_RECENT = 20;
+      function loadRecentRepos() {
+        try { const r = JSON.parse(localStorage.getItem(RECENT_REPOS_KEY) || "[]"); return Array.isArray(r) ? r.filter(s => typeof s === "string") : []; }
+        catch { return []; }
+      }
+      function saveRecentRepos(repos) {
+        try { localStorage.setItem(RECENT_REPOS_KEY, JSON.stringify(repos)); } catch {}
+      }
+      function addRecentRepo(repo) {
+        const t = repo.trim();
+        if (!t) return;
+        const prev = loadRecentRepos();
+        const next = [t, ...prev.filter(r => r !== t)].slice(0, MAX_RECENT);
+        saveRecentRepos(next);
+      }
+
+      // --- Suggest dropdown for single-value repo inputs ---
+      function setupRepoSuggest(inputEl, dropdownEl) {
+        let hlIdx = -1;
+        function getFiltered() {
+          const val = inputEl.value.trim().toLowerCase();
+          const all = loadRecentRepos();
+          return val ? all.filter(s => s.toLowerCase().includes(val)) : all;
+        }
+        function render() {
+          const items = getFiltered().slice(0, 8);
+          if (items.length === 0) { dropdownEl.style.display = "none"; return; }
+          dropdownEl.innerHTML = items.map((r, i) =>
+            `<li class="${i === hlIdx ? "highlighted" : ""}">${escapeHtml(r)}</li>`
+          ).join("");
+          dropdownEl.style.display = "";
+          dropdownEl.querySelectorAll("li").forEach((li, i) => {
+            li.addEventListener("mousedown", e => { e.preventDefault(); inputEl.value = items[i]; dropdownEl.style.display = "none"; hlIdx = -1; });
+            li.addEventListener("mouseenter", () => { hlIdx = i; render(); });
+          });
+        }
+        inputEl.addEventListener("input", () => { hlIdx = -1; render(); });
+        inputEl.addEventListener("focus", () => render());
+        inputEl.addEventListener("keydown", e => {
+          const items = getFiltered().slice(0, 8);
+          if (e.key === "ArrowDown") { e.preventDefault(); hlIdx = Math.min(hlIdx + 1, items.length - 1); render(); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); hlIdx = Math.max(hlIdx - 1, -1); render(); }
+          else if (e.key === "Enter" && hlIdx >= 0 && hlIdx < items.length) { e.preventDefault(); inputEl.value = items[hlIdx]; dropdownEl.style.display = "none"; hlIdx = -1; }
+          else if (e.key === "Escape") { dropdownEl.style.display = "none"; hlIdx = -1; }
+        });
+        document.addEventListener("mousedown", e => { if (!inputEl.parentElement.contains(e.target)) { dropdownEl.style.display = "none"; hlIdx = -1; } });
+      }
+
+      // --- Chip input for reference repos ---
+      function setupChipInput(containerEl, inputEl, dropdownEl, hiddenEl) {
+        let chips = [];
+        let hlIdx = -1;
+
+        function syncHidden() {
+          hiddenEl.value = chips.join(", ");
+        }
+        function getFiltered() {
+          const val = inputEl.value.trim().toLowerCase();
+          const all = loadRecentRepos().filter(r => !chips.includes(r));
+          return val ? all.filter(s => s.toLowerCase().includes(val)) : all;
+        }
+        function renderChips() {
+          // Remove existing chip elements
+          containerEl.querySelectorAll(".repo-chip").forEach(el => el.remove());
+          chips.forEach(repo => {
+            const span = document.createElement("span");
+            span.className = "repo-chip";
+            span.textContent = repo;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "repo-chip-remove";
+            btn.textContent = "\u00d7";
+            btn.addEventListener("click", e => { e.stopPropagation(); chips = chips.filter(r => r !== repo); renderChips(); syncHidden(); });
+            span.appendChild(btn);
+            containerEl.insertBefore(span, inputEl);
+          });
+          inputEl.placeholder = chips.length === 0 ? "owner/repo (optional, read-only)" : "";
+          syncHidden();
+        }
+        function renderDropdown() {
+          const items = getFiltered().slice(0, 8);
+          if (items.length === 0) { dropdownEl.style.display = "none"; return; }
+          dropdownEl.innerHTML = items.map((r, i) =>
+            `<li class="${i === hlIdx ? "highlighted" : ""}">${escapeHtml(r)}</li>`
+          ).join("");
+          dropdownEl.style.display = "";
+          dropdownEl.querySelectorAll("li").forEach((li, i) => {
+            li.addEventListener("mousedown", e => { e.preventDefault(); addChip(items[i]); });
+            li.addEventListener("mouseenter", () => { hlIdx = i; renderDropdown(); });
+          });
+        }
+        function addChip(repo) {
+          const t = repo.trim();
+          if (!t || chips.includes(t)) return;
+          chips.push(t);
+          inputEl.value = "";
+          hlIdx = -1;
+          renderChips();
+          renderDropdown();
+        }
+
+        containerEl.addEventListener("click", () => inputEl.focus());
+        inputEl.addEventListener("input", () => { hlIdx = -1; renderDropdown(); });
+        inputEl.addEventListener("focus", () => renderDropdown());
+        inputEl.addEventListener("keydown", e => {
+          const items = getFiltered().slice(0, 8);
+          if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+            if (hlIdx >= 0 && hlIdx < items.length) { e.preventDefault(); addChip(items[hlIdx]); return; }
+            if (inputEl.value.trim()) { e.preventDefault(); addChip(inputEl.value); return; }
+            if (e.key === "Tab") return;
+          }
+          if (e.key === "Backspace" && !inputEl.value && chips.length > 0) { chips.pop(); renderChips(); renderDropdown(); }
+          if (e.key === "ArrowDown") { e.preventDefault(); hlIdx = Math.min(hlIdx + 1, items.length - 1); renderDropdown(); }
+          if (e.key === "ArrowUp") { e.preventDefault(); hlIdx = Math.max(hlIdx - 1, -1); renderDropdown(); }
+          if (e.key === "Escape") { dropdownEl.style.display = "none"; hlIdx = -1; }
+        });
+        document.addEventListener("mousedown", e => {
+          if (!containerEl.parentElement.contains(e.target)) { dropdownEl.style.display = "none"; hlIdx = -1; }
+        });
+
+        // Public API to set chips programmatically (e.g. from query params or schedule edit)
+        return {
+          setChips(arr) { chips = [...arr]; renderChips(); },
+          getChips() { return [...chips]; },
+        };
+      }
+
       const form = document.getElementById("run-form");
       const submissionView = document.getElementById("submission-view");
       const monitorView = document.getElementById("monitor-view");
@@ -1619,6 +1837,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
       let discoveryHandle = null;
       const prefixFilters = {};
       const prefixFiltersEl = document.getElementById("prefix_filters");
+      const errorBannerEl = document.getElementById("task_error_banner");
+      const errorTypeEl = document.getElementById("task_error_type");
+      const errorMsgEl = document.getElementById("task_error_msg");
       const PREFIX_RE = new RegExp("^\\\\[([^\\\\]]+)\\\\]");
       let runtimeHandle = null;
       let startedAtMs = null;
@@ -1702,6 +1923,18 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
 
       function setOutput(value) {
         payloadData = value;
+        // Show error banner for failed tasks
+        const result = value && value.result;
+        const isFail = statusTone(status) === "fail";
+        const errorStr = result && typeof result.error === "string" ? result.error : null;
+        const errorType = result && typeof result.error_type === "string" ? result.error_type : null;
+        if (isFail && errorStr) {
+          errorTypeEl.textContent = errorType || "Error";
+          errorMsgEl.textContent = errorStr;
+          errorBannerEl.style.display = "";
+        } else {
+          errorBannerEl.style.display = "none";
+        }
         // incremental usage accumulation from payload
         const payloadUpdates = (value && value.result && Array.isArray(value.result.updates))
           ? value.result.updates.map((item) => String(item)) : [];
@@ -2253,7 +2486,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         const referenceReposParam = params.get("reference_repos");
         if (referenceReposParam) {
-          document.getElementById("reference_repos").value = referenceReposParam;
+          refReposChip.setChips(referenceReposParam.split(",").map(s => s.trim()).filter(s => s.length > 0));
         }
         if (error) {
           setStatus("error");
@@ -2301,6 +2534,22 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           // Best effort only.
         }
       }
+
+      // Initialize suggest dropdowns and chip inputs
+      setupRepoSuggest(document.getElementById("repo_path"), document.getElementById("repo_path_dropdown"));
+      setupRepoSuggest(document.getElementById("schedule_repo"), document.getElementById("schedule_repo_dropdown"));
+      const refReposChip = setupChipInput(
+        document.getElementById("ref_repos_chips"),
+        document.getElementById("ref_repos_input"),
+        document.getElementById("ref_repos_dropdown"),
+        document.getElementById("reference_repos"),
+      );
+      const schedRefReposChip = setupChipInput(
+        document.getElementById("sched_ref_repos_chips"),
+        document.getElementById("sched_ref_repos_input"),
+        document.getElementById("sched_ref_repos_dropdown"),
+        document.getElementById("schedule_reference_repos"),
+      );
 
       applyQueryDefaults();
       renderTaskHistory();
@@ -2463,6 +2712,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
             backend: data.backend,
             repoPath,
           });
+          // Remember repos for autocomplete
+          addRecentRepo(repoPath);
+          for (const r of refReposChip.getChips()) { addRecentRepo(r); }
           startPolling(data.task_id);
         } catch (err) {
           setStatus("error");
@@ -2507,12 +2759,14 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         scheduleForm.reset();
         document.getElementById("schedule_id").value = "";
         document.getElementById("schedule_enabled").checked = true;
+        schedRefReposChip.setChips([]);
         scheduleFormContainer.classList.remove("is-hidden");
       });
 
       scheduleCancelBtn.addEventListener("click", () => {
         scheduleFormContainer.classList.add("is-hidden");
         scheduleForm.reset();
+        schedRefReposChip.setChips([]);
       });
 
       refreshSchedulesBtn.addEventListener("click", loadSchedules);
@@ -2611,6 +2865,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
             throw new Error(err.detail || "Failed to save schedule");
           }
           scheduleFormContainer.classList.add("is-hidden");
+          // Remember repos for autocomplete
+          addRecentRepo(payload.repo_path);
+          for (const r of schedRefReposChip.getChips()) { addRecentRepo(r); }
           loadSchedules();
         } catch (err) {
           alert("Error: " + err.message);
@@ -2635,7 +2892,7 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           document.getElementById("schedule_enabled").checked = s.enabled;
           document.getElementById("schedule_fix_ci").checked = s.fix_ci || false;
           document.getElementById("schedule_github_token").value = s.github_token || "";
-          document.getElementById("schedule_reference_repos").value = (s.reference_repos || []).join(", ");
+          schedRefReposChip.setChips(s.reference_repos || []);
 
           scheduleFormTitle.textContent = "Edit schedule";
           scheduleSubmitBtn.textContent = "Update schedule";
@@ -2853,8 +3110,16 @@ def _is_running_in_docker() -> bool:
 @app.get("/config", response_model=ServerConfig)
 def get_server_config() -> ServerConfig:
     """Return runtime configuration used to seed frontend defaults."""
+    from helping_hands.lib.hands.v1.hand.factory import get_enabled_backends
+
     in_docker = _is_running_in_docker()
-    return ServerConfig(in_docker=in_docker, native_auth_default=not in_docker)
+    claude_native = _is_truthy_env("HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH")
+    return ServerConfig(
+        in_docker=in_docker,
+        native_auth_default=not in_docker,
+        enabled_backends=get_enabled_backends(),
+        claude_native_cli_auth=claude_native,
+    )
 
 
 def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
@@ -3529,7 +3794,7 @@ def enqueue_build(req: BuildRequest) -> BuildResponse:
 
     Supports E2E and iterative backends (`basic-langgraph`, `basic-atomic`,
     `basic-agent`) plus CLI-driven backends (`codexcli`, `claudecodecli`,
-    `goose`, `geminicli`, `opencodecli`) using CLI-equivalent backend options.
+    `goose`, `geminicli`, `opencodecli`, `devincli`) using CLI-equivalent backend options.
     """
     return _enqueue_build_task(req)
 

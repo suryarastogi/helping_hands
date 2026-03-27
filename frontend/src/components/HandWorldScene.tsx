@@ -82,6 +82,7 @@ export type HandWorldSceneProps = {
   claudeUsage: ClaudeUsageResponse | null;
   claudeUsageLoading: boolean;
   onRefreshClaudeUsage: () => void;
+  showClaudeUsage?: boolean;
 
   // -- Floating numbers --
   floatingNumbers: FloatingNumber[];
@@ -128,6 +129,7 @@ export default function HandWorldScene({
   claudeUsage,
   claudeUsageLoading,
   onRefreshClaudeUsage,
+  showClaudeUsage = true,
   floatingNumbers,
   decorations,
   onPlaceDecoration,
@@ -286,6 +288,7 @@ export default function HandWorldScene({
           onSelectedDecoEmojiChange={setSelectedDecoEmoji}
         />
 
+        {showClaudeUsage && (
         <div className="zen-usage-summary">
           <div className="status-summary-header">
             Claude Usage
@@ -325,6 +328,7 @@ export default function HandWorldScene({
             </div>
           )}
         </div>
+        )}
 
         <PlayerAvatar
           direction={playerDirection}

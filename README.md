@@ -20,7 +20,7 @@
 
 - **CLI mode** (default) — Run `helping-hands <repo>` (local path) or `helping-hands <owner/repo>` (auto-clones to a temp workspace, cleaned up on exit). You can index only, or run iterative backends plus external-CLI backends with streamed output:
   - iterative: `basic-langgraph` (requires `--extra langchain`), `basic-atomic` / `basic-agent` (require `--extra atomic`)
-  - external CLI: `codexcli`, `claudecodecli`, `docker-sandbox-claude`, `goose`, `geminicli`, `opencodecli`
+  - external CLI: `codexcli`, `claudecodecli`, `docker-sandbox-claude`, `goose`, `geminicli`, `opencodecli`, `devincli`
 - **App mode** — Runs a FastAPI server plus a worker stack (Celery, Redis, Postgres) so jobs run asynchronously and on a schedule (cron). Includes Flower for queue monitoring. Use when you want a persistent service, queued or scheduled repo-building tasks, or a UI.
 
 ### Execution flow
@@ -105,6 +105,9 @@ uv run helping-hands owner/repo --backend goose --prompt "Implement X"
 
 # Run OpenCode CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend opencodecli --model litellm/claude-sonnet-4-6 --prompt "Implement X"
+
+# Run Devin CLI backend (two-phase: initialize repo context, then execute task)
+uv run helping-hands owner/repo --backend devincli --prompt "Implement X"
 
 # Disable final commit/push/PR step explicitly
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
@@ -418,10 +421,11 @@ Key CLI flags:
 - `--backend goose` — run Goose CLI backend (initialize/learn repo, then execute task)
 - `--backend geminicli` — run Gemini CLI backend (initialize/learn repo, then execute task)
 - `--backend opencodecli` — run OpenCode CLI backend (initialize/learn repo, then execute task)
+- `--backend devincli` — run Devin CLI backend (initialize/learn repo, then execute task)
 - `--max-iterations N` — cap iterative hand loops
 - `--no-pr` — disable final commit/push/PR side effects
 - `--e2e` and `--pr-number` — run E2E flow and optionally resume existing PR
-- `--use-native-cli-auth` — for `codexcli`/`claudecodecli`, ignore provider API key env vars and rely on local CLI auth/session
+- `--use-native-cli-auth` — for `codexcli`/`claudecodecli`/`devincli`, ignore provider API key env vars and rely on local CLI auth/session
 
 ### Backend environment variables
 
@@ -575,17 +579,22 @@ ANTHROPIC_API_KEY=sk-ant-... uv run helping-hands owner/repo --backend docker-sa
 
 Goose backend notes:
 
-- **Env vars:** Depends on `GOOSE_PROVIDER` — `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama, default). Always requires `GH_TOKEN` or `GITHUB_TOKEN`.
+- **Env vars:** Depends on `GOOSE_PROVIDER` — `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `GOOGLE_API_KEY` (google), or `OLLAMA_HOST`/`OLLAMA_API_KEY` (ollama). Always requires `GH_TOKEN` or `GITHUB_TOKEN`.
 - Default command: `goose run --with-builtin developer --text`
 - Override command via `HELPING_HANDS_GOOSE_CLI_CMD`
 - The backend auto-adds `--with-builtin developer` for `goose run` commands if
   missing, so local file editing tools are available.
-- Provider/model are auto-injected for automation:
-  - `GOOSE_PROVIDER` and `GOOSE_MODEL` are derived from `HELPING_HANDS_MODEL`
-    (or default to `ollama` + `llama3.2:latest`).
+- **Provider/model resolution priority:**
+  1. `--model provider/model` (from CLI or frontend) — highest priority
+  2. `GOOSE_PROVIDER` / `GOOSE_MODEL` environment variables
+  3. **Goose config YAML** (`~/.config/goose/config.yaml`) — the backend reads
+     `GOOSE_PROVIDER` and `GOOSE_MODEL` keys from this file automatically, so
+     `goose configure` settings are respected without extra env vars
+  4. Class defaults: `ollama` + `llama3.2:latest`
+- Goose-native providers like `codex` are passed through as-is (no API key
+  mapping needed — codex uses its own logged-in session).
 - For remote Ollama instances, set `OLLAMA_HOST` (e.g.
   `http://192.168.1.143:11434`).
-- Interactive `goose configure` is not required for helping_hands runs.
 - Goose runs require `GH_TOKEN` or `GITHUB_TOKEN`.
 - If only one of `GH_TOKEN` / `GITHUB_TOKEN` is set, runtime mirrors it to both
   variables so Goose/`gh` use token auth consistently.
@@ -594,11 +603,36 @@ Goose backend notes:
 Goose model examples:
 
 ```bash
+# Goose with provider/model from goose config YAML (no --model needed)
+uv run helping-hands owner/repo --backend goose --prompt "Implement X"
+
 # Goose + OpenAI (provider inferred from gpt-* model)
 uv run helping-hands owner/repo --backend goose --model gpt-5.2 --prompt "Implement X"
 
 # Goose + Claude (explicit provider/model form)
 uv run helping-hands owner/repo --backend goose --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
+```
+
+OpenCode backend notes:
+
+- **Model format:** `provider/model` (e.g. `litellm/claude-sonnet-4-6`). The
+  provider prefix is required — OpenCode uses it to route to the correct backend.
+- Default command: `opencode run`
+- Override command via `HELPING_HANDS_OPENCODE_CLI_CMD`
+- **Auth:** Provider-dependent. The resolved provider prefix (before `/`) is
+  mapped to the standard API key env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+  etc.). Configure providers in `~/.config/opencode/opencode.json`.
+- If no model is specified, OpenCode picks its own default.
+- No native-CLI-auth toggle — API keys are always forwarded.
+
+OpenCode model examples:
+
+```bash
+# OpenCode + LiteLLM/Claude
+uv run helping-hands owner/repo --backend opencodecli --model litellm/claude-sonnet-4-6 --prompt "Implement X"
+
+# OpenCode with default model (from opencode config)
+uv run helping-hands owner/repo --backend opencodecli --prompt "Implement X"
 ```
 
 Gemini CLI note:
@@ -613,6 +647,26 @@ Gemini CLI note:
 - Override with `HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS=<seconds>` when needed.
 - If Gemini rejects a deprecated/unavailable model, `geminicli` retries once
   without `--model` so Gemini CLI can pick a default available model.
+
+Devin CLI backend notes:
+
+- **Env vars:** `DEVIN_API_KEY` (required unless using native CLI auth)
+- Default command: `devin -p`
+- Default permission mode: `dangerous` (auto-approves all tools for non-interactive use)
+- Override with `HELPING_HANDS_DEVIN_PERMISSION_MODE=auto` to restrict to read-only auto-approval
+- Override command via `HELPING_HANDS_DEVIN_CLI_CMD`
+- Supports native CLI auth toggle via `HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH=1`
+  (strips `DEVIN_API_KEY` from subprocess env so Devin uses its own session auth).
+
+Devin CLI examples:
+
+```bash
+# Devin CLI
+uv run helping-hands owner/repo --backend devincli --prompt "Implement X"
+
+# Devin CLI with native auth (ignore DEVIN_API_KEY, use devin session)
+uv run helping-hands owner/repo --backend devincli --use-native-cli-auth --prompt "Implement X"
+```
 
 
 Backend command examples:

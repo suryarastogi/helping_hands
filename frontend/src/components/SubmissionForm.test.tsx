@@ -16,6 +16,7 @@ function renderForm(overrides?: Partial<{
     form: overrides?.form ?? { ...INITIAL_FORM },
     onFieldChange: overrides?.onFieldChange ?? vi.fn(),
     onSubmit: overrides?.onSubmit ?? vi.fn(),
+    backends: BACKEND_OPTIONS,
   };
   return { ...render(<SubmissionForm {...props} />), ...props };
 }
@@ -107,13 +108,6 @@ describe("SubmissionForm", () => {
     expect(onFieldChange).toHaveBeenCalledWith("enable_web", true);
   });
 
-  it("calls onFieldChange for native auth checkbox", () => {
-    const onFieldChange = vi.fn();
-    renderForm({ onFieldChange });
-    fireEvent.click(screen.getByLabelText("Native auth"));
-    expect(onFieldChange).toHaveBeenCalledWith("use_native_cli_auth", true);
-  });
-
   it("calls onFieldChange for fix CI checkbox", () => {
     const onFieldChange = vi.fn();
     renderForm({ onFieldChange });
@@ -128,10 +122,10 @@ describe("SubmissionForm", () => {
     expect(tokenInputs[0]).toHaveAttribute("type", "password");
   });
 
-  it("renders reference repos input", () => {
+  it("renders reference repos chip input", () => {
     renderForm();
     expect(
-      screen.getByPlaceholderText("owner/repo, owner/repo2 (optional, read-only)")
+      screen.getByLabelText("Reference repos")
     ).toBeInTheDocument();
   });
 

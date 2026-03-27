@@ -356,11 +356,6 @@ describe("Form submission", () => {
     fireEvent.click(webCheckbox);
     expect(webCheckbox.checked).toBe(true);
 
-    const nativeAuthCheckbox = screen.getByLabelText("Native auth") as HTMLInputElement;
-    expect(nativeAuthCheckbox.checked).toBe(false);
-    fireEvent.click(nativeAuthCheckbox);
-    expect(nativeAuthCheckbox.checked).toBe(true);
-
     const fixCiCheckbox = screen.getByLabelText("Fix CI") as HTMLInputElement;
     expect(fixCiCheckbox.checked).toBe(false);
     fireEvent.click(fixCiCheckbox);
