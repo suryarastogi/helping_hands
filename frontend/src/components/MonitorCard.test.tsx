@@ -10,6 +10,7 @@ function makeProps(overrides: Partial<MonitorCardProps> = {}): MonitorCardProps 
   return {
     taskId: null,
     status: "idle",
+    taskError: null,
     isPolling: false,
     outputTab: "updates",
     onOutputTabChange: vi.fn(),
@@ -164,5 +165,110 @@ describe("MonitorCard", () => {
       outputTab: "updates",
     });
     expect(card.getByText("Reset")).toBeTruthy();
+  });
+
+  it("cycles prefix filter: show → hide on click", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["INFO"],
+      prefixFilters: {},
+      onPrefixFiltersChange: handler,
+      outputTab: "updates",
+    });
+    fireEvent.click(card.getByText("[INFO]"));
+    expect(handler).toHaveBeenCalled();
+    // Invoke the updater function to verify state transition
+    const updater = handler.mock.calls[0][0];
+    const result = updater({});
+    expect(result).toEqual({ INFO: "hide" });
+  });
+
+  it("cycles prefix filter: hide → only on click", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["WARN"],
+      prefixFilters: { WARN: "hide" },
+      onPrefixFiltersChange: handler,
+      outputTab: "updates",
+    });
+    fireEvent.click(card.getByText("[WARN]"));
+    const updater = handler.mock.calls[0][0];
+    const result = updater({ WARN: "hide" });
+    expect(result).toEqual({ WARN: "only" });
+  });
+
+  it("cycles prefix filter: only → show (removes key) on click", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["ERR"],
+      prefixFilters: { ERR: "only" },
+      onPrefixFiltersChange: handler,
+      outputTab: "updates",
+    });
+    fireEvent.click(card.getByText("[ERR]"));
+    const updater = handler.mock.calls[0][0];
+    const result = updater({ ERR: "only" });
+    expect(result).toEqual({});
+  });
+
+  it("resets all filters when Reset button is clicked", () => {
+    const handler = vi.fn();
+    const { card } = renderCard({
+      detectedPrefixes: ["INFO", "WARN"],
+      prefixFilters: { INFO: "hide", WARN: "only" },
+      onPrefixFiltersChange: handler,
+      outputTab: "updates",
+    });
+    fireEvent.click(card.getByText("Reset"));
+    expect(handler).toHaveBeenCalledWith({});
+  });
+
+  it("renders task error banner with error type and message", () => {
+    const { card } = renderCard({
+      taskError: { errorType: "RuntimeError", error: "Something went wrong" },
+    });
+    expect(card.getByText("RuntimeError")).toBeTruthy();
+    expect(card.getByText("Something went wrong")).toBeTruthy();
+  });
+
+  it("hides task error banner when taskError is null", () => {
+    const { container } = renderCard({ taskError: null });
+    expect(container.querySelector(".task-error-banner")).toBeNull();
+  });
+
+  it("copies output to clipboard on Copy button click", () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    const { card } = renderCard({ activeOutputText: "test output" });
+    fireEvent.click(card.getByTitle("Copy output to clipboard"));
+    expect(writeTextMock).toHaveBeenCalledWith("test output");
+  });
+
+  it("shows correct prefix chip icon for each mode", () => {
+    const { card } = renderCard({
+      detectedPrefixes: ["A", "B", "C"],
+      prefixFilters: { B: "hide", C: "only" },
+      outputTab: "updates",
+    });
+    // A = show (●), B = hide (○), C = only (◉)
+    const chips = card.getAllByRole("button").filter((b) =>
+      b.classList.contains("prefix-chip") && !b.classList.contains("reset"),
+    );
+    expect(chips[0].querySelector(".prefix-chip-icon")!.textContent).toBe("●");
+    expect(chips[1].querySelector(".prefix-chip-icon")!.textContent).toBe("○");
+    expect(chips[2].querySelector(".prefix-chip-icon")!.textContent).toBe("◉");
+  });
+
+  it("shows info badge with task ID tooltip", () => {
+    const { card } = renderCard({ taskId: "my-task-id" });
+    expect(card.getByTitle("my-task-id")).toBeTruthy();
+  });
+
+  it("shows info badge with no task tooltip when null", () => {
+    const { card } = renderCard({ taskId: null });
+    expect(card.getByTitle("No task selected")).toBeTruthy();
   });
 });

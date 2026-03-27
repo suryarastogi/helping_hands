@@ -13,7 +13,10 @@ extraction (App.tsx -47%, dead re-export cleanup), and multiplayer leave
 name resolution + chat dedup fix, multiplayer cursor sharing,
 useRecentRepos hook test coverage, RepoChipInput/RepoSuggestInput
 component test coverage, and App.tsx/useTaskManager branch coverage
-improvement (both raised from below 80% to above 80%).
+improvement (both raised from below 80% to above 80%),
+multiplayer hardening edge cases (NaN/Infinity, localStorage errors),
+and AppOverlays/MonitorCard component coverage (697 frontend tests,
+90.72% branch coverage).
 
 ---
 

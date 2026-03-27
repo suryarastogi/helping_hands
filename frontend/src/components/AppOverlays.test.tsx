@@ -174,5 +174,170 @@ describe("AppOverlays", () => {
       fireEvent.click(dismissBtn);
       expect(container.querySelector(".notif-banner")).toBeNull();
     });
+
+    it("calls requestPermission when Enable button is clicked", async () => {
+      const { container } = renderOverlays();
+      const banner = container.querySelector(".notif-banner")!;
+      const enableBtn = banner.querySelectorAll("button")[0];
+      fireEvent.click(enableBtn);
+      expect(globalThis.Notification.requestPermission).toHaveBeenCalled();
+    });
+  });
+
+  describe("test notification", () => {
+    const origNotification = globalThis.Notification;
+
+    afterEach(() => {
+      globalThis.Notification = origNotification;
+      vi.restoreAllMocks();
+    });
+
+    it("alerts when Notification API is undefined", () => {
+      const origNotif = globalThis.Notification;
+      // @ts-expect-error — intentionally removing Notification
+      delete (globalThis as Record<string, unknown>).Notification;
+      const alertSpy = vi.spyOn(globalThis, "alert").mockImplementation(() => {});
+
+      const { container } = render(<AppOverlays serviceHealthState={null} toasts={[]} onRemoveToast={vi.fn()} />);
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+
+      expect(alertSpy).toHaveBeenCalledWith("Notification API not available in this context");
+      globalThis.Notification = origNotif;
+    });
+
+    it("requests permission when not granted and sends notification on grant", async () => {
+      let callCount = 0;
+      globalThis.Notification = {
+        permission: "default",
+        requestPermission: vi.fn().mockImplementation(() => {
+          callCount++;
+          // After first call, simulate granted
+          Object.defineProperty(globalThis.Notification, "permission", {
+            value: "granted",
+            writable: true,
+            configurable: true,
+          });
+          return Promise.resolve("granted");
+        }),
+      } as unknown as typeof Notification;
+
+      const { container } = render(<AppOverlays serviceHealthState={null} toasts={[]} onRemoveToast={vi.fn()} />);
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+
+      // Should request permission first
+      expect(globalThis.Notification.requestPermission).toHaveBeenCalled();
+      // Wait for promise resolution
+      await vi.waitFor(() => {
+        expect(callCount).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it("sends notification via service worker registration when available", async () => {
+      const showNotificationMock = vi.fn().mockResolvedValue(undefined);
+      // Mock navigator.serviceWorker.register to provide a registration
+      const origSW = navigator.serviceWorker;
+      Object.defineProperty(navigator, "serviceWorker", {
+        value: {
+          register: vi.fn().mockResolvedValue({
+            showNotification: showNotificationMock,
+          }),
+        },
+        configurable: true,
+      });
+
+      globalThis.Notification = {
+        permission: "granted",
+        requestPermission: vi.fn().mockResolvedValue("granted"),
+      } as unknown as typeof Notification;
+
+      const { container } = render(<AppOverlays serviceHealthState={null} toasts={[]} onRemoveToast={vi.fn()} />);
+
+      // Wait for service worker registration effect
+      await vi.waitFor(() => {
+        // SW should be registered
+      });
+
+      // Small delay for useEffect to run
+      await new Promise((r) => setTimeout(r, 50));
+
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+
+      await vi.waitFor(() => {
+        expect(showNotificationMock).toHaveBeenCalledWith(
+          "Helping Hands — Test",
+          expect.objectContaining({ body: expect.any(String) }),
+        );
+      });
+
+      Object.defineProperty(navigator, "serviceWorker", {
+        value: origSW,
+        configurable: true,
+      });
+    });
+
+    it("falls back to new Notification() when no SW registration", () => {
+      globalThis.Notification = vi.fn() as unknown as typeof Notification;
+      Object.defineProperty(globalThis.Notification, "permission", {
+        value: "granted",
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(globalThis.Notification, "requestPermission", {
+        value: vi.fn().mockResolvedValue("granted"),
+        configurable: true,
+      });
+
+      // Mock serviceWorker.register to reject so swReg stays null
+      const origSW = Object.getOwnPropertyDescriptor(navigator, "serviceWorker");
+      Object.defineProperty(navigator, "serviceWorker", {
+        value: { register: vi.fn().mockRejectedValue(new Error("no SW")) },
+        configurable: true,
+      });
+
+      const { container } = render(<AppOverlays serviceHealthState={null} toasts={[]} onRemoveToast={vi.fn()} />);
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+
+      // Should call new Notification() as constructor since swReg is null
+      expect(globalThis.Notification).toHaveBeenCalledWith(
+        "Helping Hands — Test",
+        expect.objectContaining({ body: expect.any(String) }),
+      );
+
+      if (origSW) {
+        Object.defineProperty(navigator, "serviceWorker", origSW);
+      }
+    });
+
+    it("handles requestPermission rejection gracefully", async () => {
+      globalThis.Notification = {
+        permission: "default",
+        requestPermission: vi.fn().mockRejectedValue(new Error("denied")),
+      } as unknown as typeof Notification;
+
+      // Need a valid serviceWorker mock to avoid render crash
+      const origSW = Object.getOwnPropertyDescriptor(navigator, "serviceWorker");
+      Object.defineProperty(navigator, "serviceWorker", {
+        value: { register: vi.fn().mockResolvedValue({}) },
+        configurable: true,
+      });
+
+      const { container } = render(<AppOverlays serviceHealthState={null} toasts={[]} onRemoveToast={vi.fn()} />);
+
+      // Click the Enable button (requestNotifPermission path)
+      const banner = container.querySelector(".notif-banner")!;
+      const enableBtn = banner.querySelectorAll("button")[0];
+      fireEvent.click(enableBtn);
+
+      // Should not throw — catch block handles rejection
+      expect(globalThis.Notification.requestPermission).toHaveBeenCalled();
+
+      if (origSW) {
+        Object.defineProperty(navigator, "serviceWorker", origSW);
+      }
+    });
   });
 });

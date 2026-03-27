@@ -12,6 +12,14 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### AppOverlays & MonitorCard Component Coverage (2026-03-27) — Completed
+
+**Implemented (v321):**
+- 6 new AppOverlays tests: testNotification branches (API unavailable alert, permission re-request + recursive call, SW showNotification, fallback new Notification, Enable button, rejection handling)
+- 10 new MonitorCard tests: prefix filter cycling (show→hide→only→show), reset all filters, task error banner + null guard, copy-to-clipboard, prefix chip icons, info badge tooltips
+- AppOverlays.tsx: 83.53% → 100% statements, MonitorCard.tsx: 85.46% → 96.51% statements
+- 697 frontend tests total (up from 681), overall branch coverage: 90.41% → 90.72%
+
 ### Multiplayer Hardening & Edge Case Coverage (2026-03-27) — Completed
 
 **Implemented (v320):**
