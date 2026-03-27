@@ -11,7 +11,7 @@ Index of execution plans for helping_hands development.
 - [2026-03-27 v313–v316](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +
   chat dedup fix, cursor sharing, cursor throttle coverage;
-  596 frontend tests
+  7464 tests passed, 596 frontend tests
 
 - [2026-03-26 v303–v312](exec-plans/completed/2026/2026-03-26.md) —
   Multiplayer coverage hardening, schedule PR auto-persist, shared world
