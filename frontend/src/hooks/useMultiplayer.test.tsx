@@ -697,7 +697,8 @@ describe("useMultiplayer hook", () => {
     const { result } = renderHook(() => useMultiplayer(defaultOpts()));
 
     act(() => result.current.placeDecoration("\u{2B50}", 10, 20));
-    vi.advanceTimersByTime(1);
+    // Advance past decoration cooldown so a second placement is allowed.
+    act(() => { vi.advanceTimersByTime(1500); });
     act(() => result.current.placeDecoration("\u{1F525}", 50, 60));
     expect(result.current.decorations).toHaveLength(2);
 
@@ -710,14 +711,14 @@ describe("useMultiplayer hook", () => {
     vi.useFakeTimers({ now: 1000 });
     const { result } = renderHook(() => useMultiplayer(defaultOpts()));
 
-    // Fill up to max
+    // Fill up to max (advance past cooldown between each placement)
     for (let i = 0; i < 20; i++) {
       act(() => result.current.placeDecoration("\u{1F338}", i * 4, 50));
-      vi.advanceTimersByTime(1);
+      act(() => { vi.advanceTimersByTime(1500); });
     }
     expect(result.current.decorations).toHaveLength(20);
 
-    // 21st should be rejected
+    // 21st should be rejected (even though cooldown has passed — map is full)
     act(() => result.current.placeDecoration("\u{2B50}", 90, 90));
     expect(result.current.decorations).toHaveLength(20);
     vi.useRealTimers();
@@ -744,6 +745,56 @@ describe("useMultiplayer hook", () => {
 
     act(() => result.current.placeDecoration("\u{1F338}", 50, 50));
     expect(result.current.decorations).toHaveLength(0);
+  });
+
+  // --- Decoration placement cooldown ---
+
+  it("starts with decoOnCooldown false", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    expect(result.current.decoOnCooldown).toBe(false);
+  });
+
+  it("sets decoOnCooldown to true after placing a decoration", () => {
+    vi.useFakeTimers({ now: 1000 });
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{1F338}", 30, 40));
+    expect(result.current.decoOnCooldown).toBe(true);
+    expect(result.current.decorations).toHaveLength(1);
+
+    vi.useRealTimers();
+  });
+
+  it("clears decoOnCooldown after DECO_COOLDOWN_MS", () => {
+    vi.useFakeTimers({ now: 1000 });
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{1F338}", 30, 40));
+    expect(result.current.decoOnCooldown).toBe(true);
+
+    act(() => { vi.advanceTimersByTime(1500); });
+    expect(result.current.decoOnCooldown).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("rejects placement during cooldown", () => {
+    vi.useFakeTimers({ now: 1000 });
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{1F338}", 30, 40));
+    expect(result.current.decorations).toHaveLength(1);
+
+    // Attempt to place again during cooldown — should be rejected
+    act(() => result.current.placeDecoration("\u{2B50}", 60, 70));
+    expect(result.current.decorations).toHaveLength(1);
+
+    // After cooldown, placement should work again
+    act(() => { vi.advanceTimersByTime(1500); });
+    act(() => result.current.placeDecoration("\u{2B50}", 60, 70));
+    expect(result.current.decorations).toHaveLength(2);
+
+    vi.useRealTimers();
   });
 
   // --- Join/leave notifications ---

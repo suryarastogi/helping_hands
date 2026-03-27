@@ -23,6 +23,7 @@ const BASE_PROPS: FactoryFloorPanelProps = {
   onPlayerColorChange: vi.fn(),
   decorations: [],
   onClearDecorations: vi.fn(),
+  decoOnCooldown: false,
   selectedDecoEmoji: null,
   onSelectedDecoEmojiChange: vi.fn(),
 };
@@ -288,5 +289,23 @@ describe("FactoryFloorPanel component", () => {
   it("hides placement hint when no deco emoji selected", () => {
     const { container } = render(<FactoryFloorPanel {...BASE_PROPS} selectedDecoEmoji={null} />);
     expect(container.querySelector(".decoration-hint")).toBeNull();
+  });
+
+  it("disables decoration emoji buttons during cooldown", () => {
+    const { container } = render(<FactoryFloorPanel {...BASE_PROPS} decoOnCooldown={true} />);
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    expect(buttons.length).toBeGreaterThan(0);
+    buttons.forEach((btn) => {
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+
+  it("enables decoration emoji buttons when not on cooldown", () => {
+    const { container } = render(<FactoryFloorPanel {...BASE_PROPS} decoOnCooldown={false} />);
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    expect(buttons.length).toBeGreaterThan(0);
+    buttons.forEach((btn) => {
+      expect((btn as HTMLButtonElement).disabled).toBe(false);
+    });
   });
 });

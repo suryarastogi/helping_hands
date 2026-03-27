@@ -123,6 +123,7 @@ export default function App() {
     sendChat,
     setTyping,
     chatOnCooldown,
+    decoOnCooldown,
     decorations,
     placeDecoration,
     clearDecorations,
@@ -279,6 +280,7 @@ export default function App() {
           decorations={decorations}
           onPlaceDecoration={placeDecoration}
           onClearDecorations={clearDecorations}
+          decoOnCooldown={decoOnCooldown}
           remoteCursors={remoteCursors}
           onCursorMove={updateCursor}
         />

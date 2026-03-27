@@ -70,6 +70,7 @@ const BASE_SCENE_PROPS = {
   decorations: [] as WorldDecoration[],
   onPlaceDecoration: vi.fn(),
   onClearDecorations: vi.fn(),
+  decoOnCooldown: false,
   remoteCursors: [] as RemoteCursor[],
   onCursorMove: vi.fn(),
 };
@@ -815,6 +816,17 @@ describe("HandWorldScene component", () => {
     const buttons = container.querySelectorAll(".decoration-emoji-btn");
     fireEvent.click(buttons[0]);
     expect(scene?.classList.contains("deco-placing")).toBe(true);
+  });
+
+  it("disables decoration emoji buttons during cooldown", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decoOnCooldown={true} />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    expect(buttons.length).toBeGreaterThan(0);
+    buttons.forEach((btn) => {
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+    });
   });
 
   // --- Color picker ---

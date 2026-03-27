@@ -16,7 +16,9 @@ component test coverage, App.tsx/useTaskManager branch coverage
 improvement (both raised from below 80% to above 80%), and multiplayer
 hardening edge case coverage (_clamp_float NaN/Infinity fix, client-side
 cursor clamping, localStorage error handling tests, backend partial
-failure tests).
+failure tests), design doc refresh + timer cleanup + accessibility
+improvements, and decoration placement cooldown with backend decoration
+query endpoint.
 
 ---
 
@@ -404,6 +406,24 @@ failure tests).
 
 ---
 
+## Mar 27 — Design Doc Refresh & Multiplayer Resilience (v321)
+
+**Design doc refresh:** Rewrote "Approach" section in `multiplayer-hand-world.md` — removed deleted `WorldConnectionManager` and "No external libraries" references, updated to Yjs architecture. **Timer cleanup:** 5 new timeout refs tracked in `useMultiplayer` (emote, chat, cooldown timers), cleared on lifecycle cleanup. Rapid emote triggers cancel previous timer. **Accessibility:** `aria-live` on reconnection/failed banners, `aria-label` on refresh button, `aria-hidden` on RemoteCursor SVG, status in PlayerAvatar remote aria-label.
+
+**10 new frontend tests (691 total).**
+
+---
+
+## Mar 27 — Decoration Placement Cooldown & Decoration Query Endpoint (v322)
+
+**Decoration cooldown:** Added `DECO_COOLDOWN_MS` (1500ms) constant and cooldown logic to `placeDecoration` in `useMultiplayer` hook — prevents rapid decoration spam. Decoration emoji buttons disabled during cooldown. Double-click placement blocked during cooldown. `decoOnCooldown` state threaded through `HandWorldScene` and `FactoryFloorPanel`.
+
+**Backend decoration endpoint:** Added `get_decoration_state()` to `multiplayer_yjs.py` — reads Y.Map from room's Y.Doc, validates/clamps positions, strips control chars. New `GET /health/multiplayer/decorations` endpoint in `app.py`.
+
+**7 new frontend tests (698 total), 6 new backend tests (90 total).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -454,3 +474,5 @@ failure tests).
 - `v318-repo-input-components-test-coverage.md`
 - `v319-app-task-manager-coverage.md`
 - `v320-multiplayer-hardening-edge-cases.md`
+- `v321-design-doc-refresh-timer-cleanup.md` (→ `2026-03-27-design-doc-refresh.md`)
+- `v322-decoration-cooldown-and-decoration-endpoint.md`

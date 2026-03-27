@@ -42,6 +42,8 @@ export type FactoryFloorPanelProps = {
   // -- Decorations --
   decorations: WorldDecoration[];
   onClearDecorations: () => void;
+  /** Whether decoration placement is on cooldown. */
+  decoOnCooldown: boolean;
   /** Currently selected decoration emoji (managed by parent for deco-placing class). */
   selectedDecoEmoji: string | null;
   onSelectedDecoEmojiChange: (emoji: string | null) => void;
@@ -67,6 +69,7 @@ export default function FactoryFloorPanel({
   onPlayerColorChange,
   decorations,
   onClearDecorations,
+  decoOnCooldown,
   selectedDecoEmoji,
   onSelectedDecoEmojiChange,
 }: FactoryFloorPanelProps) {
@@ -258,7 +261,7 @@ export default function FactoryFloorPanel({
                 type="button"
                 className={`decoration-emoji-btn${selectedDecoEmoji === emoji ? " selected" : ""}`}
                 onClick={() => onSelectedDecoEmojiChange(selectedDecoEmoji === emoji ? null : emoji)}
-                disabled={decorations.length >= MAX_DECORATIONS}
+                disabled={decorations.length >= MAX_DECORATIONS || decoOnCooldown}
                 aria-label={`Select ${emoji} decoration`}
                 aria-pressed={selectedDecoEmoji === emoji}
               >

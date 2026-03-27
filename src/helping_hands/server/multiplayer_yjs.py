@@ -309,6 +309,62 @@ def get_player_activity_summary() -> dict[str, object]:
     }
 
 
+def get_decoration_state() -> dict[str, object]:
+    """Return the current shared decoration state from the Y.Doc.
+
+    Reads the ``decorations`` Y.Map from the ``hand-world`` room's Y.Doc
+    and returns the items as a list.  Returns::
+
+        {
+            "decorations": [
+                {"id": "...", "emoji": "🌸", "x": 42.0, "y": 18.5,
+                 "placedBy": "Alice", "color": "#e11d48", "placedAt": 1711539600000},
+                ...
+            ],
+            "count": 1
+        }
+
+    When the Yjs server is unavailable or the room has no decorations,
+    returns an empty list.
+    """
+    if yjs_websocket_server is None:
+        return {"decorations": [], "count": 0}
+
+    decorations: list[dict[str, object]] = []
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        for _room_name, room in rooms.items():
+            ydoc = getattr(room, "ydoc", None)
+            if ydoc is None:
+                continue
+            try:
+                deco_map = ydoc.get("decorations", type="map")
+            except Exception:
+                continue
+            if deco_map is None:
+                continue
+            for key in deco_map:
+                value = deco_map[key]
+                if isinstance(value, dict) and value.get("emoji"):
+                    item: dict[str, object] = {
+                        "id": str(key),
+                        "emoji": str(value.get("emoji", "")),
+                        "x": _clamp_float(value.get("x", 0), 0.0, 100.0),
+                        "y": _clamp_float(value.get("y", 0), 0.0, 100.0),
+                        "placedBy": _strip_control_chars(
+                            str(value.get("placedBy", "Unknown"))[:_MAX_NAME_LENGTH]
+                        ),
+                        "color": str(value.get("color", "")),
+                        "placedAt": int(value.get("placedAt", 0)),
+                    }
+                    decorations.append(item)
+    except Exception:
+        logger.debug("Failed to read decoration state", exc_info=True)
+
+    decorations.sort(key=lambda d: d.get("placedAt", 0))
+    return {"decorations": decorations, "count": len(decorations)}
+
+
 def _extract_player_state(state: dict[str, Any]) -> dict[str, Any] | None:
     """Extract the ``player`` sub-dict from a Yjs awareness state.
 

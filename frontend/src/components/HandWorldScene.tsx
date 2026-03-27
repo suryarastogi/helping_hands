@@ -94,6 +94,8 @@ export type HandWorldSceneProps = {
   decorations: WorldDecoration[];
   onPlaceDecoration: (emoji: string, x: number, y: number) => void;
   onClearDecorations: () => void;
+  /** Whether decoration placement is on cooldown. */
+  decoOnCooldown: boolean;
 
   // -- Remote cursors --
   remoteCursors: RemoteCursorType[];
@@ -141,6 +143,7 @@ export default function HandWorldScene({
   decorations,
   onPlaceDecoration,
   onClearDecorations,
+  decoOnCooldown,
   remoteCursors,
   onCursorMove,
 }: HandWorldSceneProps) {
@@ -153,7 +156,7 @@ export default function HandWorldScene({
 
   const handleSceneDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!selectedDecoEmoji || connectionStatus !== "connected") return;
-    if (decorations.length >= MAX_DECORATIONS) return;
+    if (decorations.length >= MAX_DECORATIONS || decoOnCooldown) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -307,6 +310,7 @@ export default function HandWorldScene({
           onPlayerColorChange={onPlayerColorChange}
           decorations={decorations}
           onClearDecorations={onClearDecorations}
+          decoOnCooldown={decoOnCooldown}
           selectedDecoEmoji={selectedDecoEmoji}
           onSelectedDecoEmojiChange={setSelectedDecoEmoji}
         />

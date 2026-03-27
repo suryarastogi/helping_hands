@@ -77,6 +77,7 @@ from helping_hands.server.constants import (
 from helping_hands.server.multiplayer_yjs import (
     create_yjs_app,
     get_connected_players,
+    get_decoration_state,
     get_multiplayer_stats,
     get_player_activity_summary,
     start_yjs_server,
@@ -3002,6 +3003,12 @@ def health_multiplayer_players() -> dict[str, object]:
 def health_multiplayer_activity() -> dict[str, object]:
     """Return player activity summary with validated awareness states."""
     return get_player_activity_summary()
+
+
+@app.get("/health/multiplayer/decorations")
+def health_multiplayer_decorations() -> dict[str, object]:
+    """Return current shared world decoration state."""
+    return get_decoration_state()
 
 
 class ServiceHealthResponse(BaseModel):

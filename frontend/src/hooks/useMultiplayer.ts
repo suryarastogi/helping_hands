@@ -13,6 +13,7 @@ import {
   CHAT_DISPLAY_MS,
   CHAT_HISTORY_MAX,
   CURSOR_BROADCAST_INTERVAL_MS,
+  DECO_COOLDOWN_MS,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   IDLE_TIMEOUT_MS,
@@ -97,6 +98,8 @@ export type UseMultiplayerReturn = {
   placeDecoration: (emoji: string, x: number, y: number) => void;
   /** Remove all decorations from the world. */
   clearDecorations: () => void;
+  /** Whether decoration placement is on cooldown (true = cannot place yet). */
+  decoOnCooldown: boolean;
   /** Remote players' cursor positions (null when cursor is outside scene). */
   remoteCursors: RemoteCursor[];
   /** Update the local cursor position. Pass null when the mouse leaves the scene. */
@@ -174,6 +177,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [chatOnCooldown, setChatOnCooldown] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [decorations, setDecorations] = useState<WorldDecoration[]>([]);
+  const [decoOnCooldown, setDecoOnCooldown] = useState(false);
   const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
@@ -204,6 +208,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const chatAwarenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Handle for the pending chat cooldown clear timeout. */
   const chatCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the pending decoration placement cooldown clear timeout. */
+  const decoCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Connection lifecycle ---
   useEffect(() => {
@@ -440,7 +446,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setReconnectAttempts(0);
       // Clear any pending emote/chat/cooldown timers to prevent state
       // updates after the provider is destroyed or the component unmounts.
-      for (const ref of [emoteTimerRef, emoteAwarenessTimerRef, chatDisplayTimerRef, chatAwarenessTimerRef, chatCooldownTimerRef]) {
+      for (const ref of [emoteTimerRef, emoteAwarenessTimerRef, chatDisplayTimerRef, chatAwarenessTimerRef, chatCooldownTimerRef, decoCooldownTimerRef]) {
         if (ref.current) {
           clearTimeout(ref.current);
           ref.current = null;
@@ -674,10 +680,20 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   // --- Place decoration callback ---
   const placeDecoration = useCallback(
     (emoji: string, x: number, y: number) => {
+      if (decoOnCooldown) return;
+
       const doc = yjsDocRef.current;
       if (!doc) return;
       const decoMap = doc.getMap("decorations");
       if (decoMap.size >= MAX_DECORATIONS) return;
+
+      // Start cooldown.
+      setDecoOnCooldown(true);
+      if (decoCooldownTimerRef.current) clearTimeout(decoCooldownTimerRef.current);
+      decoCooldownTimerRef.current = setTimeout(() => {
+        decoCooldownTimerRef.current = null;
+        setDecoOnCooldown(false);
+      }, DECO_COOLDOWN_MS);
 
       const provider = yjsProviderRef.current;
       const localState = provider?.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
@@ -692,7 +708,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         placedAt: Date.now(),
       });
     },
-    [],
+    [decoOnCooldown],
   );
 
   // --- Clear decorations callback ---
@@ -789,6 +805,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     setTyping,
     chatOnCooldown,
     reconnectAttempts,
+    decoOnCooldown,
     decorations,
     placeDecoration,
     clearDecorations,

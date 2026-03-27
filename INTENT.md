@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Decoration Placement Cooldown & Decoration Query Endpoint (2026-03-27) — Completed
+
+**Implemented (v322):**
+- Added `DECO_COOLDOWN_MS` (1500ms) decoration placement cooldown to prevent spam — mirrors the existing chat cooldown pattern
+- `decoOnCooldown` state in `useMultiplayer` hook, threaded through `HandWorldScene` and `FactoryFloorPanel`
+- Decoration emoji buttons disabled during cooldown, double-click scene placement blocked during cooldown
+- `decoCooldownTimerRef` added to lifecycle cleanup to prevent state updates after unmount
+- Backend `get_decoration_state()` endpoint (`GET /health/multiplayer/decorations`) — reads Y.Map from room Y.Doc, validates/clamps positions, strips control chars, returns sorted list
+- 698 frontend tests total (up from 691), 90 backend multiplayer tests (up from 84)
+
 ### Design Doc Refresh & Multiplayer Resilience (2026-03-27) — Completed
 
 **Implemented (v321):**
