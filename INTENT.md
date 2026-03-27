@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Minimap Click-to-Teleport (2026-03-27) — Completed
+
+**Implemented (v321):**
+- Click on the minimap to instantly teleport the player to that position in the scene
+- `useMovement` hook gained `teleportTo(position)` callback with bounds clamping and desk collision check
+- `Minimap` component gained optional `onTeleport` prop with click-to-position conversion
+- CSS: `.minimap-clickable` class with crosshair cursor and blue hover glow
+- 9 new frontend tests (3 useMovement, 4 Minimap, 2 HandWorldScene)
+- 690 frontend tests total (up from 681)
+
 ### Multiplayer Hardening & Edge Case Coverage (2026-03-27) — Completed
 
 **Implemented (v320):**

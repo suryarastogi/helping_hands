@@ -25,6 +25,8 @@ export type MinimapProps = {
   remotePlayers: RemotePlayer[];
   /** Active workers with scene positions. */
   workers: MinimapWorker[];
+  /** Callback when the minimap is clicked — receives the target position in scene %. */
+  onTeleport?: (position: PlayerPosition) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -35,9 +37,23 @@ export default function Minimap({
   playerPosition,
   remotePlayers,
   workers,
+  onTeleport,
 }: MinimapProps) {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onTeleport) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    onTeleport({ x, y });
+  };
+
   return (
-    <div className="minimap" aria-label="Minimap">
+    <div
+      className={`minimap${onTeleport ? " minimap-clickable" : ""}`}
+      aria-label="Minimap"
+      onClick={handleClick}
+      role={onTeleport ? "button" : undefined}
+    >
       {/* Local player — white dot */}
       <span
         className="minimap-dot minimap-dot-local"

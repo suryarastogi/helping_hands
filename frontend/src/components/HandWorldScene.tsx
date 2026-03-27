@@ -98,6 +98,10 @@ export type HandWorldSceneProps = {
   // -- Remote cursors --
   remoteCursors: RemoteCursorType[];
   onCursorMove: (position: CursorPosition | null) => void;
+
+  // -- Minimap teleport --
+  /** Callback when the player clicks a position on the minimap. */
+  onTeleport?: (position: PlayerPosition) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -143,6 +147,7 @@ export default function HandWorldScene({
   onClearDecorations,
   remoteCursors,
   onCursorMove,
+  onTeleport,
 }: HandWorldSceneProps) {
   const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
 
@@ -408,6 +413,7 @@ export default function HandWorldScene({
             playerPosition={playerPosition}
             remotePlayers={remotePlayers}
             workers={minimapWorkers}
+            onTeleport={onTeleport}
           />
         )}
 

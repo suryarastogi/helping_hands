@@ -183,9 +183,17 @@ connection is active.
 - **Remote players** — coloured dots matching player palette (`minimap-dot-remote`)
 - **Active workers** — amber dots at desk positions (`minimap-dot-worker`)
 
-The `Minimap` component (`frontend/src/components/Minimap.tsx`) is pure — it
-receives positions as props and renders positioned `<span>` elements inside a
+The `Minimap` component (`frontend/src/components/Minimap.tsx`) receives
+positions as props and renders positioned `<span>` elements inside a
 120×80px container with `overflow: hidden`.
+
+### Click-to-Teleport (v321)
+
+Clicking anywhere on the minimap instantly teleports the local player to the
+corresponding scene position. The `onTeleport` prop converts click coordinates
+to scene percentages; `useMovement.teleportTo()` applies bounds clamping and
+desk collision checks before updating position. CSS `.minimap-clickable` adds
+a crosshair cursor and blue hover glow to signal interactivity.
 
 ## Chat cooldown (v299)
 

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render } from "@testing-library/react";
 
 import Minimap from "./Minimap";
 
@@ -95,5 +95,56 @@ describe("Minimap", () => {
     const dot = container.querySelector(".minimap-dot-local") as HTMLElement;
     expect(dot.style.left).toBe("10%");
     expect(dot.style.top).toBe("90%");
+  });
+
+  it("calls onTeleport with click position when provided", () => {
+    const onTeleport = vi.fn();
+    const { container } = render(
+      <Minimap {...defaultProps} onTeleport={onTeleport} />,
+    );
+
+    const minimap = container.querySelector(".minimap") as HTMLElement;
+    // Mock getBoundingClientRect
+    vi.spyOn(minimap, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 120,
+      height: 80,
+      right: 120,
+      bottom: 80,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    });
+
+    fireEvent.click(minimap, { clientX: 60, clientY: 40 });
+
+    expect(onTeleport).toHaveBeenCalledTimes(1);
+    expect(onTeleport).toHaveBeenCalledWith({ x: 50, y: 50 });
+  });
+
+  it("adds minimap-clickable class when onTeleport is provided", () => {
+    const onTeleport = vi.fn();
+    const { container } = render(
+      <Minimap {...defaultProps} onTeleport={onTeleport} />,
+    );
+
+    const minimap = container.querySelector(".minimap") as HTMLElement;
+    expect(minimap.classList.contains("minimap-clickable")).toBe(true);
+  });
+
+  it("does not add minimap-clickable class without onTeleport", () => {
+    const { container } = render(<Minimap {...defaultProps} />);
+
+    const minimap = container.querySelector(".minimap") as HTMLElement;
+    expect(minimap.classList.contains("minimap-clickable")).toBe(false);
+  });
+
+  it("does not fire onTeleport when prop is not provided", () => {
+    const { container } = render(<Minimap {...defaultProps} />);
+
+    const minimap = container.querySelector(".minimap") as HTMLElement;
+    // Should not throw
+    fireEvent.click(minimap, { clientX: 60, clientY: 40 });
   });
 });

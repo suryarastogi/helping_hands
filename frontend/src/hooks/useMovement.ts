@@ -4,7 +4,7 @@
  * Encapsulates arrow-key / WASD input handling, position clamping within
  * office bounds, desk collision detection, and direction/walking state.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { OFFICE_BOUNDS, PLAYER_MOVE_STEP, SPAWN_PADDING } from "../constants";
 import type { DeskSlot, PlayerDirection, PlayerPosition } from "../types";
@@ -25,6 +25,8 @@ export type UseMovementReturn = {
   playerPosition: PlayerPosition;
   playerDirection: PlayerDirection;
   isPlayerWalking: boolean;
+  /** Instantly move the player to a target position (clamped to office bounds). */
+  teleportTo: (target: PlayerPosition) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -159,9 +161,21 @@ export function useMovement(options: UseMovementOptions): UseMovementReturn {
     };
   }, [active, deskSlots]);
 
+  const teleportTo = useCallback(
+    (target: PlayerPosition) => {
+      const x = Math.max(OFFICE_BOUNDS.minX, Math.min(OFFICE_BOUNDS.maxX, target.x));
+      const y = Math.max(OFFICE_BOUNDS.minY, Math.min(OFFICE_BOUNDS.maxY, target.y));
+      if (!checkDeskCollision(x, y, deskSlots)) {
+        setPlayerPosition({ x, y });
+      }
+    },
+    [deskSlots],
+  );
+
   return {
     playerPosition,
     playerDirection,
     isPlayerWalking,
+    teleportTo,
   };
 }

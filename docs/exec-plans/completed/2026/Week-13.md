@@ -385,6 +385,22 @@ improvement (both raised from below 80% to above 80%).
 
 ---
 
+## Mar 27 — App.tsx & useTaskManager Branch Coverage (v319)
+
+**Coverage:** App.tsx branch coverage 69.23% → 81.25% (4 tests for fetchServerConfig effect). useTaskManager.ts branch coverage 72.03% → 82.68% (13 tests for submit body, polling, toasts, query-string init). Overall frontend branch coverage: 88.55% → 90.23%.
+
+**17 new frontend tests. 674 frontend tests total.**
+
+---
+
+## Mar 27 — Multiplayer Hardening & Edge Case Coverage (v320)
+
+**Frontend hardening:** 7 new tests — localStorage error handling for name/color persistence, clearDecorations null-doc guard, client-side cursor position clamping to [0, 100]. **Backend hardening:** Fixed `_clamp_float` NaN/Infinity bug. 10 new tests for validation edge cases (Infinity, NaN, emoji preservation, invalid UTF-8, bytearray, empty dict, partial iteration failure).
+
+**17 new tests total. 681 frontend tests, 84 backend multiplayer tests.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -433,3 +449,6 @@ improvement (both raised from below 80% to above 80%).
 - `v316-cursor-throttle-coverage.md`
 - `v317-use-recent-repos-coverage.md`
 - `v318-repo-input-components-test-coverage.md`
+- `v319-app-task-manager-coverage.md`
+- `v320-multiplayer-hardening-edge-cases.md`
+- `v321-minimap-click-to-teleport.md` (active plan)

@@ -283,6 +283,48 @@ describe("useMovement hook", () => {
     vi.useRealTimers();
   });
 
+  it("teleportTo moves player to target position", () => {
+    const { result } = renderHook(() =>
+      useMovement({ active: true, deskSlots: emptyDesks }),
+    );
+
+    act(() => {
+      result.current.teleportTo({ x: 20, y: 30 });
+    });
+
+    expect(result.current.playerPosition.x).toBe(20);
+    expect(result.current.playerPosition.y).toBe(30);
+  });
+
+  it("teleportTo clamps to office bounds", () => {
+    const { result } = renderHook(() =>
+      useMovement({ active: true, deskSlots: emptyDesks }),
+    );
+
+    act(() => {
+      result.current.teleportTo({ x: -10, y: 200 });
+    });
+
+    expect(result.current.playerPosition.x).toBe(OFFICE_BOUNDS.minX);
+    expect(result.current.playerPosition.y).toBe(OFFICE_BOUNDS.maxY);
+  });
+
+  it("teleportTo is blocked by desk collision", () => {
+    const deskAt20: DeskSlot[] = [{ id: "desk-0", left: 20, top: 30 }];
+    const { result } = renderHook(() =>
+      useMovement({ active: true, deskSlots: deskAt20 }),
+    );
+
+    const before = { ...result.current.playerPosition };
+    act(() => {
+      // Teleport to the desk location
+      result.current.teleportTo({ x: 22, y: 32 });
+    });
+
+    // Position should not change due to collision
+    expect(result.current.playerPosition).toEqual(before);
+  });
+
   it("cleans up event listeners on deactivation", () => {
     vi.useFakeTimers();
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {

@@ -579,6 +579,27 @@ describe("HandWorldScene component", () => {
     expect(workerDots).toHaveLength(1);
   });
 
+  // --- Minimap teleport ---
+
+  it("passes onTeleport to minimap and adds clickable class", () => {
+    const onTeleport = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" onTeleport={onTeleport} />
+    );
+    const minimap = container.querySelector(".minimap") as HTMLElement;
+    expect(minimap).toBeTruthy();
+    expect(minimap.classList.contains("minimap-clickable")).toBe(true);
+  });
+
+  it("does not add minimap-clickable class without onTeleport", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const minimap = container.querySelector(".minimap") as HTMLElement;
+    expect(minimap).toBeTruthy();
+    expect(minimap.classList.contains("minimap-clickable")).toBe(false);
+  });
+
   // --- Chat cooldown ---
 
   it("disables chat input when chatOnCooldown is true", () => {

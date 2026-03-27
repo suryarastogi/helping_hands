@@ -46,8 +46,8 @@ frontend/src/
 │   ├── FactoryFloorPanel.test.tsx # FactoryFloorPanel render + interaction tests
 │   ├── HandWorldScene.tsx      # Full zen-garden scene (factory, desks, players, workers, HUD)
 │   ├── HandWorldScene.test.tsx # HandWorldScene render tests
-│   ├── Minimap.tsx             # Bird's-eye minimap overlay (player/worker dots)
-│   ├── Minimap.test.tsx       # Minimap render tests
+│   ├── Minimap.tsx             # Bird's-eye minimap overlay (player/worker dots, click-to-teleport)
+│   ├── Minimap.test.tsx       # Minimap render + teleport tests
 │   ├── MonitorCard.tsx         # Task output monitor card (tabs, filters, usage, resize)
 │   ├── MonitorCard.test.tsx    # MonitorCard render + interaction tests
 │   ├── PlayerAvatar.tsx        # Reusable human-player sprite component

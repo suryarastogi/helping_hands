@@ -106,6 +106,7 @@ export default function App() {
     playerPosition,
     playerDirection,
     isPlayerWalking,
+    teleportTo,
   } = useMovement({ active: true, deskSlots });
 
   const {
@@ -281,6 +282,7 @@ export default function App() {
           onClearDecorations={clearDecorations}
           remoteCursors={remoteCursors}
           onCursorMove={updateCursor}
+          onTeleport={teleportTo}
         />
 
         {mainView === "monitor" && taskId && monitorCard}
