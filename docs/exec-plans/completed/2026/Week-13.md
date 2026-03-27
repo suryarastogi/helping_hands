@@ -10,7 +10,7 @@ spawn randomization, player color customization, multiplayer hardening
 (awareness validation + reconnection resilience), FactoryFloorPanel extraction,
 useTaskManager hook extraction (App.tsx -61%), useSceneWorkers hook
 extraction (App.tsx -47%, dead re-export cleanup), and multiplayer leave
-name resolution + chat dedup fix.
+name resolution + chat dedup fix, and multiplayer cursor sharing.
 
 ---
 
@@ -350,6 +350,14 @@ name resolution + chat dedup fix.
 
 ---
 
+## Mar 27 — Multiplayer Cursor Sharing (v315)
+
+**Cursor sharing:** Remote players' mouse cursors visible as colored SVG arrow pointers with name labels in the Hand World scene. Broadcast via Yjs awareness `cursor` field, throttled to 100ms. New `RemoteCursor` component, `updateCursor()` hook API, `onMouseMove`/`onMouseLeave` scene handlers. CSS smooth interpolation (80ms transitions).
+
+**11 new frontend tests (4 hook, 4 scene, 3 component). 593 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -394,3 +402,4 @@ name resolution + chat dedup fix.
 - `v312-extract-polling-hooks.md`
 - `v313-multiplayer-perf-and-backend-fix.md`
 - `v314-multiplayer-leave-names-chat-dedup.md`
+- `v315-multiplayer-cursor-sharing.md`

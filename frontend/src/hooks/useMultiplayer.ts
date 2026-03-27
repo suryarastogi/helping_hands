@@ -12,6 +12,7 @@ import {
   CHAT_COOLDOWN_MS,
   CHAT_DISPLAY_MS,
   CHAT_HISTORY_MAX,
+  CURSOR_BROADCAST_INTERVAL_MS,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   IDLE_TIMEOUT_MS,
@@ -20,7 +21,7 @@ import {
   PLAYER_COLORS,
   POSITION_BROADCAST_INTERVAL_MS,
 } from "../constants";
-import type { ChatMessage, PlayerDirection, WorldDecoration } from "../types";
+import type { ChatMessage, CursorPosition, PlayerDirection, WorldDecoration } from "../types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,6 +58,14 @@ export type UseMultiplayerOptions = {
   playerColor?: string;
 };
 
+export type RemoteCursor = {
+  player_id: string;
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+};
+
 export type UseMultiplayerReturn = {
   remotePlayers: RemotePlayer[];
   remoteEmotes: Record<string, string>;
@@ -88,6 +97,10 @@ export type UseMultiplayerReturn = {
   placeDecoration: (emoji: string, x: number, y: number) => void;
   /** Remove all decorations from the world. */
   clearDecorations: () => void;
+  /** Remote players' cursor positions (null when cursor is outside scene). */
+  remoteCursors: RemoteCursor[];
+  /** Update the local cursor position. Pass null when the mouse leaves the scene. */
+  updateCursor: (position: CursorPosition | null) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -161,6 +174,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [chatOnCooldown, setChatOnCooldown] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [decorations, setDecorations] = useState<WorldDecoration[]>([]);
+  const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
@@ -176,6 +190,10 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const lastBroadcastRef = useRef<number>(0);
   /** Handle for the pending throttled broadcast. */
   const broadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Timestamp of last cursor broadcast (for throttling). */
+  const lastCursorBroadcastRef = useRef<number>(0);
+  /** Handle for the pending throttled cursor broadcast. */
+  const cursorBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Connection lifecycle ---
   useEffect(() => {
@@ -191,6 +209,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setRemotePlayers([]);
       setChatHistory([]);
       setDecorations([]);
+      setRemoteCursors([]);
       seenRemoteChatsRef.current.clear();
       chatSeqRef.current.clear();
       playerNamesRef.current.clear();
@@ -256,10 +275,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       const newEmotes: Record<string, string> = {};
       const newChats: Record<string, string> = {};
       const newTyping: Record<string, boolean> = {};
+      const cursors: RemoteCursor[] = [];
 
       states.forEach((state: Record<string, unknown>, clientId: number) => {
         if (clientId === doc.clientID) return;
-        const p = state.player as (RemotePlayer & { emote?: string | null; chat?: string | null; typing?: boolean }) | undefined;
+        const p = state.player as (RemotePlayer & { emote?: string | null; chat?: string | null; typing?: boolean; cursor?: CursorPosition | null }) | undefined;
         if (!p) return;
         const pid = p.player_id ?? String(clientId);
         const resolvedName = p.name ?? `Player ${(clientId % 1000) + 1}`;
@@ -286,12 +306,22 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         if (p.chat) {
           newChats[pid] = p.chat;
         }
+        if (p.cursor && typeof p.cursor.x === "number" && typeof p.cursor.y === "number") {
+          cursors.push({
+            player_id: pid,
+            name: resolvedName,
+            color: resolvedColor,
+            x: p.cursor.x,
+            y: p.cursor.y,
+          });
+        }
       });
 
       setRemotePlayers(others);
       setRemoteEmotes(newEmotes);
       setRemoteChats(newChats);
       setRemoteTyping(newTyping);
+      setRemoteCursors(cursors);
 
       // --- Join/leave system messages ---
       for (const clientId of changes.added) {
@@ -644,6 +674,45 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     });
   }, []);
 
+  // --- Cursor update callback (throttled) ---
+  const updateCursor = useCallback(
+    (position: CursorPosition | null) => {
+      const doBroadcast = () => {
+        const provider = yjsProviderRef.current;
+        if (!provider) return;
+        const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
+        if (!current) return;
+        provider.awareness.setLocalStateField("player", { ...current, cursor: position });
+        lastCursorBroadcastRef.current = Date.now();
+      };
+
+      // Null (mouse left scene) — broadcast immediately.
+      if (position === null) {
+        if (cursorBroadcastTimerRef.current) {
+          clearTimeout(cursorBroadcastTimerRef.current);
+          cursorBroadcastTimerRef.current = null;
+        }
+        doBroadcast();
+        return;
+      }
+
+      const elapsed = Date.now() - lastCursorBroadcastRef.current;
+      if (elapsed >= CURSOR_BROADCAST_INTERVAL_MS) {
+        if (cursorBroadcastTimerRef.current) {
+          clearTimeout(cursorBroadcastTimerRef.current);
+          cursorBroadcastTimerRef.current = null;
+        }
+        doBroadcast();
+      } else if (!cursorBroadcastTimerRef.current) {
+        cursorBroadcastTimerRef.current = setTimeout(() => {
+          cursorBroadcastTimerRef.current = null;
+          doBroadcast();
+        }, CURSOR_BROADCAST_INTERVAL_MS - elapsed);
+      }
+    },
+    [],
+  );
+
   // --- Emote key bindings ---
   useEffect(() => {
     if (!active) return;
@@ -684,5 +753,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     decorations,
     placeDecoration,
     clearDecorations,
+    remoteCursors,
+    updateCursor,
   };
 }

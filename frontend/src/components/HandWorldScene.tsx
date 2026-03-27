@@ -9,12 +9,14 @@ import { type CSSProperties, type Ref, useState } from "react";
 
 import { MAX_DECORATIONS } from "../constants";
 
+import type { RemoteCursor as RemoteCursorType } from "../hooks/useMultiplayer";
 import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
 import type { SceneWorkerEntry } from "../hooks/useSceneWorkers";
 import type {
   ChatMessage,
   ClaudeUsageResponse,
+  CursorPosition,
   DeskSlot,
   FloatingNumber,
   PlayerDirection,
@@ -25,6 +27,7 @@ import FactoryFloorPanel from "./FactoryFloorPanel";
 import Minimap from "./Minimap";
 import type { MinimapWorker } from "./Minimap";
 import PlayerAvatar from "./PlayerAvatar";
+import RemoteCursor from "./RemoteCursor";
 import WorkerSprite from "./WorkerSprite";
 
 // ---------------------------------------------------------------------------
@@ -91,6 +94,10 @@ export type HandWorldSceneProps = {
   decorations: WorldDecoration[];
   onPlaceDecoration: (emoji: string, x: number, y: number) => void;
   onClearDecorations: () => void;
+
+  // -- Remote cursors --
+  remoteCursors: RemoteCursorType[];
+  onCursorMove: (position: CursorPosition | null) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -134,6 +141,8 @@ export default function HandWorldScene({
   decorations,
   onPlaceDecoration,
   onClearDecorations,
+  remoteCursors,
+  onCursorMove,
 }: HandWorldSceneProps) {
   const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
 
@@ -150,6 +159,18 @@ export default function HandWorldScene({
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     onPlaceDecoration(selectedDecoEmoji, x, y);
     setSelectedDecoEmoji(null);
+  };
+
+  const handleSceneMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (connectionStatus !== "connected") return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    onCursorMove({ x, y });
+  };
+
+  const handleSceneMouseLeave = () => {
+    onCursorMove(null);
   };
 
   return (
@@ -174,6 +195,8 @@ export default function HandWorldScene({
         style={sceneStyle}
         tabIndex={0}
         onDoubleClick={handleSceneDoubleClick}
+        onMouseMove={handleSceneMouseMove}
+        onMouseLeave={handleSceneMouseLeave}
       >
         <div className="zen-border" aria-hidden="true" />
         <div className="zen-sand-floor" aria-hidden="true" />
@@ -368,6 +391,16 @@ export default function HandWorldScene({
           >
             {d.emoji}
           </span>
+        ))}
+
+        {remoteCursors.map((c) => (
+          <RemoteCursor
+            key={c.player_id}
+            name={c.name}
+            color={c.color}
+            x={c.x}
+            y={c.y}
+          />
         ))}
 
         {connectionStatus === "connected" && (

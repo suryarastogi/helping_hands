@@ -975,4 +975,124 @@ describe("useMultiplayer hook", () => {
     expect(result.current.reconnectAttempts).toBe(0);
     expect(result.current.connectionStatus).toBe("disconnected");
   });
+
+  // -------------------------------------------------------------------------
+  // Remote cursor tracking
+  // -------------------------------------------------------------------------
+
+  it("extracts remote cursors from awareness state", () => {
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Simulate a remote player with a cursor position
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(99, {
+      player: {
+        player_id: "99",
+        name: "Alice",
+        color: "#e11d48",
+        x: 30,
+        y: 40,
+        direction: "down",
+        walking: false,
+        idle: false,
+        typing: false,
+        cursor: { x: 60, y: 70 },
+      },
+    });
+
+    act(() => {
+      mockAwareness._setRemoteStates(remoteStates);
+    });
+
+    expect(result.current.remoteCursors).toEqual([
+      { player_id: "99", name: "Alice", color: "#e11d48", x: 60, y: 70 },
+    ]);
+  });
+
+  it("omits cursors when cursor field is null", () => {
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(99, {
+      player: {
+        player_id: "99",
+        name: "Alice",
+        color: "#e11d48",
+        x: 30,
+        y: 40,
+        direction: "down",
+        walking: false,
+        idle: false,
+        typing: false,
+        cursor: null,
+      },
+    });
+
+    act(() => {
+      mockAwareness._setRemoteStates(remoteStates);
+    });
+
+    expect(result.current.remoteCursors).toEqual([]);
+  });
+
+  it("updateCursor broadcasts cursor position via awareness", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    act(() => {
+      result.current.updateCursor({ x: 25, y: 75 });
+    });
+
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 25, y: 75 });
+
+    // Sending null clears the cursor
+    act(() => {
+      result.current.updateCursor(null);
+    });
+
+    const player2 = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player2.cursor).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it("clears remoteCursors when deactivated", () => {
+    const { result, rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Add a remote cursor
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(99, {
+      player: {
+        player_id: "99",
+        name: "Alice",
+        color: "#e11d48",
+        x: 30,
+        y: 40,
+        direction: "down",
+        walking: false,
+        cursor: { x: 60, y: 70 },
+      },
+    });
+    act(() => {
+      mockAwareness._setRemoteStates(remoteStates);
+    });
+    expect(result.current.remoteCursors.length).toBe(1);
+
+    // Deactivate
+    rerender({ ...defaultOpts(), active: false });
+    expect(result.current.remoteCursors).toEqual([]);
+  });
 });

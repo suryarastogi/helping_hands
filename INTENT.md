@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Cursor Sharing (2026-03-27) — Completed
+
+**Implemented (v315):**
+- Remote players' mouse cursors visible in the Hand World scene as colored SVG arrow pointers with name labels
+- Cursor position broadcast via Yjs awareness `cursor` field (throttled to 100ms)
+- `RemoteCursor` component with smooth CSS transition interpolation (80ms)
+- `useMultiplayer` hook: `updateCursor()` callback + `remoteCursors` state
+- `HandWorldScene`: `onMouseMove` / `onMouseLeave` handlers convert to scene-relative percentages
+- 11 new frontend tests (4 hook, 4 scene, 3 component), 593 total (up from 582)
+
 ### Multiplayer Leave Names & Chat Dedup Fix (2026-03-27) — Completed
 
 **Implemented (v314):**

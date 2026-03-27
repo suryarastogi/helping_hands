@@ -4,7 +4,7 @@ import { fireEvent, render } from "@testing-library/react";
 
 import HandWorldScene from "./HandWorldScene";
 import type { SceneWorkerEntry } from "./HandWorldScene";
-import type { RemotePlayer } from "../hooks/useMultiplayer";
+import type { RemoteCursor, RemotePlayer } from "../hooks/useMultiplayer";
 import type { ChatMessage, ClaudeUsageResponse, FloatingNumber, WorldDecoration } from "../types";
 
 const BOT_STYLE = {
@@ -70,6 +70,8 @@ const BASE_SCENE_PROPS = {
   decorations: [] as WorldDecoration[],
   onPlaceDecoration: vi.fn(),
   onClearDecorations: vi.fn(),
+  remoteCursors: [] as RemoteCursor[],
+  onCursorMove: vi.fn(),
 };
 
 describe("HandWorldScene component", () => {
@@ -846,5 +848,60 @@ describe("HandWorldScene component", () => {
     const swatches = container.querySelectorAll(".color-swatch");
     fireEvent.click(swatches[2]);
     expect(onColorChange).toHaveBeenCalledWith("#16a34a");
+  });
+
+  // -------------------------------------------------------------------------
+  // Remote cursor rendering
+  // -------------------------------------------------------------------------
+
+  it("renders remote cursors with name and color", () => {
+    const cursors: RemoteCursor[] = [
+      { player_id: "99", name: "Alice", color: "#e11d48", x: 30, y: 40 },
+      { player_id: "100", name: "Bob", color: "#2563eb", x: 70, y: 60 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} remoteCursors={cursors} />
+    );
+    const cursorEls = container.querySelectorAll(".remote-cursor");
+    expect(cursorEls.length).toBe(2);
+    expect(cursorEls[0].getAttribute("aria-label")).toBe("Alice's cursor");
+    expect(cursorEls[1].getAttribute("aria-label")).toBe("Bob's cursor");
+
+    // Check labels
+    const labels = container.querySelectorAll(".remote-cursor-label");
+    expect(labels[0].textContent).toBe("Alice");
+    expect(labels[1].textContent).toBe("Bob");
+  });
+
+  it("does not render cursors when list is empty", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} remoteCursors={[]} />
+    );
+    expect(container.querySelectorAll(".remote-cursor").length).toBe(0);
+  });
+
+  it("calls onCursorMove on mouse move over scene", () => {
+    const onCursorMove = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onCursorMove={onCursorMove} />
+    );
+    const scene = container.querySelector(".world-scene")!;
+    // Mock getBoundingClientRect for percentage calculation
+    vi.spyOn(scene, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 1000, height: 500,
+      right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}),
+    });
+    fireEvent.mouseMove(scene, { clientX: 500, clientY: 250 });
+    expect(onCursorMove).toHaveBeenCalledWith({ x: 50, y: 50 });
+  });
+
+  it("calls onCursorMove(null) on mouse leave", () => {
+    const onCursorMove = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onCursorMove={onCursorMove} />
+    );
+    const scene = container.querySelector(".world-scene")!;
+    fireEvent.mouseLeave(scene);
+    expect(onCursorMove).toHaveBeenCalledWith(null);
   });
 });

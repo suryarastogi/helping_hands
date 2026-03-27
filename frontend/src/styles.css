@@ -3807,3 +3807,35 @@ button.worker-sprite:disabled .worker-caption {
   color: #38bdf8;
   margin-top: 4px;
 }
+
+/* ------------------------------------------------------------------ */
+/* Remote cursor                                                       */
+/* ------------------------------------------------------------------ */
+
+.remote-cursor {
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
+  transform: translate(-2px, -2px);
+  transition: left 80ms linear, top 80ms linear;
+}
+
+.remote-cursor-arrow {
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.remote-cursor-label {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  font-size: 10px;
+  line-height: 1;
+  color: #fff;
+  padding: 2px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}

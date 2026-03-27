@@ -126,6 +126,8 @@ export default function App() {
     decorations,
     placeDecoration,
     clearDecorations,
+    remoteCursors,
+    updateCursor,
   } = useMultiplayer({
     active: true,
     playerPosition,
@@ -277,6 +279,8 @@ export default function App() {
           decorations={decorations}
           onPlaceDecoration={placeDecoration}
           onClearDecorations={clearDecorations}
+          remoteCursors={remoteCursors}
+          onCursorMove={updateCursor}
         />
 
         {mainView === "monitor" && taskId && monitorCard}

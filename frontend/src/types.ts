@@ -224,6 +224,11 @@ export type PlayerPosition = {
   y: number;
 };
 
+export type CursorPosition = {
+  x: number;
+  y: number;
+};
+
 export type InputItem = {
   label: string;
   value: string;

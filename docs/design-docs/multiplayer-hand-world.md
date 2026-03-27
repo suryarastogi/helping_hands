@@ -348,6 +348,25 @@ player's chat field clears. The dedup key now includes this sequence number
 (`pid:text:seq`), so the same text sent again after the bubble expires gets
 a fresh key and is recorded as a new message.
 
+## Cursor sharing (v315)
+
+Remote players' mouse cursors are visible in the scene as colored arrow pointers
+with the player's name label. This uses the same Yjs awareness mechanism as
+position/emote/chat — the `cursor` field carries `{ x, y } | null`.
+
+**Implementation:**
+- `useMultiplayer` hook gained `updateCursor(position | null)` callback and
+  `remoteCursors: RemoteCursor[]` state
+- Cursor broadcasts are throttled to `CURSOR_BROADCAST_INTERVAL_MS` (100ms)
+  using a leading+trailing pattern identical to position broadcasts
+- When the mouse leaves the scene, `null` is broadcast immediately so remote
+  clients hide the cursor
+- `RemoteCursor` component renders an SVG arrow pointer with the player's color
+  and a name label badge
+- `HandWorldScene` tracks mouse position via `onMouseMove` / `onMouseLeave`
+  handlers and converts to scene-relative percentages
+- CSS: smooth 80ms transitions on `.remote-cursor` for visual interpolation
+
 ## Future extensions
 
 - Player names from server auth context
