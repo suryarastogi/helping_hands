@@ -11,6 +11,7 @@ sentinels so the rest of the server can start without it.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any, cast
@@ -18,14 +19,22 @@ from typing import Any, cast
 logger = logging.getLogger(__name__)
 
 try:
-    from pycrdt_websocket import (  # type: ignore[import-untyped]
+    from pycrdt.websocket import (  # type: ignore[import-untyped]
         ASGIServer,
         WebsocketServer,
     )
 
     _HAS_PYCRDT = True
-except ImportError:  # pragma: no cover
-    _HAS_PYCRDT = False
+except ImportError:
+    try:
+        from pycrdt_websocket import (  # type: ignore[import-untyped]
+            ASGIServer,
+            WebsocketServer,
+        )
+
+        _HAS_PYCRDT = True
+    except ImportError:  # pragma: no cover
+        _HAS_PYCRDT = False
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -34,6 +43,7 @@ except ImportError:  # pragma: no cover
 # Singleton instances — initialised lazily via ``create_yjs_app()``.
 yjs_websocket_server: Any | None = None
 yjs_asgi_app: Any | None = None
+_yjs_task: asyncio.Task[None] | None = None
 
 
 def create_yjs_app() -> Any | None:
@@ -62,9 +72,12 @@ async def start_yjs_server() -> None:
     """Start the Yjs WebSocket server background task.
 
     Must be called during FastAPI startup (after ``create_yjs_app``).
+
+    pycrdt-websocket >= 0.16 uses an async context manager to start the
+    server.  We enter the context here and exit it in ``stop_yjs_server``.
     """
     if yjs_websocket_server is not None:
-        await yjs_websocket_server.start()
+        await yjs_websocket_server.__aenter__()
         logger.info("Yjs WebSocket server started")
 
 
@@ -74,7 +87,7 @@ async def stop_yjs_server() -> None:
     Must be called during FastAPI shutdown.
     """
     if yjs_websocket_server is not None:
-        await yjs_websocket_server.stop()
+        await yjs_websocket_server.__aexit__(None, None, None)
         logger.info("Yjs WebSocket server stopped")
 
 
@@ -296,7 +309,7 @@ def _parse_awareness_state(raw: object) -> dict[str, Any] | None:
     if isinstance(raw, dict):
         return cast(dict[str, Any], raw)
     try:
-        if isinstance(raw, (bytes, bytearray)):
+        if isinstance(raw, bytes | bytearray):
             return json.loads(raw.decode("utf-8", errors="replace"))  # type: ignore[no-any-return]
         if isinstance(raw, str):
             return json.loads(raw)  # type: ignore[no-any-return]
