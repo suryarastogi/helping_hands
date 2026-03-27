@@ -12,6 +12,18 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### ScheduleCard Form Field Test Coverage (2026-03-27) — Completed
+
+**Implemented (v321):**
+- 26 new tests for ScheduleCard component covering all previously untested form field onChange handlers
+- Cron expression input + preset select (5 tests): cron input onChange, preset selection updates cron_expression, Custom/matching preset display, empty preset no-op
+- Form field onChange handlers (10 tests): prompt textarea, backend select, model input, max_iterations with clamping to min 1, PR number, tools, skills, github token
+- Checkbox toggles (5 tests): no_pr, enable_execution, enable_web, fix_ci, enabled — each verifies correct boolean passed to onUpdateField
+- Advanced settings details element (1 test), schedule item edge cases (4 tests: null next_run_at/last_run_at, multiple items, empty message hidden)
+- Reference repos chip integration (2 tests): comma-separated string parsed to chips, empty string renders no chips
+- ScheduleCard tests: 20 → 46, test-to-source ratio: 0.50x → 1.08x
+- 707 frontend tests total (up from 681)
+
 ### Multiplayer Hardening & Edge Case Coverage (2026-03-27) — Completed
 
 **Implemented (v320):**

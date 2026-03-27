@@ -4,12 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [Multiplayer Hardening](exec-plans/active/2026-03-27-multiplayer-hardening.md) —
+- [ScheduleCard Coverage](exec-plans/active/2026-03-27-schedule-card-coverage.md) —
+  Complete; 26 new form field, checkbox, preset, and edge case tests;
+  ScheduleCard 20 → 46 tests; 707 frontend tests total
+
+## Completed plans
+
+- [v320 Multiplayer Hardening](exec-plans/completed/2026/v320-multiplayer-hardening-edge-cases.md) —
   Edge case coverage, client-side cursor validation, NaN/Infinity fix,
   localStorage error handling tests, backend partial failure tests;
   681 frontend tests, 84 backend multiplayer tests
-
-## Completed plans
 
 - [2026-03-27 v313–v319](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +
