@@ -277,6 +277,7 @@ outage still surfaces the utilization percentages in the task result.
 | Skill catalog | `src/helping_hands/lib/meta/skills/__init__.py` |
 | CLI entry | `src/helping_hands/cli/main.py` |
 | Server entry | `src/helping_hands/server/app.py` |
+| UI HTML template | `src/helping_hands/server/templates/ui.html` |
 | Celery workers | `src/helping_hands/server/celery_app.py` |
 | MCP server | `src/helping_hands/server/mcp_server.py` |
 | Schedules | `src/helping_hands/server/schedules.py` |
@@ -285,4 +286,4 @@ outage still surfaces the utilization percentages in the task result.
 
 ---
 
-*Last updated: 2026-03-07*
+*Last updated: 2026-03-27*

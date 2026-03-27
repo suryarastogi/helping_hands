@@ -17,8 +17,9 @@ improvement (both raised from below 80% to above 80%), and multiplayer
 hardening edge case coverage (_clamp_float NaN/Infinity fix, client-side
 cursor clamping, localStorage error handling tests, backend partial
 failure tests), design doc refresh + timer cleanup + accessibility
-improvements, and decoration placement cooldown with backend decoration
-query endpoint.
+improvements, decoration placement cooldown with backend decoration
+query endpoint, and server app.py decomposition (inline HTML template
+extraction, app.py 4363 → 2085 lines).
 
 ---
 
@@ -424,6 +425,14 @@ query endpoint.
 
 ---
 
+## Mar 27 — Extract Inline HTML Template from app.py (v323)
+
+**Server decomposition:** Extracted 2293-line `_UI_HTML` inline string from `server/app.py` to `server/templates/ui.html`. Added `_load_ui_template()` helper and `_TEMPLATES_DIR` constant — template is read once at module import time and cached. `home()` endpoint unchanged (still replaces `__DEFAULT_SMOKE_TEST_PROMPT__` placeholder). Continues the decomposition pattern from v309-v312.
+
+**app.py: 4363 → 2085 lines (-52%). 5 new backend tests (247 server app tests total).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -476,3 +485,4 @@ query endpoint.
 - `v320-multiplayer-hardening-edge-cases.md`
 - `v321-design-doc-refresh-timer-cleanup.md` (→ `2026-03-27-design-doc-refresh.md`)
 - `v322-decoration-cooldown-and-decoration-endpoint.md`
+- `v323-extract-ui-html-template.md`

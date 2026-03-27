@@ -1,0 +1,2293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>helping_hands · server ui</title>
+    <style>
+      :root {
+        --background: #020817;
+        --background-soft: #0b1220;
+        --panel: #0f172a;
+        --panel-elevated: #111b31;
+        --foreground: #e2e8f0;
+        --muted: #94a3b8;
+        --border: #1f2937;
+        --ring: #334155;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --secondary: #1e293b;
+        --secondary-hover: #334155;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        min-height: 100%;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--foreground);
+        background:
+          radial-gradient(circle at 10% -10%, #172554 0%, transparent 40%),
+          radial-gradient(circle at 110% 0%, #1e1b4b 0%, transparent 42%),
+          linear-gradient(180deg, var(--background-soft) 0%, var(--background) 100%);
+      }
+      .page {
+        max-width: 1280px;
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 28px 20px 36px;
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 300px minmax(0, 1fr);
+        align-items: start;
+      }
+      .main-column {
+        display: grid;
+        gap: 14px;
+      }
+      .card {
+        background: linear-gradient(
+          180deg,
+          var(--panel-elevated) 0%,
+          var(--panel) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 20px 40px rgba(2, 8, 23, 0.45);
+      }
+      .task-list-card {
+        position: sticky;
+        top: 14px;
+      }
+      .new-submission-button {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      .new-submission-button.active {
+        background: var(--primary-hover);
+      }
+      .task-list-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .task-list-header h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .text-button {
+        background: transparent;
+        border: 0;
+        color: var(--muted);
+        font-weight: 600;
+        padding: 0;
+        cursor: pointer;
+      }
+      .text-button:hover {
+        color: var(--foreground);
+      }
+      .text-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .empty-list {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+      .task-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+        max-height: calc(100vh - 140px);
+        overflow: auto;
+      }
+      .task-row {
+        width: 100%;
+        text-align: left;
+        display: grid;
+        gap: 6px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px;
+        background: #0b1326;
+        color: var(--foreground);
+        cursor: pointer;
+      }
+      .task-row:hover {
+        border-color: var(--ring);
+        background: #101a31;
+      }
+      .task-row.active {
+        border-color: #3b82f6;
+        background: #10203d;
+      }
+      .task-row-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .task-row code {
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        color: #93c5fd;
+      }
+      .task-row-meta {
+        font-size: 0.74rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .status-pill {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-radius: 999px;
+        padding: 3px 7px;
+        border: 1px solid transparent;
+      }
+      .status-pill.ok {
+        color: #86efac;
+        background: #052e16;
+        border-color: rgba(34, 197, 94, 0.45);
+      }
+      .status-pill.fail {
+        color: #fca5a5;
+        background: #450a0a;
+        border-color: rgba(239, 68, 68, 0.5);
+      }
+      .status-pill.run {
+        color: #67e8f9;
+        background: #083344;
+        border-color: rgba(6, 182, 212, 0.5);
+      }
+      .status-pill.idle {
+        color: #cbd5e1;
+        background: #0f172a;
+        border-color: #334155;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 1.4rem;
+        letter-spacing: -0.015em;
+      }
+      .header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+      .form-grid {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .advanced-settings {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #0b1326;
+        overflow: hidden;
+      }
+      .advanced-settings > summary {
+        cursor: pointer;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--foreground);
+      }
+      .advanced-settings[open] > summary {
+        background: #101a31;
+        border-bottom: 1px solid var(--border);
+      }
+      .advanced-settings-body {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 0.93rem;
+        color: var(--muted);
+      }
+      input,
+      textarea,
+      select,
+      button {
+        font: inherit;
+      }
+      input,
+      textarea,
+      select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        color: var(--foreground);
+        background: #0a1324;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: 2px solid rgba(59, 130, 246, 0.45);
+        outline-offset: 0;
+        border-color: #3b82f6;
+      }
+      input[type="checkbox"] {
+        width: auto;
+        accent-color: var(--primary);
+      }
+      textarea {
+        resize: vertical;
+      }
+      .row {
+        display: grid;
+        gap: 10px;
+      }
+      .two-col {
+        grid-template-columns: 1fr 1fr;
+      }
+      .check-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px 10px;
+        background: #0b1326;
+        color: var(--foreground);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+      }
+      button {
+        border: 1px solid transparent;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: var(--primary);
+        color: #eff6ff;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:hover {
+        background: var(--primary-hover);
+      }
+      button.secondary {
+        background: var(--secondary);
+        border-color: var(--border);
+        color: var(--foreground);
+      }
+      button.secondary:hover {
+        background: var(--secondary-hover);
+      }
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .meta-item {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: #0b1326;
+      }
+      .meta-label {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .meta-item strong {
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.84rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+      }
+      .usage-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .usage-label {
+        min-width: 56px;
+        font-size: 0.78rem;
+        color: var(--muted);
+        font-family: var(--mono);
+      }
+      .usage-track {
+        flex: 1;
+        height: 10px;
+        background: #1e293b;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+      .usage-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: #22d3ee;
+        transition: width 0.4s ease;
+      }
+      .usage-fill.warn { background: #facc15; }
+      .usage-fill.crit { background: #f87171; }
+      .usage-pct {
+        min-width: 32px;
+        text-align: right;
+        font-size: 0.78rem;
+        font-family: var(--mono);
+        color: var(--muted);
+      }
+      .output-pane {
+        margin-top: 12px;
+      }
+      .pane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .pane-header h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .pane-tabs {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #0a1324;
+        padding: 2px;
+      }
+      .tab-btn {
+        border: 0;
+        border-radius: 6px;
+        padding: 5px 10px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+      }
+      .tab-btn:hover {
+        background: #16233f;
+        color: var(--foreground);
+      }
+      .tab-btn.active {
+        background: var(--secondary);
+        color: var(--foreground);
+      }
+      .output-pane pre {
+        margin: 0;
+        min-height: 280px;
+        max-height: min(68vh, 860px);
+        overflow: auto;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #020817;
+        color: #cbd5e1;
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        line-height: 1.45;
+        white-space: pre;
+      }
+      .task-error-banner {
+        margin: 0 0 8px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        background: var(--danger-soft);
+        color: #fca5a5;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+      .task-error-banner strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #fecaca;
+      }
+      .task-error-banner code {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: #fca5a5;
+      }
+      .prefix-filters {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        padding: 4px 0;
+        margin-bottom: 4px;
+      }
+      .prefix-filters-label {
+        font-size: 0.7rem;
+        color: var(--muted);
+        font-weight: 600;
+        margin-right: 2px;
+      }
+      .usage-total {
+        margin-left: auto;
+        font-size: 0.7rem;
+        font-family: var(--mono);
+        color: var(--accent);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .prefix-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1px 8px;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .prefix-chip:hover {
+        border-color: var(--accent);
+        color: var(--foreground);
+      }
+      .prefix-chip.show { color: var(--foreground); }
+      .prefix-chip.hide {
+        color: #6b7280;
+        border-color: #7f1d1d;
+        background: rgba(127,29,29,0.15);
+        text-decoration: line-through;
+      }
+      .prefix-chip.only {
+        color: #22c55e;
+        border-color: #166534;
+        background: rgba(22,101,52,0.15);
+      }
+      .prefix-chip.reset {
+        font-family: inherit;
+        color: var(--muted);
+        border-style: dashed;
+      }
+      .prefix-chip.reset:hover { color: var(--foreground); }
+      .prefix-chip-icon { font-size: 0.55rem; line-height: 1; }
+      code {
+        font-family: var(--mono);
+        font-size: 0.84rem;
+      }
+      .is-hidden {
+        display: none;
+      }
+      @media (max-width: 1020px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+        .task-list-card {
+          position: static;
+        }
+        .task-list {
+          max-height: 280px;
+        }
+      }
+      @media (max-width: 920px) {
+        .two-col,
+        .check-grid,
+        .meta-grid {
+          grid-template-columns: 1fr;
+        }
+        .pane-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+      .server-ui-badge {
+        font-size: 0.6em;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #93c5fd;
+        background: rgba(37, 99, 235, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 6px;
+        padding: 2px 7px;
+        vertical-align: middle;
+      }
+      .status-blinker {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        flex-shrink: 0;
+        display: inline-block;
+        cursor: help;
+      }
+      .status-blinker.pulse {
+        animation: blinker-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes blinker-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+      }
+      .status-with-blinker {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .toast-container {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 200;
+        pointer-events: none;
+      }
+      .toast {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #111b31;
+        border: 1px solid #1f2937;
+        border-left: 3px solid #94a3b8;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.8rem;
+        color: #e2e8f0;
+        backdrop-filter: blur(8px);
+        pointer-events: auto;
+        animation: toast-slide-in 0.3s ease-out;
+        min-width: 240px;
+        max-width: 380px;
+      }
+      .toast--ok { border-left-color: #22c55e; }
+      .toast--fail { border-left-color: #ef4444; }
+      .toast-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .toast-close {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 1.1rem;
+        padding: 0 2px;
+        line-height: 1;
+      }
+      .toast-close:hover { color: #e2e8f0; }
+      @keyframes toast-slide-in {
+        from { opacity: 0; transform: translateX(100%); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      /* --- Repo suggest / chip input --- */
+      .repo-suggest-wrapper { position: relative; }
+      .repo-chip-wrapper { position: relative; }
+      .repo-chip-container {
+        display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+        padding: 4px 8px; min-height: 34px;
+        border: 1px solid #2a3553; border-radius: 8px;
+        background: #0d1527; cursor: text;
+      }
+      .repo-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 8px; border-radius: 6px;
+        background: rgba(99,102,241,0.18); border: 1px solid #6366f1;
+        font-size: 0.82rem; white-space: nowrap;
+      }
+      .repo-chip-remove {
+        all: unset; cursor: pointer; font-size: 0.85rem;
+        line-height: 1; opacity: 0.6; padding: 0 1px;
+      }
+      .repo-chip-remove:hover { opacity: 1; }
+      .repo-chip-input-el {
+        flex: 1; min-width: 80px; border: none; outline: none;
+        background: transparent; color: #e2e8f0; font-size: 0.82rem; padding: 2px 0;
+      }
+      .repo-dropdown {
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+        margin: 2px 0 0; padding: 4px 0; list-style: none;
+        background: #0f1729; border: 1px solid #2a3553; border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4); max-height: 200px; overflow-y: auto;
+      }
+      .repo-dropdown-up {
+        top: auto; bottom: 100%; margin: 0 0 2px;
+      }
+      .repo-dropdown li {
+        padding: 6px 10px; font-size: 0.82rem; cursor: pointer;
+      }
+      .repo-dropdown li.highlighted {
+        background: rgba(99,102,241,0.18);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <aside class="card task-list-card">
+        <button
+          type="button"
+          id="new-submission-btn"
+          class="new-submission-button active"
+        >
+          New Task
+        </button>
+        <button
+          type="button"
+          id="schedules-btn"
+          class="new-submission-button"
+          style="margin-top: 8px;"
+        >
+          Scheduled tasks
+        </button>
+        <div class="task-list-header">
+          <h2>Submitted tasks</h2>
+          <button type="button" id="clear-history-btn" class="text-button">
+            Clear
+          </button>
+        </div>
+        <p id="empty-list" class="empty-list">No tasks submitted yet.</p>
+        <ul id="task-list" class="task-list"></ul>
+      </aside>
+
+      <div class="main-column">
+        <section id="submission-view" class="card">
+          <header class="header">
+            <h1>helping_hands <span class="server-ui-badge">server&nbsp;ui</span></h1>
+            <p>
+              Submit runs to <code>/build</code> and track progress from
+              <code>/tasks/{task_id}</code>.
+            </p>
+          </header>
+
+          <form id="run-form" method="post" action="/build/form" class="form-grid">
+            <label for="repo_path">
+              Repo path (owner/repo)
+              <div class="repo-suggest-wrapper">
+                <input
+                  id="repo_path"
+                  name="repo_path"
+                  value="suryarastogi/helping_hands"
+                  required
+                  autocomplete="off"
+                />
+                <ul id="repo_path_dropdown" class="repo-dropdown" style="display:none"></ul>
+              </div>
+            </label>
+
+            <label for="prompt">
+              Prompt
+              <textarea id="prompt" name="prompt" required rows="6">
+__DEFAULT_SMOKE_TEST_PROMPT__</textarea>
+            </label>
+
+            <details class="advanced-settings">
+              <summary>Advanced settings</summary>
+              <div class="advanced-settings-body">
+                <div class="row two-col">
+                  <label for="backend">
+                    Backend
+                    <select id="backend" name="backend">
+                      <option value="e2e">Smoke Test (internal)</option>
+                      <option value="basic-langgraph">basic-langgraph</option>
+                      <option value="basic-atomic">basic-atomic</option>
+                      <option value="basic-agent">basic-agent</option>
+                      <option value="codexcli" selected>codexcli</option>
+                      <option value="claudecodecli">claudecodecli</option>
+                      <option value="goose">goose</option>
+                      <option value="geminicli">geminicli</option>
+                      <option value="opencodecli">opencodecli</option>
+                      <option value="devincli">devincli</option>
+                    </select>
+                  </label>
+
+                  <label for="model">
+                    Model (optional)
+                    <input id="model" name="model" placeholder="claude-opus-4-6" />
+                  </label>
+                </div>
+
+                <div class="row two-col">
+                  <label for="max_iterations">
+                    Max iterations
+                    <input
+                      id="max_iterations"
+                      name="max_iterations"
+                      type="number"
+                      min="1"
+                      value="6"
+                    />
+                  </label>
+
+                  <label for="pr_number">
+                    PR number (optional)
+                    <input id="pr_number" name="pr_number" type="number" min="1" />
+                  </label>
+                </div>
+
+                <label for="tools">
+                  Tools (comma-separated, optional)
+                  <input
+                    id="tools"
+                    name="tools"
+                    placeholder="execution,web"
+                  />
+                </label>
+
+                <label for="skills">
+                  Skills (comma-separated, optional)
+                  <input
+                    id="skills"
+                    name="skills"
+                    placeholder="prd,ralph"
+                  />
+                </label>
+
+                <div class="row check-grid">
+                  <label class="check-row" for="no_pr">
+                    <input id="no_pr" name="no_pr" type="checkbox" />
+                    Disable final PR push/create
+                  </label>
+
+                  <label class="check-row" for="enable_execution">
+                    <input
+                      id="enable_execution"
+                      name="enable_execution"
+                      type="checkbox"
+                    />
+                    Enable execution tools
+                  </label>
+
+                  <label class="check-row" for="enable_web">
+                    <input id="enable_web" name="enable_web" type="checkbox" />
+                    Enable web tools
+                  </label>
+
+                  <label class="check-row" for="use_native_cli_auth">
+                    <input
+                      id="use_native_cli_auth"
+                      name="use_native_cli_auth"
+                      type="checkbox"
+                    />
+                    Use native CLI auth (Codex/Claude)
+                  </label>
+
+                  <label class="check-row" for="fix_ci">
+                    <input id="fix_ci" name="fix_ci" type="checkbox" />
+                    Fix CI failures (auto-retry)
+                  </label>
+                </div>
+                <div class="row">
+                  <label for="github_token">GitHub Token
+                    <input id="github_token" name="github_token" type="password" placeholder="ghp_... (optional)" />
+                  </label>
+                </div>
+                <div class="row">
+                  <label>Reference Repos
+                    <div class="repo-chip-wrapper" id="ref_repos_wrapper">
+                      <div class="repo-chip-container" id="ref_repos_chips">
+                        <input class="repo-chip-input-el" id="ref_repos_input" placeholder="owner/repo (optional, read-only)" autocomplete="off" />
+                      </div>
+                      <ul id="ref_repos_dropdown" class="repo-dropdown repo-dropdown-up" style="display:none"></ul>
+                    </div>
+                    <input id="reference_repos" name="reference_repos" type="hidden" />
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <div class="actions">
+              <button type="submit">Submit run</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="monitor-view" class="card is-hidden">
+          <div class="actions">
+            <button id="stop-btn" type="button" class="secondary">
+              Stop polling
+            </button>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Status</span>
+              <strong class="status-with-blinker">
+                <span id="status-blinker" class="status-blinker"
+                  style="background-color:#6b7280" title="idle"></span>
+                <span id="status">idle</span>
+              </strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Task</span>
+              <strong id="task_label">-</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Polling</span>
+              <strong id="polling_label">off</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Runtime</span>
+              <strong id="runtime_label">-</strong>
+            </div>
+          </div>
+
+          <article class="output-pane">
+            <div class="pane-header">
+              <h2>Output</h2>
+              <div class="pane-tabs" role="tablist" aria-label="Output mode">
+                <button
+                  type="button"
+                  class="tab-btn active"
+                  data-output-tab="updates"
+                >
+                  Updates
+                </button>
+                <button type="button" class="tab-btn" data-output-tab="raw">
+                  Raw
+                </button>
+                <button type="button" class="tab-btn" data-output-tab="payload">
+                  Payload
+                </button>
+              </div>
+              <button type="button" id="copy_output_btn" class="secondary"
+                style="font-size:0.7rem;padding:2px 8px;" title="Copy output to clipboard">Copy</button>
+            </div>
+            <div id="prefix_filters" class="prefix-filters" style="display:none;"></div>
+            <div id="task_error_banner" class="task-error-banner" style="display:none;">
+              <strong id="task_error_type"></strong>
+              <code id="task_error_msg"></code>
+            </div>
+            <pre id="output_text">No updates yet.</pre>
+          </article>
+        </section>
+
+        <section id="claude-usage-view" class="card" style="margin-bottom: 16px;">
+          <header class="header" style="margin-bottom: 8px;">
+            <h1 style="display:flex;align-items:center;gap:8px;">
+              Claude Usage
+              <button type="button" id="usage-refresh-btn" class="secondary"
+                style="font-size:0.7rem;padding:3px 8px;">Refresh</button>
+            </h1>
+          </header>
+          <div id="usage-meters" style="display:grid;gap:8px;">
+            <span style="color:#94a3b8;font-size:0.8rem;">Loading...</span>
+          </div>
+          <div id="usage-error" style="color:#fca5a5;font-size:0.78rem;display:none;margin-top:4px;"></div>
+          <div id="usage-timestamp" style="color:#64748b;font-size:0.7rem;margin-top:6px;"></div>
+        </section>
+
+        <section id="schedules-view" class="card is-hidden">
+          <header class="header">
+            <h1>Scheduled tasks <span class="server-ui-badge">cron</span></h1>
+            <p>Create and monitor recurring builds with cron expressions.</p>
+          </header>
+
+          <div class="actions" style="margin-bottom: 16px;">
+            <button type="button" id="new-schedule-btn">New schedule</button>
+            <button type="button" id="refresh-schedules-btn" class="secondary">
+              Refresh
+            </button>
+          </div>
+
+          <div id="schedules-list">
+            <p class="empty-list">No scheduled tasks yet.</p>
+          </div>
+
+          <div id="schedule-form-container" class="is-hidden" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <h2 id="schedule-form-title" style="margin-bottom: 12px;">New schedule</h2>
+            <form id="schedule-form" class="form-grid">
+              <input type="hidden" id="schedule_id" name="schedule_id" />
+              <label for="schedule_name">
+                Name
+                <input id="schedule_name" name="name" required placeholder="e.g. Daily docs update" />
+              </label>
+
+              <div class="row two-col">
+                <label for="schedule_cron">
+                  Cron expression
+                  <input id="schedule_cron" name="cron_expression" required placeholder="0 0 * * * (midnight)" />
+                </label>
+                <label for="schedule_preset">
+                  Or preset
+                  <select id="schedule_preset">
+                    <option value="">Custom</option>
+                    <option value="every_minute">Every minute</option>
+                    <option value="every_5_minutes">Every 5 minutes</option>
+                    <option value="every_15_minutes">Every 15 minutes</option>
+                    <option value="hourly">Hourly</option>
+                    <option value="daily">Daily (midnight)</option>
+                    <option value="weekly">Weekly (Sunday midnight)</option>
+                    <option value="monthly">Monthly (1st midnight)</option>
+                    <option value="weekdays">Weekdays (9am)</option>
+                  </select>
+                </label>
+              </div>
+
+              <label for="schedule_repo">
+                Repo path (owner/repo)
+                <div class="repo-suggest-wrapper">
+                  <input id="schedule_repo" name="repo_path" required placeholder="owner/repo" autocomplete="off" />
+                  <ul id="schedule_repo_dropdown" class="repo-dropdown" style="display:none"></ul>
+                </div>
+              </label>
+
+              <label for="schedule_prompt">
+                Prompt
+                <textarea id="schedule_prompt" name="prompt" required rows="4" placeholder="Update documentation..."></textarea>
+              </label>
+
+              <details class="advanced-settings">
+                <summary>Advanced settings</summary>
+                <div class="advanced-settings-body">
+                  <div class="row two-col">
+                    <label for="schedule_backend">
+                      Backend
+                      <select id="schedule_backend" name="backend">
+                        <option value="claudecodecli" selected>claudecodecli</option>
+                        <option value="codexcli">codexcli</option>
+                        <option value="basic-langgraph">basic-langgraph</option>
+                        <option value="basic-atomic">basic-atomic</option>
+                        <option value="goose">goose</option>
+                        <option value="geminicli">geminicli</option>
+                        <option value="opencodecli">opencodecli</option>
+                        <option value="devincli">devincli</option>
+                      </select>
+                    </label>
+                    <label for="schedule_model">
+                      Model (optional)
+                      <input id="schedule_model" name="model" placeholder="claude-opus-4-6" />
+                    </label>
+                  </div>
+                  <label for="schedule_pr_number">
+                    PR number (optional)
+                    <input id="schedule_pr_number" name="pr_number" type="number" min="1" />
+                  </label>
+                  <div class="row check-grid">
+                    <label class="check-row" for="schedule_no_pr">
+                      <input id="schedule_no_pr" name="no_pr" type="checkbox" />
+                      Disable final PR
+                    </label>
+                    <label class="check-row" for="schedule_enabled">
+                      <input id="schedule_enabled" name="enabled" type="checkbox" checked />
+                      Enabled
+                    </label>
+                    <label class="check-row" for="schedule_fix_ci">
+                      <input id="schedule_fix_ci" name="fix_ci" type="checkbox" />
+                      Fix CI
+                    </label>
+                  </div>
+                  <div class="row">
+                    <label for="schedule_github_token">GitHub Token
+                      <input id="schedule_github_token" name="github_token" type="password" placeholder="ghp_... (optional)" />
+                    </label>
+                  </div>
+                  <div class="row">
+                    <label>Reference Repos
+                      <div class="repo-chip-wrapper" id="sched_ref_repos_wrapper">
+                        <div class="repo-chip-container" id="sched_ref_repos_chips">
+                          <input class="repo-chip-input-el" id="sched_ref_repos_input" placeholder="owner/repo (optional, read-only)" autocomplete="off" />
+                        </div>
+                        <ul id="sched_ref_repos_dropdown" class="repo-dropdown repo-dropdown-up" style="display:none"></ul>
+                      </div>
+                      <input id="schedule_reference_repos" name="reference_repos" type="hidden" />
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              <div class="actions">
+                <button type="submit" id="schedule-submit-btn">Create schedule</button>
+                <button type="button" id="schedule-cancel-btn" class="secondary">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      // --- Recent repos (localStorage) ---
+      const RECENT_REPOS_KEY = "hh_recent_repos";
+      const MAX_RECENT = 20;
+      function loadRecentRepos() {
+        try { const r = JSON.parse(localStorage.getItem(RECENT_REPOS_KEY) || "[]"); return Array.isArray(r) ? r.filter(s => typeof s === "string") : []; }
+        catch { return []; }
+      }
+      function saveRecentRepos(repos) {
+        try { localStorage.setItem(RECENT_REPOS_KEY, JSON.stringify(repos)); } catch {}
+      }
+      function addRecentRepo(repo) {
+        const t = repo.trim();
+        if (!t) return;
+        const prev = loadRecentRepos();
+        const next = [t, ...prev.filter(r => r !== t)].slice(0, MAX_RECENT);
+        saveRecentRepos(next);
+      }
+
+      // --- Suggest dropdown for single-value repo inputs ---
+      function setupRepoSuggest(inputEl, dropdownEl) {
+        let hlIdx = -1;
+        function getFiltered() {
+          const val = inputEl.value.trim().toLowerCase();
+          const all = loadRecentRepos();
+          return val ? all.filter(s => s.toLowerCase().includes(val)) : all;
+        }
+        function render() {
+          const items = getFiltered().slice(0, 8);
+          if (items.length === 0) { dropdownEl.style.display = "none"; return; }
+          dropdownEl.innerHTML = items.map((r, i) =>
+            `<li class="${i === hlIdx ? "highlighted" : ""}">${escapeHtml(r)}</li>`
+          ).join("");
+          dropdownEl.style.display = "";
+          dropdownEl.querySelectorAll("li").forEach((li, i) => {
+            li.addEventListener("mousedown", e => { e.preventDefault(); inputEl.value = items[i]; dropdownEl.style.display = "none"; hlIdx = -1; });
+            li.addEventListener("mouseenter", () => { hlIdx = i; render(); });
+          });
+        }
+        inputEl.addEventListener("input", () => { hlIdx = -1; render(); });
+        inputEl.addEventListener("focus", () => render());
+        inputEl.addEventListener("keydown", e => {
+          const items = getFiltered().slice(0, 8);
+          if (e.key === "ArrowDown") { e.preventDefault(); hlIdx = Math.min(hlIdx + 1, items.length - 1); render(); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); hlIdx = Math.max(hlIdx - 1, -1); render(); }
+          else if (e.key === "Enter" && hlIdx >= 0 && hlIdx < items.length) { e.preventDefault(); inputEl.value = items[hlIdx]; dropdownEl.style.display = "none"; hlIdx = -1; }
+          else if (e.key === "Escape") { dropdownEl.style.display = "none"; hlIdx = -1; }
+        });
+        document.addEventListener("mousedown", e => { if (!inputEl.parentElement.contains(e.target)) { dropdownEl.style.display = "none"; hlIdx = -1; } });
+      }
+
+      // --- Chip input for reference repos ---
+      function setupChipInput(containerEl, inputEl, dropdownEl, hiddenEl) {
+        let chips = [];
+        let hlIdx = -1;
+
+        function syncHidden() {
+          hiddenEl.value = chips.join(", ");
+        }
+        function getFiltered() {
+          const val = inputEl.value.trim().toLowerCase();
+          const all = loadRecentRepos().filter(r => !chips.includes(r));
+          return val ? all.filter(s => s.toLowerCase().includes(val)) : all;
+        }
+        function renderChips() {
+          // Remove existing chip elements
+          containerEl.querySelectorAll(".repo-chip").forEach(el => el.remove());
+          chips.forEach(repo => {
+            const span = document.createElement("span");
+            span.className = "repo-chip";
+            span.textContent = repo;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "repo-chip-remove";
+            btn.textContent = "\u00d7";
+            btn.addEventListener("click", e => { e.stopPropagation(); chips = chips.filter(r => r !== repo); renderChips(); syncHidden(); });
+            span.appendChild(btn);
+            containerEl.insertBefore(span, inputEl);
+          });
+          inputEl.placeholder = chips.length === 0 ? "owner/repo (optional, read-only)" : "";
+          syncHidden();
+        }
+        function renderDropdown() {
+          const items = getFiltered().slice(0, 8);
+          if (items.length === 0) { dropdownEl.style.display = "none"; return; }
+          dropdownEl.innerHTML = items.map((r, i) =>
+            `<li class="${i === hlIdx ? "highlighted" : ""}">${escapeHtml(r)}</li>`
+          ).join("");
+          dropdownEl.style.display = "";
+          dropdownEl.querySelectorAll("li").forEach((li, i) => {
+            li.addEventListener("mousedown", e => { e.preventDefault(); addChip(items[i]); });
+            li.addEventListener("mouseenter", () => { hlIdx = i; renderDropdown(); });
+          });
+        }
+        function addChip(repo) {
+          const t = repo.trim();
+          if (!t || chips.includes(t)) return;
+          chips.push(t);
+          inputEl.value = "";
+          hlIdx = -1;
+          renderChips();
+          renderDropdown();
+        }
+
+        containerEl.addEventListener("click", () => inputEl.focus());
+        inputEl.addEventListener("input", () => { hlIdx = -1; renderDropdown(); });
+        inputEl.addEventListener("focus", () => renderDropdown());
+        inputEl.addEventListener("keydown", e => {
+          const items = getFiltered().slice(0, 8);
+          if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+            if (hlIdx >= 0 && hlIdx < items.length) { e.preventDefault(); addChip(items[hlIdx]); return; }
+            if (inputEl.value.trim()) { e.preventDefault(); addChip(inputEl.value); return; }
+            if (e.key === "Tab") return;
+          }
+          if (e.key === "Backspace" && !inputEl.value && chips.length > 0) { chips.pop(); renderChips(); renderDropdown(); }
+          if (e.key === "ArrowDown") { e.preventDefault(); hlIdx = Math.min(hlIdx + 1, items.length - 1); renderDropdown(); }
+          if (e.key === "ArrowUp") { e.preventDefault(); hlIdx = Math.max(hlIdx - 1, -1); renderDropdown(); }
+          if (e.key === "Escape") { dropdownEl.style.display = "none"; hlIdx = -1; }
+        });
+        document.addEventListener("mousedown", e => {
+          if (!containerEl.parentElement.contains(e.target)) { dropdownEl.style.display = "none"; hlIdx = -1; }
+        });
+
+        // Public API to set chips programmatically (e.g. from query params or schedule edit)
+        return {
+          setChips(arr) { chips = [...arr]; renderChips(); },
+          getChips() { return [...chips]; },
+        };
+      }
+
+      const form = document.getElementById("run-form");
+      const submissionView = document.getElementById("submission-view");
+      const monitorView = document.getElementById("monitor-view");
+      const newSubmissionBtn = document.getElementById("new-submission-btn");
+      const clearHistoryBtn = document.getElementById("clear-history-btn");
+      const taskListEl = document.getElementById("task-list");
+      const emptyListEl = document.getElementById("empty-list");
+      const stopBtn = document.getElementById("stop-btn");
+      const statusEl = document.getElementById("status");
+      const taskLabelEl = document.getElementById("task_label");
+      const pollingLabelEl = document.getElementById("polling_label");
+      const outputTextEl = document.getElementById("output_text");
+      const statusBlinkerEl = document.getElementById("status-blinker");
+      const runtimeLabelEl = document.getElementById("runtime_label");
+      const tabButtons = Array.from(document.querySelectorAll("[data-output-tab]"));
+      const historyStorageKey = "helping_hands_task_history_v1";
+      const terminalStatuses = new Set(["SUCCESS", "FAILURE", "REVOKED"]);
+
+      let taskId = null;
+      let status = "idle";
+      let payloadData = null;
+      let updates = [];
+      let outputTab = "updates";
+      let isPolling = false;
+      let accUsage = null;
+      let accUsageCursor = 0;
+      let pollHandle = null;
+      let discoveryHandle = null;
+      const prefixFilters = {};
+      const prefixFiltersEl = document.getElementById("prefix_filters");
+      const errorBannerEl = document.getElementById("task_error_banner");
+      const errorTypeEl = document.getElementById("task_error_type");
+      const errorMsgEl = document.getElementById("task_error_msg");
+      const PREFIX_RE = new RegExp("^\\\\[([^\\\\]]+)\\\\]");
+      let runtimeHandle = null;
+      let startedAtMs = null;
+      let taskHistory = loadTaskHistory();
+
+      // Schedule elements
+      const schedulesBtn = document.getElementById("schedules-btn");
+      const schedulesView = document.getElementById("schedules-view");
+      const schedulesList = document.getElementById("schedules-list");
+      const newScheduleBtn = document.getElementById("new-schedule-btn");
+      const refreshSchedulesBtn = document.getElementById("refresh-schedules-btn");
+      const scheduleFormContainer = document.getElementById("schedule-form-container");
+      const scheduleForm = document.getElementById("schedule-form");
+      const scheduleFormTitle = document.getElementById("schedule-form-title");
+      const scheduleSubmitBtn = document.getElementById("schedule-submit-btn");
+      const scheduleCancelBtn = document.getElementById("schedule-cancel-btn");
+      const schedulePreset = document.getElementById("schedule_preset");
+      const scheduleCron = document.getElementById("schedule_cron");
+
+      const cronPresets = {
+        "every_minute": "* * * * *",
+        "every_5_minutes": "*/5 * * * *",
+        "every_15_minutes": "*/15 * * * *",
+        "hourly": "0 * * * *",
+        "daily": "0 0 * * *",
+        "weekly": "0 0 * * 0",
+        "monthly": "0 0 1 * *",
+        "weekdays": "0 9 * * 1-5"
+      };
+
+      function setView(nextView) {
+        const isSubmission = nextView === "submission";
+        const isSchedules = nextView === "schedules";
+        submissionView.classList.toggle("is-hidden", !isSubmission);
+        monitorView.classList.toggle("is-hidden", isSubmission || isSchedules);
+        schedulesView.classList.toggle("is-hidden", !isSchedules);
+        newSubmissionBtn.classList.toggle("active", isSubmission);
+        schedulesBtn.classList.toggle("active", isSchedules);
+      }
+
+      function setStatus(value) {
+        status = value;
+        statusEl.textContent = value;
+        const tone = statusTone(value);
+        statusBlinkerEl.style.backgroundColor = statusBlinkerColor(tone);
+        statusBlinkerEl.title = value;
+        statusBlinkerEl.classList.toggle("pulse", tone === "run");
+      }
+
+      function setTaskId(value) {
+        taskId = value || null;
+        taskLabelEl.textContent = taskId || "-";
+      }
+
+      function formatElapsed(ms) {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        return m > 0 ? `${m}m ${String(s).padStart(2, "0")}s` : `${s}s`;
+      }
+
+      function startRuntimeTimer(isoStr) {
+        stopRuntimeTimer();
+        const ms = Date.parse(isoStr);
+        if (!Number.isFinite(ms)) return;
+        startedAtMs = ms;
+        const tick = () => { runtimeLabelEl.textContent = formatElapsed(Date.now() - startedAtMs); };
+        tick();
+        runtimeHandle = setInterval(tick, 1000);
+      }
+
+      function stopRuntimeTimer() {
+        if (runtimeHandle) { clearInterval(runtimeHandle); runtimeHandle = null; }
+        startedAtMs = null;
+      }
+
+      function setPolling(value) {
+        isPolling = value;
+        pollingLabelEl.textContent = value ? "active" : "off";
+      }
+
+      function setOutput(value) {
+        payloadData = value;
+        // Show error banner for failed tasks
+        const result = value && value.result;
+        const isFail = statusTone(status) === "fail";
+        const errorStr = result && typeof result.error === "string" ? result.error : null;
+        const errorType = result && typeof result.error_type === "string" ? result.error_type : null;
+        if (isFail && errorStr) {
+          errorTypeEl.textContent = errorType || "Error";
+          errorMsgEl.textContent = errorStr;
+          errorBannerEl.style.display = "";
+        } else {
+          errorBannerEl.style.display = "none";
+        }
+        // incremental usage accumulation from payload
+        const payloadUpdates = (value && value.result && Array.isArray(value.result.updates))
+          ? value.result.updates.map((item) => String(item)) : [];
+        if (payloadUpdates.length < accUsageCursor) {
+          // reset (task switch)
+          accUsageCursor = 0;
+          accUsage = null;
+          if (payloadUpdates.length > 0) {
+            accUsage = accumulateUsage(payloadUpdates);
+            accUsageCursor = payloadUpdates.length;
+          }
+        } else if (payloadUpdates.length > accUsageCursor) {
+          const delta = accumulateUsage(payloadUpdates.slice(accUsageCursor));
+          accUsageCursor = payloadUpdates.length;
+          if (delta) {
+            if (!accUsage) { accUsage = delta; }
+            else {
+              accUsage = {
+                totalCost: accUsage.totalCost + delta.totalCost,
+                totalSeconds: accUsage.totalSeconds + delta.totalSeconds,
+                totalIn: accUsage.totalIn + delta.totalIn,
+                totalOut: accUsage.totalOut + delta.totalOut,
+                count: accUsage.count + delta.count,
+              };
+            }
+          }
+        }
+        renderOutput();
+      }
+
+      function setUpdates(value) {
+        updates = Array.isArray(value) ? value.map((item) => String(item)) : [];
+        renderOutput();
+      }
+
+      function shortTaskId(value) {
+        if (!value || value.length <= 26) {
+          return value || "-";
+        }
+        return `${value.slice(0, 10)}...${value.slice(-8)}`;
+      }
+
+      let toastCounter = 0;
+      const toastContainerEl = document.getElementById("toast-container");
+
+      function showToast(tid, tStatus) {
+        const tone = statusTone(tStatus);
+        const el = document.createElement("div");
+        el.className = "toast toast--" + tone;
+        el.innerHTML =
+          '<span class="toast-text">Task ' + shortTaskId(tid) + " \u2014 " + tStatus + "</span>" +
+          '<button class="toast-close" aria-label="Dismiss">\u00d7</button>';
+        el.querySelector(".toast-close").onclick = function () { el.remove(); };
+        toastContainerEl.appendChild(el);
+        setTimeout(function () { el.remove(); }, 5000);
+      }
+
+      var _swReg = null;
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/notif-sw.js").then(function(reg) {
+          _swReg = reg;
+        }).catch(function() {});
+      }
+
+      function sendBrowserNotification(tid, tStatus) {
+        if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+        var tone = tStatus.toUpperCase() === "SUCCESS" ? "completed successfully" : "failed";
+        var body = "Task " + shortTaskId(tid) + " " + tone;
+        if (_swReg) {
+          _swReg.showNotification("Helping Hands", { body: body, tag: tid });
+        } else {
+          try { new Notification("Helping Hands", { body: body }); } catch(e) {}
+        }
+      }
+
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+
+      function statusTone(value) {
+        const normalized = String(value || "").trim().toUpperCase();
+        if (normalized === "SUCCESS") {
+          return "ok";
+        }
+        if (
+          normalized === "FAILURE" ||
+          normalized === "REVOKED" ||
+          normalized === "POLL_ERROR"
+        ) {
+          return "fail";
+        }
+        if (
+          [
+            "QUEUED",
+            "PENDING",
+            "STARTED",
+            "RUNNING",
+            "RECEIVED",
+            "RETRY",
+            "PROGRESS",
+            "SCHEDULED",
+            "RESERVED",
+            "SENT",
+            "MONITORING",
+            "SUBMITTING",
+          ].includes(normalized)
+        ) {
+          return "run";
+        }
+        return "idle";
+      }
+
+      function statusBlinkerColor(tone) {
+        if (tone === "ok") return "#22c55e";
+        if (tone === "fail") return "#ef4444";
+        if (tone === "run") return "#eab308";
+        return "#6b7280";
+      }
+
+      function parseOptimisticUpdates(rawUpdates) {
+        const lines = [];
+        const source = Array.isArray(rawUpdates) ? rawUpdates : [];
+        for (const entry of source) {
+          const chunks = String(entry).split(/\r?\n/);
+          for (const chunk of chunks) {
+            const trimmed = chunk.trim();
+            if (!trimmed) {
+              continue;
+            }
+            if (trimmed.includes(".zshenv:.:1: no such file or directory")) {
+              continue;
+            }
+            lines.push(trimmed);
+          }
+        }
+        return lines;
+      }
+
+      function extractPrefixes(rawUpdates) {
+        const seen = new Set();
+        for (const entry of rawUpdates) {
+          for (const line of String(entry).split(/\r?\n/)) {
+            const m = line.trim().match(PREFIX_RE);
+            if (m) seen.add(m[1]);
+          }
+        }
+        return Array.from(seen).sort();
+      }
+
+      function filterLinesByPrefix(text, filters) {
+        const entries = Object.entries(filters);
+        if (entries.length === 0) return text;
+        const hasOnly = entries.some(([, mode]) => mode === "only");
+        const result = [];
+        for (const line of text.split("\n")) {
+          const m = line.match(PREFIX_RE);
+          const prefix = m ? m[1] : null;
+          if (hasOnly) {
+            if (!prefix || filters[prefix] !== "only") continue;
+            result.push(line.replace(PREFIX_RE, "").trimStart());
+          } else {
+            if (prefix && filters[prefix] === "hide") continue;
+            result.push(line);
+          }
+        }
+        return result.join("\n");
+      }
+
+      function accumulateUsage(rawUpdates) {
+        const apiCostRe = /api:\\s*\\$([0-9]+(?:\\.[0-9]+)?)/;
+        let totalCost = 0, totalSeconds = 0, totalIn = 0, totalOut = 0, count = 0;
+        for (const entry of rawUpdates) {
+          for (const line of String(entry).split(/\r?\n/)) {
+            const costMatch = line.match(apiCostRe);
+            if (!costMatch) continue;
+            count++;
+            totalCost += parseFloat(costMatch[1]);
+            const secMatch = line.match(/([0-9]+(?:\\.[0-9]+)?)s/);
+            if (secMatch) totalSeconds += parseFloat(secMatch[1]);
+            const inMatch = line.match(/in=([0-9]+)/);
+            if (inMatch) totalIn += parseInt(inMatch[1], 10);
+            const outMatch = line.match(/out=([0-9]+)/);
+            if (outMatch) totalOut += parseInt(outMatch[1], 10);
+          }
+        }
+        if (count === 0) return null;
+        return { totalCost, totalSeconds, totalIn, totalOut, count };
+      }
+
+      function renderPrefixFilters() {
+        const prefixes = extractPrefixes(updates);
+        const usage = accUsage;
+        if (prefixes.length === 0 && !usage) {
+          prefixFiltersEl.style.display = "none";
+          return;
+        }
+        if ((prefixes.length === 0 || outputTab === "payload") && !usage) {
+          prefixFiltersEl.style.display = "none";
+          return;
+        }
+        prefixFiltersEl.style.display = "flex";
+        let html = '';
+        if (prefixes.length > 0 && outputTab !== "payload") {
+          html += '<span class="prefix-filters-label">Filter:</span>';
+          for (const prefix of prefixes) {
+            const mode = prefixFilters[prefix] || "show";
+            const icons = { show: "\u25cf", hide: "\u25cb", only: "\u25c9" };
+            const titles = {
+              show: "Showing (click to hide)",
+              hide: "Hidden (click for only)",
+              only: "Only (click to reset)",
+            };
+            html += `<button type="button" class="prefix-chip ${mode}" data-prefix="${prefix}" title="[${prefix}] \u2014 ${titles[mode]}"><span class="prefix-chip-icon">${icons[mode]}</span>[${prefix}]</button>`;
+          }
+          if (Object.keys(prefixFilters).length > 0) {
+            html += '<button type="button" class="prefix-chip reset" data-prefix="__reset__" title="Reset all filters">Reset</button>';
+          }
+        }
+        if (usage) {
+          html += `<span class="usage-total" title="${usage.count} API call${usage.count !== 1 ? 's' : ''}, ${Math.round(usage.totalSeconds)}s, in=${usage.totalIn.toLocaleString()} out=${usage.totalOut.toLocaleString()}">api: $${usage.totalCost.toFixed(4)}, ${Math.round(usage.totalSeconds)}s, in=${usage.totalIn.toLocaleString()} out=${usage.totalOut.toLocaleString()}</span>`;
+        }
+        prefixFiltersEl.innerHTML = html;
+      }
+
+      prefixFiltersEl.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-prefix]");
+        if (!btn) return;
+        const prefix = btn.getAttribute("data-prefix");
+        if (prefix === "__reset__") {
+          for (const key of Object.keys(prefixFilters)) delete prefixFilters[key];
+        } else {
+          const current = prefixFilters[prefix] || "show";
+          const next = current === "show" ? "hide" : current === "hide" ? "only" : "show";
+          if (next === "show") {
+            delete prefixFilters[prefix];
+          } else {
+            prefixFilters[prefix] = next;
+          }
+        }
+        renderPrefixFilters();
+        renderOutput();
+      });
+
+      function renderOutput() {
+        let text = "No updates yet.";
+        if (outputTab === "payload") {
+          text = payloadData ? JSON.stringify(payloadData, null, 2) : "{}";
+        } else if (outputTab === "raw") {
+          text = updates.length > 0 ? updates.join("\n") : "No raw output yet.";
+        } else {
+          const parsed = parseOptimisticUpdates(updates);
+          text = parsed.length > 0 ? parsed.join("\n") : "No updates yet.";
+        }
+        if (outputTab !== "payload") {
+          text = filterLinesByPrefix(text, prefixFilters);
+        }
+        outputTextEl.textContent = text;
+        renderPrefixFilters();
+      }
+
+      function setOutputTab(nextTab) {
+        outputTab = nextTab;
+        for (const button of tabButtons) {
+          const active = button.getAttribute("data-output-tab") === nextTab;
+          button.classList.toggle("active", active);
+        }
+        renderOutput();
+      }
+
+      function loadTaskHistory() {
+        try {
+          const raw = window.localStorage.getItem(historyStorageKey);
+          if (!raw) {
+            return [];
+          }
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) {
+            return [];
+          }
+          return parsed
+            .filter(
+              (item) =>
+                item &&
+                typeof item === "object" &&
+                String(item.taskId || "").trim()
+            )
+            .slice(0, 60);
+        } catch (_ignored) {
+          return [];
+        }
+      }
+
+      function persistTaskHistory() {
+        try {
+          window.localStorage.setItem(historyStorageKey, JSON.stringify(taskHistory));
+        } catch (_ignored) {
+          // Best effort only.
+        }
+      }
+
+      function upsertTaskHistory(patch) {
+        const normalizedId = String(patch.taskId || "").trim();
+        if (!normalizedId) {
+          return;
+        }
+        const now = Date.now();
+        const idx = taskHistory.findIndex((item) => item.taskId === normalizedId);
+        if (idx >= 0) {
+          const existing = taskHistory[idx];
+          const updated = {
+            ...existing,
+            status: patch.status || existing.status,
+            backend: patch.backend || existing.backend,
+            repoPath: patch.repoPath || existing.repoPath,
+            lastUpdatedAt: now,
+          };
+          taskHistory = [updated].concat(
+            taskHistory.filter((_, index) => index !== idx)
+          );
+        } else {
+          taskHistory = [
+            {
+              taskId: normalizedId,
+              status: patch.status || "queued",
+              backend: patch.backend || "unknown",
+              repoPath: patch.repoPath || "",
+              createdAt: now,
+              lastUpdatedAt: now,
+            },
+          ].concat(taskHistory);
+        }
+        taskHistory = taskHistory.slice(0, 60);
+        persistTaskHistory();
+        renderTaskHistory();
+      }
+
+      function renderTaskHistory() {
+        taskListEl.innerHTML = "";
+        if (taskHistory.length === 0) {
+          emptyListEl.style.display = "block";
+          clearHistoryBtn.disabled = true;
+          return;
+        }
+        emptyListEl.style.display = "none";
+        clearHistoryBtn.disabled = false;
+
+        for (const item of taskHistory) {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "task-row";
+          if (!monitorView.classList.contains("is-hidden") && taskId === item.taskId) {
+            row.classList.add("active");
+          }
+
+          const top = document.createElement("span");
+          top.className = "task-row-top";
+          const idCode = document.createElement("code");
+          idCode.textContent = shortTaskId(item.taskId);
+          const tone = statusTone(item.status);
+          const rowBlinker = document.createElement("span");
+          rowBlinker.className = `status-blinker${tone === "run" ? " pulse" : ""}`;
+          rowBlinker.style.backgroundColor = statusBlinkerColor(tone);
+          rowBlinker.title = item.status;
+          const statusPill = document.createElement("span");
+          statusPill.className = `status-pill ${tone}`;
+          statusPill.textContent = item.status;
+          top.appendChild(idCode);
+          top.appendChild(rowBlinker);
+          top.appendChild(statusPill);
+
+          const meta = document.createElement("span");
+          meta.className = "task-row-meta";
+          const backend = item.backend || "unknown";
+          const repoPath = item.repoPath || "manual";
+          const timestamp = new Date(
+            item.lastUpdatedAt || Date.now()
+          ).toLocaleTimeString();
+          meta.textContent = `${backend} | ${repoPath} | ${timestamp}`;
+
+          row.appendChild(top);
+          row.appendChild(meta);
+          row.title = item.taskId;
+          row.addEventListener("click", () => {
+            selectTask(item.taskId);
+          });
+
+          const listItem = document.createElement("li");
+          listItem.appendChild(row);
+          taskListEl.appendChild(listItem);
+        }
+      }
+
+      async function pollTaskOnce(taskId) {
+        const pollUrl = `/tasks/${encodeURIComponent(taskId)}?_=${Date.now()}`;
+        const response = await fetch(pollUrl, { cache: "no-store" });
+        if (!response.ok) {
+          let details = "";
+          try {
+            const errData = await response.json();
+            if (errData && typeof errData === "object") {
+              details = errData.detail || JSON.stringify(errData);
+            }
+          } catch (_ignored) {
+            details = await response.text();
+          }
+          const suffix = details ? `: ${details}` : "";
+          throw new Error(`Task lookup failed: ${response.status}${suffix}`);
+        }
+        const data = await response.json();
+        setStatus(data.status);
+        if (Array.isArray(data && data.result && data.result.updates)) {
+          setUpdates(data.result.updates);
+        } else {
+          setUpdates([]);
+        }
+        setOutput(data);
+        const sa = data.result && data.result.started_at;
+        if (sa && !terminalStatuses.has(data.status) && !runtimeHandle) {
+          startRuntimeTimer(sa);
+        }
+        upsertTaskHistory({
+          taskId: data.task_id,
+          status: data.status,
+        });
+        if (terminalStatuses.has(data.status)) {
+          stopRuntimeTimer();
+          const rt = data.result && data.result.runtime;
+          if (rt) { runtimeLabelEl.textContent = rt; }
+          showToast(data.task_id, data.status);
+          sendBrowserNotification(data.task_id, data.status);
+          stopPolling();
+        }
+      }
+
+      function stopPolling() {
+        if (pollHandle) {
+          clearInterval(pollHandle);
+          pollHandle = null;
+        }
+        setPolling(false);
+      }
+
+      function startPolling(taskId) {
+        stopPolling();
+        setTaskId(taskId);
+        setPolling(true);
+        setView("monitor");
+        pollTaskOnce(taskId).catch((err) => {
+          setStatus("error");
+          setOutput({ error: String(err) });
+        });
+        pollHandle = setInterval(() => {
+          pollTaskOnce(taskId).catch((err) => {
+            // Keep retrying; transient backend errors should not stop monitoring.
+            setStatus("poll_error");
+            setOutput({ error: String(err) });
+          });
+        }, 2000);
+      }
+
+      function selectTask(selectedTaskId) {
+        stopRuntimeTimer();
+        runtimeLabelEl.textContent = "-";
+        setStatus("monitoring");
+        setOutput(null);
+        setUpdates([]);
+        setOutputTab("updates");
+        startPolling(selectedTaskId);
+        upsertTaskHistory({
+          taskId: selectedTaskId,
+          status: "monitoring",
+        });
+      }
+
+      function clearForNewSubmission() {
+        stopPolling();
+        stopRuntimeTimer();
+        runtimeLabelEl.textContent = "-";
+        setStatus("idle");
+        setTaskId(null);
+        setOutput(null);
+        setUpdates([]);
+        setOutputTab("updates");
+        setView("submission");
+        renderTaskHistory();
+      }
+
+      function applyQueryDefaults() {
+        const params = new URLSearchParams(window.location.search);
+        const repoPath = params.get("repo_path");
+        const prompt = params.get("prompt");
+        const backend = params.get("backend");
+        const model = params.get("model");
+        const maxIterations = params.get("max_iterations");
+        const prNumber = params.get("pr_number");
+        const noPr = params.get("no_pr");
+        const enableExecution = params.get("enable_execution");
+        const enableWeb = params.get("enable_web");
+        const useNativeCliAuth = params.get("use_native_cli_auth");
+        const fixCi = params.get("fix_ci");
+        const tools = params.get("tools");
+        const skills = params.get("skills");
+        const taskId = params.get("task_id");
+        const status = params.get("status");
+        const error = params.get("error");
+
+        if (repoPath) {
+          document.getElementById("repo_path").value = repoPath;
+        }
+        if (prompt) {
+          document.getElementById("prompt").value = prompt;
+        }
+        if (backend) {
+          document.getElementById("backend").value = backend;
+        }
+        if (model) {
+          document.getElementById("model").value = model;
+        }
+        if (maxIterations) {
+          document.getElementById("max_iterations").value = maxIterations;
+        }
+        if (prNumber) {
+          document.getElementById("pr_number").value = prNumber;
+        }
+        if (tools) {
+          document.getElementById("tools").value = tools;
+        }
+        if (skills) {
+          document.getElementById("skills").value = skills;
+        }
+        if (noPr === "1" || noPr === "true") {
+          document.getElementById("no_pr").checked = true;
+        }
+        if (enableExecution === "1" || enableExecution === "true") {
+          document.getElementById("enable_execution").checked = true;
+        }
+        if (enableWeb === "1" || enableWeb === "true") {
+          document.getElementById("enable_web").checked = true;
+        }
+        if (useNativeCliAuth === "1" || useNativeCliAuth === "true") {
+          document.getElementById("use_native_cli_auth").checked = true;
+        }
+        if (fixCi === "1" || fixCi === "true") {
+          document.getElementById("fix_ci").checked = true;
+        }
+        const githubTokenParam = params.get("github_token");
+        if (githubTokenParam) {
+          document.getElementById("github_token").value = githubTokenParam;
+        }
+        const referenceReposParam = params.get("reference_repos");
+        if (referenceReposParam) {
+          refReposChip.setChips(referenceReposParam.split(",").map(s => s.trim()).filter(s => s.length > 0));
+        }
+        if (error) {
+          setStatus("error");
+          setOutput({ error });
+        }
+        if (taskId) {
+          upsertTaskHistory({
+            taskId,
+            status: status || "queued",
+            backend: backend || undefined,
+            repoPath: repoPath || undefined,
+          });
+          setStatus(status || "queued");
+          selectTask(taskId);
+        }
+      }
+
+      async function refreshCurrentTasks() {
+        try {
+          const response = await fetch(`/tasks/current?_=${Date.now()}`, {
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            return;
+          }
+          const data = await response.json();
+          if (!Array.isArray(data.tasks)) {
+            return;
+          }
+          for (const item of data.tasks) {
+            const discoveredTaskId = String(
+              item && item.task_id ? item.task_id : ""
+            ).trim();
+            if (!discoveredTaskId) {
+              continue;
+            }
+            upsertTaskHistory({
+              taskId: discoveredTaskId,
+              status: String(item.status || "unknown"),
+              backend: typeof item.backend === "string" ? item.backend : undefined,
+              repoPath: typeof item.repo_path === "string" ? item.repo_path : undefined,
+            });
+          }
+        } catch (_ignored) {
+          // Best effort only.
+        }
+      }
+
+      // Initialize suggest dropdowns and chip inputs
+      setupRepoSuggest(document.getElementById("repo_path"), document.getElementById("repo_path_dropdown"));
+      setupRepoSuggest(document.getElementById("schedule_repo"), document.getElementById("schedule_repo_dropdown"));
+      const refReposChip = setupChipInput(
+        document.getElementById("ref_repos_chips"),
+        document.getElementById("ref_repos_input"),
+        document.getElementById("ref_repos_dropdown"),
+        document.getElementById("reference_repos"),
+      );
+      const schedRefReposChip = setupChipInput(
+        document.getElementById("sched_ref_repos_chips"),
+        document.getElementById("sched_ref_repos_input"),
+        document.getElementById("sched_ref_repos_dropdown"),
+        document.getElementById("schedule_reference_repos"),
+      );
+
+      applyQueryDefaults();
+      renderTaskHistory();
+      renderOutput();
+
+      refreshCurrentTasks();
+      discoveryHandle = setInterval(() => {
+        refreshCurrentTasks();
+      }, 5000);
+
+      /* ── Claude Usage Meter ── */
+      const usageMeters = document.getElementById("usage-meters");
+      const usageError = document.getElementById("usage-error");
+      const usageTimestamp = document.getElementById("usage-timestamp");
+      const usageRefreshBtn = document.getElementById("usage-refresh-btn");
+
+      async function refreshClaudeUsage() {
+        try {
+          usageRefreshBtn.disabled = true;
+          const res = await fetch("/health/claude-usage?force=true&_=" + Date.now(), { cache: "no-store" });
+          if (!res.ok) {
+            usageMeters.innerHTML = '<span style="color:#94a3b8;font-size:0.8rem;">Unavailable</span>';
+            return;
+          }
+          const data = await res.json();
+          if (data.error) {
+            usageMeters.innerHTML = "";
+            usageError.textContent = data.error;
+            usageError.style.display = "block";
+          } else {
+            usageError.style.display = "none";
+            let html = "";
+            for (const level of data.levels || []) {
+              const pct = Math.min(level.percent_used, 100);
+              const cls = pct >= 90 ? " crit" : pct >= 70 ? " warn" : "";
+              html += '<div class="usage-row">'
+                + '<span class="usage-label">' + level.name + '</span>'
+                + '<div class="usage-track"><div class="usage-fill' + cls + '" style="width:' + pct + '%"></div></div>'
+                + '<span class="usage-pct">' + Math.round(pct) + '%</span>'
+                + '</div>';
+            }
+            usageMeters.innerHTML = html || '<span style="color:#94a3b8;font-size:0.8rem;">No data</span>';
+          }
+          if (data.fetched_at) {
+            const d = new Date(data.fetched_at);
+            usageTimestamp.textContent = "Updated " + d.toLocaleTimeString();
+          }
+        } catch (_) {
+          usageMeters.innerHTML = '<span style="color:#94a3b8;font-size:0.8rem;">Failed to load</span>';
+        } finally {
+          usageRefreshBtn.disabled = false;
+        }
+      }
+
+      refreshClaudeUsage();
+      setInterval(refreshClaudeUsage, 3600000);
+      usageRefreshBtn.addEventListener("click", refreshClaudeUsage);
+
+      newSubmissionBtn.addEventListener("click", () => {
+        clearForNewSubmission();
+      });
+
+      clearHistoryBtn.addEventListener("click", () => {
+        taskHistory = [];
+        persistTaskHistory();
+        renderTaskHistory();
+      });
+
+      for (const button of tabButtons) {
+        button.addEventListener("click", () => {
+          const nextTab = button.getAttribute("data-output-tab");
+          if (!nextTab) {
+            return;
+          }
+          setOutputTab(nextTab);
+        });
+      }
+
+      document.getElementById("copy_output_btn").addEventListener("click", () => {
+        const text = outputTextEl.textContent || "";
+        navigator.clipboard.writeText(text).catch(() => {});
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setStatus("submitting");
+        setView("monitor");
+        setPolling(false);
+        setTaskId(null);
+        setUpdates([]);
+        setOutputTab("updates");
+        const repoPath = document.getElementById("repo_path").value.trim();
+        const prompt = document.getElementById("prompt").value.trim();
+        const backend = document.getElementById("backend").value;
+        const model = document.getElementById("model").value.trim();
+        const maxIterationsRaw = document.getElementById("max_iterations").value.trim();
+        const prRaw = document.getElementById("pr_number").value.trim();
+        const toolsRaw = document.getElementById("tools").value.trim();
+        const skillsRaw = document.getElementById("skills").value.trim();
+        const noPr = document.getElementById("no_pr").checked;
+        const enableExecution = document.getElementById("enable_execution").checked;
+        const enableWeb = document.getElementById("enable_web").checked;
+        const useNativeCliAuth = document.getElementById("use_native_cli_auth").checked;
+        const fixCi = document.getElementById("fix_ci").checked;
+        const githubToken = document.getElementById("github_token").value.trim();
+        const referenceRepos = document.getElementById("reference_repos").value.trim();
+        const payload = {
+          repo_path: repoPath,
+          prompt,
+          backend,
+          max_iterations: maxIterationsRaw ? Number(maxIterationsRaw) : 6,
+          no_pr: noPr,
+          enable_execution: enableExecution,
+          enable_web: enableWeb,
+          use_native_cli_auth: useNativeCliAuth,
+          fix_ci: fixCi,
+        };
+        if (model) {
+          payload.model = model;
+        }
+        if (prRaw) {
+          payload.pr_number = Number(prRaw);
+        }
+        if (toolsRaw) {
+          payload.tools = toolsRaw
+            .split(",")
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
+        }
+        if (skillsRaw) {
+          payload.skills = skillsRaw
+            .split(",")
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
+        }
+        if (githubToken) {
+          payload.github_token = githubToken;
+        }
+        if (referenceRepos) {
+          payload.reference_repos = referenceRepos.split(",").map(s => s.trim()).filter(s => s.length > 0);
+        }
+
+        try {
+          const response = await fetch("/build", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data?.detail || `Build enqueue failed: ${response.status}`);
+          }
+          setTaskId(data.task_id);
+          setStatus(data.status);
+          setOutput(data);
+          setUpdates([]);
+          upsertTaskHistory({
+            taskId: data.task_id,
+            status: data.status,
+            backend: data.backend,
+            repoPath,
+          });
+          // Remember repos for autocomplete
+          addRecentRepo(repoPath);
+          for (const r of refReposChip.getChips()) { addRecentRepo(r); }
+          startPolling(data.task_id);
+        } catch (err) {
+          setStatus("error");
+          setOutput({ error: String(err) });
+          setPolling(false);
+        }
+      });
+
+      stopBtn.addEventListener("click", () => {
+        stopPolling();
+        setStatus("stopped");
+      });
+
+      window.addEventListener("beforeunload", () => {
+        stopPolling();
+        if (discoveryHandle) {
+          clearInterval(discoveryHandle);
+          discoveryHandle = null;
+        }
+      });
+
+      // Schedule management functions
+      schedulesBtn.addEventListener("click", () => {
+        if (schedulesView.classList.contains("is-hidden")) {
+          setView("schedules");
+          loadSchedules();
+        } else {
+          setView("submission");
+        }
+      });
+
+      schedulePreset.addEventListener("change", (e) => {
+        const preset = e.target.value;
+        if (preset && cronPresets[preset]) {
+          scheduleCron.value = cronPresets[preset];
+        }
+      });
+
+      newScheduleBtn.addEventListener("click", () => {
+        scheduleFormTitle.textContent = "New schedule";
+        scheduleSubmitBtn.textContent = "Create schedule";
+        scheduleForm.reset();
+        document.getElementById("schedule_id").value = "";
+        document.getElementById("schedule_enabled").checked = true;
+        schedRefReposChip.setChips([]);
+        scheduleFormContainer.classList.remove("is-hidden");
+      });
+
+      scheduleCancelBtn.addEventListener("click", () => {
+        scheduleFormContainer.classList.add("is-hidden");
+        scheduleForm.reset();
+        schedRefReposChip.setChips([]);
+      });
+
+      refreshSchedulesBtn.addEventListener("click", loadSchedules);
+
+      async function loadSchedules() {
+        try {
+          const response = await fetch("/schedules");
+          if (!response.ok) throw new Error("Failed to load schedules");
+          const data = await response.json();
+          renderSchedules(data.schedules);
+        } catch (err) {
+          schedulesList.innerHTML = `<p class="empty-list" style="color:#ef4444;">Error: ${err.message}</p>`;
+        }
+      }
+
+      function renderSchedules(schedules) {
+        if (!schedules || schedules.length === 0) {
+          schedulesList.innerHTML = '<p class="empty-list">No scheduled tasks yet.</p>';
+          return;
+        }
+        let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+        for (const s of schedules) {
+          const statusColor = s.enabled ? "#22c55e" : "#6b7280";
+          const statusText = s.enabled ? "enabled" : "disabled";
+          const nextRun = s.next_run_at ? new Date(s.next_run_at).toLocaleString() : "N/A";
+          const lastRun = s.last_run_at ? new Date(s.last_run_at).toLocaleString() : "Never";
+          html += `
+            <div class="schedule-item" style="background: var(--secondary); border-radius: 8px; padding: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong>${escapeHtml(s.name)}</strong>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span class="status-blinker" style="background-color: ${statusColor};"></span>
+                  <span class="status-pill" style="background: ${statusColor};">${statusText}</span>
+                </span>
+              </div>
+              <div style="font-size: 12px; color: var(--muted); display: grid; gap: 4px;">
+                <div><strong>Cron:</strong> <code>${escapeHtml(s.cron_expression)}</code></div>
+                <div><strong>Repo:</strong> ${escapeHtml(s.repo_path)}</div>
+                <div><strong>Prompt:</strong> ${escapeHtml(s.prompt.substring(0, 80))}${s.prompt.length > 80 ? "..." : ""}</div>
+                <div><strong>Next run:</strong> ${nextRun}</div>
+                <div><strong>Last run:</strong> ${lastRun} (${s.run_count} runs)</div>
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 8px;">
+                <button type="button" class="secondary" onclick="editSchedule('${s.schedule_id}')" style="font-size: 12px; padding: 4px 8px;">Edit</button>
+                <button type="button" class="secondary" onclick="triggerSchedule('${s.schedule_id}')" style="font-size: 12px; padding: 4px 8px;">Run now</button>
+                <button type="button" class="secondary" onclick="toggleSchedule('${s.schedule_id}', ${!s.enabled})" style="font-size: 12px; padding: 4px 8px;">${s.enabled ? "Disable" : "Enable"}</button>
+                <button type="button" class="secondary" onclick="deleteSchedule('${s.schedule_id}')" style="font-size: 12px; padding: 4px 8px; color: #ef4444;">Delete</button>
+              </div>
+            </div>
+          `;
+        }
+        html += '</div>';
+        schedulesList.innerHTML = html;
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str || "";
+        return div.innerHTML;
+      }
+
+      scheduleForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const scheduleId = document.getElementById("schedule_id").value;
+        const payload = {
+          name: document.getElementById("schedule_name").value,
+          cron_expression: document.getElementById("schedule_cron").value,
+          repo_path: document.getElementById("schedule_repo").value,
+          prompt: document.getElementById("schedule_prompt").value,
+          backend: document.getElementById("schedule_backend").value,
+          model: document.getElementById("schedule_model").value || null,
+          pr_number: document.getElementById("schedule_pr_number").value ? Number(document.getElementById("schedule_pr_number").value) : null,
+          no_pr: document.getElementById("schedule_no_pr").checked,
+          enabled: document.getElementById("schedule_enabled").checked,
+          fix_ci: document.getElementById("schedule_fix_ci").checked
+        };
+        const schedGhToken = document.getElementById("schedule_github_token").value.trim();
+        if (schedGhToken) {
+          payload.github_token = schedGhToken;
+        }
+        const schedRefRepos = document.getElementById("schedule_reference_repos").value.trim();
+        if (schedRefRepos) {
+          payload.reference_repos = schedRefRepos.split(",").map(s => s.trim()).filter(s => s.length > 0);
+        }
+
+        try {
+          const url = scheduleId ? `/schedules/${scheduleId}` : "/schedules";
+          const method = scheduleId ? "PUT" : "POST";
+          const response = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Failed to save schedule");
+          }
+          scheduleFormContainer.classList.add("is-hidden");
+          // Remember repos for autocomplete
+          addRecentRepo(payload.repo_path);
+          for (const r of schedRefReposChip.getChips()) { addRecentRepo(r); }
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      });
+
+      window.editSchedule = async function(scheduleId) {
+        try {
+          const response = await fetch(`/schedules/${scheduleId}`);
+          if (!response.ok) throw new Error("Schedule not found");
+          const s = await response.json();
+
+          document.getElementById("schedule_id").value = s.schedule_id;
+          document.getElementById("schedule_name").value = s.name;
+          document.getElementById("schedule_cron").value = s.cron_expression;
+          document.getElementById("schedule_repo").value = s.repo_path;
+          document.getElementById("schedule_prompt").value = s.prompt;
+          document.getElementById("schedule_backend").value = s.backend;
+          document.getElementById("schedule_model").value = s.model || "";
+          document.getElementById("schedule_pr_number").value = s.pr_number != null ? s.pr_number : "";
+          document.getElementById("schedule_no_pr").checked = s.no_pr;
+          document.getElementById("schedule_enabled").checked = s.enabled;
+          document.getElementById("schedule_fix_ci").checked = s.fix_ci || false;
+          document.getElementById("schedule_github_token").value = s.github_token || "";
+          schedRefReposChip.setChips(s.reference_repos || []);
+
+          scheduleFormTitle.textContent = "Edit schedule";
+          scheduleSubmitBtn.textContent = "Update schedule";
+          scheduleFormContainer.classList.remove("is-hidden");
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
+
+      window.triggerSchedule = async function(scheduleId) {
+        if (!confirm("Run this schedule now?")) return;
+        try {
+          const response = await fetch(`/schedules/${scheduleId}/trigger`, { method: "POST" });
+          if (!response.ok) throw new Error("Failed to trigger schedule");
+          const data = await response.json();
+          alert(`Triggered! Task ID: ${data.task_id}`);
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
+
+      window.toggleSchedule = async function(scheduleId, enable) {
+        try {
+          const action = enable ? "enable" : "disable";
+          const response = await fetch(`/schedules/${scheduleId}/${action}`, { method: "POST" });
+          if (!response.ok) throw new Error(`Failed to ${action} schedule`);
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
+
+      window.deleteSchedule = async function(scheduleId) {
+        if (!confirm("Delete this schedule? This cannot be undone.")) return;
+        try {
+          const response = await fetch(`/schedules/${scheduleId}`, { method: "DELETE" });
+          if (!response.ok) throw new Error("Failed to delete schedule");
+          loadSchedules();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      };
+    </script>
+    <div id="toast-container" class="toast-container"></div>
+  </body>
+</html>

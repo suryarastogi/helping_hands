@@ -13,10 +13,12 @@ from fastapi.testclient import TestClient
 
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.server.app import (
+    _TEMPLATES_DIR,
     ClaudeUsageResponse,
     _check_db_health,
     _check_redis_health,
     _check_workers_health,
+    _load_ui_template,
     app,
 )
 
@@ -58,6 +60,34 @@ class TestHomeUI:
         assert 'id="enable_web"' in response.text
         assert 'id="use_native_cli_auth"' in response.text
         assert 'id="skills"' in response.text
+
+
+class TestUITemplate:
+    """Tests for the _UI_HTML template loading mechanism."""
+
+    def test_template_file_exists(self) -> None:
+        template_path = _TEMPLATES_DIR / "ui.html"
+        assert template_path.exists(), f"Template file not found: {template_path}"
+
+    def test_template_is_valid_html(self) -> None:
+        content = _load_ui_template()
+        assert content.strip().startswith("<!doctype html>")
+        assert "</html>" in content
+
+    def test_template_contains_placeholder(self) -> None:
+        content = _load_ui_template()
+        assert "__DEFAULT_SMOKE_TEST_PROMPT__" in content
+
+    def test_template_dir_points_to_server_templates(self) -> None:
+        assert _TEMPLATES_DIR.name == "templates"
+        assert _TEMPLATES_DIR.parent.name == "server"
+
+    def test_home_endpoint_replaces_placeholder(self) -> None:
+        client = TestClient(app)
+        response = client.get("/")
+        assert response.status_code == 200
+        assert "__DEFAULT_SMOKE_TEST_PROMPT__" not in response.text
+        assert DEFAULT_SMOKE_TEST_PROMPT in response.text
 
 
 class TestBuildForm:

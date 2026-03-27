@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Extract Inline HTML Template from app.py (2026-03-27) — Completed
+
+**Implemented (v323):**
+- Extracted 2293-line `_UI_HTML` inline string from `server/app.py` to `server/templates/ui.html`
+- Added `_load_ui_template()` helper and `_TEMPLATES_DIR` constant — template loaded once at module import time
+- `app.py` reduced from 4363 to 2085 lines (-52%), continuing the decomposition pattern from v309-v312
+- 5 new backend tests (template existence, valid HTML, placeholder presence, directory structure, endpoint replacement)
+- 247 server app tests total (up from 242)
+
 ### Decoration Placement Cooldown & Decoration Query Endpoint (2026-03-27) — Completed
 
 **Implemented (v322):**
