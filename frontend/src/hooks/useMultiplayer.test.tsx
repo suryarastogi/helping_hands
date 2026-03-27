@@ -1169,4 +1169,78 @@ describe("useMultiplayer hook", () => {
     rerender({ ...defaultOpts(), active: false });
     expect(result.current.remoteCursors).toEqual([]);
   });
+
+  // --- Position throttle: clear pending timer when window elapses ---
+
+  it("clears pending position broadcast timer when a new update arrives after window elapses", () => {
+    vi.useFakeTimers();
+    const startTime = Date.now();
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // Wait past throttle window so first explicit update broadcasts immediately.
+    act(() => vi.advanceTimersByTime(70));
+
+    // First update → broadcasts immediately (window elapsed, no pending timer).
+    rerender({ ...defaultOpts(), playerPosition: { x: 55, y: 55 } });
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(55);
+
+    // Rapid second update within throttle window → creates a pending trailing timer.
+    rerender({ ...defaultOpts(), playerPosition: { x: 60, y: 60 } });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(55); // throttled — pending timer exists
+
+    // Advance Date.now() past the throttle interval WITHOUT running the pending
+    // timer — this simulates a scenario where the effect re-runs before the
+    // scheduled setTimeout has fired (e.g. rapid re-render after the window elapses).
+    vi.setSystemTime(startTime + 300);
+
+    // Now rerender with a new position. The effect sees:
+    //   elapsed >= POSITION_BROADCAST_INTERVAL_MS  → true
+    //   broadcastTimerRef.current                  → non-null (pending timer)
+    // This hits the branch at lines 504-507 that clears the stale timer.
+    rerender({ ...defaultOpts(), playerPosition: { x: 75, y: 75 } });
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(75); // broadcast immediately after clearing the pending timer
+
+    vi.useRealTimers();
+  });
+
+  // --- Cursor throttle: clear pending timer when window elapses ---
+
+  it("clears pending cursor timer when a new update arrives after window elapses", () => {
+    vi.useFakeTimers();
+    const startTime = Date.now();
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    // First cursor broadcast (immediate, no prior).
+    act(() => result.current.updateCursor({ x: 10, y: 20 }));
+    let player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 10, y: 20 });
+
+    // Rapid second update → schedules a trailing timer (pending).
+    act(() => result.current.updateCursor({ x: 30, y: 40 }));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 10, y: 20 }); // throttled
+
+    // Advance Date.now() past the throttle interval WITHOUT running the pending
+    // timer — this simulates the callback arriving before the scheduled timeout.
+    vi.setSystemTime(startTime + 300);
+
+    // Now update cursor again. The callback sees:
+    //   elapsed >= CURSOR_BROADCAST_INTERVAL_MS  → true
+    //   cursorBroadcastTimerRef.current           → non-null (pending timer)
+    // This hits the branch at lines 701-704 that clears the stale timer.
+    act(() => result.current.updateCursor({ x: 80, y: 90 }));
+    player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.cursor).toEqual({ x: 80, y: 90 }); // immediate after clearing pending timer
+
+    vi.useRealTimers();
+  });
 });

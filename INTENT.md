@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Coverage Hardening: AppOverlays & useMultiplayer (2026-03-27) — Completed
+
+**Implemented (v320):**
+- Added 6 tests for `AppOverlays.tsx` `testNotification` function — Notification API unavailable (alert fallback), permission request on not-granted, service worker `showNotification`, fallback `new Notification()` when no SW registration, `new Notification()` error path (alert), and `requestPermission` via Enable button
+- Added 2 tests for `useMultiplayer.ts` throttle edge cases — position throttle pending timer + elapsed window, cursor throttle pending timer + elapsed window (covers branch at lines 701-704)
+- `AppOverlays.tsx` statement coverage: 83.53% → 100%
+- `useMultiplayer.ts` branch coverage: 80.76% → 81.31%
+- Overall frontend branch coverage: 90.22% → 90.38%
+- 682 frontend tests total (up from 674)
+
 ### App.tsx & useTaskManager Branch Coverage (2026-03-27) — Completed
 
 **Implemented (v319):**
