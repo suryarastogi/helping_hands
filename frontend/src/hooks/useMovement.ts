@@ -69,25 +69,35 @@ export function useMovement(options: UseMovementOptions): UseMovementReturn {
 
       setIsPlayerWalking(true);
 
+      // Update direction outside the position updater to keep it pure.
+      if (keysPressed.has("ArrowUp") || keysPressed.has("w")) {
+        setPlayerDirection("up");
+      }
+      if (keysPressed.has("ArrowDown") || keysPressed.has("s")) {
+        setPlayerDirection("down");
+      }
+      if (keysPressed.has("ArrowLeft") || keysPressed.has("a")) {
+        setPlayerDirection("left");
+      }
+      if (keysPressed.has("ArrowRight") || keysPressed.has("d")) {
+        setPlayerDirection("right");
+      }
+
       setPlayerPosition((current: PlayerPosition) => {
         let newX = current.x;
         let newY = current.y;
 
         if (keysPressed.has("ArrowUp") || keysPressed.has("w")) {
           newY -= PLAYER_MOVE_STEP;
-          setPlayerDirection("up");
         }
         if (keysPressed.has("ArrowDown") || keysPressed.has("s")) {
           newY += PLAYER_MOVE_STEP;
-          setPlayerDirection("down");
         }
         if (keysPressed.has("ArrowLeft") || keysPressed.has("a")) {
           newX -= PLAYER_MOVE_STEP;
-          setPlayerDirection("left");
         }
         if (keysPressed.has("ArrowRight") || keysPressed.has("d")) {
           newX += PLAYER_MOVE_STEP;
-          setPlayerDirection("right");
         }
 
         newX = Math.max(OFFICE_BOUNDS.minX, Math.min(OFFICE_BOUNDS.maxX, newX));
