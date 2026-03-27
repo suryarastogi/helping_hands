@@ -22,6 +22,7 @@ import {
   POSITION_BROADCAST_INTERVAL_MS,
 } from "../constants";
 import type { ChatMessage, CursorPosition, PlayerDirection, WorldDecoration } from "../types";
+import { createThrottledBroadcast, type ThrottledBroadcast } from "../utils/throttledBroadcast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -186,14 +187,10 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const playerNamesRef = useRef<Map<number, { name: string; color: string }>>(new Map());
   /** Timestamp of last local movement activity. */
   const lastActivityRef = useRef<number>(Date.now());
-  /** Timestamp of last position broadcast (for throttling). */
-  const lastBroadcastRef = useRef<number>(0);
-  /** Handle for the pending throttled broadcast. */
-  const broadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Timestamp of last cursor broadcast (for throttling). */
-  const lastCursorBroadcastRef = useRef<number>(0);
-  /** Handle for the pending throttled cursor broadcast. */
-  const cursorBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Throttled position broadcast (leading+trailing at 60ms). */
+  const positionThrottleRef = useRef<ThrottledBroadcast>(createThrottledBroadcast(POSITION_BROADCAST_INTERVAL_MS));
+  /** Throttled cursor broadcast (leading+trailing at 100ms). */
+  const cursorThrottleRef = useRef<ThrottledBroadcast>(createThrottledBroadcast(CURSOR_BROADCAST_INTERVAL_MS));
   /** Handle for the pending emote display clear timeout. */
   const emoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Handle for the pending emote awareness clear timeout. */
@@ -513,30 +510,13 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         walking: isPlayerWalking,
         idle: false,
       });
-      lastBroadcastRef.current = Date.now();
     };
 
-    const elapsed = Date.now() - lastBroadcastRef.current;
-    if (elapsed >= POSITION_BROADCAST_INTERVAL_MS) {
-      // Enough time has passed — broadcast immediately.
-      if (broadcastTimerRef.current) {
-        clearTimeout(broadcastTimerRef.current);
-        broadcastTimerRef.current = null;
-      }
-      doBroadcast();
-    } else if (!broadcastTimerRef.current) {
-      // Schedule a trailing broadcast for the remaining interval.
-      broadcastTimerRef.current = setTimeout(() => {
-        broadcastTimerRef.current = null;
-        doBroadcast();
-      }, POSITION_BROADCAST_INTERVAL_MS - elapsed);
-    }
+    const throttle = positionThrottleRef.current;
+    throttle.fire(doBroadcast);
 
     return () => {
-      if (broadcastTimerRef.current) {
-        clearTimeout(broadcastTimerRef.current);
-        broadcastTimerRef.current = null;
-      }
+      throttle.cancel();
     };
   }, [active, playerPosition, playerDirection, isPlayerWalking]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -722,32 +702,15 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
         if (!current) return;
         provider.awareness.setLocalStateField("player", { ...current, cursor: clamped });
-        lastCursorBroadcastRef.current = Date.now();
       };
 
-      // Null (mouse left scene) — broadcast immediately.
+      // Null (mouse left scene) — broadcast immediately and cancel pending.
       if (position === null) {
-        if (cursorBroadcastTimerRef.current) {
-          clearTimeout(cursorBroadcastTimerRef.current);
-          cursorBroadcastTimerRef.current = null;
-        }
-        doBroadcast();
+        cursorThrottleRef.current.fireImmediate(doBroadcast);
         return;
       }
 
-      const elapsed = Date.now() - lastCursorBroadcastRef.current;
-      if (elapsed >= CURSOR_BROADCAST_INTERVAL_MS) {
-        if (cursorBroadcastTimerRef.current) {
-          clearTimeout(cursorBroadcastTimerRef.current);
-          cursorBroadcastTimerRef.current = null;
-        }
-        doBroadcast();
-      } else if (!cursorBroadcastTimerRef.current) {
-        cursorBroadcastTimerRef.current = setTimeout(() => {
-          cursorBroadcastTimerRef.current = null;
-          doBroadcast();
-        }, CURSOR_BROADCAST_INTERVAL_MS - elapsed);
-      }
+      cursorThrottleRef.current.fire(doBroadcast);
     },
     [],
   );

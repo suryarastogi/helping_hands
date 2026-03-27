@@ -16,7 +16,8 @@ component test coverage, App.tsx/useTaskManager branch coverage
 improvement (both raised from below 80% to above 80%), and multiplayer
 hardening edge case coverage (_clamp_float NaN/Infinity fix, client-side
 cursor clamping, localStorage error handling tests, backend partial
-failure tests).
+failure tests), design doc refresh with timer cleanup and accessibility
+improvements, and throttled broadcast utility extraction from useMultiplayer.
 
 ---
 
@@ -404,6 +405,28 @@ failure tests).
 
 ---
 
+## Mar 27 — Design Doc Refresh & Multiplayer Resilience (v321)
+
+**Design doc refresh:** Rewrote "Approach" section in `docs/design-docs/multiplayer-hand-world.md` — removed references to deleted `WorldConnectionManager` and "No external libraries", updated to reflect Yjs architecture.
+
+**Timer cleanup:** 5 new timeout refs in `useMultiplayer` (emoteTimerRef, emoteAwarenessTimerRef, chatDisplayTimerRef, chatAwarenessTimerRef, chatCooldownTimerRef) tracked and cleared on connection lifecycle cleanup. Rapid emote triggers cancel previous timer.
+
+**Accessibility:** `aria-live` on reconnection/failed banners, `aria-label` on refresh button, `aria-hidden` on RemoteCursor SVG, PlayerAvatar remote aria-label includes status, improved Minimap aria-label.
+
+**10 new frontend tests. 691 frontend tests total.**
+
+---
+
+## Mar 27 — Extract Throttled Broadcast Utility (v322)
+
+**Code quality:** Extracted duplicated leading+trailing throttle logic from `useMultiplayer` into `createThrottledBroadcast` utility (`frontend/src/utils/throttledBroadcast.ts`). Both position broadcast (60ms) and cursor broadcast (100ms) now use the shared utility instead of inline ref-based throttle implementations.
+
+**useMultiplayer.ts:** 798 → 761 lines (-37 lines, -5%). Replaced 4 refs (lastBroadcastRef, broadcastTimerRef, lastCursorBroadcastRef, cursorBroadcastTimerRef) with 2 throttle instance refs.
+
+**9 new tests** for `createThrottledBroadcast` (leading edge, trailing edge, dedup, cancel, fireImmediate, reset). **700 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -454,3 +477,5 @@ failure tests).
 - `v318-repo-input-components-test-coverage.md`
 - `v319-app-task-manager-coverage.md`
 - `v320-multiplayer-hardening-edge-cases.md`
+- `2026-03-27-design-doc-refresh.md`
+- `v322-extract-throttled-broadcast.md`

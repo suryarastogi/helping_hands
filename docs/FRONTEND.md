@@ -41,6 +41,9 @@ frontend/src/
 ├── types.ts              # Shared types (25+ types: Backend, FormState, TaskStatus, etc.)
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
+├── utils/
+│   ├── throttledBroadcast.ts      # Leading+trailing throttle for network broadcasts
+│   └── throttledBroadcast.test.ts # Throttle utility unit tests
 ├── components/
 │   ├── FactoryFloorPanel.tsx   # Left HUD panel (name, color, presence, chat, emotes, decorations)
 │   ├── FactoryFloorPanel.test.tsx # FactoryFloorPanel render + interaction tests

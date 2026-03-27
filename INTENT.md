@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Extract Throttled Broadcast Utility (2026-03-27) — Completed
+
+**Implemented (v322):**
+- Extracted duplicated leading+trailing throttle logic from `useMultiplayer` into `createThrottledBroadcast` factory utility (`frontend/src/utils/throttledBroadcast.ts`)
+- Position broadcast (60ms) and cursor broadcast (100ms) now use the shared utility instead of inline ref-based throttle implementations
+- `useMultiplayer.ts` reduced from 798 to 761 lines (-37 lines)
+- Replaced 4 refs with 2 `ThrottledBroadcast` instance refs
+- Fixed ESLint `react-hooks/exhaustive-deps` warning
+- 9 new tests for the utility, 700 frontend tests total (up from 691)
+
 ### Design Doc Refresh & Multiplayer Resilience (2026-03-27) — Completed
 
 **Implemented (v321):**
