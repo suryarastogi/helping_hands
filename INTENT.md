@@ -12,6 +12,14 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### useRecentRepos Hook Test Coverage (2026-03-27) — Completed
+
+**Implemented (v317):**
+- Added 16 tests for `useRecentRepos` hook — the last custom hook without co-located tests
+- Tests cover: initial state from localStorage, add/dedup/cap at 20, trim whitespace, empty string no-op, remove, cross-tab sync via StorageEvent, invalid JSON resilience, non-array fallback, non-string filtering, localStorage error handling (SecurityError, QuotaExceededError)
+- 612 frontend tests total (up from 596)
+- Updated FRONTEND.md hook listing with useRecentRepos test file
+
 ### Cursor Broadcast Throttle Coverage (2026-03-27) — Completed
 
 **Implemented (v316):**

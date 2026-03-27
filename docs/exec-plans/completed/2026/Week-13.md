@@ -10,7 +10,8 @@ spawn randomization, player color customization, multiplayer hardening
 (awareness validation + reconnection resilience), FactoryFloorPanel extraction,
 useTaskManager hook extraction (App.tsx -61%), useSceneWorkers hook
 extraction (App.tsx -47%, dead re-export cleanup), and multiplayer leave
-name resolution + chat dedup fix, and multiplayer cursor sharing.
+name resolution + chat dedup fix, multiplayer cursor sharing, and
+useRecentRepos hook test coverage.
 
 ---
 
@@ -358,6 +359,22 @@ name resolution + chat dedup fix, and multiplayer cursor sharing.
 
 ---
 
+## Mar 27 — Cursor Broadcast Throttle Coverage (v316)
+
+**Coverage:** 3 tests for `updateCursor()` throttle behavior — rapid updates throttled with trailing broadcast, immediate broadcast when window elapsed, null cancels timer.
+
+**3 new frontend tests. 596 frontend tests total.**
+
+---
+
+## Mar 27 — useRecentRepos Hook Test Coverage (v317)
+
+**Coverage:** 16 tests for `useRecentRepos` hook — the last custom hook without co-located tests. Covers initial state loading, add/dedup/cap, whitespace handling, remove, cross-tab sync via StorageEvent, invalid/non-array JSON resilience, and localStorage error handling.
+
+**16 new frontend tests. 612 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -403,3 +420,5 @@ name resolution + chat dedup fix, and multiplayer cursor sharing.
 - `v313-multiplayer-perf-and-backend-fix.md`
 - `v314-multiplayer-leave-names-chat-dedup.md`
 - `v315-multiplayer-cursor-sharing.md`
+- `v316-cursor-throttle-coverage.md`
+- `v317-use-recent-repos-coverage.md`

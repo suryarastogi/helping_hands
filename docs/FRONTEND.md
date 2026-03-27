@@ -75,6 +75,8 @@ frontend/src/
 │   ├── useServiceHealth.test.tsx # Service health hook tests
 │   ├── useClaudeUsage.ts      # Claude Code usage polling hook (1h interval + manual refresh)
 │   ├── useClaudeUsage.test.tsx # Claude usage hook tests
+│   ├── useRecentRepos.ts     # Recently used repos hook (localStorage, cross-tab sync)
+│   ├── useRecentRepos.test.tsx # Recent repos hook tests (add, remove, dedup, cap, sync, errors)
 │   ├── useTaskManager.ts      # Task submission, polling, history, output, and toasts hook
 │   └── useTaskManager.test.tsx# Task manager hook tests (submit, select, poll, history, output)
 └── test/
