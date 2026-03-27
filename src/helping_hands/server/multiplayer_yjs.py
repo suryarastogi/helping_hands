@@ -2,8 +2,8 @@
 
 Uses ``pycrdt-websocket`` to provide a standards-compliant Yjs WebSocket
 server.  The Yjs *awareness* layer carries ephemeral player presence
-(position, direction, walking state, emotes) while the Y.Doc itself stays
-empty — we only need presence, not persistent shared state.
+(position, direction, walking state, emotes, chat, cursors) while the
+Y.Doc stores persistent shared state such as world decorations (Y.Map).
 
 If ``pycrdt-websocket`` is not installed the module exposes ``None``
 sentinels so the rest of the server can start without it.
@@ -11,7 +11,6 @@ sentinels so the rest of the server can start without it.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import math
@@ -44,7 +43,6 @@ except ImportError:
 # Singleton instances — initialised lazily via ``create_yjs_app()``.
 yjs_websocket_server: Any | None = None
 yjs_asgi_app: Any | None = None
-_yjs_task: asyncio.Task[None] | None = None
 
 
 def create_yjs_app() -> Any | None:
@@ -121,6 +119,61 @@ def get_multiplayer_stats() -> dict[str, object]:
     except Exception:
         logger.debug("Failed to read multiplayer stats", exc_info=True)
         return {"available": True, "rooms": 0, "connections": 0}
+
+
+def get_room_details() -> dict[str, object]:
+    """Return per-room details for all active Yjs rooms.
+
+    Returns::
+
+        {
+            "rooms": [
+                {
+                    "name": "hand-world",
+                    "clients": 3,
+                    "decorations": 5,
+                    "has_awareness": true
+                },
+                ...
+            ],
+            "count": 1
+        }
+
+    When the Yjs server is unavailable, returns an empty list.
+    """
+    if yjs_websocket_server is None:
+        return {"rooms": [], "count": 0}
+
+    room_list: list[dict[str, object]] = []
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        for room_name, room in rooms.items():
+            clients = getattr(room, "clients", [])
+            awareness = getattr(room, "awareness", None)
+
+            # Count decorations in the room's Y.Doc.
+            deco_count = 0
+            ydoc = getattr(room, "ydoc", None)
+            if ydoc is not None:
+                try:
+                    deco_map = ydoc.get("decorations", type="map")
+                    if deco_map is not None:
+                        deco_count = len(deco_map)
+                except Exception:
+                    pass
+
+            room_list.append(
+                {
+                    "name": str(room_name),
+                    "clients": len(clients),
+                    "decorations": deco_count,
+                    "has_awareness": awareness is not None,
+                }
+            )
+    except Exception:
+        logger.debug("Failed to read room details", exc_info=True)
+
+    return {"rooms": room_list, "count": len(room_list)}
 
 
 def get_connected_players() -> dict[str, object]:

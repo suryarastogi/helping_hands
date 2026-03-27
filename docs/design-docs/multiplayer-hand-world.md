@@ -28,8 +28,9 @@ decorations) uses Y.Map in the Y.Doc, auto-synced by pycrdt-websocket.
 (50 chars) and chat (120 chars), strips control characters, validates direction
 enum, and coerces types. `_clamp_float` handles NaN (→ midpoint) and ±Infinity
 (→ bounds). Health endpoints (`/health/multiplayer`, `/health/multiplayer/players`,
-`/health/multiplayer/activity`) expose room/connection stats and validated player
-state for external monitoring.
+`/health/multiplayer/activity`, `/health/multiplayer/decorations`,
+`/health/multiplayer/rooms`) expose room/connection stats, validated player state,
+decoration state, and per-room details for external monitoring.
 
 **Position broadcast throttling:** Client-side 60ms leading+trailing throttle on
 position broadcasts and 100ms throttle on cursor broadcasts. Client-side cursor

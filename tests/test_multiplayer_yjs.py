@@ -16,6 +16,7 @@ from helping_hands.server.multiplayer_yjs import (
     get_decoration_state,
     get_multiplayer_stats,
     get_player_activity_summary,
+    get_room_details,
     start_yjs_server,
     stop_yjs_server,
     validate_awareness_state,
@@ -763,7 +764,9 @@ class TestGetDecorationState:
     def test_returns_empty_when_no_rooms(self) -> None:
         mock_server = MagicMock()
         mock_server.rooms = {}
-        with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server):
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
             result = get_decoration_state()
             assert result == {"decorations": [], "count": 0}
 
@@ -771,10 +774,26 @@ class TestGetDecorationState:
         """Decorations stored in Y.Map should be returned with validated fields."""
         mock_deco_map = MagicMock()
         mock_deco_map.__iter__ = MagicMock(return_value=iter(["d1", "d2"]))
-        mock_deco_map.__getitem__ = MagicMock(side_effect=lambda k: {
-            "d1": {"emoji": "\U0001F338", "x": 30.0, "y": 40.0, "placedBy": "Alice", "color": "#e11d48", "placedAt": 1000},
-            "d2": {"emoji": "\u2B50", "x": 60.0, "y": 70.0, "placedBy": "Bob", "color": "#2563eb", "placedAt": 2000},
-        }[k])
+        mock_deco_map.__getitem__ = MagicMock(
+            side_effect=lambda k: {
+                "d1": {
+                    "emoji": "\U0001f338",
+                    "x": 30.0,
+                    "y": 40.0,
+                    "placedBy": "Alice",
+                    "color": "#e11d48",
+                    "placedAt": 1000,
+                },
+                "d2": {
+                    "emoji": "\u2b50",
+                    "x": 60.0,
+                    "y": 70.0,
+                    "placedBy": "Bob",
+                    "color": "#2563eb",
+                    "placedAt": 2000,
+                },
+            }[k]
+        )
 
         mock_ydoc = MagicMock()
         mock_ydoc.get.return_value = mock_deco_map
@@ -785,24 +804,32 @@ class TestGetDecorationState:
         mock_server = MagicMock()
         mock_server.rooms = {"hand-world": mock_room}
 
-        with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server):
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
             result = get_decoration_state()
             assert result["count"] == 2
             decos = result["decorations"]
             assert len(decos) == 2
-            assert decos[0]["emoji"] == "\U0001F338"
+            assert decos[0]["emoji"] == "\U0001f338"
             assert decos[0]["placedBy"] == "Alice"
-            assert decos[1]["emoji"] == "\u2B50"
+            assert decos[1]["emoji"] == "\u2b50"
             assert decos[1]["placedAt"] == 2000
 
     def test_clamps_decoration_positions(self) -> None:
         """Out-of-range decoration positions should be clamped to [0, 100]."""
         mock_deco_map = MagicMock()
         mock_deco_map.__iter__ = MagicMock(return_value=iter(["d1"]))
-        mock_deco_map.__getitem__ = MagicMock(return_value={
-            "emoji": "\U0001F525", "x": -10.0, "y": 200.0,
-            "placedBy": "Eve", "color": "#fff", "placedAt": 500,
-        })
+        mock_deco_map.__getitem__ = MagicMock(
+            return_value={
+                "emoji": "\U0001f525",
+                "x": -10.0,
+                "y": 200.0,
+                "placedBy": "Eve",
+                "color": "#fff",
+                "placedAt": 500,
+            }
+        )
 
         mock_ydoc = MagicMock()
         mock_ydoc.get.return_value = mock_deco_map
@@ -813,7 +840,9 @@ class TestGetDecorationState:
         mock_server = MagicMock()
         mock_server.rooms = {"hand-world": mock_room}
 
-        with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server):
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
             result = get_decoration_state()
             assert result["count"] == 1
             deco = result["decorations"][0]
@@ -824,10 +853,19 @@ class TestGetDecorationState:
         """Map entries without an emoji field should be skipped."""
         mock_deco_map = MagicMock()
         mock_deco_map.__iter__ = MagicMock(return_value=iter(["d1", "d2"]))
-        mock_deco_map.__getitem__ = MagicMock(side_effect=lambda k: {
-            "d1": {"x": 50, "y": 50, "placedBy": "Alice"},  # no emoji
-            "d2": {"emoji": "\U0001F48E", "x": 10, "y": 20, "placedBy": "Bob", "color": "", "placedAt": 100},
-        }[k])
+        mock_deco_map.__getitem__ = MagicMock(
+            side_effect=lambda k: {
+                "d1": {"x": 50, "y": 50, "placedBy": "Alice"},  # no emoji
+                "d2": {
+                    "emoji": "\U0001f48e",
+                    "x": 10,
+                    "y": 20,
+                    "placedBy": "Bob",
+                    "color": "",
+                    "placedAt": 100,
+                },
+            }[k]
+        )
 
         mock_ydoc = MagicMock()
         mock_ydoc.get.return_value = mock_deco_map
@@ -838,18 +876,135 @@ class TestGetDecorationState:
         mock_server = MagicMock()
         mock_server.rooms = {"hand-world": mock_room}
 
-        with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server):
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
             result = get_decoration_state()
             assert result["count"] == 1
-            assert result["decorations"][0]["emoji"] == "\U0001F48E"
+            assert result["decorations"][0]["emoji"] == "\U0001f48e"
 
     def test_handles_exception_gracefully(self) -> None:
         """Exceptions reading room state should return empty result."""
         mock_server = MagicMock()
         mock_server.rooms = MagicMock(side_effect=RuntimeError("boom"))
         # rooms is a property-like attribute that raises on access
-        type(mock_server).rooms = property(lambda self: (_ for _ in ()).throw(RuntimeError("boom")))
+        type(mock_server).rooms = property(
+            lambda self: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
 
-        with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server):
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
             result = get_decoration_state()
             assert result == {"decorations": [], "count": 0}
+
+
+class TestGetRoomDetails:
+    """Tests for the ``get_room_details`` function."""
+
+    def test_returns_empty_when_server_unavailable(self) -> None:
+        with patch("helping_hands.server.multiplayer_yjs.yjs_websocket_server", None):
+            result = get_room_details()
+            assert result == {"rooms": [], "count": 0}
+
+    def test_returns_room_with_clients_and_decorations(self) -> None:
+        mock_deco_map = MagicMock()
+        mock_deco_map.__len__ = MagicMock(return_value=3)
+
+        mock_ydoc = MagicMock()
+        mock_ydoc.get.return_value = mock_deco_map
+
+        mock_room = MagicMock()
+        mock_room.clients = ["c1", "c2"]
+        mock_room.awareness = MagicMock()
+        mock_room.ydoc = mock_ydoc
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_room_details()
+            assert result["count"] == 1
+            room = result["rooms"][0]
+            assert room["name"] == "hand-world"
+            assert room["clients"] == 2
+            assert room["decorations"] == 3
+            assert room["has_awareness"] is True
+
+    def test_returns_room_without_awareness(self) -> None:
+        mock_room = MagicMock()
+        mock_room.clients = []
+        mock_room.awareness = None
+        mock_room.ydoc = None
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"empty-room": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_room_details()
+            assert result["count"] == 1
+            room = result["rooms"][0]
+            assert room["name"] == "empty-room"
+            assert room["clients"] == 0
+            assert room["decorations"] == 0
+            assert room["has_awareness"] is False
+
+    def test_handles_multiple_rooms(self) -> None:
+        mock_room1 = MagicMock()
+        mock_room1.clients = ["c1"]
+        mock_room1.awareness = MagicMock()
+        mock_room1.ydoc = None
+
+        mock_room2 = MagicMock()
+        mock_room2.clients = ["c1", "c2", "c3"]
+        mock_room2.awareness = MagicMock()
+        mock_room2.ydoc = None
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"room-a": mock_room1, "room-b": mock_room2}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_room_details()
+            assert result["count"] == 2
+            names = [r["name"] for r in result["rooms"]]
+            assert "room-a" in names
+            assert "room-b" in names
+
+    def test_handles_ydoc_get_exception(self) -> None:
+        """Exception reading decorations from ydoc should result in 0 decorations."""
+        mock_ydoc = MagicMock()
+        mock_ydoc.get.side_effect = RuntimeError("ydoc error")
+
+        mock_room = MagicMock()
+        mock_room.clients = ["c1"]
+        mock_room.awareness = MagicMock()
+        mock_room.ydoc = mock_ydoc
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_room_details()
+            assert result["count"] == 1
+            assert result["rooms"][0]["decorations"] == 0
+
+    def test_handles_exception_gracefully(self) -> None:
+        """Top-level exception should return empty result."""
+        mock_server = MagicMock()
+        type(mock_server).rooms = property(
+            lambda self: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_room_details()
+            assert result == {"rooms": [], "count": 0}

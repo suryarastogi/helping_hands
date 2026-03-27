@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Cleanup & Room Details Endpoint (2026-03-27) — Completed
+
+**Implemented (v323):**
+- Fixed stale module docstring in `multiplayer_yjs.py` — updated to reflect Y.Doc usage for decorations and awareness fields (chat, cursors)
+- Removed dead `_yjs_task` global variable and unused `asyncio` import
+- Added `get_room_details()` function — returns per-room breakdown: name, client count, decoration count, awareness availability
+- New `GET /health/multiplayer/rooms` endpoint for per-room observability
+- 86 backend multiplayer tests total (up from 80)
+
 ### Decoration Placement Cooldown & Decoration Query Endpoint (2026-03-27) — Completed
 
 **Implemented (v322):**

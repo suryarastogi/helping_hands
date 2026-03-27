@@ -17,8 +17,9 @@ improvement (both raised from below 80% to above 80%), and multiplayer
 hardening edge case coverage (_clamp_float NaN/Infinity fix, client-side
 cursor clamping, localStorage error handling tests, backend partial
 failure tests), design doc refresh + timer cleanup + accessibility
-improvements, and decoration placement cooldown with backend decoration
-query endpoint.
+improvements, decoration placement cooldown with backend decoration
+query endpoint, and multiplayer module cleanup (docstring fix, dead code
+removal, per-room details endpoint).
 
 ---
 
@@ -424,6 +425,18 @@ query endpoint.
 
 ---
 
+## Mar 27 — Multiplayer Cleanup & Room Details Endpoint (v323)
+
+**Docstring fix:** Updated `multiplayer_yjs.py` module docstring — was still claiming "Y.Doc stays empty" despite decorations using Y.Map since v305. Now accurately describes awareness layer (presence, emotes, chat, cursors) and Y.Doc layer (decorations).
+
+**Dead code removal:** Removed unused `_yjs_task` global variable and `asyncio` import.
+
+**Room details endpoint:** Added `get_room_details()` function returning per-room breakdown (name, client count, decoration count, awareness availability). New `GET /health/multiplayer/rooms` endpoint in `app.py`.
+
+**6 new backend tests (86 total).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -476,3 +489,4 @@ query endpoint.
 - `v320-multiplayer-hardening-edge-cases.md`
 - `v321-design-doc-refresh-timer-cleanup.md` (→ `2026-03-27-design-doc-refresh.md`)
 - `v322-decoration-cooldown-and-decoration-endpoint.md`
+- `v323-multiplayer-cleanup-and-room-details.md`

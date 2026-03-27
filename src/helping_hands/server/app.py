@@ -80,6 +80,7 @@ from helping_hands.server.multiplayer_yjs import (
     get_decoration_state,
     get_multiplayer_stats,
     get_player_activity_summary,
+    get_room_details,
     start_yjs_server,
     stop_yjs_server,
 )
@@ -3009,6 +3010,12 @@ def health_multiplayer_activity() -> dict[str, object]:
 def health_multiplayer_decorations() -> dict[str, object]:
     """Return current shared world decoration state."""
     return get_decoration_state()
+
+
+@app.get("/health/multiplayer/rooms")
+def health_multiplayer_rooms() -> dict[str, object]:
+    """Return per-room details for all active Yjs rooms."""
+    return get_room_details()
 
 
 class ServiceHealthResponse(BaseModel):
