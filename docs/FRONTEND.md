@@ -60,6 +60,12 @@ frontend/src/
 │   ├── SubmissionForm.test.tsx # SubmissionForm render + field change tests
 │   ├── TaskListSidebar.tsx     # Left sidebar (view toggle, nav buttons, task list)
 │   ├── TaskListSidebar.test.tsx# TaskListSidebar render + interaction tests
+│   ├── RemoteCursor.tsx         # SVG arrow cursor for remote player mouse position
+│   ├── RemoteCursor.test.tsx   # RemoteCursor render tests
+│   ├── RepoChipInput.tsx       # Chip-based input for reference repos (suggestions, keyboard nav)
+│   ├── RepoChipInput.test.tsx  # RepoChipInput render + interaction tests
+│   ├── RepoSuggestInput.tsx    # Text input with recent-repo suggestion dropdown
+│   ├── RepoSuggestInput.test.tsx # RepoSuggestInput render + interaction tests
 │   ├── WorkerSprite.tsx        # Worker sprite (bot + goose variants) with caption & floating numbers
 │   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/

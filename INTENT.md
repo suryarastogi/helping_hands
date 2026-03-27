@@ -12,6 +12,14 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### RepoChipInput & RepoSuggestInput Test Coverage (2026-03-27) — Completed
+
+**Implemented (v318):**
+- Added 26 tests for `RepoChipInput` component — chip add/remove, keyboard navigation (Enter, Tab, comma, Backspace, ArrowUp/Down, Escape), suggestion filtering, duplicate prevention, whitespace trim, dropdown limit (8), outside click close, mouse selection, container click focus
+- Added 19 tests for `RepoSuggestInput` component — suggestion dropdown, keyboard navigation, mouse selection, filtering, outside click, autoComplete, highlight reset on typing, dropdown limit (8)
+- Updated FRONTEND.md component listing with RepoChipInput, RepoSuggestInput, and RemoteCursor
+- 657 frontend tests total (up from 612)
+
 ### useRecentRepos Hook Test Coverage (2026-03-27) — Completed
 
 **Implemented (v317):**

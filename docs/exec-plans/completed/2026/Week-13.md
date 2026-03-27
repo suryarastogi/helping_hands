@@ -10,8 +10,9 @@ spawn randomization, player color customization, multiplayer hardening
 (awareness validation + reconnection resilience), FactoryFloorPanel extraction,
 useTaskManager hook extraction (App.tsx -61%), useSceneWorkers hook
 extraction (App.tsx -47%, dead re-export cleanup), and multiplayer leave
-name resolution + chat dedup fix, multiplayer cursor sharing, and
-useRecentRepos hook test coverage.
+name resolution + chat dedup fix, multiplayer cursor sharing,
+useRecentRepos hook test coverage, and RepoChipInput/RepoSuggestInput
+component test coverage.
 
 ---
 
@@ -375,6 +376,14 @@ useRecentRepos hook test coverage.
 
 ---
 
+## Mar 27 — RepoChipInput & RepoSuggestInput Test Coverage (v318)
+
+**Coverage:** Added co-located tests for the two remaining untested frontend components. RepoChipInput (26 tests): chip add/remove, keyboard navigation, suggestion filtering, duplicate prevention, whitespace handling, dropdown limit. RepoSuggestInput (19 tests): suggestion dropdown, keyboard navigation, mouse selection, filtering, autoComplete, highlight reset. Updated FRONTEND.md component listing.
+
+**45 new frontend tests. 657 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -422,3 +431,4 @@ useRecentRepos hook test coverage.
 - `v315-multiplayer-cursor-sharing.md`
 - `v316-cursor-throttle-coverage.md`
 - `v317-use-recent-repos-coverage.md`
+- `v318-repo-input-components-test-coverage.md`
