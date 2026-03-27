@@ -1,5 +1,7 @@
 # v318 — RepoChipInput & RepoSuggestInput Test Coverage
 
+**Status:** Completed
+
 ## Goal
 
 Add co-located test files for the two remaining untested frontend components:
