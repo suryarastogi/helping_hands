@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 from typing import Any, cast
 
 logger = logging.getLogger(__name__)
@@ -249,6 +250,8 @@ def _clamp_float(value: object, lo: float, hi: float) -> float:
         v = float(cast(Any, value))
     except (TypeError, ValueError):
         return (lo + hi) / 2
+    if math.isnan(v) or math.isinf(v):
+        return hi if v == float("inf") else lo if v == float("-inf") else (lo + hi) / 2
     return max(lo, min(hi, v))
 
 

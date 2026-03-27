@@ -211,6 +211,18 @@ class TestParseAwarenessState:
     def test_returns_none_for_non_string_non_dict(self) -> None:
         assert _parse_awareness_state(42) is None
 
+    def test_handles_bytes_with_invalid_utf8(self) -> None:
+        """Invalid UTF-8 sequences should be replaced, not crash."""
+        raw = b'{"name": "test\xff\xfe"}'
+        result = _parse_awareness_state(raw)
+        assert result is not None
+        assert "name" in result
+
+    def test_handles_bytearray(self) -> None:
+        raw = bytearray(b'{"player_id": "ba1"}')
+        result = _parse_awareness_state(raw)
+        assert result == {"player_id": "ba1"}
+
 
 class TestGetConnectedPlayers:
     """Tests for the ``get_connected_players`` function."""
@@ -352,6 +364,36 @@ class TestGetConnectedPlayers:
             result = get_connected_players()
             assert result["count"] == 1
             assert result["players"][0]["name"] == "Legacy"
+
+    def test_handles_partial_iteration_failure(self) -> None:
+        """If one awareness state entry is malformed, others still parse."""
+        mock_awareness = MagicMock()
+        mock_awareness.states = {
+            1: {
+                "player": {
+                    "player_id": "p1",
+                    "name": "GoodPlayer",
+                    "color": "#e74c3c",
+                    "x": 25.0,
+                    "y": 50.0,
+                    "idle": False,
+                },
+            },
+            # Second entry is a non-parseable type
+            2: 12345,
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_connected_players()
+            # The good player should still be returned
+            assert result["count"] == 1
+            assert result["players"][0]["name"] == "GoodPlayer"
 
     def test_uses_validated_state_for_position_clamping(self) -> None:
         """Positions outside [0, 100] should be clamped in the response."""
@@ -504,6 +546,18 @@ class TestClampFloat:
     def test_none_returns_midpoint(self) -> None:
         assert _clamp_float(None, 0.0, 100.0) == 50.0
 
+    def test_positive_infinity_clamps_to_hi(self) -> None:
+        assert _clamp_float(float("inf"), 0.0, 100.0) == 100.0
+
+    def test_negative_infinity_clamps_to_lo(self) -> None:
+        assert _clamp_float(float("-inf"), 0.0, 100.0) == 0.0
+
+    def test_nan_returns_midpoint(self) -> None:
+        assert _clamp_float(float("nan"), 0.0, 100.0) == 50.0
+
+    def test_numeric_string_is_coerced(self) -> None:
+        assert _clamp_float("50.5", 0.0, 100.0) == 50.5
+
 
 class TestStripControlChars:
     """Tests for the ``_strip_control_chars`` helper."""
@@ -519,6 +573,12 @@ class TestStripControlChars:
 
     def test_empty_string(self) -> None:
         assert _strip_control_chars("") == ""
+
+    def test_preserves_emoji(self) -> None:
+        assert _strip_control_chars("hello 🎉 world") == "hello 🎉 world"
+
+    def test_strips_control_chars_around_emoji(self) -> None:
+        assert _strip_control_chars("\x00🌸\x1f") == "🌸"
 
 
 class TestGetPlayerActivitySummary:
@@ -675,5 +735,17 @@ class TestExtractPlayerState:
 
     def test_ignores_non_dict_player_field(self) -> None:
         state = {"player": "not a dict"}
+        result = _extract_player_state(state)
+        assert result is None
+
+    def test_empty_player_dict_returned(self) -> None:
+        """An empty nested player dict is returned (validate_awareness_state fills defaults)."""
+        state = {"player": {}}
+        result = _extract_player_state(state)
+        assert result == {}
+
+    def test_player_list_is_ignored(self) -> None:
+        """A list value for player key should be treated as non-dict."""
+        state = {"player": [1, 2, 3]}
         result = _extract_player_state(state)
         assert result is None

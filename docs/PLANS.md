@@ -4,7 +4,10 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-(No active plans.)
+- [Multiplayer Hardening](exec-plans/active/2026-03-27-multiplayer-hardening.md) —
+  Edge case coverage, client-side cursor validation, NaN/Infinity fix,
+  localStorage error handling tests, backend partial failure tests;
+  681 frontend tests, 84 backend multiplayer tests
 
 ## Completed plans
 

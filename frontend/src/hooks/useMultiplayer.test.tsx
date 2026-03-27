@@ -146,6 +146,22 @@ describe("loadPlayerName / savePlayerName", () => {
     savePlayerName("Bob");
     expect(loadPlayerName()).toBe("Bob");
   });
+
+  it("loadPlayerName returns empty string when localStorage throws", () => {
+    const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("SecurityError");
+    });
+    expect(loadPlayerName()).toBe("");
+    spy.mockRestore();
+  });
+
+  it("savePlayerName silently ignores storage errors", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    expect(() => savePlayerName("Alice")).not.toThrow();
+    spy.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -162,6 +178,22 @@ describe("loadPlayerColor / savePlayerColor", () => {
   it("persists and loads a color", () => {
     savePlayerColor("#e11d48");
     expect(loadPlayerColor()).toBe("#e11d48");
+  });
+
+  it("loadPlayerColor returns empty string when localStorage throws", () => {
+    const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("SecurityError");
+    });
+    expect(loadPlayerColor()).toBe("");
+    spy.mockRestore();
+  });
+
+  it("savePlayerColor silently ignores storage errors", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    expect(() => savePlayerColor("#e11d48")).not.toThrow();
+    spy.mockRestore();
   });
 });
 
@@ -1138,6 +1170,62 @@ describe("useMultiplayer hook", () => {
     expect(player.cursor).toBeNull(); // still null, not { x: 30, y: 40 }
 
     vi.useRealTimers();
+  });
+
+  it("clearDecorations is no-op when inactive (doc is null)", () => {
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...defaultOpts(), active: false } },
+    );
+
+    // Should not throw when doc is null
+    expect(() => act(() => result.current.clearDecorations())).not.toThrow();
+    expect(result.current.decorations).toHaveLength(0);
+  });
+
+  it("updateCursor clamps out-of-range coordinates to [0, 100]", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    act(() => result.current.updateCursor({ x: -10, y: 150 }));
+
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    const cursor = player.cursor as { x: number; y: number };
+    expect(cursor.x).toBe(0);
+    expect(cursor.y).toBe(100);
+
+    vi.useRealTimers();
+  });
+
+  it("omits cursors when cursor field has non-numeric coordinates", () => {
+    const { result } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: defaultOpts() },
+    );
+
+    const remoteStates = new Map<number, Record<string, unknown>>();
+    remoteStates.set(99, {
+      player: {
+        player_id: "99",
+        name: "Alice",
+        color: "#e11d48",
+        x: 30,
+        y: 40,
+        direction: "down",
+        walking: false,
+        cursor: { x: "not-a-number", y: undefined },
+      },
+    });
+
+    act(() => {
+      mockAwareness._setRemoteStates(remoteStates);
+    });
+
+    // Non-numeric cursor coords should be filtered out
+    expect(result.current.remoteCursors).toEqual([]);
   });
 
   it("clears remoteCursors when deactivated", () => {

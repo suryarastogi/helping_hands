@@ -12,6 +12,15 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Hardening & Edge Case Coverage (2026-03-27) — Completed
+
+**Implemented (v320):**
+- Fixed `_clamp_float` NaN/Infinity handling — NaN returns midpoint, ±Infinity clamps to bounds instead of propagating
+- Added client-side cursor position clamping in `updateCursor` — coordinates now clamped to [0, 100] before broadcasting, matching backend validation
+- 7 new frontend tests: localStorage error handling (SecurityError/QuotaExceededError) for load/save name/color, clearDecorations null-doc guard, cursor clamping, non-numeric cursor filtering
+- 10 new backend tests: _clamp_float (Infinity, NaN, numeric strings), _strip_control_chars (emoji preservation), _parse_awareness_state (invalid UTF-8, bytearray), _extract_player_state (empty dict, list), get_connected_players partial iteration failure
+- 681 frontend tests total (up from 674), 84 backend multiplayer tests (up from 74)
+
 ### App.tsx & useTaskManager Branch Coverage (2026-03-27) — Completed
 
 **Implemented (v319):**

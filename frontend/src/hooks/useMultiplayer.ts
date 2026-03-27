@@ -677,12 +677,17 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   // --- Cursor update callback (throttled) ---
   const updateCursor = useCallback(
     (position: CursorPosition | null) => {
+      // Clamp cursor coordinates to [0, 100] to match backend validation.
+      const clamped = position
+        ? { x: Math.max(0, Math.min(100, position.x)), y: Math.max(0, Math.min(100, position.y)) }
+        : null;
+
       const doBroadcast = () => {
         const provider = yjsProviderRef.current;
         if (!provider) return;
         const current = provider.awareness.getLocalState()?.player as Record<string, unknown> | undefined;
         if (!current) return;
-        provider.awareness.setLocalStateField("player", { ...current, cursor: position });
+        provider.awareness.setLocalStateField("player", { ...current, cursor: clamped });
         lastCursorBroadcastRef.current = Date.now();
       };
 
