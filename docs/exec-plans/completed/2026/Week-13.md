@@ -8,8 +8,9 @@ chat cooldown, player list API, Playwright e2e multiplayer tests, schedule
 PR auto-persist, shared world decorations via Y.Map, join/leave notifications,
 spawn randomization, player color customization, multiplayer hardening
 (awareness validation + reconnection resilience), FactoryFloorPanel extraction,
-useTaskManager hook extraction (App.tsx -61%), and useSceneWorkers hook
-extraction (App.tsx -47%, dead re-export cleanup).
+useTaskManager hook extraction (App.tsx -61%), useSceneWorkers hook
+extraction (App.tsx -47%, dead re-export cleanup), and multiplayer leave
+name resolution + chat dedup fix.
 
 ---
 
@@ -341,6 +342,14 @@ extraction (App.tsx -47%, dead re-export cleanup).
 
 ---
 
+## Mar 27 — Multiplayer Leave Names & Chat Dedup Fix (v314)
+
+**Two UX bug fixes:** Leave messages now show the player's actual name instead of "Player N left" — a `playerNamesRef` cache in `useMultiplayer` retains name/color from awareness updates since state is already cleared by the time Yjs fires `removed`. Chat dedup fixed: per-player sequence counter bumped on bubble expiry so the same message text sent again is properly recorded instead of being silently dropped.
+
+**2 new frontend tests. 582 frontend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -384,3 +393,4 @@ extraction (App.tsx -47%, dead re-export cleanup).
 - `v311-extract-use-scene-workers.md`
 - `v312-extract-polling-hooks.md`
 - `v313-multiplayer-perf-and-backend-fix.md`
+- `v314-multiplayer-leave-names-chat-dedup.md`

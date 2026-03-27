@@ -12,6 +12,13 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Multiplayer Leave Names & Chat Dedup Fix (2026-03-27) — Completed
+
+**Implemented (v314):**
+- Fixed leave message name resolution: `useMultiplayer` now caches player names/colors from awareness updates in `playerNamesRef`, so leave system messages show the player's actual name (e.g. "Alice left") instead of generic "Player N left"
+- Fixed chat dedup over-filtering: per-player sequence counter (`chatSeqRef`) bumped when a chat bubble expires, so the same message text sent again is recorded as a new message instead of being silently dropped
+- 2 new frontend tests (582 total, up from 580)
+
 ### Multiplayer Performance & Backend Awareness Fix (2026-03-27) — Completed
 
 **Implemented (v313):**

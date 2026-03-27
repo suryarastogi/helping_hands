@@ -835,6 +835,68 @@ describe("useMultiplayer hook", () => {
     expect(systemMsgs).toHaveLength(0);
   });
 
+  // --- Leave message name resolution ---
+
+  it("uses cached player name in leave messages instead of generic fallback", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Add a remote player with a custom name
+    const states = new Map<number, Record<string, unknown>>();
+    states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states.set(170, {
+      player: { player_id: "170", name: "CachedAlice", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false },
+    });
+    act(() => mockAwareness._setRemoteStates(states));
+
+    // Remove the remote player — state is already gone by the time `removed` fires
+    const statesAfter = new Map<number, Record<string, unknown>>();
+    statesAfter.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    act(() => mockAwareness._setRemoteStates(statesAfter));
+
+    // The leave message should use the cached name, not "Player 171"
+    const leaveMsg = result.current.chatHistory.find((m) => m.isSystem && m.text.includes("left"));
+    expect(leaveMsg).toBeDefined();
+    expect(leaveMsg!.text).toBe("CachedAlice left");
+    expect(leaveMsg!.playerColor).toBe("#e11d48");
+  });
+
+  // --- Chat dedup allows repeated messages ---
+
+  it("records the same message text sent again after the first bubble expires", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    // Remote sends "Hello"
+    const states1 = new Map<number, Record<string, unknown>>();
+    states1.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states1.set(180, {
+      player: { player_id: "180", name: "Repeater", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "Hello" },
+    });
+    act(() => mockAwareness._setRemoteStates(states1));
+    // 1 join + 1 chat
+    expect(result.current.chatHistory).toHaveLength(2);
+
+    // Remote chat clears (bubble expires)
+    const statesCleared = new Map<number, Record<string, unknown>>();
+    statesCleared.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    statesCleared.set(180, {
+      player: { player_id: "180", name: "Repeater", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: null },
+    });
+    act(() => mockAwareness._setRemoteStates(statesCleared));
+
+    // Remote sends "Hello" again — should NOT be dropped by dedup
+    const states2 = new Map<number, Record<string, unknown>>();
+    states2.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
+    states2.set(180, {
+      player: { player_id: "180", name: "Repeater", color: "#d97706", x: 50, y: 50, direction: "down", walking: false, emote: null, chat: "Hello" },
+    });
+    act(() => mockAwareness._setRemoteStates(states2));
+
+    // 1 join + 2 chat messages (same text, but second is a new send)
+    expect(result.current.chatHistory).toHaveLength(3);
+    expect(result.current.chatHistory[1].text).toBe("Hello");
+    expect(result.current.chatHistory[2].text).toBe("Hello");
+  });
+
   // --- Reconnection resilience ---
 
   it("resets reconnectAttempts on successful connection", () => {

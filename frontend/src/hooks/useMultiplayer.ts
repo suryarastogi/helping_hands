@@ -164,8 +164,12 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
-  /** Track which remote chat texts we have already recorded, keyed by `clientId:text`. */
+  /** Track which remote chat texts we have already recorded, keyed by `clientId:text:seq`. */
   const seenRemoteChatsRef = useRef<Set<string>>(new Set());
+  /** Sequence counter per player for chat dedup — allows same text to be recorded multiple times. */
+  const chatSeqRef = useRef<Map<string, number>>(new Map());
+  /** Cache player names/colors from awareness updates so leave messages show real names. */
+  const playerNamesRef = useRef<Map<number, { name: string; color: string }>>(new Map());
   /** Timestamp of last local movement activity. */
   const lastActivityRef = useRef<number>(Date.now());
   /** Timestamp of last position broadcast (for throttling). */
@@ -188,6 +192,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setChatHistory([]);
       setDecorations([]);
       seenRemoteChatsRef.current.clear();
+      chatSeqRef.current.clear();
+      playerNamesRef.current.clear();
       setConnectionStatus("disconnected");
       setIsLocalIdle(false);
       setReconnectAttempts(0);
@@ -256,10 +262,14 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         const p = state.player as (RemotePlayer & { emote?: string | null; chat?: string | null; typing?: boolean }) | undefined;
         if (!p) return;
         const pid = p.player_id ?? String(clientId);
+        const resolvedName = p.name ?? `Player ${(clientId % 1000) + 1}`;
+        const resolvedColor = p.color ?? PLAYER_COLORS[clientId % PLAYER_COLORS.length];
+        // Cache name/color for leave messages (state is gone by the time `removed` fires).
+        playerNamesRef.current.set(clientId, { name: resolvedName, color: resolvedColor });
         others.push({
           player_id: pid,
-          name: p.name ?? `Player ${(clientId % 1000) + 1}`,
-          color: p.color ?? PLAYER_COLORS[clientId % PLAYER_COLORS.length],
+          name: resolvedName,
+          color: resolvedColor,
           x: p.x ?? 50,
           y: p.y ?? 50,
           direction: (p.direction ?? "down") as PlayerDirection,
@@ -306,9 +316,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
 
       for (const clientId of changes.removed) {
         if (clientId === doc.clientID) continue;
-        // State is already removed, so derive name from clientID.
-        const name = `Player ${(clientId % 1000) + 1}`;
-        const color = PLAYER_COLORS[clientId % PLAYER_COLORS.length];
+        // Use cached name/color — state is already removed by the time `removed` fires.
+        const cached = playerNamesRef.current.get(clientId);
+        const name = cached?.name ?? `Player ${(clientId % 1000) + 1}`;
+        const color = cached?.color ?? PLAYER_COLORS[clientId % PLAYER_COLORS.length];
+        playerNamesRef.current.delete(clientId);
         setChatHistory((prev) => {
           const msg: ChatMessage = {
             id: `sys-leave-${clientId}-${Date.now()}`,
@@ -324,8 +336,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       }
 
       // Record new remote chat messages into history.
+      // Dedup key uses pid:text:seq so the same text sent again (after the
+      // previous bubble expired) is still recorded as a new message.
       for (const [pid, text] of Object.entries(newChats)) {
-        const dedupeKey = `${pid}:${text}`;
+        const seq = chatSeqRef.current.get(pid) ?? 0;
+        const dedupeKey = `${pid}:${text}:${seq}`;
         if (!seenRemoteChatsRef.current.has(dedupeKey)) {
           seenRemoteChatsRef.current.add(dedupeKey);
           const sender = others.find((o) => o.player_id === pid);
@@ -343,11 +358,14 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
         }
       }
 
-      // Clean dedupe keys for chats that are no longer active.
+      // Clean dedupe keys for chats that are no longer active — bump the
+      // sequence counter so the next identical message gets a fresh key.
       for (const key of seenRemoteChatsRef.current) {
-        const [pid] = key.split(":");
+        const parts = key.split(":");
+        const pid = parts[0];
         if (!newChats[pid]) {
           seenRemoteChatsRef.current.delete(key);
+          chatSeqRef.current.set(pid, (chatSeqRef.current.get(pid) ?? 0) + 1);
         }
       }
     };

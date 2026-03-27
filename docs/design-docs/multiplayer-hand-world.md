@@ -321,6 +321,33 @@ persisted to `localStorage` via `savePlayerColor()` and loaded on mount via
   below the player name input. Clicking a swatch calls `onPlayerColorChange` and
   `savePlayerColor`. The selected swatch has a white border glow.
 
+## Leave message name resolution (v314)
+
+Previously, when a player disconnected, the Yjs awareness `removed` event
+fired *after* the player's state was already cleared from the awareness map.
+This meant leave messages could only show a generic "Player N left" fallback
+derived from the client ID.
+
+**Fix:** A `playerNamesRef` cache in `useMultiplayer` is populated on every
+awareness update — mapping `clientId → { name, color }`. When the `removed`
+event fires, the hook reads from this cache to show the player's actual name
+and color in the leave system message. The cache entry is cleaned up after
+the leave message is emitted.
+
+## Chat dedup repeated messages (v314)
+
+The remote chat deduplication was keyed by `pid:text`, which worked for
+preventing the same awareness update from being recorded twice (since the
+awareness state retains the chat text until it's cleared). However, if a
+player sent the exact same message text a second time (after the first
+bubble expired and the awareness `chat` field was cleared and re-set), the
+second message was silently dropped.
+
+**Fix:** A per-player sequence counter (`chatSeqRef`) is bumped each time a
+player's chat field clears. The dedup key now includes this sequence number
+(`pid:text:seq`), so the same text sent again after the bubble expires gets
+a fresh key and is recorded as a new message.
+
 ## Future extensions
 
 - Player names from server auth context
