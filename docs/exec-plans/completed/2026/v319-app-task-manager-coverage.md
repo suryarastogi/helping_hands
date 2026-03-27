@@ -6,6 +6,12 @@
 **Date:** 2026-03-27
 **Status:** Completed
 
+## Tasks
+
+- [x] Write tests for `App.tsx` `fetchServerConfig()` effect branches
+- [x] Write tests for `useTaskManager.ts` uncovered branches
+- [x] Verify branch coverage improvements meet 80%+ target
+
 ## Results
 
 ### App.tsx: 69.23% → 81.25% branch coverage
