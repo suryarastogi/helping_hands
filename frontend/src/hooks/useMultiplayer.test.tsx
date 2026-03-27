@@ -1390,4 +1390,47 @@ describe("useMultiplayer hook", () => {
 
     vi.useRealTimers();
   });
+
+  it("initial awareness position uses playerPosition from options", () => {
+    const spawnPos = { x: 25, y: 75 };
+    renderHook(() =>
+      useMultiplayer({ ...defaultOpts(), playerPosition: spawnPos }),
+    );
+
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(25);
+    expect(player.y).toBe(75);
+  });
+
+  it("initial awareness direction and walking use options values", () => {
+    renderHook(() =>
+      useMultiplayer({
+        ...defaultOpts(),
+        playerPosition: { x: 10, y: 80 },
+        playerDirection: "left",
+        isPlayerWalking: true,
+      }),
+    );
+
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(10);
+    expect(player.y).toBe(80);
+    expect(player.direction).toBe("left");
+    expect(player.walking).toBe(true);
+  });
+
+  it("non-center spawn position is broadcast correctly to awareness", () => {
+    // Simulates what happens when useMovement provides a random spawn
+    const randomSpawn = { x: 63.2, y: 18.7 };
+    renderHook(() =>
+      useMultiplayer({ ...defaultOpts(), playerPosition: randomSpawn }),
+    );
+
+    const player = mockAwareness.getLocalState().player as Record<string, unknown>;
+    expect(player.x).toBe(63.2);
+    expect(player.y).toBe(18.7);
+    // Should not default to center (50, 50)
+    expect(player.x).not.toBe(50);
+    expect(player.y).not.toBe(50);
+  });
 });

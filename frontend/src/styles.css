@@ -2279,8 +2279,7 @@ h2 {
   transform: translate(-50%, -50%);
   z-index: 7;
   transition: left 150ms linear, top 150ms linear;
-  pointer-events: none;
-  transition: left 0.08s linear, top 0.08s linear;
+  pointer-events: auto;
 }
 
 .remote-player .human-helmet {

@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Remote Player CSS Fixes & Initial Position Sync (2026-03-27) — Completed
+
+**Implemented (v324):**
+- Fixed duplicate CSS `transition` on `.remote-player` — two declarations (150ms and 80ms) with second silently overriding first; consolidated to single 150ms transition
+- Fixed `pointer-events: none` on `.remote-player` — changed to `pointer-events: auto` so hover tooltips (added in v301) actually work in real browsers (unit tests passed because `fireEvent` bypasses CSS)
+- Fixed initial Yjs awareness position hardcoded to (50, 50) — now uses actual spawn position from `useMovement` via `playerPosition` option, preventing remote players from briefly seeing wrong initial position
+- Initial awareness direction and walking state also sync from options instead of hardcoded defaults
+- 3 new frontend tests verifying initial position/direction/walking sync in awareness state
+- 720 frontend tests total (up from 717)
+
 ### AppOverlays & MonitorCard Branch Coverage (2026-03-27) — Completed
 
 **Implemented (v323):**
