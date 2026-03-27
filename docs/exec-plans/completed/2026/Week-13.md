@@ -424,6 +424,16 @@ query endpoint.
 
 ---
 
+## Mar 27 — Inline HTML UI Multiplayer Presence Panel (v323)
+
+**Multiplayer sync for inline UI:** Added multiplayer presence panel (`<section id="multiplayer-view">`) to the inline HTML UI in `app.py`. Polls `GET /health/multiplayer/players` every 5s to show connected player names, colors, idle status, and positions. Green/grey status dot, green count badge. Graceful degradation when multiplayer unavailable.
+
+**Docs fix:** Corrected FRONTEND.md — removed incorrect claims that inline UI had "Hand world" dashboard views with factory/incinerator/keyboard nav (it didn't). Documented actual features including schedules, usage meters, and new multiplayer presence panel.
+
+**2 new backend tests in `test_server_app.py`.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -476,3 +486,4 @@ query endpoint.
 - `v320-multiplayer-hardening-edge-cases.md`
 - `v321-design-doc-refresh-timer-cleanup.md` (→ `2026-03-27-design-doc-refresh.md`)
 - `v322-decoration-cooldown-and-decoration-endpoint.md`
+- `v323-inline-ui-multiplayer-presence.md`

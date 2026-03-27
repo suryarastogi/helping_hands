@@ -59,6 +59,27 @@ class TestHomeUI:
         assert 'id="use_native_cli_auth"' in response.text
         assert 'id="skills"' in response.text
 
+    def test_home_ui_contains_multiplayer_presence_panel(self) -> None:
+        client = TestClient(app)
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert 'id="multiplayer-view"' in response.text
+        assert 'id="mp-player-list"' in response.text
+        assert "pollMultiplayer" in response.text
+        assert "/health/multiplayer/players" in response.text
+
+    def test_home_ui_multiplayer_panel_has_status_indicator(self) -> None:
+        client = TestClient(app)
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert 'id="mp-status-dot"' in response.text
+        assert 'class="mp-status-dot offline"' in response.text
+        assert 'id="mp-badge"' in response.text
+
 
 class TestBuildForm:
     def test_enqueues_and_redirects_with_task_id(

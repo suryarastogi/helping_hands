@@ -4,7 +4,8 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [v323 — Inline HTML UI Multiplayer Presence Panel](exec-plans/active/v323-inline-ui-multiplayer-presence.md) —
+  Add multiplayer presence panel to inline HTML UI, fix FRONTEND.md sync gap
 
 ## Completed plans
 

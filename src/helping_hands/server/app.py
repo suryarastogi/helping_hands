@@ -1293,6 +1293,48 @@ _UI_HTML = """<!doctype html>
       .repo-dropdown li.highlighted {
         background: rgba(99,102,241,0.18);
       }
+      /* --- Multiplayer presence panel --- */
+      .multiplayer-header {
+        display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+      }
+      .multiplayer-header h1 { margin: 0; }
+      .mp-status-dot {
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .mp-status-dot.online { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+      .mp-status-dot.offline { background: #64748b; }
+      .mp-player-list {
+        list-style: none; padding: 0; margin: 0; display: grid; gap: 6px;
+      }
+      .mp-player-card {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 10px; border-radius: 8px;
+        background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+        font-size: 0.82rem;
+      }
+      .mp-player-dot {
+        width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+        border: 1px solid rgba(255,255,255,0.15);
+      }
+      .mp-player-name { font-weight: 600; color: var(--foreground); }
+      .mp-player-idle {
+        font-size: 0.72rem; color: var(--muted); font-style: italic;
+      }
+      .mp-player-pos {
+        margin-left: auto; font-size: 0.7rem; color: var(--muted);
+        font-family: var(--mono);
+      }
+      .mp-empty {
+        color: var(--muted); font-size: 0.8rem; font-style: italic;
+      }
+      .mp-count-badge {
+        font-size: 0.7rem; padding: 1px 7px; border-radius: 99px;
+        background: #166534; color: #bbf7d0; font-weight: 700;
+      }
+      .mp-error {
+        color: #fca5a5; font-size: 0.78rem; margin-top: 4px;
+      }
     </style>
   </head>
   <body>
@@ -1674,6 +1716,16 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
               </div>
             </form>
           </div>
+        </section>
+
+        <section id="multiplayer-view" class="card">
+          <div class="multiplayer-header">
+            <h1>Multiplayer <span id="mp-badge" class="mp-count-badge" style="display:none;"></span></h1>
+            <span id="mp-status-dot" class="mp-status-dot offline" title="Checking..."></span>
+          </div>
+          <ul id="mp-player-list" class="mp-player-list"></ul>
+          <p id="mp-empty" class="mp-empty">Checking for connected players...</p>
+          <div id="mp-error" class="mp-error" style="display:none;"></div>
         </section>
       </div>
     </main>
@@ -2937,6 +2989,74 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           alert("Error: " + err.message);
         }
       };
+
+      // --- Multiplayer presence polling ---
+      (function() {
+        const listEl = document.getElementById("mp-player-list");
+        const emptyEl = document.getElementById("mp-empty");
+        const errorEl = document.getElementById("mp-error");
+        const dotEl = document.getElementById("mp-status-dot");
+        const badgeEl = document.getElementById("mp-badge");
+        const MP_POLL_MS = 5000;
+        let mpTimer = null;
+
+        function escapeHtml(s) {
+          const d = document.createElement("div");
+          d.textContent = s;
+          return d.innerHTML;
+        }
+
+        async function pollMultiplayer() {
+          try {
+            const res = await fetch("/health/multiplayer/players");
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.json();
+            const players = Array.isArray(data.players) ? data.players : [];
+            errorEl.style.display = "none";
+
+            dotEl.className = "mp-status-dot online";
+            dotEl.title = "Multiplayer available";
+
+            if (players.length === 0) {
+              listEl.innerHTML = "";
+              emptyEl.textContent = "No players online.";
+              emptyEl.style.display = "";
+              badgeEl.style.display = "none";
+              return;
+            }
+
+            emptyEl.style.display = "none";
+            badgeEl.style.display = "";
+            badgeEl.textContent = players.length;
+
+            listEl.innerHTML = players.map(function(p) {
+              const name = escapeHtml(p.name || "Anonymous");
+              const color = escapeHtml(p.color || "#94a3b8");
+              const idle = p.idle ? '<span class="mp-player-idle">(idle)</span>' : "";
+              const x = typeof p.x === "number" ? p.x.toFixed(0) : "?";
+              const y = typeof p.y === "number" ? p.y.toFixed(0) : "?";
+              return '<li class="mp-player-card">'
+                + '<span class="mp-player-dot" style="background:' + color + '"></span>'
+                + '<span class="mp-player-name">' + name + '</span>'
+                + idle
+                + '<span class="mp-player-pos">(' + x + ', ' + y + ')</span>'
+                + '</li>';
+            }).join("");
+          } catch (err) {
+            dotEl.className = "mp-status-dot offline";
+            dotEl.title = "Multiplayer unavailable";
+            badgeEl.style.display = "none";
+            listEl.innerHTML = "";
+            emptyEl.textContent = "Multiplayer unavailable.";
+            emptyEl.style.display = "";
+            errorEl.textContent = err.message;
+            errorEl.style.display = "";
+          }
+        }
+
+        pollMultiplayer();
+        mpTimer = setInterval(pollMultiplayer, MP_POLL_MS);
+      })();
     </script>
     <div id="toast-container" class="toast-container"></div>
   </body>

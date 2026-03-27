@@ -11,9 +11,9 @@ Features:
 - Task submission form (backend, model, prompt, iterations, toggles)
 - JS-based polling monitor via `/tasks/{task_id}`
 - No-JS fallback via `/monitor/{task_id}` (server-rendered auto-refresh)
-- "Classic" and "Hand world" dashboard views
-- Industrial factory/incinerator visualization in world view
-- Keyboard navigation (arrows/WASD) in world view
+- Claude usage meters with refresh
+- Schedule management (create, edit, delete, toggle, trigger)
+- Multiplayer presence panel — polls `/health/multiplayer/players` every 5s, shows connected player names, colors, idle status, and positions with online/offline status indicator
 
 ## 2. React frontend (`frontend/`)
 

@@ -12,6 +12,16 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Inline HTML UI Multiplayer Presence Panel (2026-03-27) — Completed
+
+**Implemented (v323):**
+- Added multiplayer presence panel (`<section id="multiplayer-view">`) to the inline HTML UI in `app.py`
+- Polls `GET /health/multiplayer/players` every 5 seconds to show connected player names, colors, idle status, and positions
+- Green/grey status dot indicates multiplayer availability, green badge shows player count
+- Graceful degradation when multiplayer backend is unavailable
+- Fixed FRONTEND.md — removed incorrect claims that inline UI had "Hand world" dashboard views with factory/keyboard nav (it didn't); documented actual features including new multiplayer presence panel
+- 2 new backend tests in `test_server_app.py::TestHomeUI`
+
 ### Decoration Placement Cooldown & Decoration Query Endpoint (2026-03-27) — Completed
 
 **Implemented (v322):**
