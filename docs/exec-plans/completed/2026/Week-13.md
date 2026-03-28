@@ -24,7 +24,9 @@ initial Yjs awareness position sync, and GitHub issue linking with
 full-stack `issue_number` support, create-new-issue-from-task feature,
 task status sync to GitHub issues (running/completed/failed lifecycle
 comments via marker-tagged upsert), and GitHub Projects v2 board
-integration with full-stack `project_url` support via GraphQL API.
+integration with full-stack `project_url` support via GraphQL API,
+and GitHub integration test coverage hardening (form endpoint, PR body
+"Closes #N", invalid project URL edge case).
 
 ---
 
@@ -480,6 +482,14 @@ integration with full-stack `project_url` support via GraphQL API.
 
 ---
 
+## Mar 28 — GitHub Integration Test Coverage (v330)
+
+**Integration test hardening:** Filled coverage gaps in the v325–v329 GitHub integration feature stack. TestBuildForm: 2 new tests for `issue_number` and `create_issue`+`project_url` form submission. TestCreateNewPrIssueClose: 2 new tests for PR body "Closes #N" generation. TestTryAddToProject: 1 new test for invalid project URL graceful failure.
+
+**5 new tests. 6439 backend tests total (up from 6433).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -538,3 +548,4 @@ integration with full-stack `project_url` support via GraphQL API.
 - `v326-create-issue-from-task.md`
 - `v328-sync-issue-status.md`
 - `v329-github-projects-integration.md`
+- `v330-github-integration-test-coverage.md`

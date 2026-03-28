@@ -1105,3 +1105,19 @@ class TestTryAddToProject:
             )
 
         assert any("failed" in u.lower() for u in updates)
+
+    def test_invalid_project_url_does_not_propagate(self) -> None:
+        """Malformed project URL raises ValueError internally but is swallowed."""
+        from helping_hands.server import celery_app as _mod
+
+        updates: list[str] = []
+        # Should not raise despite the URL being invalid
+        _mod._try_add_to_project(
+            "owner/repo",
+            42,
+            "https://not-github.com/bad/url",
+            "tok_123",
+            updates,
+        )
+
+        assert any("failed" in u.lower() for u in updates)

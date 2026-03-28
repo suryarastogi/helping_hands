@@ -410,6 +410,69 @@ class TestBuildForm:
         assert query["backend"] == ["bad-backend"]
         assert "error" in query
 
+    def test_enqueues_with_issue_number(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """issue_number form field is parsed as int and forwarded."""
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-issue")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "owner/repo",
+                "prompt": "fix bug",
+                "backend": "basic-langgraph",
+                "issue_number": "42",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert captured["issue_number"] == 42
+        assert captured["create_issue"] is False
+        assert captured["project_url"] is None
+
+    def test_enqueues_with_create_issue_and_project_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """create_issue checkbox and project_url are forwarded."""
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-create")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "owner/repo",
+                "prompt": "add feature",
+                "backend": "basic-langgraph",
+                "create_issue": "on",
+                "project_url": "https://github.com/orgs/myorg/projects/5",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert captured["issue_number"] is None
+        assert captured["create_issue"] is True
+        assert captured["project_url"] == "https://github.com/orgs/myorg/projects/5"
+
 
 class TestMonitorPage:
     def test_monitor_page_auto_refreshes_non_terminal_status(

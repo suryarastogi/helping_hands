@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-28 v330 — GitHub Integration Test Coverage](exec-plans/completed/2026/v330-github-integration-test-coverage.md) —
+  Fill integration test gaps for v325–v329 GitHub features: form endpoint,
+  PR body "Closes #N", invalid project URL edge case; 5 tests added, 6439 tests passed
+
+
 - [2026-03-28 v329 — GitHub Projects Board Integration](exec-plans/completed/2026/v329-github-projects-integration.md) —
   Full-stack `project_url` support: add issues/PRs to GitHub Projects v2 boards
   after creation via GraphQL API; 15 tests added, 7516 tests passed

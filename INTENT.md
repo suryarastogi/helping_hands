@@ -4,15 +4,27 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-Deeper GitHub integration - Features Wanted:
-- a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
+*(none — all current intents completed)*
+
+## Recently Completed
+
+### GitHub Integration Test Coverage (2026-03-28) — Completed
+
+**Implemented (v330):**
+- Added integration-level tests for v325–v329 GitHub features
+- `TestBuildForm`: 2 tests for `issue_number`, `create_issue`, and `project_url` form submission
+- `TestCreateNewPrIssueClose`: 2 tests verifying PR body "Closes #N" generation (with and without issue_number)
+- `TestTryAddToProject`: 1 test for invalid `project_url` graceful failure
+- 5 new tests total
+
+### Deeper GitHub Integration (2026-03-28) — Completed
+
+~~Features Wanted:~~
+- ~~a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration~~
     - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
     - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
     - ~~Sync task status with GitHub issue with created PR~~ **v328: _sync_issue_status() posts running/completed/failed status comments on linked issue via marker-tagged upsert**
     - ~~GitHub Projects board integration~~ **v329: full-stack `project_url` support — add issues to GitHub Projects v2 boards via GraphQL API after creation/linking**
-
-
-## Recently Completed
 
 ### GitHub Projects Board Integration (2026-03-28) — Completed
 
