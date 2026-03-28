@@ -4,7 +4,9 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [v333 — DevinCLIHand & Factory Coverage Hardening](exec-plans/active/v333-devin-factory-coverage.md) —
+  Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and
+  `factory.py` `get_enabled_backends()` (82% → ~95%); 23 tests added
 
 ## Completed plans
 

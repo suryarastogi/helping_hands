@@ -4,7 +4,10 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-*(none — all current intents completed)*
+### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — In Progress
+
+Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and `factory.py`
+`get_enabled_backends()` (82% → ~95%). See [v333 plan](docs/exec-plans/active/v333-devin-factory-coverage.md).
 
 ## Recently Completed
 
