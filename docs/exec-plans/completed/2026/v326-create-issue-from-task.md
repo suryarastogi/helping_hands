@@ -11,7 +11,7 @@ INTENT.md requests: "When creating a task, option to create a new issue from the
 (with task prompt as issue body)". v325 added linking to existing issues via
 `issue_number`. This plan adds the ability to *create* a new issue automatically.
 
-## Plan
+## Tasks
 
 - [x] Add `GitHubClient.create_issue()` method (title, body, labels)
 - [x] Add `create_issue` boolean to `BuildRequest` in `app.py`

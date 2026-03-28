@@ -14,6 +14,17 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Fix Test Failures & Form Param Gap (2026-03-28) — Completed
+
+**Implemented (v327):**
+- Fixed 9 test failures introduced by v325–v326 feature additions
+- Added missing `issue_number` and `create_issue` Form parameters to `enqueue_build_form`
+  — the inline HTML form handler was missing these fields from v325/v326
+- Fixed plan structure conformance for v324–v326 completed plans (status metadata,
+  section headings, PLANS.md entry format)
+- Updated 5 `TestBuildForm` expected dicts with new fields
+- 6426 tests passed, 0 failures, 78.48% coverage
+
 ### Create New Issue from Task (2026-03-28) — Completed
 
 **Implemented (v326):**

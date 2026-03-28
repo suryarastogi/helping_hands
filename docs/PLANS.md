@@ -8,19 +8,25 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [v326 — Create New Issue from Task](exec-plans/completed/2026/v326-create-issue-from-task.md) —
+- [2026-03-28 v327 — Fix Test Failures & Form Param Gap](exec-plans/completed/2026/v327-fix-test-failures-and-form-params.md) —
+  Fixed 9 test failures from v325–v326, added missing `issue_number`/`create_issue`
+  Form params to `enqueue_build_form`, fixed plan structure conformance;
+  6426 tests passed
+
+- [2026-03-28 v326 — Create New Issue from Task](exec-plans/completed/2026/v326-create-issue-from-task.md) —
   Full-stack `create_issue` support: auto-creates GitHub issue from task prompt,
-  then links it to PR via existing issue_number pipeline; 728 frontend tests,
-  97 backend GitHub tests
+  then links it to PR via existing issue_number pipeline;
+  728 tests (frontend), 97 backend GitHub tests
 
-- [v325 — GitHub Issue Linking](exec-plans/completed/2026/v325-github-issue-linking.md) —
+- [2026-03-28 v325 — GitHub Issue Linking](exec-plans/completed/2026/v325-github-issue-linking.md) —
   Full-stack `issue_number` support: "Closes #N" in PR body, issue comment with
-  PR link, frontend field + URL param; 724 frontend tests, 92 backend GitHub tests
+  PR link, frontend field + URL param;
+  724 tests (frontend), 92 backend GitHub tests
 
-- [v324 — Remote Player CSS Fixes & Initial Position Sync](exec-plans/completed/2026/v324-multiplayer-css-fixes-and-spawn-sync.md) —
+- [2026-03-27 v324 — Remote Player CSS Fixes & Initial Position Sync](exec-plans/completed/2026/v324-multiplayer-css-fixes-and-spawn-sync.md) —
   Fixed duplicate CSS transition on `.remote-player`, restored `pointer-events`
   for tooltips, synced initial Yjs awareness position with actual spawn;
-  720 frontend tests
+  720 tests (frontend)
 
 - [2026-03-27 v313–v321](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +

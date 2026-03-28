@@ -1,6 +1,7 @@
 # v324 — Remote Player CSS Fixes & Initial Position Sync
 
 **Date:** 2026-03-27
+**Status:** Completed
 **Intent:** Multiplayer Hand World polish — fix CSS rendering bugs and position sync
 
 ## Context
@@ -17,7 +18,7 @@ tests and 90+ backend tests. During review, three bugs were identified:
    initial Yjs awareness position to center instead of the actual random spawn
    from `useMovement`. Remote players briefly see the wrong initial position.
 
-## Plan
+## Tasks
 
 - [x] Fix duplicate `transition` in styles.css
 - [x] Fix `pointer-events` on `.remote-player`

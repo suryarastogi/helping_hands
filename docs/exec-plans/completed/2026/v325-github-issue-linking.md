@@ -1,6 +1,7 @@
 # v325 — GitHub Issue Linking
 
 **Date:** 2026-03-28
+**Status:** Completed
 **Intent:** Deeper GitHub integration — link tasks to GitHub issues
 
 ## Context
@@ -14,7 +15,7 @@ their task, the system should:
 2. Post a comment on the issue linking to the created PR
 3. Accept issue_number through the full stack (frontend → API → Celery → Hand)
 
-## Plan
+## Tasks
 
 - [x] Add `get_issue()` and `create_issue_comment()` to `GitHubClient`
 - [x] Add `issue_number` field to `BuildRequest` in server `app.py`
