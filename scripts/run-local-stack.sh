@@ -275,12 +275,56 @@ start_all() {
   echo "Use './scripts/run-local-stack.sh logs' to tail all logs."
 }
 
+fail_orphaned_tasks() {
+  # When the worker dies, any STARTED/PROGRESS tasks become orphans —
+  # Celery never updates their state.  Mark them as FAILURE in the
+  # result backend so the frontend stops showing them as running.
+  load_env
+  local result_backend="${CELERY_RESULT_BACKEND:-redis://localhost:6379/1}"
+
+  uv run python3 -c "
+import json, redis, sys, time
+
+url = '${result_backend}'
+r = redis.from_url(url)
+
+# Scan for celery task meta keys
+orphaned = 0
+for key in r.scan_iter('celery-task-meta-*'):
+    raw = r.get(key)
+    if not raw:
+        continue
+    try:
+        meta = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        continue
+    status = meta.get('status', '')
+    if status in ('STARTED', 'PROGRESS', 'RECEIVED', 'PENDING'):
+        task_id = meta.get('task_id') or key.decode().removeprefix('celery-task-meta-')
+        meta['status'] = 'FAILURE'
+        meta['result'] = {
+            'exc_type': 'WorkerRestarted',
+            'exc_message': ['Task orphaned by worker restart'],
+            'exc_module': 'builtins',
+        }
+        meta['traceback'] = None
+        r.set(key, json.dumps(meta))
+        orphaned += 1
+        print(f'  marked {task_id} as FAILURE')
+if orphaned:
+    print(f'Marked {orphaned} orphaned task(s) as FAILURE.')
+else:
+    print('No orphaned tasks found.')
+" 2>/dev/null || echo "  (skipped — redis or uv not available)"
+}
+
 stop_all() {
   ensure_runtime_dirs
   stop_service flower
   stop_service beat
   stop_service worker
   stop_service server
+  fail_orphaned_tasks
 }
 
 status_all() {
