@@ -4,11 +4,17 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [2026-03-28 v328 — Sync Task Status with GitHub Issue](exec-plans/active/v328-sync-issue-status.md) —
-  Post running/completed/failed status comments on linked GitHub issue via
-  marker-tagged upsert; 5 new tests, 7501 passed
+*(none)*
 
 ## Completed plans
+
+- [2026-03-28 v329 — GitHub Projects Board Integration](exec-plans/completed/2026/v329-github-projects-integration.md) —
+  Full-stack `project_url` support: add issues/PRs to GitHub Projects v2 boards
+  after creation via GraphQL API; 15 tests added, 7516 tests passed
+
+- [2026-03-28 v328 — Sync Task Status with GitHub Issue](exec-plans/completed/2026/v328-sync-issue-status.md) —
+  Post running/completed/failed status comments on linked GitHub issue via
+  marker-tagged upsert; 5 tests added, 7501 tests passed
 
 - [2026-03-28 v327 — Fix Test Failures & Form Param Gap](exec-plans/completed/2026/v327-fix-test-failures-and-form-params.md) —
   Fixed 9 test failures from v325–v326, added missing `issue_number`/`create_issue`

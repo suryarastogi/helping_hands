@@ -457,6 +457,61 @@ describe("useTaskManager", () => {
     expect(body.create_issue).toBeUndefined();
   });
 
+  it("submitRun includes project_url when set", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/build")) {
+        return jsonResponse({ task_id: "t-proj", status: "queued", backend: "e2e" });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.updateField("repo_path", "owner/repo");
+      result.current.updateField("prompt", "Add feature");
+      result.current.updateField("project_url", "https://github.com/orgs/myorg/projects/5");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.submitRun(fakeEvent));
+
+    const buildCall = fetchSpy.mock.calls.find(([input]) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("/build");
+    });
+    const body = JSON.parse((buildCall![1] as RequestInit).body as string);
+    expect(body.project_url).toBe("https://github.com/orgs/myorg/projects/5");
+  });
+
+  it("submitRun omits project_url when empty", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/build")) {
+        return jsonResponse({ task_id: "t-noproj", status: "queued", backend: "e2e" });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.updateField("repo_path", "owner/repo");
+      result.current.updateField("prompt", "Do it");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.submitRun(fakeEvent));
+
+    const buildCall = fetchSpy.mock.calls.find(([input]) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("/build");
+    });
+    const body = JSON.parse((buildCall![1] as RequestInit).body as string);
+    expect(body.project_url).toBeUndefined();
+  });
+
   it("primary polling updates status and stops on terminal status", async () => {
     vi.useFakeTimers();
     const fetchSpy = vi.spyOn(globalThis, "fetch");

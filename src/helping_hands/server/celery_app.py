@@ -666,6 +666,53 @@ def _sync_issue_status(
         )
 
 
+def _try_add_to_project(
+    repo_spec: str,
+    issue_number: int | None,
+    project_url: str | None,
+    github_token: str | None,
+    updates: list[str],
+) -> None:
+    """Add the linked issue to a GitHub Projects v2 board.
+
+    Best-effort: errors are logged and reported in *updates* but never
+    prevent the build from proceeding.
+
+    Args:
+        repo_spec: ``owner/repo`` string.
+        issue_number: The linked issue number.  If ``None``, the call is
+            a no-op.
+        project_url: GitHub Project URL.  If ``None`` or empty, the call
+            is a no-op.
+        github_token: GitHub personal access token.
+        updates: Progress update list.
+    """
+    if not project_url or issue_number is None:
+        return
+
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            item_id = gh.add_to_project_v2(
+                project_url,
+                full_name=repo_spec,
+                issue_number=issue_number,
+            )
+            _append_update(
+                updates,
+                f"Added issue #{issue_number} to project (item={item_id})",
+            )
+    except Exception:
+        logger.warning(
+            "Failed to add issue #%s to project %s",
+            issue_number,
+            project_url,
+            exc_info=True,
+        )
+        _append_update(updates, "Failed to add issue to GitHub Project (continuing).")
+
+
 async def _collect_stream(
     hand: Any,
     prompt: str,
@@ -709,6 +756,7 @@ def build_feature(
     pr_number: int | None = None,
     issue_number: int | None = None,
     create_issue: bool = False,
+    project_url: str | None = None,
     backend: str = BACKEND_CLAUDECODECLI,
     model: str | None = None,
     max_iterations: int = _DEFAULT_MAX_ITERATIONS,
@@ -969,6 +1017,11 @@ def build_feature(
             )
         # Track the effective issue number (may have been set by _try_create_issue).
         _linked_issue = hand.issue_number
+
+        # Add the linked issue to a GitHub Project board when requested.
+        _try_add_to_project(
+            _issue_repo, _linked_issue, project_url, github_token, updates
+        )
 
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes

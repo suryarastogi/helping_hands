@@ -1010,3 +1010,152 @@ class TestCreateIssue:
     def test_rejects_whitespace_title(self, client: GitHubClient) -> None:
         with pytest.raises(ValueError, match="issue title must not be empty"):
             client.create_issue("owner/repo", title="   ")
+
+
+# ---------------------------------------------------------------------------
+# GitHub Projects v2
+# ---------------------------------------------------------------------------
+
+
+class TestParseProjectUrl:
+    def test_org_project(self) -> None:
+        owner_type, owner, number = GitHubClient.parse_project_url(
+            "https://github.com/orgs/myorg/projects/5"
+        )
+        assert owner_type == "organization"
+        assert owner == "myorg"
+        assert number == 5
+
+    def test_user_project(self) -> None:
+        owner_type, owner, number = GitHubClient.parse_project_url(
+            "https://github.com/users/alice/projects/12"
+        )
+        assert owner_type == "user"
+        assert owner == "alice"
+        assert number == 12
+
+    def test_strips_whitespace(self) -> None:
+        owner_type, owner, number = GitHubClient.parse_project_url(
+            "  https://github.com/orgs/org/projects/1  "
+        )
+        assert owner_type == "organization"
+        assert owner == "org"
+        assert number == 1
+
+    def test_rejects_empty(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            GitHubClient.parse_project_url("")
+
+    def test_rejects_invalid_url(self) -> None:
+        with pytest.raises(ValueError, match="Invalid GitHub Project URL"):
+            GitHubClient.parse_project_url("https://github.com/owner/repo")
+
+    def test_rejects_missing_number(self) -> None:
+        with pytest.raises(ValueError, match="Invalid GitHub Project URL"):
+            GitHubClient.parse_project_url("https://github.com/orgs/myorg/projects/")
+
+
+class TestAddToProjectV2:
+    def test_adds_issue_by_content_id(self, client: GitHubClient) -> None:
+        responses = [
+            # project ID query (org)
+            {"data": {"organization": {"projectV2": {"id": "PVT_1"}}}},
+            # addProjectV2ItemById mutation
+            {"data": {"addProjectV2ItemById": {"item": {"id": "PVTI_42"}}}},
+        ]
+        call_count = {"n": 0}
+
+        def mock_urlopen(req):
+            resp = MagicMock()
+            import json
+
+            resp.read.return_value = json.dumps(responses[call_count["n"]]).encode()
+            resp.__enter__ = lambda s: s
+            resp.__exit__ = MagicMock(return_value=False)
+            call_count["n"] += 1
+            return resp
+
+        with patch("helping_hands.lib.github.urllib.request.urlopen", mock_urlopen):
+            item_id = client.add_to_project_v2(
+                "https://github.com/orgs/myorg/projects/5",
+                content_id="I_abc123",
+            )
+
+        assert item_id == "PVTI_42"
+
+    def test_adds_issue_by_full_name_and_number(self, client: GitHubClient) -> None:
+        responses = [
+            # content ID query
+            {"data": {"repository": {"issueOrPullRequest": {"id": "I_node123"}}}},
+            # project ID query (user)
+            {"data": {"user": {"projectV2": {"id": "PVT_2"}}}},
+            # addProjectV2ItemById mutation
+            {"data": {"addProjectV2ItemById": {"item": {"id": "PVTI_99"}}}},
+        ]
+        call_count = {"n": 0}
+
+        def mock_urlopen(req):
+            resp = MagicMock()
+            import json
+
+            resp.read.return_value = json.dumps(responses[call_count["n"]]).encode()
+            resp.__enter__ = lambda s: s
+            resp.__exit__ = MagicMock(return_value=False)
+            call_count["n"] += 1
+            return resp
+
+        with patch("helping_hands.lib.github.urllib.request.urlopen", mock_urlopen):
+            item_id = client.add_to_project_v2(
+                "https://github.com/users/alice/projects/3",
+                full_name="alice/repo",
+                issue_number=42,
+            )
+
+        assert item_id == "PVTI_99"
+
+    def test_requires_content_id_or_full_name(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="Either content_id or both"):
+            client.add_to_project_v2("https://github.com/orgs/myorg/projects/1")
+
+    def test_graphql_error_raises(self, client: GitHubClient) -> None:
+        def mock_urlopen(req):
+            resp = MagicMock()
+            import json
+
+            resp.read.return_value = json.dumps(
+                {"errors": [{"message": "Not found"}]}
+            ).encode()
+            resp.__enter__ = lambda s: s
+            resp.__exit__ = MagicMock(return_value=False)
+            return resp
+
+        with (
+            patch("helping_hands.lib.github.urllib.request.urlopen", mock_urlopen),
+            pytest.raises(RuntimeError, match="GraphQL error: Not found"),
+        ):
+            client.add_to_project_v2(
+                "https://github.com/orgs/myorg/projects/5",
+                content_id="I_abc",
+            )
+
+    def test_unresolved_content_id_raises(self, client: GitHubClient) -> None:
+        def mock_urlopen(req):
+            resp = MagicMock()
+            import json
+
+            resp.read.return_value = json.dumps(
+                {"data": {"repository": {"issueOrPullRequest": None}}}
+            ).encode()
+            resp.__enter__ = lambda s: s
+            resp.__exit__ = MagicMock(return_value=False)
+            return resp
+
+        with (
+            patch("helping_hands.lib.github.urllib.request.urlopen", mock_urlopen),
+            pytest.raises(RuntimeError, match="Could not resolve node ID"),
+        ):
+            client.add_to_project_v2(
+                "https://github.com/orgs/myorg/projects/1",
+                full_name="owner/repo",
+                issue_number=999,
+            )

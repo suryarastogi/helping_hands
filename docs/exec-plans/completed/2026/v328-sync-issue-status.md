@@ -9,6 +9,13 @@ When a task has a linked GitHub issue (via `issue_number` or `create_issue`),
 automatically post/update a status comment on the issue as the task progresses
 through its lifecycle (running → completed/failed).
 
+## Tasks
+
+- [x] Add `_ISSUE_STATUS_MARKER` constant
+- [x] Add `_sync_issue_status()` helper with running/completed/failed statuses
+- [x] Integrate status sync at hand start, success, and failure points
+- [x] Add 5 tests in `TestSyncIssueStatus`
+
 ## Changes
 
 ### `src/helping_hands/server/celery_app.py`

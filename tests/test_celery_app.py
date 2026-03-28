@@ -1020,3 +1020,88 @@ class TestSyncIssueStatus:
 
             # Should not raise
             _mod._sync_issue_status("owner/repo", 42, "running", None)
+
+
+class TestTryAddToProject:
+    """Tests for the _try_add_to_project helper."""
+
+    def test_noop_when_project_url_is_none(self) -> None:
+        """No GitHub call when project_url is None."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+        ) as mock_cls:
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            _mod._try_add_to_project("owner/repo", 42, None, "tok", updates)
+
+        mock_cls.assert_not_called()
+        assert updates == []
+
+    def test_noop_when_issue_number_is_none(self) -> None:
+        """No GitHub call when issue_number is None."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+        ) as mock_cls:
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            _mod._try_add_to_project(
+                "owner/repo",
+                None,
+                "https://github.com/orgs/myorg/projects/1",
+                "tok",
+                updates,
+            )
+
+        mock_cls.assert_not_called()
+        assert updates == []
+
+    def test_adds_issue_to_project(self) -> None:
+        """Calls add_to_project_v2 with correct args."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        mock_gh.add_to_project_v2.return_value = "PVTI_42"
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            _mod._try_add_to_project(
+                "owner/repo",
+                7,
+                "https://github.com/orgs/myorg/projects/5",
+                "tok",
+                updates,
+            )
+
+        mock_gh.add_to_project_v2.assert_called_once_with(
+            "https://github.com/orgs/myorg/projects/5",
+            full_name="owner/repo",
+            issue_number=7,
+        )
+        assert any("project" in u.lower() for u in updates)
+
+    def test_exception_does_not_propagate(self) -> None:
+        """API errors are swallowed — adding to project is best-effort."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("No token"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            # Should not raise
+            _mod._try_add_to_project(
+                "owner/repo",
+                42,
+                "https://github.com/orgs/myorg/projects/1",
+                None,
+                updates,
+            )
+
+        assert any("failed" in u.lower() for u in updates)

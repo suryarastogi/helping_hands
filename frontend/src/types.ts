@@ -102,6 +102,7 @@ export type FormState = {
   pr_number: string;
   issue_number: string;
   create_issue: boolean;
+  project_url: string;
   tools: string;
   skills: string;
   no_pr: boolean;

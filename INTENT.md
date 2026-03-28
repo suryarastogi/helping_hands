@@ -9,10 +9,22 @@ Deeper GitHub integration - Features Wanted:
     - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
     - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
     - ~~Sync task status with GitHub issue with created PR~~ **v328: _sync_issue_status() posts running/completed/failed status comments on linked issue via marker-tagged upsert**
-    - GitHub Projects board integration
+    - ~~GitHub Projects board integration~~ **v329: full-stack `project_url` support — add issues to GitHub Projects v2 boards via GraphQL API after creation/linking**
 
 
 ## Recently Completed
+
+### GitHub Projects Board Integration (2026-03-28) — Completed
+
+**Implemented (v329):**
+- `GitHubClient.add_to_project_v2()` method — resolves project/content node IDs via GraphQL, calls `addProjectV2ItemById` mutation
+- `parse_project_url()` static method — parses org/user project URLs into (owner_type, owner, number)
+- `_graphql()` private helper — executes GitHub GraphQL queries via `urllib.request`
+- `project_url` field added to full stack: frontend FormState → SubmissionForm → useTaskManager → BuildRequest → Celery `build_feature` task
+- `_try_add_to_project()` helper in `celery_app.py` — best-effort wrapper, errors logged but never block the build
+- After issue creation/linking and before hand execution, linked issue is added to the specified project
+- Frontend: Project URL input in Advanced settings, URL query param support (`?project_url=...`)
+- 15 new tests (11 backend, 4 frontend), 7516 backend tests passed, 0 failures
 
 ### Sync Task Status with GitHub Issue (2026-03-28) — Completed
 

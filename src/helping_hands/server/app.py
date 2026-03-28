@@ -282,6 +282,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     pr_number: int | None = None
     issue_number: int | None = None
     create_issue: bool = False
+    project_url: str | None = None
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(
         default=_DEFAULT_CI_WAIT_MINUTES,
@@ -3139,6 +3140,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         pr_number=req.pr_number,
         issue_number=req.issue_number,
         create_issue=req.create_issue,
+        project_url=req.project_url,
         backend=req.backend,
         model=req.model,
         max_iterations=req.max_iterations,
@@ -3896,6 +3898,7 @@ def enqueue_build_form(
     pr_number: int | None = Form(None),
     issue_number: int | None = Form(None),
     create_issue: bool = Form(False),
+    project_url: str | None = Form(None),
     tools: str | None = Form(None),
     skills: str | None = Form(None),
     fix_ci: bool = Form(False),
@@ -3940,6 +3943,7 @@ def enqueue_build_form(
             pr_number=pr_number,
             issue_number=issue_number,
             create_issue=create_issue,
+            project_url=project_url,
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
             tools=list(meta_tools.normalize_tool_selection(tools)),

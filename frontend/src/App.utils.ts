@@ -77,6 +77,7 @@ export const INITIAL_FORM: FormState = {
   pr_number: "",
   issue_number: "",
   create_issue: false,
+  project_url: "",
   tools: "",
   skills: "",
   no_pr: false,

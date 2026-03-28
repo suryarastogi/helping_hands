@@ -22,8 +22,9 @@ query endpoint, AppOverlays/MonitorCard branch coverage hardening
 (component stmts: 96.45% → 99.08%), remote player CSS fixes with
 initial Yjs awareness position sync, and GitHub issue linking with
 full-stack `issue_number` support, create-new-issue-from-task feature,
-and task status sync to GitHub issues (running/completed/failed lifecycle
-comments via marker-tagged upsert).
+task status sync to GitHub issues (running/completed/failed lifecycle
+comments via marker-tagged upsert), and GitHub Projects v2 board
+integration with full-stack `project_url` support via GraphQL API.
 
 ---
 
@@ -471,6 +472,14 @@ comments via marker-tagged upsert).
 
 ---
 
+## Mar 28 — GitHub Projects Board Integration (v329)
+
+**Full-stack project integration:** Added `project_url` field through the entire stack (frontend → backend → Celery task). `GitHubClient.add_to_project_v2()` uses GitHub GraphQL API (`addProjectV2ItemById` mutation) to add linked issues to GitHub Projects v2 boards. `parse_project_url()` parses org/user project URLs. `_try_add_to_project()` Celery helper is best-effort. Frontend Project URL input in Advanced settings.
+
+**15 new tests (11 backend, 4 frontend). 7516 backend tests total.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -528,3 +537,4 @@ comments via marker-tagged upsert).
 - `v325-github-issue-linking.md`
 - `v326-create-issue-from-task.md`
 - `v328-sync-issue-status.md`
+- `v329-github-projects-integration.md`
