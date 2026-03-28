@@ -105,6 +105,19 @@ export default function SubmissionForm({
                 />
               </label>
             </div>
+            <div className="row two-col">
+              <label>
+                Issue number
+                <input
+                  type="number"
+                  min={1}
+                  value={form.issue_number}
+                  onChange={(event) => onFieldChange("issue_number", event.target.value)}
+                  placeholder="Link to GitHub issue"
+                />
+              </label>
+              <div />
+            </div>
             <label>
               Tools
               <input

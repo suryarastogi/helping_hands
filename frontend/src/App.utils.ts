@@ -75,6 +75,7 @@ export const INITIAL_FORM: FormState = {
   model: "claude-opus-4-6",
   max_iterations: 6,
   pr_number: "",
+  issue_number: "",
   tools: "",
   skills: "",
   no_pr: false,

@@ -840,3 +840,96 @@ class TestUpsertPrCommentInputValidation:
     def test_rejects_whitespace_body(self, client: GitHubClient) -> None:
         with pytest.raises(ValueError, match="comment body must not be empty"):
             client.upsert_pr_comment("owner/repo", 1, body="   ")
+
+
+# ---------------------------------------------------------------------------
+# get_issue (v325)
+# ---------------------------------------------------------------------------
+
+
+class TestGetIssue:
+    def test_returns_issue_details(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.number = 42
+        issue.title = "Bug report"
+        issue.body = "Steps to reproduce"
+        issue.html_url = "https://github.com/owner/repo/issues/42"
+        issue.state = "open"
+        label = MagicMock()
+        label.name = "bug"
+        issue.labels = [label]
+        issue.user.login = "reporter"
+        mock_repo.get_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_issue("owner/repo", 42)
+
+        assert result["number"] == 42
+        assert result["title"] == "Bug report"
+        assert result["body"] == "Steps to reproduce"
+        assert result["url"] == "https://github.com/owner/repo/issues/42"
+        assert result["state"] == "open"
+        assert result["labels"] == ["bug"]
+        assert result["user"] == "reporter"
+        mock_repo.get_issue.assert_called_once_with(number=42)
+
+    def test_empty_body_returns_empty_string(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.number = 1
+        issue.title = "Title"
+        issue.body = None
+        issue.html_url = "url"
+        issue.state = "open"
+        issue.labels = []
+        issue.user = None
+        mock_repo.get_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.get_issue("owner/repo", 1)
+
+        assert result["body"] == ""
+        assert result["user"] == ""
+
+    def test_rejects_zero_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="issue number must be positive"):
+            client.get_issue("owner/repo", 0)
+
+    def test_rejects_negative_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="issue number must be positive"):
+            client.get_issue("owner/repo", -1)
+
+
+# ---------------------------------------------------------------------------
+# create_issue_comment (v325)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateIssueComment:
+    def test_creates_comment(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_issue = MagicMock()
+        created = MagicMock()
+        created.id = 999
+        mock_issue.create_comment.return_value = created
+        mock_repo.get_issue.return_value = mock_issue
+        client._gh.get_repo.return_value = mock_repo
+
+        comment_id = client.create_issue_comment("owner/repo", 42, body="PR linked")
+
+        assert comment_id == 999
+        mock_repo.get_issue.assert_called_once_with(number=42)
+        mock_issue.create_comment.assert_called_once_with("PR linked")
+
+    def test_rejects_zero_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="issue number must be positive"):
+            client.create_issue_comment("owner/repo", 0, body="text")
+
+    def test_rejects_empty_body(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="comment body must not be empty"):
+            client.create_issue_comment("owner/repo", 1, body="")
+
+    def test_rejects_whitespace_body(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="comment body must not be empty"):
+            client.create_issue_comment("owner/repo", 1, body="   ")

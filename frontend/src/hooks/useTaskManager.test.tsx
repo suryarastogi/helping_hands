@@ -318,6 +318,62 @@ describe("useTaskManager", () => {
     expect(body.skills).toEqual(["skill1", "skill2"]);
   });
 
+  it("submitRun includes issue_number when set", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/build")) {
+        return jsonResponse({ task_id: "t-issue", status: "queued", backend: "e2e" });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.updateField("repo_path", "owner/repo");
+      result.current.updateField("prompt", "Fix bug");
+      result.current.updateField("issue_number", " 99 ");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.submitRun(fakeEvent));
+
+    const buildCall = fetchSpy.mock.calls.find(([input]) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("/build");
+    });
+    const body = JSON.parse((buildCall![1] as RequestInit).body as string);
+    expect(body.issue_number).toBe(99);
+  });
+
+  it("submitRun skips issue_number when not a valid number", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/build")) {
+        return jsonResponse({ task_id: "t-issue-nan", status: "queued", backend: "e2e" });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.updateField("repo_path", "owner/repo");
+      result.current.updateField("prompt", "Do it");
+      result.current.updateField("issue_number", "abc");
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(() => result.current.submitRun(fakeEvent));
+
+    const buildCall = fetchSpy.mock.calls.find(([input]) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("/build");
+    });
+    const body = JSON.parse((buildCall![1] as RequestInit).body as string);
+    expect(body.issue_number).toBeUndefined();
+  });
+
   it("submitRun skips pr_number when not a valid number", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockImplementation(async (input) => {

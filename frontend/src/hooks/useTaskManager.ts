@@ -293,6 +293,12 @@ export function useTaskManager(): UseTaskManagerReturn {
         body.pr_number = parsed;
       }
     }
+    if (form.issue_number.trim()) {
+      const parsed = Number(form.issue_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.issue_number = parsed;
+      }
+    }
     if (form.tools.trim()) {
       body.tools = form.tools
         .split(",")
@@ -654,6 +660,8 @@ export function useTaskManager(): UseTaskManagerReturn {
       }
       const prNumber = params.get("pr_number");
       if (prNumber) next.pr_number = prNumber;
+      const issueNumber = params.get("issue_number");
+      if (issueNumber) next.issue_number = issueNumber;
       const tools = params.get("tools");
       if (tools) next.tools = tools;
       const skills = params.get("skills");

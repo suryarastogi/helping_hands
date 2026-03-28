@@ -8,7 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
-- [v324 — Remote Player CSS Fixes & Initial Position Sync](exec-plans/completed/v324-multiplayer-css-fixes-and-spawn-sync.md) —
+- [v325 — GitHub Issue Linking](exec-plans/completed/2026/v325-github-issue-linking.md) —
+  Full-stack `issue_number` support: "Closes #N" in PR body, issue comment with
+  PR link, frontend field + URL param; 724 frontend tests, 92 backend GitHub tests
+
+- [v324 — Remote Player CSS Fixes & Initial Position Sync](exec-plans/completed/2026/v324-multiplayer-css-fixes-and-spawn-sync.md) —
   Fixed duplicate CSS transition on `.remote-player`, restored `pointer-events`
   for tooltips, synced initial Yjs awareness position with actual spawn;
   720 frontend tests

@@ -18,8 +18,9 @@ hardening edge case coverage (_clamp_float NaN/Infinity fix, client-side
 cursor clamping, localStorage error handling tests, backend partial
 failure tests), design doc refresh + timer cleanup + accessibility
 improvements, decoration placement cooldown with backend decoration
-query endpoint, and AppOverlays/MonitorCard branch coverage hardening
-(component stmts: 96.45% → 99.08%).
+query endpoint, AppOverlays/MonitorCard branch coverage hardening
+(component stmts: 96.45% ��� 99.08%), and remote player CSS fixes with
+initial Yjs awareness position sync (720 frontend tests total).
 
 ---
 
@@ -435,6 +436,14 @@ query endpoint, and AppOverlays/MonitorCard branch coverage hardening
 
 ---
 
+## Mar 27 — Remote Player CSS Fixes & Initial Position Sync (v324)
+
+**CSS fixes:** Consolidated duplicate `transition` on `.remote-player` (150ms + 80ms → single 150ms). Fixed `pointer-events: none` → `auto` for tooltip hover. **Initial position sync:** `useMultiplayer` awareness now uses actual spawn position from `useMovement` instead of hardcoded (50, 50).
+
+**3 new frontend tests (720 total).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -488,3 +497,4 @@ query endpoint, and AppOverlays/MonitorCard branch coverage hardening
 - `v321-design-doc-refresh-timer-cleanup.md` (→ `2026-03-27-design-doc-refresh.md`)
 - `v322-decoration-cooldown-and-decoration-endpoint.md`
 - `v323-appoverlays-monitorcard-coverage.md`
+- `v324-multiplayer-css-fixes-and-spawn-sync.md`

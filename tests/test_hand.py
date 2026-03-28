@@ -3676,3 +3676,71 @@ class TestGitHubTokenPassthrough:
 
         config = Config()
         assert config.github_token == ""
+
+
+# ---------------------------------------------------------------------------
+# issue_number attribute (v325)
+# ---------------------------------------------------------------------------
+
+
+class TestHandIssueNumber:
+    def test_default_issue_number_is_none(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        assert hand.issue_number is None
+
+    def test_issue_number_can_be_set(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = 42
+        assert hand.issue_number == 42
+
+
+# ---------------------------------------------------------------------------
+# _post_issue_link_comment (v325)
+# ---------------------------------------------------------------------------
+
+
+class TestPostIssueLinkComment:
+    def test_posts_comment_when_issue_number_set(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = 42
+        gh = MagicMock()
+
+        hand._post_issue_link_comment(
+            gh, "owner/repo", "https://github.com/owner/repo/pull/99"
+        )
+
+        gh.create_issue_comment.assert_called_once_with(
+            "owner/repo",
+            42,
+            body=(
+                "A pull request has been opened for this issue: "
+                "https://github.com/owner/repo/pull/99\n\n"
+                "<!-- helping_hands:issue_link -->"
+            ),
+        )
+
+    def test_noop_when_no_issue_number(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = None
+        gh = MagicMock()
+
+        hand._post_issue_link_comment(gh, "owner/repo", "https://example.com/pr/1")
+
+        gh.create_issue_comment.assert_not_called()
+
+    def test_error_is_swallowed(self, config: Config, repo_index: RepoIndex) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = 10
+        gh = MagicMock()
+        gh.create_issue_comment.side_effect = RuntimeError("API error")
+
+        # Should not raise
+        hand._post_issue_link_comment(gh, "owner/repo", "https://example.com/pr/1")

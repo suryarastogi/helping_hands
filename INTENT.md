@@ -6,11 +6,27 @@ User intents and desires for the helping-hands project.
 
 Deeper GitHub integration - Features Wanted:
 - a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
-    - When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)
+    - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
+    - When creating a task, option to create a new issue from the task (with task prompt as issue body)
     - Sync task status with GitHub issue with created PR
+    - GitHub Projects board integration
 
 
 ## Recently Completed
+
+### GitHub Issue Linking (2026-03-28) — Completed
+
+**Implemented (v325):**
+- `issue_number` field added to full stack: frontend FormState → SubmissionForm → useTaskManager → BuildRequest → Celery task → Hand base class
+- `GitHubClient.get_issue()` and `create_issue_comment()` methods for issue API operations
+- PR body automatically includes "Closes #N" when issue number is provided — GitHub auto-closes the issue on merge
+- Comment posted on the linked issue with a link to the created/updated PR
+- Error handling: issue comment failures are logged but don't block PR creation
+- Works with both new PRs (`_create_new_pr`) and existing PR updates (`_push_to_existing_pr`)
+- Frontend: issue number field in Advanced settings, URL query param support (`?issue_number=42`)
+- 10 new backend tests (4 GitHubClient, 3 _post_issue_link_comment, 2 issue_number attribute, 1 create_issue_comment validation)
+- 4 new frontend tests (2 SubmissionForm, 2 useTaskManager)
+- 724 frontend tests total (up from 720), 92 backend tests in test_github.py (up from 78)
 
 ### Remote Player CSS Fixes & Initial Position Sync (2026-03-27) — Completed
 

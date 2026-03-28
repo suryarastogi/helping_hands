@@ -608,6 +608,65 @@ class GitHubClient:
         return int(created.id)
 
     # ------------------------------------------------------------------
+    # Issue helpers
+    # ------------------------------------------------------------------
+
+    def get_issue(self, full_name: str, number: int) -> dict[str, Any]:
+        """Get details of a single issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, ``labels``, and ``user``.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
+        require_positive_int(number, "issue number")
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        return {
+            "number": issue.number,
+            "title": issue.title,
+            "body": issue.body or "",
+            "url": issue.html_url,
+            "state": issue.state,
+            "labels": [label.name for label in issue.labels],
+            "user": issue.user.login if issue.user else "",
+        }
+
+    def create_issue_comment(
+        self,
+        full_name: str,
+        number: int,
+        *,
+        body: str,
+    ) -> int:
+        """Post a comment on a GitHub issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+            body: Comment body (markdown).
+
+        Returns:
+            The ID of the created comment.
+
+        Raises:
+            ValueError: If *number* is not positive or *body* is
+                empty/whitespace.
+        """
+        require_positive_int(number, "issue number")
+        require_non_empty_string(body, "comment body")
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        comment = issue.create_comment(body)
+        return int(comment.id)
+
+    # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------
 

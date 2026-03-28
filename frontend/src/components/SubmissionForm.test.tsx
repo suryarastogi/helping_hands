@@ -135,4 +135,19 @@ describe("SubmissionForm", () => {
     const input = screen.getByDisplayValue("10");
     expect(input).toHaveAttribute("type", "number");
   });
+
+  it("renders issue number input with placeholder", () => {
+    renderForm();
+    const input = screen.getByPlaceholderText("Link to GitHub issue");
+    expect(input).toHaveAttribute("type", "number");
+  });
+
+  it("calls onFieldChange when issue number changes", () => {
+    const onFieldChange = vi.fn();
+    renderForm({ onFieldChange });
+    fireEvent.change(screen.getByPlaceholderText("Link to GitHub issue"), {
+      target: { value: "42" },
+    });
+    expect(onFieldChange).toHaveBeenCalledWith("issue_number", "42");
+  });
 });

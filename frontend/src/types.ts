@@ -100,6 +100,7 @@ export type FormState = {
   model: string;
   max_iterations: number;
   pr_number: string;
+  issue_number: string;
   tools: string;
   skills: string;
   no_pr: boolean;
