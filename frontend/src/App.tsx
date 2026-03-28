@@ -134,6 +134,12 @@ export default function App() {
   const [prefixFilters, setPrefixFilters] = useState<Record<string, PrefixFilterMode>>({});
   const [mainView, setMainView] = useState<MainView>("submission");
   const [isPolling, setIsPolling] = useState(false);
+  const [diffFiles, setDiffFiles] = useState<{ filename: string; status: string; diff: string }[]>([]);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [fileTree, setFileTree] = useState<{ path: string; name: string; type: "file" | "dir"; status: string | null }[]>([]);
+  const [fileTreeError, setFileTreeError] = useState<string | null>(null);
+  const [fileTreeLoading, setFileTreeLoading] = useState(false);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
   const taskHistoryRef = useRef(taskHistory);
   taskHistoryRef.current = taskHistory;
@@ -792,6 +798,82 @@ export default function App() {
     }
   }, [taskHistory]);
 
+  // Poll diff for the currently selected task
+  useEffect(() => {
+    if (!taskId) {
+      setDiffFiles([]);
+      setDiffError(null);
+      return;
+    }
+    let cancelled = false;
+
+    const fetchDiff = async () => {
+      setDiffLoading(true);
+      try {
+        const res = await fetch(apiUrl(`/tasks/${taskId}/diff?_=${Date.now()}`), {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setDiffFiles(data.files ?? []);
+        setDiffError(data.error ?? null);
+      } catch {
+        if (!cancelled) {
+          setDiffError("Failed to fetch diff");
+        }
+      } finally {
+        if (!cancelled) setDiffLoading(false);
+      }
+    };
+
+    void fetchDiff();
+    // Poll every 5s while task is active, 0 otherwise
+    const isActive = !isTerminalTaskStatus(status);
+    if (isActive) {
+      const handle = window.setInterval(() => void fetchDiff(), 5000);
+      return () => { cancelled = true; window.clearInterval(handle); };
+    }
+    return () => { cancelled = true; };
+  }, [taskId, status]);
+
+  // Fetch file tree for the currently selected task
+  useEffect(() => {
+    if (!taskId) {
+      setFileTree([]);
+      setFileTreeError(null);
+      return;
+    }
+    let cancelled = false;
+
+    const fetchTree = async () => {
+      setFileTreeLoading(true);
+      try {
+        const res = await fetch(apiUrl(`/tasks/${taskId}/tree?_=${Date.now()}`), {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setFileTree(data.tree ?? []);
+        setFileTreeError(data.error ?? null);
+      } catch {
+        if (!cancelled) setFileTreeError("Failed to fetch file tree");
+      } finally {
+        if (!cancelled) setFileTreeLoading(false);
+      }
+    };
+
+    void fetchTree();
+    const isActive = !isTerminalTaskStatus(status);
+    if (isActive) {
+      // Poll tree less frequently than diff (every 10s)
+      const handle = window.setInterval(() => void fetchTree(), 10000);
+      return () => { cancelled = true; window.clearInterval(handle); };
+    }
+    return () => { cancelled = true; };
+  }, [taskId, status]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
@@ -1327,6 +1409,12 @@ export default function App() {
       monitorHeight={monitorHeight}
       onMonitorScroll={handleMonitorScroll}
       onResizeStart={handleResizeStart}
+      diffFiles={diffFiles}
+      diffError={diffError}
+      diffLoading={diffLoading}
+      fileTree={fileTree}
+      fileTreeError={fileTreeError}
+      fileTreeLoading={fileTreeLoading}
     />
   );
 

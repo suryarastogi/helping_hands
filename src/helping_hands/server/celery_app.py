@@ -394,12 +394,22 @@ class _ProgressEmitter:
     def emit(self, stage: str, **overrides: Any) -> None:
         """Emit a progress update for *stage*, optionally overriding fields.
 
+        Certain fields (``workspace``, ``model``) are *sticky*: once set via
+        an override they become the new default for subsequent calls.  This
+        prevents frequent progress updates from dropping metadata that was
+        only provided on the first ``"running"`` emit.
+
         Args:
             stage: Human-readable stage label (e.g. ``"starting"``,
                 ``"running"``).
             **overrides: Any keyword accepted by ``_update_progress`` whose
                 value should differ from the stored default for this call.
         """
+        # Persist sticky fields so later emit() calls don't lose them.
+        if overrides.get("workspace"):
+            self._workspace = overrides["workspace"]
+        if overrides.get("model"):
+            self._model = overrides["model"]
         _update_progress(
             self._task,
             task_id=overrides.get("task_id", self._task_id),
