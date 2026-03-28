@@ -16,9 +16,9 @@ function pressKey(key: string) {
   act(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
   });
-  // Flush the requestAnimationFrame callback
+  // Flush the requestAnimationFrame callback (mocked as setTimeout)
   act(() => {
-    vi.advanceTimersByTime(16);
+    vi.advanceTimersToNextTimer();
   });
 }
 
@@ -202,7 +202,7 @@ describe("useMovement hook", () => {
       );
     });
     act(() => {
-      vi.advanceTimersByTime(16);
+      vi.advanceTimersToNextTimer();
     });
 
     // Position should not change since we're typing in an input
