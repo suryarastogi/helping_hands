@@ -1,10 +1,15 @@
-"""Tests for previously uncovered server/app.py functions.
+"""Branch and edge-case coverage for internal server/app.py helpers.
 
-Covers: _validate_path_param, _redact_token, _build_form_redirect_query,
-_build_task_status, _cancel_task, _enqueue_build_task,
-_fetch_flower_current_tasks, _resolve_worker_capacity,
-_render_monitor_page, _extract_task_kwargs branches,
-_iter_worker_task_entries non-string keys.
+Protects a cluster of pure-logic helpers that sit beneath the HTTP layer:
+path-param validation prevents empty IDs from reaching Celery; token redaction
+ensures GitHub tokens never appear in API responses or logs; the form redirect
+query builder controls what prefill values survive a validation failure redirect;
+and _render_monitor_page guards the HTML output contract (auto-refresh, cancel
+button, HTML escaping) that the web UI relies on.
+
+Regressions here typically manifest as silent data-loss (empty task IDs accepted),
+credential leaks in JSON payloads, or broken monitor-page UX rather than outright
+HTTP errors, making them easy to miss without targeted tests.
 """
 
 from __future__ import annotations

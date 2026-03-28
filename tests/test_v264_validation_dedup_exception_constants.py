@@ -1,10 +1,17 @@
-"""Tests for v264: shared validation, exception tuple constants, env var constants.
+"""Tests for v264: shared validation, exception tuple constants, and env var constants.
 
-Covers:
-- ``_validate_full_name`` delegation to ``validate_repo_spec``
-- ``_TOOL_EXECUTION_ERRORS`` constant contents
-- ``_RUN_ASYNC_ERRORS`` constant contents and cross-module import
-- ``_ENV_*`` constants in ``config.py``
+_validate_full_name() in github.py was duplicating the owner/repo format check
+that validate_repo_spec() already implements. If _validate_full_name stops
+delegating and re-implements its own rules, the two can drift: e.g. one allows
+hyphens in org names while the other rejects them.
+
+_TOOL_EXECUTION_ERRORS and _RUN_ASYNC_ERRORS are the canonical except tuples
+for tool dispatch and async runner errors. Centralising them means that adding
+a new recoverable exception type (e.g. PermissionError) only requires one
+change; without the constants, every handler must be hunted down and updated.
+
+The config _ENV_* constants record the names of configuration env vars; if
+they drift, feature flags silently stop working for the env vars they rename.
 """
 
 from __future__ import annotations

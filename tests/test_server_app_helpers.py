@@ -1,4 +1,18 @@
-"""Tests for pure helper functions in helping_hands.server.app."""
+"""Tests for the pure-logic helper functions in helping_hands.server.app.
+
+Protects the low-level building blocks used by the /tasks/current endpoint and
+Celery inspection machinery: backend name normalisation (whitespace, case, valid
+set), task-state priority ordering used when merging Flower and Celery sources,
+status normalisation with sensible defaults, and the multi-step kwargs extraction
+chain (_parse_task_kwargs_str → dict fallback → request.kwargs).
+
+These helpers are never called directly by users but underpin the task-list UI.
+If _parse_backend stops rejecting unknown names or _task_state_priority priority
+values drift, the /tasks/current endpoint silently produces wrong merged state.
+The _UpdateCollector and _append_update helpers also protect the progress-stream
+buffering logic: regressions here cause the monitor page to show stale, truncated,
+or missing streaming output.
+"""
 
 from __future__ import annotations
 

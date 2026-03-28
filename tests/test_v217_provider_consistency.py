@@ -1,9 +1,13 @@
-"""Tests for v217 — provider consistency fixes.
+"""Tests for v217 provider consistency fixes across AI backends.
 
-Covers:
-- Google LangChain streaming parameter pass-through
-- Google provider empty-contents validation
-- Claude CLI GPT model filter warning log
+Protects three independent behavioural invariants: (1) the Google LangChain
+provider must forward the `streaming` kwarg to ChatGoogleGenerativeAI so
+callers receive tokens incrementally rather than a single blocked response;
+(2) the Google provider must raise ValueError before calling the API when all
+message contents are empty, preventing a confusing remote error; (3) the
+Claude CLI hand must log a warning and filter out OpenAI-namespaced models
+(openai/…) rather than passing them verbatim to the Claude binary, which would
+fail silently or produce a misleading error.
 """
 
 from __future__ import annotations

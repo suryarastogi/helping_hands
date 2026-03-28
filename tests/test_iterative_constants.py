@@ -1,7 +1,16 @@
 """Tests for iterative.py module-level and class-level constants and docstrings.
 
-Covers: _README_CANDIDATES, _AGENT_DOC_CANDIDATES, BasicLangGraphHand._BACKEND_NAME,
-        BasicAtomicHand._BACKEND_NAME, and docstring presence on key methods.
+Protects the contract between the iterative hand layer and its callers: backend
+name strings are used for CLI --backend dispatch and metadata tagging, so a
+silent rename or case change would break both selection and downstream result
+parsing.  README/AGENT candidate tuples drive bootstrap document lookup on
+case-insensitive and case-sensitive filesystems.  Docstring presence checks
+enforce the Google-style documentation policy for public methods.
+
+# TODO: CLEANUP CANDIDATE
+The docstring-presence tests (TestDocstringsPresent) verify stylistic policy
+rather than behavioral invariants — they will fail on any future refactor that
+renames methods, but don't protect against correctness regressions.
 """
 
 from __future__ import annotations

@@ -1,4 +1,13 @@
-"""Tests for shared conftest fixtures (repo_index, fake_config, make_cli_hand, mock_github_client, make_fake_module)."""
+"""Tests for shared conftest fixtures (repo_index, fake_config, make_cli_hand, mock_github_client, make_fake_module).
+
+Documents and locks the contract of the test infrastructure itself: each
+fixture's return type, default field values, and mutability guarantees. Without
+these tests, a conftest change (e.g. renaming a default model, changing
+mock_github_client.create_pr return shape) would silently invalidate dozens of
+tests that rely on those defaults. make_fake_module is also tested here since
+it is the standard way to inject optional-dependency mocks (openai, anthropic)
+without installing the packages.
+"""
 
 from __future__ import annotations
 

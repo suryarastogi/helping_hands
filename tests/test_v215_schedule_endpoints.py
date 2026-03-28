@@ -1,9 +1,14 @@
-"""Tests for server/app.py schedule endpoints and remaining uncovered lines.
+"""Guard FastAPI schedule endpoints and the _get_schedule_manager singleton pattern.
 
-Covers: get_cron_presets, list_schedules, create_schedule, get_schedule,
-update_schedule, delete_schedule, enable_schedule, disable_schedule,
-trigger_schedule, _get_schedule_manager, notif_sw, get_server_config,
-enqueue_build, enqueue_build_form ValidationError redirect path.
+These tests verify the full REST surface for recurring schedules (list, create,
+get, update, delete, enable, disable, trigger) using a mocked ScheduleManager so
+no live Redis or Celery is needed. Key invariants protected: (1) _get_schedule_manager
+returns the cached singleton rather than constructing a new manager on every request,
+which would lose in-memory state; (2) the trigger endpoint enqueues a Celery task
+rather than running synchronously; (3) the enqueue_build_form ValidationError path
+redirects with an error query param rather than returning a 422 JSON response, which
+is required for the HTML form workflow. Regressions here would silently break the
+schedule UI without any Python-level exception being raised.
 """
 
 from __future__ import annotations

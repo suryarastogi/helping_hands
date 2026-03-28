@@ -1,10 +1,14 @@
-"""Tests for v212 — run-status strings, truncation marker, auth-presence labels.
+"""Guard run-status string constants and auth-presence labels in iterative.py.
 
-Covers:
-- _RUN_STATUS_INTERRUPTED, _RUN_STATUS_SATISFIED, _RUN_STATUS_MAX_ITERATIONS
-- _TRUNCATION_MARKER constant
-- _AUTH_PRESENT_LABEL, _AUTH_ABSENT_LABEL constants
-- Source-level verification that functions reference the constants (not inline)
+The three run-status constants (interrupted, satisfied, max_iterations) end up in
+the hand result dict returned to the caller and to Celery task state. If their
+values change or diverge between the constant definition and the actual assignment
+in run()/stream(), the server and frontend receive unexpected status strings,
+breaking the status-display logic. _TRUNCATION_MARKER is inserted when large repo
+context is truncated before being sent to the AI — if the marker changes, any
+downstream code that splits on it would break silently. The source-level tests
+verify that the actual run() implementations reference the constants rather than
+inline literal strings, catching regressions that value-only tests would miss.
 """
 
 from __future__ import annotations

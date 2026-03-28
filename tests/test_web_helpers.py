@@ -1,4 +1,13 @@
-"""Tests for internal helper functions in helping_hands.lib.meta.tools.web."""
+"""Tests for internal helper functions in helping_hands.lib.meta.tools.web.
+
+Protects the helper layer that sanitises inputs and decodes HTTP responses:
+_require_http_url must reject ftp://, bare hostnames, missing hosts, and
+whitespace-only strings to prevent malformed requests from reaching urlopen;
+_strip_html must remove script/style tags, unescape HTML entities, and collapse
+whitespace so the AI receives clean readable text rather than raw markup;
+_as_string_keyed_dict must return None for non-dict inputs and non-string-keyed
+dicts so callers can safely guard against unexpected DuckDuckGo response shapes.
+"""
 
 from __future__ import annotations
 

@@ -1,8 +1,16 @@
-"""Tests for v118 input validation hardening (filesystem + CLI).
+"""Tests for v118: read_text_file enforces a configurable file-size cap.
 
-Covers:
-- filesystem.py read_text_file max_file_size parameter
-- cli/base.py _float_env warning logging
+AI tools that read repository files without a size limit can send multi-megabyte
+blobs to the model context window, exhausting token quotas and causing OOM spikes.
+The max_file_size parameter must reject files that exceed the limit with a clear
+ValueError that includes both the actual and limit sizes so callers can distinguish
+"file too large" from other I/O errors.
+
+The default cap is 10 MB; changing it accidentally would silently break context
+budgeting for all hands that use read_text_file.
+
+_float_env must warn (not crash) when an environment variable contains a
+non-numeric value, so misconfigured deployments degrade gracefully.
 """
 
 from __future__ import annotations

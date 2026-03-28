@@ -1,4 +1,16 @@
-"""Tests for OpenAI provider _build_inner() and _complete_impl()."""
+"""Tests for OpenAI provider _build_inner() and _complete_impl().
+
+Protects the following behavioral invariants of `OpenAIProvider`:
+- `_build_inner` raises a descriptive `RuntimeError` (not `ImportError`) when
+  the `openai` SDK is absent so callers receive an actionable message.
+- API key is injected via the constructor kwarg when `OPENAI_API_KEY` is set;
+  when absent the SDK is instantiated without arguments (preserving SDK-level
+  fallback to env vars or explicit later configuration).
+- `_complete_impl` routes to `inner.responses.create` (the Responses API, not
+  the older Chat Completions API) with messages passed as `input=`; a regression
+  here silently calls the wrong endpoint or drops the message payload.
+- Extra kwargs are forwarded to `responses.create` unchanged.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,16 @@
-"""Tests for v158: __all__ exports, web.py constant extraction, filesystem validation."""
+"""Tests for v158: __all__ declarations for web.py and repo.py public surfaces.
+
+web.py exports (WebSearchItem, WebSearchResult, WebBrowseResult, search_web,
+browse_url) are used by the MCP server and by iterative hands; removing one from
+__all__ would break code that imports via star or relies on documentation.
+
+The exact count test (len(__all__) == 7) acts as a change-detector: adding a
+new public symbol requires an explicit acknowledgement by updating the count,
+preventing accidental exposure of half-finished helpers.
+
+repo.py's __all__ test ensures RepoIndex remains the sole public symbol; private
+helpers like _walk_repo must not be importable without an underscore import.
+"""
 
 from __future__ import annotations
 

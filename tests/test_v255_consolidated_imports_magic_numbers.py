@@ -1,9 +1,14 @@
-"""Tests for v255: consolidated imports and magic number constants.
+"""Tests for v255: consolidated imports and magic number constants in celery_app.py.
 
-Verifies that:
-- celery_app.py and app.py server.constants imports are consolidated
-- Magic numbers in celery_app.py are extracted to named constants
-- combine-as-imports ruff config is enabled
+The magic numbers (_MAX_UPDATES_VERBOSE/NORMAL, _MAX_LINE_CHARS_VERBOSE/NORMAL,
+_FLUSH_CHARS_VERBOSE/NORMAL) control the streaming output behaviour of the
+Celery worker. Without named constants these numbers appear three or more times
+in the code; a tuning change must update every occurrence or the verbose and
+normal paths behave inconsistently.
+
+The consolidated-import check ensures that all constants from server.constants
+are imported in a single grouped statement; split imports cause ruff's
+combine-as-imports rule to flag violations in CI.
 """
 
 from __future__ import annotations

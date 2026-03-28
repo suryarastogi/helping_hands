@@ -1,4 +1,15 @@
-"""Tests for GooseCLIHand static helper methods."""
+"""Tests for GooseCLIHand static helper methods.
+
+GooseCLIHand wraps Block's `goose` CLI and has the most complex provider/model
+resolution of any CLI hand: it must infer the Goose provider from the model
+name (e.g. "claude-" → anthropic, "gemini" → google, "llama" → ollama),
+normalise the "gemini" alias to "google", and inject GOOSE_PROVIDER /
+GOOSE_MODEL into the subprocess environment. A regression in provider inference
+routes requests to the wrong API backend silently. The GH_TOKEN / GITHUB_TOKEN
+synchronisation tests guard Goose's requirement for both env vars to be
+consistent. Ollama host resolution ensures a default localhost value is injected
+so ollama-backed runs work without any additional user configuration.
+"""
 
 from __future__ import annotations
 

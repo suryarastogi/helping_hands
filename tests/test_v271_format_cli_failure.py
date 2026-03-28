@@ -1,13 +1,15 @@
-"""Tests for v271 — _format_cli_failure() helper.
+"""Tests for v271: the shared _format_cli_failure() helper.
 
-Verifies that the shared CLI failure message formatter correctly:
-- Detects auth failures and produces auth-specific messages
-- Falls through to generic failure messages when no auth error
-- Accepts custom auth_guidance overrides
-- Passes extra_tokens to auth detection
-- Includes Docker env hint and output tail
-- Is exported in cli/base.py __all__
-- Produces consistent output with existing static method wrappers
+Before this helper, each CLI hand constructed its own failure message by
+inlining auth detection and formatting. If an auth-detection token (e.g.
+"401 Unauthorized") was added or changed, every hand's _handle_cli_failure
+override needed updating.
+
+_format_cli_failure() centralises the auth-vs-generic branching and the Docker
+env hint. The auth-detection tests ensure the function correctly classifies
+"401", "unauthorized", etc. as auth failures (→ API key advice) rather than
+generic failures (→ bare exit code). Regressions would cause users to see a
+confusing generic exit-code message instead of "check your API key".
 """
 
 from __future__ import annotations

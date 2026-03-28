@@ -1,4 +1,17 @@
-"""Tests for v231 — type annotation fix, OpenCode auth, CLI prompt validation."""
+"""Tests for v231: type annotation fix, OpenCode auth, and CLI prompt validation.
+
+The _input_schema type annotation must allow None so that CLI hands that have
+no input schema can be instantiated without a type error — a regression would
+break every CLI hand that does not define a schema.
+
+_PROVIDER_ENV_MAP maps provider names to their API key env-var names; if an
+entry is missing or wrong, OpenCodeCLIHand._describe_auth() silently omits
+that provider from the auth banner and users cannot tell which key is missing.
+
+run() and stream() must reject an empty prompt string before spawning the
+subprocess — without this guard the CLI receives a blank -p argument and
+produces an empty or nonsensical response.
+"""
 
 from __future__ import annotations
 

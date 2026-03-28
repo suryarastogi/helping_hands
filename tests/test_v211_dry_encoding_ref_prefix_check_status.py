@@ -1,12 +1,13 @@
-"""Tests for v211 — encoding fallback chain, git ref prefix, check-run status constant.
+"""Guard byte-decoding fallback chain, git ref prefix, and check-run status constant against drift.
 
-Covers:
-- _ENCODING_FALLBACK_CHAIN constant in web.py
-- _decode_bytes uses the module-level constant (not inline)
-- _GIT_REF_PREFIX constant in github.py
-- fetch_branch uses the module-level constant (not inline)
-- _CHECK_RUN_STATUS_COMPLETED constant in github.py
-- get_check_runs uses the module-level constant (not inline)
+_ENCODING_FALLBACK_CHAIN (utf-8, utf-16, latin-1) is the sequence _decode_bytes
+tries when parsing HTTP response bodies. Latin-1 must be last because it accepts
+all byte values as a universal fallback; if the order changes, some valid pages
+would fail to decode. The codec-validity test catches typos like "latin1" vs
+"latin-1". _GIT_REF_PREFIX ("refs/heads/") is prepended to branch names in GitHub
+API calls; a wrong prefix causes fetch_branch to silently return None for any
+branch. _CHECK_RUN_STATUS_COMPLETED ("completed") is compared against GitHub's
+check-run status field; if it drifts, the CI polling loop never exits the wait loop.
 """
 
 from __future__ import annotations

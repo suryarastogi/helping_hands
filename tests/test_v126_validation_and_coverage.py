@@ -1,10 +1,15 @@
-"""Tests for v126 — input validation hardening and test coverage for untested helpers.
+"""Tests for v126: empty-string inputs are rejected at the API boundary.
 
-Covers:
-- BuildRequest/ScheduleRequest min_length=1 on repo_path and prompt
-- _run_bash_script mutual exclusivity validation
-- _as_string_keyed_dict direct tests
-- _require_http_url host validation
+An empty repo_path or prompt string passes length checks at zero bytes but produces
+nonsensical Celery tasks (no target repo, no instructions).  The min_length=1
+constraint must fire before any persistence or worker dispatch so that callers receive
+a clear 422 Validation Error rather than a cryptic worker failure buried in logs.
+
+_run_bash_script mutual exclusivity ensures callers cannot supply both a script_path
+and an inline_script simultaneously, which would leave ambiguous semantics.
+
+_require_http_url host validation rejects localhost/private URLs from web-facing
+tool calls, preventing SSRF when the MCP server is exposed publicly.
 """
 
 from __future__ import annotations

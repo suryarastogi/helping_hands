@@ -1,4 +1,15 @@
-"""Tests for v151: Input type validation for filesystem, tool/skill selection, truncation."""
+"""Tests for v151: Non-string inputs to filesystem and tool-selection helpers raise TypeError.
+
+normalize_relative_path is called by every filesystem tool with values extracted
+from AI model output.  Models occasionally emit non-string types (int file handles,
+dict path objects) that would silently produce wrong Path operations without a guard.
+The TypeError must be raised with a message that identifies the parameter so callers
+can diagnose which AI output was malformed.
+
+normalize_tool_selection similarly receives AI-supplied tool names; a dict or set
+input would silently iterate over keys rather than tool names, enabling wrong tools.
+The guard must reject unexpected types before any tool-runner lookup occurs.
+"""
 
 from __future__ import annotations
 

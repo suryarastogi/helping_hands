@@ -1,4 +1,14 @@
-"""Tests for helping_hands.lib.meta.tools.filesystem."""
+"""Tests for helping_hands.lib.meta.tools.filesystem.
+
+Protects the security boundary that prevents AI-driven file operations from
+escaping the repository root. resolve_repo_target is the primary defence:
+it must reject absolute paths, traversal sequences (../), and empty paths
+with distinct, actionable error messages, and must also validate that the
+repo root itself is a real directory. Failures here would allow AI agents to
+read or overwrite files outside the checked-out repo. Also tests the
+read/write/mkdir helpers for correct truncation, binary-file rejection,
+parent-directory creation, and OSError wrapping.
+"""
 
 from __future__ import annotations
 

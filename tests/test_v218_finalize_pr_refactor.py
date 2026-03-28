@@ -1,7 +1,13 @@
 """Tests for v218: _generate_pr_title_and_body() and _create_new_pr() helpers.
 
-Validates the PR description generation helper and the new-PR creation method
-extracted from ``_finalize_repo_pr()`` in ``Hand`` base class.
+These helpers were extracted from the monolithic _finalize_repo_pr() in the Hand
+base class to make each phase independently testable. The tests protect that:
+- PR title/body always fall back to sensible defaults when AI generation fails
+- _create_new_pr correctly resolves the base branch and constructs the head ref
+- GithubException during PR creation is caught and recorded as pr_error metadata
+
+Regressions here would cause PRs to be created with empty titles, point at the
+wrong base branch, or silently swallow GitHub API errors without storing them.
 """
 
 from __future__ import annotations

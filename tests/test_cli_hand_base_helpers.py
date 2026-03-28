@@ -1,8 +1,16 @@
-"""Tests for _TwoPhaseCLIHand helper methods not covered in other test files.
+"""Tests for _TwoPhaseCLIHand lower-level helper methods.
 
-Covers: _resolve_cli_model, _inject_prompt_argument, _normalize_base_command,
-_build_failure_message, _describe_auth, _effective_container_env_names,
-_build_subprocess_env, _interrupted_pr_metadata.
+Covers model resolution, prompt argument injection, subprocess env building,
+auth description, container env filtering, and timing overrides.
+
+Model resolution (_resolve_cli_model) is the single place where the
+user-supplied "provider/model" string is normalised into the bare model ID
+that each CLI backend expects; a bug there silently passes a wrong model string
+to the subprocess. Auth env stripping (_build_subprocess_env, native-CLI-auth
+path) is a security boundary: when a CLI uses its own credential store the API
+key must be removed from the child environment or it may override the intended
+identity. The _repo_has_changes check drives the no-change retry loop — a false
+positive wastes a retry; a false negative skips retry on a real edit task.
 """
 
 from __future__ import annotations

@@ -1,11 +1,13 @@
-"""Tests for v254: Simplify remaining getattr() to direct attribute access.
+"""Tests for v254: eliminating the remaining getattr() calls across server modules.
 
-Covers:
-- AST source consistency: no getattr() in target locations
-- HTTPResponse.status direct access
-- PyGithub Repository.default_branch direct access
-- ScheduledTask.github_token direct access
-- Celery task self.request.id direct access
+These are the last getattr() callsites not covered by v246/v253. Each one is on
+an object with well-defined attributes: HTTPResponse (stdlib), PyGitHub
+Repository, ScheduledTask dataclass, and Celery Task.request. Using getattr
+with a default on these objects hides attribute name typos and makes the code
+harder to trace in an IDE.
+
+The AST checks cover browse_url (HTTPResponse), base.py (Repository),
+app.py (ScheduledTask.github_token), and celery_app.py (self.request.id).
 """
 
 from __future__ import annotations

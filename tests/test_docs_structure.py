@@ -1,7 +1,11 @@
 """Tests that documentation indexes stay in sync with actual files.
 
-These tests catch common drift: a new design doc is added but not listed in
-the index, or a completed plan is missing from PLANS.md.
+Catches documentation drift that is invisible to linters: a new design doc
+added to docs/design-docs/ but not listed in its index.md, a stale link in an
+index pointing to a deleted file, a completed plan not tracked in PLANS.md, or
+a top-level doc omitted from docs/index.md. These tests also assert that key
+root-level files (ARCHITECTURE.md, AGENTS.md, CLAUDE.md, README.md) continue
+to exist, since agents and humans depend on them for onboarding and conventions.
 """
 
 from __future__ import annotations

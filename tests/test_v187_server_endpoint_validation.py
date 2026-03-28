@@ -1,4 +1,14 @@
-"""Tests for v187: server endpoint path parameter validation and docstrings."""
+"""Guard _validate_path_param against empty/whitespace path segments in server endpoints.
+
+FastAPI path parameters come in as raw strings from the URL. Without the
+_validate_path_param guard, endpoints that accept task_id or schedule_id would
+pass whitespace-only strings directly to Celery/Redis lookups, producing
+KeyError or silent misses that are hard to trace. These tests confirm that empty
+strings, whitespace-only, tab-only, and newline-only values all raise ValueError
+with the parameter name in the message, and that valid values are returned stripped.
+The docstring tests protect the Args/Returns/Raises contract, which is especially
+important because this helper is shared across multiple endpoint handlers.
+"""
 
 from __future__ import annotations
 

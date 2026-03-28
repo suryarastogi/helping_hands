@@ -1,4 +1,18 @@
-"""Tests for v140 — magic number extraction, GitHub PR validation, truncation safety."""
+"""Tests for v140: CLI buffer/truncation constants and GitHub PR number validation.
+
+_APPLY_CHANGES_TRUNCATION_LIMIT and _STREAM_READ_BUFFER_SIZE govern how much
+subprocess output is buffered and sent to the AI; changing them silently affects
+both memory use and model context size.  Pinning their values here catches
+accidental edits during refactors.
+
+The GitHub PR validation tests (get_pr, update_pr_body, list_prs) guard against
+zero and negative PR numbers reaching the PyGitHub API.  A regression would cause
+confusing "not found" or "rate limited" errors from GitHub instead of a clear
+ValueError at the client boundary.
+
+_DEFAULT_MAX_TOKENS in the Anthropic provider is the fallback when no max_tokens is
+specified; setting it too low truncates AI responses mid-sentence.
+"""
 
 import pytest
 

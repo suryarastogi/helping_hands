@@ -1,11 +1,13 @@
-"""Tests for v197 — DRY field validation bounds, BackendName reuse, bytes-per-MB.
+"""Guard field validation bounds in server/constants against silent drift from request models.
 
-Validates:
-- ``server/constants`` new field validation bound constants
-- ``server/app`` BuildRequest/ScheduleRequest use shared bound constants
-- ``server/app`` BackendName type alias deduplication (used in BuildRequest)
-- ``server/app`` BackendName in ``__all__``
-- ``lib/meta/tools/filesystem`` ``_BYTES_PER_MB`` constant extraction
+MAX_PROMPT_LENGTH (50 000), MAX_REPO_PATH_LENGTH (500), MAX_MODEL_LENGTH (200), and
+MAX_GITHUB_TOKEN_LENGTH (500) are the Pydantic field constraints on BuildRequest and
+ScheduleRequest. If these constants and the actual Field(max_length=…) annotations
+diverge, the API would accept inputs that the hands cannot handle (e.g. a 600-char
+model name), or reject valid inputs without explanation. The positivity check and
+bounds tests ensure that future edits to the constants keep them in a sensible range.
+_BYTES_PER_MB guards a filesystem helper that would silently compute wrong file sizes
+if the constant drifted from 1 048 576.
 """
 
 from __future__ import annotations

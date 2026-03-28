@@ -1,13 +1,13 @@
-"""Tests for v203: DRY auth failure detection + text truncation helper.
+"""Guard _truncate_with_ellipsis and _detect_auth_failure as shared utilities across CLI hands.
 
-Covers:
-- _truncate_with_ellipsis: no-op for short text, truncation + ellipsis for long text,
-  boundary cases
-- _detect_auth_failure: shared token detection, extra_tokens, non-auth output,
-  tail extraction length
-- Subclass refactoring: claude/codex/gemini/opencode use _detect_auth_failure
-  (no manual tail/lower_tail/any pattern)
-- Claude _StreamJsonEmitter uses _truncate_with_ellipsis (no inline slicing)
+_truncate_with_ellipsis prevents oversized error messages from flooding streaming
+output. Its boundary tests (exact-limit, limit-of-4, empty string) protect the "...'
+suffix logic from off-by-one errors that would produce truncated strings of the
+wrong length. _detect_auth_failure is the unified auth-error classifier for all CLI
+hands; without consistent tail extraction and case-insensitive token matching, an
+auth error that happens to be uppercase (e.g., "401 UNAUTHORIZED") would pass
+through as a generic failure, giving users no hint to check their API key. The
+subclass-delegation tests ensure no hand reverts to manual tail/lower_tail slicing.
 """
 
 from __future__ import annotations

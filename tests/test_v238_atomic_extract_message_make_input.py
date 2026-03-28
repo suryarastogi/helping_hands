@@ -1,10 +1,15 @@
-"""Tests for v238: AtomicHand._extract_message DRY, _make_input None guard.
+"""Tests for v238: AtomicHand._extract_message DRY refactor and _make_input None guard.
 
-Validates:
-- AtomicHand._extract_message static method (new)
-- _make_input RuntimeError when _input_schema is None (both AtomicHand and BasicAtomicHand)
-- run() uses _extract_message (not direct .chat_message access)
-- stream() uses _extract_message (replaces inline hasattr checks)
+_extract_message() is the single point that extracts the AI response text from
+the Atomic Agents response object. If run() and stream() each implement this
+inline with their own hasattr checks, a schema change in the atomic-agents
+library requires fixes in multiple places. Regressions here cause both
+streaming and non-streaming paths to silently return empty strings or crash
+on AttributeError.
+
+_make_input() must raise RuntimeError when _input_schema is None rather than
+passing None to the schema constructor; without this guard the error message
+is "NoneType is not callable" rather than a clear "input schema not defined".
 """
 
 from __future__ import annotations

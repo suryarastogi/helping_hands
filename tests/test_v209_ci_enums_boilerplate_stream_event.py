@@ -1,11 +1,14 @@
-"""Tests for v209 — CI enums, boilerplate prefix optimization, stream event constant.
+"""Guard CI conclusion enums, boilerplate detection, and the LangChain stream event constant.
 
-Covers:
-- CIConclusion enum membership, string equality, and grouping frozensets
-- CIFixStatus enum membership and string equality
-- _CI_RUN_FAILURE_CONCLUSIONS frozenset
-- _BOILERPLATE_PREFIXES_LOWER pre-lowercased tuple
-- _LANGCHAIN_STREAM_EVENT constant and cross-module sync
+CIConclusion values are compared against GitHub API check-suite conclusion strings.
+If a member value drifts from the GitHub API's casing (e.g. "SUCCESS" instead of
+"success"), the CI fix loop would never detect that checks passed and would loop
+indefinitely. CI_CONCLUSIONS_IN_PROGRESS drives the polling loop — wrong membership
+could cause the hand to stop polling prematurely or never stop. _BOILERPLATE_PREFIXES_LOWER
+is the pre-lowercased cache of commit message boilerplate patterns; if it falls out
+of sync with _BOILERPLATE_PREFIXES, the PR description extraction would regress on
+case-insensitive matching. _LANGCHAIN_STREAM_EVENT must match the LangChain SDK's
+actual event name or the streaming loop never receives text chunks.
 """
 
 from __future__ import annotations

@@ -1,4 +1,15 @@
-"""Tests for v226 — DRY _run_bash_script, prompt builder type guards."""
+"""Tests for v226: DRY _run_bash_script and prompt builder type guards.
+
+_run_bash_script() is the shared subprocess wrapper used to execute pre-commit
+and other bash scripts from within PR description generation. If it stops using
+_parse_optional_str, callers can pass non-string script paths that reach
+subprocess.run and raise an unguarded TypeError instead of a clear validation
+error.
+
+The prompt builder type guards (_build_prompt, _build_commit_message_prompt)
+sit at the boundary between hand logic and AI model calls. Wrong types reaching
+the model client produce confusing API errors; early TypeError is clearer.
+"""
 
 from __future__ import annotations
 

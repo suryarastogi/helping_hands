@@ -1,4 +1,12 @@
-"""Smoke tests: every concrete Hand subclass can be instantiated with Config + RepoIndex."""
+"""Smoke tests: every concrete Hand subclass can be instantiated with Config + RepoIndex.
+
+Ensures the public Hand API surface — run(), stream(), interrupt(), auto_pr,
+fix_ci, and _interrupt_event — is present on every backend after construction.
+If a new hand is added but wired incorrectly, or a required attribute is
+renamed in the base class, these tests catch it before integration tests run.
+Also confirms HandResponse defaults are safe (independent mutable metadata
+dicts per instance) so callers can annotate responses without cross-talk.
+"""
 
 from __future__ import annotations
 

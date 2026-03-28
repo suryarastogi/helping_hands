@@ -1,4 +1,14 @@
-"""Unit tests for E2EHand.run() and stream() with mocked GitHubClient."""
+"""Unit tests for E2EHand.run() and stream() with mocked GitHubClient.
+
+Protects the full run() state machine: dry-run mode must skip push/PR and write
+a marker file; fresh-PR mode must call clone, branch, push, create_pr,
+update_pr_body, and upsert_pr_comment in sequence; resumed-PR mode must fetch
+the existing branch without creating a new PR.  Also covers the base-branch
+resolution chain (env override → GitHub API → current_branch fallback → "main"
+constant), draft-PR toggling via HELPING_HANDS_E2E_DRAFT_PR, and the
+auto-generated hand_uuid.  Regressions here break automated PR lifecycle
+management and the metadata contract consumed by server-side task tracking.
+"""
 
 from __future__ import annotations
 

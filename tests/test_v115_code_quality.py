@@ -1,13 +1,16 @@
-"""Tests for v115 code quality hardening changes.
+"""Tests for v115 code quality hardening: DRY extraction and structured error logging.
 
-Covers:
-- _build_form_redirect_query (DRY extraction from enqueue_build_form)
-- _update_pr_description logging (base.py)
-- _schedule_to_response logging (app.py)
-- _fetch_claude_usage error body logging (app.py)
+The _build_form_redirect_query helper was extracted from enqueue_build_form to
+eliminate duplicate query-string construction.  Regressions here mean form
+redirects lose fields (error messages, model, pr_number, etc.), breaking the
+browser feedback loop when a build submission fails.
 
-Note: _base_command shlex.split error wrapping tests moved to
-test_cli_hand_base_utils.py (v120) to avoid fastapi importorskip gate.
+The logging tests confirm that health-check and usage helpers emit structured
+debug messages on failure; without these logs, silent exceptions make production
+incidents nearly impossible to diagnose.
+
+Note: _base_command shlex.split error wrapping tests were moved to
+test_cli_hand_base_utils.py (v120) to avoid the fastapi importorskip gate.
 """
 
 from __future__ import annotations

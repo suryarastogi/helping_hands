@@ -1,4 +1,13 @@
-"""Tests for _BasicIterativeHand parsing, extraction, and utility methods."""
+"""Tests for _BasicIterativeHand parsing, extraction, and utility methods.
+
+Protects the in-model protocol that _BasicIterativeHand uses to communicate
+with the AI: @@FILE blocks write code to disk, @@READ requests resolve file
+content to inject back into the loop, @@TOOL blocks dispatch to registered
+tool runners and return structured @@TOOL_RESULT feedback, and SATISFIED:
+terminates the iteration.  Also covers payload validators and output-truncation
+helpers.  Regressions here break the core AI control loop, silently producing
+no-op iterations or malformed tool dispatch that the AI cannot recover from.
+"""
 
 from __future__ import annotations
 

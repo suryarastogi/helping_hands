@@ -1,13 +1,16 @@
-"""Tests for v263: _run_git_diff() helper in pr_description.py.
+"""Tests for v263: the _run_git_diff() shared helper in pr_description.py.
 
-Covers:
-- ``_run_git_diff()`` happy path (success with stdout)
-- ``_run_git_diff()`` empty stdout / non-zero returncode
-- ``_run_git_diff()`` FileNotFoundError handling
-- ``_run_git_diff()`` TimeoutExpired handling
-- ``_get_diff()`` delegation to ``_run_git_diff()``
-- ``_get_uncommitted_diff()`` delegation to ``_run_git_diff()``
-- AST source check: no duplicate subprocess.run + FileNotFoundError blocks
+Before this helper, _get_diff() and _get_uncommitted_diff() each contained their
+own subprocess.run call, timeout constant, FileNotFoundError handler, and
+TimeoutExpired handler. Any change to the error handling (e.g. adding a new
+timeout label or changing the not-found message) had to be applied twice.
+
+_run_git_diff() centralises this logic. The delegation tests confirm that both
+functions forward their arguments correctly; the AST test ensures neither
+function re-introduces its own duplicate subprocess block after the refactor.
+
+A regression here would cause git diff timeouts or "git not found" errors to
+be handled differently between the staged-diff and uncommitted-diff paths.
 """
 
 from __future__ import annotations

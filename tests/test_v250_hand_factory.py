@@ -1,7 +1,16 @@
-"""Tests for hand factory module (v250).
+"""Tests for the hand factory module introduced in v250.
 
-Covers backend name constants, SUPPORTED_BACKENDS frozenset, and the
-create_hand() factory function.
+create_hand() is the single entry point that maps a backend name string to a
+Hand subclass instance. If a backend constant value drifts (e.g. "langgraph"
+becomes "basic-langgraph"), the factory raises ValueError for every caller that
+uses the old string, breaking the CLI, server, and Celery worker simultaneously.
+
+SUPPORTED_BACKENDS is the authoritative list used for input validation; if a
+new hand is added to the factory switch without adding its constant to this
+frozenset, the validation layer rejects it before the factory is ever called.
+
+The unknown-backend test ensures the factory raises ValueError with a message
+that names the bad input, rather than returning None or raising AttributeError.
 """
 
 from __future__ import annotations

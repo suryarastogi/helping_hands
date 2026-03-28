@@ -1,4 +1,17 @@
-"""Tests for _build_inner() across LiteLLM, Google, and Anthropic providers."""
+"""Tests for _build_inner() across LiteLLM, Google, and Anthropic providers.
+
+This file focuses narrowly on the lazy-init path of three providers and
+partially overlaps with the dedicated per-provider test files.  It exists as
+an integration-style cross-check ensuring that the same SDK-absence, api-key,
+and no-api-key behaviors hold consistently across providers when tested together.
+
+# TODO: CLEANUP CANDIDATE
+The three test classes here (TestLiteLLMBuildInner, TestGoogleBuildInner,
+TestAnthropicBuildInner) duplicate tests that already exist in
+test_litellm_provider.py, test_google_provider.py, and
+test_anthropic_provider.py with identical assertions.  Consider removing this
+file once coverage from those files is confirmed sufficient.
+"""
 
 from __future__ import annotations
 

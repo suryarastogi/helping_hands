@@ -1,4 +1,13 @@
-"""Tests for v175: command.py helpers, docker_sandbox_claude.py methods, github.py dunders."""
+"""Enforce Google-style docstring coverage on command.py helpers, DockerSandboxClaudeCodeHand, and github.py.
+
+These tests protect the contract that every private helper in command.py carries
+Args/Returns/Raises sections, and that DockerSandboxClaudeCodeHand's key methods
+(including __init__ and sandbox-control hooks) have descriptive documentation.
+If docstrings on _run_command or _resolve_cwd regress, the security boundary
+around subprocess execution becomes opaque and reviewers lose the Raises: contract
+that documents which errors propagate to callers. The github.py dunder checks
+similarly ensure the GitHub client's identity comparison semantics are documented.
+"""
 
 from __future__ import annotations
 

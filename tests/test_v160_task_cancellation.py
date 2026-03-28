@@ -1,4 +1,19 @@
-"""Tests for v160: task cancellation (kill signal from UI)."""
+"""Tests for v160: task cancellation endpoint correctly handles terminal and active states.
+
+Users can click "Cancel" in the UI while a build is running; the server must revoke
+the Celery task and return cancelled=True.  If a task is already in a terminal state
+(SUCCESS, FAILURE, REVOKED, etc.), issuing a revoke would be a no-op at best and
+confusing at worst, so the endpoint must return cancelled=False with the current
+state in the detail string.
+
+An empty or whitespace task_id must raise ValueError immediately rather than
+forwarding a blank ID to Celery, which would silently revoke a non-existent task
+and return a misleading success response.
+
+_TERMINAL_TASK_STATES must be exhaustive; missing a terminal state would cause the
+endpoint to send a redundant revoke signal that Celery ignores, but would also
+return cancelled=True to the UI, confusing the user.
+"""
 
 from __future__ import annotations
 

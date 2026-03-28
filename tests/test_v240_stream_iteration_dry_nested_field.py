@@ -1,5 +1,16 @@
-"""Tests for v240: DRY _process_stream_iteration, _stream_max_iterations_tail,
-_extract_nested_str_field.
+"""Tests for v240: DRY stream iteration processing and nested field extraction.
+
+_process_stream_iteration() is the per-iteration state machine in the iterative
+hand loop; if it stops emitting the "satisfied" signal correctly, the hand
+never exits the loop and runs until the max_iterations hard stop.
+
+_stream_max_iterations_tail() emits the trailing status messages when the loop
+exhausts its iteration budget; wrong message ordering here means users see
+confusing interleaved output.
+
+_extract_nested_str_field() is used to pull the model name and other string
+fields from nested request/response dicts; if it stops handling missing keys
+gracefully, metadata logging raises KeyError for responses with partial data.
 """
 
 from __future__ import annotations

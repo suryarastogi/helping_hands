@@ -1,9 +1,13 @@
-"""v181 — Docstring presence tests for the last 4 undocumented functions.
+"""Enforce Google-style docstrings on the Docker container wrapper and server health checks.
 
-Validates that ``_wrap_container_if_enabled`` in cli/base.py and the three
-health-check helpers (``_check_redis_health``, ``_check_db_health``,
-``_check_workers_health``) in server/app.py have Google-style docstrings
-with appropriate sections.
+_wrap_container_if_enabled in cli/base.py controls whether a CLI hand runs inside
+a Docker sandbox. Its Raises: contract (RuntimeError when Docker is unavailable) is
+the boundary between container mode and bare execution, and is easy to accidentally
+remove. The three health-check helpers in server/app.py (_check_redis_health,
+_check_db_health, _check_workers_health) feed the /health endpoint; without
+documented Returns: sections it is unclear what shape of dict/bool each helper is
+expected to return, making it easy for a refactor to break the endpoint response
+schema silently.
 """
 
 from __future__ import annotations

@@ -1,4 +1,13 @@
-"""Tests for helping_hands.lib.meta.tools package-level re-exports."""
+"""Tests for helping_hands.lib.meta.tools package-level re-exports.
+
+Protects the flat public API of the meta.tools package: every symbol listed in
+__all__ must be importable, and the re-exported callables must be the identical
+objects from their source modules (filesystem, command, registry, web).  This
+matters because MCP tool handlers, server routes, and iterative hands all import
+from this flat namespace; a silent aliasing error or a missing entry in __all__
+would cause them to call stale or incorrect implementations without a traceable
+ImportError.
+"""
 
 from __future__ import annotations
 

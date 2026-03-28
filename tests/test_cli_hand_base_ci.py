@@ -1,4 +1,15 @@
-"""Tests for CLI base hand static/class helpers (CI fix, PR status, edit detection)."""
+"""Tests for _TwoPhaseCLIHand static helpers: CI-fix prompt building, PR status
+formatting, edit-request detection, and failed-check log fetching.
+
+These helpers govern what the AI sees when CI fails (prompt content and log
+snippets) and what the user sees after a run completes (PR/CI status messages).
+Regressions here silently degrade the AI's ability to fix CI failures — wrong
+check filtering causes the agent to attempt fixes on passing checks, while
+broken log fetching removes the exact error context it needs. The
+_looks_like_edit_request heuristic controls whether a no-change run triggers
+an automatic retry; misclassification either wastes retries on read-only
+prompts or skips retries on real edit tasks.
+"""
 
 from __future__ import annotations
 

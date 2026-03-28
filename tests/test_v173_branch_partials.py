@@ -1,11 +1,14 @@
-"""v173: Close remaining non-server branch partials.
+"""Guard streaming edge cases in iterative hands, E2E PR creation, and PR description extraction.
 
-Tests covering 4 branch partial gaps:
-- iterative.py 1137→1139: empty delta in AssertionError sync fallback
-- iterative.py 1163→1165: empty delta in awaitable (non-iterable) result
-- e2e.py line 291: final_pr_number is None after create_pr
-- pr_description.py 581→583: candidate already set, second non-boilerplate
-  line triggers break
+These tests cover four rarely-triggered branches that would otherwise become dead
+code silently accumulating drift: (1) when the sync AssertionError fallback in
+BasicAtomicHand returns an empty delta, no chunk must be yielded to callers;
+(2) the same empty-delta guard for awaitable (non-iterable) agent results;
+(3) e2e.py must handle a None pr_number returned from create_pr without crashing;
+(4) pr_description.py must break out of the candidate-selection loop once a
+candidate is already set so the first clean commit line wins. Without these tests
+any silent regression in these branches would corrupt streaming output or produce
+PRs with incorrect titles/numbers.
 """
 
 from __future__ import annotations

@@ -1,4 +1,13 @@
-"""Tests for v171: Config Attributes section, web.py and registry.py docstrings."""
+"""Enforce Google-style docstring coverage on Config, web.py helpers, and registry.py.
+
+These tests protect the contract that all public-facing configuration fields and
+private helper functions carry structured documentation. Without this, the
+Attributes: section in Config becomes stale and helpers like _require_http_url or
+_strip_html lose their Args/Returns/Raises contract, making it harder to understand
+security-sensitive behaviour (URL validation, HTML sanitization, credential handling).
+If these tests regress, new contributors will lack the context to safely extend these
+modules and type checkers lose the parameter-intent signal from the docstrings.
+"""
 
 from __future__ import annotations
 

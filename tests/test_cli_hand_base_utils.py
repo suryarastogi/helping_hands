@@ -1,4 +1,13 @@
-"""Tests for _TwoPhaseCLIHand static utility methods."""
+"""Tests for _TwoPhaseCLIHand static utility methods.
+
+Guards shared low-level helpers used across all CLI hands: _is_truthy (env-var
+boolean parsing), _truncate_summary (prevents oversized PR descriptions),
+_looks_like_edit_request (drives the no-change retry heuristic), _float_env
+(safe numeric env-var parsing with positive-only constraint), and _base_command
+shlex error wrapping. A bug in _is_truthy causes feature flags parsed from
+environment variables to silently misbehave. A bug in the shlex error wrapper
+leaks raw env-var values (potentially containing secrets) into error messages.
+"""
 
 from __future__ import annotations
 

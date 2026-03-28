@@ -1,12 +1,15 @@
-"""Tests for v122 defensive hardening changes.
+"""Tests for v122: assert statements replaced with explicit RuntimeError guards.
 
-Covers:
-- assert→explicit RuntimeError guards in command.py and e2e.py
-- Debug logging in silent exception handlers (claude.py, schedules.py,
-  iterative.py, e2e.py)
-- MCP server input validation (build_feature, get_task_status, web_search,
-  web_browse)
-- ScheduledTask.from_dict required-field validation
+Python's assert statements are compiled away with the -O flag and produce
+AssertionError, which callers almost never catch deliberately.  Using explicit
+RuntimeError (with descriptive messages) in command.py and e2e.py ensures that
+invariant violations are both visible in optimised deployments and carry enough
+context for operators to diagnose the problem.
+
+MCP server input validation tests guard against empty-string task IDs and
+out-of-range numeric parameters being forwarded to Celery; ScheduledTask.from_dict
+validation prevents corrupted Redis task records from silently becoming partially
+constructed objects that cause AttributeErrors deep in the scheduling stack.
 """
 
 from __future__ import annotations

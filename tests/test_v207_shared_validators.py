@@ -1,9 +1,13 @@
-"""Tests for v207 — shared validation helpers.
+"""Guard require_non_empty_string and require_positive_int as the shared validation layer.
 
-Covers:
-- require_non_empty_string edge cases
-- require_positive_int edge cases
-- Delegation verification in refactored call sites
+These helpers in lib/validation.py are the single point of input validation for
+path parameters, schedule fields, and config values across the server and CLI.
+If require_non_empty_string stops stripping before checking, whitespace-only values
+would pass through and reach database/Redis operations as keys. If require_positive_int
+accepts zero or negative values, iteration counts and timeouts would silently produce
+invalid states. The __all__ test ensures both helpers remain importable from the
+validation module's public namespace — a removal would cause ImportError in any
+code that does `from helping_hands.lib.validation import require_non_empty_string`.
 """
 
 from __future__ import annotations

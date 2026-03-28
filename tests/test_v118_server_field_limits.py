@@ -1,6 +1,13 @@
-"""Tests for v118 server API field length limits.
+"""Tests for v118: server API request models enforce max_length on user-supplied fields.
 
-Covers max_length constraints on BuildRequest and ScheduleRequest fields.
+Without upper-bound constraints, a malicious or buggy client can submit a
+50 000-character repo_path or a multi-megabyte prompt, which is then forwarded
+verbatim to Celery task arguments and database rows.  Pydantic max_length
+validation must fire before any persistence or queuing occurs.
+
+Regressions here would re-open a denial-of-service vector: oversized fields can
+exhaust message-broker payload limits, bloat Redis task state, or trigger
+database column overflow errors.
 """
 
 from __future__ import annotations

@@ -1,8 +1,12 @@
-"""v180 — Docstring presence tests for celery_app.py progress-tracking helpers.
+"""Enforce Google-style docstrings on Celery progress-tracking helpers.
 
-Validates that _trim_updates, _append_update, _update_progress,
-_setup_periodic_tasks, and _UpdateCollector methods have Google-style
-docstrings with appropriate sections.
+The celery_app.py progress helpers (_trim_updates, _append_update, _update_progress,
+_UpdateCollector) form the streaming status pipeline between long-running Celery tasks
+and the FastAPI server-sent-events endpoint. Their parameters (task, stage, message,
+max_updates) have non-obvious semantics — for example _update_progress takes a live
+Celery task object and mutates task state. Without documented Args: sections, adding
+new callers risks passing arguments in the wrong order or omitting the stage field,
+which breaks the frontend progress display without raising an error.
 """
 
 from __future__ import annotations

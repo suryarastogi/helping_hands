@@ -1,4 +1,19 @@
-"""Tests for scheduled task management."""
+"""Tests for the ScheduledTask dataclass, cron utilities, and ID generation.
+
+Protects the data model and utility functions that underpin scheduled builds:
+ScheduledTask.to_dict/from_dict must round-trip all fields (including newer
+additions like fix_ci, use_native_cli_auth, ci_check_wait_minutes) so schedule
+data stored in Redis is never silently corrupted; __post_init__ auto-populates
+created_at with a timezone-aware ISO timestamp but must not overwrite an explicit
+value; validate_cron_expression resolves preset names (e.g. "daily") to their
+canonical expressions and rejects invalid syntax; next_run_time always returns a
+future datetime relative to the given base; generate_schedule_id produces unique
+hex-suffixed IDs of the documented length.
+
+A from_dict regression that silently drops new fields would cause in-flight
+schedule data to lose those fields after any ScheduleManager update, breaking
+features such as CI-fix mode without any error at write time.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,14 @@
-"""Tests for AtomicHand construction, run(), and stream() methods."""
+"""Tests for AtomicHand construction, run(), and stream() methods.
+
+Protects AtomicHand's async execution strategy: the Atomic Agents library may
+not support async in all environments, so stream() must fall back to synchronous
+run() when run_async raises AssertionError, while re-raising any other error.
+Three async dispatch paths are covered — async iterator, bare awaitable, and
+AssertionError fallback — because the Atomic Agents API is not fully stable.
+Empty chat_message values must be skipped to avoid emitting blank stream tokens.
+Regressions here leave streaming consumers hanging or expose noisy internal
+exception traces to end users.
+"""
 
 from __future__ import annotations
 

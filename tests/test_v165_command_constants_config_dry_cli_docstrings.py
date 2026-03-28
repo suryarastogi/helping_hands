@@ -1,10 +1,18 @@
-"""Tests for v165: command exit code constants, DRY boolean env parsing, CLI hand docstrings.
+"""Tests for v165: Unix exit code constants, shared truthy-env parsing, and CLI docstrings.
 
-Covers:
-- 3 exit code constants in command.py
-- _TRUTHY_VALUES constant and _is_truthy_env helper in config.py
-- _TRUTHY_VALUES reuse in e2e.py
-- 7 new docstrings in cli/base.py
+Exit codes 124 (timeout), 126 (cannot execute), and 127 (not found) are standard
+Unix conventions used by bash wrappers.  If command.py reports the wrong code,
+calling code that branches on exit status (e.g. detecting "command not found" vs
+"permission denied") will silently mis-classify failures.  The "distinct values"
+test ensures no two codes were accidentally set to the same number.
+
+_TRUTHY_VALUES and _is_truthy_env centralise boolean environment variable parsing;
+without a shared definition, individual helpers could accept "1" but not "yes", or
+accept "TRUE" but not "true".  The e2e.py reuse test verifies the module imports the
+shared definition rather than rolling its own.
+
+Docstring presence tests on _TwoPhaseCLIHand methods enforce the project's
+Google-style documentation requirement for public helpers consumed by subclasses.
 """
 
 from __future__ import annotations

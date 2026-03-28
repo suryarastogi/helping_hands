@@ -1,4 +1,15 @@
-"""Tests for git pre-commit hook fix-and-retry logic."""
+"""Tests for git pre-commit hook detection and fix-and-retry logic.
+
+When a commit fails due to a pre-commit hook (husky, lint-staged, eslint,
+prettier) the base Hand class detects the hook fingerprint, invokes the AI
+backend with a targeted fix prompt, and retries the commit. This is the
+mechanism that prevents CI from seeing formatting/linting violations introduced
+by the AI's own edits. A regression in _is_git_hook_failure causes real hook
+errors to propagate as unhandled exceptions rather than triggering the fix
+loop. A regression in _try_fix_git_hook_errors (CLI override) would cause the
+fix attempt to silently no-op, leaving the branch in a broken state that blocks
+PR creation.
+"""
 
 from __future__ import annotations
 

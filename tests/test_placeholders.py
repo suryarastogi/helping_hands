@@ -1,4 +1,17 @@
-"""Tests for helping_hands.lib.hands.v1.hand.placeholders backward-compat shim."""
+"""Tests for helping_hands.lib.hands.v1.hand.placeholders backward-compat shim.
+
+Protects the re-export contract of the `placeholders` shim that preserves
+backward-compatible import paths after CLI hands were split into `hand.cli.*`:
+- External code and legacy tests that patch `hand.placeholders.ClaudeCodeHand`
+  (or other classes) must still resolve to the same object as the canonical
+  `hand.cli.claude.ClaudeCodeHand`; identity (not equality) is required so that
+  `unittest.mock.patch` targets remain valid.
+- Module-level aliases (`placeholders.os`, `.shutil`, `.asyncio`, `.Path`) must
+  be the real stdlib objects, not copies, so legacy patch targets like
+  `placeholders.os.geteuid` continue to work.
+- `__all__` must stay in sync; a missing entry silently breaks any wildcard
+  import that relied on the pre-split namespace.
+"""
 
 from __future__ import annotations
 

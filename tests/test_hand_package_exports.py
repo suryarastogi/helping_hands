@@ -1,4 +1,12 @@
-"""Tests for helping_hands.lib.hands.v1.hand package-level re-exports."""
+"""Tests for helping_hands.lib.hands.v1.hand package-level re-exports.
+
+Ensures that __all__ in the hand package is complete and that every listed
+symbol resolves to the same object as its canonical source module. If a class
+is refactored to a new file but the __init__ re-export is not updated, callers
+using the stable package path silently get a stale or missing reference.
+Also verifies the subprocess alias re-export used by tests that patch
+subprocess.run at the package level rather than in each CLI module.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,12 @@
-"""Tests for helping_hands.server.task_result."""
+"""Tests for helping_hands.server.task_result.
+
+Guards normalize_task_result, which converts raw Celery task return values
+into JSON-serializable dicts for API consumers. Celery can surface exceptions,
+None (PENDING), plain dicts, or arbitrary primitives as task results; each
+case must produce a stable, typed payload. If the exception branch regresses,
+API clients receive non-serializable objects that crash JSON serialization;
+if the None branch regresses, in-flight task polls return incorrect payloads.
+"""
 
 from helping_hands.server.task_result import normalize_task_result
 

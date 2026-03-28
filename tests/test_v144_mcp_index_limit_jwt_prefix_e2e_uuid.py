@@ -1,4 +1,16 @@
-"""Tests for v144: MCP index file limit, JWT token prefix constant, E2E UUID reuse."""
+"""Tests for v144: MCP index file limit, JWT prefix constant, and E2E UUID reuse.
+
+_INDEX_FILES_LIMIT caps how many files index_repo returns to MCP callers; without
+this cap a large monorepo would serialize thousands of file paths into the MCP
+response, timing out the client.  The "used in source" test ensures index_repo
+slices with the constant, not a stale hardcoded 200 — so changing the limit in one
+place takes effect everywhere.
+
+_JWT_TOKEN_PREFIX ("ey") guards the Claude OAuth token extraction path: tokens that
+don't start with "ey" are almost certainly not JWTs and should be rejected early.
+If the code reverts to a hardcoded string literal instead of the constant, the
+check becomes invisible to grep and harder to audit.
+"""
 
 from __future__ import annotations
 

@@ -1,6 +1,13 @@
-"""Tests for v182: pre-commit error constant, git error fallback, task state guards.
+"""Guard the pre-commit and git error message constants used in Hand finalization.
 
-Validates extracted constants in base.py and module-level assertions in app.py.
+_PRECOMMIT_UV_MISSING_MSG and _DEFAULT_GIT_ERROR_MSG are the user-visible strings
+surfaced when `uv` is missing during pre-commit checks or when a git command fails
+without a specific message. If these constants are removed or inlined the error
+messages lose their consistent wording, making it harder for users to diagnose
+environment problems. The function-level tests verify that FileNotFoundError in
+both the first and second pre-commit passes produces a RuntimeError containing
+"uv is not available" — ensuring the constant is actually reached in the hot path,
+not just defined.
 """
 
 from __future__ import annotations

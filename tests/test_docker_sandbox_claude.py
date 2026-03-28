@@ -1,4 +1,15 @@
-"""Tests for DockerSandboxClaudeCodeHand pure/static helper methods."""
+"""Tests for DockerSandboxClaudeCodeHand lifecycle and helper methods.
+
+Protects the Docker sandbox lifecycle: _ensure_sandbox must check Docker CLI
+availability, verify the sandbox plugin, create the sandbox with optional
+template, and set _sandbox_created; _remove_sandbox must clean up even when
+the parent task raises.  _wrap_sandbox_exec must forward API key environment
+variables into the container so the Claude CLI can authenticate.  _build_failure_message
+must distinguish auth failures (directing users to ANTHROPIC_API_KEY) from
+generic failures (citing the sandbox name), without duplicating notes when the
+base message already mentions sandbox.  Sandbox name generation must produce
+stable, alphanumeric-only identifiers safe for Docker naming rules.
+"""
 
 from __future__ import annotations
 

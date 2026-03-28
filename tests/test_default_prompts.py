@@ -1,4 +1,19 @@
-"""Tests for helping_hands.lib.default_prompts."""
+"""Tests for helping_hands.lib.default_prompts.
+
+Protects the structural contract of `DEFAULT_SMOKE_TEST_PROMPT`, the canned
+task injected when a user runs the CLI without a `--prompt` argument:
+- All six numbered steps must be present; a missing step means a capability
+  category (file I/O, code execution, web search) is silently excluded from
+  the smoke test.
+- Every `@@TOOL` directive must appear exactly once; duplicates confuse iterative
+  hands that scan the prompt for tool gates.
+- Execution and web tool directives must be guarded by their respective
+  `"… tools are enabled"` sentinel phrases and those sentinels must precede
+  the directives; inverting the order removes the conditional guard.
+- The prompt must end with `"safe."` to preserve the safety reminder, and stay
+  within a 2000-character budget to avoid exceeding context limits on small
+  models.
+"""
 
 from __future__ import annotations
 

@@ -1,10 +1,15 @@
 """Tests for v258: DRY env var parsing in pr_description.py.
 
-Covers:
-- ``_parse_positive_env_var()`` helper: unset, valid, non-numeric,
-  non-positive, zero, whitespace-padded, docstring, type preservation
-- ``_timeout_seconds()`` and ``_diff_char_limit()`` delegations
-- AST source check: no duplicated warning patterns remain
+Before this refactor, _timeout_seconds() and _diff_char_limit() each contained
+their own try/except blocks, non-numeric/non-positive guards, and logger.warning
+calls. Any change to the warning message or fallback logic had to be applied to
+both functions. The shared _parse_positive_env_var() helper removes this
+duplication.
+
+The AST tests enforce the delegation: _timeout_seconds and _diff_char_limit
+must be single-statement return functions with no inline logger.warning calls.
+If either function grows new branches, CI catches it before the duplication
+re-establishes itself.
 """
 
 from __future__ import annotations

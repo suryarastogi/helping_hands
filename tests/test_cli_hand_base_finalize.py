@@ -1,7 +1,13 @@
 """Tests for _TwoPhaseCLIHand._finalize_after_run and _collect_run_output.
 
-Covers the direct finalize-after-run logic (interrupted vs normal paths)
-and the _collect_run_output wrapper that collects async chunks.
+_finalize_after_run is the bridge between raw backend output and the PR
+creation step: it decides whether the run was interrupted (returning a
+sentinel dict rather than calling _finalize_repo_pr) and truncates long
+output before passing it as the PR summary. A regression here causes either
+spurious PR creation after interrupts, or PR descriptions that exceed the
+GitHub API body limit. _collect_run_output is the synchronous adapter that
+drives the async two-phase backend and joins emitted chunks; a bug there
+drops output that feeds both the caller response and the PR summary.
 """
 
 from __future__ import annotations

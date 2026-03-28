@@ -1,10 +1,13 @@
-"""Tests for v193: DRY _AUTH_ERROR_TOKENS, iterative docstrings, cross-module sync.
+"""Guard _AUTH_ERROR_TOKENS as the single source of authentication-failure detection.
 
-Covers:
-- _AUTH_ERROR_TOKENS shared constant in cli/base.py (value, type, contents)
-- Cross-module import consistency (claude, codex, gemini, opencode all use base)
-- Iterative docstrings (BasicLangGraphHand.run/stream, BasicAtomicHand.run/stream)
-- ClaudeCodeHand._EXTRA_AUTH_TOKENS backend-specific constant
+CLI hands detect auth failures by scanning subprocess output for known error strings
+like "401 unauthorized" and "invalid api key". Before this constant was centralised,
+each hand had its own inline token list that could drift. If _AUTH_ERROR_TOKENS in
+cli/base.py is modified or if subclasses stop delegating to _detect_auth_failure
+(or _format_cli_failure for claude/codex/opencode), auth errors will produce generic
+failure messages instead of actionable "check your API key" guidance to the user.
+Gemini requires a direct _detect_auth_failure call due to its model-not-found branch,
+so its delegaton pattern is verified separately.
 """
 
 from __future__ import annotations

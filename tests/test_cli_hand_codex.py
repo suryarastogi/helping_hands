@@ -1,4 +1,14 @@
-"""Tests for CodexCLIHand static/pure helper methods."""
+"""Tests for CodexCLIHand static/pure helper methods.
+
+CodexCLIHand wraps the OpenAI `codex` CLI and adds sandbox mode injection and
+git-repo-check defaults. The sandbox-mode tests protect the invariant that
+`codex exec` always runs with an explicit `--sandbox` value — omitting it
+triggers an interactive confirmation prompt that hangs the subprocess. The
+skip-git-repo-check flag prevents Codex from aborting when it detects it is
+running inside an already-tracked repo. Auth detection in failure messages is
+critical for actionable user-facing errors when OPENAI_API_KEY is wrong or
+missing.
+"""
 
 from __future__ import annotations
 

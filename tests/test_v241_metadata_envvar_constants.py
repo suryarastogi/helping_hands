@@ -1,8 +1,14 @@
-"""Tests for metadata key constants (backend/model/provider) and env var constants.
+"""Tests for v241: backend/model/provider metadata constants and env var constants.
 
-Validates that the new _META_BACKEND, _META_MODEL, _META_PROVIDER constants and
-_ENV_GIT_TERMINAL_PROMPT, _ENV_GCM_INTERACTIVE constants hold expected values and
-are consistently used across all hand modules.
+_META_BACKEND, _META_MODEL, and _META_PROVIDER are written by every Hand into
+the result dict. If two modules use different key strings, the server reads
+None for whichever key was written with the wrong spelling, breaking the
+run-history view and model-level analytics.
+
+_ENV_GIT_TERMINAL_PROMPT and _ENV_GCM_INTERACTIVE are set before cloning to
+prevent git from hanging on a credential prompt in non-interactive CI. If a
+hand hard-codes the string rather than importing the constant, a typo silently
+skips the suppression and the hand hangs indefinitely waiting for user input.
 """
 
 from __future__ import annotations

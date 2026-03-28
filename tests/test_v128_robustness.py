@@ -1,9 +1,14 @@
-"""Tests for v128 robustness hardening.
+"""Tests for v128: robustness against corrupted state and unbounded iteration.
 
-Covers:
-- _load_meta() JSON error handling in schedules.py
-- _MAX_ITERATIONS upper bound in iterative.py
-- _apply_inline_edits OSError handling in iterative.py
+_load_meta() reads scheduled-task metadata from Redis; if the stored value is not
+valid JSON (e.g. due to partial writes or manual edits), the function must return
+None and log a warning rather than crashing the scheduler with a JSONDecodeError.
+
+_MAX_ITERATIONS caps the iterative-hand loop so a buggy or adversarial prompt
+cannot cause a worker to spin indefinitely, exhausting API quota.
+
+_apply_inline_edits must swallow OSError (permissions, missing parent dir) and
+continue so that a single bad file write does not abort the entire AI task.
 """
 
 from __future__ import annotations

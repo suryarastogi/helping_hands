@@ -1,7 +1,14 @@
 """Tests for Hand base class static/classmethods and helper methods.
 
-Covers edge cases in _github_repo_from_origin, _run_precommit_checks_and_fixes,
-_push_noninteractive, and _push_to_existing_pr.
+Protects the git-integration plumbing that all hands rely on for PR creation:
+_github_repo_from_origin must correctly parse every remote URL format (HTTPS,
+HTTPS-with-token, SCP, SSH) and reject non-GitHub remotes; _push_noninteractive
+must restore GIT_TERMINAL_PROMPT/GCM_INTERACTIVE even when the push fails (a
+leak would break subsequent git operations in the same process); and
+_run_precommit_checks_and_fixes must map FileNotFoundError to a clear error
+when uv/pre-commit is absent rather than propagating an opaque exception.
+_push_to_existing_pr covers the diverged-branch fallback and the rule that PR
+descriptions are only updated when the bot is the PR author.
 """
 
 from __future__ import annotations

@@ -1,4 +1,14 @@
-"""Tests for registry runner wrappers (payload validation + mocked dispatch)."""
+"""Tests for registry runner wrappers (payload validation + mocked dispatch).
+
+Protects the boundary between AI-generated @@TOOL payloads and the underlying
+command/web implementations: each runner must reject missing, empty, or
+wrong-typed required fields with a clear ValueError before dispatching, and must
+forward all optional parameters (args, timeout_s, cwd, max_results) to the
+underlying call with correct defaults.  Without these guards, malformed AI
+payloads would reach subprocess execution with silent None values or crash with
+unhelpful AttributeErrors rather than returning a structured error the AI can
+recover from.
+"""
 
 from __future__ import annotations
 

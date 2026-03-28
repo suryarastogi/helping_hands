@@ -1,4 +1,15 @@
-"""Tests for _TwoPhaseCLIHand _ci_fix_loop, _poll_ci_checks, run(), and stream()."""
+"""Tests for _TwoPhaseCLIHand _ci_fix_loop, _poll_ci_checks, run(), and stream().
+
+These tests protect the post-PR CI fix pipeline: after a PR is created the
+loop polls GitHub CI, and on failure invokes the AI backend to patch the repo
+and push a new commit. A regression in the early-return guards (missing commit,
+no GitHub remote, disabled flag) would cause the loop to silently skip CI
+remediation. The interrupt-propagation tests ensure a KeyboardInterrupt during
+CI polling cleanly terminates without leaving orphaned processes or stale state.
+The run() and stream() wrappers are the public API entry points; their correct
+sequencing of finalize → ci_fix_loop → metadata merge is load-bearing for
+callers consuming HandResponse.
+"""
 
 from __future__ import annotations
 

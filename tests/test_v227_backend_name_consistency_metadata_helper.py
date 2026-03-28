@@ -1,4 +1,19 @@
-"""Tests for v227 — backend name consistency, langchain_user_message helper."""
+"""Tests for v227: backend name consistency and langchain_user_message helper.
+
+Each Hand subclass stores its name in a _BACKEND_NAME class constant that is
+written into run metadata and compared by the factory. If a hand hard-codes
+a different string in its _pr_result_metadata() call vs its _BACKEND_NAME,
+the server returns an inconsistent backend field and backend-based routing
+breaks silently.
+
+The AST-level check ensures no module re-introduces bare backend string literals
+after the constant was extracted, guarding against copy-paste drift in new CLI
+hand subclasses.
+
+langchain_user_message() is the canonical dict format for user turns in the
+LangChain message protocol; wrong keys here cause the model to see malformed
+conversation history.
+"""
 
 from __future__ import annotations
 

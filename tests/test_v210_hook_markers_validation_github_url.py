@@ -1,10 +1,13 @@
-"""Tests for v210 — hook failure markers constant, validation + github_url coverage.
+"""Guard _GIT_HOOK_FAILURE_MARKERS as the exhaustive list of hook-failure detection strings.
 
-Covers:
-- _GIT_HOOK_FAILURE_MARKERS constant in base.py
-- _is_git_hook_failure uses the module-level constant (not inline)
-- validation.py __all__ contract
-- github_url.py __all__ contract
+_is_git_hook_failure determines whether a git commit failure is caused by a pre-commit
+hook (husky, lint-staged, prettier, ESLint) or by an unrelated git error. If a marker
+is missing, hook failures are misclassified as generic git errors and the hand does not
+offer hook-specific remediation. The each-marker-triggers-detection test ensures every
+entry in the constant actually works in the real detection path, not just that the set
+membership is correct. All markers must be lowercase because detection is case-insensitive
+via lowered input. The __all__ contract tests for validation.py and github_url.py
+ensure the public APIs remain stable as new helpers are added.
 """
 
 from __future__ import annotations

@@ -1,4 +1,14 @@
-"""Tests for v177 — __all__ exports and docstrings for langgraph/atomic/cli-base."""
+"""Verify that optional-extra modules declare complete and clean __all__ exports.
+
+LangGraph, Atomic Agents, and the CLI base are optional extras installed with
+separate dependency groups. Their __all__ lists are the public contract consumed
+by downstream imports and by `from module import *`. If private symbols leak into
+__all__ (except the intentional _LANGCHAIN_STREAM_EVENT carve-out), or if a
+declared export does not actually exist in the module, any code relying on
+`from helping_hands.lib.hands.v1.hand.langgraph import *` would silently pick up
+internals or raise ImportError. These tests also confirm the cli/base constants
+(_FAILURE_OUTPUT_TAIL_LENGTH etc.) are exported so subclasses can reference them.
+"""
 
 from __future__ import annotations
 

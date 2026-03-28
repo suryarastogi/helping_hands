@@ -1,10 +1,14 @@
-"""Tests for v247: Extract provider name constants in model_provider.py.
+"""Tests for v247: provider name constants extracted in model_provider.py.
 
-Covers:
-- Constant values and types
-- AST source consistency: no bare provider name strings in model_provider.py/goose.py
-- __all__ exports
-- Behavioral: provider resolution uses constants correctly
+resolve_hand_model() returns a (provider, model) tuple that is written into
+result metadata and used to select the correct AI client. If provider name
+strings ("openai", "anthropic", etc.) are scattered as bare literals across
+model_provider.py and goose.py, a renaming (e.g. "google" → "google-genai")
+requires hunting down every occurrence; missed occurrences silently route to
+the wrong provider.
+
+The AST checks enforce that the bare strings exist only at the constant
+definition sites, preventing future duplication.
 """
 
 from __future__ import annotations

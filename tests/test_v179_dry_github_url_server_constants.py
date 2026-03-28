@@ -1,10 +1,13 @@
-"""Tests for v179 — DRY GitHub URL helpers and server constants.
+"""Guard the github_url shared module contract and server/constants public API.
 
-Validates:
-- ``lib/github_url`` shared module (build_clone_url, validate_repo_spec,
-  redact_credentials, noninteractive_env, constants)
-- ``server/constants`` shared module (Anthropic, Keychain, JWT constants)
-- Consumer modules import from shared sources (no local duplicates)
+lib/github_url is the single source of truth for building authenticated clone URLs,
+validating owner/repo specs, and redacting credentials from log output. If validate_repo_spec
+stops rejecting missing slashes, or if build_clone_url stops using the shared
+GITHUB_TOKEN_USER constant, git operations will silently use malformed URLs that
+reach GitHub with no credentials. The __all__ contract tests prevent symbol
+removals that would break consumer imports in cli/main.py and hand/base.py.
+server/constants tests ensure JWT, keychain, and Anthropic API constants remain in
+the exported namespace so server code has a single canonical place to import them from.
 """
 
 from __future__ import annotations

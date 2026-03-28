@@ -1,4 +1,14 @@
-"""Tests for helping_hands.lib.repo."""
+"""Tests for helping_hands.lib.repo.
+
+Guards RepoIndex.from_path, which builds the file inventory that is injected
+into every Hand's system prompt. Critical invariants: .git internals are
+excluded (so agent prompts don't leak git objects), .github is retained (CI
+configs are useful context), only files appear (not directories), paths are
+relative and sorted, and the constructor raises FileNotFoundError for missing
+or non-directory paths. If the .git filter regresses, token budgets balloon
+with object files; if sorting changes, prompt diffs become noisy and hard to
+review.
+"""
 
 from __future__ import annotations
 

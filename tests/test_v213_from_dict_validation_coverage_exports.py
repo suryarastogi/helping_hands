@@ -1,10 +1,14 @@
-"""Tests for v213: ScheduledTask.from_dict validation, coverage threshold, package exports.
+"""Guard ScheduledTask.from_dict input validation and the validate_cron_expression helper.
 
-Covers:
-- ScheduledTask.from_dict empty/whitespace required-field rejection
-- validate_cron_expression whitespace stripping
-- Package-level __all__ exports for lib, server, cli
-- Coverage fail_under threshold in pyproject.toml
+ScheduledTask.from_dict is the deserialisation path for schedule records stored in
+Redis. If required fields (schedule_id, name, cron_expression, repo_path, prompt)
+accept empty or whitespace-only strings, a corrupted or manually-crafted Redis entry
+could create a ScheduledTask with blank identifiers that would silently fail at
+trigger time without a useful error. These tests confirm that all five required
+fields are rejected when empty or whitespace-only. The validate_cron_expression
+whitespace-stripping test ensures that expressions copied with surrounding spaces
+(common from user input) are normalised before croniter validation, preventing false
+parse errors.
 """
 
 from __future__ import annotations

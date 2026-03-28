@@ -1,4 +1,16 @@
-"""Tests for v142: remaining magic number extraction and repo.py PermissionError handling."""
+"""Tests for v142: preview truncation constants and PermissionError handling in repo.py.
+
+_HTTP_ERROR_BODY_PREVIEW_LENGTH and _USAGE_DATA_PREVIEW_LENGTH control how much of
+an API error body is logged; if these constants are removed or the code reverts to
+inline literals, a future change to one log site will not automatically apply to all,
+causing inconsistent log verbosity.
+
+The "used in source" tests verify that _fetch_claude_usage actually references the
+constants rather than re-stating the literals, enforcing the DRY refactor.
+
+_HOOK_ERROR_TRUNCATION_LIMIT and _GIT_REF_DISPLAY_LENGTH follow the same pattern
+for CLI hand subprocess error reporting.
+"""
 
 from __future__ import annotations
 

@@ -1,10 +1,17 @@
 """Tests for v245: _SCHEDULE_NOT_FOUND_DETAIL and _SKIP_PERMISSIONS_FLAG constants.
 
-Covers:
-- _SCHEDULE_NOT_FOUND_DETAIL constant value and usage in schedule endpoints
-- _SKIP_PERMISSIONS_FLAG constant value and usage in claude.py
-- Source consistency: no bare "Schedule not found" detail strings in app.py
-- Source consistency: no bare "--dangerously-skip-permissions" strings in claude.py
+_SKIP_PERMISSIONS_FLAG is passed to the Claude binary to bypass interactive
+permission prompts in automated runs. If the string drifts from
+"--dangerously-skip-permissions", the flag is silently ignored by the binary
+and every Claude run stalls waiting for user approval.
+
+The _apply_backend_defaults / _retry_command_after_failure symmetry test is
+important: the flag must be inserted on the way in and removed on retry after
+a "root required" error — if insert or remove is broken, the retry loop either
+double-adds the flag or fails to recover from the permission error.
+
+_SCHEDULE_NOT_FOUND_DETAIL is the HTTP 404 detail string checked by API clients;
+if it changes, clients that pattern-match on the detail text silently break.
 """
 
 from __future__ import annotations

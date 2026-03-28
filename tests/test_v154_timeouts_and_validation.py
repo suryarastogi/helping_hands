@@ -1,4 +1,17 @@
-"""Tests for v154 — Git subprocess timeouts and read_text_file max_chars validation."""
+"""Tests for v154: git diff and clone subprocess calls respect their timeout constants.
+
+PR description generation runs git diff against the base branch; on large repos or
+slow networks this can stall indefinitely.  _get_diff and _get_uncommitted_diff must
+catch TimeoutExpired and return an empty string rather than propagating the exception,
+because a missing diff is recoverable (the PR is still opened) while an unhandled
+exception aborts the entire task.
+
+The "passes timeout param" test verifies the constant is actually forwarded to
+subprocess.run — without it, the constant is dead code and git can still hang.
+
+CLI clone timeout (_GIT_CLONE_TIMEOUT_S) follows the same pattern for the
+owner/repo auto-clone path in the CLI entry point.
+"""
 
 from __future__ import annotations
 

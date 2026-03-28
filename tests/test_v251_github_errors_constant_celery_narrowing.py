@@ -1,12 +1,17 @@
-"""Tests for v251 — ``_GITHUB_ERRORS`` constant + Celery inspect exception narrowing.
+"""Tests for v251: _GITHUB_ERRORS constant and Celery inspect exception narrowing.
 
-Covers:
-- ``_GITHUB_ERRORS`` constant exists in ``base.py`` and contains correct types
-- ``base.py`` uses ``_GITHUB_ERRORS`` (not bare ``(GithubException, OSError)``) in all 4 except handlers
-- ``e2e.py`` imports ``_GITHUB_ERRORS`` and uses it in its except handler
-- ``e2e.py`` no longer imports ``GithubException`` directly from ``github``
-- ``app.py`` ``_safe_inspect_call`` and ``_collect_celery_current_tasks`` catch
-  ``(AttributeError, ConnectionError, OSError, TimeoutError)`` instead of bare ``Exception``
+_GITHUB_ERRORS = (GithubException, OSError) is the canonical except tuple for
+all GitHub API interactions. If base.py or e2e.py import GithubException
+separately and construct the tuple inline, a future change (e.g. adding
+RateLimitExceededException to the tuple) must be made in multiple places and
+can be missed, causing some GitHub errors to propagate uncaught.
+
+The "exactly 4 uses in base.py" test enforces that all GitHub error handlers
+use the constant rather than a subset or superset of the types.
+
+app.py Celery inspect helpers must catch only connection/OS/timeout errors so
+that attribute errors from Celery API changes surface immediately rather than
+reporting incorrect worker capacity.
 """
 
 from __future__ import annotations

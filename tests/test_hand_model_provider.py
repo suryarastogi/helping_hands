@@ -1,3 +1,14 @@
+"""Tests for helping_hands.lib.hands.v1.hand.model_provider.
+
+Protects the model-resolution logic that converts bare model strings like
+"gpt-5.2" or "claude-3-5-sonnet" into a (provider, model) pair consumed by
+every Hand backend. Regressions in _infer_provider_name or resolve_hand_model
+would route requests to the wrong AI provider, causing silent auth failures or
+wrong-model responses. Also tests build_langchain_chat_model and
+build_atomic_client to ensure each provider's lazy-import path raises a clear
+RuntimeError when the optional package is absent rather than an AttributeError.
+"""
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 

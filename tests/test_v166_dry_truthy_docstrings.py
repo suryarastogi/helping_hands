@@ -1,4 +1,15 @@
-"""Tests for v166: consolidated _FAILURE_OUTPUT_TAIL_LENGTH, _CLI_TRUTHY_VALUES, docstrings."""
+"""Tests for v166: _FAILURE_OUTPUT_TAIL_LENGTH consolidation and "on" added to truthy set.
+
+Before v166, codex.py, claude.py, gemini.py, and opencode.py each defined their own
+tail-length constant.  If one subclass's constant drifted, auth-failure detection
+would scan different amounts of subprocess output per backend, causing inconsistent
+"wrong credentials" detection.  The consolidation into base.py's single constant
+means all four backends share the same scan window.
+
+Adding "on" to _TRUTHY_VALUES matches common shell/ansible conventions where
+FEATURE=on means enabled; without it, environment variables set to "on" would be
+silently treated as false, disabling features for users following those conventions.
+"""
 
 from __future__ import annotations
 

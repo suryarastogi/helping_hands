@@ -1,4 +1,24 @@
-"""Tests for helping_hands.lib.hands.v1.hand.pr_description."""
+"""Tests for helping_hands.lib.hands.v1.hand.pr_description.
+
+Protects the PR description and commit-message generation pipeline called from
+`Hand._finalize_repo_pr()` after every successful code-change run:
+- Feature-flag (`HELPING_HANDS_DISABLE_PR_DESCRIPTION`) and timeout/diff-limit
+  env-var overrides must be parsed correctly; a misconfigured env var could
+  disable PR descriptions silently in production or cause runaway subprocesses.
+- `_parse_output` must reliably extract `PR_TITLE:` / `PR_BODY:` / `COMMIT_MSG:`
+  marker-delimited sections from CLI stdout; malformed parsing leaves GitHub PRs
+  with empty or raw-prompt titles.
+- `_truncate_diff` must honour the character limit so oversized diffs do not
+  exceed LLM context windows or subprocess argument limits.
+- `_infer_commit_type` / `_is_trivial_message` guard against generated commit
+  messages that are too short or lack a conventional-commit prefix, preventing
+  meaningless `"Update files"` commits from landing.
+- `_get_diff` and `_get_uncommitted_diff` must gracefully return empty strings
+  when `git` is not on PATH rather than crashing the finalization step.
+- `generate_pr_description` and `generate_commit_message` must be no-ops (not
+  raise) when the CLI binary is missing or the feature flag is set, so a missing
+  tool never blocks a successful code push.
+"""
 
 from __future__ import annotations
 

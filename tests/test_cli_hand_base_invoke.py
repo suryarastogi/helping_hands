@@ -1,4 +1,16 @@
-"""Tests for _TwoPhaseCLIHand._invoke_cli_with_cmd subprocess error paths."""
+"""Tests for _TwoPhaseCLIHand._invoke_cli_with_cmd subprocess lifecycle.
+
+_invoke_cli_with_cmd is the async subprocess driver at the heart of every CLI
+hand: it spawns the external process, streams stdout, enforces idle timeouts,
+handles interrupts, and maps exit codes to structured errors. Regressions here
+affect every CLI backend (Claude Code, Codex, Gemini, Goose, Devin, OpenCode).
+Critical invariants: FileNotFoundError triggers the npx fallback before raising
+to the user; idle timeout terminates the process rather than hanging forever;
+interrupt signals cleanly cancel the running process; non-zero exit codes with
+a retry hook use the adjusted command on retry but refuse to loop if the retry
+produces the same command. The two-phase skill catalog setup/teardown must run
+even when the inner phase raises.
+"""
 
 from __future__ import annotations
 

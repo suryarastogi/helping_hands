@@ -1,4 +1,15 @@
-"""Tests for GeminiCLIHand static/pure helper methods."""
+"""Tests for GeminiCLIHand static/pure helper methods.
+
+GeminiCLIHand wraps the `gemini` CLI and adds: --approval-mode auto_edit
+injection (prevents interactive approval prompts), model-not-found retry logic
+(strips the --model flag and retries without it when a model is unavailable),
+and GEMINI_API_KEY presence enforcement. The approval-mode tests protect a
+critical non-interactive invariant — without it Gemini blocks waiting for user
+input. The model-not-found retry tests protect against deprecated Gemini model
+names causing hard failures instead of graceful fallback. GEMINI_API_KEY
+validation at subprocess-env build time gives an early, actionable error rather
+than a cryptic subprocess failure.
+"""
 
 from __future__ import annotations
 

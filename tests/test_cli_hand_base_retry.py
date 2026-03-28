@@ -1,4 +1,14 @@
-"""Tests for _TwoPhaseCLIHand retry, apply-changes, and interrupt helpers."""
+"""Tests for _TwoPhaseCLIHand retry, apply-changes, and interrupt helpers.
+
+_should_retry_without_changes guards the no-change retry loop: it only triggers
+a second backend invocation when (a) the feature flag is on, (b) the prompt
+looks like an edit request, (c) no interrupt was received, and (d) the repo
+truly has no changes. A bug in any of those four conditions causes either wasted
+retries on read-only prompts or missed retries on real edit tasks. The
+_terminate_active_process logic ensures that an interrupt (or idle timeout)
+escalates from SIGTERM to SIGKILL when the process does not exit promptly —
+critical to prevent zombie subprocesses on long-running server deployments.
+"""
 
 from __future__ import annotations
 
