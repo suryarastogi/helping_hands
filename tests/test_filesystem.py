@@ -221,6 +221,62 @@ class TestResolveRepoTargetErrorMessages:
             resolve_repo_target(tmp_path, "./")
 
 
+class TestNormalizeRelativePathTypeErrors:
+    """Verify type and value guards on normalize_relative_path."""
+
+    def test_rejects_non_string(self) -> None:
+        with pytest.raises(TypeError, match="must be a string"):
+            normalize_relative_path(123)  # type: ignore[arg-type]
+
+    def test_rejects_none(self) -> None:
+        with pytest.raises(TypeError, match="must be a string"):
+            normalize_relative_path(None)  # type: ignore[arg-type]
+
+    def test_rejects_empty_string(self) -> None:
+        with pytest.raises(ValueError, match="non-empty"):
+            normalize_relative_path("")
+
+
+class TestReadTextFileMaxFileSize:
+    """Verify file size limit enforcement."""
+
+    def test_rejects_oversized_file(self, tmp_path: Path) -> None:
+        big = tmp_path / "big.txt"
+        # Write a file larger than our small limit
+        big.write_text("x" * 200, encoding="utf-8")
+        with pytest.raises(ValueError, match="too large"):
+            read_text_file(tmp_path, "big.txt", max_file_size=100)
+
+    def test_accepts_file_at_limit(self, tmp_path: Path) -> None:
+        (tmp_path / "ok.txt").write_text("abc", encoding="utf-8")
+        content, truncated, _ = read_text_file(tmp_path, "ok.txt", max_file_size=1000)
+        assert content == "abc"
+        assert truncated is False
+
+    def test_rejects_non_positive_max_file_size(self, tmp_path: Path) -> None:
+        (tmp_path / "f.txt").write_text("x", encoding="utf-8")
+        with pytest.raises(ValueError, match="must be positive"):
+            read_text_file(tmp_path, "f.txt", max_file_size=0)
+
+    def test_rejects_negative_max_chars(self, tmp_path: Path) -> None:
+        (tmp_path / "f.txt").write_text("x", encoding="utf-8")
+        with pytest.raises(ValueError, match="must be positive"):
+            read_text_file(tmp_path, "f.txt", max_chars=-1)
+
+
+class TestMkdirPathErrorWrapping:
+    """Verify mkdir_path wraps OSError in RuntimeError."""
+
+    def test_wraps_oserror_in_runtime_error(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        with (
+            patch.object(Path, "mkdir", side_effect=PermissionError("denied")),
+            pytest.raises(RuntimeError, match="cannot create directory"),
+        ):
+            mkdir_path(tmp_path, "blocked_dir")
+
+
 class TestResolveRepoTargetRootValidation:
     """Verify that resolve_repo_target rejects non-directory repo_root."""
 

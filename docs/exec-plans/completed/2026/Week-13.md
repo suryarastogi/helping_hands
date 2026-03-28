@@ -21,7 +21,9 @@ improvements, decoration placement cooldown with backend decoration
 query endpoint, AppOverlays/MonitorCard branch coverage hardening
 (component stmts: 96.45% → 99.08%), remote player CSS fixes with
 initial Yjs awareness position sync, and GitHub issue linking with
-full-stack `issue_number` support and create-new-issue-from-task feature.
+full-stack `issue_number` support and create-new-issue-from-task feature,
+test failure fixes for v325–v326 features, and test coverage hardening
+for DevinCLIHand, filesystem.py, and validation.py modules.
 
 ---
 
@@ -461,6 +463,26 @@ full-stack `issue_number` support and create-new-issue-from-task feature.
 
 ---
 
+## Mar 28 — Fix Test Failures & Form Param Gap (v327)
+
+**Test fixes:** Fixed 9 test failures introduced by v325–v326 feature additions. Added missing `issue_number` and `create_issue` Form parameters to `enqueue_build_form` inline HTML handler. Fixed plan structure conformance for v324–v326 completed plans. Updated 5 `TestBuildForm` expected dicts.
+
+**6426 tests passed, 0 failures, 78.48% coverage.**
+
+---
+
+## Mar 28 — Test Coverage Hardening: Devin CLI, Filesystem, Validation (v328)
+
+**DevinCLIHand (24 tests):** `_inject_prompt_argument` (prompt appended after `--`), `_normalize_base_command` (bare `devin` gets `-p`), `_native_cli_auth_env_names`, `_permission_mode` (env var override, default fallback), `_apply_backend_defaults` (`--permission-mode` injection, existing flag respected), `_describe_auth` (native CLI vs API key states).
+
+**filesystem.py (5 tests):** `normalize_relative_path` type/value guards (non-string, None, empty), `read_text_file` max_file_size enforcement (oversized rejection, at-limit acceptance, non-positive validation), `mkdir_path` OSError wrapping in RuntimeError.
+
+**validation.py (12 tests):** `has_cli_flag` (bare flag, `=` form, missing, partial match prevention, empty value, single-dash not matched), `install_hint` (uv sync output), `format_type_error` (int, None, list).
+
+**6467 tests passed (up from 6426), 0 failures, 78.83% coverage (up from 78.48%).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -517,3 +539,5 @@ full-stack `issue_number` support and create-new-issue-from-task feature.
 - `v324-multiplayer-css-fixes-and-spawn-sync.md`
 - `v325-github-issue-linking.md`
 - `v326-create-issue-from-task.md`
+- `v327-fix-test-failures-and-form-params.md`
+- `v328-test-coverage-hardening.md`

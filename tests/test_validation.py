@@ -10,6 +10,9 @@ import pytest
 
 from helping_hands.lib.validation import (
     __all__ as validation_all,
+    format_type_error,
+    has_cli_flag,
+    install_hint,
     parse_comma_list,
     require_non_empty_string,
     require_positive_float,
@@ -249,3 +252,72 @@ class TestParseCommaList:
             "owner/repo1",
             "owner/repo2",
         )
+
+
+# ---------------------------------------------------------------------------
+# has_cli_flag
+# ---------------------------------------------------------------------------
+
+
+class TestHasCliFlag:
+    """Tests for has_cli_flag()."""
+
+    def test_bare_flag_found(self) -> None:
+        assert has_cli_flag(["--model", "gpt-5"], "model") is True
+
+    def test_flag_equals_form_found(self) -> None:
+        assert has_cli_flag(["--model=gpt-5", "--verbose"], "model") is True
+
+    def test_flag_not_present(self) -> None:
+        assert has_cli_flag(["--verbose", "--debug"], "model") is False
+
+    def test_empty_tokens(self) -> None:
+        assert has_cli_flag([], "model") is False
+
+    def test_partial_match_not_confused(self) -> None:
+        """--model-name should not match flag 'model'."""
+        assert has_cli_flag(["--model-name", "foo"], "model") is False
+
+    def test_prefix_without_value(self) -> None:
+        """--model= (empty value) should still match."""
+        assert has_cli_flag(["--model="], "model") is True
+
+    def test_single_dash_not_matched(self) -> None:
+        """Single-dash -model should not match --model."""
+        assert has_cli_flag(["-model"], "model") is False
+
+
+# ---------------------------------------------------------------------------
+# install_hint
+# ---------------------------------------------------------------------------
+
+
+class TestInstallHint:
+    """Tests for install_hint()."""
+
+    def test_returns_uv_sync_command(self) -> None:
+        assert install_hint("server") == "Install with: uv sync --extra server"
+
+    def test_langchain_extra(self) -> None:
+        assert install_hint("langchain") == "Install with: uv sync --extra langchain"
+
+
+# ---------------------------------------------------------------------------
+# format_type_error
+# ---------------------------------------------------------------------------
+
+
+class TestFormatTypeError:
+    """Tests for format_type_error()."""
+
+    def test_int_value(self) -> None:
+        msg = format_type_error("timeout", "a string", 42)
+        assert msg == "timeout must be a string, got int"
+
+    def test_none_value(self) -> None:
+        msg = format_type_error("name", "a string", None)
+        assert msg == "name must be a string, got NoneType"
+
+    def test_list_value(self) -> None:
+        msg = format_type_error("data", "a dict", [1, 2])
+        assert msg == "data must be a dict, got list"

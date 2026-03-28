@@ -14,6 +14,14 @@ Deeper GitHub integration - Features Wanted:
 
 ## Recently Completed
 
+### Test Coverage Hardening: Devin CLI, Filesystem, Validation (2026-03-28) — Completed
+
+**Implemented (v328):**
+- 24 new DevinCLIHand tests: `_inject_prompt_argument` (3), `_normalize_base_command` (4), `_native_cli_auth_env_names` (1), `_permission_mode` (4), `_apply_backend_defaults` (6), `_describe_auth` (3)
+- 5 new filesystem.py tests: `normalize_relative_path` type/value guards (3), `read_text_file` max_file_size enforcement (4 including edge cases), `mkdir_path` OSError wrapping (1)
+- 12 new validation.py tests: `has_cli_flag` (7), `install_hint` (2), `format_type_error` (3)
+- 6467 tests passed (up from 6426), 0 failures, 78.83% coverage (up from 78.48%)
+
 ### Fix Test Failures & Form Param Gap (2026-03-28) — Completed
 
 **Implemented (v327):**

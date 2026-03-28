@@ -165,3 +165,146 @@ class TestInvokeDevinDelegation:
         result = asyncio.run(devin_hand._invoke_backend("hello", emit=emit))
         assert result == "delegated"
         assert calls == ["hello"]
+
+
+# ---------------------------------------------------------------------------
+# _inject_prompt_argument
+# ---------------------------------------------------------------------------
+
+
+class TestInjectPromptArgument:
+    def test_appends_double_dash_and_prompt(self, devin_hand) -> None:
+        cmd: list[str] = ["devin", "-p"]
+        result = devin_hand._inject_prompt_argument(cmd, "fix the bug")
+        assert result is True
+        assert cmd[-2:] == ["--", "fix the bug"]
+
+    def test_always_returns_true(self, devin_hand) -> None:
+        cmd: list[str] = ["devin"]
+        assert devin_hand._inject_prompt_argument(cmd, "") is True
+
+    def test_preserves_existing_tokens(self, devin_hand) -> None:
+        cmd: list[str] = ["devin", "-p", "--model", "gpt-5"]
+        devin_hand._inject_prompt_argument(cmd, "hello")
+        assert cmd == ["devin", "-p", "--model", "gpt-5", "--", "hello"]
+
+
+# ---------------------------------------------------------------------------
+# _normalize_base_command
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizeBaseCommand:
+    def test_bare_devin_gets_dash_p(self, devin_hand) -> None:
+        result = devin_hand._normalize_base_command(["devin"])
+        assert result == ["devin", "-p"]
+
+    def test_devin_dash_p_unchanged(self, devin_hand) -> None:
+        result = devin_hand._normalize_base_command(["devin", "-p"])
+        assert result == ["devin", "-p"]
+
+    def test_devin_with_flags_unchanged(self, devin_hand) -> None:
+        result = devin_hand._normalize_base_command(["devin", "--verbose"])
+        assert result == ["devin", "--verbose"]
+
+    def test_non_devin_command_passthrough(self, devin_hand) -> None:
+        result = devin_hand._normalize_base_command(["other-cli"])
+        assert result == ["other-cli"]
+
+
+# ---------------------------------------------------------------------------
+# _native_cli_auth_env_names
+# ---------------------------------------------------------------------------
+
+
+class TestNativeCliAuthEnvNames:
+    def test_returns_devin_api_key(self, devin_hand) -> None:
+        assert devin_hand._native_cli_auth_env_names() == ("DEVIN_API_KEY",)
+
+
+# ---------------------------------------------------------------------------
+# _permission_mode
+# ---------------------------------------------------------------------------
+
+
+class TestPermissionMode:
+    def test_default_is_dangerous(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", raising=False)
+        assert devin_hand._permission_mode() == "dangerous"
+
+    def test_env_var_override(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", "auto")
+        assert devin_hand._permission_mode() == "auto"
+
+    def test_empty_env_var_falls_back_to_default(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", "")
+        assert devin_hand._permission_mode() == "dangerous"
+
+    def test_whitespace_env_var_falls_back_to_default(
+        self, devin_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", "  ")
+        assert devin_hand._permission_mode() == "dangerous"
+
+
+# ---------------------------------------------------------------------------
+# _apply_backend_defaults
+# ---------------------------------------------------------------------------
+
+
+class TestApplyBackendDefaults:
+    def test_injects_permission_mode(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", raising=False)
+        cmd = ["devin", "-p"]
+        result = devin_hand._apply_backend_defaults(cmd)
+        assert result == ["devin", "--permission-mode", "dangerous", "-p"]
+
+    def test_respects_existing_permission_mode_flag(self, devin_hand) -> None:
+        cmd = ["devin", "--permission-mode", "auto", "-p"]
+        result = devin_hand._apply_backend_defaults(cmd)
+        assert result == cmd
+
+    def test_respects_permission_mode_equals_form(self, devin_hand) -> None:
+        cmd = ["devin", "--permission-mode=auto", "-p"]
+        result = devin_hand._apply_backend_defaults(cmd)
+        assert result == cmd
+
+    def test_non_devin_command_unchanged(self, devin_hand) -> None:
+        cmd = ["other-cli", "--flag"]
+        result = devin_hand._apply_backend_defaults(cmd)
+        assert result == ["other-cli", "--flag"]
+
+    def test_empty_command_unchanged(self, devin_hand) -> None:
+        result = devin_hand._apply_backend_defaults([])
+        assert result == []
+
+    def test_uses_env_var_permission_mode(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", "auto")
+        cmd = ["devin", "-p"]
+        result = devin_hand._apply_backend_defaults(cmd)
+        assert result == ["devin", "--permission-mode", "auto", "-p"]
+
+
+# ---------------------------------------------------------------------------
+# _describe_auth
+# ---------------------------------------------------------------------------
+
+
+class TestDescribeAuth:
+    def test_native_cli_auth_message(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH", "1")
+        msg = devin_hand._describe_auth()
+        assert msg == "auth=native-cli (DEVIN_API_KEY stripped)"
+
+    def test_api_key_present(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH", raising=False)
+        monkeypatch.setenv("DEVIN_API_KEY", "test-key-123")
+        msg = devin_hand._describe_auth()
+        assert "auth=DEVIN_API_KEY" in msg
+        assert "set" in msg.lower() or "present" in msg.lower()
+
+    def test_api_key_absent(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH", raising=False)
+        monkeypatch.delenv("DEVIN_API_KEY", raising=False)
+        msg = devin_hand._describe_auth()
+        assert "auth=DEVIN_API_KEY" in msg

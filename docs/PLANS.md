@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-28 v328 — Test Coverage Hardening: Devin CLI, Filesystem, Validation](exec-plans/completed/2026/v328-test-coverage-hardening.md) —
+  41 new tests for DevinCLIHand, filesystem.py, and validation.py;
+  6467 tests passed, 78.83% coverage
+
+
 - [2026-03-28 v327 — Fix Test Failures & Form Param Gap](exec-plans/completed/2026/v327-fix-test-failures-and-form-params.md) —
   Fixed 9 test failures from v325–v326, added missing `issue_number`/`create_issue`
   Form params to `enqueue_build_form`, fixed plan structure conformance;
