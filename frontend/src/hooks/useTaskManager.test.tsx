@@ -694,4 +694,32 @@ describe("useTaskManager", () => {
 
     vi.useRealTimers();
   });
+
+  it("linkedIssueNumber is derived from payload issue_number", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/tasks/") && !url.includes("/current")) {
+        return jsonResponse({
+          task_id: "t-issue",
+          status: "PROGRESS",
+          result: { issue_number: 77 },
+        });
+      }
+      return defaultFetchMock(input);
+    });
+
+    const { result } = renderHook(() => useTaskManager());
+    act(() => result.current.selectTask("t-issue"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+
+    expect(result.current.linkedIssueNumber).toBe(77);
+
+    vi.useRealTimers();
+  });
+
+  it("linkedIssueNumber is null when absent from payload", () => {
+    const { result } = renderHook(() => useTaskManager());
+    expect(result.current.linkedIssueNumber).toBeNull();
+  });
 });

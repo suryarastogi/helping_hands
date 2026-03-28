@@ -923,3 +923,168 @@ class TestTryCreateIssue:
         # issue_number should not be set on failure
         assert hand.issue_number is None
         assert any("Failed" in u for u in updates)
+
+
+# ---------------------------------------------------------------------------
+# _sync_issue_started / _sync_issue_completed / _sync_issue_failed (v327)
+# ---------------------------------------------------------------------------
+
+
+class TestSyncIssueStarted:
+    """Tests for the _sync_issue_started helper."""
+
+    def test_adds_in_progress_label(self) -> None:
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_started("owner/repo", 10, updates, "tok")
+
+        mock_gh.add_issue_labels.assert_called_once_with(
+            "owner/repo", 10, labels=["helping-hands:in-progress"]
+        )
+        assert any("in-progress" in u for u in updates)
+
+    def test_exception_does_not_propagate(self) -> None:
+        updates: list[str] = []
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("fail"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            # Should not raise
+            _mod._sync_issue_started("owner/repo", 10, updates, None)
+
+
+class TestSyncIssueCompleted:
+    """Tests for the _sync_issue_completed helper."""
+
+    def test_posts_comment_and_swaps_labels(self) -> None:
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_completed(
+                "owner/repo",
+                10,
+                updates,
+                "tok",
+                pr_url="https://github.com/owner/repo/pull/5",
+                runtime="1m 30s",
+            )
+
+        # Comment posted
+        comment_body = mock_gh.create_issue_comment.call_args[1]["body"]
+        assert "completed successfully" in comment_body
+        assert "pull/5" in comment_body
+        assert "1m 30s" in comment_body
+        assert "helping_hands:task_status" in comment_body
+        # Labels swapped
+        mock_gh.add_issue_labels.assert_called_once_with(
+            "owner/repo", 10, labels=["helping-hands:completed"]
+        )
+        mock_gh.remove_issue_label.assert_called_once_with(
+            "owner/repo", 10, label="helping-hands:in-progress"
+        )
+        assert any("completed" in u for u in updates)
+
+    def test_comment_without_pr_url(self) -> None:
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_completed("owner/repo", 10, updates, "tok")
+
+        comment_body = mock_gh.create_issue_comment.call_args[1]["body"]
+        assert "completed successfully" in comment_body
+        assert "Pull request" not in comment_body
+
+    def test_exception_does_not_propagate(self) -> None:
+        updates: list[str] = []
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("fail"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_completed("owner/repo", 10, updates, None)
+
+
+class TestSyncIssueFailed:
+    """Tests for the _sync_issue_failed helper."""
+
+    def test_posts_failure_comment_and_swaps_labels(self) -> None:
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_failed(
+                "owner/repo", 10, updates, "tok", error_message="Timeout"
+            )
+
+        comment_body = mock_gh.create_issue_comment.call_args[1]["body"]
+        assert "Task failed" in comment_body
+        assert "Timeout" in comment_body
+        mock_gh.add_issue_labels.assert_called_once_with(
+            "owner/repo", 10, labels=["helping-hands:failed"]
+        )
+        mock_gh.remove_issue_label.assert_called_once_with(
+            "owner/repo", 10, label="helping-hands:in-progress"
+        )
+
+    def test_comment_without_error_message(self) -> None:
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_failed("owner/repo", 10, updates, "tok")
+
+        comment_body = mock_gh.create_issue_comment.call_args[1]["body"]
+        assert "Task failed" in comment_body
+        assert "Error" not in comment_body
+
+    def test_exception_does_not_propagate(self) -> None:
+        updates: list[str] = []
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("fail"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_failed("owner/repo", 10, updates, None)

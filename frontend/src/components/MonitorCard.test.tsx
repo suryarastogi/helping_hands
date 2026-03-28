@@ -9,6 +9,7 @@ import type { MonitorCardProps } from "./MonitorCard";
 function makeProps(overrides: Partial<MonitorCardProps> = {}): MonitorCardProps {
   return {
     taskId: null,
+    issueNumber: null,
     status: "idle",
     isPolling: false,
     outputTab: "updates",
@@ -325,6 +326,21 @@ describe("MonitorCard", () => {
       });
       const icon = card.getByText("[INFO]").querySelector(".prefix-chip-icon");
       expect(icon?.textContent).toBe("◉");
+    });
+  });
+
+  describe("issue badge", () => {
+    it("shows issue badge when issueNumber is set", () => {
+      const { card } = renderCard({ taskId: "abc-123", issueNumber: 42 });
+      const badge = card.getByText("#42");
+      expect(badge).toBeTruthy();
+      expect(badge.className).toContain("issue-badge");
+      expect(badge.getAttribute("title")).toContain("42");
+    });
+
+    it("does not show issue badge when issueNumber is null", () => {
+      const { card } = renderCard({ taskId: "abc-123", issueNumber: null });
+      expect(card.queryByText(/#\d+/)).toBeNull();
     });
   });
 });

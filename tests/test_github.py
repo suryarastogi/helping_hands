@@ -1010,3 +1010,78 @@ class TestCreateIssue:
     def test_rejects_whitespace_title(self, client: GitHubClient) -> None:
         with pytest.raises(ValueError, match="issue title must not be empty"):
             client.create_issue("owner/repo", title="   ")
+
+
+# ---------------------------------------------------------------------------
+# add_issue_labels
+# ---------------------------------------------------------------------------
+
+
+class TestAddIssueLabels:
+    def test_adds_labels_creating_missing_ones(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        existing_label = MagicMock()
+        existing_label.name = "bug"
+        mock_repo.get_labels.return_value = [existing_label]
+        issue = MagicMock()
+        result_label_1 = MagicMock()
+        result_label_1.name = "bug"
+        result_label_2 = MagicMock()
+        result_label_2.name = "helping-hands:in-progress"
+        issue.labels = [result_label_1, result_label_2]
+        mock_repo.get_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.add_issue_labels(
+            "owner/repo", 42, labels=["bug", "helping-hands:in-progress"]
+        )
+
+        assert result == ["bug", "helping-hands:in-progress"]
+        # "bug" exists, "helping-hands:in-progress" should be created
+        mock_repo.create_label.assert_called_once_with(
+            name="helping-hands:in-progress", color="ededed"
+        )
+        issue.add_to_labels.assert_called_once_with("bug", "helping-hands:in-progress")
+
+    def test_rejects_empty_labels_list(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="labels list must not be empty"):
+            client.add_issue_labels("owner/repo", 1, labels=[])
+
+    def test_rejects_non_positive_issue_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError):
+            client.add_issue_labels("owner/repo", 0, labels=["bug"])
+
+
+# ---------------------------------------------------------------------------
+# remove_issue_label
+# ---------------------------------------------------------------------------
+
+
+class TestRemoveIssueLabel:
+    def test_removes_label_from_issue(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        mock_repo.get_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        client.remove_issue_label("owner/repo", 42, label="helping-hands:in-progress")
+
+        issue.remove_from_labels.assert_called_once_with("helping-hands:in-progress")
+
+    def test_silently_handles_missing_label(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.remove_from_labels.side_effect = Exception("Not Found")
+        mock_repo.get_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        # Should not raise
+        client.remove_issue_label("owner/repo", 42, label="nonexistent")
+
+    def test_rejects_empty_label(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError):
+            client.remove_issue_label("owner/repo", 1, label="")
+
+    def test_rejects_non_positive_issue_number(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError):
+            client.remove_issue_label("owner/repo", -1, label="bug")

@@ -50,6 +50,7 @@ export default function App() {
     detectedPrefixes,
     accUsage,
     taskInputs,
+    linkedIssueNumber,
     runtimeDisplay,
     monitorOutputRef,
     monitorHeight,
@@ -188,6 +189,7 @@ export default function App() {
   const monitorCard = (
     <MonitorCard
       taskId={taskId}
+      issueNumber={linkedIssueNumber}
       status={status}
       taskError={taskError}
       isPolling={isPolling}

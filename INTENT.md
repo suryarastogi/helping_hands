@@ -8,11 +8,28 @@ Deeper GitHub integration - Features Wanted:
 - a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
     - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
     - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
-    - Sync task status with GitHub issue with created PR
+    - ~~Sync task status with GitHub issue with created PR~~ **v327: issue lifecycle labels (in-progress/completed/failed) + status comments + issue_number in progress metadata + MonitorCard badge**
     - GitHub Projects board integration
 
 
 ## Recently Completed
+
+### Sync Task Status with GitHub Issue (2026-03-28) — Completed
+
+**Implemented (v327):**
+- `GitHubClient.add_issue_labels()` — adds labels to a GitHub issue, auto-creating labels that don't exist on the repo
+- `GitHubClient.remove_issue_label()` — removes a label from an issue (silently ignores if not present)
+- `_sync_issue_started()` helper in `celery_app.py` — adds `helping-hands:in-progress` label when task begins running
+- `_sync_issue_completed()` helper — posts completion comment with PR link + runtime, swaps label to `helping-hands:completed`, removes `in-progress`
+- `_sync_issue_failed()` helper — posts failure comment with error details, swaps label to `helping-hands:failed`, removes `in-progress`
+- All sync helpers are error-tolerant: failures are logged but never block the build
+- `issue_number` included in Celery progress metadata so frontend can track it during polling
+- `linkedIssueNumber` computed in `useTaskManager` hook from payload
+- MonitorCard shows blue `#N` issue badge in header when a linked issue is present
+- `taskInputs` includes `Issue: #N` when issue number is in the payload
+- 7 new backend tests (3 GitHubClient label methods, 8 celery sync helpers = 11 total backend)
+- 4 new frontend tests (2 MonitorCard badge, 2 useTaskManager linkedIssueNumber)
+- 104 backend GitHub tests (up from 97), 80+ celery tests, 732 frontend tests (up from 728)
 
 ### Create New Issue from Task (2026-03-28) — Completed
 

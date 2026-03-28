@@ -705,6 +705,84 @@ class GitHubClient:
         }
 
     # ------------------------------------------------------------------
+    # Issue labels
+    # ------------------------------------------------------------------
+
+    def add_issue_labels(
+        self,
+        full_name: str,
+        number: int,
+        *,
+        labels: list[str],
+    ) -> list[str]:
+        """Add labels to a GitHub issue.
+
+        Creates labels that don't yet exist on the repository (with a
+        default grey colour).  Labels already present on the issue are
+        silently kept.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+            labels: List of label names to add (must not be empty).
+
+        Returns:
+            The full list of label names now on the issue.
+
+        Raises:
+            ValueError: If *number* is not positive or *labels* is empty.
+        """
+        require_positive_int(number, "issue number")
+        if not labels:
+            msg = "labels list must not be empty"
+            raise ValueError(msg)
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        # Ensure all requested labels exist on the repo.
+        existing_labels = {lbl.name for lbl in repo.get_labels()}
+        for name in labels:
+            if name not in existing_labels:
+                repo.create_label(name=name, color="ededed")
+        issue.add_to_labels(*labels)
+        return [lbl.name for lbl in issue.labels]
+
+    def remove_issue_label(
+        self,
+        full_name: str,
+        number: int,
+        *,
+        label: str,
+    ) -> None:
+        """Remove a single label from a GitHub issue.
+
+        Does nothing if the label is not present on the issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+            label: Label name to remove.
+
+        Raises:
+            ValueError: If *number* is not positive or *label* is
+                empty/whitespace.
+        """
+        require_positive_int(number, "issue number")
+        require_non_empty_string(label, "label")
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        try:
+            issue.remove_from_labels(label)
+        except Exception:
+            # Label may not be on the issue — silently ignore.
+            logger.debug(
+                "Could not remove label %r from %s#%d",
+                label,
+                full_name,
+                number,
+                exc_info=True,
+            )
+
+    # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------
 

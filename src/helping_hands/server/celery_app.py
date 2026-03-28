@@ -368,6 +368,7 @@ class _ProgressEmitter:
         reference_repos: list[str] | None = None,
         workspace: str | None = None,
         started_at: str | None = None,
+        issue_number: int | None = None,
     ) -> None:
         self._task = task
         self._task_id = task_id
@@ -390,6 +391,7 @@ class _ProgressEmitter:
         self._reference_repos = reference_repos
         self._workspace = workspace
         self._started_at = started_at
+        self._issue_number = issue_number
 
     def emit(self, stage: str, **overrides: Any) -> None:
         """Emit a progress update for *stage*, optionally overriding fields.
@@ -427,6 +429,7 @@ class _ProgressEmitter:
             reference_repos=overrides.get("reference_repos", self._reference_repos),
             workspace=overrides.get("workspace", self._workspace),
             started_at=overrides.get("started_at", self._started_at),
+            issue_number=overrides.get("issue_number", self._issue_number),
         )
 
 
@@ -454,6 +457,7 @@ def _update_progress(
     reference_repos: list[str] | None = None,
     workspace: str | None = None,
     started_at: str | None = None,
+    issue_number: int | None = None,
 ) -> None:
     """Push a PROGRESS state update to Celery for the running task.
 
@@ -487,6 +491,7 @@ def _update_progress(
         reference_repos: Optional list of reference repo specs.
         workspace: Optional workspace identifier.
         started_at: ISO-format timestamp when the task started.
+        issue_number: Linked GitHub issue number, or ``None``.
     """
     update_state = getattr(task, "update_state", None)
     if not callable(update_state):
@@ -512,6 +517,8 @@ def _update_progress(
         "reference_repos": list(reference_repos or []),
         "updates": list(updates),
     }
+    if issue_number is not None:
+        meta["issue_number"] = issue_number
     if workspace:
         meta["workspace"] = workspace
     if started_at:
@@ -601,6 +608,107 @@ def _try_create_issue(
             exc_info=True,
         )
         _append_update(updates, "Failed to auto-create GitHub issue (continuing).")
+
+
+# ---------------------------------------------------------------------------
+# Issue lifecycle sync helpers
+# ---------------------------------------------------------------------------
+
+_LABEL_IN_PROGRESS = "helping-hands:in-progress"
+_LABEL_COMPLETED = "helping-hands:completed"
+_LABEL_FAILED = "helping-hands:failed"
+
+
+def _sync_issue_started(
+    repo_spec: str,
+    issue_number: int,
+    updates: list[str],
+    github_token: str | None,
+) -> None:
+    """Mark a linked GitHub issue as in-progress by adding a label.
+
+    Errors are logged but do not block the build.
+    """
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            gh.add_issue_labels(repo_spec, issue_number, labels=[_LABEL_IN_PROGRESS])
+            _append_update(updates, f"Marked issue #{issue_number} as in-progress.")
+    except Exception:
+        logger.warning(
+            "Failed to mark issue #%d as in-progress on %s",
+            issue_number,
+            repo_spec,
+            exc_info=True,
+        )
+
+
+def _sync_issue_completed(
+    repo_spec: str,
+    issue_number: int,
+    updates: list[str],
+    github_token: str | None,
+    pr_url: str | None = None,
+    runtime: str | None = None,
+) -> None:
+    """Post a completion comment on the linked issue and swap labels.
+
+    Errors are logged but do not block the build.
+    """
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            # Build completion comment.
+            parts = ["Task completed successfully."]
+            if pr_url:
+                parts.append(f"Pull request: {pr_url}")
+            if runtime:
+                parts.append(f"Runtime: {runtime}")
+            body = "\n\n".join(parts) + "\n\n<!-- helping_hands:task_status -->"
+            gh.create_issue_comment(repo_spec, issue_number, body=body)
+            gh.add_issue_labels(repo_spec, issue_number, labels=[_LABEL_COMPLETED])
+            gh.remove_issue_label(repo_spec, issue_number, label=_LABEL_IN_PROGRESS)
+            _append_update(updates, f"Updated issue #{issue_number}: completed.")
+    except Exception:
+        logger.warning(
+            "Failed to sync completed status to issue #%d on %s",
+            issue_number,
+            repo_spec,
+            exc_info=True,
+        )
+
+
+def _sync_issue_failed(
+    repo_spec: str,
+    issue_number: int,
+    updates: list[str],
+    github_token: str | None,
+    error_message: str | None = None,
+) -> None:
+    """Post a failure comment on the linked issue and swap labels.
+
+    Errors are logged but do not block error propagation.
+    """
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            parts = ["Task failed."]
+            if error_message:
+                parts.append(f"Error: {error_message}")
+            body = "\n\n".join(parts) + "\n\n<!-- helping_hands:task_status -->"
+            gh.create_issue_comment(repo_spec, issue_number, body=body)
+            gh.add_issue_labels(repo_spec, issue_number, labels=[_LABEL_FAILED])
+            gh.remove_issue_label(repo_spec, issue_number, label=_LABEL_IN_PROGRESS)
+    except Exception:
+        logger.warning(
+            "Failed to sync failure status to issue #%d on %s",
+            issue_number,
+            repo_spec,
+            exc_info=True,
+        )
 
 
 async def _collect_stream(
@@ -719,6 +827,7 @@ def build_feature(
         ci_check_wait_minutes=ci_check_wait_minutes,
         reference_repos=list(reference_repos or []),
         started_at=task_started_at,
+        issue_number=issue_number,
     )
     emitter.emit("starting")
 
@@ -902,21 +1011,53 @@ def build_feature(
                 github_token=github_token,
             )
 
+        # Mark the linked issue as in-progress.
+        _effective_issue = hand.issue_number
+        _issue_repo = cloned_from or repo_path
+        if _effective_issue is not None:
+            _sync_issue_started(_issue_repo, _effective_issue, updates, github_token)
+
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
         hand_start = time.monotonic()
         emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
-        message = asyncio.run(
-            _collect_stream(
-                hand,
-                prompt,
-                emitter=emitter,
-                updates=updates,
+        try:
+            message = asyncio.run(
+                _collect_stream(
+                    hand,
+                    prompt,
+                    emitter=emitter,
+                    updates=updates,
+                )
             )
-        )
+        except Exception:
+            _effective_issue = hand.issue_number
+            if _effective_issue is not None:
+                _sync_issue_failed(
+                    _issue_repo,
+                    _effective_issue,
+                    updates,
+                    github_token,
+                    error_message="Hand execution failed",
+                )
+            raise
         hand_elapsed = time.monotonic() - hand_start
         runtime_str = _format_runtime(hand_elapsed)
         _append_update(updates, f"Task complete. Runtime: {runtime_str}")
+
+        # Sync completion status to linked issue.
+        _effective_issue = hand.issue_number
+        if _effective_issue is not None:
+            _pr_url = hand.last_pr_metadata.get("pr_url")
+            _sync_issue_completed(
+                _issue_repo,
+                _effective_issue,
+                updates,
+                github_token,
+                pr_url=_pr_url,
+                runtime=runtime_str,
+            )
+
         # Auto-persist newly created PR number to originating schedule
         created_pr = hand.last_pr_metadata.get("pr_number", "")
         _maybe_persist_pr_to_schedule(schedule_id, pr_number, created_pr)

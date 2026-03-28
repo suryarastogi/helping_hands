@@ -21,7 +21,9 @@ improvements, decoration placement cooldown with backend decoration
 query endpoint, AppOverlays/MonitorCard branch coverage hardening
 (component stmts: 96.45% → 99.08%), remote player CSS fixes with
 initial Yjs awareness position sync, and GitHub issue linking with
-full-stack `issue_number` support and create-new-issue-from-task feature.
+full-stack `issue_number` support, create-new-issue-from-task feature,
+and issue lifecycle sync (in-progress/completed/failed labels + status
+comments + frontend issue badge).
 
 ---
 
@@ -461,6 +463,16 @@ full-stack `issue_number` support and create-new-issue-from-task feature.
 
 ---
 
+## Mar 28 — Sync Task Status with GitHub Issue (v327)
+
+**Issue lifecycle sync:** When a task has a linked `issue_number`, the GitHub issue is updated with lifecycle labels and status comments. `_sync_issue_started()` adds `helping-hands:in-progress` label at task start. `_sync_issue_completed()` posts completion comment (with PR link and runtime) and swaps to `helping-hands:completed`. `_sync_issue_failed()` posts failure comment and swaps to `helping-hands:failed`. All sync helpers are error-tolerant.
+
+**GitHubClient:** `add_issue_labels()` (auto-creates missing repo labels) and `remove_issue_label()` (silently handles absent labels). `issue_number` added to Celery progress metadata. Frontend `linkedIssueNumber` derived in `useTaskManager` hook. MonitorCard issue badge.
+
+**15 new tests (7 backend GitHub, 8 celery, 4 frontend). 732 frontend tests total, 104 backend GitHub tests.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -517,3 +529,4 @@ full-stack `issue_number` support and create-new-issue-from-task feature.
 - `v324-multiplayer-css-fixes-and-spawn-sync.md`
 - `v325-github-issue-linking.md`
 - `v326-create-issue-from-task.md`
+- `v327-sync-task-status-with-github-issue.md`
