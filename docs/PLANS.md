@@ -4,7 +4,9 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [2026-03-28 v328 — Sync Task Status with GitHub Issue](exec-plans/active/v328-sync-issue-status.md) —
+  Post running/completed/failed status comments on linked GitHub issue via
+  marker-tagged upsert; 5 new tests, 7501 passed
 
 ## Completed plans
 

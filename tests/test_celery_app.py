@@ -923,3 +923,100 @@ class TestTryCreateIssue:
         # issue_number should not be set on failure
         assert hand.issue_number is None
         assert any("Failed" in u for u in updates)
+
+
+class TestSyncIssueStatus:
+    """Tests for the _sync_issue_status helper."""
+
+    def test_noop_when_issue_number_is_none(self) -> None:
+        """No GitHub call is made when issue_number is None."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+        ) as mock_cls:
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status("owner/repo", None, "running", "tok")
+
+        mock_cls.assert_not_called()
+
+    def test_running_status_posts_comment(self) -> None:
+        """Running status upserts a comment on the issue."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status("owner/repo", 42, "running", "tok")
+
+        mock_gh.upsert_pr_comment.assert_called_once()
+        call_kwargs = mock_gh.upsert_pr_comment.call_args
+        assert call_kwargs[0][0] == "owner/repo"
+        assert call_kwargs[0][1] == 42
+        body = call_kwargs[1]["body"]
+        assert "running" in body
+        assert "currently running" in body
+        assert call_kwargs[1]["marker"] == _mod._ISSUE_STATUS_MARKER
+
+    def test_completed_status_includes_pr_url(self) -> None:
+        """Completed status includes the PR URL in the comment."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status(
+                "owner/repo",
+                42,
+                "completed",
+                "tok",
+                pr_url="https://github.com/owner/repo/pull/99",
+            )
+
+        body = mock_gh.upsert_pr_comment.call_args[1]["body"]
+        assert "completed" in body
+        assert "https://github.com/owner/repo/pull/99" in body
+
+    def test_failed_status_includes_error(self) -> None:
+        """Failed status includes the error message."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status(
+                "owner/repo",
+                42,
+                "failed",
+                "tok",
+                error="RuntimeError: something broke",
+            )
+
+        body = mock_gh.upsert_pr_comment.call_args[1]["body"]
+        assert "failed" in body
+        assert "RuntimeError: something broke" in body
+
+    def test_exception_does_not_propagate(self) -> None:
+        """API errors are swallowed — sync is best-effort."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("No token"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            # Should not raise
+            _mod._sync_issue_status("owner/repo", 42, "running", None)

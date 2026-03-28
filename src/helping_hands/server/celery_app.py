@@ -603,6 +603,69 @@ def _try_create_issue(
         _append_update(updates, "Failed to auto-create GitHub issue (continuing).")
 
 
+_ISSUE_STATUS_MARKER = "<!-- helping_hands:issue_status -->"
+
+
+def _sync_issue_status(
+    repo_spec: str,
+    issue_number: int | None,
+    status: str,
+    github_token: str | None,
+    *,
+    pr_url: str = "",
+    error: str = "",
+) -> None:
+    """Post or update a status comment on the linked GitHub issue.
+
+    Uses a marker-tagged comment so repeated calls update in place rather
+    than creating new comments.  Errors are logged but never propagated —
+    issue status sync is best-effort.
+
+    Args:
+        repo_spec: ``owner/repo`` string.
+        issue_number: The linked issue number.  If ``None``, the call is
+            a no-op.
+        status: One of ``"running"``, ``"completed"``, or ``"failed"``.
+        github_token: GitHub personal access token.
+        pr_url: URL of the created/updated PR (included when *status* is
+            ``"completed"``).
+        error: Error message (included when *status* is ``"failed"``).
+    """
+    if issue_number is None:
+        return
+
+    status_emoji = {"running": "🔄", "completed": "✅", "failed": "❌"}.get(
+        status, "📋"
+    )
+    lines = [f"{status_emoji} **helping-hands** task status: **{status}**"]
+    if status == "running":
+        lines.append("\nThe task is currently running.")
+    elif status == "completed" and pr_url:
+        lines.append(f"\nPull request: {pr_url}")
+    elif status == "failed" and error:
+        lines.append(f"\nError: {error}")
+
+    body = "\n".join(lines)
+
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            gh.upsert_pr_comment(
+                repo_spec,
+                issue_number,
+                body=body,
+                marker=_ISSUE_STATUS_MARKER,
+            )
+    except Exception:
+        logger.warning(
+            "Failed to sync issue status for %s#%s",
+            repo_spec,
+            issue_number,
+            exc_info=True,
+        )
+
+
 async def _collect_stream(
     hand: Any,
     prompt: str,
@@ -771,6 +834,9 @@ def build_feature(
         _append_update(updates, f"Repo resolution failed: {exc}")
         raise
 
+    _issue_repo = cloned_from or repo_path
+    _linked_issue: int | None = issue_number
+
     try:
         overrides: dict[str, ConfigValue] = {
             "repo": str(resolved_repo_path),
@@ -895,15 +961,21 @@ def build_feature(
         # Auto-create a GitHub issue when requested and no issue linked yet.
         if create_issue and hand.issue_number is None:
             _try_create_issue(
-                repo_spec=cloned_from or repo_path,
+                repo_spec=_issue_repo,
                 prompt=prompt,
                 hand=hand,
                 updates=updates,
                 github_token=github_token,
             )
+        # Track the effective issue number (may have been set by _try_create_issue).
+        _linked_issue = hand.issue_number
 
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
+
+        # Sync "running" status to linked GitHub issue.
+        _sync_issue_status(_issue_repo, _linked_issue, "running", github_token)
+
         hand_start = time.monotonic()
         emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
         message = asyncio.run(
@@ -920,6 +992,16 @@ def build_feature(
         # Auto-persist newly created PR number to originating schedule
         created_pr = hand.last_pr_metadata.get("pr_number", "")
         _maybe_persist_pr_to_schedule(schedule_id, pr_number, created_pr)
+
+        # Sync "completed" status to linked GitHub issue.
+        _sync_issue_status(
+            _issue_repo,
+            _linked_issue,
+            "completed",
+            github_token,
+            pr_url=hand.last_pr_metadata.get("pr_url", ""),
+        )
+
         return {
             "status": _RESPONSE_STATUS_OK,
             "prompt": prompt,
@@ -944,6 +1026,16 @@ def build_feature(
             "updates": updates,
             **hand.last_pr_metadata,
         }
+    except Exception as exc:
+        # Best-effort: sync "failed" status to linked GitHub issue.
+        _sync_issue_status(
+            _issue_repo,
+            _linked_issue,
+            "failed",
+            github_token,
+            error=str(exc)[:200],
+        )
+        raise
     finally:
         if _tmp_root is not None:
             shutil.rmtree(_tmp_root, ignore_errors=True)

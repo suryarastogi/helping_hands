@@ -21,7 +21,9 @@ improvements, decoration placement cooldown with backend decoration
 query endpoint, AppOverlays/MonitorCard branch coverage hardening
 (component stmts: 96.45% → 99.08%), remote player CSS fixes with
 initial Yjs awareness position sync, and GitHub issue linking with
-full-stack `issue_number` support and create-new-issue-from-task feature.
+full-stack `issue_number` support, create-new-issue-from-task feature,
+and task status sync to GitHub issues (running/completed/failed lifecycle
+comments via marker-tagged upsert).
 
 ---
 
@@ -461,6 +463,14 @@ full-stack `issue_number` support and create-new-issue-from-task feature.
 
 ---
 
+## Mar 28 — Sync Task Status with GitHub Issue (v328)
+
+**Issue status lifecycle sync:** `_sync_issue_status()` helper posts or updates a marker-tagged comment on the linked GitHub issue at key lifecycle points: 🔄 running (hand starts), ✅ completed (with PR URL), ❌ failed (with error). Uses `upsert_pr_comment()` with `<!-- helping_hands:issue_status -->` marker for idempotent updates. Best-effort: errors swallowed.
+
+**5 new tests. 127 celery tests total (up from 122), 7501 backend tests.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -517,3 +527,4 @@ full-stack `issue_number` support and create-new-issue-from-task feature.
 - `v324-multiplayer-css-fixes-and-spawn-sync.md`
 - `v325-github-issue-linking.md`
 - `v326-create-issue-from-task.md`
+- `v328-sync-issue-status.md`

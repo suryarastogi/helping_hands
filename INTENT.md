@@ -8,11 +8,23 @@ Deeper GitHub integration - Features Wanted:
 - a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
     - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
     - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
-    - Sync task status with GitHub issue with created PR
+    - ~~Sync task status with GitHub issue with created PR~~ **v328: _sync_issue_status() posts running/completed/failed status comments on linked issue via marker-tagged upsert**
     - GitHub Projects board integration
 
 
 ## Recently Completed
+
+### Sync Task Status with GitHub Issue (2026-03-28) — Completed
+
+**Implemented (v328):**
+- `_sync_issue_status()` helper in celery_app.py — posts or updates a marker-tagged comment on the linked GitHub issue at key lifecycle points
+- "running" status posted when hand starts execution
+- "completed" status posted after success, includes PR URL
+- "failed" status posted on exception, includes truncated error message
+- Uses `upsert_pr_comment()` with `<!-- helping_hands:issue_status -->` marker for idempotent updates (same comment updated, not new ones created)
+- Best-effort: sync failures are logged but never block the build
+- 5 new backend tests (127 celery tests total, up from 122)
+- 7501 backend tests passed, 0 failures
 
 ### Fix Test Failures & Form Param Gap (2026-03-28) — Completed
 
