@@ -88,12 +88,16 @@ set_defaults() {
   : "${REDIS_URL:=redis://localhost:6379/0}"
   : "${CELERY_BROKER_URL:=${REDIS_URL}}"
   : "${CELERY_RESULT_BACKEND:=redis://localhost:6379/1}"
+  : "${HELPING_HANDS_FLOWER_API_URL:=http://localhost:${FLOWER_PORT}}"
+  : "${FLOWER_UNAUTHENTICATED_API:=true}"
 
   export SERVER_PORT
   export FLOWER_PORT
   export REDIS_URL
   export CELERY_BROKER_URL
   export CELERY_RESULT_BACKEND
+  export HELPING_HANDS_FLOWER_API_URL
+  export FLOWER_UNAUTHENTICATED_API
   export PYTHONUNBUFFERED=1
 }
 

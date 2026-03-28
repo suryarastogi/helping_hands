@@ -632,6 +632,8 @@ assert set(_TASK_STATE_PRIORITY.keys()) <= _CURRENT_TASK_STATES, (
     "_TASK_STATE_PRIORITY keys must be a subset of _CURRENT_TASK_STATES"
 )
 
+_RECENT_TERMINAL_WINDOW_S = 60  # seconds; include terminal tasks this recent
+
 _FLOWER_API_URL_ENV = "HELPING_HANDS_FLOWER_API_URL"
 _FLOWER_API_TIMEOUT_SECONDS_ENV = "HELPING_HANDS_FLOWER_API_TIMEOUT_SECONDS"
 _DEFAULT_FLOWER_API_TIMEOUT_SECONDS = 0.75
@@ -3368,6 +3370,26 @@ def _flower_api_base_url() -> str | None:
     return raw.rstrip("/")
 
 
+def _is_recently_terminal(entry: dict[str, Any], status: str) -> bool:
+    """Return True if a terminal task completed within the recent window.
+
+    Flower stores completion timestamps as UNIX epoch floats in fields
+    named after the terminal state (``failed``, ``succeeded``, etc.).
+    """
+    if status not in _TERMINAL_TASK_STATES:
+        return False
+    ts: Any = None
+    if status == "FAILURE":
+        ts = entry.get("failed")
+    elif status == "SUCCESS":
+        ts = entry.get("succeeded")
+    if ts is None:
+        ts = entry.get("timestamp")
+    if not isinstance(ts, int | float):
+        return False
+    return (time.time() - ts) < _RECENT_TERMINAL_WINDOW_S
+
+
 def _fetch_flower_current_tasks() -> list[dict[str, Any]]:
     """Fetch currently active tasks from Flower API when configured."""
     base_url = _flower_api_base_url()
@@ -3412,7 +3434,9 @@ def _fetch_flower_current_tasks() -> list[dict[str, Any]]:
         status = _normalize_task_status(
             entry.get("state") or entry.get("status"), default="PENDING"
         )
-        if status not in _CURRENT_TASK_STATES:
+        if status not in _CURRENT_TASK_STATES and not _is_recently_terminal(
+            entry, status
+        ):
             continue
 
         kwargs_payload = _extract_task_kwargs(entry)
