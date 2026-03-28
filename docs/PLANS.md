@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-28 v332 — Validation & Task Result Coverage Hardening](exec-plans/completed/2026/v332-validation-coverage-hardening.md) —
+  Close type-validation test gaps in `validation.py` and `task_result.py`:
+  `format_type_error` direct tests, `require_non_empty_string`/`require_positive_int`
+  TypeError branches, `normalize_task_result` status validation and non-serializable fallback;
+  20 tests added, 6459 tests passed
+
 - [2026-03-28 v331 — Server Module Test Coverage Hardening](exec-plans/completed/2026/v331-server-test-coverage.md) —
   Close testable coverage gaps in `celery_app.py` and `schedules.py`:
   `_ProgressEmitter` unit tests, `_resolve_repo_path` timeout branch,

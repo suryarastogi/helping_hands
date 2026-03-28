@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Validation & Task Result Coverage Hardening (2026-03-28) — Completed
+
+**Implemented (v332):**
+- Fixed v331 plan structure conformance (`## Completed Tasks` → `## Tasks`)
+- Added 4 `require_non_empty_string` TypeError tests: int, None, bool, list inputs
+- Added 5 `require_positive_int` TypeError tests: bool (True/False), float, string, None inputs
+- Added 6 `format_type_error` direct unit tests: param name, expected type, actual type, None, dict, custom class
+- Added 5 `normalize_task_result` edge case tests: empty status, whitespace status, None status, int status, non-serializable object fallback
+- 20 new tests total (15 validation, 5 task_result), all passing
+- 6459 backend tests passed, 0 failures, 78.28% coverage
+
 ### Server Module Test Coverage Hardening (2026-03-28) — Completed
 
 **Implemented (v331):**

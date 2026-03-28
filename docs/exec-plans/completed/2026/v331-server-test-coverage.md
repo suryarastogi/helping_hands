@@ -9,7 +9,7 @@
 
 Coverage report shows `celery_app.py` at 5.2% and `schedules.py` at 2.8% overall, but most helper functions already have thorough test suites. The low numbers come from module-level initialization code and `# pragma: no cover` task functions. The remaining *testable* gaps are specific untested branches and classes.
 
-## Completed Tasks
+## Tasks
 
 1. **`_ProgressEmitter` direct unit tests** — 4 tests: `emit()` with defaults, with overrides, preserving non-overridden fields, and multiple sequential calls
 2. **`_resolve_repo_path` TimeoutExpired branch** — 1 test: mock `subprocess.run` raising `TimeoutExpired`, verify `ValueError` message and temp dir cleanup via `shutil.rmtree`

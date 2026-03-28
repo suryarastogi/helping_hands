@@ -10,6 +10,7 @@ import pytest
 
 from helping_hands.lib.validation import (
     __all__ as validation_all,
+    format_type_error,
     parse_comma_list,
     require_non_empty_string,
     require_positive_float,
@@ -34,6 +35,44 @@ class TestModuleAll:
             "require_positive_float",
             "require_positive_int",
         }
+
+
+# ---------------------------------------------------------------------------
+# format_type_error
+# ---------------------------------------------------------------------------
+
+
+class TestFormatTypeError:
+    """Direct unit tests for format_type_error()."""
+
+    def test_includes_param_name(self) -> None:
+        msg = format_type_error("my_param", "a string", 42)
+        assert "my_param" in msg
+
+    def test_includes_expected_type(self) -> None:
+        msg = format_type_error("x", "a string", 42)
+        assert "a string" in msg
+
+    def test_includes_actual_type(self) -> None:
+        msg = format_type_error("x", "a string", 42)
+        assert "int" in msg
+
+    def test_format_with_none(self) -> None:
+        assert format_type_error("x", "a string", None) == (
+            "x must be a string, got NoneType"
+        )
+
+    def test_format_with_dict(self) -> None:
+        assert format_type_error("cfg", "a list", {}) == (
+            "cfg must be a list, got dict"
+        )
+
+    def test_format_with_custom_class(self) -> None:
+        class Widget:
+            pass
+
+        msg = format_type_error("item", "a string", Widget())
+        assert msg == "item must be a string, got Widget"
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +129,22 @@ class TestRequireNonEmptyString:
         result = require_non_empty_string("  line1\nline2  ", "x")
         assert result == "line1\nline2"
 
+    def test_rejects_int(self) -> None:
+        with pytest.raises(TypeError, match="field must be a string, got int"):
+            require_non_empty_string(42, "field")  # type: ignore[arg-type]
+
+    def test_rejects_none(self) -> None:
+        with pytest.raises(TypeError, match="field must be a string, got NoneType"):
+            require_non_empty_string(None, "field")  # type: ignore[arg-type]
+
+    def test_rejects_bool(self) -> None:
+        with pytest.raises(TypeError, match="flag must be a string, got bool"):
+            require_non_empty_string(True, "flag")  # type: ignore[arg-type]
+
+    def test_rejects_list(self) -> None:
+        with pytest.raises(TypeError, match="items must be a string, got list"):
+            require_non_empty_string(["a"], "items")  # type: ignore[arg-type]
+
 
 # ---------------------------------------------------------------------------
 # require_positive_int
@@ -124,6 +179,26 @@ class TestRequirePositiveInt:
     def test_error_message_includes_param_name(self) -> None:
         with pytest.raises(ValueError, match="max_retries must be positive"):
             require_positive_int(-1, "max_retries")
+
+    def test_rejects_bool_true(self) -> None:
+        with pytest.raises(TypeError, match="x must be an int, got bool"):
+            require_positive_int(True, "x")  # type: ignore[arg-type]
+
+    def test_rejects_bool_false(self) -> None:
+        with pytest.raises(TypeError, match="x must be an int, got bool"):
+            require_positive_int(False, "x")  # type: ignore[arg-type]
+
+    def test_rejects_float(self) -> None:
+        with pytest.raises(TypeError, match="x must be an int, got float"):
+            require_positive_int(1.5, "x")  # type: ignore[arg-type]
+
+    def test_rejects_string(self) -> None:
+        with pytest.raises(TypeError, match="x must be an int, got str"):
+            require_positive_int("5", "x")  # type: ignore[arg-type]
+
+    def test_rejects_none(self) -> None:
+        with pytest.raises(TypeError, match="x must be an int, got NoneType"):
+            require_positive_int(None, "x")  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
