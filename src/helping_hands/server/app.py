@@ -638,6 +638,8 @@ assert set(_TASK_STATE_PRIORITY.keys()) <= _CURRENT_TASK_STATES, (
     "_TASK_STATE_PRIORITY keys must be a subset of _CURRENT_TASK_STATES"
 )
 
+_RECENT_TERMINAL_WINDOW_S = 60  # seconds; include terminal tasks this recent
+
 _FLOWER_API_URL_ENV = "HELPING_HANDS_FLOWER_API_URL"
 _FLOWER_API_TIMEOUT_SECONDS_ENV = "HELPING_HANDS_FLOWER_API_TIMEOUT_SECONDS"
 _DEFAULT_FLOWER_API_TIMEOUT_SECONDS = 0.75
@@ -3395,6 +3397,26 @@ def _flower_api_base_url() -> str | None:
     return raw.rstrip("/")
 
 
+def _is_recently_terminal(entry: dict[str, Any], status: str) -> bool:
+    """Return True if a terminal task completed within the recent window.
+
+    Flower stores completion timestamps as UNIX epoch floats in fields
+    named after the terminal state (``failed``, ``succeeded``, etc.).
+    """
+    if status not in _TERMINAL_TASK_STATES:
+        return False
+    ts: Any = None
+    if status == "FAILURE":
+        ts = entry.get("failed")
+    elif status == "SUCCESS":
+        ts = entry.get("succeeded")
+    if ts is None:
+        ts = entry.get("timestamp")
+    if not isinstance(ts, int | float):
+        return False
+    return (time.time() - ts) < _RECENT_TERMINAL_WINDOW_S
+
+
 def _fetch_flower_current_tasks() -> list[dict[str, Any]]:
     """Fetch currently active tasks from Flower API when configured."""
     base_url = _flower_api_base_url()
@@ -3439,7 +3461,9 @@ def _fetch_flower_current_tasks() -> list[dict[str, Any]]:
         status = _normalize_task_status(
             entry.get("state") or entry.get("status"), default="PENDING"
         )
-        if status not in _CURRENT_TASK_STATES:
+        if status not in _CURRENT_TASK_STATES and not _is_recently_terminal(
+            entry, status
+        ):
             continue
 
         kwargs_payload = _extract_task_kwargs(entry)
@@ -4078,6 +4102,428 @@ def get_task(task_id: str) -> TaskStatus:
     """Check the status of an enqueued task."""
     task_id = _validate_path_param(task_id, "task_id")
     return _build_task_status(task_id)
+
+
+class TaskDiffFile(BaseModel):
+    """A single file's diff hunks."""
+
+    filename: str
+    status: str  # "modified", "added", "deleted", "renamed"
+    diff: str
+
+
+class TaskDiffResponse(BaseModel):
+    """Response for uncommitted diff of a running task."""
+
+    task_id: str
+    workspace: str | None = None
+    files: list[TaskDiffFile] = Field(default_factory=list)
+    error: str | None = None
+
+
+@app.get("/tasks/{task_id}/diff", response_model=TaskDiffResponse)
+def get_task_diff(task_id: str) -> TaskDiffResponse:
+    """Return the uncommitted git diff for a task's workspace."""
+    task_id = _validate_path_param(task_id, "task_id")
+    return _build_task_diff(task_id)
+
+
+def _resolve_task_workspace(
+    task_id: str,
+) -> tuple[Path | None, str | None, bool, str | None]:
+    """Resolve the workspace directory for a task.
+
+    Returns:
+        (workspace_path, workspace_str, task_ready, error)
+    """
+    result = build_feature.AsyncResult(task_id)
+    task_ready = result.ready()
+    raw = result.result if task_ready else result.info
+    workspace: str | None = None
+    repo_path: str | None = None
+    if isinstance(raw, dict):
+        workspace = raw.get("workspace")
+        repo_path = raw.get("repo_path") or raw.get("repo")
+    if not workspace and repo_path:
+        candidate = Path(repo_path).expanduser().resolve()
+        if candidate.is_dir():
+            workspace = str(candidate)
+    if not workspace:
+        return None, None, task_ready, "Workspace not available yet"
+    workspace_path = Path(workspace)
+    if not workspace_path.is_dir():
+        if task_ready:
+            return (
+                None,
+                workspace,
+                task_ready,
+                ("Workspace was cleaned up after task completed"),
+            )
+        return None, workspace, task_ready, "Workspace directory not found"
+    return workspace_path, workspace, task_ready, None
+
+
+def _build_task_diff(task_id: str) -> TaskDiffResponse:
+    """Fetch workspace from task metadata and run git diff."""
+    workspace_path, workspace, _task_ready, error = _resolve_task_workspace(task_id)
+    if error:
+        return TaskDiffResponse(
+            task_id=task_id,
+            workspace=workspace,
+            error=error,
+        )
+    assert workspace_path is not None  # guaranteed by _resolve_task_workspace
+    try:
+        # Staged + unstaged changes against HEAD
+        diff_output = subprocess.run(
+            ["git", "diff", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=workspace_path,
+            timeout=15,
+        )
+        # Fallback: if HEAD doesn't exist yet, diff the index
+        if diff_output.returncode != 0:
+            diff_output = subprocess.run(
+                ["git", "diff"],
+                capture_output=True,
+                text=True,
+                cwd=workspace_path,
+                timeout=15,
+            )
+        untracked_output = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            capture_output=True,
+            text=True,
+            cwd=workspace_path,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return TaskDiffResponse(
+            task_id=task_id,
+            workspace=workspace,
+            error=f"Git command failed: {exc}",
+        )
+
+    files: list[TaskDiffFile] = []
+
+    # Parse unified diff into per-file entries
+    if diff_output.stdout.strip():
+        current_filename: str | None = None
+        current_lines: list[str] = []
+        current_status = "modified"
+
+        for line in diff_output.stdout.splitlines(keepends=True):
+            if line.startswith("diff --git "):
+                if current_filename and current_lines:
+                    files.append(
+                        TaskDiffFile(
+                            filename=current_filename,
+                            status=current_status,
+                            diff="".join(current_lines),
+                        )
+                    )
+                parts = line.strip().split(" b/", 1)
+                current_filename = parts[1] if len(parts) > 1 else "unknown"
+                current_lines = [line]
+                current_status = "modified"
+            else:
+                current_lines.append(line)
+                if line.startswith("new file"):
+                    current_status = "added"
+                elif line.startswith("deleted file"):
+                    current_status = "deleted"
+                elif line.startswith("rename from"):
+                    current_status = "renamed"
+
+        if current_filename and current_lines:
+            files.append(
+                TaskDiffFile(
+                    filename=current_filename,
+                    status=current_status,
+                    diff="".join(current_lines),
+                )
+            )
+
+    # Add untracked files as "added" with full content
+    if untracked_output.stdout.strip():
+        for untracked in untracked_output.stdout.strip().splitlines():
+            untracked = untracked.strip()
+            if not untracked:
+                continue
+            try:
+                content = (workspace_path / untracked).read_text(errors="replace")
+                numbered = "\n".join(f"+{ln}" for ln in content.splitlines())
+                diff_text = (
+                    f"diff --git a/{untracked} b/{untracked}\n"
+                    f"new file mode 100644\n"
+                    f"--- /dev/null\n"
+                    f"+++ b/{untracked}\n"
+                    f"@@ -0,0 +1,{len(content.splitlines())} @@\n"
+                    f"{numbered}\n"
+                )
+                files.append(
+                    TaskDiffFile(
+                        filename=untracked,
+                        status="added",
+                        diff=diff_text,
+                    )
+                )
+            except OSError:
+                pass
+
+    return TaskDiffResponse(
+        task_id=task_id,
+        workspace=workspace,
+        files=files,
+    )
+
+
+# --- File Tree / File Content Endpoints ---
+
+
+class FileTreeEntry(BaseModel):
+    """A single entry in the workspace file tree."""
+
+    path: str
+    name: str
+    type: str  # "file" or "dir"
+    status: str | None = None  # "modified", "added", "deleted", None (unchanged)
+
+
+class TaskFileTreeResponse(BaseModel):
+    """Response for the workspace file tree."""
+
+    task_id: str
+    workspace: str | None = None
+    tree: list[FileTreeEntry] = Field(default_factory=list)
+    error: str | None = None
+
+
+class TaskFileContentResponse(BaseModel):
+    """Response for reading a single file's content."""
+
+    task_id: str
+    path: str
+    content: str | None = None
+    diff: str | None = None
+    status: str | None = None  # change status of this file
+    error: str | None = None
+
+
+_FILE_TREE_MAX_ENTRIES = 5000
+_FILE_CONTENT_MAX_BYTES = 512_000
+
+
+@app.get("/tasks/{task_id}/tree", response_model=TaskFileTreeResponse)
+def get_task_tree(task_id: str) -> TaskFileTreeResponse:
+    """Return the full file tree of a task's workspace with change status."""
+    task_id = _validate_path_param(task_id, "task_id")
+    return _build_task_tree(task_id)
+
+
+@app.get(
+    "/tasks/{task_id}/file/{file_path:path}",
+    response_model=TaskFileContentResponse,
+)
+def get_task_file(task_id: str, file_path: str) -> TaskFileContentResponse:
+    """Return the content of a single file in a task's workspace."""
+    task_id = _validate_path_param(task_id, "task_id")
+    return _read_task_file(task_id, file_path)
+
+
+def _build_task_tree(task_id: str) -> TaskFileTreeResponse:
+    """Build the workspace file tree with git change status annotations."""
+    workspace_path, workspace, _task_ready, error = _resolve_task_workspace(task_id)
+    if error:
+        return TaskFileTreeResponse(task_id=task_id, workspace=workspace, error=error)
+    assert workspace_path is not None
+
+    # Collect changed file statuses via git
+    changed: dict[str, str] = {}
+    try:
+        # Tracked changes (staged + unstaged)
+        status_out = subprocess.run(
+            ["git", "status", "--porcelain=v1", "-uall"],
+            capture_output=True,
+            text=True,
+            cwd=workspace_path,
+            timeout=15,
+        )
+        if status_out.returncode == 0:
+            for line in status_out.stdout.splitlines():
+                if len(line) < 4:
+                    continue
+                xy = line[:2]
+                fpath = line[3:].strip()
+                # Handle renames: "R  old -> new"
+                if " -> " in fpath:
+                    fpath = fpath.split(" -> ", 1)[1]
+                if "?" in xy or "A" in xy:
+                    changed[fpath] = "added"
+                elif "D" in xy:
+                    changed[fpath] = "deleted"
+                elif xy[0] == "R" or xy[1] == "R":
+                    changed[fpath] = "renamed"
+                else:
+                    changed[fpath] = "modified"
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+    # Walk the workspace to build the tree, excluding .git
+    entries: list[FileTreeEntry] = []
+    dirs_seen: set[str] = set()
+    try:
+        for item in sorted(workspace_path.rglob("*")):
+            try:
+                rel = str(item.relative_to(workspace_path))
+            except ValueError:
+                continue
+            # Skip .git internals
+            if rel.startswith(".git") and (
+                rel == ".git" or rel.startswith(".git/") or rel.startswith(".git\\")
+            ):
+                continue
+            if len(entries) >= _FILE_TREE_MAX_ENTRIES:
+                break
+            if item.is_dir():
+                if rel not in dirs_seen:
+                    dirs_seen.add(rel)
+                    entries.append(
+                        FileTreeEntry(
+                            path=rel,
+                            name=item.name,
+                            type="dir",
+                            status=None,
+                        )
+                    )
+            else:
+                # Ensure parent dirs are in the tree
+                parts = Path(rel).parts
+                for i in range(1, len(parts)):
+                    parent = str(Path(*parts[:i]))
+                    if parent not in dirs_seen:
+                        dirs_seen.add(parent)
+                        entries.append(
+                            FileTreeEntry(
+                                path=parent,
+                                name=parts[i - 1],
+                                type="dir",
+                                status=None,
+                            )
+                        )
+                entries.append(
+                    FileTreeEntry(
+                        path=rel,
+                        name=item.name,
+                        type="file",
+                        status=changed.get(rel),
+                    )
+                )
+    except PermissionError:
+        pass
+
+    return TaskFileTreeResponse(
+        task_id=task_id,
+        workspace=workspace,
+        tree=entries,
+    )
+
+
+def _read_task_file(task_id: str, file_path: str) -> TaskFileContentResponse:
+    """Read a single file from the task workspace."""
+    workspace_path, _workspace, _task_ready, error = _resolve_task_workspace(task_id)
+    if error:
+        return TaskFileContentResponse(task_id=task_id, path=file_path, error=error)
+    assert workspace_path is not None
+
+    # Resolve and validate the path stays within workspace
+    target = (workspace_path / file_path).resolve()
+    try:
+        target.relative_to(workspace_path)
+    except ValueError:
+        return TaskFileContentResponse(
+            task_id=task_id,
+            path=file_path,
+            error="Path traversal not allowed",
+        )
+
+    if not target.is_file():
+        return TaskFileContentResponse(
+            task_id=task_id,
+            path=file_path,
+            error="File not found",
+        )
+
+    # Read content (with size limit)
+    try:
+        size = target.stat().st_size
+        if size > _FILE_CONTENT_MAX_BYTES:
+            return TaskFileContentResponse(
+                task_id=task_id,
+                path=file_path,
+                error=f"File too large ({size:,} bytes, limit {_FILE_CONTENT_MAX_BYTES:,})",
+            )
+        content = target.read_text(errors="replace")
+    except OSError as exc:
+        return TaskFileContentResponse(
+            task_id=task_id,
+            path=file_path,
+            error=f"Cannot read file: {exc}",
+        )
+
+    # Get diff for this specific file if it has changes
+    diff: str | None = None
+    status: str | None = None
+    try:
+        diff_out = subprocess.run(
+            ["git", "diff", "HEAD", "--", file_path],
+            capture_output=True,
+            text=True,
+            cwd=workspace_path,
+            timeout=10,
+        )
+        if diff_out.stdout.strip():
+            diff = diff_out.stdout
+            # Detect status from diff headers
+            status = "modified"
+            for dline in diff_out.stdout.splitlines()[:10]:
+                if dline.startswith("new file"):
+                    status = "added"
+                    break
+                if dline.startswith("deleted file"):
+                    status = "deleted"
+                    break
+        else:
+            # Check if untracked
+            ls_out = subprocess.run(
+                ["git", "ls-files", "--others", "--exclude-standard", "--", file_path],
+                capture_output=True,
+                text=True,
+                cwd=workspace_path,
+                timeout=5,
+            )
+            if ls_out.stdout.strip():
+                status = "added"
+                numbered = "\n".join(f"+{ln}" for ln in content.splitlines())
+                diff = (
+                    f"diff --git a/{file_path} b/{file_path}\n"
+                    f"new file mode 100644\n"
+                    f"--- /dev/null\n"
+                    f"+++ b/{file_path}\n"
+                    f"@@ -0,0 +1,{len(content.splitlines())} @@\n"
+                    f"{numbered}\n"
+                )
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+    return TaskFileContentResponse(
+        task_id=task_id,
+        path=file_path,
+        content=content,
+        diff=diff,
+        status=status,
+    )
 
 
 @app.post("/tasks/{task_id}/cancel", response_model=TaskCancelResponse)

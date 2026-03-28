@@ -80,6 +80,9 @@ _PROCESS_TERMINATE_TIMEOUT_S = 5
 _CI_POLL_INTERVAL_S = 30.0
 """Seconds between CI check polling attempts."""
 
+_CI_FIX_LOOP_TIMEOUT_S = 1800.0
+"""Hard wall-clock cap (30 min) for the entire CI fix loop."""
+
 _PR_DESCRIPTION_TIMEOUT_S = 300
 """Seconds timeout for the subprocess used to generate PR descriptions."""
 
@@ -1499,29 +1502,43 @@ class _TwoPhaseCLIHand(Hand):
         initial_wait: float,
         max_poll_seconds: float,
     ) -> dict[str, Any]:
-        """Wait for CI checks to complete and return the result."""
+        """Wait for CI checks to complete and return the result.
+
+        Instead of sleeping for the full *initial_wait* before the first
+        check, we wait a short grace period and then poll at regular
+        intervals.  This lets us detect fast CI completions (e.g. a
+        lint-only run) without sitting idle for minutes.
+        """
+        total_budget = initial_wait + max_poll_seconds
+        grace_period = min(30.0, initial_wait)
+        poll_interval = _CI_POLL_INTERVAL_S
+
         await emit(
             "\n"
             + self._label_msg(
-                f"Waiting {initial_wait:.0f}s "
-                f"for CI checks on {ref[:_GIT_REF_DISPLAY_LENGTH]}...\n"
+                f"Waiting for CI checks on "
+                f"{ref[:_GIT_REF_DISPLAY_LENGTH]} "
+                f"(timeout {total_budget:.0f}s)...\n"
             )
         )
-        await asyncio.sleep(initial_wait)
+        await asyncio.sleep(grace_period)
 
-        poll_interval = _CI_POLL_INTERVAL_S
-        deadline = time.monotonic() + max_poll_seconds
+        deadline = time.monotonic() + (total_budget - grace_period)
         while time.monotonic() < deadline:
             result = gh.get_check_runs(repo, ref)
             conclusion = result.get("conclusion", CIConclusion.PENDING)
             if conclusion not in CI_CONCLUSIONS_IN_PROGRESS:
                 return result
+            remaining = deadline - time.monotonic()
+            wait = min(poll_interval, remaining)
+            if wait <= 0:
+                break
             await emit(
                 self._label_msg(
-                    f"CI still {conclusion}, polling again in {poll_interval:.0f}s...\n"
+                    f"CI still {conclusion}, polling again in {wait:.0f}s...\n"
                 )
             )
-            await asyncio.sleep(poll_interval)
+            await asyncio.sleep(wait)
 
         return gh.get_check_runs(repo, ref)
 
@@ -1688,6 +1705,7 @@ class _TwoPhaseCLIHand(Hand):
 
         metadata[_META_CI_FIX_ATTEMPTS] = "0"
         metadata[_META_CI_FIX_STATUS] = CIFixStatus.CHECKING
+        loop_deadline = time.monotonic() + _CI_FIX_LOOP_TIMEOUT_S
 
         try:
             with GitHubClient(token=self.config.github_token) as gh:
@@ -1695,6 +1713,17 @@ class _TwoPhaseCLIHand(Hand):
                 for attempt in range(1, max_retries + 1):
                     if self._is_interrupted():
                         metadata[_META_CI_FIX_STATUS] = CIFixStatus.INTERRUPTED
+                        return metadata
+
+                    if time.monotonic() > loop_deadline:
+                        await emit(
+                            self._label_msg(
+                                "CI fix loop timed out "
+                                f"({_CI_FIX_LOOP_TIMEOUT_S:.0f}s). "
+                                "Stopping.\n"
+                            )
+                        )
+                        metadata[_META_CI_FIX_STATUS] = CIFixStatus.EXHAUSTED
                         return metadata
 
                     check_result = await self._poll_ci_checks(

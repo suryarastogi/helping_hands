@@ -394,12 +394,22 @@ class _ProgressEmitter:
     def emit(self, stage: str, **overrides: Any) -> None:
         """Emit a progress update for *stage*, optionally overriding fields.
 
+        Certain fields (``workspace``, ``model``) are *sticky*: once set via
+        an override they become the new default for subsequent calls.  This
+        prevents frequent progress updates from dropping metadata that was
+        only provided on the first ``"running"`` emit.
+
         Args:
             stage: Human-readable stage label (e.g. ``"starting"``,
                 ``"running"``).
             **overrides: Any keyword accepted by ``_update_progress`` whose
                 value should differ from the stored default for this call.
         """
+        # Persist sticky fields so later emit() calls don't lose them.
+        if overrides.get("workspace"):
+            self._workspace = overrides["workspace"]
+        if overrides.get("model"):
+            self._model = overrides["model"]
         _update_progress(
             self._task,
             task_id=overrides.get("task_id", self._task_id),
@@ -946,14 +956,25 @@ def build_feature(
             _append_update(updates, f"Cloned {cloned_from} to {resolved_repo_path}")
         if pr_number is not None and cloned_from:
             _append_update(updates, f"Checking out PR #{pr_number} branch...")
+            from github.GithubException import BadCredentialsException
+
             from helping_hands.lib.github import GitHubClient as _GHClient
 
-            with _GHClient() as _gh:
-                _pr_info = _gh.get_pr(cloned_from, pr_number)
-                _pr_branch = str(_pr_info["head"])
-                _gh.fetch_branch(resolved_repo_path, _pr_branch)
-                _gh.switch_branch(resolved_repo_path, _pr_branch)
-                _gh.pull(resolved_repo_path, branch=_pr_branch)
+            try:
+                with _GHClient() as _gh:
+                    _pr_info = _gh.get_pr(cloned_from, pr_number)
+                    _pr_branch = str(_pr_info["head"])
+                    _gh.fetch_branch(resolved_repo_path, _pr_branch)
+                    _gh.switch_branch(resolved_repo_path, _pr_branch)
+                    _gh.pull(resolved_repo_path, branch=_pr_branch)
+            except (BadCredentialsException, ValueError) as exc:
+                msg = (
+                    "GitHub authentication failed — your token is missing, "
+                    "expired, or invalid. Refresh GITHUB_TOKEN / GH_TOKEN "
+                    "and retry."
+                )
+                _append_update(updates, msg)
+                raise RuntimeError(msg) from exc
             _append_update(
                 updates,
                 f"Checked out branch {_pr_branch} for PR #{pr_number} (up to date)",
