@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Server Module Test Coverage Hardening (2026-03-28) — Completed
+
+**Implemented (v331):**
+- Added 4 `_ProgressEmitter` direct unit tests: `emit()` with defaults, overrides, preserving non-overridden fields, multiple sequential calls
+- Added 1 `_resolve_repo_path` TimeoutExpired branch test: mock subprocess timeout raises `ValueError`, verifies temp dir cleanup
+- Added 1 `_setup_periodic_tasks` signal handler test: verifies delegation to `ensure_usage_schedule()`
+- Added 4 `_load_meta` corrupted data tests: invalid JSON, warning log, missing required fields, empty required field
+- 10 new tests total (6 celery_app, 4 schedule_manager), all passing
+
 ### GitHub Integration Test Coverage (2026-03-28) — Completed
 
 **Implemented (v330):**

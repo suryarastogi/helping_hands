@@ -1121,3 +1121,122 @@ class TestTryAddToProject:
         )
 
         assert any("failed" in u.lower() for u in updates)
+
+
+# ---------------------------------------------------------------------------
+# _ProgressEmitter direct unit tests (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestProgressEmitter:
+    """Direct tests for _ProgressEmitter.emit() method."""
+
+    def test_emit_delegates_to_update_progress(self) -> None:
+        """emit() should call _update_progress with stored defaults."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(mock_task, task_id="t-emit")
+        emitter.emit("starting")
+
+        mock_task.update_state.assert_called_once()
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert meta["task_id"] == "t-emit"
+        assert meta["stage"] == "starting"
+        assert meta["prompt"] == "test prompt"
+        assert meta["backend"] == "codexcli"
+
+    def test_emit_with_overrides(self) -> None:
+        """emit() should allow overriding individual fields."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(mock_task, task_id="t-over", model="gpt-5")
+        emitter.emit("running", model="o3", workspace="/tmp/ws")
+
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert meta["model"] == "o3"
+        assert meta["workspace"] == "/tmp/ws"
+        assert meta["stage"] == "running"
+
+    def test_emit_preserves_non_overridden_fields(self) -> None:
+        """Fields not in overrides should keep their stored defaults."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(
+            mock_task,
+            task_id="t-keep",
+            pr_number=42,
+            fix_ci=True,
+            ci_check_wait_minutes=7.0,
+            reference_repos=["org/ref"],
+            started_at="2026-03-28T00:00:00+00:00",
+        )
+        emitter.emit("finalizing")
+
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert meta["pr_number"] == 42
+        assert meta["fix_ci"] is True
+        assert meta["ci_check_wait_minutes"] == 7.0
+        assert meta["reference_repos"] == ["org/ref"]
+        assert meta["started_at"] == "2026-03-28T00:00:00+00:00"
+
+    def test_emit_multiple_times(self) -> None:
+        """emit() can be called multiple times on the same emitter."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(mock_task)
+        emitter.emit("starting")
+        emitter.emit("running")
+        emitter.emit("finalizing")
+
+        assert mock_task.update_state.call_count == 3
+        stages = [
+            call.kwargs["meta"]["stage"]
+            for call in mock_task.update_state.call_args_list
+        ]
+        assert stages == ["starting", "running", "finalizing"]
+
+
+# ---------------------------------------------------------------------------
+# _resolve_repo_path TimeoutExpired branch (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestResolveRepoPathTimeout:
+    """Test the TimeoutExpired branch in _resolve_repo_path."""
+
+    def test_clone_timeout_raises_value_error(self, monkeypatch) -> None:
+        """TimeoutExpired during git clone should raise ValueError."""
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        with (
+            patch("helping_hands.server.celery_app.Path.is_dir", return_value=False),
+            patch(
+                "helping_hands.server.celery_app.mkdtemp",
+                return_value="/tmp/helping_hands_repo_timeout",
+            ),
+            patch(
+                "helping_hands.server.celery_app.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd="git clone", timeout=120),
+            ),
+            patch("helping_hands.server.celery_app.shutil.rmtree") as mock_rmtree,
+        ):
+            with pytest.raises(ValueError, match="git clone timed out"):
+                celery_app._resolve_repo_path("owner/repo")
+
+            mock_rmtree.assert_called_once_with(
+                Path("/tmp/helping_hands_repo_timeout"), ignore_errors=True
+            )
+
+
+# ---------------------------------------------------------------------------
+# _setup_periodic_tasks signal handler (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestSetupPeriodicTasks:
+    """Test the _setup_periodic_tasks signal handler."""
+
+    def test_calls_ensure_usage_schedule(self) -> None:
+        """_setup_periodic_tasks should delegate to ensure_usage_schedule."""
+        with patch(
+            "helping_hands.server.celery_app.ensure_usage_schedule"
+        ) as mock_ensure:
+            celery_app._setup_periodic_tasks(sender=MagicMock())
+
+        mock_ensure.assert_called_once()
