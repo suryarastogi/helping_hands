@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from subprocess import TimeoutExpired
 from tempfile import mkdtemp
@@ -89,7 +89,9 @@ def _error_exit(msg: str) -> None:
     sys.exit(1)
 
 
-def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
+def _validate_or_exit(
+    fn: Callable[..., object], *args: object, **kwargs: object
+) -> object:
     """Call *fn* and exit on ``ValueError``.
 
     Wraps a validation callable so that a ``ValueError`` is printed to
@@ -105,7 +107,7 @@ def _validate_or_exit(fn: object, *args: object, **kwargs: object) -> object:
         The return value of *fn* when no ``ValueError`` is raised.
     """
     try:
-        return fn(*args, **kwargs)  # type: ignore[operator]
+        return fn(*args, **kwargs)
     except ValueError as exc:
         _error_exit(str(exc))
 

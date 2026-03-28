@@ -11,20 +11,31 @@ sentinels so the rest of the server can start without it.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
-from typing import Any
+import math
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
 try:
-    from pycrdt_websocket import (  # type: ignore[import-untyped]
+    from pycrdt.websocket import (  # type: ignore[import-untyped]
         ASGIServer,
         WebsocketServer,
     )
 
     _HAS_PYCRDT = True
-except ImportError:  # pragma: no cover
-    _HAS_PYCRDT = False
+except ImportError:
+    try:
+        from pycrdt_websocket import (  # type: ignore[import-untyped]
+            ASGIServer,
+            WebsocketServer,
+        )
+
+        _HAS_PYCRDT = True
+    except ImportError:  # pragma: no cover
+        _HAS_PYCRDT = False
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -33,6 +44,7 @@ except ImportError:  # pragma: no cover
 # Singleton instances — initialised lazily via ``create_yjs_app()``.
 yjs_websocket_server: Any | None = None
 yjs_asgi_app: Any | None = None
+_yjs_task: asyncio.Task[None] | None = None
 
 
 def create_yjs_app() -> Any | None:
@@ -61,9 +73,12 @@ async def start_yjs_server() -> None:
     """Start the Yjs WebSocket server background task.
 
     Must be called during FastAPI startup (after ``create_yjs_app``).
+
+    pycrdt-websocket >= 0.16 uses an async context manager to start the
+    server.  We enter the context here and exit it in ``stop_yjs_server``.
     """
     if yjs_websocket_server is not None:
-        await yjs_websocket_server.start()
+        await yjs_websocket_server.__aenter__()
         logger.info("Yjs WebSocket server started")
 
 
@@ -73,7 +88,7 @@ async def stop_yjs_server() -> None:
     Must be called during FastAPI shutdown.
     """
     if yjs_websocket_server is not None:
-        await yjs_websocket_server.stop()
+        await yjs_websocket_server.__aexit__(None, None, None)
         logger.info("Yjs WebSocket server stopped")
 
 
@@ -106,3 +121,284 @@ def get_multiplayer_stats() -> dict[str, object]:
     except Exception:
         logger.debug("Failed to read multiplayer stats", exc_info=True)
         return {"available": True, "rooms": 0, "connections": 0}
+
+
+def get_connected_players() -> dict[str, object]:
+    """Return a list of connected players with their awareness metadata.
+
+    Iterates over Yjs rooms, reads each client's awareness state, and
+    extracts player fields (``player_id``, ``name``, ``color``, ``x``,
+    ``y``, ``idle``).  Returns::
+
+        {
+            "players": [
+                {"player_id": "abc", "name": "Alice", "color": "#e74c3c",
+                 "x": 50.0, "y": 50.0, "idle": false},
+                ...
+            ],
+            "count": 1
+        }
+
+    When the Yjs server is unavailable, returns an empty player list.
+    """
+    if yjs_websocket_server is None:
+        return {"players": [], "count": 0}
+
+    players: list[dict[str, object]] = []
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        for room in rooms.values():
+            awareness = getattr(room, "awareness", None)
+            if awareness is None:
+                continue
+            # awareness.states is a dict[int, bytes] of encoded state per client
+            states: dict[int, bytes] = getattr(awareness, "states", {})
+            for _client_id, raw_state in states.items():
+                state = _parse_awareness_state(raw_state)
+                if state is None:
+                    continue
+                player_state = _extract_player_state(state)
+                if player_state is None:
+                    continue
+                validated = validate_awareness_state(player_state)
+                players.append(
+                    {
+                        "player_id": validated["player_id"],
+                        "name": validated["name"],
+                        "color": validated["color"],
+                        "x": validated["x"],
+                        "y": validated["y"],
+                        "idle": validated["idle"],
+                    }
+                )
+    except Exception:
+        logger.debug("Failed to read connected players", exc_info=True)
+
+    return {"players": players, "count": len(players)}
+
+
+# ---------------------------------------------------------------------------
+# Awareness state validation
+# ---------------------------------------------------------------------------
+
+_MAX_NAME_LENGTH = 50
+_MAX_CHAT_LENGTH = 120
+_MAX_EMOTE_LENGTH = 20
+_VALID_POSITION_RANGE = (0.0, 100.0)
+
+
+def validate_awareness_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Validate and sanitise an awareness state dict.
+
+    Clamps positions to [0, 100], coerces types, truncates overly long
+    strings, and strips control characters from text fields.  Returns a
+    clean copy — the original dict is not mutated.
+    """
+    clean: dict[str, Any] = {}
+
+    # player_id — must be a non-empty string.
+    pid = state.get("player_id", "")
+    clean["player_id"] = str(pid) if pid else ""
+
+    # name — string, truncated.
+    name = state.get("name", "")
+    name = str(name) if name else ""
+    name = _strip_control_chars(name[:_MAX_NAME_LENGTH])
+    clean["name"] = name
+
+    # color — string (hex or named).
+    color = state.get("color", "")
+    clean["color"] = str(color) if color else ""
+
+    # x, y — float clamped to [0, 100].
+    clean["x"] = _clamp_float(state.get("x", 50), *_VALID_POSITION_RANGE)
+    clean["y"] = _clamp_float(state.get("y", 50), *_VALID_POSITION_RANGE)
+
+    # idle — boolean.
+    clean["idle"] = bool(state.get("idle", False))
+
+    # direction — one of the four cardinal values.
+    direction = state.get("direction", "down")
+    clean["direction"] = (
+        direction if direction in ("up", "down", "left", "right") else "down"
+    )
+
+    # walking — boolean.
+    clean["walking"] = bool(state.get("walking", False))
+
+    # typing — boolean.
+    clean["typing"] = bool(state.get("typing", False))
+
+    # emote — optional short string.
+    emote = state.get("emote")
+    if emote:
+        emote = _strip_control_chars(str(emote)[:_MAX_EMOTE_LENGTH])
+    clean["emote"] = emote or None
+
+    # chat — optional truncated string.
+    chat = state.get("chat")
+    if chat:
+        chat = _strip_control_chars(str(chat)[:_MAX_CHAT_LENGTH])
+    clean["chat"] = chat or None
+
+    return clean
+
+
+def _clamp_float(value: object, lo: float, hi: float) -> float:
+    """Coerce *value* to float and clamp to [lo, hi]."""
+    try:
+        v = float(cast(Any, value))
+    except (TypeError, ValueError):
+        return (lo + hi) / 2
+    if math.isnan(v) or math.isinf(v):
+        return hi if v == float("inf") else lo if v == float("-inf") else (lo + hi) / 2
+    return max(lo, min(hi, v))
+
+
+def _strip_control_chars(text: str) -> str:
+    """Remove ASCII control characters (0x00-0x1F) except space."""
+    return "".join(c for c in text if c == " " or (ord(c) > 0x1F))
+
+
+def get_player_activity_summary() -> dict[str, object]:
+    """Return a summary of player activity across all rooms.
+
+    Returns::
+
+        {
+            "total": 3,
+            "active": 2,
+            "idle": 1,
+            "players": [
+                {"player_id": "abc", "name": "Alice", "idle": false, ...},
+                ...
+            ]
+        }
+    """
+    if yjs_websocket_server is None:
+        return {"total": 0, "active": 0, "idle": 0, "players": []}
+
+    players: list[dict[str, object]] = []
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        for room in rooms.values():
+            awareness = getattr(room, "awareness", None)
+            if awareness is None:
+                continue
+            states: dict[int, bytes] = getattr(awareness, "states", {})
+            for _client_id, raw_state in states.items():
+                state = _parse_awareness_state(raw_state)
+                if state is None:
+                    continue
+                player_state = _extract_player_state(state)
+                if player_state is None:
+                    continue
+                validated = validate_awareness_state(player_state)
+                players.append(validated)
+    except Exception:
+        logger.debug("Failed to read player activity", exc_info=True)
+
+    active_count = sum(1 for p in players if not p.get("idle", False))
+    idle_count = sum(1 for p in players if p.get("idle", False))
+
+    return {
+        "total": len(players),
+        "active": active_count,
+        "idle": idle_count,
+        "players": players,
+    }
+
+
+def get_decoration_state() -> dict[str, object]:
+    """Return the current shared decoration state from the Y.Doc.
+
+    Reads the ``decorations`` Y.Map from the ``hand-world`` room's Y.Doc
+    and returns the items as a list.  Returns::
+
+        {
+            "decorations": [
+                {"id": "...", "emoji": "🌸", "x": 42.0, "y": 18.5,
+                 "placedBy": "Alice", "color": "#e11d48", "placedAt": 1711539600000},
+                ...
+            ],
+            "count": 1
+        }
+
+    When the Yjs server is unavailable or the room has no decorations,
+    returns an empty list.
+    """
+    if yjs_websocket_server is None:
+        return {"decorations": [], "count": 0}
+
+    decorations: list[dict[str, object]] = []
+    try:
+        rooms = getattr(yjs_websocket_server, "rooms", {})
+        for _room_name, room in rooms.items():
+            ydoc = getattr(room, "ydoc", None)
+            if ydoc is None:
+                continue
+            try:
+                deco_map = ydoc.get("decorations", type="map")
+            except Exception:
+                continue
+            if deco_map is None:
+                continue
+            for key in deco_map:
+                value = deco_map[key]
+                if isinstance(value, dict) and value.get("emoji"):
+                    item: dict[str, object] = {
+                        "id": str(key),
+                        "emoji": str(value.get("emoji", "")),
+                        "x": _clamp_float(value.get("x", 0), 0.0, 100.0),
+                        "y": _clamp_float(value.get("y", 0), 0.0, 100.0),
+                        "placedBy": _strip_control_chars(
+                            str(value.get("placedBy", "Unknown"))[:_MAX_NAME_LENGTH]
+                        ),
+                        "color": str(value.get("color", "")),
+                        "placedAt": int(value.get("placedAt", 0)),
+                    }
+                    decorations.append(item)
+    except Exception:
+        logger.debug("Failed to read decoration state", exc_info=True)
+
+    decorations.sort(key=lambda d: d.get("placedAt", 0))
+    return {"decorations": decorations, "count": len(decorations)}
+
+
+def _extract_player_state(state: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract the ``player`` sub-dict from a Yjs awareness state.
+
+    The frontend stores player data under ``{player: {player_id, name, ...}}``.
+    This helper unwraps that nesting so that ``validate_awareness_state`` receives
+    a flat dict.  If the state is already flat (has ``player_id`` at top level)
+    it is returned as-is for backwards compatibility.
+
+    Returns ``None`` if neither a ``player`` sub-dict nor a flat ``player_id``
+    field is found.
+    """
+    # Nested format: {player: {player_id: ..., name: ..., ...}}
+    player = state.get("player")
+    if isinstance(player, dict):
+        return cast(dict[str, Any], player)
+    # Flat format (legacy/direct): {player_id: ..., name: ..., ...}
+    if "player_id" in state or "name" in state:
+        return state
+    return None
+
+
+def _parse_awareness_state(raw: object) -> dict[str, Any] | None:
+    """Best-effort decode of an awareness state entry.
+
+    The state may already be a dict (pycrdt in-process) or a JSON-encoded
+    bytes/str blob (wire format).  Returns ``None`` on failure.
+    """
+    if isinstance(raw, dict):
+        return cast(dict[str, Any], raw)
+    try:
+        if isinstance(raw, bytes | bytearray):
+            return json.loads(raw.decode("utf-8", errors="replace"))  # type: ignore[no-any-return]
+        if isinstance(raw, str):
+            return json.loads(raw)  # type: ignore[no-any-return]
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        pass
+    return None

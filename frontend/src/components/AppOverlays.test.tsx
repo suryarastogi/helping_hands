@@ -174,5 +174,88 @@ describe("AppOverlays", () => {
       fireEvent.click(dismissBtn);
       expect(container.querySelector(".notif-banner")).toBeNull();
     });
+
+    it("calls requestPermission when Enable is clicked", async () => {
+      const { container } = renderOverlays();
+      const banner = container.querySelector(".notif-banner")!;
+      const enableBtn = banner.querySelectorAll("button")[0];
+      fireEvent.click(enableBtn);
+      expect(globalThis.Notification.requestPermission).toHaveBeenCalled();
+    });
+  });
+
+  describe("testNotification button", () => {
+    const origNotification = globalThis.Notification;
+    const origAlert = globalThis.alert;
+
+    beforeEach(() => {
+      globalThis.alert = vi.fn();
+    });
+
+    afterEach(() => {
+      globalThis.Notification = origNotification;
+      globalThis.alert = origAlert;
+    });
+
+    it("alerts when Notification API is unavailable", () => {
+      // Remove Notification entirely
+      // @ts-expect-error — intentionally removing for test
+      delete globalThis.Notification;
+      const { container } = renderOverlays();
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+      expect(globalThis.alert).toHaveBeenCalledWith(
+        "Notification API not available in this context",
+      );
+    });
+
+    it("requests permission when not granted and calls testNotification on grant", async () => {
+      globalThis.Notification = {
+        permission: "denied",
+        requestPermission: vi.fn().mockResolvedValue("granted"),
+      } as unknown as typeof Notification;
+      const { container } = renderOverlays();
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+      expect(globalThis.Notification.requestPermission).toHaveBeenCalled();
+    });
+
+    it("uses new Notification when permission granted and no SW registration", () => {
+      const NotifMock = vi.fn();
+      (NotifMock as unknown as Record<string, unknown>).permission = "granted";
+      (NotifMock as unknown as Record<string, unknown>).requestPermission = vi.fn().mockResolvedValue("granted");
+      globalThis.Notification = NotifMock as unknown as typeof Notification;
+      const { container } = renderOverlays();
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+      expect(NotifMock).toHaveBeenCalledWith("Helping Hands — Test", {
+        body: "If you see this, OS notifications are working!",
+      });
+    });
+
+    it("alerts when new Notification constructor throws", () => {
+      const NotifMock = vi.fn(() => { throw new Error("blocked"); });
+      (NotifMock as unknown as Record<string, unknown>).permission = "granted";
+      (NotifMock as unknown as Record<string, unknown>).requestPermission = vi.fn().mockResolvedValue("granted");
+      globalThis.Notification = NotifMock as unknown as typeof Notification;
+      const { container } = renderOverlays();
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      fireEvent.click(btn);
+      expect(globalThis.alert).toHaveBeenCalledWith(
+        expect.stringContaining("Notification failed"),
+      );
+    });
+
+    it("handles requestPermission rejection gracefully", async () => {
+      globalThis.Notification = {
+        permission: "denied",
+        requestPermission: vi.fn().mockRejectedValue(new Error("denied")),
+      } as unknown as typeof Notification;
+      const { container } = renderOverlays();
+      const btn = container.querySelector('[title="Send a test OS notification"]') as HTMLButtonElement;
+      // Should not throw
+      fireEvent.click(btn);
+      expect(globalThis.Notification.requestPermission).toHaveBeenCalled();
+    });
   });
 });

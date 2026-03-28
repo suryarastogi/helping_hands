@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
-import { OFFICE_BOUNDS, PLAYER_MOVE_STEP } from "../constants";
+import { OFFICE_BOUNDS, PLAYER_MOVE_STEP, SPAWN_PADDING } from "../constants";
 import type { DeskSlot } from "../types";
-import { useMovement } from "./useMovement";
+import { randomSpawnPosition, useMovement } from "./useMovement";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,9 +16,9 @@ function pressKey(key: string) {
   act(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
   });
-  // Flush the requestAnimationFrame callback
+  // Flush the requestAnimationFrame callback (mocked as setTimeout)
   act(() => {
-    vi.advanceTimersByTime(16);
+    vi.advanceTimersToNextTimer();
   });
 }
 
@@ -32,12 +32,28 @@ function releaseKey(key: string) {
 // Tests
 // ---------------------------------------------------------------------------
 
+describe("randomSpawnPosition", () => {
+  it("returns positions within padded office bounds", () => {
+    for (let i = 0; i < 20; i++) {
+      const pos = randomSpawnPosition();
+      expect(pos.x).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minX + SPAWN_PADDING);
+      expect(pos.x).toBeLessThanOrEqual(OFFICE_BOUNDS.maxX - SPAWN_PADDING);
+      expect(pos.y).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minY + SPAWN_PADDING);
+      expect(pos.y).toBeLessThanOrEqual(OFFICE_BOUNDS.maxY - SPAWN_PADDING);
+    }
+  });
+});
+
 describe("useMovement hook", () => {
-  it("returns default position when inactive", () => {
+  it("returns a random position and default direction when inactive", () => {
     const { result } = renderHook(() =>
       useMovement({ active: false, deskSlots: emptyDesks }),
     );
-    expect(result.current.playerPosition).toEqual({ x: 50, y: 50 });
+    // Position is randomized, so just check it's within bounds
+    expect(result.current.playerPosition.x).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minX);
+    expect(result.current.playerPosition.x).toBeLessThanOrEqual(OFFICE_BOUNDS.maxX);
+    expect(result.current.playerPosition.y).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minY);
+    expect(result.current.playerPosition.y).toBeLessThanOrEqual(OFFICE_BOUNDS.maxY);
     expect(result.current.playerDirection).toBe("down");
     expect(result.current.isPlayerWalking).toBe(false);
   });
@@ -54,10 +70,11 @@ describe("useMovement hook", () => {
       useMovement({ active: true, deskSlots: emptyDesks }),
     );
 
+    const initialY = result.current.playerPosition.y;
     pressKey("ArrowUp");
 
     expect(result.current.playerDirection).toBe("up");
-    expect(result.current.playerPosition.y).toBeLessThan(50);
+    expect(result.current.playerPosition.y).toBeLessThan(initialY);
     expect(result.current.isPlayerWalking).toBe(true);
 
     releaseKey("ArrowUp");
@@ -78,9 +95,10 @@ describe("useMovement hook", () => {
       useMovement({ active: true, deskSlots: emptyDesks }),
     );
 
+    const initialX = result.current.playerPosition.x;
     pressKey("d");
     expect(result.current.playerDirection).toBe("right");
-    expect(result.current.playerPosition.x).toBeGreaterThan(50);
+    expect(result.current.playerPosition.x).toBeGreaterThan(initialX);
     releaseKey("d");
 
     vi.restoreAllMocks();
@@ -153,8 +171,11 @@ describe("useMovement hook", () => {
     pressKey("ArrowRight");
     releaseKey("ArrowRight");
 
-    // Position should not change
-    expect(result.current.playerPosition).toEqual({ x: 50, y: 50 });
+    // Position should not change (stays at random spawn)
+    const pos = result.current.playerPosition;
+    pressKey("ArrowRight");
+    releaseKey("ArrowRight");
+    expect(result.current.playerPosition).toEqual(pos);
     expect(result.current.isPlayerWalking).toBe(false);
 
     vi.restoreAllMocks();
@@ -181,11 +202,12 @@ describe("useMovement hook", () => {
       );
     });
     act(() => {
-      vi.advanceTimersByTime(16);
+      vi.advanceTimersToNextTimer();
     });
 
     // Position should not change since we're typing in an input
-    expect(result.current.playerPosition).toEqual({ x: 50, y: 50 });
+    const pos = result.current.playerPosition;
+    expect(result.current.playerPosition).toEqual(pos);
 
     document.body.removeChild(input);
     vi.restoreAllMocks();
@@ -203,9 +225,10 @@ describe("useMovement hook", () => {
       useMovement({ active: true, deskSlots: emptyDesks }),
     );
 
+    const initialX = result.current.playerPosition.x;
     pressKey("ArrowLeft");
     expect(result.current.playerDirection).toBe("left");
-    expect(result.current.playerPosition.x).toBeLessThan(50);
+    expect(result.current.playerPosition.x).toBeLessThan(initialX);
     releaseKey("ArrowLeft");
 
     vi.restoreAllMocks();
@@ -223,9 +246,10 @@ describe("useMovement hook", () => {
       useMovement({ active: true, deskSlots: emptyDesks }),
     );
 
+    const initialX = result.current.playerPosition.x;
     pressKey("a");
     expect(result.current.playerDirection).toBe("left");
-    expect(result.current.playerPosition.x).toBeLessThan(50);
+    expect(result.current.playerPosition.x).toBeLessThan(initialX);
     releaseKey("a");
 
     vi.restoreAllMocks();

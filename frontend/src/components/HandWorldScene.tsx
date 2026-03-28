@@ -3,52 +3,38 @@
  *
  * Renders the background decorations, factory entrance, incinerator exit,
  * work desks, player avatars (local + remote), worker sprites, and the
- * two HUD panels (status summary + Claude usage).
+ * two HUD panels (FactoryFloorPanel + Claude usage).
  */
-import { type CSSProperties, type Ref, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type Ref, useState } from "react";
 
-import { CHAT_MAX_LENGTH } from "../constants";
+import { MAX_DECORATIONS } from "../constants";
 
+import type { RemoteCursor as RemoteCursorType } from "../hooks/useMultiplayer";
 import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
-import { savePlayerName } from "../hooks/useMultiplayer";
+import type { SceneWorkerEntry } from "../hooks/useSceneWorkers";
 import type {
-  CharacterStyle,
   ChatMessage,
   ClaudeUsageResponse,
+  CursorPosition,
   DeskSlot,
   FloatingNumber,
   PlayerDirection,
   PlayerPosition,
-  SceneWorkerPhase,
-  ScheduleItem,
-  WorkerVariant,
+  WorldDecoration,
 } from "../types";
+import FactoryFloorPanel from "./FactoryFloorPanel";
+import Minimap from "./Minimap";
+import type { MinimapWorker } from "./Minimap";
 import PlayerAvatar from "./PlayerAvatar";
+import RemoteCursor from "./RemoteCursor";
 import WorkerSprite from "./WorkerSprite";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** Enriched worker entry with task/desk/style data, as computed in App.tsx. */
-export type SceneWorkerEntry = {
-  taskId: string;
-  slot: number;
-  phase: SceneWorkerPhase;
-  phaseChangedAt: number;
-  task: {
-    backend?: string;
-    repoPath?: string;
-    status?: string;
-  } | null;
-  desk: DeskSlot;
-  isActive: boolean;
-  provider: string;
-  style: CharacterStyle;
-  spriteVariant: WorkerVariant;
-  schedule: ScheduleItem | null;
-};
+export type { SceneWorkerEntry } from "../hooks/useSceneWorkers";
 
 export type HandWorldSceneProps = {
   /** Ref forwarded onto the scene container div (used for focus/keyboard). */
@@ -76,15 +62,24 @@ export type HandWorldSceneProps = {
   remotePlayers: RemotePlayer[];
   remoteEmotes: Record<string, string>;
   remoteChats: Record<string, string>;
+  remoteTyping: Record<string, boolean>;
   localChat: string | null;
   isLocalIdle: boolean;
+  isLocalTyping: boolean;
   connectionStatus: ConnectionStatus;
   chatHistory: ChatMessage[];
   onSendChat: (message: string) => void;
+  onSetTyping: (typing: boolean) => void;
+  /** Whether chat is on cooldown (disables send). */
+  chatOnCooldown: boolean;
+  /** Trigger an emote by key ("1"–"4"). */
+  onTriggerEmote: (key: string) => void;
 
-  // -- Player name --
+  // -- Player name & color --
   playerNameInput: string;
   onPlayerNameChange: (name: string) => void;
+  playerColorInput: string;
+  onPlayerColorChange: (color: string) => void;
 
   // -- Claude usage --
   claudeUsage: ClaudeUsageResponse | null;
@@ -94,6 +89,17 @@ export type HandWorldSceneProps = {
 
   // -- Floating numbers --
   floatingNumbers: FloatingNumber[];
+
+  // -- Shared decorations --
+  decorations: WorldDecoration[];
+  onPlaceDecoration: (emoji: string, x: number, y: number) => void;
+  onClearDecorations: () => void;
+  /** Whether decoration placement is on cooldown. */
+  decoOnCooldown: boolean;
+
+  // -- Remote cursors --
+  remoteCursors: RemoteCursorType[];
+  onCursorMove: (position: CursorPosition | null) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -115,38 +121,59 @@ export default function HandWorldScene({
   remotePlayers,
   remoteEmotes,
   remoteChats,
+  remoteTyping,
   localChat,
   isLocalIdle,
+  isLocalTyping,
   connectionStatus,
   chatHistory,
   onSendChat,
+  onSetTyping,
+  chatOnCooldown,
+  onTriggerEmote,
   playerNameInput,
   onPlayerNameChange,
+  playerColorInput,
+  onPlayerColorChange,
   claudeUsage,
   claudeUsageLoading,
   onRefreshClaudeUsage,
   showClaudeUsage = true,
   floatingNumbers,
+  decorations,
+  onPlaceDecoration,
+  onClearDecorations,
+  decoOnCooldown,
+  remoteCursors,
+  onCursorMove,
 }: HandWorldSceneProps) {
-  const [chatInput, setChatInput] = useState("");
-  const chatInputRef = useRef<HTMLInputElement>(null);
-  const chatHistoryRef = useRef<HTMLDivElement>(null);
+  const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
 
-  // Auto-scroll chat history to bottom when new messages arrive.
-  useEffect(() => {
-    const el = chatHistoryRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [chatHistory.length]);
+  // Build minimap worker positions from desk slot centers.
+  const minimapWorkers: MinimapWorker[] = workerEntries
+    .filter((w) => w.phase === "active" || w.phase === "walking-to-desk")
+    .map((w) => ({ taskId: w.taskId, x: w.desk.left + 4, y: w.desk.top + 3.5 }));
 
-  const handleChatSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = chatInput.trim();
-    if (!text) return;
-    onSendChat(text);
-    setChatInput("");
-    chatInputRef.current?.blur();
+  const handleSceneDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!selectedDecoEmoji || connectionStatus !== "connected") return;
+    if (decorations.length >= MAX_DECORATIONS || decoOnCooldown) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    onPlaceDecoration(selectedDecoEmoji, x, y);
+    setSelectedDecoEmoji(null);
+  };
+
+  const handleSceneMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (connectionStatus !== "connected") return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    onCursorMove({ x, y });
+  };
+
+  const handleSceneMouseLeave = () => {
+    onCursorMove(null);
   };
 
   return (
@@ -165,11 +192,14 @@ export default function HandWorldScene({
 
       <div
         ref={sceneRef}
-        className="world-scene office-scene"
+        className={`world-scene office-scene${selectedDecoEmoji ? " deco-placing" : ""}`}
         role="list"
         aria-label="Current factory workers"
         style={sceneStyle}
         tabIndex={0}
+        onDoubleClick={handleSceneDoubleClick}
+        onMouseMove={handleSceneMouseMove}
+        onMouseLeave={handleSceneMouseLeave}
       >
         <div className="zen-border" aria-hidden="true" />
         <div className="zen-sand-floor" aria-hidden="true" />
@@ -264,94 +294,26 @@ export default function HandWorldScene({
           );
         })}
 
-        <div className="zen-status-summary">
-          <div className="status-summary-header">Factory Floor</div>
-          <div className="status-summary-stat">
-            <span className="stat-icon">&#128187;</span>
-            <span>{maxWorkers} Stations</span>
-          </div>
-          <div className="status-summary-stat">
-            <span className="stat-icon">&#129302;</span>
-            <span>{workerEntries.length} Active</span>
-          </div>
-          <div className="status-summary-stat player-name-row">
-            <span className="stat-icon">&#128100;</span>
-            <input
-              type="text"
-              className="player-name-input"
-              value={playerNameInput}
-              onChange={(e) => {
-                onPlayerNameChange(e.target.value);
-                savePlayerName(e.target.value);
-              }}
-              placeholder="Your name"
-              maxLength={24}
-              aria-label="Player name"
-            />
-          </div>
-          {remotePlayers.length > 0 && (
-            <div className="presence-panel" aria-label="Connected players">
-              <div className="presence-header">
-                <span className="stat-icon">&#128101;</span>
-                <span>{remotePlayers.length + 1} Online</span>
-              </div>
-              <ul className="presence-list">
-                {remotePlayers.map((rp) => (
-                  <li key={rp.player_id} className="presence-item">
-                    <span
-                      className="presence-dot"
-                      style={{ backgroundColor: rp.color }}
-                    />
-                    <span className="presence-name">
-                      {rp.name}{rp.idle ? " (idle)" : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="status-summary-hint">
-            <span className={`conn-status-dot conn-status-${connectionStatus}`} aria-label={`Connection: ${connectionStatus}`} />
-            {connectionStatus === "connected"
-              ? "Multiplayer active \u00b7 Arrow keys: walk \u00b7 1-4: emote"
-              : connectionStatus === "connecting"
-                ? "Connecting\u2026"
-                : "Disconnected \u00b7 Arrow keys: walk"}
-          </div>
-          {connectionStatus === "connected" && (
-            <form className="chat-input-form" onSubmit={handleChatSubmit}>
-              <input
-                ref={chatInputRef}
-                type="text"
-                className="chat-input"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Press Enter to chat..."
-                maxLength={CHAT_MAX_LENGTH}
-                aria-label="Chat message"
-              />
-            </form>
-          )}
-          {chatHistory.length > 0 && (
-            <div
-              ref={chatHistoryRef}
-              className="chat-history-panel"
-              aria-label="Chat history"
-            >
-              {chatHistory.map((msg) => (
-                <div key={msg.id} className="chat-history-message">
-                  <span
-                    className="chat-history-name"
-                    style={{ color: msg.playerColor }}
-                  >
-                    {msg.playerName}
-                  </span>
-                  <span className="chat-history-text">{msg.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <FactoryFloorPanel
+          maxWorkers={maxWorkers}
+          activeWorkerCount={workerEntries.length}
+          remotePlayers={remotePlayers}
+          connectionStatus={connectionStatus}
+          chatHistory={chatHistory}
+          onSendChat={onSendChat}
+          onSetTyping={onSetTyping}
+          chatOnCooldown={chatOnCooldown}
+          onTriggerEmote={onTriggerEmote}
+          playerNameInput={playerNameInput}
+          onPlayerNameChange={onPlayerNameChange}
+          playerColorInput={playerColorInput}
+          onPlayerColorChange={onPlayerColorChange}
+          decorations={decorations}
+          onClearDecorations={onClearDecorations}
+          decoOnCooldown={decoOnCooldown}
+          selectedDecoEmoji={selectedDecoEmoji}
+          onSelectedDecoEmojiChange={setSelectedDecoEmoji}
+        />
 
         {showClaudeUsage && (
         <div className="zen-usage-summary">
@@ -363,6 +325,7 @@ export default function HandWorldScene({
               onClick={onRefreshClaudeUsage}
               disabled={claudeUsageLoading}
               title="Refresh usage"
+              aria-label="Refresh Claude usage"
             >
               &#8635;
             </button>
@@ -401,6 +364,7 @@ export default function HandWorldScene({
           emote={localEmote}
           chat={localChat}
           idle={isLocalIdle}
+          typing={isLocalTyping}
           isLocal
           x={playerPosition.x}
           y={playerPosition.y}
@@ -415,11 +379,55 @@ export default function HandWorldScene({
             emote={remoteEmotes[rp.player_id]}
             chat={remoteChats[rp.player_id]}
             idle={rp.idle}
+            typing={remoteTyping[rp.player_id] ?? false}
             color={rp.color}
             x={rp.x}
             y={rp.y}
           />
         ))}
+
+        {decorations.map((d) => (
+          <span
+            key={d.id}
+            className="world-decoration"
+            style={{ left: `${d.x}%`, top: `${d.y}%` }}
+            title={`Placed by ${d.placedBy}`}
+            aria-label={`${d.emoji} decoration by ${d.placedBy}`}
+          >
+            {d.emoji}
+          </span>
+        ))}
+
+        {remoteCursors.map((c) => (
+          <RemoteCursor
+            key={c.player_id}
+            name={c.name}
+            color={c.color}
+            x={c.x}
+            y={c.y}
+          />
+        ))}
+
+        {connectionStatus === "connected" && (
+          <Minimap
+            playerPosition={playerPosition}
+            remotePlayers={remotePlayers}
+            workers={minimapWorkers}
+          />
+        )}
+
+        {connectionStatus === "connecting" && (
+          <div className="reconnect-banner" role="alert" aria-live="polite" aria-label="Reconnecting">
+            <span className="reconnect-spinner" />
+            <span>Reconnecting&hellip;</span>
+          </div>
+        )}
+
+        {connectionStatus === "failed" && (
+          <div className="reconnect-banner reconnect-failed" role="alert" aria-live="assertive" aria-label="Connection failed">
+            <span>Connection failed after multiple attempts</span>
+          </div>
+        )}
 
         {workerEntries.map((worker) => (
           <WorkerSprite

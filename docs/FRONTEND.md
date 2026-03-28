@@ -42,8 +42,12 @@ frontend/src/
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
 ├── components/
+│   ├── FactoryFloorPanel.tsx   # Left HUD panel (name, color, presence, chat, emotes, decorations)
+│   ├── FactoryFloorPanel.test.tsx # FactoryFloorPanel render + interaction tests
 │   ├── HandWorldScene.tsx      # Full zen-garden scene (factory, desks, players, workers, HUD)
 │   ├── HandWorldScene.test.tsx # HandWorldScene render tests
+│   ├── Minimap.tsx             # Bird's-eye minimap overlay (player/worker dots)
+│   ├── Minimap.test.tsx       # Minimap render tests
 │   ├── MonitorCard.tsx         # Task output monitor card (tabs, filters, usage, resize)
 │   ├── MonitorCard.test.tsx    # MonitorCard render + interaction tests
 │   ├── PlayerAvatar.tsx        # Reusable human-player sprite component
@@ -56,30 +60,52 @@ frontend/src/
 │   ├── SubmissionForm.test.tsx # SubmissionForm render + field change tests
 │   ├── TaskListSidebar.tsx     # Left sidebar (view toggle, nav buttons, task list)
 │   ├── TaskListSidebar.test.tsx# TaskListSidebar render + interaction tests
+│   ├── RemoteCursor.tsx         # SVG arrow cursor for remote player mouse position
+│   ├── RemoteCursor.test.tsx   # RemoteCursor render tests
+│   ├── RepoChipInput.tsx       # Chip-based input for reference repos (suggestions, keyboard nav)
+│   ├── RepoChipInput.test.tsx  # RepoChipInput render + interaction tests
+│   ├── RepoSuggestInput.tsx    # Text input with recent-repo suggestion dropdown
+│   ├── RepoSuggestInput.test.tsx # RepoSuggestInput render + interaction tests
 │   ├── WorkerSprite.tsx        # Worker sprite (bot + goose variants) with caption & floating numbers
 │   └── WorkerSprite.test.tsx   # WorkerSprite render tests
 ├── hooks/
-│   ├── useMovement.ts          # Keyboard-driven player movement hook
-│   ├── useMovement.test.tsx    # Movement, collision, keyboard binding tests
-│   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook
-│   ├── useMultiplayer.test.tsx # Hook lifecycle + player name persistence tests
+│   ├── useMovement.ts          # Keyboard-driven player movement hook (randomized spawn)
+│   ├── useMovement.test.tsx    # Movement, collision, keyboard binding, spawn tests
+│   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook (join/leave notifications)
+│   ├── useMultiplayer.test.tsx # Hook lifecycle, player name, join/leave notification tests
+│   ├── useSceneWorkers.ts     # Scene worker lifecycle, desk slot allocation, phase timer
+│   ├── useSceneWorkers.test.tsx # Worker creation, phase transitions, slot assignment, style enrichment
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
-│   └── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
+│   ├── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
+│   ├── useServiceHealth.ts    # Service health polling hook (15s interval)
+│   ├── useServiceHealth.test.tsx # Service health hook tests
+│   ├── useClaudeUsage.ts      # Claude Code usage polling hook (1h interval + manual refresh)
+│   ├── useClaudeUsage.test.tsx # Claude usage hook tests
+│   ├── useRecentRepos.ts     # Recently used repos hook (localStorage, cross-tab sync)
+│   ├── useRecentRepos.test.tsx # Recent repos hook tests (add, remove, dedup, cap, sync, errors)
+│   ├── useTaskManager.ts      # Task submission, polling, history, output, and toasts hook
+│   └── useTaskManager.test.tsx# Task manager hook tests (submit, select, poll, history, output)
 └── test/
     └── setup.ts          # Vitest setup (jsdom environment)
 ```
 
 ### State management
 
-State is managed via React's built-in `useState` hooks within `App.tsx`:
+State is managed via React's built-in `useState` hooks, organized into custom hooks:
 
-- **FormState** — All form fields (repo path, prompt, backend, model, toggles)
-- **TaskHistoryItem[]** — Local task history with status polling
-- **WorkerCapacityResponse** — Celery worker availability
-- **CurrentTasksResponse** — Active/queued tasks from server
+- **`useTaskManager`** — Task submission, polling (primary 3s + background 10s),
+  task history (localStorage persistence), form state, output tabs, floating
+  numbers, toasts, worker capacity, and all derived task state
+- **`useSceneWorkers`** — Scene worker lifecycle (task→worker mapping, desk slot
+  allocation, phase transitions, provider style enrichment, schedule annotation)
+- **`useSchedules`** — Schedule CRUD state and operations
+- **`useMovement`** — Keyboard-driven player movement, collision detection
+- **`useMultiplayer`** — Yjs awareness multiplayer presence, chat, decorations
+- **`useServiceHealth`** — Service health polling (15-second interval)
+- **`useClaudeUsage`** — Claude Code usage polling (hourly) + manual force-refresh
 
 No external state library (Redux, Zustand, etc.) is used. State flows
-top-down within `App.tsx` via props to inline sub-components.
+top-down from hooks through `App.tsx` via props to child components.
 
 ### Key TypeScript types
 
@@ -132,6 +158,13 @@ To verify both surfaces offer the same features:
 - Run with `npm --prefix frontend run test`
 - CI enforces: Vitest with coverage via `@vitest/coverage-v8`
 
+### E2E tests (Playwright)
+
+- Tests live in `frontend/e2e/` (e.g., `world-view.spec.ts`, `multiplayer.spec.ts`)
+- `multiplayer.spec.ts` — multi-context tests verifying two browser windows
+  each render Hand World with independent local player avatars
+- Run with `npx playwright test` from `frontend/`
+
 ### Lint and type safety
 
 - ESLint catches code quality issues: `npm --prefix frontend run lint`
@@ -156,6 +189,7 @@ To verify both surfaces offer the same features:
 | `/workers/capacity` | GET | Celery worker pool info |
 | `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync |
 | `/health/multiplayer` | GET | Multiplayer room/connection stats |
+| `/health/multiplayer/players` | GET | Connected player list with positions |
 
 ## Multiplayer Hand World
 
@@ -189,13 +223,19 @@ the Y.Doc itself remains empty.
 - Derives player colour and name client-side from `Y.Doc.clientID`
 - Maps remote awareness states to `remotePlayers` array for rendering
 - Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
+- Player color customization: click a color swatch in the Factory Floor panel to pick your avatar color (persisted in localStorage)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
+- Emote picker panel: click the smiley button in the HUD to see all emotes with names and key bindings
 - Emote bubbles float up and fade out over 2 seconds above the avatar
 - Chat system: type a message in the chat input and press Enter to send
 - Chat bubbles appear above the sender's avatar and fade after 4 seconds
 - Idle detection: players with no movement for 30s show a floating "zzz" indicator
 - Presence panel shows "(idle)" suffix next to idle players
 - Player count badge: green pill badge in Hand World header showing online player count
+- Typing indicator: pulsing "..." bubble when a player is typing in chat
+- Smooth remote movement: CSS transitions for interpolated remote avatar motion
+- Player tooltips: hover over a remote avatar to see name, color, and status
+- Reconnection banner: translucent overlay with spinner when WebSocket is reconnecting
 
 ### Awareness state per client
 
@@ -209,6 +249,7 @@ the Y.Doc itself remains empty.
     "direction": "down",
     "walking": false,
     "idle": false,
+    "typing": false,
     "emote": null,
     "chat": null
   }

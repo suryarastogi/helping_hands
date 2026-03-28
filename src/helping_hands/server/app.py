@@ -76,7 +76,10 @@ from helping_hands.server.constants import (
 )
 from helping_hands.server.multiplayer_yjs import (
     create_yjs_app,
+    get_connected_players,
+    get_decoration_state,
     get_multiplayer_stats,
+    get_player_activity_summary,
     start_yjs_server,
     stop_yjs_server,
 )
@@ -277,6 +280,9 @@ class BuildRequest(_ToolSkillValidatorMixin):
     enable_web: bool = False
     use_native_cli_auth: bool = False
     pr_number: int | None = None
+    issue_number: int | None = None
+    create_issue: bool = False
+    project_url: str | None = None
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(
         default=_DEFAULT_CI_WAIT_MINUTES,
@@ -2992,6 +2998,24 @@ def health_multiplayer() -> dict[str, object]:
     return get_multiplayer_stats()
 
 
+@app.get("/health/multiplayer/players")
+def health_multiplayer_players() -> dict[str, object]:
+    """Return list of currently connected players with positions."""
+    return get_connected_players()
+
+
+@app.get("/health/multiplayer/activity")
+def health_multiplayer_activity() -> dict[str, object]:
+    """Return player activity summary with validated awareness states."""
+    return get_player_activity_summary()
+
+
+@app.get("/health/multiplayer/decorations")
+def health_multiplayer_decorations() -> dict[str, object]:
+    """Return current shared world decoration state."""
+    return get_decoration_state()
+
+
 class ServiceHealthResponse(BaseModel):
     """Per-service connectivity status."""
 
@@ -3116,6 +3140,9 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         repo_path=req.repo_path,
         prompt=req.prompt,
         pr_number=req.pr_number,
+        issue_number=req.issue_number,
+        create_issue=req.create_issue,
+        project_url=req.project_url,
         backend=req.backend,
         model=req.model,
         max_iterations=req.max_iterations,
@@ -3893,6 +3920,9 @@ def enqueue_build_form(
     enable_web: bool = Form(False),
     use_native_cli_auth: bool = Form(False),
     pr_number: int | None = Form(None),
+    issue_number: int | None = Form(None),
+    create_issue: bool = Form(False),
+    project_url: str | None = Form(None),
     tools: str | None = Form(None),
     skills: str | None = Form(None),
     fix_ci: bool = Form(False),
@@ -3935,6 +3965,9 @@ def enqueue_build_form(
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
             pr_number=pr_number,
+            issue_number=issue_number,
+            create_issue=create_issue,
+            project_url=project_url,
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
             tools=list(meta_tools.normalize_tool_selection(tools)),

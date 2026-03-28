@@ -105,6 +105,34 @@ export default function SubmissionForm({
                 />
               </label>
             </div>
+            <div className="row two-col">
+              <label>
+                Issue number
+                <input
+                  type="number"
+                  min={1}
+                  value={form.issue_number}
+                  onChange={(event) => onFieldChange("issue_number", event.target.value)}
+                  placeholder="Link to GitHub issue"
+                />
+              </label>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.create_issue}
+                  onChange={(event) => onFieldChange("create_issue", event.target.checked)}
+                />
+                Create issue
+              </label>
+            </div>
+            <label>
+              Project URL
+              <input
+                value={form.project_url}
+                onChange={(event) => onFieldChange("project_url", event.target.value)}
+                placeholder="https://github.com/orgs/myorg/projects/1"
+              />
+            </label>
             <label>
               Tools
               <input

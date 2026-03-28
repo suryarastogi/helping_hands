@@ -788,3 +788,111 @@ class TestListMetaKeysRedisError:
         mgr, mock_redis, _ = _build_manager()
         mock_redis.keys.side_effect = ConnectionError("Redis unavailable")
         assert mgr.list_schedules() == []
+
+
+# ---------------------------------------------------------------------------
+# update_pr_number (v304)
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleManagerUpdatePrNumber:
+    """Tests for the update_pr_number method."""
+
+    def test_update_pr_number_happy_path(self) -> None:
+        """update_pr_number should persist the PR number to the schedule."""
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(pr_number=None)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        result = mgr.update_pr_number("sched_test123456", 42)
+
+        assert result is True
+        call_args = mock_redis.set.call_args[0]
+        saved_data = json.loads(call_args[1])
+        assert saved_data["pr_number"] == 42
+
+    def test_update_pr_number_missing_schedule(self) -> None:
+        """update_pr_number should return False for unknown schedule."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = None
+
+        result = mgr.update_pr_number("nonexistent", 42)
+
+        assert result is False
+        mock_redis.set.assert_not_called()
+
+    def test_update_pr_number_overwrites_existing(self) -> None:
+        """update_pr_number should overwrite a previously set PR number."""
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(pr_number=10)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        result = mgr.update_pr_number("sched_test123456", 99)
+
+        assert result is True
+        call_args = mock_redis.set.call_args[0]
+        saved_data = json.loads(call_args[1])
+        assert saved_data["pr_number"] == 99
+
+    def test_update_pr_number_logs_info(self, caplog) -> None:
+        """update_pr_number should log when it persists a PR number."""
+        import logging
+
+        mgr, mock_redis, _ = _build_manager()
+        task = _make_task(pr_number=None)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+
+        with caplog.at_level(logging.INFO, logger="helping_hands.server.schedules"):
+            mgr.update_pr_number("sched_test123456", 42)
+
+        assert any("Auto-persisted PR #42" in m for m in caplog.messages)
+
+
+# ---------------------------------------------------------------------------
+# _load_meta corrupted data handling (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestLoadMetaCorruptedData:
+    """Tests for _load_meta graceful handling of corrupted Redis data."""
+
+    def test_invalid_json_returns_none(self) -> None:
+        """_load_meta should return None when Redis value is not valid JSON."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = "this is not json{{"
+        result = mgr._load_meta("sched_corrupted")
+        assert result is None
+
+    def test_invalid_json_logs_warning(self, caplog) -> None:
+        """_load_meta should log a warning when Redis value is corrupted."""
+        import logging
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = "{invalid json"
+
+        with caplog.at_level(logging.WARNING, logger="helping_hands.server.schedules"):
+            mgr._load_meta("sched_bad_json")
+
+        assert any("Corrupted schedule metadata" in m for m in caplog.messages)
+
+    def test_missing_required_fields_returns_none(self) -> None:
+        """_load_meta should return None when required fields are missing."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = json.dumps({"schedule_id": "only_id"})
+        result = mgr._load_meta("only_id")
+        assert result is None
+
+    def test_empty_required_field_returns_none(self) -> None:
+        """_load_meta should return None when a required field is empty."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = json.dumps(
+            {
+                "schedule_id": "sched_empty",
+                "name": "",
+                "cron_expression": "0 0 * * *",
+                "repo_path": "owner/repo",
+                "prompt": "test",
+            }
+        )
+        result = mgr._load_meta("sched_empty")
+        assert result is None

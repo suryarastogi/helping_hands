@@ -80,7 +80,7 @@ test("Refresh button reloads schedule list", async ({ page }) => {
   await page.getByRole("button", { name: "Scheduled tasks" }).click();
   await page.waitForTimeout(300);
   const initialCount = callCount;
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await page.waitForTimeout(300);
   expect(callCount).toBeGreaterThan(initialCount);
 });

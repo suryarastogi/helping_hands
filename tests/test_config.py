@@ -98,7 +98,7 @@ class TestConfigDefaults:
 
         monkeypatch.delenv("HELPING_HANDS_MODEL", raising=False)
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(config_module, "load_dotenv", fake_load_dotenv)
+        monkeypatch.setattr(config_module, "_load_dotenv", fake_load_dotenv)
 
         config = Config.from_env()
         assert config.model == "from-dotenv"
@@ -111,7 +111,7 @@ class TestLoadEnvFilesNoDotenv:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """When python-dotenv is not installed, _load_env_files exits early."""
-        monkeypatch.setattr(config_module, "load_dotenv", None)
+        monkeypatch.setattr(config_module, "_load_dotenv", None)
         config_module._load_env_files(repo="/some/path")
 
 
@@ -138,7 +138,7 @@ class TestFromEnvRepoDotenv:
             loaded_paths.append(path)
             return True
 
-        monkeypatch.setattr(config_module, "load_dotenv", fake_load_dotenv)
+        monkeypatch.setattr(config_module, "_load_dotenv", fake_load_dotenv)
         monkeypatch.delenv("HELPING_HANDS_MODEL", raising=False)
 
         config = Config.from_env(overrides={"repo": str(tmp_path)})
@@ -186,7 +186,7 @@ class TestLoadEnvFilesNonDirRepo:
             loaded_paths.append(path)
             return True
 
-        monkeypatch.setattr(config_module, "load_dotenv", fake_load_dotenv)
+        monkeypatch.setattr(config_module, "_load_dotenv", fake_load_dotenv)
         monkeypatch.chdir(tmp_path)
 
         fake_repo = str(tmp_path / "nonexistent")
@@ -206,7 +206,7 @@ class TestLoadEnvFilesNonDirRepo:
             loaded_paths.append(path)
             return True
 
-        monkeypatch.setattr(config_module, "load_dotenv", fake_load_dotenv)
+        monkeypatch.setattr(config_module, "_load_dotenv", fake_load_dotenv)
         monkeypatch.chdir(tmp_path)
 
         config_module._load_env_files(repo=None)
@@ -224,7 +224,7 @@ class TestLoadEnvFilesTildeExpansion:
             loaded_paths.append(path)
             return True
 
-        monkeypatch.setattr(config_module, "load_dotenv", fake_load_dotenv)
+        monkeypatch.setattr(config_module, "_load_dotenv", fake_load_dotenv)
         monkeypatch.chdir(tmp_path)
 
         # Monkeypatch expanduser so ~ maps to tmp_path

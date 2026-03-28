@@ -6,9 +6,12 @@ It wraps PyGithub for the API and subprocess git for local operations.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import subprocess
+import urllib.request
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -606,6 +609,284 @@ class GitHubClient:
 
         created = issue.create_comment(comment_body)
         return int(created.id)
+
+    # ------------------------------------------------------------------
+    # Issue helpers
+    # ------------------------------------------------------------------
+
+    def get_issue(self, full_name: str, number: int) -> dict[str, Any]:
+        """Get details of a single issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, ``labels``, and ``user``.
+
+        Raises:
+            ValueError: If *number* is not positive.
+        """
+        require_positive_int(number, "issue number")
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        return {
+            "number": issue.number,
+            "title": issue.title,
+            "body": issue.body or "",
+            "url": issue.html_url,
+            "state": issue.state,
+            "labels": [label.name for label in issue.labels],
+            "user": issue.user.login if issue.user else "",
+        }
+
+    def create_issue_comment(
+        self,
+        full_name: str,
+        number: int,
+        *,
+        body: str,
+    ) -> int:
+        """Post a comment on a GitHub issue.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: Issue number (must be positive).
+            body: Comment body (markdown).
+
+        Returns:
+            The ID of the created comment.
+
+        Raises:
+            ValueError: If *number* is not positive or *body* is
+                empty/whitespace.
+        """
+        require_positive_int(number, "issue number")
+        require_non_empty_string(body, "comment body")
+        repo = self.get_repo(full_name)
+        issue = repo.get_issue(number=number)
+        comment = issue.create_comment(body)
+        return int(comment.id)
+
+    def create_issue(
+        self,
+        full_name: str,
+        *,
+        title: str,
+        body: str = "",
+        labels: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a new issue on a GitHub repository.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            title: Issue title (must not be empty).
+            body: Issue body (markdown). Defaults to empty string.
+            labels: Optional list of label names to apply.
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, and ``labels``.
+
+        Raises:
+            ValueError: If *title* is empty/whitespace.
+        """
+        require_non_empty_string(title, "issue title")
+        repo = self.get_repo(full_name)
+        kwargs: dict[str, Any] = {"title": title, "body": body}
+        if labels:
+            kwargs["labels"] = labels
+        issue = repo.create_issue(**kwargs)
+        return {
+            "number": issue.number,
+            "title": issue.title,
+            "body": issue.body or "",
+            "url": issue.html_url,
+            "state": issue.state,
+            "labels": [label.name for label in issue.labels],
+        }
+
+    # ------------------------------------------------------------------
+    # GitHub Projects v2
+    # ------------------------------------------------------------------
+
+    _GRAPHQL_URL = "https://api.github.com/graphql"
+
+    _PROJECT_URL_RE = re.compile(
+        r"https?://github\.com/"
+        r"(?P<type>orgs|users)/(?P<owner>[^/]+)"
+        r"/projects/(?P<number>\d+)"
+    )
+    """Regex matching GitHub Project v2 URLs.
+
+    Supports both organisation and user projects:
+    - ``https://github.com/orgs/myorg/projects/5``
+    - ``https://github.com/users/myuser/projects/3``
+    """
+
+    def _graphql(self, query: str, variables: dict[str, Any] | None = None) -> Any:
+        """Execute a GitHub GraphQL query and return the ``data`` payload.
+
+        Args:
+            query: GraphQL query or mutation string.
+            variables: Optional variables dict for the query.
+
+        Returns:
+            The ``data`` value from the GraphQL response.
+
+        Raises:
+            RuntimeError: If the response contains ``errors``.
+        """
+        payload: dict[str, Any] = {"query": query}
+        if variables:
+            payload["variables"] = variables
+        body = json.dumps(payload).encode()
+        req = urllib.request.Request(
+            self._GRAPHQL_URL,
+            data=body,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read())
+        if result.get("errors"):
+            msgs = "; ".join(e.get("message", "") for e in result["errors"])
+            raise RuntimeError(f"GraphQL error: {msgs}")
+        return result.get("data")
+
+    @staticmethod
+    def parse_project_url(url: str) -> tuple[str, str, int]:
+        """Parse a GitHub Project v2 URL into ``(owner_type, owner, number)``.
+
+        Args:
+            url: Full URL like ``https://github.com/orgs/myorg/projects/5``.
+
+        Returns:
+            A tuple of (``"organization"`` or ``"user"``, owner name, project number).
+
+        Raises:
+            ValueError: If the URL does not match the expected pattern.
+        """
+        require_non_empty_string(url, "project URL")
+        m = GitHubClient._PROJECT_URL_RE.match(url.strip())
+        if not m:
+            raise ValueError(
+                f"Invalid GitHub Project URL: {url!r}. "
+                "Expected format: https://github.com/orgs/<owner>/projects/<number> "
+                "or https://github.com/users/<owner>/projects/<number>"
+            )
+        owner_type = "organization" if m.group("type") == "orgs" else "user"
+        return owner_type, m.group("owner"), int(m.group("number"))
+
+    def add_to_project_v2(
+        self,
+        project_url: str,
+        *,
+        content_id: str | None = None,
+        full_name: str | None = None,
+        issue_number: int | None = None,
+    ) -> str:
+        """Add an issue or PR to a GitHub Projects v2 board.
+
+        Either provide ``content_id`` directly (the GraphQL node ID of the
+        issue or PR), or provide ``full_name`` and ``issue_number`` to have it
+        resolved automatically.
+
+        Args:
+            project_url: Full GitHub Project URL (org or user project).
+            content_id: GraphQL node ID of the issue/PR to add.
+            full_name: ``owner/repo`` string (used with *issue_number*).
+            issue_number: Issue or PR number (used with *full_name*).
+
+        Returns:
+            The project item ID of the added item.
+
+        Raises:
+            ValueError: If neither *content_id* nor (*full_name* +
+                *issue_number*) are provided, or the URL is invalid.
+            RuntimeError: If the GraphQL call fails.
+        """
+        require_non_empty_string(project_url, "project URL")
+
+        # Resolve the content node ID if not provided directly.
+        if not content_id:
+            if not full_name or not issue_number:
+                raise ValueError(
+                    "Either content_id or both full_name and issue_number are required"
+                )
+            data = self._graphql(
+                """
+                query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    issueOrPullRequest(number: $number) {
+                      ... on Issue { id }
+                      ... on PullRequest { id }
+                    }
+                  }
+                }
+                """,
+                variables={
+                    "owner": full_name.split("/")[0],
+                    "repo": full_name.split("/")[1],
+                    "number": issue_number,
+                },
+            )
+            node = (data or {}).get("repository", {}).get("issueOrPullRequest")
+            if not node or "id" not in node:
+                raise RuntimeError(
+                    f"Could not resolve node ID for {full_name}#{issue_number}"
+                )
+            content_id = node["id"]
+
+        # Resolve the project node ID from the URL.
+        owner_type, owner, number = self.parse_project_url(project_url)
+        if owner_type == "organization":
+            query = """
+            query($login: String!, $number: Int!) {
+              organization(login: $login) {
+                projectV2(number: $number) { id }
+              }
+            }
+            """
+            data = self._graphql(query, variables={"login": owner, "number": number})
+            project_id = (
+                (data or {}).get("organization", {}).get("projectV2", {}).get("id")
+            )
+        else:
+            query = """
+            query($login: String!, $number: Int!) {
+              user(login: $login) {
+                projectV2(number: $number) { id }
+              }
+            }
+            """
+            data = self._graphql(query, variables={"login": owner, "number": number})
+            project_id = (data or {}).get("user", {}).get("projectV2", {}).get("id")
+
+        if not project_id:
+            raise RuntimeError(f"Could not resolve project ID for {project_url}")
+
+        # Add the item to the project.
+        mutation = """
+        mutation($projectId: ID!, $contentId: ID!) {
+          addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+            item { id }
+          }
+        }
+        """
+        data = self._graphql(
+            mutation,
+            variables={"projectId": project_id, "contentId": content_id},
+        )
+        item_id = (
+            (data or {}).get("addProjectV2ItemById", {}).get("item", {}).get("id", "")
+        )
+        logger.info("Added item to project %s (item_id=%s)", project_url, item_id)
+        return item_id
 
     # ------------------------------------------------------------------
     # Cleanup

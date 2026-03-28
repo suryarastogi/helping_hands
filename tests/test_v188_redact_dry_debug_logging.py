@@ -110,15 +110,12 @@ class TestRedactSensitiveDelegation:
         assert "aaa" not in result
         assert "bbb" not in result
 
-    def test_github_py_no_longer_imports_re(self) -> None:
-        """github.py should not import 're' now that redaction is delegated."""
-        import inspect
-
+    def test_github_py_uses_re_only_for_project_url(self) -> None:
+        """github.py imports 're' for _PROJECT_URL_RE (v329), not for redaction."""
         import helping_hands.lib.github as gh_mod
 
-        source = inspect.getsource(gh_mod)
-        # Should not have a standalone 'import re' line (re is no longer needed)
-        assert "\nimport re\n" not in source
+        # re is needed for the _PROJECT_URL_RE pattern (added in v329)
+        assert hasattr(gh_mod.GitHubClient, "_PROJECT_URL_RE")
 
 
 # ---------------------------------------------------------------------------
