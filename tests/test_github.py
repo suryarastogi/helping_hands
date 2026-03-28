@@ -933,3 +933,80 @@ class TestCreateIssueComment:
     def test_rejects_whitespace_body(self, client: GitHubClient) -> None:
         with pytest.raises(ValueError, match="comment body must not be empty"):
             client.create_issue_comment("owner/repo", 1, body="   ")
+
+
+# ---------------------------------------------------------------------------
+# create_issue (v326)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateIssue:
+    def test_creates_issue_with_title_and_body(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.number = 99
+        issue.title = "New feature"
+        issue.body = "Please add this"
+        issue.html_url = "https://github.com/owner/repo/issues/99"
+        issue.state = "open"
+        label = MagicMock()
+        label.name = "enhancement"
+        issue.labels = [label]
+        mock_repo.create_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.create_issue(
+            "owner/repo", title="New feature", body="Please add this"
+        )
+
+        assert result["number"] == 99
+        assert result["title"] == "New feature"
+        assert result["body"] == "Please add this"
+        assert result["url"] == "https://github.com/owner/repo/issues/99"
+        assert result["state"] == "open"
+        assert result["labels"] == ["enhancement"]
+        mock_repo.create_issue.assert_called_once_with(
+            title="New feature", body="Please add this"
+        )
+
+    def test_creates_issue_with_labels(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.number = 100
+        issue.title = "Bug"
+        issue.body = ""
+        issue.html_url = "url"
+        issue.state = "open"
+        issue.labels = []
+        mock_repo.create_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        client.create_issue("owner/repo", title="Bug", labels=["bug", "helping-hands"])
+
+        mock_repo.create_issue.assert_called_once_with(
+            title="Bug", body="", labels=["bug", "helping-hands"]
+        )
+
+    def test_empty_body_returns_empty_string(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.number = 1
+        issue.title = "Title"
+        issue.body = None
+        issue.html_url = "url"
+        issue.state = "open"
+        issue.labels = []
+        mock_repo.create_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        result = client.create_issue("owner/repo", title="Title")
+
+        assert result["body"] == ""
+
+    def test_rejects_empty_title(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="issue title must not be empty"):
+            client.create_issue("owner/repo", title="")
+
+    def test_rejects_whitespace_title(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="issue title must not be empty"):
+            client.create_issue("owner/repo", title="   ")

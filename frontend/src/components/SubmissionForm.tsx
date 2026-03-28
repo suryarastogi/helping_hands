@@ -116,7 +116,14 @@ export default function SubmissionForm({
                   placeholder="Link to GitHub issue"
                 />
               </label>
-              <div />
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.create_issue}
+                  onChange={(event) => onFieldChange("create_issue", event.target.checked)}
+                />
+                Create issue
+              </label>
             </div>
             <label>
               Tools

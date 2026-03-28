@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [v326 — Create New Issue from Task](exec-plans/completed/2026/v326-create-issue-from-task.md) —
+  Full-stack `create_issue` support: auto-creates GitHub issue from task prompt,
+  then links it to PR via existing issue_number pipeline; 728 frontend tests,
+  97 backend GitHub tests
+
 - [v325 — GitHub Issue Linking](exec-plans/completed/2026/v325-github-issue-linking.md) —
   Full-stack `issue_number` support: "Closes #N" in PR body, issue comment with
   PR link, frontend field + URL param; 724 frontend tests, 92 backend GitHub tests

@@ -281,6 +281,7 @@ class BuildRequest(_ToolSkillValidatorMixin):
     use_native_cli_auth: bool = False
     pr_number: int | None = None
     issue_number: int | None = None
+    create_issue: bool = False
     fix_ci: bool = False
     ci_check_wait_minutes: float = Field(
         default=_DEFAULT_CI_WAIT_MINUTES,
@@ -3137,6 +3138,7 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         prompt=req.prompt,
         pr_number=req.pr_number,
         issue_number=req.issue_number,
+        create_issue=req.create_issue,
         backend=req.backend,
         model=req.model,
         max_iterations=req.max_iterations,

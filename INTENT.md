@@ -7,12 +7,25 @@ User intents and desires for the helping-hands project.
 Deeper GitHub integration - Features Wanted:
 - a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
     - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
-    - When creating a task, option to create a new issue from the task (with task prompt as issue body)
+    - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
     - Sync task status with GitHub issue with created PR
     - GitHub Projects board integration
 
 
 ## Recently Completed
+
+### Create New Issue from Task (2026-03-28) — Completed
+
+**Implemented (v326):**
+- `GitHubClient.create_issue()` method — creates a new issue via PyGithub API with title, body, and optional labels
+- `create_issue` boolean field added to full stack: frontend FormState → SubmissionForm checkbox → useTaskManager → BuildRequest → Celery `build_feature` task
+- `_try_create_issue()` helper in `celery_app.py` — when `create_issue=True` and no `issue_number` is provided, auto-creates a GitHub issue with `[helping-hands]` prefixed title (first 120 chars of prompt) and full prompt as body, applies `helping-hands` label
+- Created issue number flows into existing `issue_number` pipeline — PR gets "Closes #N" and issue gets PR link comment
+- Error handling: issue creation failures are logged and reported in task updates but don't block the build
+- Frontend: "Create issue" checkbox in Advanced settings, URL query param support (`?create_issue=true`)
+- 5 new backend tests (GitHubClient.create_issue: 3 success + 2 validation), 4 Celery helper tests
+- 4 new frontend tests (2 SubmissionForm checkbox, 2 useTaskManager submit body)
+- 728 frontend tests total (up from 724), 97 backend GitHub tests (up from 92)
 
 ### GitHub Issue Linking (2026-03-28) — Completed
 

@@ -562,6 +562,47 @@ def _maybe_persist_pr_to_schedule(
         )
 
 
+def _try_create_issue(
+    repo_spec: str,
+    prompt: str,
+    hand: Any,
+    updates: list[str],
+    github_token: str | None,
+) -> None:
+    """Create a GitHub issue from the task prompt and link it to the hand.
+
+    On success, sets ``hand.issue_number`` so that PR finalization can
+    include "Closes #N".  Errors are logged but do not prevent the
+    build from proceeding.
+    """
+    # Derive a short title from the first line of the prompt.
+    first_line = prompt.strip().split("\n", 1)[0][:120]
+    title = f"[helping-hands] {first_line}"
+
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            result = gh.create_issue(
+                repo_spec,
+                title=title,
+                body=prompt,
+                labels=["helping-hands"],
+            )
+            hand.issue_number = result["number"]
+            _append_update(
+                updates,
+                f"Created issue #{result['number']}: {result.get('url', '')}",
+            )
+    except Exception:
+        logger.warning(
+            "Failed to auto-create issue for repo %s",
+            repo_spec,
+            exc_info=True,
+        )
+        _append_update(updates, "Failed to auto-create GitHub issue (continuing).")
+
+
 async def _collect_stream(
     hand: Any,
     prompt: str,
@@ -604,6 +645,7 @@ def build_feature(
     prompt: str,
     pr_number: int | None = None,
     issue_number: int | None = None,
+    create_issue: bool = False,
     backend: str = BACKEND_CLAUDECODECLI,
     model: str | None = None,
     max_iterations: int = _DEFAULT_MAX_ITERATIONS,
@@ -849,6 +891,17 @@ def build_feature(
         hand.auto_pr = not no_pr
         hand.pr_number = pr_number
         hand.issue_number = issue_number
+
+        # Auto-create a GitHub issue when requested and no issue linked yet.
+        if create_issue and hand.issue_number is None:
+            _try_create_issue(
+                repo_spec=cloned_from or repo_path,
+                prompt=prompt,
+                hand=hand,
+                updates=updates,
+                github_token=github_token,
+            )
+
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
         hand_start = time.monotonic()

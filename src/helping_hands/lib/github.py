@@ -666,6 +666,44 @@ class GitHubClient:
         comment = issue.create_comment(body)
         return int(comment.id)
 
+    def create_issue(
+        self,
+        full_name: str,
+        *,
+        title: str,
+        body: str = "",
+        labels: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a new issue on a GitHub repository.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            title: Issue title (must not be empty).
+            body: Issue body (markdown). Defaults to empty string.
+            labels: Optional list of label names to apply.
+
+        Returns:
+            A dict with keys ``number``, ``title``, ``body``, ``url``,
+            ``state``, and ``labels``.
+
+        Raises:
+            ValueError: If *title* is empty/whitespace.
+        """
+        require_non_empty_string(title, "issue title")
+        repo = self.get_repo(full_name)
+        kwargs: dict[str, Any] = {"title": title, "body": body}
+        if labels:
+            kwargs["labels"] = labels
+        issue = repo.create_issue(**kwargs)
+        return {
+            "number": issue.number,
+            "title": issue.title,
+            "body": issue.body or "",
+            "url": issue.html_url,
+            "state": issue.state,
+            "labels": [label.name for label in issue.labels],
+        }
+
     # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------

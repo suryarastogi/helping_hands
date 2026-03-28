@@ -76,6 +76,7 @@ export const INITIAL_FORM: FormState = {
   max_iterations: 6,
   pr_number: "",
   issue_number: "",
+  create_issue: false,
   tools: "",
   skills: "",
   no_pr: false,

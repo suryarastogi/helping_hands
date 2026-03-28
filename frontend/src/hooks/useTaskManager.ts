@@ -299,6 +299,9 @@ export function useTaskManager(): UseTaskManagerReturn {
         body.issue_number = parsed;
       }
     }
+    if (form.create_issue) {
+      body.create_issue = true;
+    }
     if (form.tools.trim()) {
       body.tools = form.tools
         .split(",")
@@ -666,6 +669,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       if (tools) next.tools = tools;
       const skills = params.get("skills");
       if (skills) next.skills = skills;
+      next.create_issue = parseBool(params.get("create_issue"));
       next.no_pr = parseBool(params.get("no_pr"));
       next.enable_execution = parseBool(params.get("enable_execution"));
       next.enable_web = parseBool(params.get("enable_web"));

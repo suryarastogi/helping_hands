@@ -1,4 +1,4 @@
-# Week 13 (Mar 20 – Mar 27, 2026)
+# Week 13 (Mar 20 – Mar 28, 2026)
 
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
@@ -19,8 +19,9 @@ cursor clamping, localStorage error handling tests, backend partial
 failure tests), design doc refresh + timer cleanup + accessibility
 improvements, decoration placement cooldown with backend decoration
 query endpoint, AppOverlays/MonitorCard branch coverage hardening
-(component stmts: 96.45% ��� 99.08%), and remote player CSS fixes with
-initial Yjs awareness position sync (720 frontend tests total).
+(component stmts: 96.45% → 99.08%), remote player CSS fixes with
+initial Yjs awareness position sync, and GitHub issue linking with
+full-stack `issue_number` support and create-new-issue-from-task feature.
 
 ---
 
@@ -444,6 +445,22 @@ initial Yjs awareness position sync (720 frontend tests total).
 
 ---
 
+## Mar 28 — GitHub Issue Linking (v325)
+
+**Full-stack issue linking:** Added `issue_number` field through the entire stack (frontend FormState → SubmissionForm → useTaskManager → BuildRequest → Celery task → Hand base class). PR body includes "Closes #N" for auto-close on merge, comment posted on issue with PR link. `GitHubClient.get_issue()` and `create_issue_comment()` methods. Frontend issue number field in Advanced settings with URL query param support.
+
+**14 new tests (10 backend, 4 frontend). 724 frontend tests total, 92 backend GitHub tests.**
+
+---
+
+## Mar 28 — Create New Issue from Task (v326)
+
+**Issue creation from tasks:** Added `GitHubClient.create_issue()` method. New `create_issue` boolean field through full stack — when enabled and no `issue_number` is provided, a new GitHub issue is automatically created from the task prompt before the hand runs. The created issue number is then used for PR linking ("Closes #N") just like manually-provided issue numbers. Frontend checkbox in Advanced settings.
+
+*(Test counts updated after implementation)*
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -498,3 +515,5 @@ initial Yjs awareness position sync (720 frontend tests total).
 - `v322-decoration-cooldown-and-decoration-endpoint.md`
 - `v323-appoverlays-monitorcard-coverage.md`
 - `v324-multiplayer-css-fixes-and-spawn-sync.md`
+- `v325-github-issue-linking.md`
+- `v326-create-issue-from-task.md`

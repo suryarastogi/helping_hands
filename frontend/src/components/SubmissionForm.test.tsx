@@ -150,4 +150,18 @@ describe("SubmissionForm", () => {
     });
     expect(onFieldChange).toHaveBeenCalledWith("issue_number", "42");
   });
+
+  it("renders create issue checkbox unchecked by default", () => {
+    renderForm();
+    const checkbox = screen.getByRole("checkbox", { name: /create issue/i });
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it("calls onFieldChange when create issue checkbox is toggled", () => {
+    const onFieldChange = vi.fn();
+    renderForm({ onFieldChange });
+    const checkbox = screen.getByRole("checkbox", { name: /create issue/i });
+    fireEvent.click(checkbox);
+    expect(onFieldChange).toHaveBeenCalledWith("create_issue", true);
+  });
 });

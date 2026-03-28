@@ -794,3 +794,132 @@ class TestMaybePersistPrToSchedule:
         ):
             # Should not raise
             celery_app._maybe_persist_pr_to_schedule("sched_abc", None, "42")
+
+
+# ---------------------------------------------------------------------------
+# _try_create_issue (v326)
+# ---------------------------------------------------------------------------
+
+
+class TestTryCreateIssue:
+    """Tests for the _try_create_issue helper."""
+
+    def test_creates_issue_and_sets_hand_issue_number(self) -> None:
+        """On success, hand.issue_number is set and updates list is appended."""
+        hand = MagicMock()
+        hand.issue_number = None
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.create_issue.return_value = {
+            "number": 55,
+            "url": "https://github.com/owner/repo/issues/55",
+        }
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._try_create_issue(
+                repo_spec="owner/repo",
+                prompt="Add feature X",
+                hand=hand,
+                updates=updates,
+                github_token="tok_123",
+            )
+
+        assert hand.issue_number == 55
+        assert any("#55" in u for u in updates)
+        mock_gh.create_issue.assert_called_once_with(
+            "owner/repo",
+            title="[helping-hands] Add feature X",
+            body="Add feature X",
+            labels=["helping-hands"],
+        )
+
+    def test_truncates_long_prompt_title(self) -> None:
+        """Title is truncated to first 120 chars of first line."""
+        hand = MagicMock()
+        hand.issue_number = None
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.create_issue.return_value = {"number": 1, "url": "url"}
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        long_prompt = "A" * 200 + "\nSecond line"
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._try_create_issue(
+                repo_spec="owner/repo",
+                prompt=long_prompt,
+                hand=hand,
+                updates=updates,
+                github_token=None,
+            )
+
+        call_kwargs = mock_gh.create_issue.call_args
+        title = call_kwargs[1]["title"] if call_kwargs[1] else call_kwargs[0][1]
+        # Title prefix is "[helping-hands] " (16 chars) + 120 chars = 136
+        assert len(title) == 16 + 120
+
+    def test_multiline_prompt_uses_first_line(self) -> None:
+        """Title uses only the first line of a multi-line prompt."""
+        hand = MagicMock()
+        hand.issue_number = None
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.create_issue.return_value = {"number": 2, "url": "url"}
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._try_create_issue(
+                repo_spec="owner/repo",
+                prompt="First line\nSecond line\nThird line",
+                hand=hand,
+                updates=updates,
+                github_token=None,
+            )
+
+        call_kwargs = mock_gh.create_issue.call_args[1]
+        assert call_kwargs["title"] == "[helping-hands] First line"
+        # Body is the full prompt
+        assert call_kwargs["body"] == "First line\nSecond line\nThird line"
+
+    def test_exception_does_not_propagate(self) -> None:
+        """API errors are swallowed — hand.issue_number stays None."""
+        hand = MagicMock()
+        hand.issue_number = None
+        updates: list[str] = []
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("No token"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            # Should not raise
+            _mod._try_create_issue(
+                repo_spec="owner/repo",
+                prompt="test",
+                hand=hand,
+                updates=updates,
+                github_token=None,
+            )
+
+        # issue_number should not be set on failure
+        assert hand.issue_number is None
+        assert any("Failed" in u for u in updates)

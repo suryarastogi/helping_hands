@@ -101,6 +101,7 @@ export type FormState = {
   max_iterations: number;
   pr_number: string;
   issue_number: string;
+  create_issue: boolean;
   tools: string;
   skills: string;
   no_pr: boolean;
