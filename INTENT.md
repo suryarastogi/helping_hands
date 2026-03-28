@@ -8,11 +8,21 @@ Deeper GitHub integration - Features Wanted:
 - a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
     - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
     - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
-    - Sync task status with GitHub issue with created PR
+    - ~~Sync task status with GitHub issue with created PR~~ **v328: status comment posted on linked issue when task succeeds or fails — includes PR link, runtime, or error summary**
     - GitHub Projects board integration
 
 
 ## Recently Completed
+
+### Task-Issue Status Sync (2026-03-28) — Completed
+
+**Implemented (v328):**
+- `_post_issue_status_comment()` helper in `celery_app.py` — posts a markdown comment on the linked GitHub issue when a task completes
+- Success comment includes: check mark emoji, PR link (if created), runtime duration
+- Failure comment includes: cross mark emoji, error summary (truncated to 500 chars)
+- Wired into `build_feature` task: success path after `_collect_stream`, failure path in exception handler
+- No-op when no `issue_number` is set; GitHub errors swallowed and logged
+- 5 new backend tests (success with PR, success without PR, failure with error, no-op, exception swallowed)
 
 ### Fix Test Failures & Form Param Gap (2026-03-28) — Completed
 

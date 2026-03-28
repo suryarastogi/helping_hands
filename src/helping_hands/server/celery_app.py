@@ -603,6 +603,61 @@ def _try_create_issue(
         _append_update(updates, "Failed to auto-create GitHub issue (continuing).")
 
 
+def _post_issue_status_comment(
+    repo_spec: str,
+    issue_number: int | None,
+    *,
+    success: bool,
+    pr_url: str | None = None,
+    runtime: str | None = None,
+    error_summary: str | None = None,
+    updates: list[str],
+    github_token: str | None,
+) -> None:
+    """Post a status comment on the linked GitHub issue after task completion.
+
+    Does nothing if *issue_number* is ``None``.  Errors are logged but do
+    not prevent the task from returning its result.
+    """
+    if issue_number is None:
+        return
+
+    if success:
+        status_emoji = "\u2705"  # check mark
+        status_text = "completed successfully"
+        body_parts = [f"{status_emoji} **Build {status_text}**"]
+        if pr_url:
+            body_parts.append(f"\nPull request: {pr_url}")
+        if runtime:
+            body_parts.append(f"Runtime: {runtime}")
+    else:
+        status_emoji = "\u274c"  # cross mark
+        status_text = "failed"
+        body_parts = [f"{status_emoji} **Build {status_text}**"]
+        if error_summary:
+            body_parts.append(f"\n```\n{error_summary[:500]}\n```")
+
+    body_parts.append("\n<!-- helping_hands:status_update -->")
+    body = "\n".join(body_parts)
+
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            gh.create_issue_comment(repo_spec, issue_number, body=body)
+            _append_update(
+                updates,
+                f"Posted status comment on issue #{issue_number} ({status_text})",
+            )
+    except Exception:
+        logger.warning(
+            "Failed to post status comment on issue #%s for repo %s",
+            issue_number,
+            repo_spec,
+            exc_info=True,
+        )
+
+
 async def _collect_stream(
     hand: Any,
     prompt: str,
@@ -904,19 +959,42 @@ def build_feature(
 
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
+        _issue_repo_spec = cloned_from or repo_path
         hand_start = time.monotonic()
         emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
-        message = asyncio.run(
-            _collect_stream(
-                hand,
-                prompt,
-                emitter=emitter,
-                updates=updates,
+        try:
+            message = asyncio.run(
+                _collect_stream(
+                    hand,
+                    prompt,
+                    emitter=emitter,
+                    updates=updates,
+                )
             )
-        )
+        except Exception as exc:
+            hand_elapsed = time.monotonic() - hand_start
+            _post_issue_status_comment(
+                _issue_repo_spec,
+                hand.issue_number,
+                success=False,
+                error_summary=str(exc),
+                updates=updates,
+                github_token=github_token,
+            )
+            raise
         hand_elapsed = time.monotonic() - hand_start
         runtime_str = _format_runtime(hand_elapsed)
         _append_update(updates, f"Task complete. Runtime: {runtime_str}")
+        # Post status comment on linked issue
+        _post_issue_status_comment(
+            _issue_repo_spec,
+            hand.issue_number,
+            success=True,
+            pr_url=hand.last_pr_metadata.get("pr_url"),
+            runtime=runtime_str,
+            updates=updates,
+            github_token=github_token,
+        )
         # Auto-persist newly created PR number to originating schedule
         created_pr = hand.last_pr_metadata.get("pr_number", "")
         _maybe_persist_pr_to_schedule(schedule_id, pr_number, created_pr)

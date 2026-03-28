@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-28 v328 — Task-Issue Status Sync](exec-plans/completed/2026/v328-task-issue-status-sync.md) —
+  Post status comment on linked GitHub issue when task succeeds or fails;
+  includes PR link, runtime, or error summary; 5 new backend tests
+
 - [2026-03-28 v327 — Fix Test Failures & Form Param Gap](exec-plans/completed/2026/v327-fix-test-failures-and-form-params.md) —
   Fixed 9 test failures from v325–v326, added missing `issue_number`/`create_issue`
   Form params to `enqueue_build_form`, fixed plan structure conformance;

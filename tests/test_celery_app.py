@@ -923,3 +923,138 @@ class TestTryCreateIssue:
         # issue_number should not be set on failure
         assert hand.issue_number is None
         assert any("Failed" in u for u in updates)
+
+
+# ---------------------------------------------------------------------------
+# _post_issue_status_comment (v328)
+# ---------------------------------------------------------------------------
+
+
+class TestPostIssueStatusComment:
+    """Tests for the _post_issue_status_comment helper."""
+
+    def test_success_comment_with_pr_and_runtime(self) -> None:
+        """Posts a success comment including PR link and runtime."""
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._post_issue_status_comment(
+                "owner/repo",
+                42,
+                success=True,
+                pr_url="https://github.com/owner/repo/pull/10",
+                runtime="1m 23s",
+                updates=updates,
+                github_token="tok_123",
+            )
+
+        mock_gh.create_issue_comment.assert_called_once()
+        call_kwargs = mock_gh.create_issue_comment.call_args
+        body = call_kwargs.kwargs["body"]
+        assert "completed successfully" in body
+        assert "https://github.com/owner/repo/pull/10" in body
+        assert "1m 23s" in body
+        assert "helping_hands:status_update" in body
+        assert any("#42" in u for u in updates)
+
+    def test_success_comment_without_pr(self) -> None:
+        """Posts a success comment when no PR was created (no_pr=True)."""
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._post_issue_status_comment(
+                "owner/repo",
+                7,
+                success=True,
+                pr_url=None,
+                runtime="45s",
+                updates=updates,
+                github_token="tok_123",
+            )
+
+        body = mock_gh.create_issue_comment.call_args.kwargs["body"]
+        assert "completed successfully" in body
+        assert "Pull request" not in body
+        assert "45s" in body
+
+    def test_failure_comment_with_error_summary(self) -> None:
+        """Posts a failure comment with the error message."""
+        updates: list[str] = []
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._post_issue_status_comment(
+                "owner/repo",
+                42,
+                success=False,
+                error_summary="RuntimeError: something broke",
+                updates=updates,
+                github_token="tok_123",
+            )
+
+        body = mock_gh.create_issue_comment.call_args.kwargs["body"]
+        assert "failed" in body
+        assert "something broke" in body
+        assert "helping_hands:status_update" in body
+
+    def test_noop_when_no_issue_number(self) -> None:
+        """Does nothing when issue_number is None."""
+        updates: list[str] = []
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+        ) as mock_cls:
+            from helping_hands.server import celery_app as _mod
+
+            _mod._post_issue_status_comment(
+                "owner/repo",
+                None,
+                success=True,
+                updates=updates,
+                github_token="tok_123",
+            )
+
+        mock_cls.assert_not_called()
+        assert len(updates) == 0
+
+    def test_exception_does_not_propagate(self) -> None:
+        """API errors are swallowed — no exception raised."""
+        updates: list[str] = []
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("No token"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            # Should not raise
+            _mod._post_issue_status_comment(
+                "owner/repo",
+                42,
+                success=True,
+                updates=updates,
+                github_token=None,
+            )

@@ -20,8 +20,9 @@ failure tests), design doc refresh + timer cleanup + accessibility
 improvements, decoration placement cooldown with backend decoration
 query endpoint, AppOverlays/MonitorCard branch coverage hardening
 (component stmts: 96.45% → 99.08%), remote player CSS fixes with
-initial Yjs awareness position sync, and GitHub issue linking with
-full-stack `issue_number` support and create-new-issue-from-task feature.
+initial Yjs awareness position sync, GitHub issue linking with
+full-stack `issue_number` support, create-new-issue-from-task feature,
+and task-issue status sync (status comments on linked issues).
 
 ---
 
