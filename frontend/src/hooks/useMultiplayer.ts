@@ -73,6 +73,8 @@ export type UseMultiplayerReturn = {
   remoteChats: Record<string, string>;
   localEmote: string | null;
   localChat: string | null;
+  /** The resolved local player name (chosen name or auto-assigned "Player N"). */
+  localPlayerName: string;
   /** Whether the local player is idle (no movement for IDLE_TIMEOUT_MS). */
   isLocalIdle: boolean;
   connectionStatus: ConnectionStatus;
@@ -179,6 +181,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [decorations, setDecorations] = useState<WorldDecoration[]>([]);
   const [decoOnCooldown, setDecoOnCooldown] = useState(false);
   const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
+  const [localPlayerName, setLocalPlayerName] = useState(playerName?.trim() || "Player");
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
@@ -242,6 +245,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     const myColor = playerColor?.trim() || defaultColor;
     const defaultName = `Player ${(doc.clientID % 1000) + 1}`;
     const myName = playerName?.trim() || defaultName;
+    setLocalPlayerName(myName);
     const myId = String(doc.clientID);
 
     const wsBase = wsUrlBuilder("/ws/yjs").replace(/\/$/, "");
@@ -471,6 +475,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       ? `Player ${(yjsDocRef.current.clientID % 1000) + 1}`
       : "Player";
     const name = playerName?.trim() || defaultName;
+    setLocalPlayerName(name);
 
     if (current.name !== name) {
       provider.awareness.setLocalStateField("player", { ...current, name });
@@ -796,6 +801,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     remoteTyping,
     localEmote,
     localChat,
+    localPlayerName,
     isLocalIdle,
     isLocalTyping,
     connectionStatus,

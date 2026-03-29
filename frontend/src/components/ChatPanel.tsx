@@ -85,7 +85,7 @@ export default function ChatPanel({
         aria-expanded={!collapsed}
         title={collapsed ? "Expand chat" : "Collapse chat"}
       >
-        {collapsed ? "\u25C0" : "\u25B6"}
+        {collapsed ? "\u2039" : "\u203A"}
       </button>
 
       {collapsed ? (

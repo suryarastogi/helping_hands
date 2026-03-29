@@ -75,47 +75,83 @@ body {
 }
 
 /* ── Sidebar collapse shared ── */
+.task-list-card,
+.chat-panel-card {
+  position: relative;
+}
+
 .sidebar-collapse-btn {
   all: unset;
   cursor: pointer;
+  position: absolute;
+  top: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  padding: 6px 0;
-  font-size: 0.7rem;
+  width: 20px;
+  height: 20px;
+  font-size: 0.55rem;
   color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-  transition: color 0.15s;
+  border-radius: 4px;
+  opacity: 0.4;
+  z-index: 1;
+  transition: opacity 0.15s, background 0.15s;
 }
 
 .sidebar-collapse-btn:hover {
-  color: var(--fg);
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-collapse-btn:focus-visible {
+  outline: 1px solid var(--border);
+  opacity: 1;
 }
 
 .collapsed .sidebar-collapse-btn {
-  border-bottom: none;
-  margin-bottom: 4px;
+  position: static;
+  margin: 0 auto 4px;
+  opacity: 0.6;
 }
 
 .sidebar-collapsed-label {
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   margin: auto;
   padding: 8px 0;
+  opacity: 0.6;
 }
 
 /* ── Task list collapse ── */
+.task-list-card {
+  transition: padding 0.2s ease;
+}
+
+.task-list-card > .sidebar-collapse-btn {
+  top: 12px;
+  left: 12px;
+  right: auto;
+}
+
+.task-list-card > .sidebar-collapse-btn + * {
+  margin-top: 2px;
+}
+
 .task-list-card.collapsed {
   padding: 8px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* ── Chat panel collapse ── */
+.chat-panel-card {
+  transition: padding 0.2s ease;
 }
 
 /* ── Chat panel ── */
@@ -1709,15 +1745,68 @@ h2 {
   z-index: 5;
 }
 
+/* Dust / dirt layer over the whole cabinet */
+.arcade-dust {
+  position: absolute;
+  inset: 4px 2px 0;
+  border-radius: 4px 4px 2px 2px;
+  background:
+    radial-gradient(ellipse at 20% 80%, rgba(80, 60, 40, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(80, 60, 40, 0.2) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 100%, rgba(60, 45, 30, 0.3) 0%, transparent 60%);
+  z-index: 8;
+  pointer-events: none;
+}
+
 .arcade-cabinet {
   position: absolute;
   left: 4px;
   top: 6px;
   width: 32px;
   height: 38px;
-  background: linear-gradient(180deg, #4a1a6b 0%, #3b1256 40%, #2d0e45 100%);
+  background:
+    linear-gradient(180deg,
+      #3a1452 0%,
+      #2e1040 20%,
+      #261038 50%,
+      #1e0a2e 80%,
+      #170822 100%);
   border-radius: 4px 4px 2px 2px;
-  border: 1px solid #6b21a8;
+  border: 1px solid #4a1870;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Paint scratches / scuffs */
+.arcade-scratch {
+  position: absolute;
+  background: rgba(100, 80, 60, 0.3);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.arcade-scratch-1 {
+  left: 8px;
+  top: 36px;
+  width: 12px;
+  height: 1px;
+  transform: rotate(-8deg);
+}
+
+.arcade-scratch-2 {
+  left: 28px;
+  top: 18px;
+  width: 1px;
+  height: 8px;
+  transform: rotate(5deg);
+}
+
+.arcade-scratch-3 {
+  left: 6px;
+  top: 24px;
+  width: 6px;
+  height: 1px;
+  transform: rotate(12deg);
+  opacity: 0.6;
 }
 
 .arcade-screen {
@@ -1726,26 +1815,77 @@ h2 {
   top: 10px;
   width: 24px;
   height: 16px;
-  background: #0a0a1a;
+  background: #060812;
   border-radius: 2px;
-  border: 1px solid #7c3aed;
+  border: 1px solid #3b1560;
   overflow: hidden;
+  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.8);
 }
 
+/* Faint ghostly screen glow — like it barely powers on */
 .arcade-screen::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 30% 40%, rgba(96, 224, 255, 0.3) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 60%, rgba(168, 85, 247, 0.25) 0%, transparent 50%);
-  animation: arcade-screen-flicker 2s ease-in-out infinite alternate;
+    radial-gradient(ellipse at 30% 40%, rgba(96, 224, 255, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+  animation: arcade-screen-flicker 3s ease-in-out infinite;
 }
 
 @keyframes arcade-screen-flicker {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.7; }
+  0%, 100% { opacity: 0.2; }
+  10% { opacity: 0.6; }
+  12% { opacity: 0.1; }
+  50% { opacity: 0.4; }
+  52% { opacity: 0.05; }
+  80% { opacity: 0.35; }
+}
+
+/* Diagonal crack across the screen */
+.arcade-screen-crack {
+  position: absolute;
+  left: 7px;
+  top: 10px;
+  width: 20px;
+  height: 14px;
+  z-index: 7;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.arcade-screen-crack::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 18px;
+  height: 1px;
+  background: rgba(200, 200, 220, 0.25);
+  transform: rotate(25deg);
+  transform-origin: left center;
+  box-shadow:
+    3px 3px 0 rgba(200, 200, 220, 0.15),
+    -1px 5px 0 rgba(200, 200, 220, 0.1);
+}
+
+/* CRT scanlines */
+.arcade-screen-scanlines {
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  width: 24px;
+  height: 16px;
+  z-index: 7;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0px,
+    transparent 1px,
+    rgba(0, 0, 0, 0.15) 1px,
+    rgba(0, 0, 0, 0.15) 2px
+  );
+  border-radius: 2px;
 }
 
 .arcade-screen-glow {
@@ -1754,7 +1894,7 @@ h2 {
   top: 6px;
   width: 32px;
   height: 24px;
-  background: radial-gradient(ellipse, rgba(168, 85, 247, 0.2) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(168, 85, 247, 0.08) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -1764,11 +1904,13 @@ h2 {
   top: 28px;
   width: 16px;
   height: 6px;
-  background: linear-gradient(90deg, #1e1b4b, #312e81);
+  background: linear-gradient(90deg, #15122e, #1e1a45);
   border-radius: 1px;
-  border: 1px solid #4c1d95;
+  border: 1px solid #2a1850;
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.6);
 }
 
+/* Faded, dusty buttons */
 .arcade-controls::before {
   content: "";
   position: absolute;
@@ -1777,8 +1919,9 @@ h2 {
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 5px 0 0 #22c55e, 10px 0 0 #3b82f6;
+  background: #8b3030;
+  box-shadow: 5px 0 0 #1a6b1a, 10px 0 0 #2a4a8b;
+  opacity: 0.5;
 }
 
 .arcade-base {
@@ -1787,10 +1930,113 @@ h2 {
   bottom: 0;
   width: 28px;
   height: 8px;
-  background: linear-gradient(180deg, #2d0e45 0%, #1e0a30 100%);
+  background: linear-gradient(180deg, #1e0a30 0%, #120620 100%);
   border-radius: 0 0 3px 3px;
-  border: 1px solid #4c1d95;
+  border: 1px solid #2a1248;
   border-top: none;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Cobwebs — CSS triangle + radial gradient approach */
+.arcade-cobweb {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* Top-left cobweb */
+.arcade-cobweb-tl {
+  left: 2px;
+  top: 4px;
+  width: 14px;
+  height: 12px;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(200, 200, 210, 0.2) 0%, transparent 70%);
+  border-left: 1px solid rgba(200, 200, 210, 0.12);
+  border-top: 1px solid rgba(200, 200, 210, 0.12);
+  border-radius: 0;
+}
+
+.arcade-cobweb-tl::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(200, 200, 210, 0.2), transparent);
+  transform: rotate(40deg);
+  transform-origin: left top;
+}
+
+.arcade-cobweb-tl::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(200, 200, 210, 0.15), transparent);
+  transform: rotate(70deg);
+  transform-origin: left top;
+}
+
+/* Top-right cobweb */
+.arcade-cobweb-tr {
+  right: 2px;
+  top: 4px;
+  width: 12px;
+  height: 10px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(200, 200, 210, 0.15) 0%, transparent 70%);
+  border-right: 1px solid rgba(200, 200, 210, 0.1);
+  border-top: 1px solid rgba(200, 200, 210, 0.1);
+}
+
+.arcade-cobweb-tr::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 8px;
+  height: 1px;
+  background: linear-gradient(270deg, rgba(200, 200, 210, 0.18), transparent);
+  transform: rotate(-35deg);
+  transform-origin: right top;
+}
+
+/* Bottom-right cobweb — bigger, droopier */
+.arcade-cobweb-br {
+  right: 0;
+  bottom: 6px;
+  width: 16px;
+  height: 14px;
+  background:
+    radial-gradient(ellipse at 100% 100%, rgba(200, 200, 210, 0.18) 0%, transparent 65%);
+}
+
+.arcade-cobweb-br::before {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  width: 12px;
+  height: 1px;
+  background: linear-gradient(270deg, rgba(200, 200, 210, 0.2), transparent);
+  transform: rotate(30deg);
+  transform-origin: right bottom;
+}
+
+.arcade-cobweb-br::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  bottom: 2px;
+  width: 9px;
+  height: 1px;
+  background: linear-gradient(270deg, rgba(200, 200, 210, 0.12), transparent);
+  transform: rotate(55deg);
+  transform-origin: right bottom;
 }
 
 .arcade-label {
@@ -1800,9 +2046,10 @@ h2 {
   transform: translateX(-50%);
   font-family: "Press Start 2P", var(--mono);
   font-size: 0.28rem;
-  color: #c084fc;
+  color: #7c5aa0;
   white-space: nowrap;
-  text-shadow: 0 0 4px rgba(168, 85, 247, 0.6);
+  text-shadow: 0 0 2px rgba(168, 85, 247, 0.3);
+  opacity: 0.7;
 }
 
 .arcade-prompt {
@@ -1823,17 +2070,28 @@ h2 {
   100% { transform: translateX(-50%) translateY(-3px); }
 }
 
+/* When player is near — the screen flickers to life through the grime */
 .hh-arcade.arcade-active .arcade-screen::after {
   animation: arcade-screen-active 0.5s ease-in-out infinite alternate;
 }
 
 .hh-arcade.arcade-active .arcade-screen-glow {
-  background: radial-gradient(ellipse, rgba(168, 85, 247, 0.4) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(168, 85, 247, 0.35) 0%, transparent 70%);
+}
+
+.hh-arcade.arcade-active .arcade-controls::before {
+  opacity: 1;
+  animation: arcade-btn-flicker 1.5s ease-in-out infinite alternate;
 }
 
 @keyframes arcade-screen-active {
-  0% { opacity: 0.8; }
+  0% { opacity: 0.5; }
   100% { opacity: 1; }
+}
+
+@keyframes arcade-btn-flicker {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 /* ── Asteroids Game Card ── */
@@ -1914,10 +2172,65 @@ h2 {
   box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
 }
 
-.asteroids-restart-row {
+.asteroids-canvas-wrap {
+  position: relative;
+}
+
+.asteroids-gameover-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  margin-top: 10px;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+}
+
+.asteroids-gameover-score {
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 1rem;
+  color: #60e0ff;
+  text-shadow: 0 0 8px rgba(96, 224, 255, 0.4);
+}
+
+.asteroids-gameover-wave {
+  font-size: 0.72rem;
+  color: #8b9dc3;
+  margin-bottom: 6px;
+}
+
+.asteroids-gameover-scores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  width: 240px;
+  max-height: 160px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.asteroids-gameover-score-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 6px;
+  font-size: 0.65rem;
+  color: #94a3b8;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.asteroids-gameover-score-row.highlight {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.asteroids-gameover-hint {
+  font-size: 0.65rem;
+  color: #8b9dc3;
 }
 
 .asteroids-restart-btn {
@@ -1938,11 +2251,109 @@ h2 {
   border-color: #a855f7;
 }
 
+.asteroids-controls-card {
+  margin-top: 10px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
 .asteroids-controls {
   text-align: center;
   font-size: 0.72rem;
   color: var(--muted);
-  margin: 8px 0 0;
+  margin: 0;
+}
+
+.asteroids-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.asteroids-body > .asteroids-canvas-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Leaderboard ── */
+.asteroids-leaderboard {
+  width: 200px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.asteroids-leaderboard h3 {
+  margin: 0 0 8px;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.65rem;
+  color: #c084fc;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+.asteroids-no-scores {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.asteroids-score-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.asteroids-score-entry {
+  display: grid;
+  grid-template-columns: 20px 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.68rem;
+  padding: 3px 4px;
+  border-radius: 3px;
+}
+
+.asteroids-score-entry:nth-child(1) {
+  color: #fbbf24;
+}
+.asteroids-score-entry:nth-child(2) {
+  color: #94a3b8;
+}
+.asteroids-score-entry:nth-child(3) {
+  color: #d97706;
+}
+
+.asteroids-score-rank {
+  color: var(--muted);
+  font-size: 0.6rem;
+  text-align: right;
+}
+
+.asteroids-score-entry:nth-child(-n+3) .asteroids-score-rank {
+  color: inherit;
+}
+
+.asteroids-score-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asteroids-score-pts {
+  font-family: var(--mono);
+  text-align: right;
+}
+
+.asteroids-score-wave {
+  color: var(--muted);
+  font-size: 0.6rem;
 }
 
 /* ── Hand World Layout: scene + collapsible side panel overlay ── */

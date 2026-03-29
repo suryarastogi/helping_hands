@@ -36,7 +36,7 @@ export default function TaskListSidebar({
         aria-expanded={!collapsed}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        {collapsed ? "\u25B6" : "\u25C0"}
+        {collapsed ? "\u203A" : "\u2039"}
       </button>
 
       {collapsed ? (

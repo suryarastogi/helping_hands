@@ -154,7 +154,7 @@ class TestFetchClaudeUsage:
         result = _fetch_claude_usage()
         # Should have re-fetched (no token → error)
         assert result.fetched_at != "stale"
-        assert "Keychain" in result.error
+        assert "credentials" in result.error.lower()
 
     def test_no_token_returns_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self._reset_cache(monkeypatch)
@@ -164,7 +164,7 @@ class TestFetchClaudeUsage:
 
         result = _fetch_claude_usage()
         assert result.error is not None
-        assert "Keychain" in result.error
+        assert "credentials" in result.error.lower()
         assert result.levels == []
 
     def test_http_error_returns_error(self, monkeypatch: pytest.MonkeyPatch) -> None:

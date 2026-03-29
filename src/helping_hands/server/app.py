@@ -3007,6 +3007,52 @@ def get_claude_usage(force: bool = False) -> ClaudeUsageResponse:
     return _fetch_claude_usage(force=force)
 
 
+# ---------------------------------------------------------------------------
+# Arcade high scores (in-memory)
+# ---------------------------------------------------------------------------
+
+_MAX_HIGH_SCORES = 10
+
+
+class ArcadeScoreEntry(BaseModel):
+    name: str = Field(..., max_length=24)
+    score: int = Field(..., ge=0)
+    wave: int = Field(..., ge=1)
+    submitted_at: str = ""
+
+
+class ArcadeScoreSubmit(BaseModel):
+    name: str = Field(..., max_length=24)
+    score: int = Field(..., ge=0)
+    wave: int = Field(..., ge=1)
+
+
+_arcade_high_scores: list[ArcadeScoreEntry] = []
+
+
+@app.get("/arcade/high-scores", response_model=list[ArcadeScoreEntry])
+def get_arcade_high_scores() -> list[ArcadeScoreEntry]:
+    """Return the top arcade high scores."""
+    return _arcade_high_scores
+
+
+@app.post("/arcade/high-scores", response_model=list[ArcadeScoreEntry])
+def submit_arcade_high_score(entry: ArcadeScoreSubmit) -> list[ArcadeScoreEntry]:
+    """Submit a new arcade high score. Returns the updated leaderboard."""
+    global _arcade_high_scores
+    _arcade_high_scores.append(
+        ArcadeScoreEntry(
+            name=entry.name.strip() or "???",
+            score=entry.score,
+            wave=entry.wave,
+            submitted_at=datetime.now(UTC).isoformat(),
+        )
+    )
+    _arcade_high_scores.sort(key=lambda e: e.score, reverse=True)
+    _arcade_high_scores = _arcade_high_scores[:_MAX_HIGH_SCORES]
+    return _arcade_high_scores
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Health check."""

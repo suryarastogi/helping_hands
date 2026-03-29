@@ -236,11 +236,20 @@ export default function HandWorldScene({
 
         {/* Arcade machine (top-right) */}
         <div className={`hh-arcade${nearArcade ? " arcade-active" : ""}`} aria-hidden="true">
+          <span className="arcade-dust" />
           <span className="arcade-cabinet" />
+          <span className="arcade-scratch arcade-scratch-1" />
+          <span className="arcade-scratch arcade-scratch-2" />
+          <span className="arcade-scratch arcade-scratch-3" />
           <span className="arcade-screen" />
+          <span className="arcade-screen-crack" />
+          <span className="arcade-screen-scanlines" />
           <span className="arcade-screen-glow" />
           <span className="arcade-controls" />
           <span className="arcade-base" />
+          <span className="arcade-cobweb arcade-cobweb-tl" />
+          <span className="arcade-cobweb arcade-cobweb-tr" />
+          <span className="arcade-cobweb arcade-cobweb-br" />
           <div className="arcade-label">ARCADE</div>
           {nearArcade && !arcadeOpen && (
             <div className="arcade-prompt">Press to play!</div>

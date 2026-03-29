@@ -6,6 +6,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { apiUrl } from "../App.utils";
+
 // ---------------------------------------------------------------------------
 // Types & constants
 // ---------------------------------------------------------------------------
@@ -95,17 +97,27 @@ function wrap(pos: Vec2): Vec2 {
 // Component
 // ---------------------------------------------------------------------------
 
-export type AsteroidsGameProps = {
-  onClose: () => void;
+type HighScoreEntry = {
+  name: string;
+  score: number;
+  wave: number;
+  submitted_at: string;
 };
 
-export default function AsteroidsGame({ onClose }: AsteroidsGameProps) {
+export type AsteroidsGameProps = {
+  onClose: () => void;
+  playerName: string;
+};
+
+export default function AsteroidsGame({ onClose, playerName }: AsteroidsGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const keysRef = useRef(new Set<string>());
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [gameOver, setGameOver] = useState(false);
   const [wave, setWave] = useState(1);
+  const [highScores, setHighScores] = useState<HighScoreEntry[]>([]);
+  const [scoreSubmitted, setScoreSubmitted] = useState(false);
   const gameStateRef = useRef({
     ship: {
       x: WIDTH / 2,
@@ -124,6 +136,31 @@ export default function AsteroidsGame({ onClose }: AsteroidsGameProps) {
     particles: [] as { x: number; y: number; vx: number; vy: number; life: number }[],
   });
 
+  const fetchHighScores = useCallback(() => {
+    fetch(apiUrl("/arcade/high-scores"))
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setHighScores(data))
+      .catch(() => {});
+  }, []);
+
+  const submitScore = useCallback(
+    (finalScore: number, finalWave: number) => {
+      if (finalScore <= 0) return;
+      fetch(apiUrl("/arcade/high-scores"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: playerName || "???", score: finalScore, wave: finalWave }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => { if (data) setHighScores(data); })
+        .catch(() => {});
+    },
+    [playerName],
+  );
+
+  // Fetch leaderboard on mount
+  useEffect(() => { fetchHighScores(); }, [fetchHighScores]);
+
   const resetGame = useCallback(() => {
     const gs = gameStateRef.current;
     gs.ship = { x: WIDTH / 2, y: HEIGHT / 2, angle: -Math.PI / 2, vx: 0, vy: 0, invincible: 120 };
@@ -138,7 +175,9 @@ export default function AsteroidsGame({ onClose }: AsteroidsGameProps) {
     setLives(3);
     setWave(1);
     setGameOver(false);
-  }, []);
+    setScoreSubmitted(false);
+    fetchHighScores();
+  }, [fetchHighScores]);
 
   // Auto-focus the canvas so keyboard input goes to the game immediately.
   useEffect(() => {
@@ -422,6 +461,14 @@ export default function AsteroidsGame({ onClose }: AsteroidsGameProps) {
     };
   }, []);
 
+  // Submit score on game over
+  useEffect(() => {
+    if (gameOver && !scoreSubmitted) {
+      setScoreSubmitted(true);
+      submitScore(score, wave);
+    }
+  }, [gameOver, score, wave, scoreSubmitted, submitScore]);
+
   // Restart on R key
   useEffect(() => {
     const handleRestart = (e: KeyboardEvent) => {
@@ -456,25 +503,63 @@ export default function AsteroidsGame({ onClose }: AsteroidsGameProps) {
           &times;
         </button>
       </header>
-      <div className="asteroids-canvas-wrap">
-        <canvas
-          ref={canvasRef}
-          width={WIDTH}
-          height={HEIGHT}
-          className="asteroids-canvas"
-          tabIndex={0}
-        />
-      </div>
-      {gameOver && (
-        <div className="asteroids-restart-row">
-          <button type="button" className="asteroids-restart-btn" onClick={resetGame}>
-            Play Again
-          </button>
+      <div className="asteroids-body">
+        <div className="asteroids-canvas-wrap">
+          <canvas
+            ref={canvasRef}
+            width={WIDTH}
+            height={HEIGHT}
+            className="asteroids-canvas"
+            tabIndex={0}
+          />
+          {gameOver && (
+            <div className="asteroids-gameover-overlay">
+              <div className="asteroids-gameover-score">Score: {score.toLocaleString()}</div>
+              <div className="asteroids-gameover-wave">Wave {wave}</div>
+              {scoreSubmitted && highScores.length > 0 && (
+                <ol className="asteroids-gameover-scores">
+                  {highScores.map((entry, i) => (
+                    <li
+                      key={`${entry.name}-${entry.submitted_at}-${i}`}
+                      className={`asteroids-gameover-score-row${entry.score === score && entry.name === (playerName || "???") ? " highlight" : ""}`}
+                    >
+                      <span>{i + 1}.</span>
+                      <span className="asteroids-score-name">{entry.name}</span>
+                      <span>{entry.score.toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <button type="button" className="asteroids-restart-btn" onClick={resetGame}>
+                Play Again
+              </button>
+              <span className="asteroids-gameover-hint">or press R</span>
+            </div>
+          )}
         </div>
-      )}
-      <p className="asteroids-controls">
-        Arrow keys / WASD: move &middot; Space: shoot &middot; Esc: quit
-      </p>
+        <div className="asteroids-leaderboard">
+          <h3>High Scores</h3>
+          {highScores.length === 0 ? (
+            <p className="asteroids-no-scores">No scores yet</p>
+          ) : (
+            <ol className="asteroids-score-list">
+              {highScores.map((entry, i) => (
+                <li key={`${entry.name}-${entry.submitted_at}-${i}`} className="asteroids-score-entry">
+                  <span className="asteroids-score-rank">{i + 1}.</span>
+                  <span className="asteroids-score-name">{entry.name}</span>
+                  <span className="asteroids-score-pts">{entry.score.toLocaleString()}</span>
+                  <span className="asteroids-score-wave">W{entry.wave}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+      <div className="asteroids-controls-card">
+        <p className="asteroids-controls">
+          Arrow keys / WASD: move &middot; Space: shoot &middot; Esc: quit
+        </p>
+      </div>
     </section>
   );
 }

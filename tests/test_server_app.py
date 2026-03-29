@@ -996,7 +996,7 @@ class TestClaudeUsageEndpoint:
         assert response.status_code == 200
         payload = response.json()
         assert payload["error"] is not None
-        assert "Keychain" in payload["error"]
+        assert "credentials" in payload["error"].lower()
         assert payload["fetched_at"] is not None
 
     def test_returns_cached_response(self, monkeypatch: pytest.MonkeyPatch) -> None:

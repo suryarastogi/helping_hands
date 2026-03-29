@@ -144,6 +144,7 @@ export default function App() {
     clearDecorations,
     remoteCursors,
     updateCursor,
+    localPlayerName,
   } = useMultiplayer({
     active: true,
     playerPosition,
@@ -342,7 +343,7 @@ export default function App() {
 
       <div className="main-column">
         {arcadeOpen && (
-          <AsteroidsGame onClose={() => setArcadeOpen(false)} />
+          <AsteroidsGame onClose={() => setArcadeOpen(false)} playerName={localPlayerName} />
         )}
 
         <HandWorldScene
