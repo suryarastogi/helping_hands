@@ -4,11 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v334 — GooseCLIHand & CLIHandBase Coverage Hardening](exec-plans/active/v334-goose-cli-base-coverage.md) —
-  Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and
-  `CLIHandBase` (98% → 99%); 17 tests added, 6510 tests passed
+- [v335 — ModelProvider Coverage Hardening](exec-plans/active/v335-model-provider-coverage-hardening.md) —
+  Close remaining coverage gaps in `model_provider.py`: `_require_langchain_class`
+  direct tests, provider-name resolution branches, empty model validation;
+  15 tests added, pre-existing env leak fixed, 6524 tests passed
 
 ## Completed plans
+
+- [2026-03-29 v334 — GooseCLIHand & CLIHandBase Coverage Hardening](exec-plans/completed/2026/v334-goose-cli-base-coverage.md) —
+  Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and
+  `CLIHandBase` (98% → 99%); 17 tests added, 6510 tests passed
 
 - [2026-03-28 v333 — DevinCLIHand & Factory Coverage Hardening](exec-plans/completed/2026/v333-devin-factory-coverage.md) —
   Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and

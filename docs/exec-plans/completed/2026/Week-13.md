@@ -1,4 +1,4 @@
-# Week 13 (Mar 20 – Mar 28, 2026)
+# Week 13 (Mar 20 – Mar 29, 2026)
 
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
@@ -525,6 +525,22 @@ support via GraphQL API, and GitHub integration test coverage hardening
 
 ---
 
+## Mar 29 — GooseCLIHand & CLIHandBase Coverage Hardening (v334)
+
+**GooseCLIHand coverage (88% → 99%):** 10 new tests covering `_read_goose_config` (yaml ImportError, parse exception, non-dict, success, model-only, empty keys, not found) and `_resolve_goose_provider_model_from_config` (config file fallback, empty provider inference, unknown model). **CLIHandBase coverage (98% → 99%):** 7 new tests covering `_repo_has_changes` HEAD advance, `_has_pending_changes` delegation, `_fetch_failed_check_logs` edge cases.
+
+**17 new tests. 6510 backend tests, 75.97% coverage.**
+
+---
+
+## Mar 29 — ModelProvider Coverage Hardening (v335)
+
+**`_require_langchain_class` direct unit tests:** 3 tests covering success path, failure with derived install string, and failure with custom install string. **`resolve_hand_model` provider-name branches:** 4 tests for direct provider names (openai, anthropic, google, litellm), 5 tests for `provider/` trailing-slash with empty model. **Empty model validation:** 2 tests for `build_langchain_chat_model` and `build_atomic_client` with empty model. **Bug fix:** `test_env_var_forwarding` — cleared `HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH` env var leaking into test.
+
+**15 new tests (51 model_provider total). 6524 backend tests, 75.64% coverage.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -588,3 +604,5 @@ support via GraphQL API, and GitHub integration test coverage hardening
 - `v331-server-test-coverage.md`
 - `v332-validation-coverage-hardening.md`
 - `v333-devin-factory-coverage.md`
+- `v334-goose-cli-base-coverage.md`
+- `v335-model-provider-coverage-hardening.md`

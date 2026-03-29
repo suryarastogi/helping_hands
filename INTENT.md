@@ -4,12 +4,19 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### ModelProvider Coverage Hardening (2026-03-29) — Completed
+
+Close remaining coverage gaps in `model_provider.py`: `_require_langchain_class`
+direct tests, provider-name resolution branches, empty model validation. Also
+fixed pre-existing `test_env_var_forwarding` env leak. See
+[v335 plan](docs/exec-plans/active/v335-model-provider-coverage-hardening.md).
+
+## Recently Completed
+
 ### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
 
 Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and `CLIHandBase`
-(98% → 99%). See [v334 plan](docs/exec-plans/active/v334-goose-cli-base-coverage.md).
-
-## Recently Completed
+(98% → 99%). See [v334 plan](docs/exec-plans/completed/2026/v334-goose-cli-base-coverage.md).
 
 ### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — Completed
 

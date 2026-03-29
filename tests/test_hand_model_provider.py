@@ -17,6 +17,7 @@ import pytest
 from helping_hands.lib.hands.v1.hand.model_provider import (
     HandModel,
     _infer_provider_name,
+    _require_langchain_class,
     build_atomic_client,
     build_langchain_chat_model,
     resolve_hand_model,
@@ -358,5 +359,135 @@ class TestBuildAtomicClientUnsupported:
         with (
             patch.dict("sys.modules", {"instructor": mock_instructor}),
             pytest.raises(RuntimeError, match="not supported by atomic"),
+        ):
+            build_atomic_client(hm)
+
+
+# ---------------------------------------------------------------------------
+# _require_langchain_class — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestRequireLangchainClass:
+    """Direct tests for the lazy-import helper."""
+
+    def test_success_returns_class(self) -> None:
+        """Successful import returns the requested class attribute."""
+        mock_cls = type("FakeChat", (), {})
+        mock_mod = SimpleNamespace(FakeChat=mock_cls)
+        with patch.dict("sys.modules", {"fake_langchain_mod": mock_mod}):
+            result = _require_langchain_class(
+                "fake_langchain_mod", "FakeChat", hint="test"
+            )
+        assert result is mock_cls
+
+    def test_failure_derives_install_from_module_path(self) -> None:
+        """When *install* is None, the pip package is derived from module_path."""
+        with (
+            patch.dict("sys.modules", {"langchain_custom": None}),
+            pytest.raises(RuntimeError, match="uv add langchain-custom"),
+        ):
+            _require_langchain_class(
+                "langchain_custom", "Chat", hint="custom models require it"
+            )
+
+    def test_failure_uses_explicit_install_string(self) -> None:
+        """When *install* is provided, it appears in the error message."""
+        with (
+            patch.dict("sys.modules", {"langchain_community.chat_models": None}),
+            pytest.raises(RuntimeError, match="uv add my-pkg extra-pkg"),
+        ):
+            _require_langchain_class(
+                "langchain_community.chat_models",
+                "ChatFoo",
+                hint="need custom install",
+                install="my-pkg extra-pkg",
+            )
+
+
+# ---------------------------------------------------------------------------
+# resolve_hand_model — additional provider-name branches
+# ---------------------------------------------------------------------------
+
+
+class TestResolveHandModelDirectProviderNames:
+    """When the raw input exactly matches a known provider name, the provider's
+    default model should be returned without going through inference."""
+
+    def test_openai_provider_name(self) -> None:
+        hm = resolve_hand_model("openai")
+        assert hm.provider.name == "openai"
+        assert hm.model == hm.provider.default_model
+        assert hm.raw == "openai"
+
+    def test_anthropic_provider_name(self) -> None:
+        hm = resolve_hand_model("anthropic")
+        assert hm.provider.name == "anthropic"
+        assert hm.model == hm.provider.default_model
+        assert hm.raw == "anthropic"
+
+    def test_google_provider_name(self) -> None:
+        hm = resolve_hand_model("google")
+        assert hm.provider.name == "google"
+        assert hm.model == hm.provider.default_model
+        assert hm.raw == "google"
+
+    def test_litellm_provider_name(self) -> None:
+        hm = resolve_hand_model("litellm")
+        assert hm.provider.name == "litellm"
+        assert hm.model == hm.provider.default_model
+        assert hm.raw == "litellm"
+
+
+class TestResolveHandModelProviderSlashEmpty:
+    """When input is 'provider/' (trailing slash, empty model), the provider's
+    default model should be used."""
+
+    def test_openai_trailing_slash(self) -> None:
+        hm = resolve_hand_model("openai/")
+        assert hm.provider.name == "openai"
+        assert hm.model == hm.provider.default_model
+
+    def test_anthropic_trailing_slash(self) -> None:
+        hm = resolve_hand_model("anthropic/")
+        assert hm.provider.name == "anthropic"
+        assert hm.model == hm.provider.default_model
+
+    def test_google_trailing_slash(self) -> None:
+        hm = resolve_hand_model("google/")
+        assert hm.provider.name == "google"
+        assert hm.model == hm.provider.default_model
+
+    def test_litellm_trailing_slash(self) -> None:
+        hm = resolve_hand_model("litellm/")
+        assert hm.provider.name == "litellm"
+        assert hm.model == hm.provider.default_model
+
+    def test_provider_slash_whitespace_model(self) -> None:
+        """'provider/  ' should strip to empty and use the default model."""
+        hm = resolve_hand_model("openai/  ")
+        assert hm.provider.name == "openai"
+        assert hm.model == hm.provider.default_model
+
+
+# ---------------------------------------------------------------------------
+# build_langchain_chat_model / build_atomic_client — empty model validation
+# ---------------------------------------------------------------------------
+
+
+class TestBuildEmptyModelValidation:
+    """Both build functions call require_non_empty_string on the model name."""
+
+    def test_langchain_empty_model_raises(self) -> None:
+        hm = _fake_hand_model("openai", "")
+        with pytest.raises(ValueError, match="hand_model.model"):
+            build_langchain_chat_model(hm, streaming=False)
+
+    def test_atomic_empty_model_raises(self) -> None:
+        mock_instructor = MagicMock()
+        hm = _fake_hand_model("openai", "")
+        with (
+            patch.dict("sys.modules", {"instructor": mock_instructor}),
+            pytest.raises(ValueError, match="hand_model.model"),
         ):
             build_atomic_client(hm)
