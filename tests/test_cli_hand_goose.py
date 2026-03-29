@@ -505,3 +505,127 @@ class TestOllamaDefaultHostConstant:
         monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
         env = hand._build_subprocess_env()
         assert env["OLLAMA_HOST"] == _OLLAMA_DEFAULT_HOST
+
+
+# ---------------------------------------------------------------------------
+# _read_goose_config
+# ---------------------------------------------------------------------------
+
+
+class TestReadGooseConfig:
+    """Tests for YAML config file reading in _read_goose_config."""
+
+    def test_yaml_import_error_returns_empty(self) -> None:
+        """When yaml is not installed, returns empty tuple."""
+        with patch.dict("sys.modules", {"yaml": None}):
+            # Force re-import failure by patching builtins.__import__
+            original_import = (
+                __builtins__.__import__
+                if hasattr(__builtins__, "__import__")
+                else __import__
+            )
+
+            def fake_import(name, *args, **kwargs):
+                if name == "yaml":
+                    raise ImportError("No module named 'yaml'")
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=fake_import):
+                result = GooseCLIHand._read_goose_config()
+                assert result == ("", "")
+
+    def test_config_file_not_found_returns_empty(self, tmp_path) -> None:
+        """When no config file exists, returns empty tuple."""
+        fake_path = tmp_path / "nonexistent" / "config.yaml"
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (fake_path,)):
+            result = GooseCLIHand._read_goose_config()
+            assert result == ("", "")
+
+    def test_yaml_parse_exception_returns_empty(self, tmp_path) -> None:
+        """When YAML file is malformed, exception is swallowed."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(": : : invalid yaml [[[")
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            import yaml
+
+            with patch.object(yaml, "safe_load", side_effect=Exception("parse error")):
+                result = GooseCLIHand._read_goose_config()
+                assert result == ("", "")
+
+    def test_non_dict_yaml_skipped(self, tmp_path) -> None:
+        """When YAML parses to a non-dict (e.g. list), file is skipped."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("- item1\n- item2\n")
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            result = GooseCLIHand._read_goose_config()
+            assert result == ("", "")
+
+    def test_reads_provider_and_model(self, tmp_path) -> None:
+        """Successfully reads GOOSE_PROVIDER and GOOSE_MODEL from config."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "GOOSE_PROVIDER: anthropic\nGOOSE_MODEL: claude-opus-4\n"
+        )
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            result = GooseCLIHand._read_goose_config()
+            assert result == ("anthropic", "claude-opus-4")
+
+    def test_reads_model_only(self, tmp_path) -> None:
+        """When only GOOSE_MODEL is set, provider is empty string."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("GOOSE_MODEL: gpt-5.2\n")
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            result = GooseCLIHand._read_goose_config()
+            assert result == ("", "gpt-5.2")
+
+    def test_empty_config_returns_empty(self, tmp_path) -> None:
+        """When config has no provider/model keys, returns empty tuple."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("OTHER_KEY: value\n")
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            result = GooseCLIHand._read_goose_config()
+            assert result == ("", "")
+
+
+# ---------------------------------------------------------------------------
+# _resolve_goose_provider_model_from_config — config file fallback paths
+# ---------------------------------------------------------------------------
+
+
+class TestResolveGooseProviderModelFromConfigFile:
+    """Tests for config file fallback in _resolve_goose_provider_model_from_config."""
+
+    def test_default_model_reads_from_config(self, make_cli_hand, tmp_path) -> None:
+        """When model is 'default', falls back to goose config YAML."""
+        config_file = tmp_path / "goose_config.yaml"
+        config_file.write_text("GOOSE_PROVIDER: openai\nGOOSE_MODEL: gpt-5.2\n")
+        hand = make_cli_hand(GooseCLIHand, model="default")
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            provider, model = hand._resolve_goose_provider_model_from_config()
+            assert provider == "openai"
+            assert model == "gpt-5.2"
+
+    def test_empty_provider_with_model_infers_provider(
+        self, make_cli_hand, tmp_path
+    ) -> None:
+        """When config has only a model, provider is inferred from model name."""
+        config_file = tmp_path / "goose_config.yaml"
+        config_file.write_text("GOOSE_MODEL: claude-sonnet-4-5\n")
+        hand = make_cli_hand(GooseCLIHand, model="default")
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            provider, model = hand._resolve_goose_provider_model_from_config()
+            assert provider == "anthropic"
+            assert model == "claude-sonnet-4-5"
+
+    def test_empty_provider_unknown_model_infers_openai(
+        self, make_cli_hand, tmp_path
+    ) -> None:
+        """When config model is unrecognized, provider inferred as openai."""
+        config_file = tmp_path / "goose_config.yaml"
+        config_file.write_text("GOOSE_MODEL: my-custom-model\n")
+        hand = make_cli_hand(GooseCLIHand, model="default")
+        with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
+            provider, model = hand._resolve_goose_provider_model_from_config()
+            # _infer_goose_provider_from_model falls back to "openai"
+            assert provider == "openai"
+            assert model == "my-custom-model"

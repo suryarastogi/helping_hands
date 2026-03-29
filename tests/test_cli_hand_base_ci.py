@@ -377,6 +377,88 @@ class TestFetchFailedCheckLogs:
         )
         assert result == ""
 
+    def test_subprocess_timeout_continues(self) -> None:
+        """When gh subprocess times out, it's swallowed and returns empty."""
+        import subprocess
+
+        check_result = {
+            "check_runs": [
+                {
+                    "name": "lint",
+                    "conclusion": "failure",
+                    "html_url": "https://github.com/o/r/actions/runs/1/job/2",
+                },
+            ],
+        }
+        with patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd=["gh"], timeout=30),
+        ):
+            result = _TwoPhaseCLIHand._fetch_failed_check_logs(
+                None, "owner/repo", check_result
+            )
+        assert result == ""
+
+    def test_subprocess_file_not_found_continues(self) -> None:
+        """When gh binary is not found, exception is swallowed."""
+        check_result = {
+            "check_runs": [
+                {
+                    "name": "lint",
+                    "conclusion": "failure",
+                    "html_url": "https://github.com/o/r/actions/runs/1/job/2",
+                },
+            ],
+        }
+        with patch(
+            "subprocess.run",
+            side_effect=FileNotFoundError("gh not found"),
+        ):
+            result = _TwoPhaseCLIHand._fetch_failed_check_logs(
+                None, "owner/repo", check_result
+            )
+        assert result == ""
+
+    def test_max_lines_truncation(self) -> None:
+        """When output exceeds max_lines, only last max_lines are kept."""
+        check_result = {
+            "check_runs": [
+                {
+                    "name": "lint",
+                    "conclusion": "failure",
+                    "html_url": "https://github.com/o/r/actions/runs/1/job/2",
+                },
+            ],
+        }
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        # Generate many lines
+        mock_result.stdout = "\n".join(f"line {i}" for i in range(500))
+        with patch("subprocess.run", return_value=mock_result):
+            result = _TwoPhaseCLIHand._fetch_failed_check_logs(
+                None, "owner/repo", check_result, max_lines=10, max_chars=100000
+            )
+        lines = result.splitlines()
+        assert len(lines) == 10
+        # Should keep the last 10 lines
+        assert "line 499" in lines[-1]
+
+    def test_duplicate_run_id_skipped(self) -> None:
+        """When URL has no 'runs' segment, run_id is empty and skipped."""
+        check_result = {
+            "check_runs": [
+                {
+                    "name": "lint",
+                    "conclusion": "failure",
+                    "html_url": "https://github.com/o/r/actions/job/2",
+                },
+            ],
+        }
+        result = _TwoPhaseCLIHand._fetch_failed_check_logs(
+            None, "owner/repo", check_result
+        )
+        assert result == ""
+
 
 class TestCiFixModeIdleTimeout:
     """Tests that _ci_fix_mode uses shorter idle timeout."""

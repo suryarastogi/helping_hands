@@ -558,3 +558,116 @@ class TestLabelMsg:
         result = stub._format_ci_fix_message(metadata)
         assert result is not None
         assert result.startswith("[stub] ")
+
+
+# ---------------------------------------------------------------------------
+# _repo_has_changes — HEAD advance detection (lines 1040-1047)
+# ---------------------------------------------------------------------------
+
+
+class TestRepoHasChangesHeadAdvance:
+    """Tests for HEAD advance detection when _baseline_head is set."""
+
+    def test_head_advanced_returns_true(self, tmp_path: Path) -> None:
+        """When HEAD advanced since baseline, _repo_has_changes returns True."""
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "a.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True
+        )
+
+        # Capture baseline HEAD
+        baseline = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+        # Make a new commit
+        (tmp_path / "b.txt").write_text("new")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "second"], cwd=tmp_path, capture_output=True
+        )
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        stub._baseline_head = baseline
+        assert stub._repo_has_changes() is True
+
+    def test_head_same_as_baseline_returns_false(self, tmp_path: Path) -> None:
+        """When HEAD matches baseline and no uncommitted changes, returns False."""
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "a.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True
+        )
+
+        baseline = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        stub._baseline_head = baseline
+        assert stub._repo_has_changes() is False
+
+
+# ---------------------------------------------------------------------------
+# _has_pending_changes override (line 1057)
+# ---------------------------------------------------------------------------
+
+
+class TestHasPendingChangesOverride:
+    """Tests for _has_pending_changes which delegates to _repo_has_changes."""
+
+    def test_delegates_to_repo_has_changes(self, tmp_path: Path) -> None:
+        """_has_pending_changes calls _repo_has_changes internally."""
+        from unittest.mock import patch as mock_patch
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        with mock_patch.object(stub, "_repo_has_changes", return_value=True) as m:
+            result = stub._has_pending_changes(tmp_path)
+        assert result is True
+        m.assert_called_once()
+
+    def test_returns_false_when_no_changes(self, tmp_path: Path) -> None:
+        """_has_pending_changes returns False when _repo_has_changes is False."""
+        from unittest.mock import patch as mock_patch
+
+        stub = _Stub()
+        stub.repo_index = SimpleNamespace(root=tmp_path)
+        with mock_patch.object(stub, "_repo_has_changes", return_value=False):
+            result = stub._has_pending_changes(tmp_path)
+        assert result is False

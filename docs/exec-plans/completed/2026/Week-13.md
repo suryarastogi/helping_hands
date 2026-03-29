@@ -501,6 +501,30 @@ support via GraphQL API, and GitHub integration test coverage hardening
 
 ---
 
+## Mar 28 — Server Module Test Coverage Hardening (v331)
+
+**Targeted untested branches** in `celery_app.py` and `schedules.py`: `_ProgressEmitter` unit tests (4), `_resolve_repo_path` TimeoutExpired branch (1), `_setup_periodic_tasks` signal handler (1), `_load_meta` corrupted data tests (4).
+
+**10 new tests (6 celery_app, 4 schedule_manager).**
+
+---
+
+## Mar 28 — Validation & Task Result Coverage Hardening (v332)
+
+**Type-validation test gaps:** 15 new validation tests (`require_non_empty_string` TypeError branches, `require_positive_int` TypeError branches, `format_type_error` direct unit tests). 5 `normalize_task_result` edge case tests (empty/whitespace/None/int status, non-serializable fallback).
+
+**20 new tests. 6459 backend tests, 78.28% coverage.**
+
+---
+
+## Mar 28 — DevinCLIHand & Factory Coverage Hardening (v333)
+
+**DevinCLIHand coverage (62% → ~95%):** 15 new tests covering `_inject_prompt_argument`, `_normalize_base_command`, `_native_cli_auth_env_names`, `_describe_auth`, `_permission_mode`, `_apply_backend_defaults`. **`get_enabled_backends()` coverage (82% → ~95%):** 8 new tests covering env parsing edge cases.
+
+**23 new tests. 6485 backend tests, 75.87% coverage.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -561,3 +585,6 @@ support via GraphQL API, and GitHub integration test coverage hardening
 - `v328-sync-issue-status.md`
 - `v329-github-projects-integration.md`
 - `v330-github-integration-test-coverage.md`
+- `v331-server-test-coverage.md`
+- `v332-validation-coverage-hardening.md`
+- `v333-devin-factory-coverage.md`
