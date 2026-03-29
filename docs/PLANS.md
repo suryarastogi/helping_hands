@@ -4,16 +4,15 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v335 — Stream Emitter & Multiplayer Coverage + Test Fix](exec-plans/active/v335-stream-emitter-multiplayer-coverage.md) —
-  Fix failing `test_env_var_forwarding`, close coverage gaps in
-  `_StreamJsonEmitter` (claude.py) and `multiplayer_yjs.py`;
-  9 tests added, 6519 tests passed
+- [v336 — Server Module Coverage Hardening](exec-plans/active/v336-server-module-coverage-hardening.md) —
+  Close testable coverage gaps in `server/app.py`, `server/celery_app.py`,
+  and `server/schedules.py` pure helper functions
 
 ## Completed plans
 
-- [2026-03-29 v334 — GooseCLIHand & CLIHandBase Coverage Hardening](exec-plans/completed/2026/v334-goose-cli-base-coverage.md) —
-  Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and
-  `CLIHandBase` (98% → 99%); 17 tests added, 6510 tests passed
+- [2026-03-29 v334–v335](exec-plans/completed/2026/2026-03-29.md) —
+  Stream emitter & multiplayer coverage + test fix, GooseCLIHand &
+  CLIHandBase coverage hardening; 26 tests added, 6519 tests passed
 
 - [2026-03-28 v333 — DevinCLIHand & Factory Coverage Hardening](exec-plans/completed/2026/v333-devin-factory-coverage.md) —
   Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and

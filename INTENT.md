@@ -4,12 +4,19 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Stream Emitter & Multiplayer Coverage + Test Fix (2026-03-29) — Completed
+### Server Module Coverage Hardening (2026-03-29)
 
-Fix failing `test_env_var_forwarding`, close coverage gaps in `_StreamJsonEmitter`
-(claude.py) and `multiplayer_yjs.py`. See [v335 plan](docs/exec-plans/active/v335-stream-emitter-multiplayer-coverage.md).
+Close testable coverage gaps in `server/app.py`, `server/celery_app.py`, and
+`server/schedules.py` by testing pure helper functions. See [v336 plan](docs/exec-plans/active/v336-server-module-coverage-hardening.md).
 
 ## Recently Completed
+
+### Stream Emitter & Multiplayer Coverage + Test Fix (2026-03-29) — Completed
+
+**Implemented (v335):**
+- Fixed `test_env_var_forwarding`, 4 `_StreamJsonEmitter` + 5 `multiplayer_yjs.py` tests
+- claude.py: 98% → 100%, multiplayer_yjs.py: 95% → 99%
+- 6519 backend tests passed, 0 failures
 
 ### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
 
