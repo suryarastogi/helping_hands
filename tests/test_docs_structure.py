@@ -410,6 +410,9 @@ class TestDocsIndexLinkResolution:
         links = re.findall(r"\((\.\./[^)]+|[^)]+\.md)\)", index_text)
         assert len(links) > 0, "docs/index.md should have links in documentation map"
         for link in links:
+            # Skip absolute URLs (e.g. https://github.com/...)
+            if link.startswith(("http://", "https://")):
+                continue
             # Resolve relative to docs/
             target = REPO_ROOT / link[3:] if link.startswith("../") else DOCS_DIR / link
             assert target.exists(), (
