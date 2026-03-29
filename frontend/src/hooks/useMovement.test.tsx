@@ -16,7 +16,7 @@ function pressKey(key: string) {
   act(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
     // Flush the requestAnimationFrame callback (mocked as setTimeout)
-    vi.advanceTimersByTime(16);
+    vi.runOnlyPendingTimers();
   });
 }
 
