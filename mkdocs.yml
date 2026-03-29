@@ -57,7 +57,7 @@ plugins:
         python:
           paths: [src]
           options:
-            show_source: true
+            show_source: false
             show_root_heading: true
             members_order: source
 
