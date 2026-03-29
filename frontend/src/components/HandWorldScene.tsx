@@ -5,9 +5,9 @@
  * work desks, player avatars (local + remote), worker sprites, and the
  * HUD overlay panels (FactoryFloorPanel + Claude usage).
  */
-import { type CSSProperties, type Ref, useState } from "react";
+import { type CSSProperties, type Ref, useMemo, useState } from "react";
 
-import { MAX_DECORATIONS } from "../constants";
+import { ARCADE_POSITION, ARCADE_PROXIMITY, MAX_DECORATIONS } from "../constants";
 
 import type { RemoteCursor as RemoteCursorType } from "../hooks/useMultiplayer";
 import type { RemotePlayer } from "../hooks/useMultiplayer";
@@ -86,6 +86,12 @@ export type HandWorldSceneProps = {
   // -- Remote cursors --
   remoteCursors: RemoteCursorType[];
   onCursorMove: (position: CursorPosition | null) => void;
+
+  // -- Arcade --
+  /** Whether the arcade game is currently open. */
+  arcadeOpen: boolean;
+  /** Called when the player clicks the glowing card to open the arcade. */
+  onArcadeOpen: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -123,9 +129,20 @@ export default function HandWorldScene({
   decoOnCooldown,
   remoteCursors,
   onCursorMove,
+  arcadeOpen,
+  onArcadeOpen,
 }: HandWorldSceneProps) {
   const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+
+  // Proximity check: is the player near the arcade machine?
+  const arcadeCenterX = ARCADE_POSITION.left + 4; // center of the sprite
+  const arcadeCenterY = ARCADE_POSITION.top + 5;
+  const nearArcade = useMemo(() => {
+    const dx = playerPosition.x - arcadeCenterX;
+    const dy = playerPosition.y - arcadeCenterY;
+    return Math.sqrt(dx * dx + dy * dy) < ARCADE_PROXIMITY;
+  }, [playerPosition.x, playerPosition.y, arcadeCenterX, arcadeCenterY]);
 
   // Build minimap worker positions from desk slot centers.
   const minimapWorkers: MinimapWorker[] = workerEntries
@@ -155,7 +172,10 @@ export default function HandWorldScene({
   };
 
   return (
-    <section className="card hand-world-card">
+    <section
+      className={`card hand-world-card${nearArcade && !arcadeOpen ? " arcade-glow" : ""}`}
+      onClick={nearArcade && !arcadeOpen ? onArcadeOpen : undefined}
+    >
       <header className="header">
         <h1>
           Hand World
@@ -213,6 +233,19 @@ export default function HandWorldScene({
         </div>
         <div className="zen-rock zen-rock-lg" aria-hidden="true" />
         <div className="zen-rock zen-rock-sm" aria-hidden="true" />
+
+        {/* Arcade machine (top-right) */}
+        <div className={`hh-arcade${nearArcade ? " arcade-active" : ""}`} aria-hidden="true">
+          <span className="arcade-cabinet" />
+          <span className="arcade-screen" />
+          <span className="arcade-screen-glow" />
+          <span className="arcade-controls" />
+          <span className="arcade-base" />
+          <div className="arcade-label">ARCADE</div>
+          {nearArcade && !arcadeOpen && (
+            <div className="arcade-prompt">Press to play!</div>
+          )}
+        </div>
 
         {/* Factory entrance (middle-left) */}
         <div className="hh-factory" aria-hidden="true">

@@ -6,6 +6,7 @@
  */
 
 import {
+  ARCADE_COLLISION,
   DESK_SIZE,
   FACTORY_COLLISION,
   INCINERATOR_COLLISION,
@@ -560,8 +561,8 @@ export function checkDeskCollision(
     }
   }
 
-  // Check factory and incinerator collisions
-  for (const box of [FACTORY_COLLISION, INCINERATOR_COLLISION]) {
+  // Check factory, incinerator, and arcade collisions
+  for (const box of [FACTORY_COLLISION, INCINERATOR_COLLISION, ARCADE_COLLISION]) {
     const bLeft = box.left;
     const bRight = box.left + box.width;
     const bTop = box.top;

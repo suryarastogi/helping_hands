@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import AppOverlays from "./components/AppOverlays";
+import AsteroidsGame from "./components/AsteroidsGame";
 import ChatPanel from "./components/ChatPanel";
 import HandWorldScene from "./components/HandWorldScene";
 import MonitorCard from "./components/MonitorCard";
@@ -99,6 +100,7 @@ export default function App() {
   const [showClaudeUsage, setShowClaudeUsage] = useState(true);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [arcadeOpen, setArcadeOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
 
@@ -119,7 +121,7 @@ export default function App() {
     playerPosition,
     playerDirection,
     isPlayerWalking,
-  } = useMovement({ active: true, deskSlots });
+  } = useMovement({ active: !arcadeOpen, deskSlots });
 
   const {
     remotePlayers,
@@ -339,6 +341,10 @@ export default function App() {
       />
 
       <div className="main-column">
+        {arcadeOpen && (
+          <AsteroidsGame onClose={() => setArcadeOpen(false)} />
+        )}
+
         <HandWorldScene
           sceneRef={sceneRef}
           sceneStyle={worldSceneStyle}
@@ -370,6 +376,8 @@ export default function App() {
           decoOnCooldown={decoOnCooldown}
           remoteCursors={remoteCursors}
           onCursorMove={updateCursor}
+          arcadeOpen={arcadeOpen}
+          onArcadeOpen={() => setArcadeOpen(true)}
         />
 
         {mainView === "monitor" && taskId && monitorCard}

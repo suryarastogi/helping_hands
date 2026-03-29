@@ -1670,6 +1670,279 @@ h2 {
 
 .hand-world-card {
   overflow: hidden;
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+.hand-world-card.arcade-glow {
+  cursor: pointer;
+  border-color: #a855f7;
+  box-shadow:
+    0 0 20px rgba(168, 85, 247, 0.4),
+    0 0 60px rgba(168, 85, 247, 0.15),
+    inset 0 0 20px rgba(168, 85, 247, 0.05);
+  animation: arcade-pulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes arcade-pulse {
+  0% {
+    box-shadow:
+      0 0 20px rgba(168, 85, 247, 0.3),
+      0 0 60px rgba(168, 85, 247, 0.1);
+    border-color: #a855f7;
+  }
+  100% {
+    box-shadow:
+      0 0 30px rgba(168, 85, 247, 0.6),
+      0 0 80px rgba(168, 85, 247, 0.25),
+      inset 0 0 30px rgba(168, 85, 247, 0.08);
+    border-color: #c084fc;
+  }
+}
+
+/* ── Arcade Machine Sprite ── */
+.hh-arcade {
+  position: absolute;
+  left: 85%;
+  top: 8%;
+  width: 40px;
+  height: 52px;
+  z-index: 5;
+}
+
+.arcade-cabinet {
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  width: 32px;
+  height: 38px;
+  background: linear-gradient(180deg, #4a1a6b 0%, #3b1256 40%, #2d0e45 100%);
+  border-radius: 4px 4px 2px 2px;
+  border: 1px solid #6b21a8;
+}
+
+.arcade-screen {
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  width: 24px;
+  height: 16px;
+  background: #0a0a1a;
+  border-radius: 2px;
+  border: 1px solid #7c3aed;
+  overflow: hidden;
+}
+
+.arcade-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(96, 224, 255, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(168, 85, 247, 0.25) 0%, transparent 50%);
+  animation: arcade-screen-flicker 2s ease-in-out infinite alternate;
+}
+
+@keyframes arcade-screen-flicker {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
+.arcade-screen-glow {
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  width: 32px;
+  height: 24px;
+  background: radial-gradient(ellipse, rgba(168, 85, 247, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.arcade-controls {
+  position: absolute;
+  left: 12px;
+  top: 28px;
+  width: 16px;
+  height: 6px;
+  background: linear-gradient(90deg, #1e1b4b, #312e81);
+  border-radius: 1px;
+  border: 1px solid #4c1d95;
+}
+
+.arcade-controls::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 5px 0 0 #22c55e, 10px 0 0 #3b82f6;
+}
+
+.arcade-base {
+  position: absolute;
+  left: 6px;
+  bottom: 0;
+  width: 28px;
+  height: 8px;
+  background: linear-gradient(180deg, #2d0e45 0%, #1e0a30 100%);
+  border-radius: 0 0 3px 3px;
+  border: 1px solid #4c1d95;
+  border-top: none;
+}
+
+.arcade-label {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.28rem;
+  color: #c084fc;
+  white-space: nowrap;
+  text-shadow: 0 0 4px rgba(168, 85, 247, 0.6);
+}
+
+.arcade-prompt {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.3rem;
+  color: #e9d5ff;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(168, 85, 247, 0.8);
+  animation: arcade-prompt-bob 1s ease-in-out infinite alternate;
+}
+
+@keyframes arcade-prompt-bob {
+  0% { transform: translateX(-50%) translateY(0); }
+  100% { transform: translateX(-50%) translateY(-3px); }
+}
+
+.hh-arcade.arcade-active .arcade-screen::after {
+  animation: arcade-screen-active 0.5s ease-in-out infinite alternate;
+}
+
+.hh-arcade.arcade-active .arcade-screen-glow {
+  background: radial-gradient(ellipse, rgba(168, 85, 247, 0.4) 0%, transparent 70%);
+}
+
+@keyframes arcade-screen-active {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+/* ── Asteroids Game Card ── */
+.asteroids-card {
+  animation: asteroids-slide-in 0.35s ease-out;
+}
+
+@keyframes asteroids-slide-in {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-20px);
+    margin-bottom: -14px;
+  }
+  to {
+    opacity: 1;
+    max-height: 600px;
+    transform: translateY(0);
+    margin-bottom: 0;
+  }
+}
+
+.asteroids-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.asteroids-header h1 {
+  margin: 0;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 1.1rem;
+  color: #c084fc;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+.asteroids-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.asteroids-close-btn {
+  all: unset;
+  margin-left: auto;
+  cursor: pointer;
+  font-size: 1.4rem;
+  color: var(--muted);
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.asteroids-close-btn:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.asteroids-canvas-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.asteroids-canvas {
+  border-radius: 8px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  max-width: 100%;
+  height: auto;
+  outline: none;
+}
+
+.asteroids-canvas:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+}
+
+.asteroids-restart-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.asteroids-restart-btn {
+  all: unset;
+  cursor: pointer;
+  font-family: "Press Start 2P", var(--mono);
+  font-size: 0.7rem;
+  color: #e9d5ff;
+  padding: 8px 20px;
+  border: 1px solid #7c3aed;
+  border-radius: 6px;
+  background: rgba(124, 58, 237, 0.15);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.asteroids-restart-btn:hover {
+  background: rgba(124, 58, 237, 0.3);
+  border-color: #a855f7;
+}
+
+.asteroids-controls {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 8px 0 0;
 }
 
 /* ── Hand World Layout: scene + collapsible side panel overlay ── */

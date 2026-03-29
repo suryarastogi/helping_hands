@@ -79,6 +79,12 @@ export const FACTORY_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
 /** Incinerator collision box (% of scene). */
 export const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 };
 
+/** Arcade machine position & collision (% of scene). */
+export const ARCADE_POSITION = { left: 85, top: 8 };
+export const ARCADE_COLLISION = { left: 83, top: 5, width: 10, height: 12 };
+/** Distance (%) within which the player "activates" the arcade glow. */
+export const ARCADE_PROXIMITY = 12;
+
 /** Walkable area bounds (% of scene). */
 export const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
 
