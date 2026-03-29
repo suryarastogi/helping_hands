@@ -1,6 +1,7 @@
 # v327 — Sync Task Status with GitHub Issue
 
 **Date:** 2026-03-28
+**Status:** complete
 **Intent:** Deeper GitHub integration — sync task status with GitHub issue
 
 ## Problem
@@ -24,7 +25,7 @@ progress in real-time:
 6. **`issue_number` in progress metadata** — include in `_update_progress()` so frontend can display it
 7. **Frontend issue badge** — show linked issue number in MonitorCard header when present
 
-## Implementation Steps
+## Tasks
 
 - [x] Add `GitHubClient.add_issue_labels()` and `remove_issue_label()` methods
 - [x] Add `_sync_issue_started()`, `_sync_issue_completed()`, `_sync_issue_failed()` helpers

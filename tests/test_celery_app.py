@@ -1090,11 +1090,6 @@ class TestSyncIssueFailed:
             _mod._sync_issue_failed("owner/repo", 10, updates, None)
 
 
-# ---------------------------------------------------------------------------
-# _sync_issue_status (v328)
-# ---------------------------------------------------------------------------
-
-
 class TestSyncIssueStatus:
     """Tests for the _sync_issue_status helper."""
 
@@ -1190,11 +1185,6 @@ class TestSyncIssueStatus:
 
             # Should not raise
             _mod._sync_issue_status("owner/repo", 42, "running", None)
-
-
-# ---------------------------------------------------------------------------
-# _try_add_to_project (v329)
-# ---------------------------------------------------------------------------
 
 
 class TestTryAddToProject:
