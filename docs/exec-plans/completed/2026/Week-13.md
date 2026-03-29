@@ -26,8 +26,10 @@ issue lifecycle sync (in-progress/completed/failed labels + status
 comments + frontend issue badge), task status sync to GitHub issues
 (running/completed/failed lifecycle comments via marker-tagged upsert),
 GitHub Projects v2 board integration with full-stack `project_url`
-support via GraphQL API, and GitHub integration test coverage hardening
-(form endpoint, PR body "Closes #N", invalid project URL edge case).
+support via GraphQL API, GitHub integration test coverage hardening
+(form endpoint, PR body "Closes #N", invalid project URL edge case),
+server/validation/CLI hand coverage hardening (v331–v335), and OAuth
+token test regression fix with `_read_claude_credentials_file` coverage (v336).
 
 ---
 
@@ -541,6 +543,16 @@ support via GraphQL API, and GitHub integration test coverage hardening
 
 ---
 
+## Mar 29 — OAuth Token Test Fix & Credentials Coverage (v336)
+
+**Test regression fix:** 16 broken `_get_claude_oauth_token` tests across 3 test files — `_read_claude_credentials_file()` (added as first-try path before Keychain fallback) was finding a real credentials file before the `subprocess.run` mock was reached. Fixed by mocking `_read_claude_credentials_file` to return `None` in all Keychain-path tests.
+
+**New coverage:** 5 `_read_claude_credentials_file` unit tests (valid file, missing file, invalid JSON, missing key, OSError). 1 credentials-file-first-path test verifying `_get_claude_oauth_token` returns the file token without hitting Keychain.
+
+**6 new tests. 7631 backend tests, 96.09% coverage.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -606,3 +618,4 @@ support via GraphQL API, and GitHub integration test coverage hardening
 - `v333-devin-factory-coverage.md`
 - `v334-goose-cli-base-coverage.md`
 - `v335-model-provider-coverage-hardening.md`
+- `v336-oauth-token-test-fix-and-credentials-coverage.md`

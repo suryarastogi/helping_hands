@@ -136,6 +136,10 @@ class TestGetClaudeOauthTokenLogging:
     ) -> None:
         with (
             patch(
+                "helping_hands.server.app._read_claude_credentials_file",
+                return_value=None,
+            ),
+            patch(
                 "helping_hands.server.app.subprocess.run",
                 side_effect=TimeoutError("keychain timed out"),
             ),
@@ -153,6 +157,10 @@ class TestGetClaudeOauthTokenLogging:
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         with (
+            patch(
+                "helping_hands.server.app._read_claude_credentials_file",
+                return_value=None,
+            ),
             patch(
                 "helping_hands.server.app.subprocess.run",
                 side_effect=OSError("no such binary"),

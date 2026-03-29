@@ -4,12 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v335 — ModelProvider Coverage Hardening](exec-plans/active/v335-model-provider-coverage-hardening.md) —
+- [v336 — OAuth Token Test Fix & Credentials Coverage](exec-plans/active/v336-oauth-token-test-fix-and-credentials-coverage.md) —
+  Fix 16 broken `_get_claude_oauth_token` tests and add `_read_claude_credentials_file`
+  unit tests
+
+## Completed plans
+
+- [2026-03-29 v335 — ModelProvider Coverage Hardening](exec-plans/completed/2026/v335-model-provider-coverage-hardening.md) —
   Close remaining coverage gaps in `model_provider.py`: `_require_langchain_class`
   direct tests, provider-name resolution branches, empty model validation;
   15 tests added, pre-existing env leak fixed, 6524 tests passed
-
-## Completed plans
 
 - [2026-03-29 v334 — GooseCLIHand & CLIHandBase Coverage Hardening](exec-plans/completed/2026/v334-goose-cli-base-coverage.md) —
   Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and
