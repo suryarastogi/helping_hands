@@ -4,12 +4,18 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — In Progress
+### Meta Tools Coverage Hardening (2026-03-29) — In Progress
 
-Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and `factory.py`
-`get_enabled_backends()` (82% → ~95%). See [v333 plan](docs/exec-plans/active/v333-devin-factory-coverage.md).
+Close testable coverage gaps in `filesystem.py` (14% → ~80%) and `registry.py`
+(19% → ~80%). Covers payload validators, file-size enforcement, error wrapping,
+and normalization edge cases. See [v334 plan](docs/exec-plans/active/v334-meta-tools-coverage.md).
 
 ## Recently Completed
+
+### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — Completed
+
+Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and `factory.py`
+`get_enabled_backends()` (82% → ~95%). See [v333 plan](docs/exec-plans/completed/2026/v333-devin-factory-coverage.md).
 
 ### Validation & Task Result Coverage Hardening (2026-03-28) — Completed
 
