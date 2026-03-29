@@ -519,7 +519,9 @@ class TestReadGooseConfig:
         """When yaml is not installed, returns empty tuple."""
         with patch.dict("sys.modules", {"yaml": None}):
             # Force re-import failure by patching builtins.__import__
-            original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__  # noqa: E501
+            original_import = (
+                __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+            )
 
             def fake_import(name, *args, **kwargs):
                 if name == "yaml":
