@@ -1,4 +1,17 @@
-"""Tests for v141: E2E marker constant, CLI PR number validation, Celery timeout constants."""
+"""Tests for v141: E2E marker file constant, CLI --pr-number validation, Celery timeouts.
+
+_E2E_MARKER_FILE identifies integration-test workspaces so the E2EHand knows it is
+operating on a disposable clone; if it regresses from the expected filename or the
+run() method stops using the constant (using a hardcoded string instead), E2E runs
+may accidentally execute against real repositories.
+
+The CLI --pr-number validation ensures the entry point rejects non-positive integers
+before constructing any Hand; a regression means invalid PR numbers propagate into
+the GitHub API and produce unhelpful 422 responses from the remote.
+
+Celery timeout constants guard task-execution budget limits; a regression to zero
+or a non-numeric value would cause immediate TimeoutError on every task.
+"""
 
 from __future__ import annotations
 

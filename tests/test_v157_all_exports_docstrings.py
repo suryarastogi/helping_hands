@@ -1,4 +1,15 @@
-"""Tests for v157 — __all__ exports and docstring improvements."""
+"""Tests for v157: __all__ declarations on core library modules.
+
+Without __all__, star-imports and documentation generators expose private helpers
+as part of the public API.  These tests pin the exact set of publicly exported
+names for types.py, github.py, filesystem.py, and command.py so that a refactor
+that accidentally removes a key export (e.g. PRResult) is caught immediately rather
+than discovered when downstream code breaks at runtime.
+
+The "no private names" assertion prevents internal helpers from leaking into the
+public surface; the "all importable" assertion catches __all__ entries that were
+renamed without updating the declaration.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,12 @@
-"""Tests for web.py dataclass construction and _decode_bytes edge cases."""
+"""Tests for web.py dataclass construction and _decode_bytes edge cases.
+
+Protects the frozen-dataclass contract of the web result types: WebSearchItem,
+WebSearchResult, and WebBrowseResult must be immutable (frozen=True) and
+hashable so they can safely be stored in sets for deduplication.  The
+_decode_bytes helper must handle UTF-8 BOM, UTF-16 with BOM, and high-byte
+latin-1 fallback without raising — pages in the wild arrive with any of these
+encodings, and a decode failure would abort the entire browse operation.
+"""
 
 from __future__ import annotations
 

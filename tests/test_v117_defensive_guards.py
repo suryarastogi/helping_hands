@@ -1,9 +1,15 @@
-"""Tests for v117 defensive guards and validation hardening.
+"""Tests for v117: defensive guards against edge-case inputs in CLI hand plumbing.
 
-Covers:
-- _apply_verbose_flags: empty cmd guard (cli/base.py)
-- _build_failure_message: _SUMMARY_CHAR_LIMIT consistency (cli/base.py)
-- LangGraphHand.run(): empty/missing messages defense (langgraph.py)
+_apply_verbose_flags must not crash or produce garbage output when passed an empty
+command list — a regression would cause the verbose-mode subprocess call to fail
+silently or raise an IndexError instead of returning early.
+
+The _SUMMARY_CHAR_LIMIT consistency check ensures the truncation constant used in
+_build_failure_message is honoured uniformly across CLI hand subclasses; divergence
+causes some backends to send unbounded output to the AI model.
+
+LangGraphHand.run() must handle empty or missing message lists from the agent loop
+without raising an unhandled exception that aborts the entire task.
 """
 
 from __future__ import annotations

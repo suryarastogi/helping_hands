@@ -1,4 +1,18 @@
-"""Tests for v138 — module-level constant extraction in Hand base, CLI base, CLI main."""
+"""Tests for v138: Hand base and CLI base constants extracted from inline literals.
+
+Extracting magic numbers to named constants (_DEFAULT_BASE_BRANCH, _BRANCH_PREFIX,
+_UUID_HEX_LENGTH, etc.) allows a single-point change to propagate to every place
+that uses git branch naming, bot identity, and CI retry logic.  If _BRANCH_PREFIX
+loses its trailing slash, branch names like "helping-handsmain" are created instead
+of "helping-hands/main", silently breaking GitHub branch-protection rules.
+
+_DEFAULT_GIT_USER_EMAIL must contain "@" to be accepted by git config; a regression
+to a plain string would cause every commit authored by the bot to fail git's author
+validation.
+
+# TODO: CLEANUP CANDIDATE — tests that only assert is_str/is_positive duplicate
+# the value-equality tests immediately above them without adding new failure paths.
+"""
 
 # ---------------------------------------------------------------------------
 # Hand base constants (base.py)

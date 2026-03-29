@@ -1,4 +1,19 @@
-"""Tests for Google provider _build_inner() and _complete_impl()."""
+"""Tests for Google provider _build_inner() and _complete_impl().
+
+Protects the following behavioral invariants of `GoogleProvider`:
+- `_build_inner` raises a descriptive `RuntimeError` when `google-genai` is absent,
+  with an install hint; both `google` and `google.genai` must be patched because
+  the SDK uses a nested namespace package.
+- API key injection mirrors the Anthropic pattern: present key → `Client(api_key=…)`,
+  absent key → `Client()` so the SDK can apply its own lookup.
+- `_complete_impl` maps messages to a flat list of content strings (Google's API
+  does not accept role-keyed dicts), and silently drops entries with empty content
+  to prevent API rejections; a regression would either pass role dicts the SDK
+  cannot parse or send empty strings that trigger 400 errors.
+- When ALL messages have empty content the base class raises `ValueError` before
+  the provider-level call, ensuring we never fire an empty request.
+- Extra kwargs are forwarded to `generate_content` unchanged.
+"""
 
 from __future__ import annotations
 

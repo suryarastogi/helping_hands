@@ -1,4 +1,15 @@
-"""Tests for helping_hands.cli.main."""
+"""Tests for helping_hands.cli.main: the CLI entry point.
+
+These tests protect the user-facing contract of the `helping-hands` CLI:
+argument parsing, backend dispatch, owner/repo auto-clone, error exit paths,
+and the helper utilities (_redact_sensitive, _github_clone_url, etc.). Key
+invariants: an "owner/repo" argument triggers a token-authenticated shallow
+clone before any hand is constructed; clone failures must exit non-zero with a
+clear message; --no-pr correctly sets hand.auto_pr=False; RuntimeErrors from
+backends (e.g. CLI not found) are caught and printed to stderr rather than
+crashing with a traceback. The _redact_sensitive helper is a security boundary
+— regressions cause tokens/keys to appear in logged output.
+"""
 
 from __future__ import annotations
 

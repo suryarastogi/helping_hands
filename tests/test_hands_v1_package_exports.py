@@ -1,4 +1,11 @@
-"""Tests for helping_hands.lib.hands.v1 package-level re-exports."""
+"""Tests for helping_hands.lib.hands.v1 package-level re-exports.
+
+Guards the stable public import path at the hands/v1 layer. All Hand subclasses
+must be importable from helping_hands.lib.hands.v1 and must be the same objects
+as those exported from the inner hand package. If the v1 __init__ is not kept
+in sync when classes move between submodules, external callers using the v1
+path would receive import errors or stale references without any runtime warning.
+"""
 
 from __future__ import annotations
 

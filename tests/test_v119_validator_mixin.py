@@ -1,7 +1,14 @@
-"""Tests for v119 — DRY validator mixin, tools/skills max_length, and base.py guards.
+"""Tests for v119: _ToolSkillValidatorMixin provides shared coercion to both request models.
 
-Covers _ToolSkillValidatorMixin extraction, max_length on tools/skills list fields,
-and explicit ValueError guards replacing assert in base.py.
+Before this mixin, BuildRequest and ScheduleRequest each had their own copy of the
+tools/skills string-to-list coercion logic; divergence caused different endpoints to
+accept different input formats.  The mixin must be an actual base class of both
+models (not just copied code) so that a single fix propagates to both.
+
+String inputs ("execution,web") must be split into lists; None must become an empty
+list; and per-item max_length constraints must prevent unbounded tool name strings.
+A regression would cause the scheduler endpoint to silently accept raw comma-separated
+strings while the build endpoint coerces them (or vice versa).
 """
 
 from __future__ import annotations

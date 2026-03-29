@@ -1,11 +1,13 @@
-"""Tests for v201: DRY Docker hint message templates in CLI hands.
+"""Guard Docker hint message templates against drift between CLI hand subclasses.
 
-Covers:
-- _DOCKER_ENV_HINT_TEMPLATE shared constant in cli/base.py (value, format)
-- _DOCKER_REBUILD_HINT_TEMPLATE shared constant in cli/base.py (value, format)
-- Cross-module import consistency (all CLI hands use base templates)
-- Auth failure messages contain the template output
-- Command-not-found messages contain the template output
+_DOCKER_ENV_HINT_TEMPLATE and _DOCKER_REBUILD_HINT_TEMPLATE are the human-readable
+instructions shown when an API key is missing in Docker mode or when a CLI binary
+(codex, gemini, etc.) is not found in the container. Before these were centralised,
+each hand had slightly different wording. If a subclass stops using the templates
+and inline-hardcodes its own message, users would see inconsistent instructions
+depending on which backend they chose, making troubleshooting harder. The format
+tests confirm the {} placeholder is present so that env-var names and binary names
+can be interpolated at runtime.
 """
 
 from __future__ import annotations

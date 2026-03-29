@@ -1,9 +1,14 @@
-"""Tests for v219: finalization precondition extraction & status dispatch tables.
+"""Tests for v219 finalization precondition extraction and status dispatch tables.
 
-Validates:
-- ``_validate_finalization_preconditions()`` extracted from ``_finalize_repo_pr()``
-- ``_PR_STATUS_TEMPLATES`` dispatch table used by ``_format_pr_status_message()``
-- ``_CI_FIX_TEMPLATES`` dispatch table used by ``_format_ci_fix_message()``
+_validate_finalization_preconditions() is the gatekeeper before any git/GitHub
+operations run. If it stops raising early on bad state (disabled flag, no git
+repo, no staged changes, no remote) those operations will fail with confusing
+errors deep in the stack rather than a clear early message.
+
+The dispatch tables (_PR_STATUS_TEMPLATES, _CI_FIX_TEMPLATES) map status codes
+to human-readable message templates. If a key is missing or a template is
+mangled, the status line shown in the PR body will be blank or broken, making
+it impossible to diagnose what happened during a run.
 """
 
 from __future__ import annotations

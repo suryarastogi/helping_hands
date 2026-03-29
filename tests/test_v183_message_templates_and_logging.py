@@ -1,8 +1,13 @@
-"""Tests for v183: commit/PR message template constants, silent exception logging.
+"""Guard commit and PR title message templates in Hand base against accidental duplication.
 
-Validates extracted ``_DEFAULT_COMMIT_MSG_TEMPLATE`` and
-``_DEFAULT_PR_TITLE_TEMPLATE`` in base.py and debug logging added to
-silent exception handlers in server/app.py.
+_DEFAULT_COMMIT_MSG_TEMPLATE and _DEFAULT_PR_TITLE_TEMPLATE are the canonical
+sources for the strings that end up in git history and GitHub PR titles for every
+AI-driven change. If these templates are inlined again (bypassing the constants),
+the two call-sites (_push_to_existing_pr and _create_new_pr) can silently diverge,
+producing inconsistent commit messages. The no-inline-duplicate test uses source
+inspection to catch reintroduced f-string literals before they reach production.
+The format sanity checks ensure `{backend}` substitution still produces the expected
+conventional-commits prefix "feat(...)".
 """
 
 from __future__ import annotations

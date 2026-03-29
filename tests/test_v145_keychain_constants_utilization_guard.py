@@ -1,4 +1,15 @@
-"""Tests for v145: Keychain constants, utilization type guard, decode safety."""
+"""Tests for v145: Claude keychain constants are shared between app.py and celery_app.py.
+
+The Claude OAuth token is read from the macOS Keychain using a service name and key
+path that must match exactly what Claude Code writes.  If app.py and celery_app.py
+use different literal strings (or if either drifts from the canonical values), the
+background Celery worker silently fails to pick up the token while the FastAPI
+server succeeds, causing intermittent auth failures in scheduled tasks only.
+
+The "used in source" tests ensure the constants are actually referenced in
+_get_claude_oauth_token rather than duplicated as inline strings, which would
+let the constants and the runtime behaviour diverge silently.
+"""
 
 from __future__ import annotations
 

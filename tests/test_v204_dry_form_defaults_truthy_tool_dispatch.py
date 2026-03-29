@@ -1,12 +1,13 @@
-"""Tests for v204: DRY form defaults, truthy values, inline import, tool dispatch.
+"""Guard form defaults against mismatch with server constants and verify tool dispatch tables.
 
-Covers:
-- Form default mismatch fix: enqueue_build_form uses _DEFAULT_BACKEND, not "codexcli"
-- _is_running_in_docker uses _TRUTHY_VALUES from config
-- Top-level import time (no inline import)
-- _build_form_redirect_query uses _DEFAULT_CI_WAIT_MINUTES constant
-- _TOOL_SUMMARY_KEY_MAP / _TOOL_SUMMARY_STATIC dispatch tables in claude.py
-- _StreamJsonEmitter._summarize_tool correctness with dispatch tables
+If enqueue_build_form hardcodes "codexcli" as the backend default instead of using
+_DEFAULT_BACKEND, users submitting via the HTML form get a different backend than
+the API default, making the two interfaces inconsistent without any error. The CI
+wait form tests catch a similar mismatch where Form(3.0) would be the default even
+if DEFAULT_CI_WAIT_MINUTES were changed to a different value. The tool dispatch
+table tests protect _StreamJsonEmitter._summarize_tool: if a new tool type is added
+to the Claude output format but not to _TOOL_SUMMARY_KEY_MAP or _TOOL_SUMMARY_STATIC,
+the streaming summary would silently produce wrong text.
 """
 
 from __future__ import annotations

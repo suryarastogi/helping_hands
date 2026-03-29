@@ -1,9 +1,17 @@
-"""Tests for v228: DRY _format_error_result, _pr_status_line dict access, skip logging.
+"""Tests for v228: DRY _format_error_result, safe dict access, and skip logging.
 
-Covers:
-- ``_format_error_result()`` static method on ``_BasicIterativeHand``
-- ``_pr_status_line()`` consistent ``.get()`` usage (no bracket access)
-- Debug logging when ``_build_tree_snapshot`` skips invalid paths
+_format_error_result() is the standard error envelope returned by every
+iterative hand when an exception escapes the run loop. If its structure changes,
+the server's error deserialisation and status display break without a clear
+signal.
+
+_pr_status_line() must use .get() rather than bracket access on the metadata
+dict so a partial result (e.g. a hand that crashed before setting all keys)
+still produces a readable status line instead of raising KeyError.
+
+_build_tree_snapshot should log at DEBUG when it skips invalid paths, not
+silently discard them — missing this logging makes repo indexing failures
+invisible during debugging.
 """
 
 from __future__ import annotations

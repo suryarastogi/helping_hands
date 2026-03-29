@@ -1,4 +1,18 @@
-"""Tests for v261: REPO_SPEC_PATTERN, invalid_repo_msg, format_type_error."""
+"""Tests for v261: REPO_SPEC_PATTERN, invalid_repo_msg, and format_type_error.
+
+REPO_SPEC_PATTERN was previously duplicated between cli/main.py and
+celery_app.py. If the two copies diverged, the CLI would accept repo specs
+that the server rejected (or vice versa), causing confusing "invalid repo"
+errors only on one path.
+
+invalid_repo_msg() provides the canonical human-readable error text for an
+invalid repo spec. If it stops mentioning "directory" and "owner/repo", users
+have no guidance on what the valid formats are.
+
+format_type_error() is used by all require_* validators. If the inline format
+strings re-appear instead of using this helper, a wording change requires
+touching every validator function individually.
+"""
 
 from __future__ import annotations
 

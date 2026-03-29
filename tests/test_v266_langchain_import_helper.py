@@ -1,4 +1,18 @@
-"""Tests for v266: _require_langchain_class() helper in model_provider."""
+"""Tests for v266: _require_langchain_class() import guard in model_provider.
+
+LangChain providers are optional extras; if a user runs with --backend
+basic-langgraph without installing langchain, the error should immediately name
+the missing package and provide the exact install command rather than raising
+an obscure AttributeError from inside the LangChain call stack.
+
+The auto-derive test (langchain_foo_bar → "uv add langchain-foo-bar") ensures
+that new providers added in the future get correct install instructions without
+having to manually specify the package name every time.
+
+The explicit-install-override test protects the langchain-community provider,
+which requires two packages (langchain-community and litellm) and cannot use
+the auto-derived single-package hint.
+"""
 
 from __future__ import annotations
 

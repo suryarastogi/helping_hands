@@ -1,7 +1,13 @@
-"""Tests for v176: Google-style docstrings on AI providers, github.py, Hand base.py.
+"""Enforce Google-style docstrings on all five AI providers, GitHubClient, and Hand base.
 
-Verifies that all 21 newly-documented methods have non-trivial docstrings
-with the expected Args/Returns/Raises sections.
+The AI provider interface (_build_inner, _complete_impl) is the extension point for
+adding new LLM backends. Without documented Returns: and Raises: contracts on these
+methods, implementors cannot know what exceptions callers expect to catch or what
+the inner client object must look like, leading to silent runtime failures when a
+new provider is added. Similarly, GitHubClient public methods are the sole layer
+between the hands and the GitHub API, so their documented error contracts are
+load-bearing. If these docstring checks regress, new provider authors lose the
+structured guidance the codebase relies on to keep all implementations consistent.
 """
 
 from __future__ import annotations

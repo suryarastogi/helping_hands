@@ -1,13 +1,14 @@
-"""Tests for _resolve_worker_capacity env var fallback and Celery stats paths.
+"""Tests for _resolve_worker_capacity: correct worker slot calculation and env override.
 
-Covers the previously untested branches:
-- Valid env var → source="env:<var>"
-- Non-numeric env var → silently skipped
-- Zero/negative env var → silently skipped
-- Default fallback → source="default", max_workers=8
-- Celery stats happy path → source="celery"
-- Celery stats with non-dict worker_stats → skipped
-- Celery stats with non-int concurrency → skipped
+The server uses _resolve_worker_capacity() to decide how many concurrent build
+tasks it will accept before returning a 503.  If the resolution logic regresses,
+the server either rejects all tasks (capacity reads 0) or accepts unlimited tasks
+(capacity falls through to an unbounded default), both causing production outages.
+
+Key invariants: a valid env var overrides Celery-detected capacity; invalid env
+values (non-numeric, zero, negative) are silently skipped so misconfiguration
+degrades gracefully; the hard default is 8 workers; Celery stats with unexpected
+types in the worker dict are skipped rather than crashing.
 """
 
 from __future__ import annotations

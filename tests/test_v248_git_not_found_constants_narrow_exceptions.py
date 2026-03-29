@@ -1,9 +1,17 @@
 """Tests for v248: git-not-found constants and narrowed run_async exceptions.
 
-Covers:
-- Constant values and types in pr_description.py
-- AST source consistency: no bare "git not found" / "CLI not found" strings
-- Narrowed exception handling in atomic.py and iterative.py
+The _GIT_NOT_FOUND_* and _CLI_NOT_FOUND_MSG constants are the user-facing
+error messages emitted when git or the CLI binary is absent from PATH. If they
+drift from their expected values, users see a different error message than the
+documentation describes, making diagnosis harder.
+
+The "appears exactly once" AST tests ensure each message exists only at the
+definition site — if a module also hard-codes the string in an except clause,
+a future wording change only updates one copy and the other silently diverges.
+
+atomic.py and iterative.py run_async handlers must be narrowed so that
+asyncio-level programming errors are not silently caught alongside expected
+subprocess and OS failures.
 """
 
 from __future__ import annotations

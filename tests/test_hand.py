@@ -1,4 +1,13 @@
-"""Tests for helping_hands.lib.hands.v1.hand."""
+"""Tests for helping_hands.lib.hands.v1.hand.
+
+Covers the Hand base class contract that every execution backend must honour:
+the Hand ABC cannot be instantiated directly, _build_system_prompt includes
+the repo file tree and any read-only reference repos, _finalize_repo_pr
+orchestrates the commit/push/PR lifecycle, and the auth-selection logic
+(_use_native_git_auth_for_push) correctly prefers an explicit token over the
+use_native_cli_auth flag. Regressions here would silently break PR creation
+or cause agents to operate without the expected repository context.
+"""
 
 from __future__ import annotations
 

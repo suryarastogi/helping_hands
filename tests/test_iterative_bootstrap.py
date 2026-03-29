@@ -1,7 +1,13 @@
 """Tests for _BasicIterativeHand bootstrap and inline edit methods.
 
-Covers: _build_tree_snapshot, _read_bootstrap_doc, _build_bootstrap_context,
-        _apply_inline_edits.
+Protects the first-iteration context injection that orients the AI: the repo
+tree snapshot (capped by depth and entry count to stay within context windows),
+the README and AGENT.md loading with size truncation, and the @@FILE inline
+edit application with path-traversal protection.  If these regress the AI
+either receives no project context (producing generic, wrong edits) or can write
+files outside the repo root (a security boundary violation).  The repo-index
+refresh after writes is also critical: without it, subsequent @@READ requests
+will not see newly created files.
 """
 
 from __future__ import annotations

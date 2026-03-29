@@ -1,3 +1,22 @@
+"""Tests for the AIProvider base class and all five concrete provider wrappers.
+
+Protects the following behavioral invariants:
+- `normalize_messages` correctly coerces bare strings and message dicts,
+  rejects non-Mapping items with a TypeError that includes the offending index,
+  and defaults missing `role`/`content` fields rather than raising KeyError.
+- `AIProvider.complete` falls back to `default_model`, rejects blank models,
+  and raises ValueError when all messages carry empty content.
+- Lazy `inner` initialization calls `_build_inner` exactly once regardless of
+  how many times `.inner` is accessed; re-testing prevents silent double-init.
+- `acomplete` wraps `complete` via `asyncio.to_thread` so async callers get the
+  same result as synchronous ones.
+- Each concrete provider (OpenAI, Anthropic, Google, LiteLLM, Ollama) routes
+  the right keyword arguments to the right SDK method; a regression here causes
+  the provider to silently call the wrong API endpoint or miss required params.
+- The `PROVIDERS` registry maps every provider name to the correct singleton so
+  CLI/server model-resolution (`provider/model` format) remains consistent.
+"""
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,4 +1,19 @@
-"""Tests for the Yjs-based multiplayer synchronisation module."""
+"""Tests for the Yjs-based multiplayer synchronisation module.
+
+Protects the optional pycrdt-websocket integration used by the Hand World
+feature.  Key invariants: create_yjs_app returns None when pycrdt-websocket is
+not installed (allowing the server to start without it) and sets the
+yjs_websocket_server/yjs_asgi_app module-level singletons when it is;
+start_yjs_server and stop_yjs_server are no-ops when the server is None (safe
+during startup/shutdown regardless of whether the feature is enabled);
+get_multiplayer_stats reports zero counts when the server is absent and
+aggregates clients across all rooms when it is, swallowing any exception from
+the WebsocketServer to avoid crashing a stats endpoint.
+
+If create_yjs_app raises instead of returning None when pycrdt-websocket is
+absent, the entire FastAPI server fails to start in any environment that lacks
+the optional dependency.
+"""
 
 from __future__ import annotations
 

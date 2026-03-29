@@ -1,4 +1,18 @@
-"""Tests for helping_hands.server.mcp_server."""
+"""Tests for the MCP server tool implementations.
+
+Protects the MCP tool layer that exposes helping_hands capabilities to AI agents
+via the Model Context Protocol.  Key invariants: filesystem tools (read_file,
+write_file, mkdir, path_exists) enforce path-traversal prevention through
+resolve_repo_target so agents cannot escape the repo root; index_repo stores
+results in the module-level cache; command tools (run_python_code, run_bash_script)
+delegate to exec_tools and serialise CommandResult to JSON-compatible dicts;
+build_feature enqueues a Celery task and returns task_id+status; and get_task_status
+normalises FAILURE results (exception objects) into serialisable dicts.
+
+If path-traversal checks regress, agents gain arbitrary read/write access to the
+host filesystem.  If build_feature or get_task_status contract changes break, AI
+agents lose the ability to dispatch or monitor builds through MCP.
+"""
 
 from __future__ import annotations
 

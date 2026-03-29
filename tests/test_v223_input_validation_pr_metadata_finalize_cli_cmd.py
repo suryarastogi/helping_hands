@@ -1,9 +1,12 @@
-"""Tests for v223 — input validation: PR metadata, finalize entry, CLI command.
+"""Tests for v223: input validation at PR metadata, finalization, and CLI command entry.
 
-Covers:
-- _pr_result_metadata rejects empty/whitespace pr_url, pr_number, pr_branch, pr_commit
-- _finalize_repo_pr rejects empty/whitespace backend, prompt, summary
-- _invoke_cli_with_cmd rejects empty command list and empty first element
+These tests protect three validation boundaries that sit at the start of
+expensive or irreversible operations. If _pr_result_metadata stops rejecting
+empty fields, downstream code receives a result dict with blank PR URL or
+branch and the UI/API silently returns unusable data. If _finalize_repo_pr
+stops rejecting empty backend/prompt, it proceeds with a git commit carrying
+no meaningful context. If _invoke_cli_with_cmd stops rejecting an empty command
+list, subprocess.run raises an obscure OSError instead of a clear ValueError.
 """
 
 from __future__ import annotations

@@ -1,4 +1,12 @@
-"""Tests for helping_hands.lib.meta package-level re-exports."""
+"""Tests for helping_hands.lib.meta package-level re-exports.
+
+Protects the public surface of the meta package: __all__ must list exactly the
+submodules that external callers import (skills and tools), and the re-exported
+attributes must be the same objects as the source modules (not copies).  If a
+submodule is added to __all__ but not actually importable, or if a re-export
+becomes a stale alias after a refactor, callers that rely on the flat import path
+will silently get the wrong object or an ImportError at runtime.
+"""
 
 from __future__ import annotations
 

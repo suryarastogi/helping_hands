@@ -1,10 +1,13 @@
-"""Tests for v194: DRY timeout constants and PR status sentinel extraction.
+"""Guard timeout defaults and PR status sentinels against accidental drift.
 
-Covers:
-- _DEFAULT_SCRIPT_TIMEOUT_S in command.py (value, type, function signature defaults)
-- _DEFAULT_WEB_TIMEOUT_S in web.py (value, type, function signature defaults)
-- _PR_STATUS_* sentinel constants in base.py (values, types, frozensets)
-- Cross-module import consistency (iterative.py, cli/base.py use base.py constants)
+_DEFAULT_SCRIPT_TIMEOUT_S (60 s) and _DEFAULT_WEB_TIMEOUT_S (20 s) are the
+defaults wired into run_python_code, run_bash_script, and web fetch calls. If a
+refactor changes the constant value but not the function signature default (or vice
+versa), tool invocations from iterative hands would silently use inconsistent
+timeouts. The signature-default tests catch this mismatch. The PR status sentinel
+tests guard the frozensets (PR_STATUSES_SKIPPED, PR_STATUSES_WITH_URL) used to
+decide whether to include a GitHub URL in the hand result — an incorrect membership
+would cause the frontend to show or hide the PR link incorrectly.
 """
 
 from __future__ import annotations

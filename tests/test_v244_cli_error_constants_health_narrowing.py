@@ -1,12 +1,17 @@
-"""Tests for v244: CLI error constants and health check exception narrowing.
+"""Tests for v244: CLI error constants and health-check exception narrowing.
 
-Covers:
-- _MODEL_NOT_FOUND_MARKERS constant value and usage
-- _MODEL_NOT_AVAILABLE_MSG constant template
-- _CLI_ERROR_EXIT_BACKENDS constant value and usage
-- _check_workers_health narrowed to (ConnectionError, OSError, TimeoutError)
-- _resolve_worker_capacity narrowed to (ConnectionError, OSError, TimeoutError)
-- Source consistency: no bare model-not-found strings in cli/main.py
+_MODEL_NOT_FOUND_MARKERS is used to detect "model not installed" stderr output
+from CLI backends. If the marker strings drift or a backend produces a new
+variant that isn't covered, the hand silently returns an empty result rather
+than raising a user-facing "model not available" error.
+
+_CLI_ERROR_EXIT_BACKENDS controls which backends trigger the "exit on error"
+recovery path. Adding a backend to the set without updating this constant
+means its non-zero exit codes are silently ignored.
+
+_check_workers_health and _resolve_worker_capacity must only catch connection
+errors, not bare Exception, so Celery inspection bugs surface immediately
+rather than causing the API to report incorrect worker capacity.
 """
 
 from __future__ import annotations

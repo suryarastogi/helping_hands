@@ -1,7 +1,13 @@
-"""v199 — DRY registry.py default constants.
+"""Guard _DEFAULT_PYTHON_VERSION and DEFAULT_SEARCH_MAX_RESULTS as single sources of truth.
 
-Tests verify that hardcoded defaults in registry.py runner wrappers now
-reference named constants from command.py and web.py.
+_DEFAULT_PYTHON_VERSION ("3.13") is the Python version used when running AI-generated
+code via run_python_code and run_python_script. If registry.py or mcp_server.py
+hardcode a different version string, generated code could run under a different
+interpreter than the user expects, causing silent version-specific failures.
+DEFAULT_SEARCH_MAX_RESULTS (5) caps web searches made by the AI; if registry.py
+inline-hardcodes a different value, searches from the CLI and from the MCP server
+return different numbers of results for the same query. The signature-default tests
+catch value/signature drift without requiring full integration runs.
 """
 
 from __future__ import annotations

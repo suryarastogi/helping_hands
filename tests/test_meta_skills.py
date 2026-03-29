@@ -1,4 +1,14 @@
-"""Tests for helping_hands.lib.meta.skills."""
+"""Tests for helping_hands.lib.meta.skills.
+
+Protects the skill catalog pipeline that injects domain knowledge into iterative
+hands: available skill names must remain stable (CLI --skills choices depend on
+them), normalize_skill_selection must deduplicate and coerce underscores to
+hyphens so users aren't surprised by aliases, and validate_skill_names must
+reject unknown names before they silently produce empty context.  The staging
+path (stage_skill_catalog) is used by CLI hands to materialize .md files that
+the underlying CLI tool can read; regressions there would cause skills to be
+advertised but never delivered to the agent.
+"""
 
 from __future__ import annotations
 

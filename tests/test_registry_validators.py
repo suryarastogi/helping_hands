@@ -1,4 +1,13 @@
-"""Tests for registry payload validator helpers."""
+"""Tests for registry payload validator helpers.
+
+Protects _parse_str_list, _parse_positive_int, and _parse_optional_str — the
+shared validation primitives that all registry runner wrappers delegate to.
+These functions are the last line of defense before AI-generated JSON payloads
+reach subprocess execution: they must reject type mismatches (bool is not int),
+zero/negative numeric values, non-string list items, and whitespace-only strings,
+while gracefully returning defaults for missing keys.  A regression here would
+allow invalid payloads to propagate silently into commands with confusing effects.
+"""
 
 from __future__ import annotations
 

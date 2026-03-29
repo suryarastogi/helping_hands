@@ -1,4 +1,14 @@
-"""Tests for helping_hands.lib.hands.v1.hand.cli package-level re-exports."""
+"""Tests for helping_hands.lib.hands.v1.hand.cli package-level re-exports.
+
+The cli package __init__ re-exports all concrete hand classes under a single
+namespace used by the factory (create_hand) and server layer. These tests
+ensure that __all__ is kept in sync with the actual submodules and that each
+listed name resolves to the exact class from its source module (not a stale
+import or a shadowing wrapper). A regression — such as adding a new hand
+without updating __all__, or a circular import breaking one of the source
+modules — is caught here before it manifests as a confusing AttributeError at
+runtime.
+"""
 
 from __future__ import annotations
 

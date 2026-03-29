@@ -1,4 +1,18 @@
-"""Tests for v265: _require_sdk() helper and PROVIDER_API_KEY_ENV constant."""
+"""Tests for v265: _require_sdk() import guard and PROVIDER_API_KEY_ENV constant.
+
+_require_sdk() is called by every AI provider before using its SDK. If it
+stops raising RuntimeError with the install hint when the SDK is absent,
+providers either raise an obscure ImportError deep in the call stack or crash
+with AttributeError on None, neither of which tells the user what to install.
+
+The chained-exception test is important: the RuntimeError must chain the
+original ModuleNotFoundError so that tracebacks show both "is not installed"
+and the import that failed.
+
+PROVIDER_API_KEY_ENV maps provider names to their API key env-var names; if an
+entry is missing, code that looks up the key for a given provider returns None
+and uses no credentials rather than prompting the user to set the right var.
+"""
 
 from __future__ import annotations
 

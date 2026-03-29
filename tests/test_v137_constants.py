@@ -1,4 +1,18 @@
-"""Tests for v137 — health check timeout and Anthropic API constants."""
+"""Tests for v137: health-check timeout values and Anthropic API endpoint constant.
+
+Each health-check helper uses its own timeout to avoid letting a slow dependency
+stall the entire /health response.  If _REDIS_HEALTH_TIMEOUT_S regresses to 30 s,
+a hung Redis connection would make /health time out for every load-balancer probe.
+These tests pin the exact values agreed on in the v137 review so future edits
+require an explicit acknowledgement of the change.
+
+_ANTHROPIC_USAGE_URL must remain an HTTPS endpoint; a regression to HTTP would
+transmit OAuth tokens in cleartext.
+
+# TODO: CLEANUP CANDIDATE — the individual positive/type assertions per constant
+# duplicate the all_timeouts_are_positive aggregate test; they add no extra
+# failure signal once the value tests pass.
+"""
 
 from __future__ import annotations
 

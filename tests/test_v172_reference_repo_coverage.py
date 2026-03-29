@@ -1,11 +1,13 @@
-"""v172 — Close reference-repo coverage gaps and remaining branch partials.
+"""Guard the error-handling paths in reference-repo cloning and script execution.
 
-Covers:
-- _clone_reference_repos: invalid spec (lines 440-442), timeout (466-468),
-  successful clone (473-475)
-- Config.from_env: non-str/non-list/tuple reference_repos fallback (line 133)
-- Hand._build_reference_repos_prompt_section: PermissionError (lines 153-154)
-- _run_bash_script: both-None validation (line 228)
+These tests protect four behavioural invariants that are easy to break during
+refactoring: (1) invalid owner/repo specs are skipped with a warning rather than
+raising unhandled exceptions; (2) git-clone timeouts are caught and skipped with
+a warning so one slow network call cannot abort the whole run; (3) valid specs that
+follow an invalid one still get cloned; (4) _run_bash_script rejects calls where
+both script_path and code are None. If these paths regress, users will see cryptic
+tracebacks instead of actionable warnings when reference repos are misconfigured,
+and scripts will silently do nothing when called incorrectly.
 """
 
 from __future__ import annotations

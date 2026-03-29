@@ -1,4 +1,17 @@
-"""Tests for MCP server error paths and helper functions."""
+"""Tests for MCP server error paths, edge cases, and the main() entry point.
+
+Protects the error-handling contract of MCP tool internals: _repo_root raises
+FileNotFoundError for missing or non-directory paths (callers rely on this to
+surface clean errors to the agent); _command_result_to_dict correctly sets
+success=False for non-zero exit codes and timed_out=True for timeout cases;
+read_file distinguishes IsADirectoryError, UnicodeError, and ValueError with
+appropriate message types; and main() selects stdio vs streamable-http transport
+based on --http in sys.argv.
+
+If _repo_root stops raising for files, MCP tools silently accept file paths as
+repo roots, causing confusing downstream failures.  If transport selection breaks,
+the MCP server starts with the wrong protocol and is unreachable by clients.
+"""
 
 from __future__ import annotations
 

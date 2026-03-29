@@ -1,10 +1,14 @@
-"""Tests for v205 DRY improvements.
+"""Guard _validate_script_path, _display_path, provider install hints, and server timeout constants.
 
-Covers:
-- _validate_script_path helper in command.py
-- _display_path helper in filesystem.py
-- install_hint usage in AI provider error messages
-- KEYCHAIN_TIMEOUT_S / USAGE_API_TIMEOUT_S in server/constants.py
+_validate_script_path is called by both run_python_script and run_bash_script before
+spawning a subprocess. If it stops raising FileNotFoundError for missing scripts or
+IsADirectoryError for directory paths, the subprocess call would fail with an opaque
+OS error instead of the documented error type. _display_path normalises paths for
+error messages — if it regresses, error strings would contain raw absolute paths
+that differ between machines, making test assertions fragile. KEYCHAIN_TIMEOUT_S and
+USAGE_API_TIMEOUT_S are the request timeouts for macOS keychain access and the
+Anthropic usage API; if these are removed from server/constants, callers would fall
+back to blocking indefinitely.
 """
 
 from __future__ import annotations

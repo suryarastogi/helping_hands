@@ -1,11 +1,17 @@
 """Tests for v243: _ProgressEmitter DRY refactor and DEFAULT_CLONE_ERROR_MSG.
 
-Covers:
-- _ProgressEmitter.emit() delegates correctly to _update_progress
-- _ProgressEmitter.emit() with overrides
-- DEFAULT_CLONE_ERROR_MSG constant value and usage
-- _collect_stream uses emitter
-- Source consistency: no bare "unknown git clone error" strings remain
+_ProgressEmitter.emit() is the single update path for Celery task progress;
+if it stops delegating to _update_progress correctly, partial progress updates
+get dropped and the UI shows stale or missing status information.
+
+The sticky-vs-non-sticky field distinction is important: sticky fields (like
+the error message) must survive subsequent emit() calls while non-sticky fields
+(like the current step) may be overridden. Reversing this logic would cause
+error messages to be overwritten mid-run.
+
+DEFAULT_CLONE_ERROR_MSG is the fallback shown when git clone exits non-zero
+with no stderr. If it drifts between the server and the celery_app modules,
+users see different error text depending on which code path ran.
 """
 
 from __future__ import annotations

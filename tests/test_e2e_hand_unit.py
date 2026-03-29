@@ -1,4 +1,13 @@
-"""Unit tests for E2EHand static/class methods."""
+"""Unit tests for E2EHand static/class methods.
+
+Protects the pure helper logic that underpins the clone-branch-commit-PR
+workflow: safe directory name generation from arbitrary repo strings (prevents
+bad characters from polluting filesystem paths), work-root and base-branch
+resolution from environment variables, and the Markdown formatting of PR bodies
+and status comments.  If these regress, E2EHand will silently produce malformed
+paths or PR content with missing fields, breaking downstream CI consumers that
+parse that content.
+"""
 
 from __future__ import annotations
 

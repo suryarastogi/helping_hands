@@ -1,4 +1,19 @@
-"""Tests for v167: goose/opencode/e2e docstrings and constant extraction."""
+"""Tests for v167: Google-style docstrings on GooseCLIHand and OpenCodeCLIHand methods.
+
+GooseCLIHand has unusually complex provider/model resolution logic
+(_normalize_goose_provider, _infer_goose_provider_from_model, _resolve_ollama_host)
+that relies on undocumented naming conventions in the Goose CLI.  Docstring
+requirements on these methods ensure that the next developer who touches Goose
+integration can understand the intent without reverse-engineering the Goose CLI.
+
+The Raises: section requirement on _build_subprocess_env documents the
+RuntimeError that fires when the Goose provider cannot be resolved; without it,
+callers do not know to handle the exception.
+
+OpenCode's _AUTH_ERROR_TOKENS constant test verifies that auth-failure pattern
+matching uses named tokens rather than inline strings, consistent with the
+consolidation done for other CLI hands.
+"""
 
 from __future__ import annotations
 

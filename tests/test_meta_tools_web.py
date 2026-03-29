@@ -1,4 +1,13 @@
-"""Tests for helping_hands.lib.meta.tools.web."""
+"""Tests for helping_hands.lib.meta.tools.web.
+
+Protects the web tool implementations that iterative hands expose to the AI:
+search_web must parse the DuckDuckGo JSON envelope correctly and reject empty
+queries; browse_url must strip scripts/styles from HTML, respect max_chars
+truncation, and track the final URL after redirects.  The pre-compiled regex
+constants (_SCRIPT_STYLE_RE, _HTML_TAG_RE, etc.) must remain compiled and
+referenced by _strip_html — inlining them would cause repeated recompilation on
+every call, degrading performance on pages fetched during long agentic loops.
+"""
 
 from __future__ import annotations
 

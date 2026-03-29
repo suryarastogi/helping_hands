@@ -1,4 +1,17 @@
-"""Tests for LiteLLM provider _build_inner() and _complete_impl()."""
+"""Tests for LiteLLM provider _build_inner() and _complete_impl().
+
+Protects the following behavioral invariants of `LiteLLMProvider`:
+- Unlike other providers, `_build_inner` returns the `litellm` module itself
+  (not a client instance) because LiteLLM exposes a module-level `completion`
+  function rather than a class-based client; a regression that returns a new
+  object would break the `inner.completion(...)` call path.
+- When `LITELLM_API_KEY` is set the module's `api_key` attribute is mutated
+  in-place before returning; omitting this step leaves requests unauthenticated.
+- `_build_inner` raises `RuntimeError` (not `ImportError`) when litellm is
+  absent so callers receive an actionable install hint.
+- `_complete_impl` delegates to `inner.completion` with `messages=` (not
+  `input=`), matching the LiteLLM OpenAI-compat interface.
+"""
 
 from __future__ import annotations
 

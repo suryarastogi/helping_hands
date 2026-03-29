@@ -1,8 +1,13 @@
-"""Tests for _TwoPhaseCLIHand._render_command base-level logic.
+"""Tests for _TwoPhaseCLIHand._render_command: command construction pipeline.
 
-Covers placeholder substitution, model flag auto-injection, prompt fallback,
-and interaction between _apply_backend_defaults, _apply_verbose_flags, and
-_wrap_container_if_enabled hooks during command rendering.
+_render_command assembles the final subprocess argv from the configured base
+command, prompt, model, repo-root, and verbose flags. It is the single place
+where user configuration is translated into the exact tokens passed to the
+external CLI. Regressions cause silent wrong-model runs (model injected twice
+or not at all), prompt duplication (appears as two trailing args), or missing
+repo paths inside the subprocess. The provider-prefix stripping test guards the
+invariant that "anthropic/claude-sonnet" is passed as "claude-sonnet" to CLIs
+that do not accept provider prefixes.
 """
 
 from __future__ import annotations

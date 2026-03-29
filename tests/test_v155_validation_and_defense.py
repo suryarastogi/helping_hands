@@ -1,9 +1,17 @@
-"""Tests for v155 — Input validation and defensive coding hardening.
+"""Tests for v155: read_text_file rejects non-positive size limits and Google provider handles malformed messages.
 
-Covers:
-- read_text_file() max_file_size positive validation
-- Google provider _complete_impl() KeyError defense for missing content key
-- _get_diff() fallback FileNotFoundError coverage
+Callers may construct a max_file_size from arithmetic (e.g. user_quota - overhead)
+that accidentally yields zero or negative.  Without an explicit guard, such a value
+would either accept all files (size <= 0 is always false) or cause a confusing
+comparison failure.  The error message must include the bad value so callers can
+trace which quota calculation went wrong.
+
+The "validation before file access" test is particularly important: it proves that
+the guard fires even for non-existent paths, so callers do not need to pre-check
+existence before constructing the size argument.
+
+GoogleProvider._complete_impl must handle messages whose 'content' key is absent
+(malformed AI output) without raising a raw KeyError that bypasses the retry logic.
 """
 
 from __future__ import annotations

@@ -1,4 +1,18 @@
-"""Tests for v272 — MCP _reraise_path_error, CLI _build_config_overrides, narrowed exception."""
+"""Tests for v272: MCP _reraise_path_error, CLI _build_config_overrides, narrowed exceptions.
+
+_reraise_path_error() is the MCP server's error re-packaging helper. MCP tool
+handlers must raise the same exception type they receive (ValueError, OSError,
+FileNotFoundError, etc.) so that MCP clients can distinguish path-not-found
+from permission-denied from encoding errors. If it always raises ValueError,
+clients cannot differentiate error types and display wrong recovery advice.
+
+The exception-chaining requirement ensures that the original exception appears
+in tracebacks, giving operators full context when debugging path issues.
+
+_build_config_overrides() translates parsed CLI args into a Config dict; if a
+new arg is added without a corresponding entry here, the CLI silently ignores
+the flag and uses the default, making the option appear broken to users.
+"""
 
 from __future__ import annotations
 

@@ -1,8 +1,13 @@
-"""Tests for v220: DRY _pr_status_line helper & CLI validation cleanup.
+"""Tests for v220: DRY _pr_status_line helper and CLI argument validation.
 
-Validates:
-- ``_pr_status_line()`` static method on ``_BasicIterativeHand``
-- CLI ``--pr-number`` and ``--max-iterations`` validation via ``require_positive_int``
+_pr_status_line() builds the one-liner status string appended to every PR
+description. If it regresses, PRs lose their progress indicator and all
+"skipped" status codes (disabled, no changes, etc.) would produce the wrong
+message or raise a KeyError.
+
+The CLI validation tests ensure --pr-number and --max-iterations are rejected
+with a clear error for non-positive values rather than propagating into the
+hand where they cause mysterious failures later.
 """
 
 from __future__ import annotations

@@ -1,10 +1,13 @@
-"""Tests for v202: DRY Python version default + command-not-found messages.
+"""Guard that mcp_server.py uses the shared Python version constant and CLI hands inherit the Docker rebuild hint.
 
-Covers:
-- _DEFAULT_PYTHON_VERSION import identity in mcp_server.py
-- Base _command_not_found_message includes Docker rebuild hint
-- Subclasses inherit base _command_not_found_message (no override)
-- Message content verification for each CLI hand subclass
+If mcp_server.py re-hardcodes `python_version: str = "3.13"` in its tool function
+signatures, AI-generated code invoked via MCP would run under a different Python
+version than the same code invoked through the CLI, producing inconsistent results.
+The is-same-object test is stronger than a value comparison — it catches a copy that
+happens to have the right value today but could diverge later. The
+_command_not_found_message tests confirm that the Docker rebuild hint flows from the
+base class to all CLI hand subclasses without requiring each to duplicate the message,
+so a change to the template automatically reaches every subclass.
 """
 
 from __future__ import annotations

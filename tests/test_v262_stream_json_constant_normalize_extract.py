@@ -1,4 +1,19 @@
-"""Tests for v262: _OUTPUT_FORMAT_STREAM_JSON, _normalize_preview, _extract_message_blocks."""
+"""Tests for v262: _OUTPUT_FORMAT_STREAM_JSON, _normalize_preview, _extract_message_blocks.
+
+_OUTPUT_FORMAT_STREAM_JSON is passed as --output-format to the Claude binary.
+If the literal "stream-json" drifts between the constant and any usage site,
+the binary either produces non-streaming output (whole response arrives at
+once) or fails to start, silently breaking the Claude CLI hand.
+
+_normalize_preview() strips and collapses newlines in content text before it
+is emitted as a one-line progress update. Without this, multi-line assistant
+messages produce garbled single-line previews in the task status display.
+
+_extract_message_blocks() safely extracts the content list from an event dict.
+If it raises on non-dict message values (which the stream can legitimately
+produce for certain event types), _process_line crashes and the entire stream
+is lost rather than skipping the malformed event.
+"""
 
 from __future__ import annotations
 

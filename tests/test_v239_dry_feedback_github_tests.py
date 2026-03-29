@@ -1,5 +1,19 @@
-"""Tests for v239: DRY _collect_tool_feedback, _append_iteration_transcript,
-_github_repo_from_origin, get_check_runs, upsert_pr_comment.
+"""Tests for v239: DRY helpers for feedback, transcripts, GitHub repo, and PR comments.
+
+_collect_tool_feedback() joins multiple tool output lines into the context
+fed back to the AI on the next iteration; if the join separator changes, the
+model sees garbled multi-tool feedback and produces worse edits.
+
+_append_iteration_transcript() builds the running history shown in PR comments;
+regressions here cause the PR to display an incomplete or misordered transcript.
+
+_github_repo_from_origin() parses the remote URL to a PyGitHub Repo object;
+if it stops handling SSH and HTTPS URL variants correctly, CI checks and PR
+comment upserts silently fail for repos cloned via SSH.
+
+upsert_pr_comment() must create a new comment on first call and update the
+existing one on subsequent calls; regression to "always create" spams PRs with
+duplicate status comments.
 """
 
 from __future__ import annotations

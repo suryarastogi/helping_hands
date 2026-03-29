@@ -1,4 +1,15 @@
-"""Tests for v260: unified truthy values and env var helpers."""
+"""Tests for v260: unified truthy values, _is_truthy_env, and _get_env_stripped.
+
+Before v260, pr_description.py defined _PR_TRUTHY_VALUES and cli/base.py
+defined _CLI_TRUTHY_VALUES. Both were frozensets of flag strings but could
+drift — e.g. if "on" was added to one but not the other, disabling a feature
+via the env var would work from the CLI but not from the PR description path.
+
+_is_truthy_env() and _get_env_stripped() centralise the two most common env
+var read patterns. If _is_truthy_env stops stripping whitespace, environment
+variables set with trailing newlines (common in shell scripts) are silently
+treated as falsy.
+"""
 
 from __future__ import annotations
 

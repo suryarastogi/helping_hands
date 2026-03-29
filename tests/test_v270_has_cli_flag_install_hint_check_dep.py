@@ -1,8 +1,18 @@
 """Tests for v270: has_cli_flag(), install_hint(), and _check_optional_dep().
 
-Covers the three DRY helpers extracted in v270 to eliminate duplicated
-CLI flag-checking patterns, install instruction strings, and optional
-dependency guards.
+has_cli_flag() is used to detect whether a flag is already present in a
+command token list before injecting it again. The exact-match vs prefix-match
+semantics are critical: "--model-name" must not match "--model", otherwise
+injecting --model after the user has already supplied --model-name produces
+a duplicate-flag CLI error.
+
+install_hint() generates the "uv add X" message shown when an optional
+dependency is missing. If the format changes, users receive malformed install
+commands.
+
+_check_optional_dep() gates Celery schedule functionality; if it stops raising
+ImportError for missing packages rather than propagating the error, the
+schedules endpoint returns 500 instead of a clear "install celery" message.
 """
 
 from __future__ import annotations

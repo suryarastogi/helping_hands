@@ -1,4 +1,15 @@
-"""Tests for v124 git hardening: _run_git timeout + _validate_full_name."""
+"""Tests for v124: git subprocess operations enforce a configurable timeout.
+
+Git operations (clone, push, fetch) can hang indefinitely against unresponsive
+remotes, blocking a Celery worker forever.  _git_timeout() reads the
+HELPING_HANDS_GIT_TIMEOUT env var and must fall back to _DEFAULT_GIT_TIMEOUT for
+any non-positive, non-numeric, or absent value — a regression causes either
+infinite hangs (if the timeout is silently dropped) or worker crashes (if an
+invalid value propagates to subprocess.run).
+
+_validate_full_name guards against path-traversal payloads in "owner/repo" strings
+reaching git clone commands.
+"""
 
 from __future__ import annotations
 

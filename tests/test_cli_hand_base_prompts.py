@@ -1,9 +1,15 @@
 """Tests for _TwoPhaseCLIHand prompt builders and container/verbose helpers.
 
-Covers: _execution_mode, _container_enabled, _container_image,
-_apply_verbose_flags, _build_init_prompt, _build_task_prompt,
-_build_apply_changes_prompt, _stage_skill_catalog, _cleanup_skill_catalog,
-_wrap_container_if_enabled.
+The init and task prompt builders produce the text injected into the two-phase
+CLI invocations; their content directly determines the quality of AI output. A
+regression in file-list capping, summary truncation, or missing key instructions
+("Do not perform edits", "non-interactive") changes AI behaviour at runtime
+without surfacing as a test failure elsewhere. Container wrapping
+(_wrap_container_if_enabled) turns a plain CLI command into a docker run
+invocation with volume mounts and forwarded env vars; a broken mount path or
+missing API key forward causes silent runtime failures inside the container.
+Skill catalog staging/cleanup must be symmetric: leaked temp directories
+accumulate on long-running servers.
 """
 
 from __future__ import annotations

@@ -1,10 +1,15 @@
-"""Tests for v235 — _META_PR_ERROR constant, schedules.py exception narrowing.
+"""Tests for v235: _META_PR_ERROR constant and schedules.py exception narrowing.
 
-Covers:
-- ``base.py`` new ``_META_PR_ERROR`` constant
-- ``base.py`` uses ``_META_PR_ERROR`` instead of bare ``"pr_error"`` string
-- ``cli/base.py`` imports and uses ``_META_PR_ERROR``
-- ``schedules.py`` exception handlers narrowed (no bare ``except Exception``)
+_META_PR_ERROR is the metadata key written when PR creation fails. If base.py
+and cli/base.py use different string literals for this key, the server reads
+one and the CLI writes the other, so pr_error metadata is silently lost and
+error diagnosis becomes impossible.
+
+The "only one bare occurrence" AST test ensures the string literal exists
+exactly once — at the constant definition — and is nowhere else duplicated.
+
+schedules.py handlers must be narrowed to OSError (file/network issues during
+schedule persistence) to avoid accidentally swallowing logic errors.
 """
 
 from __future__ import annotations

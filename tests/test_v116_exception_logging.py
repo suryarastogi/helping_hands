@@ -1,12 +1,14 @@
-"""Tests for v116 exception handler logging improvements.
+"""Tests for v116: silent exception handlers now emit structured debug logs.
 
-Covers:
-- _check_redis_health debug logging on failure (app.py)
-- _check_db_health debug logging on failure (app.py)
-- _check_workers_health debug logging on failure (app.py)
-- _resolve_worker_capacity debug logging on failure (app.py)
-- _get_claude_oauth_token debug logging on failure (app.py)
-- ensure_usage_schedule debug logging on failure (celery_app.py)
+Health-check helpers (_check_redis_health, _check_db_health, _check_workers_health,
+_resolve_worker_capacity, _get_claude_oauth_token) must log at DEBUG level when
+they catch exceptions and return an error sentinel.  Without these log lines,
+operators see only a degraded /health response with no clue about the root cause,
+making it impossible to distinguish a mis-configured DATABASE_URL from a genuinely
+down service.
+
+If these tests regress, on-call engineers lose observability into why the health
+endpoint reports "error" for a dependency.
 """
 
 from __future__ import annotations

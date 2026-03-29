@@ -1,4 +1,14 @@
-"""Tests for helping_hands.lib.github."""
+"""Tests for helping_hands.lib.github.
+
+Covers the GitHubClient facade used by all hands for cloning, branching,
+committing, pushing, and creating/updating PRs. Key invariants protected:
+token precedence (explicit > GITHUB_TOKEN > GH_TOKEN), upsert_pr_comment
+idempotency (marker deduplication and None-body guard), get_check_runs
+conclusion aggregation (success/failure/pending/mixed/no_checks), and
+exhaustive input validation (empty branch names, blank commit messages, invalid
+PR state strings). Regressions here break the automated PR workflow that is the
+primary output of every Hand run.
+"""
 
 from __future__ import annotations
 

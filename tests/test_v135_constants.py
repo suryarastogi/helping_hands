@@ -1,4 +1,19 @@
-"""Tests for v135: extracted magic number constants in mcp_server and celery_app."""
+"""Tests for v135: magic numbers extracted to named constants in mcp_server and celery_app.
+
+Named constants protect against accidental value drift: if a developer changes the
+default exec timeout in one function signature but forgets the other, these tests
+catch it.  The "used in signature" tests verify that function defaults reference the
+constant symbol rather than re-stating the literal, so a single edit to the constant
+propagates everywhere.
+
+_USAGE_LOG_INTERVAL_S must equal exactly one hour; a regression to minutes would
+spam the Anthropic usage API and a regression to days would silently stop billing
+telemetry.
+
+# TODO: CLEANUP CANDIDATE — tests that only assert isinstance/positive (e.g.
+# test_constants_are_positive_integers, test_usage_log_interval_is_positive_float)
+# add no coverage beyond the value-equality tests alongside them.
+"""
 
 from __future__ import annotations
 

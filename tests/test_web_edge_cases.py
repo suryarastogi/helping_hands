@@ -1,4 +1,13 @@
-"""Tests for web.py edge cases: _extract_related_topics, search/browse validation."""
+"""Tests for web.py edge cases: _extract_related_topics, search/browse validation.
+
+Protects resilience of the web tool against real-world DuckDuckGo API variance:
+_extract_related_topics must handle nested Topics arrays, skip non-dict items,
+and ignore entries with empty or missing Text/FirstURL fields.  search_web must
+deduplicate result URLs, cap output at max_results, and convert HTTP/URL errors
+into RuntimeError with the status code visible so the AI can interpret rate
+limits or 404s.  browse_url must detect HTML by content even when the
+Content-Type header is wrong, and must propagate network errors as RuntimeError.
+"""
 
 from __future__ import annotations
 

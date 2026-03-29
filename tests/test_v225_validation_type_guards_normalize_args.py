@@ -1,10 +1,17 @@
-"""Tests for v225 — validation type guards, _normalize_args container check, web.py DRY.
+"""Tests for v225: validation type guards and _normalize_args container check.
 
-Covers:
-- ``require_non_empty_string`` TypeError for non-string inputs
-- ``require_positive_int`` TypeError for non-int and bool inputs
-- ``_normalize_args`` TypeError for non-list/tuple containers
-- ``search_web`` and ``_require_http_url`` use ``require_non_empty_string``
+The require_* validators are called at every public API boundary. If they stop
+raising TypeError for wrong-type arguments, callers receive cryptic AttributeError
+or arithmetic errors deep inside hand logic instead of an immediate, descriptive
+failure at the entry point.
+
+The bool-rejection test for require_positive_int is non-obvious: in Python
+bool is a subclass of int, so True/False would be silently accepted as 1/0
+without an explicit isinstance check — 0 is not a valid iteration count.
+
+_normalize_args must reject arbitrary containers (dict, set) and only accept
+list or tuple, otherwise the CLI subprocess command builder receives a
+non-sequence and fails at the os.execv layer.
 """
 
 from __future__ import annotations

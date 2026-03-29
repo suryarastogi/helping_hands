@@ -1,4 +1,17 @@
-"""Tests for ClaudeCodeHand static/pure helper methods."""
+"""Tests for ClaudeCodeHand static/pure helper methods.
+
+ClaudeCodeHand wraps the `claude` CLI and adds Claude-specific logic: the
+--dangerously-skip-permissions flag injection (with root-user safety guard),
+stream-json output parsing (_StreamJsonEmitter), GPT model filtering, and the
+npx fallback when the `claude` binary is not on PATH. A regression in
+_skip_permissions_enabled causes either silent permission prompts (the AI
+stalls waiting for user input) or a crash when running as root. The
+_StreamJsonEmitter tests protect live-streaming output: if the JSON event
+parsing breaks, users see no output during long Claude runs. The
+--dangerously-skip-permissions retry logic covers the specific case where
+Claude reports the flag is disallowed at runtime and must be stripped for the
+retry.
+"""
 
 from __future__ import annotations
 

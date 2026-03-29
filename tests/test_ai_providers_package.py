@@ -1,4 +1,18 @@
-"""Tests for helping_hands.lib.ai_providers package-level re-exports."""
+"""Tests for helping_hands.lib.ai_providers package-level re-exports.
+
+Protects the public API contract of the `ai_providers` package namespace:
+- Every provider class and singleton must be importable from the package root
+  so call sites can use `from helping_hands.lib.ai_providers import OpenAIProvider`
+  instead of knowing each sub-module path.
+- The `PROVIDERS` dict must contain exactly the five supported backends with keys
+  matching each provider's `name` attribute; any drift breaks `provider/model`
+  format resolution in the CLI and server.
+- Singleton constants in `PROVIDERS` must be the same objects as the module-level
+  constants (identity, not equality) so that lazy `_inner` state is shared and
+  `_build_inner` is not called twice for the same backend.
+- `__all__` must stay in sync with actual exports; a missing entry silently breaks
+  wildcard imports used by some integration layers.
+"""
 
 from __future__ import annotations
 

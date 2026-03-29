@@ -1,13 +1,14 @@
-"""Tests for v234 — DEFAULT_REDIS_URL constant, health check & DB exception narrowing.
+"""Tests for v234: DEFAULT_REDIS_URL constant and health-check exception narrowing.
 
-Covers:
-- ``server/constants`` new ``DEFAULT_REDIS_URL`` constant
-- ``celery_app`` uses ``_DEFAULT_REDIS_URL`` instead of bare string
-- ``app`` uses ``_DEFAULT_REDIS_URL`` instead of bare string
-- Health check exception handlers narrowed (no bare ``except Exception``)
-- ``log_claude_usage`` DB write handler narrowed
-- ``ensure_usage_schedule`` handler narrowed
-- Runtime tests for ``ImportError`` paths in health checks and DB write
+If celery_app.py and app.py hard-code different Redis URL defaults, the worker
+and the API server connect to different Redis instances in environments where
+REDIS_URL is not set, silently splitting the task queue.
+
+Health-check handlers must catch specific exceptions (ImportError, RedisError,
+OSError) rather than bare Exception, so that programming errors in the health
+endpoint surface immediately. The runtime ImportError tests verify that the
+health checks degrade gracefully when the redis or celery packages are absent,
+which is a real scenario in minimal deployments.
 """
 
 from __future__ import annotations

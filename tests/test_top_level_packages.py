@@ -1,4 +1,13 @@
-"""Tests for top-level package imports, docstrings, and conftest fixtures."""
+"""Tests for top-level package imports, docstrings, and conftest fixtures.
+
+Verifies that every major package layer (root, lib, cli, server, hands) is
+importable, carries a module docstring with the expected keyword, and exposes
+a semver-style __version__. Also smoke-tests the mock_github_client conftest
+fixture's default return values so that test authors can rely on consistent
+defaults (default_branch="main", pr.number=42, conclusion="success") without
+reading the conftest. A broken import at any layer causes the entire test suite
+to fail with a cryptic ImportError rather than a targeted test failure.
+"""
 
 from __future__ import annotations
 

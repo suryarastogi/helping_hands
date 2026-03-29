@@ -1,4 +1,16 @@
-"""Tests for v170: Attributes sections in public dataclass docstrings."""
+"""Tests for v170: every public dataclass has an Attributes: section listing all fields.
+
+Dataclasses like HandResponse, PRResult, CommandResult, and WebBrowseResult are
+returned from core library functions and consumed by multiple callers.  Without an
+Attributes: section, IDEs and documentation generators cannot show field
+descriptions, forcing contributors to read the dataclass body rather than the
+docstring.
+
+The parametrized tests verify not only that an Attributes: section exists but that
+every known field is mentioned by name.  This catches partial documentation (a new
+field added to the dataclass without updating the docstring) and renames that break
+the documented contract.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,16 @@
-"""Tests for _schedule_to_response() server helper."""
+"""Tests for _schedule_to_response(), the ScheduledTask-to-API-response converter.
+
+Protects the mapping from the internal ScheduledTask dataclass to the
+ScheduleResponse Pydantic model returned by the schedule REST API.  Key
+invariants: enabled tasks must carry a computed next_run_at (from croniter);
+disabled tasks must return next_run_at=None; github_token is redacted in the
+response so it never appears in API payloads; and all 20+ fields are forwarded
+without silent truncation or type coercion.
+
+A regression in field forwarding would silently drop user-configured options
+(tools, skills, fix_ci, etc.) from every GET /schedules response, making it
+impossible for the UI to display or round-trip schedule edits correctly.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,18 @@
-"""Tests for Anthropic provider _build_inner() and _complete_impl()."""
+"""Tests for Anthropic provider _build_inner() and _complete_impl().
+
+Protects the following behavioral invariants of `AnthropicProvider`:
+- `_build_inner` raises a descriptive `RuntimeError` (not `ImportError`) when the
+  `anthropic` SDK is absent, giving users an actionable install hint.
+- When `ANTHROPIC_API_KEY` is set, the SDK client is constructed with that key;
+  when absent, it is constructed without arguments so the SDK can apply its own
+  fallback (e.g. env var re-lookup or interactive prompt).
+- `_complete_impl` always forwards `max_tokens` to `inner.messages.create`
+  (Anthropic requires it; omitting it raises an API error), defaulting to 1024
+  but respecting any caller-supplied override.
+- Extra kwargs such as `temperature` and `top_p` are passed through transparently.
+- The module-level `ANTHROPIC_PROVIDER` singleton is stable across imports so
+  lazy init state is not lost.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,18 @@
-"""Tests for Celery app helper functions."""
+"""Tests for the low-level helper functions extracted from the Celery task module.
+
+Protects the building blocks shared across the worker: _github_clone_url constructs
+authenticated URLs (GITHUB_TOKEN takes priority over GH_TOKEN, whitespace tokens
+treated as absent); _git_noninteractive_env prevents git from blocking on credential
+prompts during headless clones; _redact_sensitive strips tokens from error messages
+before they reach logs or task results; _UpdateCollector buffers streaming output
+and flushes on newline or a configurable character threshold; and _append_update
+enforces per-line length limits and a maximum stored-updates cap to prevent memory
+growth during long-running tasks.
+
+If _redact_sensitive regresses, GitHub tokens leak into Celery task results.  If
+_UpdateCollector split or flush logic breaks, the monitor page shows garbled or
+incomplete streaming output.
+"""
 
 from __future__ import annotations
 

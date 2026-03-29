@@ -1,4 +1,16 @@
-"""Tests for v259: DRY _repo_tmp_dir, GitHub token resolution, truthy values."""
+"""Tests for v259: DRY repo_tmp_dir(), resolve_github_token(), and truthy values.
+
+resolve_github_token() implements the priority chain: explicit token > GITHUB_TOKEN
+env var > GH_TOKEN env var > empty string. If the priority order is wrong, a
+user who sets both GITHUB_TOKEN and GH_TOKEN gets the wrong token used for
+clone/API calls. Whitespace-only values must fall through to the next level
+rather than being used verbatim.
+
+repo_tmp_dir() is the optional workspace override used in CI environments that
+pre-provision a temp directory. If it fails to create nested directories on
+first call or returns a Path for whitespace-only env var values, downstream
+clone operations fail with confusing OSErrors.
+"""
 
 from __future__ import annotations
 

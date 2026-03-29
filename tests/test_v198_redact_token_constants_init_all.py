@@ -1,11 +1,13 @@
-"""Tests for v198: redact token constants, root __all__, ci_wait fallback.
+"""Guard the token redaction constants and root package __all__ contract.
 
-Covers:
-- _REDACT_TOKEN_PREFIX_LEN, _REDACT_TOKEN_SUFFIX_LEN,
-  _REDACT_TOKEN_MIN_PARTIAL_LEN constants in server/app.py
-- _redact_token() behaviour with named constants
-- Root package __all__ declaration
-- _schedule_to_response ci_check_wait_minutes getattr fallback uses constant
+_redact_token() is the security-sensitive function that masks GitHub tokens before
+they are returned in API responses or logs. If _REDACT_TOKEN_PREFIX_LEN or
+_REDACT_TOKEN_SUFFIX_LEN drift from 4, tokens either expose too much (security
+risk) or become unrecognisable (UX regression). _REDACT_TOKEN_MIN_PARTIAL_LEN
+controls the threshold below which the full token is replaced rather than partially
+shown. The root package __all__ test prevents accidental removal of __version__
+from the top-level namespace, which would break downstream `helping_hands.__version__`
+version checks.
 """
 
 from __future__ import annotations

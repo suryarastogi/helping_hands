@@ -1,9 +1,13 @@
-"""Tests for v224 — DRY _parse_required_str, web.py strip dedup, repo_dir validation.
+"""Tests for v224: DRY _parse_required_str, web.py strip dedup, repo_dir validation.
 
-Covers:
-- _parse_required_str helper in registry.py (missing, non-string, empty, whitespace, valid)
-- _extract_related_topics pre-computed .strip() behaviour unchanged
-- _configure_authenticated_push_remote repo_dir.is_dir() validation
+_parse_required_str() is the registry entry-point guard. If it stops raising on
+missing, non-string, or whitespace-only values, malformed registry entries
+silently pass through and cause confusing runtime failures during tool dispatch.
+
+_configure_authenticated_push_remote must reject a repo_dir that is not an
+actual directory before attempting any git remote operations; if this check
+regresses, git commands run in the wrong working directory and produce
+misleading errors or corrupt the wrong repo.
 """
 
 from __future__ import annotations

@@ -1,9 +1,15 @@
-"""Tests for v246: Simplify getattr(self.config, ...) to direct attribute access.
+"""Tests for v246: replacing getattr(self.config, …) with direct attribute access.
 
-Covers:
-- AST source consistency: no getattr(self.config, ...) in hand files
-- Config dataclass guarantees: all fields have defaults and are accessible
-- Behavioral: hands read config attributes correctly with direct access
+getattr(self.config, "field", default) was used as a guard against missing
+Config fields, but it hides typos — getattr(self.config, "max_iteratons", 6)
+silently returns 6 forever instead of raising AttributeError on the misspelling.
+
+Once Config is a proper dataclass with guaranteed fields, direct access
+(self.config.max_iterations) is both cleaner and safer: a missing attribute
+immediately fails at call time rather than silently using the fallback value.
+
+The AST checks enforce that no hand re-introduces getattr-with-default as a
+new field guard pattern.
 """
 
 from __future__ import annotations

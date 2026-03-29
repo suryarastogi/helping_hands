@@ -1,9 +1,13 @@
-"""Tests for v208 — PRStatus enum, validation cleanup, DRY metadata builder.
+"""Guard PRStatus StrEnum values and the grouping frozensets that drive hand result logic.
 
-Covers:
-- PRStatus enum membership, string equality, and grouping frozensets
-- _build_generic_pr_body validation now delegates to require_non_empty_string
-- _pr_result_metadata helper populates metadata dict correctly
+PRStatus values appear in hand result dicts, Celery task state, and the frontend
+status display. If any member's string value changes (e.g. "no_changes" → "no-changes"),
+existing persisted task states in Redis would not match, causing the frontend to
+show incorrect status badges. PR_STATUSES_SKIPPED and PR_STATUSES_WITH_URL control
+whether the hand result includes a GitHub URL and whether finalization is skipped;
+incorrect membership means PRs could be created when they should be skipped, or the
+URL could be omitted from a successful result. The member-count test catches
+accidental additions or removals to the enum.
 """
 
 from __future__ import annotations

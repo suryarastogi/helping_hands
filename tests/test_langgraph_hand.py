@@ -1,4 +1,14 @@
-"""Tests for LangGraphHand construction, run(), and stream() methods."""
+"""Tests for LangGraphHand construction, run(), and stream() methods.
+
+Protects LangGraphHand's integration with the LangChain/LangGraph agent loop:
+the agent must be constructed with streaming=True so that stream() can yield
+token-by-token chunks; run() must extract the final message from the messages
+list defensively (missing key, None value, or empty list all return ""); stream()
+must filter out non-chat events and empty content chunks, and must append a PR
+URL notice exactly once when _finalize_repo_pr returns a URL.  Regressions here
+would either silence AI output entirely or flood the stream with raw framework
+events.
+"""
 
 from __future__ import annotations
 

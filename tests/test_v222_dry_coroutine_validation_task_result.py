@@ -1,4 +1,17 @@
-"""Tests for v222: DRY _close_coroutine, model_provider validation, task_result hardening."""
+"""Tests for v222: DRY _close_coroutine, model_provider validation, task_result hardening.
+
+_close_coroutine() prevents "coroutine was never awaited" warnings that would
+otherwise leak into test output and hide real failures; if it breaks, every
+CLI hand teardown path leaks an unclosed coroutine.
+
+The model_provider validation tests ensure that passing an empty model string
+raises ValueError immediately rather than producing an opaque API error deep
+inside langchain or atomic-agents.
+
+normalize_task_result() is the Celery serialization boundary — it must produce
+JSON-safe output regardless of what the hand returns, otherwise the worker
+task raises a serialization error and the result is silently dropped.
+"""
 
 from __future__ import annotations
 

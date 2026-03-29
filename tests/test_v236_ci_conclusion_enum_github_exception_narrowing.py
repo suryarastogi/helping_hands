@@ -1,9 +1,14 @@
-"""Tests for v236 — CIConclusion enum consistency, GitHub exception narrowing.
+"""Tests for v236: CIConclusion enum consistency and GitHub exception narrowing.
 
-Covers:
-- ``github.py`` uses ``CIConclusion`` enum members instead of bare strings
-- ``base.py`` GitHub-related handlers use ``(GithubException, OSError)``
-- ``e2e.py`` GitHub-related handler uses ``(GithubException, OSError)``
+get_check_runs() maps GitHub check-run conclusions to CIConclusion enum members.
+If it compares against bare "success"/"failure" strings instead of enum values,
+a future rename or addition to the enum silently breaks CI status detection and
+the system never triggers the CI fix loop when it should.
+
+The _GITHUB_ERRORS constant centralises the except tuple used for GitHub API
+failures. If base.py or e2e.py diverge back to catching bare Exception, GitHub
+rate-limit errors and unrelated bugs are both swallowed, making failures
+invisible and hard to reproduce.
 """
 
 from __future__ import annotations

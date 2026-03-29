@@ -1,4 +1,17 @@
-"""Tests for v159: __all__ exports for AI providers, pr_description, model_provider, schedules."""
+"""Tests for v159: __all__ declarations for AI provider and scheduling modules.
+
+Each AI provider module (openai, anthropic, google) must export exactly its
+Provider class and singleton instance; exporting more would expose implementation
+details, exporting fewer would break the provider-resolution registry that uses
+these singletons.
+
+pr_description and model_provider are internal helpers that nonetheless have
+stable public types (PRDescription, HandModel) consumed by base.py and the CLI;
+__all__ on these modules documents that contract explicitly.
+
+The schedules module __all__ test ensures ScheduleManager and ScheduledTask are
+importable for the FastAPI dependency-injection paths.
+"""
 
 from __future__ import annotations
 

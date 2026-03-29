@@ -1,5 +1,13 @@
-"""Tests for v184: AI provider empty message validation, mkdir_path hardening,
-normalize_messages content type check."""
+"""Guard AIProvider.complete() against sending empty message lists to LLM APIs.
+
+All five AI provider backends delegate content-emptiness validation to the base
+AIProvider.complete() method. If this validation regresses, a call with an empty
+string or missing "content" key would reach the upstream API and return an
+unpredictable error (or, worse, a successful but meaningless response). The
+mixed-content test confirms that only fully-empty message sets are rejected —
+a system message with empty content followed by a non-empty user message must pass
+through, which is the common system-prompt pattern used by iterative hands.
+"""
 
 from __future__ import annotations
 

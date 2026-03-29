@@ -1,7 +1,15 @@
-"""Tests for v169: Google-style docstrings on iterative.py methods.
+"""Tests for v169: Google-style docstrings on all 21 _BasicIterativeHand methods.
 
-Verifies that all 21 newly-documented methods have non-trivial docstrings
-with the expected Args/Returns/Raises sections.
+_BasicIterativeHand contains the core agentic loop shared by BasicLangGraphHand and
+BasicAtomicHand.  Its helpers (_build_iteration_prompt, _extract_inline_edits,
+_run_tool_request, etc.) are the primary extension surface for anyone adding a new
+iterative backend or debugging a stuck loop.  Without Args/Returns/Raises sections,
+the non-obvious parameter semantics (e.g. what counts as "satisfied", the @@READ
+protocol in _execute_read_requests) are invisible to new contributors.
+
+The Raises: requirement on _parse_str_list, _parse_positive_int, _parse_optional_str,
+and _run_tool_request documents the exceptions that the iteration loop must catch;
+missing these would cause silent swallowing of parse errors.
 """
 
 from __future__ import annotations

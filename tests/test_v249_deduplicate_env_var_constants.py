@@ -1,7 +1,14 @@
-"""Tests for v249 — deduplicate env var constants between github_url.py and base.py.
+"""Tests for v249: deduplicating env-var constants between github_url.py and base.py.
 
-Validates that _ENV_GIT_TERMINAL_PROMPT and _ENV_GCM_INTERACTIVE are defined
-only in github_url.py (the canonical location) and imported by base.py.
+Before v249, both github_url.py (used during clone) and base.py (used during
+authenticated push setup) independently defined the same environment variable
+name strings. If either copy was updated and the other was not, one of the two
+code paths would fail to suppress git's interactive credential prompts, causing
+hangs in non-interactive CI environments.
+
+The identity test (is, not ==) confirms that base.py re-exports the exact same
+object from github_url.py rather than re-defining a new string with the same
+value, which guarantees there is a single definition to maintain.
 """
 
 from __future__ import annotations

@@ -1,7 +1,13 @@
-"""Tests for v152 — verify stale ty: ignore comments have been removed.
+"""Tests for v152: codebase-wide guard against re-introduction of stale ty: ignore comments.
 
-These tests guard against regression: if a ``ty: ignore`` comment is
-re-introduced by mistake, the corresponding test will fail.
+ty: ignore suppression comments were added during early development to silence
+the type checker while fixes were deferred.  Once the underlying type issues were
+resolved, these comments became dead weight that masks future real type errors.
+
+These tests scan the entire src/ tree so that a developer adding a new ty: ignore
+as a quick fix receives an immediate test failure instead of silently accumulating
+technical debt.  The per-module tests (model_provider, celery_app, schedules) catch
+specific known hot-spots before the codebase-wide scan even runs.
 """
 
 from __future__ import annotations

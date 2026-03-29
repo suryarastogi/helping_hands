@@ -1,8 +1,14 @@
-"""Tests for metadata key constants extracted in v216.
+"""Tests for the _META_* metadata key constants introduced in v216.
 
-Validates that the _META_* constants in base.py hold the expected string
-values and are consistently used across all hand modules that participate
-in the PR/CI metadata protocol.
+Guards the PR/CI metadata protocol: every Hand that writes run metadata (status,
+PR URL, CI fix attempts, etc.) must agree on exact dict key strings. If a
+constant drifts from its expected value, or a module emits a bare string literal
+instead of importing the constant, downstream consumers silently miss metadata
+and dashboards show empty fields.
+
+The AST-level checks verify that no protocol module re-introduces bare string
+literals, protecting against copy-paste drift where a new handler uses the
+old raw key rather than importing the constant.
 """
 
 from __future__ import annotations

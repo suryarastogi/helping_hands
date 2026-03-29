@@ -1,7 +1,13 @@
 """Dedicated unit tests for helping_hands.lib.github_url.
 
-Covers all public functions and constants: validate_repo_spec, build_clone_url,
-redact_credentials, noninteractive_env, and module-level constants.
+Protects the URL-building and credential-safety helpers used whenever a repo
+is cloned: build_clone_url must embed tokens for authenticated clones and fall
+back to a public URL gracefully; redact_credentials must scrub tokens from log
+output even when multiple URLs appear in the same string (to prevent token
+leakage in CI logs); noninteractive_env must set GIT_TERMINAL_PROMPT and
+GCM_INTERACTIVE to suppress credential prompts in headless environments.
+validate_repo_spec guards the owner/repo input contract consumed by all
+downstream GitHub API calls.
 """
 
 from __future__ import annotations

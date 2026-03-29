@@ -1,12 +1,12 @@
-"""Tests for v196 — DRY shared defaults, reference_repos validation, usage cache TTL.
+"""Guard server/constants as the single source of truth for BuildRequest/ScheduleRequest defaults.
 
-Validates:
-- ``server/constants`` new shared default constants (backend, max_iterations,
-  ci_check_wait_minutes, max_reference_repos, usage_cache_ttl_s)
-- ``server/app`` BuildRequest/ScheduleRequest/ScheduleResponse use shared constants
-- ``server/schedules`` ScheduledTask/from_dict use shared constants
-- ``server/app`` BuildRequest/ScheduleRequest reference_repos max_length enforcement
-- ``server/app`` usage cache TTL uses shared constant
+DEFAULT_BACKEND, DEFAULT_MAX_ITERATIONS, DEFAULT_CI_WAIT_MINUTES, MAX_REFERENCE_REPOS,
+and USAGE_CACHE_TTL_S are the values that users receive when they submit a build
+without specifying those fields. If BuildRequest or ScheduleRequest hardcode different
+defaults than the constants (e.g., "codexcli" instead of "claudecodecli"), the form
+UI and API endpoint would diverge, confusing users about which backend is actually
+used. The __all__ superset check ensures that future additions to server/constants
+do not accidentally remove existing exports that downstream modules may be importing.
 """
 
 from __future__ import annotations

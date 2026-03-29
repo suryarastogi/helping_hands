@@ -1,8 +1,15 @@
 """Tests for v256: DRY _env_var_status() helper for CLI auth descriptions.
 
-- _env_var_status returns "set" or "not set" correctly
-- All _describe_auth overrides use _env_var_status (no inline os.environ.get)
-- No stale `import os` in gemini.py, goose.py, opencode.py _describe_auth
+Every CLI hand's _describe_auth() produces the auth banner shown before a run.
+Before this helper, each override independently called os.environ.get() and
+formatted the "set"/"not set" label. If the formatting differed between hands
+(e.g. "Set" vs "set"), users would see inconsistent banners depending on which
+backend they used.
+
+_env_var_status() centralises this logic. The AST checks enforce that no
+_describe_auth method re-introduces inline os.environ.get calls, and the
+stale-import tests ensure that gemini.py and opencode.py don't retain an
+unused os import after the refactor.
 """
 
 from __future__ import annotations

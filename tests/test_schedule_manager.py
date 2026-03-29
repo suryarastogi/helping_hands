@@ -1,4 +1,19 @@
-"""Tests for ScheduleManager and schedule dependency checks."""
+"""Tests for ScheduleManager: CRUD, enable/disable, and Redis error handling.
+
+Protects the Redis-backed schedule store that powers recurring builds.  Key
+invariants: create rejects duplicate IDs and auto-generates IDs when empty;
+update preserves immutable metadata (created_at, run_count, last_run_*) so
+history survives edits; enable/disable are idempotent and skip redbeat calls
+when state already matches; _create_redbeat_entry rejects non-5-part cron
+expressions before writing to redbeat; _delete_redbeat_entry silently swallows
+KeyError for missing entries; _save_meta/_delete_meta/_list_meta_keys surface
+Redis failures as RuntimeError/logged warnings rather than crashing silently;
+and list_schedules filters out None entries from partial Redis failures.
+
+Regressions in update's metadata preservation would cause run_count to reset
+on every schedule edit.  Regressions in cron validation would allow malformed
+expressions into redbeat, causing the scheduler to fail at runtime.
+"""
 
 from __future__ import annotations
 

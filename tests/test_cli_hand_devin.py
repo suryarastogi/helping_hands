@@ -1,4 +1,15 @@
-"""Tests for DevinCLIHand static/pure helper methods."""
+"""Tests for DevinCLIHand static/pure helper methods.
+
+DevinCLIHand wraps the `devin` CLI and overrides model resolution to preserve
+the full "provider/model" string (unlike most CLI hands that strip the prefix).
+This is intentional: Devin's CLI accepts provider-qualified model names. A
+regression in _resolve_cli_model that strips the provider prefix would silently
+route requests to a wrong or unavailable model. The env-var override tests
+guard the HELPING_HANDS_DEVIN_MODEL escape hatch used in deployments where the
+config-level model must be overridden without rebuilding. Auth failure detection
+ensures actionable error messages for the Devin-specific 401/invalid-key
+patterns.
+"""
 
 from __future__ import annotations
 

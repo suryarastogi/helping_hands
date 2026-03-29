@@ -1,11 +1,16 @@
 """Tests for v221: DRY git clone helper, auth status line, and validation wrapper.
 
-Validates:
-- ``_run_git_clone()`` in ``cli/main.py``
-- ``_validate_or_exit()`` in ``cli/main.py``
-- ``_REPO_SPEC_PATTERN`` constant in ``cli/main.py``
-- ``_auth_status_line()`` on ``_BasicIterativeHand`` in ``iterative.py``
-- Source consistency: stream methods use ``_auth_status_line()``
+_run_git_clone() is the single subprocess callsite that clones repos; if it
+stops surfacing CalledProcessError or FileNotFoundError the CLI swallows clone
+failures silently and hands a broken workspace to the hand.
+
+_validate_or_exit() is the CLI's early-exit guard — regressions cause invalid
+arguments to propagate into hand initialisation rather than producing a clean
+user-facing error.
+
+_auth_status_line() emits the auth banner printed at the start of every
+iterative hand stream; verifying it uses _REPO_SPEC_PATTERN ensures pattern
+changes are picked up consistently across the CLI and the iterative base.
 """
 
 from __future__ import annotations

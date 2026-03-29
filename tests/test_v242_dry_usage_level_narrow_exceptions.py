@@ -1,4 +1,15 @@
-"""Tests for v242: DRY _extract_usage_level() and narrowed exception handlers."""
+"""Tests for v242: DRY _extract_usage_level() and narrowed exception handlers.
+
+_extract_usage_level() parses Claude's nested usage object from API responses.
+If it stops handling missing keys, wrong types, or None values gracefully, the
+usage-logging task raises on every response that doesn't include usage data,
+causing log records to be silently lost.
+
+_get_claude_oauth_token() and _fetch_claude_usage() must catch specific OS and
+network exceptions (subprocess.CalledProcessError, URLError, JSONDecodeError)
+rather than bare Exception, so programming errors in the usage-tracking path
+surface immediately rather than being swallowed with a generic log message.
+"""
 
 from __future__ import annotations
 

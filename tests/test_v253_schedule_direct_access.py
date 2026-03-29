@@ -1,9 +1,13 @@
-"""Tests for v253: Simplify schedule getattr() to direct attribute access.
+"""Tests for v253: replacing getattr() with direct attribute access on ScheduledTask.
 
-Covers:
-- AST source consistency: no getattr(schedule/task, ...) in target functions
-- ScheduledTask dataclass guarantees: all fields have defaults
-- Behavioral: schedule trigger and response conversion access attrs correctly
+Like the Config pattern in v246, using getattr(task, "field", default) on a
+ScheduledTask dataclass masks typos — a misspelled field name silently falls
+back to the default instead of raising AttributeError. Once ScheduledTask is
+a proper dataclass with guaranteed fields, direct access is safer.
+
+The AST checks ensure that scheduled_build() and _schedule_to_response() no
+longer contain getattr calls on schedule/task objects, and the behavioral
+tests verify the fields are still correctly read after the refactor.
 """
 
 from __future__ import annotations

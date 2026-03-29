@@ -1,4 +1,16 @@
-"""Tests for server app usage helpers: _get_claude_oauth_token, _fetch_claude_usage."""
+"""Tests for Claude usage API helpers: _get_claude_oauth_token and _fetch_claude_usage.
+
+Protects the macOS Keychain reader and the Anthropic usage-API client used by the
+/health/claude-usage endpoint.  _get_claude_oauth_token must handle JSON-wrapped
+credentials, raw JWT strings, non-JWT output, subprocess failures, and timeouts
+without leaking exceptions.  _fetch_claude_usage must respect its TTL-based cache
+(avoid unnecessary API calls), honour the force-refresh flag, and correctly map
+five_hour/seven_day API keys to Session/Weekly UI labels.
+
+If cache logic regresses, every page load hammers the usage API.  If token
+extraction regresses, the endpoint silently returns a Keychain error to every user
+even when credentials are present.
+"""
 
 from __future__ import annotations
 

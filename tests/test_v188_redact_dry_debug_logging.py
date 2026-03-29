@@ -1,10 +1,13 @@
-"""Tests for v188 — DRY redact_credentials, constant-based regex, debug logging.
+"""Guard credential redaction correctness and cross-module delegation in github_url.py.
 
-Validates:
-- ``redact_credentials()`` in ``github_url.py`` uses constants in regex
-- ``_redact_sensitive()`` in ``github.py`` delegates to ``redact_credentials()``
-- ``_finalize_repo_pr()`` catch-all logs debug traceback
-- ``_ci_fix_loop()`` catch-all logs debug traceback
+redact_credentials() is the sole defence against GitHub tokens appearing in log
+output. These tests verify that the regex is derived from the GITHUB_TOKEN_USER and
+GITHUB_HOSTNAME constants rather than hardcoded strings — if the constants ever
+change, the redaction pattern updates automatically. They also confirm scope
+boundaries: non-GitHub hostnames and non-x-access-token usernames must NOT be
+redacted (to avoid corrupting legitimate non-GitHub URLs in output). The
+consistency test with build_clone_url ensures that a URL produced by the builder
+is always fully redactable — a gap here would cause token leakage in debug logs.
 """
 
 from __future__ import annotations

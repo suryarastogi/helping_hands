@@ -1,4 +1,14 @@
-"""Tests for OpenCodeCLIHand static/pure helper methods."""
+"""Tests for OpenCodeCLIHand static/pure helper methods.
+
+OpenCodeCLIHand wraps the `opencode` CLI and overrides model resolution to
+preserve the full "provider/model" string (like DevinCLIHand), returning an
+empty string when no explicit model is configured rather than falling back to a
+default. A regression that returns a non-empty default would force a specific
+model on users who rely on OpenCode's own default selection. Auth detection
+covers multiple failure-message patterns specific to OpenCode's error format,
+including the "opencode auth login" recovery hint that improves user experience
+on auth failures.
+"""
 
 from __future__ import annotations
 

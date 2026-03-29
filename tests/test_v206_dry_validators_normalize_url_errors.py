@@ -1,10 +1,14 @@
-"""Tests for v206: DRY payload validators, normalize selection, URL error handling.
+"""Guard payload parsing delegation between iterative.py and registry.py, and URL error handling.
 
-Verifies:
-- iterative.py _parse_* methods delegate to registry.py implementations
-- _normalize_and_deduplicate shared helper works correctly
-- _raise_url_error shared helper works correctly
-- __all__ includes new exports
+_parse_str_list, _parse_positive_int, and _parse_optional_str were previously
+duplicated in both iterative.py and registry.py. These tests assert identity (is)
+rather than equality, ensuring iterative.py uses the exact same function objects
+from registry.py. If a future refactor re-introduces a local copy, the two parsers
+could silently diverge for edge cases (e.g., handling of None vs missing key).
+_normalize_and_deduplicate tests protect the tool/skill selection normalisation
+that feeds the AI's tool-use context: if deduplication is lost, the AI context
+could receive duplicate tool descriptions. _raise_url_error tests ensure HTTP and
+network errors produce consistent, contextual error messages for users.
 """
 
 from __future__ import annotations

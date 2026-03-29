@@ -1,4 +1,18 @@
-"""Tests for Celery configuration helpers."""
+"""Tests for the Celery task module: configuration, repo cloning, and task execution.
+
+Protects the core Celery worker behaviour: Redis URL resolution (explicit env vars
+take priority, REDIS_URL is a shared fallback); repo cloning uses token-authenticated
+URLs with non-interactive git env vars, falls back to plain HTTPS without a token,
+redacts tokens from error messages, and cleans up temp dirs on clone failure; backend
+normalisation maps aliases (basic-agent → basic-atomic) and rejects unknown names;
+and the progress-emission pipeline (_update_progress, _ProgressEmitter, _collect_stream)
+correctly batches streaming output into Celery meta updates.
+
+If token redaction in error messages regresses, GitHub tokens appear in Celery task
+results visible to any user who can read task state.  If clone cleanup regresses,
+temp directories accumulate on disk under the worker.  If _collect_stream periodic
+update logic breaks, the monitor page stops refreshing mid-task.
+"""
 
 from __future__ import annotations
 

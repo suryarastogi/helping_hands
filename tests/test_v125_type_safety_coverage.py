@@ -1,4 +1,15 @@
-"""Tests for v125: type safety, timeout bounds, and _is_boilerplate_line coverage."""
+"""Tests for v125: git timeout upper bound and PR description boilerplate filtering.
+
+_git_timeout() must cap values at _MAX_GIT_TIMEOUT (3600 s) to prevent operator
+misconfiguration from setting an absurdly long timeout that would tie up workers
+for hours.  Exceeding the cap should emit a WARNING so operators notice.
+
+_is_boilerplate_line protects PR description quality: lines from the AI's
+iteration-prompt scaffolding (banners, numbered steps, known prefixes) are filtered
+before writing the PR body.  Regressions here mean internal prompt boilerplate leaks
+into public pull-request descriptions, making the project look amateurish and
+revealing internal system-prompt structure to contributors.
+"""
 
 from __future__ import annotations
 

@@ -1,7 +1,23 @@
-"""Tests for command.py coverage gaps.
+"""Tests for command.py error paths and edge cases.
 
-Covers _resolve_python_command, _run_command timeout, run_python_code empty
-code validation, run_python_script/run_bash_script error paths.
+Protects the safety and reliability boundaries of the command-execution tools
+that hands use to run AI-generated code inside the repo workspace:
+- `_resolve_python_command` must prefer `uv run --python` when `uv` is
+  available (ensuring version pinning), fall back to a bare `python3.x`
+  binary, and raise `RuntimeError` rather than silently running the wrong
+  interpreter or `ValueError` on blank version strings.
+- `_run_command` must translate `subprocess.TimeoutExpired` into a
+  `CommandResult` with `timed_out=True` and exit code 124 (coreutils convention)
+  so callers can detect hangs without catching exceptions; it must also map
+  `FileNotFoundError` → exit 127 and `OSError` → exit 126, preserving Unix
+  conventions that downstream tooling (e.g. CI reporters) may depend on.
+- `run_python_code` must reject empty or whitespace-only code strings before
+  spawning a subprocess; omitting this check wastes a process and may confuse
+  the AI with an uninformative empty-output result.
+- `run_python_script` and `run_bash_script` must raise typed errors
+  (`FileNotFoundError`, `IsADirectoryError`, `ValueError`) for missing scripts,
+  directory paths, and ambiguous dual-source invocations before touching the
+  filesystem or spawning processes.
 """
 
 from __future__ import annotations

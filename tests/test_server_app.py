@@ -1,4 +1,16 @@
-"""Tests for the FastAPI app used by web UI mode."""
+"""Tests for the FastAPI app used by web UI mode.
+
+Protects the end-to-end HTTP contract of the server: form submission enqueues a
+Celery task and returns a 303 redirect to /monitor/<task_id>; the monitor page
+auto-refreshes while a task is running and stops once it reaches a terminal state;
+worker capacity falls back gracefully from live Celery stats to env-vars to a
+default; task-list endpoints merge Flower and Celery sources by UUID; and the
+/health family of endpoints correctly surface Redis, DB, and worker status.
+
+If the form-to-Celery handshake regresses, tasks silently disappear with no user
+feedback.  If backend validation stops rejecting unknown names, mis-typed backends
+are dispatched to Celery and fail at execution time instead of immediately.
+"""
 
 from __future__ import annotations
 

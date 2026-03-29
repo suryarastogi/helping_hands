@@ -1,4 +1,18 @@
-"""Tests for the Ollama provider wrapper."""
+"""Tests for the Ollama provider wrapper.
+
+Protects the following behavioral invariants of `OllamaProvider`:
+- Ollama reuses the `openai` SDK pointed at a local server; `_build_inner`
+  must always pass both `api_key` and `base_url` to `openai.OpenAI`, defaulting
+  to `"ollama"` and `"http://localhost:11434/v1"` respectively.  A regression
+  that omits `base_url` silently routes requests to the real OpenAI API.
+- `OLLAMA_API_KEY` and `OLLAMA_BASE_URL` env vars override the defaults, enabling
+  remote or containerized Ollama deployments.
+- `_build_inner` raises `RuntimeError` (not `ImportError`) when the `openai`
+  package is absent so users get an actionable install hint.
+- `_complete_impl` routes to `inner.chat.completions.create` (OpenAI Chat
+  Completions interface), not `inner.responses.create`; mixing these up would
+  target the wrong API surface.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,18 @@
-"""v168 — Docstring presence tests for langgraph.py, app.py validators,
-and cli/base.py configuration/utility methods."""
+"""Tests for v168: docstring presence on LangGraphHand, validator mixin, and CLI base.
+
+LangGraphHand wraps the LangGraph agent loop; its __init__, _build_agent, and run()
+are the main extension points for anyone adding a new LangGraph-based backend.
+Without Args/Returns sections, callers cannot know what config keys are required or
+what HandResponse fields to expect.
+
+_ToolSkillValidatorMixin's four validator methods (_coerce_tools, _validate_tools,
+_coerce_skills, _validate_skills) are Pydantic field validators wired by name; a
+developer who renames one without understanding the wiring would silently break
+validation.  Docstrings on each method describe the expected input/output contract.
+
+cli/base.py configuration and utility methods document the abstract interface that
+all CLI hand subclasses must implement.
+"""
 
 from __future__ import annotations
 

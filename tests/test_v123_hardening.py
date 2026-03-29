@@ -1,7 +1,12 @@
-"""v123 — Tool summarization expansion, assert→RuntimeError guards, debug logging.
+"""Tests for v123: schedules.py optional-dependency guards use RuntimeError, not assert.
 
-Tests for:
-- schedules.py croniter/RedBeat assert→RuntimeError guards
+croniter and RedBeatSchedulerEntry are optional extras.  If they are unavailable at
+runtime (missing install or import error), the code must raise RuntimeError with a
+meaningful message rather than AssertionError or AttributeError.  This matters
+because schedule management endpoints catch RuntimeError to return a 503 response;
+an unexpected AssertionError would instead bubble up as an unhandled 500 and hide
+the root cause from operators who might think it is a code bug rather than a missing
+dependency.
 """
 
 from __future__ import annotations

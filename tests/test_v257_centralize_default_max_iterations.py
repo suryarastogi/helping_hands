@@ -1,11 +1,14 @@
-"""Tests for v257 — centralize DEFAULT_MAX_ITERATIONS constant.
+"""Tests for v257: centralising DEFAULT_MAX_ITERATIONS across iterative hands.
 
-Verifies that:
-1. The canonical definition lives in ``iterative.py``.
-2. ``server/constants.py`` re-exports the same object (identity check).
-3. No bare ``6`` remains as a ``max_iterations`` default in any source file.
-4. The constant has the expected value and type.
-5. All iterative hand ``__init__`` signatures reference the constant.
+Before this change, the default of 6 iterations was duplicated in every
+iterative hand's __init__ signature. If the product team tuned the default
+(e.g. to 8), a developer had to update four separate default argument values
+and could easily miss one, leaving hands with inconsistent budgets.
+
+The identity test (server/constants.py is iterative.DEFAULT_MAX_ITERATIONS)
+confirms re-export, not re-definition — so there is exactly one number to
+change. The AST scan for bare literal 6 prevents future drift by failing CI
+if anyone adds a new hand with a hard-coded default.
 """
 
 from __future__ import annotations

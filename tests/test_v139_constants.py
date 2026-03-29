@@ -1,4 +1,19 @@
-"""Tests for v139 — module-level constant extraction in claude.py, pr_description.py, CLI hands."""
+"""Tests for v139: preview/tail truncation constants extracted to named symbols.
+
+Claude CLI streaming emits tool results and text blocks; truncating them to named
+constants (_TEXT_PREVIEW_MAX_LENGTH = 200, _TOOL_RESULT_PREVIEW_MAX_LENGTH = 150)
+keeps streaming output readable without flooding the terminal.  A regression that
+removes the truncation would log multi-kilobyte blobs per tool call, making live
+output unreadable.
+
+The behaviorally important test is test_detect_auth_failure_uses_tail_length, which
+verifies that _detect_auth_failure actually slices the output to the constant value
+rather than storing it but ignoring it during auth-failure scanning.
+
+# TODO: CLEANUP CANDIDATE — individual positive/is_int assertions per constant
+# add no failure signal beyond the value tests; consider collapsing to a single
+# parametrized positive-and-typed assertion.
+"""
 
 # ---------------------------------------------------------------------------
 # Claude CLI preview constants (claude.py)

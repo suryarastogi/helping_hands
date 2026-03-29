@@ -1,4 +1,14 @@
-"""Tests for helping_hands.lib.meta.tools.registry."""
+"""Tests for helping_hands.lib.meta.tools.registry.
+
+Protects the tool registry API used by iterative hands and the CLI --tools flag:
+available category names must remain stable (CLI choices depend on them);
+normalize_tool_selection must deduplicate and handle None safely; validation must
+reject unknown tool names before prompts are built; build_tool_runner_map must
+produce exactly the expected callable keys so that @@TOOL dispatch in
+_BasicIterativeHand resolves correctly.  format_tool_instructions and its CLI
+variant generate the per-tool guidance injected into system prompts — regressions
+there would silently omit tool usage instructions from the AI context.
+"""
 
 from __future__ import annotations
 

@@ -1,6 +1,13 @@
-"""v195 — DRY git identity, browse max chars, and clone timeout constants.
+"""Guard cross-module sharing of git identity, browse character limit, and clone timeout constants.
 
-Tests verify that duplicated constants now reference their shared sources.
+_DEFAULT_GIT_USER_NAME and _DEFAULT_GIT_USER_EMAIL are set on every git commit
+made by the hands. If e2e.py's copies drift from base.py (e.g. a typo in the email
+address), E2E tests would commit with a different identity than all other hands.
+The is-same-object assertions detect a copy even when the values happen to match.
+DEFAULT_BROWSE_MAX_CHARS (12000) caps HTML content fed to the AI context window;
+if registry.py or mcp_server.py hardcode a different value, the AI would receive
+different amounts of web content depending on the call path, producing inconsistent
+results and hard-to-debug context-length errors.
 """
 
 from __future__ import annotations

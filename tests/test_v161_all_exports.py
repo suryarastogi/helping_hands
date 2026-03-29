@@ -1,4 +1,15 @@
-"""Tests for v161: __all__ exports for hand, CLI hand, server, and CLI entry modules."""
+"""Tests for v161: __all__ declarations for hand, e2e, iterative, and CLI entry modules.
+
+base.py must export Hand, HandResponse, and exactly one additional symbol (3 total);
+if the count regresses an accidental private symbol has leaked into the public API.
+
+E2EHand and the iterative hand classes (BasicLangGraphHand, BasicAtomicHand) are
+the primary integration points consumed by the CLI and server; removing them from
+__all__ would break callers that use star-import patterns in plugin code.
+
+The CLI entry module's __all__ test ensures the main() entry point remains
+importable for testing and for programmatic invocation from external scripts.
+"""
 
 from __future__ import annotations
 

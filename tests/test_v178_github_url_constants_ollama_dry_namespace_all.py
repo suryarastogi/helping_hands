@@ -1,4 +1,14 @@
-"""Tests for v178: GitHub URL constants, Ollama base URL DRY, namespace __all__."""
+"""Guard cross-module consistency of the GitHub token user and hostname constants.
+
+_GITHUB_TOKEN_USER ("x-access-token") appears in git clone URLs built for
+authenticated pushes. If any copy of this constant drifts from the canonical
+value in github_url.py, the constructed URL will use a different username prefix,
+causing git authentication to fail silently — the clone URL looks syntactically
+valid but the token is not recognised by GitHub. These tests verify that github.py,
+hand/base.py, and github_url.py all reference the same string object (not a copy),
+so a single change propagates everywhere. The is-same-object checks detect a copy
+even when the value happens to match.
+"""
 
 from __future__ import annotations
 

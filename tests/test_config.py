@@ -1,4 +1,13 @@
-"""Tests for helping_hands.lib.config."""
+"""Tests for helping_hands.lib.config.
+
+Guards the Config frozen-dataclass contract: defaults, immutability, and the
+three-layer precedence chain (dotenv file < env var < explicit override).
+Also protects the normalisation rules that prevent bad inputs from reaching
+AI backends — whitespace stripping on model/token/repo, bool-flag parsing,
+comma-list expansion for tools/skills/reference_repos, and tilde expansion
+for repo paths. If this precedence logic regresses, CLI users lose the ability
+to override env vars, or CI pipelines pick up stale dotenv values.
+"""
 
 from __future__ import annotations
 

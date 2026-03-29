@@ -1,10 +1,16 @@
-"""Tests for v232 — RedBeat prefix constants, task name constants, exception narrowing.
+"""Tests for v232: RedBeat prefix constants, task name constants, exception narrowing.
 
-Covers:
-- ``server/constants`` new RedBeat and Celery task name constants
-- ``celery_app`` uses shared constants for RedBeat key prefix and task names
-- ``schedules`` uses shared constants for RedBeat entry prefix and task name
-- ``ensure_usage_schedule`` catches ``KeyError`` (not bare ``Exception``)
+RedBeat uses string key prefixes to namespace its Redis entries; if celery_app.py
+and schedules.py use different prefix literals, the scheduler and the worker see
+different Redis keys and scheduled jobs either never run or create duplicates.
+
+Centralising task name constants in server/constants.py means that renaming a
+Celery task only requires one change; the AST checks ensure no module still
+references the old bare string.
+
+ensure_usage_schedule must catch only KeyError (a known RedBeat data race)
+rather than bare Exception, so programming errors in the scheduler surface
+immediately instead of being silently swallowed.
 """
 
 from __future__ import annotations

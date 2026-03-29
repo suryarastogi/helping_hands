@@ -1,6 +1,13 @@
-"""Tests for ScheduleManager CRUD operations in server/schedules.py.
+"""Guard ScheduleManager CRUD operations and optional-dependency guards against regressions.
 
-All Redis and RedBeat interactions are mocked so no live services are required.
+ScheduleManager is the persistence layer for recurring build schedules, backed by
+Redis (for metadata) and RedBeat (for Celery beat scheduling). These tests use mocked
+Redis and Celery to verify that create/read/update/delete/enable/disable operations
+correctly persist and retrieve ScheduledTask metadata with the expected key prefix
+(_SCHEDULE_META_PREFIX). The _check_redbeat and _check_croniter guard tests ensure
+that attempting to use schedule features without the optional `celery-redbeat` or
+`croniter` packages raises a clear ImportError with an install hint rather than a
+confusing AttributeError deep in the call stack.
 """
 
 from __future__ import annotations

@@ -1,11 +1,16 @@
-"""Tests for v233 — Response status constants, exception narrowing in log_claude_usage.
+"""Tests for v233: response status constants and log_claude_usage exception narrowing.
 
-Covers:
-- ``server/constants`` new response status constants (OK, ERROR, NA)
-- ``celery_app`` uses shared constants for response status values
-- ``app`` uses shared constants for health-check status values
-- ``log_claude_usage`` catches narrowed exceptions (not bare ``Exception``)
-- AST-based source consistency — no bare status string literals remain
+The RESPONSE_STATUS_OK/ERROR/NA constants are written into every task result
+and API health-check response. If celery_app.py uses "ok" where app.py uses
+"OK", clients that pattern-match the status field will silently miss results.
+
+The AST checks enforce that no module re-introduces the bare literals after
+the constants were extracted — protecting against future copy-paste regressions
+in new endpoints or tasks.
+
+log_claude_usage must not use bare except Exception, otherwise bugs in the
+usage-logging path (e.g. malformed token responses) are silently swallowed
+and never reach the error log.
 """
 
 from __future__ import annotations

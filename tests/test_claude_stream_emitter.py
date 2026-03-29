@@ -1,4 +1,18 @@
-"""Tests for _StreamJsonEmitter helpers in the Claude Code hand."""
+"""Tests for _StreamJsonEmitter helpers in the Claude Code hand.
+
+Protects the stream-JSON parsing layer that bridges the `claude --output-format
+stream-json` subprocess to the hand's async emit callback:
+- `_summarize_tool` must produce human-readable one-liners for every tool class
+  the Claude CLI emits (Read/Edit/Write/Glob/Grep/Bash/unknown); regressions
+  cause the UI progress feed to show raw JSON blobs instead of readable labels.
+- Bash commands are truncated to 80 chars to prevent flooding the progress feed
+  with long shell invocations.
+- `_label_msg` prefixes every emitted string with `[backend_label]` so that
+  when multiple hands run concurrently their output streams are distinguishable.
+- End-to-end: a tool_use event in the stream must trigger a labelled tool
+  summary, and a text event must trigger a labelled text preview, verifying that
+  the emitter correctly parses the `assistant` event JSON envelope.
+"""
 
 from __future__ import annotations
 

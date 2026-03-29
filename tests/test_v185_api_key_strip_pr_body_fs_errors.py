@@ -1,6 +1,14 @@
-"""Tests for v185: API key whitespace stripping, _build_generic_pr_body
-validation for commit_sha/stamp_utc, and filesystem error messages with
-path context."""
+"""Guard API key whitespace stripping across all five AI providers.
+
+When users copy API keys from browser UIs or config files they often inadvertently
+include leading/trailing whitespace. If _build_inner() for any provider passes the
+raw env-var value to the SDK client constructor, the SDK will reject the key with
+a confusing authentication error rather than a clear "invalid key format" message.
+These tests confirm that whitespace-only keys produce a no-key client call (falling
+back to the SDK's own env-var lookup) and that keys with surrounding spaces are
+stripped before being forwarded. Regressions here cause auth failures that are
+difficult to diagnose in CI environments.
+"""
 
 from __future__ import annotations
 

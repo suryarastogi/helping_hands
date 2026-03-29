@@ -1,11 +1,16 @@
-"""Tests for v237 — Narrow remaining ``except Exception`` handlers.
+"""Tests for v237: narrowing the remaining bare except Exception handlers.
 
-Covers:
-- ``base.py`` update_pr_body handler → ``(GithubException, OSError)``
-- ``base.py`` _finalize_repo_pr catch-all → ``(GithubException, OSError)``
-- ``cli/base.py`` _ci_fix_loop handler → specific exceptions
-- ``app.py`` _resolve_worker_capacity → ``(ConnectionError, OSError, TimeoutError)`` (narrowed further in v244)
-- ``app.py`` _schedule_to_response next_run → ``(ValueError, TypeError)``
+Each handler here was previously catching Exception, meaning any programming
+error (AttributeError, NameError, etc.) would be silently logged and swallowed
+rather than propagating. The specific replacements are:
+
+- update_pr_body / _finalize_repo_pr: only GitHub API or OS errors are expected
+- _ci_fix_loop: subprocess and OS errors only; logic errors must surface
+- _resolve_worker_capacity: connection/OS/timeout only; Celery inspect errors are real bugs
+- _schedule_to_response next_run: datetime parse can only raise ValueError/TypeError
+
+Leaving these as bare Exception would make production regressions invisible and
+test the wrong failure mode.
 """
 
 from __future__ import annotations
