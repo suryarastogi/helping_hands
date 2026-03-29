@@ -219,13 +219,23 @@ class TestProgressEmitter:
             assert kw["workspace"] == "/new/ws"
             assert kw["stage"] == "running"
 
-    def test_emit_does_not_mutate_stored_values(self) -> None:
+    def test_emit_sticky_fields_persist(self) -> None:
+        """Sticky fields (model, workspace) persist across emit() calls."""
         emitter, _task = self._make_emitter(model="original")
         with patch("helping_hands.server.celery_app._update_progress"):
             emitter.emit("running", model="overridden")
         with patch("helping_hands.server.celery_app._update_progress") as mock_update:
             emitter.emit("running")
-            assert mock_update.call_args.kwargs["model"] == "original"
+            assert mock_update.call_args.kwargs["model"] == "overridden"
+
+    def test_emit_non_sticky_fields_do_not_persist(self) -> None:
+        """Non-sticky fields are transient and revert to defaults."""
+        emitter, _task = self._make_emitter(max_iterations=6)
+        with patch("helping_hands.server.celery_app._update_progress"):
+            emitter.emit("running", max_iterations=99)
+        with patch("helping_hands.server.celery_app._update_progress") as mock_update:
+            emitter.emit("running")
+            assert mock_update.call_args.kwargs["max_iterations"] == 6
 
     def test_has_docstring(self) -> None:
         assert _ProgressEmitter.__doc__

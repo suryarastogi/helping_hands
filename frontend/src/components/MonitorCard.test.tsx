@@ -25,6 +25,12 @@ function makeProps(overrides: Partial<MonitorCardProps> = {}): MonitorCardProps 
     monitorHeight: null,
     onMonitorScroll: vi.fn(),
     onResizeStart: vi.fn(),
+    diffFiles: [],
+    diffError: null,
+    diffLoading: false,
+    fileTree: [],
+    fileTreeError: null,
+    fileTreeLoading: false,
     ...overrides,
   };
 }

@@ -22,8 +22,12 @@ query endpoint, AppOverlays/MonitorCard branch coverage hardening
 (component stmts: 96.45% → 99.08%), remote player CSS fixes with
 initial Yjs awareness position sync, and GitHub issue linking with
 full-stack `issue_number` support, create-new-issue-from-task feature,
-and issue lifecycle sync (in-progress/completed/failed labels + status
-comments + frontend issue badge).
+issue lifecycle sync (in-progress/completed/failed labels + status
+comments + frontend issue badge), task status sync to GitHub issues
+(running/completed/failed lifecycle comments via marker-tagged upsert),
+GitHub Projects v2 board integration with full-stack `project_url`
+support via GraphQL API, and GitHub integration test coverage hardening
+(form endpoint, PR body "Closes #N", invalid project URL edge case).
 
 ---
 
@@ -473,6 +477,30 @@ comments + frontend issue badge).
 
 ---
 
+## Mar 28 — Sync Task Status with GitHub Issue (v328)
+
+**Issue status lifecycle sync:** `_sync_issue_status()` helper posts or updates a marker-tagged comment on the linked GitHub issue at key lifecycle points: 🔄 running (hand starts), ✅ completed (with PR URL), ❌ failed (with error). Uses `upsert_pr_comment()` with `<!-- helping_hands:issue_status -->` marker for idempotent updates. Best-effort: errors swallowed.
+
+**5 new tests. 127 celery tests total (up from 122), 7501 backend tests.**
+
+---
+
+## Mar 28 — GitHub Projects Board Integration (v329)
+
+**Full-stack project integration:** Added `project_url` field through the entire stack (frontend → backend → Celery task). `GitHubClient.add_to_project_v2()` uses GitHub GraphQL API (`addProjectV2ItemById` mutation) to add linked issues to GitHub Projects v2 boards. `parse_project_url()` parses org/user project URLs. `_try_add_to_project()` Celery helper is best-effort. Frontend Project URL input in Advanced settings.
+
+**15 new tests (11 backend, 4 frontend). 7516 backend tests total.**
+
+---
+
+## Mar 28 — GitHub Integration Test Coverage (v330)
+
+**Integration test hardening:** Filled coverage gaps in the v325–v329 GitHub integration feature stack. TestBuildForm: 2 new tests for `issue_number` and `create_issue`+`project_url` form submission. TestCreateNewPrIssueClose: 2 new tests for PR body "Closes #N" generation. TestTryAddToProject: 1 new test for invalid project URL graceful failure.
+
+**5 new tests. 6439 backend tests total (up from 6433).**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -530,3 +558,6 @@ comments + frontend issue badge).
 - `v325-github-issue-linking.md`
 - `v326-create-issue-from-task.md`
 - `v327-sync-task-status-with-github-issue.md`
+- `v328-sync-issue-status.md`
+- `v329-github-projects-integration.md`
+- `v330-github-integration-test-coverage.md`

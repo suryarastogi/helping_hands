@@ -126,6 +126,14 @@ export default function SubmissionForm({
               </label>
             </div>
             <label>
+              Project URL
+              <input
+                value={form.project_url}
+                onChange={(event) => onFieldChange("project_url", event.target.value)}
+                placeholder="https://github.com/orgs/myorg/projects/1"
+              />
+            </label>
+            <label>
               Tools
               <input
                 value={form.tools}

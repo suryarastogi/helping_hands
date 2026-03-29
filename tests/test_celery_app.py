@@ -1088,3 +1088,330 @@ class TestSyncIssueFailed:
             from helping_hands.server import celery_app as _mod
 
             _mod._sync_issue_failed("owner/repo", 10, updates, None)
+
+
+# ---------------------------------------------------------------------------
+# _sync_issue_status (v328)
+# ---------------------------------------------------------------------------
+
+
+class TestSyncIssueStatus:
+    """Tests for the _sync_issue_status helper."""
+
+    def test_noop_when_issue_number_is_none(self) -> None:
+        """No GitHub call is made when issue_number is None."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+        ) as mock_cls:
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status("owner/repo", None, "running", "tok")
+
+        mock_cls.assert_not_called()
+
+    def test_running_status_posts_comment(self) -> None:
+        """Running status upserts a comment on the issue."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status("owner/repo", 42, "running", "tok")
+
+        mock_gh.upsert_pr_comment.assert_called_once()
+        call_kwargs = mock_gh.upsert_pr_comment.call_args
+        assert call_kwargs[0][0] == "owner/repo"
+        assert call_kwargs[0][1] == 42
+        body = call_kwargs[1]["body"]
+        assert "running" in body
+        assert "currently running" in body
+        assert call_kwargs[1]["marker"] == _mod._ISSUE_STATUS_MARKER
+
+    def test_completed_status_includes_pr_url(self) -> None:
+        """Completed status includes the PR URL in the comment."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status(
+                "owner/repo",
+                42,
+                "completed",
+                "tok",
+                pr_url="https://github.com/owner/repo/pull/99",
+            )
+
+        body = mock_gh.upsert_pr_comment.call_args[1]["body"]
+        assert "completed" in body
+        assert "https://github.com/owner/repo/pull/99" in body
+
+    def test_failed_status_includes_error(self) -> None:
+        """Failed status includes the error message."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status(
+                "owner/repo",
+                42,
+                "failed",
+                "tok",
+                error="RuntimeError: something broke",
+            )
+
+        body = mock_gh.upsert_pr_comment.call_args[1]["body"]
+        assert "failed" in body
+        assert "RuntimeError: something broke" in body
+
+    def test_exception_does_not_propagate(self) -> None:
+        """API errors are swallowed — sync is best-effort."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("No token"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            # Should not raise
+            _mod._sync_issue_status("owner/repo", 42, "running", None)
+
+
+# ---------------------------------------------------------------------------
+# _try_add_to_project (v329)
+# ---------------------------------------------------------------------------
+
+
+class TestTryAddToProject:
+    """Tests for the _try_add_to_project helper."""
+
+    def test_noop_when_project_url_is_none(self) -> None:
+        """No GitHub call when project_url is None."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+        ) as mock_cls:
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            _mod._try_add_to_project("owner/repo", 42, None, "tok", updates)
+
+        mock_cls.assert_not_called()
+        assert updates == []
+
+    def test_noop_when_issue_number_is_none(self) -> None:
+        """No GitHub call when issue_number is None."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+        ) as mock_cls:
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            _mod._try_add_to_project(
+                "owner/repo",
+                None,
+                "https://github.com/orgs/myorg/projects/1",
+                "tok",
+                updates,
+            )
+
+        mock_cls.assert_not_called()
+        assert updates == []
+
+    def test_adds_issue_to_project(self) -> None:
+        """Calls add_to_project_v2 with correct args."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+        mock_gh.add_to_project_v2.return_value = "PVTI_42"
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            _mod._try_add_to_project(
+                "owner/repo",
+                7,
+                "https://github.com/orgs/myorg/projects/5",
+                "tok",
+                updates,
+            )
+
+        mock_gh.add_to_project_v2.assert_called_once_with(
+            "https://github.com/orgs/myorg/projects/5",
+            full_name="owner/repo",
+            issue_number=7,
+        )
+        assert any("project" in u.lower() for u in updates)
+
+    def test_exception_does_not_propagate(self) -> None:
+        """API errors are swallowed — adding to project is best-effort."""
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            side_effect=RuntimeError("No token"),
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            updates: list[str] = []
+            # Should not raise
+            _mod._try_add_to_project(
+                "owner/repo",
+                42,
+                "https://github.com/orgs/myorg/projects/1",
+                None,
+                updates,
+            )
+
+        assert any("failed" in u.lower() for u in updates)
+
+    def test_invalid_project_url_does_not_propagate(self) -> None:
+        """Malformed project URL raises ValueError internally but is swallowed."""
+        from helping_hands.server import celery_app as _mod
+
+        updates: list[str] = []
+        # Should not raise despite the URL being invalid
+        _mod._try_add_to_project(
+            "owner/repo",
+            42,
+            "https://not-github.com/bad/url",
+            "tok_123",
+            updates,
+        )
+
+        assert any("failed" in u.lower() for u in updates)
+
+
+# ---------------------------------------------------------------------------
+# _ProgressEmitter direct unit tests (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestProgressEmitter:
+    """Direct tests for _ProgressEmitter.emit() method."""
+
+    def test_emit_delegates_to_update_progress(self) -> None:
+        """emit() should call _update_progress with stored defaults."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(mock_task, task_id="t-emit")
+        emitter.emit("starting")
+
+        mock_task.update_state.assert_called_once()
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert meta["task_id"] == "t-emit"
+        assert meta["stage"] == "starting"
+        assert meta["prompt"] == "test prompt"
+        assert meta["backend"] == "codexcli"
+
+    def test_emit_with_overrides(self) -> None:
+        """emit() should allow overriding individual fields."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(mock_task, task_id="t-over", model="gpt-5")
+        emitter.emit("running", model="o3", workspace="/tmp/ws")
+
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert meta["model"] == "o3"
+        assert meta["workspace"] == "/tmp/ws"
+        assert meta["stage"] == "running"
+
+    def test_emit_preserves_non_overridden_fields(self) -> None:
+        """Fields not in overrides should keep their stored defaults."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(
+            mock_task,
+            task_id="t-keep",
+            pr_number=42,
+            fix_ci=True,
+            ci_check_wait_minutes=7.0,
+            reference_repos=["org/ref"],
+            started_at="2026-03-28T00:00:00+00:00",
+        )
+        emitter.emit("finalizing")
+
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert meta["pr_number"] == 42
+        assert meta["fix_ci"] is True
+        assert meta["ci_check_wait_minutes"] == 7.0
+        assert meta["reference_repos"] == ["org/ref"]
+        assert meta["started_at"] == "2026-03-28T00:00:00+00:00"
+
+    def test_emit_multiple_times(self) -> None:
+        """emit() can be called multiple times on the same emitter."""
+        mock_task = MagicMock()
+        emitter = _make_emitter(mock_task)
+        emitter.emit("starting")
+        emitter.emit("running")
+        emitter.emit("finalizing")
+
+        assert mock_task.update_state.call_count == 3
+        stages = [
+            call.kwargs["meta"]["stage"]
+            for call in mock_task.update_state.call_args_list
+        ]
+        assert stages == ["starting", "running", "finalizing"]
+
+
+# ---------------------------------------------------------------------------
+# _resolve_repo_path TimeoutExpired branch (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestResolveRepoPathTimeout:
+    """Test the TimeoutExpired branch in _resolve_repo_path."""
+
+    def test_clone_timeout_raises_value_error(self, monkeypatch) -> None:
+        """TimeoutExpired during git clone should raise ValueError."""
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        with (
+            patch("helping_hands.server.celery_app.Path.is_dir", return_value=False),
+            patch(
+                "helping_hands.server.celery_app.mkdtemp",
+                return_value="/tmp/helping_hands_repo_timeout",
+            ),
+            patch(
+                "helping_hands.server.celery_app.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd="git clone", timeout=120),
+            ),
+            patch("helping_hands.server.celery_app.shutil.rmtree") as mock_rmtree,
+        ):
+            with pytest.raises(ValueError, match="git clone timed out"):
+                celery_app._resolve_repo_path("owner/repo")
+
+            mock_rmtree.assert_called_once_with(
+                Path("/tmp/helping_hands_repo_timeout"), ignore_errors=True
+            )
+
+
+# ---------------------------------------------------------------------------
+# _setup_periodic_tasks signal handler (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestSetupPeriodicTasks:
+    """Test the _setup_periodic_tasks signal handler."""
+
+    def test_calls_ensure_usage_schedule(self) -> None:
+        """_setup_periodic_tasks should delegate to ensure_usage_schedule."""
+        with patch(
+            "helping_hands.server.celery_app.ensure_usage_schedule"
+        ) as mock_ensure:
+            celery_app._setup_periodic_tasks(sender=MagicMock())
+
+        mock_ensure.assert_called_once()

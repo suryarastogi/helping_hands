@@ -303,6 +303,9 @@ export function useTaskManager(): UseTaskManagerReturn {
     if (form.create_issue) {
       body.create_issue = true;
     }
+    if (form.project_url.trim()) {
+      body.project_url = form.project_url.trim();
+    }
     if (form.tools.trim()) {
       body.tools = form.tools
         .split(",")
@@ -686,6 +689,8 @@ export function useTaskManager(): UseTaskManagerReturn {
       const skills = params.get("skills");
       if (skills) next.skills = skills;
       next.create_issue = parseBool(params.get("create_issue"));
+      const projectUrl = params.get("project_url");
+      if (projectUrl) next.project_url = projectUrl;
       next.no_pr = parseBool(params.get("no_pr"));
       next.enable_execution = parseBool(params.get("enable_execution"));
       next.enable_web = parseBool(params.get("enable_web"));

@@ -846,3 +846,53 @@ class TestScheduleManagerUpdatePrNumber:
             mgr.update_pr_number("sched_test123456", 42)
 
         assert any("Auto-persisted PR #42" in m for m in caplog.messages)
+
+
+# ---------------------------------------------------------------------------
+# _load_meta corrupted data handling (v331)
+# ---------------------------------------------------------------------------
+
+
+class TestLoadMetaCorruptedData:
+    """Tests for _load_meta graceful handling of corrupted Redis data."""
+
+    def test_invalid_json_returns_none(self) -> None:
+        """_load_meta should return None when Redis value is not valid JSON."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = "this is not json{{"
+        result = mgr._load_meta("sched_corrupted")
+        assert result is None
+
+    def test_invalid_json_logs_warning(self, caplog) -> None:
+        """_load_meta should log a warning when Redis value is corrupted."""
+        import logging
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = "{invalid json"
+
+        with caplog.at_level(logging.WARNING, logger="helping_hands.server.schedules"):
+            mgr._load_meta("sched_bad_json")
+
+        assert any("Corrupted schedule metadata" in m for m in caplog.messages)
+
+    def test_missing_required_fields_returns_none(self) -> None:
+        """_load_meta should return None when required fields are missing."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = json.dumps({"schedule_id": "only_id"})
+        result = mgr._load_meta("only_id")
+        assert result is None
+
+    def test_empty_required_field_returns_none(self) -> None:
+        """_load_meta should return None when a required field is empty."""
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = json.dumps(
+            {
+                "schedule_id": "sched_empty",
+                "name": "",
+                "cron_expression": "0 0 * * *",
+                "repo_path": "owner/repo",
+                "prompt": "test",
+            }
+        )
+        result = mgr._load_meta("sched_empty")
+        assert result is None

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Dispatch, LegacyRef, MouseEvent, RefObject, SetStateAction } from "react";
 
 import type {
@@ -6,6 +7,10 @@ import type {
   OutputTab,
   PrefixFilterMode,
 } from "../types";
+import DiffView from "./DiffView";
+import type { DiffFile } from "./DiffView";
+import FileExplorer from "./FileExplorer";
+import type { FileTreeEntry } from "./FileExplorer";
 import {
   apiUrl,
   isTerminalTaskStatus,
@@ -13,6 +18,8 @@ import {
   statusBlinkerColor,
   statusTone,
 } from "../App.utils";
+
+type FilesTab = "diff" | "explorer";
 
 export interface MonitorCardProps {
   taskId: string | null;
@@ -33,6 +40,12 @@ export interface MonitorCardProps {
   monitorHeight: number | null;
   onMonitorScroll: () => void;
   onResizeStart: (e: MouseEvent) => void;
+  diffFiles: DiffFile[];
+  diffError: string | null;
+  diffLoading: boolean;
+  fileTree: FileTreeEntry[];
+  fileTreeError: string | null;
+  fileTreeLoading: boolean;
 }
 
 export default function MonitorCard({
@@ -54,9 +67,16 @@ export default function MonitorCard({
   monitorHeight,
   onMonitorScroll,
   onResizeStart,
+  diffFiles,
+  diffError,
+  diffLoading,
+  fileTree,
+  fileTreeError,
+  fileTreeLoading,
 }: MonitorCardProps) {
   const blinkerColor = statusBlinkerColor(status);
   const isBlinkerAnimated = statusTone(status) === "run";
+  const [filesTab, setFilesTab] = useState<FilesTab>("explorer");
 
   return (
     <section className="card status-card compact-monitor">
@@ -228,6 +248,53 @@ export default function MonitorCard({
           )}
         </div>
       </details>
+
+      {taskId && (
+        <details className="compact-advanced monitor-inputs">
+          <summary>
+            Files
+            {diffFiles.length > 0 && (
+              <span className="files-changed-badge">{diffFiles.length} changed</span>
+            )}
+          </summary>
+          <div className="compact-advanced-body files-section-body">
+            <div className="files-tab-bar" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                className={`files-tab-btn${filesTab === "explorer" ? " active" : ""}`}
+                aria-selected={filesTab === "explorer"}
+                onClick={() => setFilesTab("explorer")}
+              >
+                Explorer
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={`files-tab-btn${filesTab === "diff" ? " active" : ""}`}
+                aria-selected={filesTab === "diff"}
+                onClick={() => setFilesTab("diff")}
+              >
+                Diff
+                {diffFiles.length > 0 && (
+                  <span className="files-tab-count">{diffFiles.length}</span>
+                )}
+              </button>
+            </div>
+            {filesTab === "explorer" && (
+              <FileExplorer
+                taskId={taskId}
+                tree={fileTree}
+                treeError={fileTreeError}
+                treeLoading={fileTreeLoading}
+              />
+            )}
+            {filesTab === "diff" && (
+              <DiffView files={diffFiles} error={diffError} loading={diffLoading} />
+            )}
+          </div>
+        </details>
+      )}
     </section>
   );
 }

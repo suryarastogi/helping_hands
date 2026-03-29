@@ -4,15 +4,85 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-Deeper GitHub integration - Features Wanted:
-- a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration
-    - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
-    - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
-    - ~~Sync task status with GitHub issue with created PR~~ **v327: issue lifecycle labels (in-progress/completed/failed) + status comments + issue_number in progress metadata + MonitorCard badge**
-    - GitHub Projects board integration
+### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — In Progress
 
+Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and `factory.py`
+`get_enabled_backends()` (82% → ~95%). See [v333 plan](docs/exec-plans/active/v333-devin-factory-coverage.md).
 
 ## Recently Completed
+
+### Validation & Task Result Coverage Hardening (2026-03-28) — Completed
+
+**Implemented (v332):**
+- Fixed v331 plan structure conformance (`## Completed Tasks` → `## Tasks`)
+- Added 4 `require_non_empty_string` TypeError tests: int, None, bool, list inputs
+- Added 5 `require_positive_int` TypeError tests: bool (True/False), float, string, None inputs
+- Added 6 `format_type_error` direct unit tests: param name, expected type, actual type, None, dict, custom class
+- Added 5 `normalize_task_result` edge case tests: empty status, whitespace status, None status, int status, non-serializable object fallback
+- 20 new tests total (15 validation, 5 task_result), all passing
+- 6459 backend tests passed, 0 failures, 78.28% coverage
+
+### Server Module Test Coverage Hardening (2026-03-28) — Completed
+
+**Implemented (v331):**
+- Added 4 `_ProgressEmitter` direct unit tests: `emit()` with defaults, overrides, preserving non-overridden fields, multiple sequential calls
+- Added 1 `_resolve_repo_path` TimeoutExpired branch test: mock subprocess timeout raises `ValueError`, verifies temp dir cleanup
+- Added 1 `_setup_periodic_tasks` signal handler test: verifies delegation to `ensure_usage_schedule()`
+- Added 4 `_load_meta` corrupted data tests: invalid JSON, warning log, missing required fields, empty required field
+- 10 new tests total (6 celery_app, 4 schedule_manager), all passing
+
+### GitHub Integration Test Coverage (2026-03-28) — Completed
+
+**Implemented (v330):**
+- Added integration-level tests for v325–v329 GitHub features
+- `TestBuildForm`: 2 tests for `issue_number`, `create_issue`, and `project_url` form submission
+- `TestCreateNewPrIssueClose`: 2 tests verifying PR body "Closes #N" generation (with and without issue_number)
+- `TestTryAddToProject`: 1 test for invalid `project_url` graceful failure
+- 5 new tests total
+
+### Deeper GitHub Integration (2026-03-28) — Completed
+
+~~Features Wanted:~~
+- ~~a checkbox (like fix ci) "Project Management" which feeds/enables GitHub Issues and Projects integration~~
+    - ~~When creating a task, option to link to an existing GitHub issue or create a new issue from the task (with task prompt as issue body)~~ **v325: issue_number field added — links task to existing issue via "Closes #N" in PR body + comment on issue**
+    - ~~When creating a task, option to create a new issue from the task (with task prompt as issue body)~~ **v326: create_issue checkbox — auto-creates GitHub issue from task prompt, then links it to the PR**
+    - ~~Sync task status with GitHub issue with created PR~~ **v328: _sync_issue_status() posts running/completed/failed status comments on linked issue via marker-tagged upsert**
+    - ~~GitHub Projects board integration~~ **v329: full-stack `project_url` support — add issues to GitHub Projects v2 boards via GraphQL API after creation/linking**
+
+### GitHub Projects Board Integration (2026-03-28) — Completed
+
+**Implemented (v329):**
+- `GitHubClient.add_to_project_v2()` method — resolves project/content node IDs via GraphQL, calls `addProjectV2ItemById` mutation
+- `parse_project_url()` static method — parses org/user project URLs into (owner_type, owner, number)
+- `_graphql()` private helper — executes GitHub GraphQL queries via `urllib.request`
+- `project_url` field added to full stack: frontend FormState → SubmissionForm → useTaskManager → BuildRequest → Celery `build_feature` task
+- `_try_add_to_project()` helper in `celery_app.py` — best-effort wrapper, errors logged but never block the build
+- After issue creation/linking and before hand execution, linked issue is added to the specified project
+- Frontend: Project URL input in Advanced settings, URL query param support (`?project_url=...`)
+- 15 new tests (11 backend, 4 frontend), 7516 backend tests passed, 0 failures
+
+### Sync Task Status with GitHub Issue (2026-03-28) — Completed
+
+**Implemented (v328):**
+- `_sync_issue_status()` helper in celery_app.py — posts or updates a marker-tagged comment on the linked GitHub issue at key lifecycle points
+- "running" status posted when hand starts execution
+- "completed" status posted after success, includes PR URL
+- "failed" status posted on exception, includes truncated error message
+- Uses `upsert_pr_comment()` with `<!-- helping_hands:issue_status -->` marker for idempotent updates (same comment updated, not new ones created)
+- Best-effort: sync failures are logged but never block the build
+- 5 new backend tests (127 celery tests total, up from 122)
+- 7501 backend tests passed, 0 failures
+
+### Fix Test Failures & Form Param Gap (2026-03-28) — Completed
+
+**Implemented (v327):**
+- Fixed 9 test failures introduced by v325–v326 feature additions
+- Added missing `issue_number` and `create_issue` Form parameters to `enqueue_build_form`
+  — the inline HTML form handler was missing these fields from v325/v326
+- Fixed plan structure conformance for v324–v326 completed plans (status metadata,
+  section headings, PLANS.md entry format)
+- Updated 5 `TestBuildForm` expected dicts with new fields
+- 6426 tests passed, 0 failures, 78.48% coverage
 
 ### Sync Task Status with GitHub Issue (2026-03-28) — Completed
 

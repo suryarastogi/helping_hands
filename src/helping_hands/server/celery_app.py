@@ -396,12 +396,22 @@ class _ProgressEmitter:
     def emit(self, stage: str, **overrides: Any) -> None:
         """Emit a progress update for *stage*, optionally overriding fields.
 
+        Certain fields (``workspace``, ``model``) are *sticky*: once set via
+        an override they become the new default for subsequent calls.  This
+        prevents frequent progress updates from dropping metadata that was
+        only provided on the first ``"running"`` emit.
+
         Args:
             stage: Human-readable stage label (e.g. ``"starting"``,
                 ``"running"``).
             **overrides: Any keyword accepted by ``_update_progress`` whose
                 value should differ from the stored default for this call.
         """
+        # Persist sticky fields so later emit() calls don't lose them.
+        if overrides.get("workspace"):
+            self._workspace = overrides["workspace"]
+        if overrides.get("model"):
+            self._model = overrides["model"]
         _update_progress(
             self._task,
             task_id=overrides.get("task_id", self._task_id),
@@ -618,6 +628,8 @@ _LABEL_IN_PROGRESS = "helping-hands:in-progress"
 _LABEL_COMPLETED = "helping-hands:completed"
 _LABEL_FAILED = "helping-hands:failed"
 
+_ISSUE_STATUS_MARKER = "<!-- helping_hands:issue_status -->"
+
 
 def _sync_issue_started(
     repo_spec: str,
@@ -640,6 +652,68 @@ def _sync_issue_started(
             "Failed to mark issue #%d as in-progress on %s",
             issue_number,
             repo_spec,
+            exc_info=True,
+        )
+
+
+def _sync_issue_status(
+    repo_spec: str,
+    issue_number: int | None,
+    status: str,
+    github_token: str | None,
+    *,
+    pr_url: str = "",
+    error: str = "",
+) -> None:
+    """Post or update a status comment on the linked GitHub issue.
+
+    Uses a marker-tagged comment so repeated calls update in place rather
+    than creating new comments.  Errors are logged but never propagated ---
+    issue status sync is best-effort.
+
+    Args:
+        repo_spec: ``owner/repo`` string.
+        issue_number: The linked issue number.  If ``None``, the call is
+            a no-op.
+        status: One of ``"running"``, ``"completed"``, or ``"failed"``.
+        github_token: GitHub personal access token.
+        pr_url: URL of the created/updated PR (included when *status* is
+            ``"completed"``).
+        error: Error message (included when *status* is ``"failed"``).
+    """
+    if issue_number is None:
+        return
+
+    status_emoji = {
+        "running": "\U0001f504",
+        "completed": "\u2705",
+        "failed": "\u274c",
+    }.get(status, "\U0001f4cb")
+    lines = [f"{status_emoji} **helping-hands** task status: **{status}**"]
+    if status == "running":
+        lines.append("\nThe task is currently running.")
+    elif status == "completed" and pr_url:
+        lines.append(f"\nPull request: {pr_url}")
+    elif status == "failed" and error:
+        lines.append(f"\nError: {error}")
+
+    body = "\n".join(lines)
+
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            gh.upsert_pr_comment(
+                repo_spec,
+                issue_number,
+                body=body,
+                marker=_ISSUE_STATUS_MARKER,
+            )
+    except Exception:
+        logger.warning(
+            "Failed to sync issue status for %s#%s",
+            repo_spec,
+            issue_number,
             exc_info=True,
         )
 
@@ -711,6 +785,53 @@ def _sync_issue_failed(
         )
 
 
+def _try_add_to_project(
+    repo_spec: str,
+    issue_number: int | None,
+    project_url: str | None,
+    github_token: str | None,
+    updates: list[str],
+) -> None:
+    """Add the linked issue to a GitHub Projects v2 board.
+
+    Best-effort: errors are logged and reported in *updates* but never
+    prevent the build from proceeding.
+
+    Args:
+        repo_spec: ``owner/repo`` string.
+        issue_number: The linked issue number.  If ``None``, the call is
+            a no-op.
+        project_url: GitHub Project URL.  If ``None`` or empty, the call
+            is a no-op.
+        github_token: GitHub personal access token.
+        updates: Progress update list.
+    """
+    if not project_url or issue_number is None:
+        return
+
+    try:
+        from helping_hands.lib.github import GitHubClient as _GHClient
+
+        with _GHClient(token=github_token or "") as gh:
+            item_id = gh.add_to_project_v2(
+                project_url,
+                full_name=repo_spec,
+                issue_number=issue_number,
+            )
+            _append_update(
+                updates,
+                f"Added issue #{issue_number} to project (item={item_id})",
+            )
+    except Exception:
+        logger.warning(
+            "Failed to add issue #%s to project %s",
+            issue_number,
+            project_url,
+            exc_info=True,
+        )
+        _append_update(updates, "Failed to add issue to GitHub Project (continuing).")
+
+
 async def _collect_stream(
     hand: Any,
     prompt: str,
@@ -754,6 +875,7 @@ def build_feature(
     pr_number: int | None = None,
     issue_number: int | None = None,
     create_issue: bool = False,
+    project_url: str | None = None,
     backend: str = BACKEND_CLAUDECODECLI,
     model: str | None = None,
     max_iterations: int = _DEFAULT_MAX_ITERATIONS,
@@ -880,6 +1002,9 @@ def build_feature(
         _append_update(updates, f"Repo resolution failed: {exc}")
         raise
 
+    _issue_repo = cloned_from or repo_path
+    _linked_issue: int | None = issue_number
+
     try:
         overrides: dict[str, ConfigValue] = {
             "repo": str(resolved_repo_path),
@@ -941,14 +1066,25 @@ def build_feature(
             _append_update(updates, f"Cloned {cloned_from} to {resolved_repo_path}")
         if pr_number is not None and cloned_from:
             _append_update(updates, f"Checking out PR #{pr_number} branch...")
+            from github.GithubException import BadCredentialsException
+
             from helping_hands.lib.github import GitHubClient as _GHClient
 
-            with _GHClient() as _gh:
-                _pr_info = _gh.get_pr(cloned_from, pr_number)
-                _pr_branch = str(_pr_info["head"])
-                _gh.fetch_branch(resolved_repo_path, _pr_branch)
-                _gh.switch_branch(resolved_repo_path, _pr_branch)
-                _gh.pull(resolved_repo_path, branch=_pr_branch)
+            try:
+                with _GHClient() as _gh:
+                    _pr_info = _gh.get_pr(cloned_from, pr_number)
+                    _pr_branch = str(_pr_info["head"])
+                    _gh.fetch_branch(resolved_repo_path, _pr_branch)
+                    _gh.switch_branch(resolved_repo_path, _pr_branch)
+                    _gh.pull(resolved_repo_path, branch=_pr_branch)
+            except (BadCredentialsException, ValueError) as exc:
+                msg = (
+                    "GitHub authentication failed \u2014 your token is missing, "
+                    "expired, or invalid. Refresh GITHUB_TOKEN / GH_TOKEN "
+                    "and retry."
+                )
+                _append_update(updates, msg)
+                raise RuntimeError(msg) from exc
             _append_update(
                 updates,
                 f"Checked out branch {_pr_branch} for PR #{pr_number} (up to date)",
@@ -1004,12 +1140,19 @@ def build_feature(
         # Auto-create a GitHub issue when requested and no issue linked yet.
         if create_issue and hand.issue_number is None:
             _try_create_issue(
-                repo_spec=cloned_from or repo_path,
+                repo_spec=_issue_repo,
                 prompt=prompt,
                 hand=hand,
                 updates=updates,
                 github_token=github_token,
             )
+        # Track the effective issue number (may have been set by _try_create_issue).
+        _linked_issue = hand.issue_number
+
+        # Add the linked issue to a GitHub Project board when requested.
+        _try_add_to_project(
+            _issue_repo, _linked_issue, project_url, github_token, updates
+        )
 
         # Mark the linked issue as in-progress.
         _effective_issue = hand.issue_number
@@ -1019,6 +1162,10 @@ def build_feature(
 
         hand.fix_ci = fix_ci
         hand.ci_check_wait_minutes = ci_check_wait_minutes
+
+        # Sync "running" status to linked GitHub issue.
+        _sync_issue_status(_issue_repo, _linked_issue, "running", github_token)
+
         hand_start = time.monotonic()
         emitter.emit("running", model=config.model, workspace=str(resolved_repo_path))
         try:
@@ -1061,6 +1208,16 @@ def build_feature(
         # Auto-persist newly created PR number to originating schedule
         created_pr = hand.last_pr_metadata.get("pr_number", "")
         _maybe_persist_pr_to_schedule(schedule_id, pr_number, created_pr)
+
+        # Sync "completed" status to linked GitHub issue.
+        _sync_issue_status(
+            _issue_repo,
+            _linked_issue,
+            "completed",
+            github_token,
+            pr_url=hand.last_pr_metadata.get("pr_url", ""),
+        )
+
         return {
             "status": _RESPONSE_STATUS_OK,
             "prompt": prompt,
@@ -1085,6 +1242,16 @@ def build_feature(
             "updates": updates,
             **hand.last_pr_metadata,
         }
+    except Exception as exc:
+        # Best-effort: sync "failed" status to linked GitHub issue.
+        _sync_issue_status(
+            _issue_repo,
+            _linked_issue,
+            "failed",
+            github_token,
+            error=str(exc)[:200],
+        )
+        raise
     finally:
         if _tmp_root is not None:
             shutil.rmtree(_tmp_root, ignore_errors=True)
@@ -1121,7 +1288,7 @@ def scheduled_build(
             "schedule_id": schedule_id,
         }
 
-    # Trigger the actual build task — pass schedule_id so the worker can
+    # Trigger the actual build task --- pass schedule_id so the worker can
     # auto-persist a newly created PR number back to this schedule.
     result = build_feature.delay(
         repo_path=schedule.repo_path,

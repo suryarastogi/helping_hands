@@ -4,23 +4,55 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [v333 — DevinCLIHand & Factory Coverage Hardening](exec-plans/active/v333-devin-factory-coverage.md) —
+  Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and
+  `factory.py` `get_enabled_backends()` (82% → ~95%); 23 tests added
 
 ## Completed plans
 
-- [v326 — Create New Issue from Task](exec-plans/completed/2026/v326-create-issue-from-task.md) —
+- [2026-03-28 v332 — Validation & Task Result Coverage Hardening](exec-plans/completed/2026/v332-validation-coverage-hardening.md) —
+  Close type-validation test gaps in `validation.py` and `task_result.py`:
+  `format_type_error` direct tests, `require_non_empty_string`/`require_positive_int`
+  TypeError branches, `normalize_task_result` status validation and non-serializable fallback;
+  20 tests added, 6459 tests passed
+
+- [2026-03-28 v331 — Server Module Test Coverage Hardening](exec-plans/completed/2026/v331-server-test-coverage.md) —
+  Close testable coverage gaps in `celery_app.py` and `schedules.py`:
+  `_ProgressEmitter` unit tests, `_resolve_repo_path` timeout branch,
+  `_setup_periodic_tasks` signal handler, `_load_meta` corrupted data; 10 tests added
+
+- [2026-03-28 v330 — GitHub Integration Test Coverage](exec-plans/completed/2026/v330-github-integration-test-coverage.md) —
+  Fill integration test gaps for v325–v329 GitHub features: form endpoint,
+  PR body "Closes #N", invalid project URL edge case; 5 tests added, 6439 tests passed
+
+
+- [2026-03-28 v329 — GitHub Projects Board Integration](exec-plans/completed/2026/v329-github-projects-integration.md) —
+  Full-stack `project_url` support: add issues/PRs to GitHub Projects v2 boards
+  after creation via GraphQL API; 15 tests added, 7516 tests passed
+
+- [2026-03-28 v328 — Sync Task Status with GitHub Issue](exec-plans/completed/2026/v328-sync-issue-status.md) —
+  Post running/completed/failed status comments on linked GitHub issue via
+  marker-tagged upsert; 5 tests added, 7501 tests passed
+
+- [2026-03-28 v327 — Fix Test Failures & Form Param Gap](exec-plans/completed/2026/v327-fix-test-failures-and-form-params.md) —
+  Fixed 9 test failures from v325–v326, added missing `issue_number`/`create_issue`
+  Form params to `enqueue_build_form`, fixed plan structure conformance;
+  6426 tests passed
+
+- [2026-03-28 v326 — Create New Issue from Task](exec-plans/completed/2026/v326-create-issue-from-task.md) —
   Full-stack `create_issue` support: auto-creates GitHub issue from task prompt,
-  then links it to PR via existing issue_number pipeline; 728 frontend tests,
-  97 backend GitHub tests
+  then links it to PR via existing issue_number pipeline;
+  728 tests (frontend), 97 backend GitHub tests
 
-- [v325 — GitHub Issue Linking](exec-plans/completed/2026/v325-github-issue-linking.md) —
+- [2026-03-28 v325 — GitHub Issue Linking](exec-plans/completed/2026/v325-github-issue-linking.md) —
   Full-stack `issue_number` support: "Closes #N" in PR body, issue comment with
-  PR link, frontend field + URL param; 724 frontend tests, 92 backend GitHub tests
+  PR link, frontend field + URL param;
+  724 tests (frontend), 92 backend GitHub tests
 
-- [v324 — Remote Player CSS Fixes & Initial Position Sync](exec-plans/completed/2026/v324-multiplayer-css-fixes-and-spawn-sync.md) —
+- [2026-03-27 v324 — Remote Player CSS Fixes & Initial Position Sync](exec-plans/completed/2026/v324-multiplayer-css-fixes-and-spawn-sync.md) —
   Fixed duplicate CSS transition on `.remote-player`, restored `pointer-events`
   for tooltips, synced initial Yjs awareness position with actual spawn;
-  720 frontend tests
+  720 tests (frontend)
 
 - [2026-03-27 v313–v321](exec-plans/completed/2026/2026-03-27.md) —
   Multiplayer performance + backend awareness fix, leave name resolution +

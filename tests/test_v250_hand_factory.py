@@ -25,6 +25,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_OPENCODECLI,
     SUPPORTED_BACKENDS,
     create_hand,
+    get_enabled_backends,
 )
 from helping_hands.lib.repo import RepoIndex
 
@@ -531,3 +532,87 @@ class TestConstantsIntegration:
         default = sig.parameters["backend"].default
         assert default == BACKEND_CODEXCLI
         assert default in SUPPORTED_BACKENDS
+
+
+# ---------------------------------------------------------------------------
+# get_enabled_backends
+# ---------------------------------------------------------------------------
+
+
+class TestGetEnabledBackends:
+    def test_no_env_vars_returns_all(self, monkeypatch) -> None:
+        """When no *_ENABLED env vars are set, all backends are returned."""
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        result = get_enabled_backends()
+        assert set(result) == SUPPORTED_BACKENDS
+
+    def test_returns_sorted(self, monkeypatch) -> None:
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        result = get_enabled_backends()
+        assert result == sorted(result)
+
+    def test_single_enabled(self, monkeypatch) -> None:
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        result = get_enabled_backends()
+        assert result == ["codexcli"]
+
+    def test_multiple_enabled(self, monkeypatch) -> None:
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "true")
+        monkeypatch.setenv("HELPING_HANDS_GOOSE_ENABLED", "yes")
+        result = get_enabled_backends()
+        assert result == ["codexcli", "goose"]
+
+    def test_falsy_value_disables(self, monkeypatch) -> None:
+        """A non-empty but non-truthy value means 'has_any' is True but backend not enabled."""
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "0")
+        result = get_enabled_backends()
+        assert result == []
+
+    def test_mixed_truthy_and_falsy(self, monkeypatch) -> None:
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        monkeypatch.setenv("HELPING_HANDS_GOOSE_ENABLED", "false")
+        result = get_enabled_backends()
+        assert result == ["codexcli"]
+
+    def test_truthy_values_on_and_yes(self, monkeypatch) -> None:
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        monkeypatch.setenv("HELPING_HANDS_CLAUDECODECLI_ENABLED", "on")
+        monkeypatch.setenv("HELPING_HANDS_GEMINICLI_ENABLED", "YES")
+        result = get_enabled_backends()
+        assert set(result) == {"claudecodecli", "geminicli"}
+
+    def test_whitespace_only_ignored(self, monkeypatch) -> None:
+        """Whitespace-only env var is treated as unset."""
+        from helping_hands.lib.hands.v1.hand.factory import _BACKEND_ENABLED_ENV_VARS
+
+        for env_var in _BACKEND_ENABLED_ENV_VARS.values():
+            monkeypatch.delenv(env_var, raising=False)
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "  ")
+        result = get_enabled_backends()
+        # whitespace-only -> strip -> empty -> not counted as has_any
+        assert set(result) == SUPPORTED_BACKENDS

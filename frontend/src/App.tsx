@@ -16,10 +16,12 @@ import { useServiceHealth } from "./hooks/useServiceHealth";
 import { useTaskManager } from "./hooks/useTaskManager";
 import type { Backend } from "./types";
 import {
+  apiUrl,
   asRecord,
   BACKEND_OPTIONS,
   fetchServerConfig,
   filterEnabledBackends,
+  isTerminalTaskStatus,
   statusTone,
   wsUrl,
 } from "./App.utils";
@@ -65,6 +67,13 @@ export default function App() {
     openSubmissionView,
   } = useTaskManager();
 
+  // -- Diff & file tree polling for the current task ------------------------
+  const [diffFiles, setDiffFiles] = useState<{ filename: string; status: string; diff: string }[]>([]);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [fileTree, setFileTree] = useState<{ path: string; name: string; type: "file" | "dir"; status: string | null }[]>([]);
+  const [fileTreeError, setFileTreeError] = useState<string | null>(null);
+  const [fileTreeLoading, setFileTreeLoading] = useState(false);
   const sceneRef = useRef<HTMLDivElement>(null);
   const serviceHealthState = useServiceHealth();
   const { claudeUsage, claudeUsageLoading, refreshClaudeUsage } = useClaudeUsage();
@@ -145,6 +154,80 @@ export default function App() {
     if (mainView === "schedules") void loadSchedules();
   }, [mainView, loadSchedules]);
 
+  // -- Poll diff for the currently selected task ----------------------------
+  useEffect(() => {
+    if (!taskId) {
+      setDiffFiles([]);
+      setDiffError(null);
+      return;
+    }
+    let cancelled = false;
+
+    const fetchDiff = async () => {
+      setDiffLoading(true);
+      try {
+        const res = await fetch(apiUrl(`/tasks/${taskId}/diff?_=${Date.now()}`), {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setDiffFiles(data.files ?? []);
+        setDiffError(data.error ?? null);
+      } catch {
+        if (!cancelled) {
+          setDiffError("Failed to fetch diff");
+        }
+      } finally {
+        if (!cancelled) setDiffLoading(false);
+      }
+    };
+
+    void fetchDiff();
+    const isActive = !isTerminalTaskStatus(status);
+    if (isActive) {
+      const handle = window.setInterval(() => void fetchDiff(), 5000);
+      return () => { cancelled = true; window.clearInterval(handle); };
+    }
+    return () => { cancelled = true; };
+  }, [taskId, status]);
+
+  // -- Fetch file tree for the currently selected task ----------------------
+  useEffect(() => {
+    if (!taskId) {
+      setFileTree([]);
+      setFileTreeError(null);
+      return;
+    }
+    let cancelled = false;
+
+    const fetchTree = async () => {
+      setFileTreeLoading(true);
+      try {
+        const res = await fetch(apiUrl(`/tasks/${taskId}/tree?_=${Date.now()}`), {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setFileTree(data.tree ?? []);
+        setFileTreeError(data.error ?? null);
+      } catch {
+        if (!cancelled) setFileTreeError("Failed to fetch file tree");
+      } finally {
+        if (!cancelled) setFileTreeLoading(false);
+      }
+    };
+
+    void fetchTree();
+    const isActive = !isTerminalTaskStatus(status);
+    if (isActive) {
+      const handle = window.setInterval(() => void fetchTree(), 10000);
+      return () => { cancelled = true; window.clearInterval(handle); };
+    }
+    return () => { cancelled = true; };
+  }, [taskId, status]);
+
   // -- Server config (native auth default, enabled backends) ----------------
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -206,6 +289,12 @@ export default function App() {
       monitorHeight={monitorHeight}
       onMonitorScroll={handleMonitorScroll}
       onResizeStart={handleResizeStart}
+      diffFiles={diffFiles}
+      diffError={diffError}
+      diffLoading={diffLoading}
+      fileTree={fileTree}
+      fileTreeError={fileTreeError}
+      fileTreeLoading={fileTreeLoading}
     />
   );
 
