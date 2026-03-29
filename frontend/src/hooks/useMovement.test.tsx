@@ -15,10 +15,8 @@ const emptyDesks: DeskSlot[] = [];
 function pressKey(key: string) {
   act(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-  });
-  // Flush the requestAnimationFrame callback (mocked as setTimeout)
-  act(() => {
-    vi.advanceTimersToNextTimer();
+    // Flush the requestAnimationFrame callback (mocked as setTimeout)
+    vi.advanceTimersByTime(16);
   });
 }
 
