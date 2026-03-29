@@ -4,12 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v335 — Stream Emitter & Multiplayer Coverage + Test Fix](exec-plans/active/v335-stream-emitter-multiplayer-coverage.md) —
+- [v336 — Hand Base & CLI Hand Coverage Hardening](exec-plans/active/v336-hand-base-cli-coverage.md) —
+  Close remaining coverage gaps in `Hand` base class (99% → 100%) and
+  `_TwoPhaseCLIHand` (99% → ~100%); targeting lines 403-404, 407, 831, 1535, 1719-1727
+
+## Completed plans
+
+- [2026-03-29 v335 — Stream Emitter & Multiplayer Coverage + Test Fix](exec-plans/completed/2026/v335-stream-emitter-multiplayer-coverage.md) —
   Fix failing `test_env_var_forwarding`, close coverage gaps in
   `_StreamJsonEmitter` (claude.py) and `multiplayer_yjs.py`;
   9 tests added, 6519 tests passed
-
-## Completed plans
 
 - [2026-03-29 v334 — GooseCLIHand & CLIHandBase Coverage Hardening](exec-plans/completed/2026/v334-goose-cli-base-coverage.md) —
   Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and

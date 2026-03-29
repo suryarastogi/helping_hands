@@ -821,3 +821,105 @@ class TestStreamWrapper:
 
         assert chunks == ["chunk1"]
         assert producer_cancelled
+
+
+# ===================================================================
+# _ci_fix_loop — loop_deadline timeout (v336, line 1719-1727)
+# ===================================================================
+
+
+class TestCiFixLoopDeadlineTimeout:
+    """Tests for _ci_fix_loop when the wall-clock loop_deadline is exceeded."""
+
+    def _base_meta(self) -> dict:
+        return {"pr_status": "created", "pr_commit": "abc123", "pr_branch": "b"}
+
+    def test_loop_deadline_exceeded_returns_exhausted(self) -> None:
+        """When time.monotonic() > loop_deadline on first iteration, emit
+        timeout message and return CIFixStatus.EXHAUSTED."""
+        stub = _Stub(fix_ci=True)
+        meta = self._base_meta()
+        emit, chunks = _collecting_emit()
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        # Make monotonic return a value past the deadline on the second call
+        # (first call sets loop_deadline, second call checks it inside the loop).
+        call_count = 0
+
+        def _fake_monotonic():
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 1:
+                return 0.0  # loop_deadline = 0 + _CI_FIX_LOOP_TIMEOUT_S
+            return 1_000_000.0  # far past any deadline
+
+        with (
+            patch.object(
+                _TwoPhaseCLIHand,
+                "_github_repo_from_origin",
+                return_value="owner/repo",
+            ),
+            patch(
+                "helping_hands.lib.github.GitHubClient",
+                return_value=mock_gh,
+            ),
+            patch("helping_hands.lib.hands.v1.hand.cli.base.time") as mock_time,
+        ):
+            mock_time.monotonic = _fake_monotonic
+            result = _run(stub._ci_fix_loop(prompt="p", metadata=meta, emit=emit))
+
+        assert result["ci_fix_status"] == "exhausted"
+        assert any("timed out" in c for c in chunks)
+
+
+# ===================================================================
+# _poll_ci_checks — poll wait ≤ 0 break (v336, line 1535)
+# ===================================================================
+
+
+class TestPollCiChecksEarlyBreak:
+    """Tests for _poll_ci_checks when remaining poll time is ≤ 0."""
+
+    def test_poll_breaks_when_remaining_time_zero(self) -> None:
+        """When deadline is immediately reached after first check, break
+        without sleeping and return the final check result."""
+        stub = _Stub(fix_ci=True)
+        emit = _noop_emit()
+        mock_gh = MagicMock()
+
+        final_result = {"conclusion": "pending", "total_count": 1, "check_runs": []}
+        mock_gh.get_check_runs.return_value = final_result
+
+        # Simulate: after grace sleep, time is already past deadline.
+        # monotonic() for deadline calc = 0.0, then immediately returns > deadline.
+        call_count = 0
+
+        def _fake_monotonic():
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 1:
+                return 100.0  # deadline = 100 + (budget - grace)
+            return 1_000_000.0  # past deadline
+
+        with (
+            patch("helping_hands.lib.hands.v1.hand.cli.base.time") as mock_time,
+            patch("helping_hands.lib.hands.v1.hand.cli.base.asyncio") as mock_asyncio,
+        ):
+            mock_time.monotonic = _fake_monotonic
+            mock_asyncio.sleep = AsyncMock()
+            mock_asyncio.get_running_loop = asyncio.get_running_loop
+            result = _run(
+                stub._poll_ci_checks(
+                    gh=mock_gh,
+                    repo="owner/repo",
+                    ref="abc123",
+                    emit=emit,
+                    initial_wait=0.001,
+                    max_poll_seconds=0.001,
+                )
+            )
+
+        # Should return the final check since deadline expired
+        assert result["conclusion"] == "pending"
