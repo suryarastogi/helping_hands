@@ -2,12 +2,24 @@
 
 export type PlayerDirection = "down" | "up" | "left" | "right";
 
+export type WorldDecoration = {
+  id: string;
+  emoji: string;
+  x: number;
+  y: number;
+  placedBy: string;
+  color: string;
+  placedAt: number;
+};
+
 export type ChatMessage = {
   id: string;
   playerName: string;
   playerColor: string;
   text: string;
   timestamp: number;
+  /** True for system messages (join/leave notifications). */
+  isSystem?: boolean;
 };
 
 export type WorkerVariant = "bot-alpha" | "bot-round" | "bot-heavy" | "goose";
@@ -88,6 +100,9 @@ export type FormState = {
   model: string;
   max_iterations: number;
   pr_number: string;
+  issue_number: string;
+  create_issue: boolean;
+  project_url: string;
   tools: string;
   skills: string;
   no_pr: boolean;
@@ -208,6 +223,11 @@ export type SceneWorker = {
 };
 
 export type PlayerPosition = {
+  x: number;
+  y: number;
+};
+
+export type CursorPosition = {
   x: number;
   y: number;
 };

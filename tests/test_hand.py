@@ -3685,3 +3685,144 @@ class TestGitHubTokenPassthrough:
 
         config = Config()
         assert config.github_token == ""
+
+
+# ---------------------------------------------------------------------------
+# issue_number attribute (v325)
+# ---------------------------------------------------------------------------
+
+
+class TestHandIssueNumber:
+    def test_default_issue_number_is_none(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        assert hand.issue_number is None
+
+    def test_issue_number_can_be_set(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = 42
+        assert hand.issue_number == 42
+
+
+# ---------------------------------------------------------------------------
+# _post_issue_link_comment (v325)
+# ---------------------------------------------------------------------------
+
+
+class TestPostIssueLinkComment:
+    def test_posts_comment_when_issue_number_set(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = 42
+        gh = MagicMock()
+
+        hand._post_issue_link_comment(
+            gh, "owner/repo", "https://github.com/owner/repo/pull/99"
+        )
+
+        gh.create_issue_comment.assert_called_once_with(
+            "owner/repo",
+            42,
+            body=(
+                "A pull request has been opened for this issue: "
+                "https://github.com/owner/repo/pull/99\n\n"
+                "<!-- helping_hands:issue_link -->"
+            ),
+        )
+
+    def test_noop_when_no_issue_number(
+        self, config: Config, repo_index: RepoIndex
+    ) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = None
+        gh = MagicMock()
+
+        hand._post_issue_link_comment(gh, "owner/repo", "https://example.com/pr/1")
+
+        gh.create_issue_comment.assert_not_called()
+
+    def test_error_is_swallowed(self, config: Config, repo_index: RepoIndex) -> None:
+        hand = _StubFinalizeHand(config, repo_index)
+        hand.issue_number = 10
+        gh = MagicMock()
+        gh.create_issue_comment.side_effect = RuntimeError("API error")
+
+        # Should not raise
+        hand._post_issue_link_comment(gh, "owner/repo", "https://example.com/pr/1")
+
+
+# ---------------------------------------------------------------------------
+# _create_new_pr — issue_number "Closes #N" in PR body (v330)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateNewPrIssueClose:
+    """Verify _create_new_pr appends 'Closes #N' when issue_number is set."""
+
+    def _make_hand_for_pr_test(
+        self, repo_index: RepoIndex, issue_number: int | None
+    ) -> _StubFinalizeHand:
+        hand = _StubFinalizeHand(
+            Config(repo="owner/repo", model="test-model"), repo_index
+        )
+        hand.issue_number = issue_number
+        # Stub internal helpers so _create_new_pr doesn't need real git
+        hand._working_tree_is_clean = MagicMock(return_value=True)  # type: ignore[assignment]
+        hand._run_git_read = MagicMock(return_value="abc1234")  # type: ignore[assignment]
+        hand._push_noninteractive = MagicMock()  # type: ignore[assignment]
+        hand._generate_pr_title_and_body = MagicMock(  # type: ignore[assignment]
+            return_value=("Title", "Body text")
+        )
+        return hand
+
+    def test_pr_body_contains_closes_when_issue_number_set(
+        self, config: Config, repo_index: RepoIndex, tmp_path: Path
+    ) -> None:
+        mock_gh = MagicMock()
+        mock_gh.get_repo.return_value = MagicMock(default_branch="main")
+        mock_gh.create_pr.return_value = MagicMock(
+            number=10, url="https://github.com/owner/repo/pull/10"
+        )
+
+        hand = self._make_hand_for_pr_test(repo_index, issue_number=42)
+        hand._create_new_pr(
+            gh=mock_gh,
+            repo="owner/repo",
+            repo_dir=tmp_path,
+            backend="basic-langgraph",
+            prompt="fix bug",
+            summary="Fixed the bug",
+            metadata={},
+        )
+
+        call_kwargs = mock_gh.create_pr.call_args[1]
+        assert "Closes #42" in call_kwargs["body"]
+        assert call_kwargs["body"] == "Body text\n\nCloses #42"
+
+    def test_pr_body_no_closes_when_issue_number_none(
+        self, config: Config, repo_index: RepoIndex, tmp_path: Path
+    ) -> None:
+        mock_gh = MagicMock()
+        mock_gh.get_repo.return_value = MagicMock(default_branch="main")
+        mock_gh.create_pr.return_value = MagicMock(
+            number=10, url="https://github.com/owner/repo/pull/10"
+        )
+
+        hand = self._make_hand_for_pr_test(repo_index, issue_number=None)
+        hand._create_new_pr(
+            gh=mock_gh,
+            repo="owner/repo",
+            repo_dir=tmp_path,
+            backend="basic-langgraph",
+            prompt="fix bug",
+            summary="Fixed the bug",
+            metadata={},
+        )
+
+        call_kwargs = mock_gh.create_pr.call_args[1]
+        assert "Closes #" not in call_kwargs["body"]
+        assert call_kwargs["body"] == "Body text"

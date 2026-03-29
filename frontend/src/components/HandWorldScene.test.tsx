@@ -4,8 +4,8 @@ import { fireEvent, render } from "@testing-library/react";
 
 import HandWorldScene from "./HandWorldScene";
 import type { SceneWorkerEntry } from "./HandWorldScene";
-import type { RemotePlayer } from "../hooks/useMultiplayer";
-import type { ChatMessage, ClaudeUsageResponse, FloatingNumber } from "../types";
+import type { RemoteCursor, RemotePlayer } from "../hooks/useMultiplayer";
+import type { ChatMessage, ClaudeUsageResponse, FloatingNumber, WorldDecoration } from "../types";
 
 const BOT_STYLE = {
   bodyColor: "#10a37f",
@@ -49,17 +49,30 @@ const BASE_SCENE_PROPS = {
   remotePlayers: [] as RemotePlayer[],
   remoteEmotes: {} as Record<string, string>,
   remoteChats: {} as Record<string, string>,
+  remoteTyping: {} as Record<string, boolean>,
   localChat: null as string | null,
   isLocalIdle: false,
+  isLocalTyping: false,
   connectionStatus: "connected" as const,
   chatHistory: [] as ChatMessage[],
   onSendChat: vi.fn(),
+  onSetTyping: vi.fn(),
+  chatOnCooldown: false,
+  onTriggerEmote: vi.fn(),
   playerNameInput: "Tester",
   onPlayerNameChange: vi.fn(),
+  playerColorInput: "#e11d48",
+  onPlayerColorChange: vi.fn(),
   claudeUsage: null as ClaudeUsageResponse | null,
   claudeUsageLoading: false,
   onRefreshClaudeUsage: vi.fn(),
   floatingNumbers: [] as FloatingNumber[],
+  decorations: [] as WorldDecoration[],
+  onPlaceDecoration: vi.fn(),
+  onClearDecorations: vi.fn(),
+  decoOnCooldown: false,
+  remoteCursors: [] as RemoteCursor[],
+  onCursorMove: vi.fn(),
 };
 
 describe("HandWorldScene component", () => {
@@ -305,6 +318,20 @@ describe("HandWorldScene component", () => {
     expect(name.style.color).toBe("rgb(22, 163, 74)");
   });
 
+  it("renders system messages with chat-history-system class", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", playerName: "Alice", playerColor: "#e11d48", text: "Hello!", timestamp: 1000 },
+      { id: "sys1", playerName: "Bot", playerColor: "#6b7280", text: "Player 42 joined", timestamp: 2000, isSystem: true },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatHistory={messages} />
+    );
+    const msgElements = container.querySelectorAll(".chat-history-message");
+    expect(msgElements).toHaveLength(2);
+    expect(msgElements[0].classList.contains("chat-history-system")).toBe(false);
+    expect(msgElements[1].classList.contains("chat-history-system")).toBe(true);
+  });
+
   // --- Idle detection ---
 
   it("shows idle suffix in presence panel for idle remote players", () => {
@@ -444,5 +471,477 @@ describe("HandWorldScene component", () => {
     );
     const badge = container.querySelector(".player-count-badge");
     expect(badge).toBeNull();
+  });
+
+  // --- Typing indicator ---
+
+  it("passes isLocalTyping to local player avatar", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} isLocalTyping={true} />
+    );
+    const indicator = container.querySelector(".human-player .typing-indicator");
+    expect(indicator).toBeTruthy();
+    expect(indicator?.textContent).toBe("...");
+  });
+
+  it("passes remoteTyping to remote player avatars", () => {
+    const props = {
+      ...BASE_SCENE_PROPS,
+      remotePlayers: [
+        { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 40, direction: "left" as const, walking: false, idle: false, typing: false },
+      ],
+      remoteTyping: { r1: true },
+    };
+    const { container } = render(<HandWorldScene {...props} />);
+    const indicator = container.querySelector(".remote-player .typing-indicator");
+    expect(indicator).toBeTruthy();
+  });
+
+  it("calls onSetTyping when chat input text changes", () => {
+    const onSetTyping = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSetTyping={onSetTyping} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "typing..." } });
+    expect(onSetTyping).toHaveBeenCalledWith(true);
+  });
+
+  it("calls onSetTyping(false) when chat input is cleared", () => {
+    const onSetTyping = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSetTyping={onSetTyping} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    // First type something, then clear it
+    fireEvent.change(input, { target: { value: "hi" } });
+    expect(onSetTyping).toHaveBeenCalledWith(true);
+    onSetTyping.mockClear();
+    fireEvent.change(input, { target: { value: "" } });
+    expect(onSetTyping).toHaveBeenCalledWith(false);
+  });
+
+  it("calls onSetTyping(false) on chat submit", () => {
+    const onSetTyping = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onSetTyping={onSetTyping} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Hello" } });
+    fireEvent.submit(container.querySelector(".chat-input-form")!);
+    expect(onSetTyping).toHaveBeenLastCalledWith(false);
+  });
+
+  // --- Minimap ---
+
+  it("renders minimap when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    expect(container.querySelector(".minimap")).toBeTruthy();
+  });
+
+  it("hides minimap when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".minimap")).toBeNull();
+  });
+
+  it("renders minimap with local player dot", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" playerPosition={{ x: 30, y: 70 }} />
+    );
+    const localDot = container.querySelector(".minimap-dot-local");
+    expect(localDot).toBeTruthy();
+    expect((localDot as HTMLElement).style.left).toBe("30%");
+    expect((localDot as HTMLElement).style.top).toBe("70%");
+  });
+
+  it("renders minimap with remote player dots", () => {
+    const remotes: RemotePlayer[] = [
+      { player_id: "r1", name: "Alice", color: "#e11d48", x: 20, y: 40, direction: "down", walking: false, idle: false },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" remotePlayers={remotes} />
+    );
+    const remoteDots = container.querySelectorAll(".minimap-dot-remote");
+    expect(remoteDots).toHaveLength(1);
+  });
+
+  it("renders minimap worker dots for active workers", () => {
+    const props = {
+      ...BASE_SCENE_PROPS,
+      connectionStatus: "connected" as const,
+      workerEntries: [SCENE_WORKER_ENTRY],
+    };
+    const { container } = render(<HandWorldScene {...props} />);
+    const workerDots = container.querySelectorAll(".minimap-dot-worker");
+    expect(workerDots).toHaveLength(1);
+  });
+
+  // --- Chat cooldown ---
+
+  it("disables chat input when chatOnCooldown is true", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatOnCooldown={true} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    expect(input.placeholder).toBe("Wait...");
+  });
+
+  it("does not call onSendChat when chatOnCooldown", () => {
+    const onSendChat = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} chatOnCooldown={true} onSendChat={onSendChat} />
+    );
+    const input = container.querySelector(".chat-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Blocked" } });
+    fireEvent.submit(container.querySelector(".chat-input-form")!);
+    expect(onSendChat).not.toHaveBeenCalled();
+  });
+
+  // --- Reconnection banner ---
+
+  it("shows reconnect banner when connectionStatus is connecting", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connecting" />
+    );
+    const banner = container.querySelector(".reconnect-banner");
+    expect(banner).toBeTruthy();
+    expect(banner?.getAttribute("role")).toBe("alert");
+    expect(banner?.textContent).toContain("Reconnecting");
+    expect(container.querySelector(".reconnect-spinner")).toBeTruthy();
+  });
+
+  it("hides reconnect banner when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    expect(container.querySelector(".reconnect-banner")).toBeNull();
+  });
+
+  it("hides reconnect banner when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".reconnect-banner")).toBeNull();
+  });
+
+  it("shows connection failed banner when status is failed", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="failed" />
+    );
+    const banner = container.querySelector(".reconnect-banner.reconnect-failed");
+    expect(banner).toBeTruthy();
+    expect(banner?.getAttribute("role")).toBe("alert");
+    expect(banner?.textContent).toContain("Connection failed");
+  });
+
+  it("shows 'Connection failed' in status hint when status is failed", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="failed" />
+    );
+    const hint = container.querySelector(".status-summary-hint");
+    expect(hint?.textContent).toContain("Connection failed");
+  });
+
+  // --- Emote picker ---
+
+  it("shows emote picker button when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const btn = container.querySelector(".emote-picker-btn");
+    expect(btn).toBeTruthy();
+    expect(btn?.getAttribute("aria-label")).toBe("Toggle emote picker");
+  });
+
+  it("hides emote picker button when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".emote-picker-btn")).toBeNull();
+  });
+
+  it("toggles emote picker panel on button click", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const btn = container.querySelector(".emote-picker-btn")!;
+    expect(container.querySelector(".emote-picker-panel")).toBeNull();
+    fireEvent.click(btn);
+    const panel = container.querySelector(".emote-picker-panel");
+    expect(panel).toBeTruthy();
+    expect(panel?.getAttribute("aria-label")).toBe("Emote picker");
+    // Shows 4 emote items
+    expect(container.querySelectorAll(".emote-picker-item")).toHaveLength(4);
+    // Click again to close
+    fireEvent.click(btn);
+    expect(container.querySelector(".emote-picker-panel")).toBeNull();
+  });
+
+  it("calls onTriggerEmote and closes panel when emote item clicked", () => {
+    const onTriggerEmote = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" onTriggerEmote={onTriggerEmote} />
+    );
+    fireEvent.click(container.querySelector(".emote-picker-btn")!);
+    const items = container.querySelectorAll(".emote-picker-item");
+    // Click first emote (key "1" = wave)
+    fireEvent.click(items[0]);
+    expect(onTriggerEmote).toHaveBeenCalledWith("1");
+    // Panel should be closed after clicking
+    expect(container.querySelector(".emote-picker-panel")).toBeNull();
+  });
+
+  it("shows emote name and key binding in picker items", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    fireEvent.click(container.querySelector(".emote-picker-btn")!);
+    const labels = container.querySelectorAll(".emote-picker-label");
+    expect(labels[0].textContent).toBe("wave");
+    expect(labels[1].textContent).toBe("celebrate");
+    const keys = container.querySelectorAll(".emote-picker-key");
+    expect(keys[0].textContent).toBe("1");
+    expect(keys[1].textContent).toBe("2");
+  });
+
+  // --- Shared decorations ---
+
+  it("renders decoration toolbar when connected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const toolbar = container.querySelector(".decoration-toolbar");
+    expect(toolbar).toBeTruthy();
+    expect(toolbar?.getAttribute("aria-label")).toBe("Decoration toolbar");
+  });
+
+  it("hides decoration toolbar when disconnected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="disconnected" />
+    );
+    expect(container.querySelector(".decoration-toolbar")).toBeNull();
+  });
+
+  it("renders decoration emoji palette with correct count", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    expect(buttons.length).toBe(8);
+  });
+
+  it("shows decoration count in toolbar header", () => {
+    const decos: WorldDecoration[] = [
+      { id: "d1", emoji: "\u{1F338}", x: 30, y: 40, placedBy: "Alice", color: "#e11d48", placedAt: 1000 },
+      { id: "d2", emoji: "\u{2B50}", x: 50, y: 60, placedBy: "Bob", color: "#2563eb", placedAt: 2000 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decorations={decos} />
+    );
+    const header = container.querySelector(".decoration-toolbar-header");
+    expect(header?.textContent).toContain("2/20");
+  });
+
+  it("renders world decoration elements at correct positions", () => {
+    const decos: WorldDecoration[] = [
+      { id: "d1", emoji: "\u{1F338}", x: 25, y: 45, placedBy: "Alice", color: "#e11d48", placedAt: 1000 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} decorations={decos} />
+    );
+    const deco = container.querySelector(".world-decoration") as HTMLElement;
+    expect(deco).toBeTruthy();
+    expect(deco.textContent).toBe("\u{1F338}");
+    expect(deco.style.left).toBe("25%");
+    expect(deco.style.top).toBe("45%");
+    expect(deco.title).toBe("Placed by Alice");
+  });
+
+  it("shows clear button when decorations exist", () => {
+    const decos: WorldDecoration[] = [
+      { id: "d1", emoji: "\u{1F338}", x: 30, y: 40, placedBy: "Alice", color: "#e11d48", placedAt: 1000 },
+    ];
+    const onClear = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decorations={decos} onClearDecorations={onClear} />
+    );
+    const clearBtn = container.querySelector(".decoration-clear-btn");
+    expect(clearBtn).toBeTruthy();
+    fireEvent.click(clearBtn!);
+    expect(onClear).toHaveBeenCalled();
+  });
+
+  it("hides clear button when no decorations", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decorations={[]} />
+    );
+    expect(container.querySelector(".decoration-clear-btn")).toBeNull();
+  });
+
+  it("selects emoji and shows placement hint on click", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    fireEvent.click(buttons[0]);
+    expect(buttons[0].classList.contains("selected")).toBe(true);
+    expect(buttons[0].getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector(".decoration-hint")).toBeTruthy();
+    expect(container.querySelector(".decoration-hint")?.textContent).toContain("Double-click");
+  });
+
+  it("deselects emoji on second click", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    fireEvent.click(buttons[0]);
+    expect(buttons[0].classList.contains("selected")).toBe(true);
+    fireEvent.click(buttons[0]);
+    expect(buttons[0].classList.contains("selected")).toBe(false);
+    expect(container.querySelector(".decoration-hint")).toBeNull();
+  });
+
+  it("adds deco-placing class to scene when emoji selected", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const scene = container.querySelector(".world-scene");
+    expect(scene?.classList.contains("deco-placing")).toBe(false);
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    fireEvent.click(buttons[0]);
+    expect(scene?.classList.contains("deco-placing")).toBe(true);
+  });
+
+  it("disables decoration emoji buttons during cooldown", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decoOnCooldown={true} />
+    );
+    const buttons = container.querySelectorAll(".decoration-emoji-btn");
+    expect(buttons.length).toBeGreaterThan(0);
+    buttons.forEach((btn) => {
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+
+  // --- Color picker ---
+
+  it("renders color swatches in the color picker row", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" />
+    );
+    const swatches = container.querySelectorAll(".color-swatch");
+    expect(swatches.length).toBe(10);
+  });
+
+  it("marks the selected color swatch", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} playerColorInput="#e11d48" />
+    );
+    const swatches = container.querySelectorAll(".color-swatch");
+    expect(swatches[0].classList.contains("selected")).toBe(true);
+    expect(swatches[1].classList.contains("selected")).toBe(false);
+  });
+
+  it("calls onPlayerColorChange when a swatch is clicked", () => {
+    const onColorChange = vi.fn();
+    const { container } = render(
+      <HandWorldScene
+        {...BASE_SCENE_PROPS}
+        playerColorInput=""
+        onPlayerColorChange={onColorChange}
+      />
+    );
+    const swatches = container.querySelectorAll(".color-swatch");
+    fireEvent.click(swatches[2]);
+    expect(onColorChange).toHaveBeenCalledWith("#16a34a");
+  });
+
+  // -------------------------------------------------------------------------
+  // Remote cursor rendering
+  // -------------------------------------------------------------------------
+
+  it("renders remote cursors with name and color", () => {
+    const cursors: RemoteCursor[] = [
+      { player_id: "99", name: "Alice", color: "#e11d48", x: 30, y: 40 },
+      { player_id: "100", name: "Bob", color: "#2563eb", x: 70, y: 60 },
+    ];
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} remoteCursors={cursors} />
+    );
+    const cursorEls = container.querySelectorAll(".remote-cursor");
+    expect(cursorEls.length).toBe(2);
+    expect(cursorEls[0].getAttribute("aria-label")).toBe("Alice's cursor");
+    expect(cursorEls[1].getAttribute("aria-label")).toBe("Bob's cursor");
+
+    // Check labels
+    const labels = container.querySelectorAll(".remote-cursor-label");
+    expect(labels[0].textContent).toBe("Alice");
+    expect(labels[1].textContent).toBe("Bob");
+  });
+
+  it("does not render cursors when list is empty", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} remoteCursors={[]} />
+    );
+    expect(container.querySelectorAll(".remote-cursor").length).toBe(0);
+  });
+
+  it("calls onCursorMove on mouse move over scene", () => {
+    const onCursorMove = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onCursorMove={onCursorMove} />
+    );
+    const scene = container.querySelector(".world-scene")!;
+    // Mock getBoundingClientRect for percentage calculation
+    vi.spyOn(scene, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 1000, height: 500,
+      right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}),
+    });
+    fireEvent.mouseMove(scene, { clientX: 500, clientY: 250 });
+    expect(onCursorMove).toHaveBeenCalledWith({ x: 50, y: 50 });
+  });
+
+  it("calls onCursorMove(null) on mouse leave", () => {
+    const onCursorMove = vi.fn();
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} onCursorMove={onCursorMove} />
+    );
+    const scene = container.querySelector(".world-scene")!;
+    fireEvent.mouseLeave(scene);
+    expect(onCursorMove).toHaveBeenCalledWith(null);
+  });
+
+  // -------------------------------------------------------------------------
+  // Accessibility — aria-live on banners, aria-label on refresh button
+  // -------------------------------------------------------------------------
+
+  it("reconnect banner has aria-live=polite for screen reader announcements", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connecting" />
+    );
+    const banner = container.querySelector(".reconnect-banner");
+    expect(banner?.getAttribute("aria-live")).toBe("polite");
+  });
+
+  it("connection failed banner has aria-live=assertive", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="failed" />
+    );
+    const banner = container.querySelector(".reconnect-banner.reconnect-failed");
+    expect(banner?.getAttribute("aria-live")).toBe("assertive");
+  });
+
+  it("refresh usage button has aria-label", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} showClaudeUsage />
+    );
+    const btn = container.querySelector(".usage-refresh-btn");
+    expect(btn?.getAttribute("aria-label")).toBe("Refresh Claude usage");
   });
 });

@@ -57,7 +57,7 @@ Three runtime surfaces share the same core library:
 
 - **config** — `Config.from_env()` loads `.env`, env vars, CLI overrides
 - **repo** — `RepoIndex` builds file maps from local repos
-- **github** — `GitHubClient` for clone/branch/commit/push/PR operations
+- **github** — `GitHubClient` for clone/branch/commit/push/PR/issue operations
 - **ai_providers/** — Provider wrappers (OpenAI, Anthropic, Google, LiteLLM, Ollama) with common interface
 - **hands/v1/hand/** — Execution backends (see below)
 - **meta/tools/** — Filesystem, command, web, and registry tools

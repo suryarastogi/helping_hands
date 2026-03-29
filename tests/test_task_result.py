@@ -8,6 +8,8 @@ API clients receive non-serializable objects that crash JSON serialization;
 if the None branch regresses, in-flight task polls return incorrect payloads.
 """
 
+import pytest
+
 from helping_hands.server.task_result import normalize_task_result
 
 
@@ -110,3 +112,47 @@ def test_normalize_task_result_exception_empty_message() -> None:
     assert result is not None
     assert result["error"] == ""
     assert result["error_type"] == "RuntimeError"
+
+
+# ---------------------------------------------------------------------------
+# Status validation edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_task_result_empty_status_raises() -> None:
+    with pytest.raises(ValueError, match="status must not be empty"):
+        normalize_task_result("", {"ok": True})
+
+
+def test_normalize_task_result_whitespace_status_raises() -> None:
+    with pytest.raises(ValueError, match="status must not be empty"):
+        normalize_task_result("   ", {"ok": True})
+
+
+def test_normalize_task_result_none_status_raises() -> None:
+    with pytest.raises(TypeError, match="status must be a string"):
+        normalize_task_result(None, {"ok": True})  # type: ignore[arg-type]
+
+
+def test_normalize_task_result_int_status_raises() -> None:
+    with pytest.raises(TypeError, match="status must be a string, got int"):
+        normalize_task_result(42, {"ok": True})  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Non-serializable object fallback
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_task_result_non_serializable_object() -> None:
+    """Objects that fail json.dumps should fall back to str()."""
+
+    class Widget:
+        def __str__(self) -> str:
+            return "widget-repr"
+
+    result = normalize_task_result("SUCCESS", Widget())
+    assert result is not None
+    assert result["value"] == "widget-repr"
+    assert result["value_type"] == "Widget"
+    assert result["status"] == "SUCCESS"

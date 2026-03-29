@@ -264,9 +264,11 @@ class Hand(abc.ABC):
         self._interrupt_event = Event()
         self.auto_pr = True
         self.pr_number: int | None = None
+        self.issue_number: int | None = None
         self.fix_ci: bool = False
         self.ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
         self.ci_max_retries: int = _DEFAULT_CI_MAX_RETRIES
+        self.last_pr_metadata: dict[str, str] = {}
 
         # Resolve TOOLS (callable capabilities) — independent axis.
         tool_selection = tool_registry.normalize_tool_selection(
@@ -891,6 +893,8 @@ class Hand(abc.ABC):
                 commit_sha=commit_sha,
             )
 
+        self._post_issue_link_comment(gh, repo, pr_url)
+
         return self._pr_result_metadata(
             metadata,
             status=PRStatus.UPDATED,
@@ -1124,6 +1128,9 @@ class Hand(abc.ABC):
             commit_sha=commit_sha,
         )
 
+        if self.issue_number is not None:
+            pr_body += f"\n\nCloses #{self.issue_number}"
+
         pr = gh.create_pr(
             repo,
             title=pr_title,
@@ -1131,6 +1138,9 @@ class Hand(abc.ABC):
             head=branch,
             base=base_branch,
         )
+
+        self._post_issue_link_comment(gh, repo, pr.url)
+
         return self._pr_result_metadata(
             metadata,
             status=PRStatus.CREATED,
@@ -1139,6 +1149,35 @@ class Hand(abc.ABC):
             pr_branch=branch,
             pr_commit=commit_sha,
         )
+
+    def _post_issue_link_comment(
+        self,
+        gh: Any,
+        repo: str,
+        pr_url: str,
+    ) -> None:
+        """Post a comment on the linked issue with a link to the PR.
+
+        Does nothing if ``self.issue_number`` is not set.  Errors are
+        logged but do not prevent finalization from succeeding.
+        """
+        if self.issue_number is None:
+            return
+        try:
+            gh.create_issue_comment(
+                repo,
+                self.issue_number,
+                body=(
+                    f"A pull request has been opened for this issue: {pr_url}\n\n"
+                    "<!-- helping_hands:issue_link -->"
+                ),
+            )
+        except Exception:
+            logger.debug(
+                "Failed to post issue comment on #%s",
+                self.issue_number,
+                exc_info=True,
+            )
 
     def _validate_finalization_preconditions(
         self,
@@ -1239,6 +1278,7 @@ class Hand(abc.ABC):
 
         result = self._validate_finalization_preconditions(metadata)
         if result is None:
+            self.last_pr_metadata = metadata
             return metadata
         repo_dir, repo = result
 
@@ -1259,7 +1299,7 @@ class Hand(abc.ABC):
                     self._configure_authenticated_push_remote(repo_dir, repo, gh.token)
 
                 if self.pr_number is not None:
-                    return self._push_to_existing_pr(
+                    metadata = self._push_to_existing_pr(
                         gh=gh,
                         repo=repo,
                         repo_dir=repo_dir,
@@ -1268,8 +1308,10 @@ class Hand(abc.ABC):
                         summary=summary,
                         metadata=metadata,
                     )
+                    self.last_pr_metadata = metadata
+                    return metadata
 
-                return self._create_new_pr(
+                metadata = self._create_new_pr(
                     gh=gh,
                     repo=repo,
                     repo_dir=repo_dir,
@@ -1278,16 +1320,21 @@ class Hand(abc.ABC):
                     summary=summary,
                     metadata=metadata,
                 )
+                self.last_pr_metadata = metadata
+                return metadata
         except ValueError as exc:
             metadata[_META_PR_STATUS] = PRStatus.MISSING_TOKEN
             metadata[_META_PR_ERROR] = str(exc)
+            self.last_pr_metadata = metadata
             return metadata
         except RuntimeError as exc:
             metadata[_META_PR_STATUS] = PRStatus.GIT_ERROR
             metadata[_META_PR_ERROR] = str(exc)
+            self.last_pr_metadata = metadata
             return metadata
         except _GITHUB_ERRORS as exc:
             logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
             metadata[_META_PR_STATUS] = PRStatus.ERROR
             metadata[_META_PR_ERROR] = str(exc)
+            self.last_pr_metadata = metadata
             return metadata

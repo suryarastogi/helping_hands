@@ -109,6 +109,9 @@ class TestBuildForm:
             "repo_path": "suryarastogi/helping_hands",
             "prompt": "update readme",
             "pr_number": 12,
+            "issue_number": None,
+            "create_issue": False,
+            "project_url": None,
             "backend": "basic-langgraph",
             "model": "gpt-5.2",
             "max_iterations": 4,
@@ -155,6 +158,9 @@ class TestBuildForm:
             "repo_path": "suryarastogi/helping_hands",
             "prompt": "small codex task",
             "pr_number": None,
+            "issue_number": None,
+            "create_issue": False,
+            "project_url": None,
             "backend": "codexcli",
             "model": "gpt-5.2",
             "max_iterations": 3,
@@ -203,6 +209,9 @@ class TestBuildForm:
             "repo_path": "suryarastogi/helping_hands",
             "prompt": "small claude task",
             "pr_number": None,
+            "issue_number": None,
+            "create_issue": False,
+            "project_url": None,
             "backend": "claudecodecli",
             "model": "anthropic/claude-sonnet-4-5",
             "max_iterations": 3,
@@ -248,6 +257,9 @@ class TestBuildForm:
             "repo_path": "suryarastogi/helping_hands",
             "prompt": "small goose task",
             "pr_number": None,
+            "issue_number": None,
+            "create_issue": False,
+            "project_url": None,
             "backend": "goose",
             "model": None,
             "max_iterations": 3,
@@ -294,6 +306,9 @@ class TestBuildForm:
             "repo_path": "suryarastogi/helping_hands",
             "prompt": "small gemini task",
             "pr_number": None,
+            "issue_number": None,
+            "create_issue": False,
+            "project_url": None,
             "backend": "geminicli",
             "model": "gemini-2.0-flash",
             "max_iterations": 3,
@@ -406,6 +421,69 @@ class TestBuildForm:
         query = _query_from_location(location)
         assert query["backend"] == ["bad-backend"]
         assert "error" in query
+
+    def test_enqueues_with_issue_number(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """issue_number form field is parsed as int and forwarded."""
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-issue")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "owner/repo",
+                "prompt": "fix bug",
+                "backend": "basic-langgraph",
+                "issue_number": "42",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert captured["issue_number"] == 42
+        assert captured["create_issue"] is False
+        assert captured["project_url"] is None
+
+    def test_enqueues_with_create_issue_and_project_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """create_issue checkbox and project_url are forwarded."""
+        captured: dict[str, object] = {}
+
+        def fake_delay(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(id="task-create")
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.delay",
+            fake_delay,
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/build/form",
+            data={
+                "repo_path": "owner/repo",
+                "prompt": "add feature",
+                "backend": "basic-langgraph",
+                "create_issue": "on",
+                "project_url": "https://github.com/orgs/myorg/projects/5",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert captured["issue_number"] is None
+        assert captured["create_issue"] is True
+        assert captured["project_url"] == "https://github.com/orgs/myorg/projects/5"
 
 
 class TestMonitorPage:

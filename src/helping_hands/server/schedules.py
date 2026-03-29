@@ -626,6 +626,28 @@ class ScheduleManager:
         task.run_count += 1
         self._save_meta(task)
 
+    def update_pr_number(self, schedule_id: str, pr_number: int) -> bool:
+        """Persist a PR number back to a schedule after first creation.
+
+        Called after a scheduled build creates a new PR so that subsequent
+        runs push to the same PR instead of creating new ones.
+
+        Args:
+            schedule_id: The schedule ID.
+            pr_number: The PR number to persist.
+
+        Returns:
+            True if updated, False if the schedule was not found.
+        """
+        task = self._load_meta(schedule_id)
+        if task is None:
+            return False
+
+        task.pr_number = pr_number
+        self._save_meta(task)
+        logger.info("Auto-persisted PR #%d to schedule %s", pr_number, schedule_id)
+        return True
+
     def trigger_now(self, schedule_id: str) -> str | None:
         """Manually trigger a scheduled task to run immediately.
 
@@ -659,6 +681,7 @@ class ScheduleManager:
             ci_check_wait_minutes=task.ci_check_wait_minutes,
             github_token=task.github_token,
             reference_repos=task.reference_repos,
+            schedule_id=task.schedule_id,
         )
 
         self.record_run(schedule_id, result.id)

@@ -22,6 +22,9 @@ export const CHAT_MAX_LENGTH = 120;
 /** Maximum number of messages retained in the chat history panel. */
 export const CHAT_HISTORY_MAX = 50;
 
+/** Cooldown (ms) between consecutive chat messages to prevent spam. */
+export const CHAT_COOLDOWN_MS = 2000;
+
 /** How long (ms) of no movement before a player is considered idle/AFK. */
 export const IDLE_TIMEOUT_MS = 30_000;
 
@@ -78,3 +81,32 @@ export const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 
 
 /** Walkable area bounds (% of scene). */
 export const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
+
+// ---------------------------------------------------------------------------
+// World decorations
+// ---------------------------------------------------------------------------
+
+/** Emoji palette for placing decorations in the world. */
+export const DECORATION_EMOJIS = ["\u{1F338}", "\u{2B50}", "\u{1F525}", "\u{1F4A1}", "\u{1F3B5}", "\u{2764}\u{FE0F}", "\u{1F331}", "\u{1F48E}"];
+
+/** Maximum number of shared decorations in the world. */
+export const MAX_DECORATIONS = 20;
+
+/** Cooldown (ms) between consecutive decoration placements to prevent spam. */
+export const DECO_COOLDOWN_MS = 1500;
+
+/** Padding (%) from office bounds edges for spawn randomization. */
+export const SPAWN_PADDING = 10;
+
+// ---------------------------------------------------------------------------
+// Connection resilience
+// ---------------------------------------------------------------------------
+
+/** Maximum number of reconnection attempts before giving up. */
+export const MAX_RECONNECT_ATTEMPTS = 10;
+
+/** Minimum interval (ms) between position broadcasts via Yjs awareness. */
+export const POSITION_BROADCAST_INTERVAL_MS = 60;
+
+/** Minimum interval (ms) between cursor position broadcasts via Yjs awareness. */
+export const CURSOR_BROADCAST_INTERVAL_MS = 100;

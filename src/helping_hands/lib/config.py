@@ -13,9 +13,9 @@ from helping_hands.lib.validation import parse_comma_list
 __all__ = ["Config"]
 
 try:
-    from dotenv import load_dotenv
+    from dotenv import load_dotenv as _load_dotenv
 except ImportError:  # pragma: no cover - optional dependency safety
-    load_dotenv = None  # type: ignore[assignment]
+    _load_dotenv = None  # type: ignore[assignment]
 
 ConfigValue = str | bool | tuple[str, ...] | None
 
@@ -78,14 +78,14 @@ def _get_env_stripped(name: str, default: str = "") -> str:
 
 def _load_env_files(repo: str | None = None) -> None:
     """Load dotenv files from cwd and target repo (if available)."""
-    if load_dotenv is None:
+    if _load_dotenv is None:
         return
 
-    load_dotenv(Path.cwd() / ".env", override=False)
+    _load_dotenv(Path.cwd() / ".env", override=False)
     if repo:
         repo_path = Path(repo).expanduser()
         if repo_path.is_dir():
-            load_dotenv(repo_path / ".env", override=False)
+            _load_dotenv(repo_path / ".env", override=False)
 
 
 @dataclass(frozen=True)

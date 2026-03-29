@@ -34,7 +34,7 @@ class LiteLLMProvider(AIProvider):
 
         api_key = os.environ.get(self.api_key_env_var, "").strip()
         if api_key:
-            litellm.api_key = api_key  # type: ignore[attr-defined]
+            setattr(litellm, "api_key", api_key)  # noqa: B010
         return litellm
 
     def _complete_impl(

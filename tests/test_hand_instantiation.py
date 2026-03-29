@@ -154,6 +154,16 @@ class TestHandInstantiation:
         hand = hand_cls(config=config, repo_index=ri)
         assert hand.fix_ci is False
 
+    @pytest.mark.parametrize(
+        "hand_cls",
+        _CONCRETE_HANDS,
+        ids=[c.__name__ for c in _CONCRETE_HANDS],
+    )
+    def test_default_last_pr_metadata_is_empty_dict(self, hand_cls, _hand_deps) -> None:
+        config, ri = _hand_deps
+        hand = hand_cls(config=config, repo_index=ri)
+        assert hand.last_pr_metadata == {}
+
 
 class TestHandResponseConstruction:
     """HandResponse dataclass construction tests."""
