@@ -63,7 +63,8 @@ plugins:
 
 markdown_extensions:
   - admonition
-  - pymdownx.highlight
+  - pymdownx.highlight:
+      auto_title: false
   - pymdownx.superfences
   - pymdownx.details
   - toc:
