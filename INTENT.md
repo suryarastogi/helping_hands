@@ -4,15 +4,23 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Multiplayer YJS & Claude Stream Emitter Coverage (2026-03-29)
+
+Close remaining testable coverage gaps in `multiplayer_yjs.py` (95% → 99%) and
+`cli/claude.py` (98% → 99%): decoration state reading branches, activity summary
+edge cases, and stream emitter non-dict event/block handling. See
+[v337 plan](docs/exec-plans/active/v337-multiplayer-and-claude-emitter-coverage.md).
+
+## Recently Completed
+
 ### OAuth Token Test Fix & Credentials Coverage (2026-03-29) — Completed
 
 Fixed 16 broken `_get_claude_oauth_token` tests across 3 test files — the
 addition of `_read_claude_credentials_file()` as a first-try path caused tests
 that only mock `subprocess.run` to find a real token before the mock was reached.
 Added 6 new tests (5 `_read_claude_credentials_file` + 1 credentials-file-first
-path). See [v336 plan](docs/exec-plans/active/v336-oauth-token-test-fix-and-credentials-coverage.md).
+path). See [v336 plan](docs/exec-plans/completed/2026/v336-oauth-token-test-fix-and-credentials-coverage.md).
 
-## Recently Completed
 
 ### ModelProvider Coverage Hardening (2026-03-29) — Completed
 

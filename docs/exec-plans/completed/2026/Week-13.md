@@ -28,8 +28,10 @@ comments + frontend issue badge), task status sync to GitHub issues
 GitHub Projects v2 board integration with full-stack `project_url`
 support via GraphQL API, GitHub integration test coverage hardening
 (form endpoint, PR body "Closes #N", invalid project URL edge case),
-server/validation/CLI hand coverage hardening (v331–v335), and OAuth
-token test regression fix with `_read_claude_credentials_file` coverage (v336).
+server/validation/CLI hand coverage hardening (v331–v335), OAuth
+token test regression fix with `_read_claude_credentials_file` coverage (v336),
+and multiplayer YJS decoration/activity + Claude stream emitter edge case
+coverage (v337).
 
 ---
 
@@ -553,6 +555,16 @@ token test regression fix with `_read_claude_credentials_file` coverage (v336).
 
 ---
 
+## Mar 29 — Multiplayer YJS & Claude Stream Emitter Coverage (v337)
+
+**multiplayer_yjs.py (95% → 99%):** 5 new tests covering `get_player_activity_summary` awareness-None room skip and unparseable raw state skip; `get_decoration_state` ydoc-None room skip, deco_map exception skip, deco_map-None skip.
+
+**cli/claude.py (98% → 99%):** 4 new `_StreamJsonEmitter` tests covering JSON primitive string/number pass-through, non-dict block in assistant message skipped, non-dict block in user message skipped.
+
+**9 new tests. 6533 backend tests, 75.84% coverage.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -619,3 +631,4 @@ token test regression fix with `_read_claude_credentials_file` coverage (v336).
 - `v334-goose-cli-base-coverage.md`
 - `v335-model-provider-coverage-hardening.md`
 - `v336-oauth-token-test-fix-and-credentials-coverage.md`
+- `v337-multiplayer-and-claude-emitter-coverage.md`

@@ -119,3 +119,74 @@ class TestStreamJsonEmitterLabelMsg:
 
         asyncio.run(run())
         assert any("[back] hi there" in c for c in collected)
+
+
+class TestStreamJsonEmitterEdgeCases:
+    """Tests for non-dict JSON events and non-dict blocks in _StreamJsonEmitter."""
+
+    def test_json_primitive_string_passes_through(self) -> None:
+        """A JSON string literal (not a dict) should be passed through verbatim."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "test")
+            # A valid JSON string (not an object)
+            await emitter('"hello world"\n')
+
+        asyncio.run(run())
+        assert any('"hello world"' in c for c in collected)
+
+    def test_json_primitive_number_passes_through(self) -> None:
+        """A JSON number (not a dict) should be passed through verbatim."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "test")
+            await emitter("42\n")
+
+        asyncio.run(run())
+        assert any("42" in c for c in collected)
+
+    def test_non_dict_block_in_assistant_message_skipped(self) -> None:
+        """Non-dict blocks in assistant message content should be skipped."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "hand")
+            # Content array has a string block (non-dict) mixed with a valid tool_use
+            event = '{"type":"assistant","message":{"content":["stray string",{"type":"tool_use","name":"Read","input":{"file_path":"/b.py"}}]}}'
+            await emitter(event + "\n")
+
+        asyncio.run(run())
+        # The valid tool_use should still be emitted
+        assert any("[hand] Read /b.py" in c for c in collected)
+        # The stray string should not appear as a labelled message
+        assert not any("stray string" in c for c in collected)
+
+    def test_non_dict_block_in_user_message_skipped(self) -> None:
+        """Non-dict blocks in user message content should be skipped."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "hand")
+            # Content has a non-dict element followed by a valid tool_result
+            event = '{"type":"user","message":{"content":[123,{"type":"tool_result","content":"done ok"}]}}'
+            await emitter(event + "\n")
+
+        asyncio.run(run())
+        # The tool result content should be emitted
+        assert any("done ok" in c for c in collected)
+        # The raw number should not appear as a labelled message
+        assert not any("123" in c for c in collected)
