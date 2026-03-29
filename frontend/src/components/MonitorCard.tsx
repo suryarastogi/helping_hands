@@ -23,6 +23,7 @@ type FilesTab = "diff" | "explorer";
 
 export interface MonitorCardProps {
   taskId: string | null;
+  issueNumber: number | null;
   status: string;
   taskError: { error: string; errorType: string } | null;
   isPolling: boolean;
@@ -49,6 +50,7 @@ export interface MonitorCardProps {
 
 export default function MonitorCard({
   taskId,
+  issueNumber,
   status,
   taskError,
   isPolling,
@@ -80,7 +82,9 @@ export default function MonitorCard({
     <section className="card status-card compact-monitor">
       <div className="monitor-bar">
         <div className="monitor-bar-left">
-          <h2 className="monitor-title">Output{taskId ? `: ${shortTaskId(taskId)}` : ""}</h2>
+          <h2 className="monitor-title">Output{taskId ? `: ${shortTaskId(taskId)}` : ""}{issueNumber != null && (
+            <span className="issue-badge" title={`Linked to GitHub issue #${issueNumber}`}> #{issueNumber}</span>
+          )}</h2>
           <div className="pane-tabs" role="tablist" aria-label="Output mode">
             <button
               type="button"

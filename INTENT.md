@@ -84,6 +84,23 @@ Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and `factory.py`
 - Updated 5 `TestBuildForm` expected dicts with new fields
 - 6426 tests passed, 0 failures, 78.48% coverage
 
+### Sync Task Status with GitHub Issue (2026-03-28) — Completed
+
+**Implemented (v327):**
+- `GitHubClient.add_issue_labels()` — adds labels to a GitHub issue, auto-creating labels that don't exist on the repo
+- `GitHubClient.remove_issue_label()` — removes a label from an issue (silently ignores if not present)
+- `_sync_issue_started()` helper in `celery_app.py` — adds `helping-hands:in-progress` label when task begins running
+- `_sync_issue_completed()` helper — posts completion comment with PR link + runtime, swaps label to `helping-hands:completed`, removes `in-progress`
+- `_sync_issue_failed()` helper — posts failure comment with error details, swaps label to `helping-hands:failed`, removes `in-progress`
+- All sync helpers are error-tolerant: failures are logged but never block the build
+- `issue_number` included in Celery progress metadata so frontend can track it during polling
+- `linkedIssueNumber` computed in `useTaskManager` hook from payload
+- MonitorCard shows blue `#N` issue badge in header when a linked issue is present
+- `taskInputs` includes `Issue: #N` when issue number is in the payload
+- 7 new backend tests (3 GitHubClient label methods, 8 celery sync helpers = 11 total backend)
+- 4 new frontend tests (2 MonitorCard badge, 2 useTaskManager linkedIssueNumber)
+- 104 backend GitHub tests (up from 97), 80+ celery tests, 732 frontend tests (up from 728)
+
 ### Create New Issue from Task (2026-03-28) — Completed
 
 **Implemented (v326):**

@@ -631,6 +631,22 @@ button.prefix-chip.reset:hover {
   flex-shrink: 0;
 }
 
+.issue-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #58a6ff;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 .advanced-settings {
   border: 1px solid var(--border);
   border-radius: 10px;

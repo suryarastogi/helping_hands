@@ -22,11 +22,12 @@ query endpoint, AppOverlays/MonitorCard branch coverage hardening
 (component stmts: 96.45% → 99.08%), remote player CSS fixes with
 initial Yjs awareness position sync, and GitHub issue linking with
 full-stack `issue_number` support, create-new-issue-from-task feature,
-task status sync to GitHub issues (running/completed/failed lifecycle
-comments via marker-tagged upsert), and GitHub Projects v2 board
-integration with full-stack `project_url` support via GraphQL API,
-and GitHub integration test coverage hardening (form endpoint, PR body
-"Closes #N", invalid project URL edge case).
+issue lifecycle sync (in-progress/completed/failed labels + status
+comments + frontend issue badge), task status sync to GitHub issues
+(running/completed/failed lifecycle comments via marker-tagged upsert),
+GitHub Projects v2 board integration with full-stack `project_url`
+support via GraphQL API, and GitHub integration test coverage hardening
+(form endpoint, PR body "Closes #N", invalid project URL edge case).
 
 ---
 
@@ -466,6 +467,16 @@ and GitHub integration test coverage hardening (form endpoint, PR body
 
 ---
 
+## Mar 28 — Sync Task Status with GitHub Issue (v327)
+
+**Issue lifecycle sync:** When a task has a linked `issue_number`, the GitHub issue is updated with lifecycle labels and status comments. `_sync_issue_started()` adds `helping-hands:in-progress` label at task start. `_sync_issue_completed()` posts completion comment (with PR link and runtime) and swaps to `helping-hands:completed`. `_sync_issue_failed()` posts failure comment and swaps to `helping-hands:failed`. All sync helpers are error-tolerant.
+
+**GitHubClient:** `add_issue_labels()` (auto-creates missing repo labels) and `remove_issue_label()` (silently handles absent labels). `issue_number` added to Celery progress metadata. Frontend `linkedIssueNumber` derived in `useTaskManager` hook. MonitorCard issue badge.
+
+**15 new tests (7 backend GitHub, 8 celery, 4 frontend). 732 frontend tests total, 104 backend GitHub tests.**
+
+---
+
 ## Mar 28 — Sync Task Status with GitHub Issue (v328)
 
 **Issue status lifecycle sync:** `_sync_issue_status()` helper posts or updates a marker-tagged comment on the linked GitHub issue at key lifecycle points: 🔄 running (hand starts), ✅ completed (with PR URL), ❌ failed (with error). Uses `upsert_pr_comment()` with `<!-- helping_hands:issue_status -->` marker for idempotent updates. Best-effort: errors swallowed.
@@ -546,6 +557,7 @@ and GitHub integration test coverage hardening (form endpoint, PR body
 - `v324-multiplayer-css-fixes-and-spawn-sync.md`
 - `v325-github-issue-linking.md`
 - `v326-create-issue-from-task.md`
+- `v327-sync-task-status-with-github-issue.md`
 - `v328-sync-issue-status.md`
 - `v329-github-projects-integration.md`
 - `v330-github-integration-test-coverage.md`

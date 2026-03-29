@@ -91,6 +91,7 @@ export type UseTaskManagerReturn = {
   detectedPrefixes: string[];
   accUsage: AccumulatedUsage | null;
   taskInputs: InputItem[];
+  linkedIssueNumber: number | null;
   runtimeDisplay: string | null;
 
   // Monitor chrome
@@ -463,6 +464,7 @@ export function useTaskManager(): UseTaskManagerReturn {
     const tools = readSkills(["tools"]);
     const skills = readSkills(["skills"]);
     const runtime = readString(["runtime"]);
+    const issueNumber = readString(["issue_number"]);
     const referenceRepos = readSkills(["reference_repos"]);
 
     if (repoPath) items.push({ label: "Repo", value: repoPath });
@@ -478,11 +480,25 @@ export function useTaskManager(): UseTaskManagerReturn {
     if (fixCi) items.push({ label: "Fix CI", value: fixCi });
     if (tools) items.push({ label: "Tools", value: tools });
     if (skills) items.push({ label: "Skills", value: skills });
+    if (issueNumber) items.push({ label: "Issue", value: `#${issueNumber}` });
     if (referenceRepos) items.push({ label: "Reference repos", value: referenceRepos });
     if (runtime) items.push({ label: "Runtime", value: runtime });
 
     return items;
   }, [payload, selectedTask]);
+
+  // -- Linked issue number --------------------------------------------------
+  const linkedIssueNumber = useMemo<number | null>(() => {
+    const root = asRecord(payload) ?? {};
+    const result = asRecord(root.result);
+    const raw = result?.issue_number ?? root.issue_number;
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw === "string") {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return null;
+  }, [payload]);
 
   // -- Elapsed time display -------------------------------------------------
   const payloadResult = (payload as Record<string, unknown> | null)?.result as Record<string, unknown> | undefined;
@@ -874,6 +890,7 @@ export function useTaskManager(): UseTaskManagerReturn {
     detectedPrefixes,
     accUsage,
     taskInputs,
+    linkedIssueNumber,
     runtimeDisplay,
     monitorOutputRef,
     monitorHeight,
