@@ -4,11 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v333 — DevinCLIHand & Factory Coverage Hardening](exec-plans/active/v333-devin-factory-coverage.md) —
-  Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and
-  `factory.py` `get_enabled_backends()` (82% → ~95%); 23 tests added
+- [v334 — GooseCLIHand & CLIHandBase Coverage Hardening](exec-plans/active/v334-goose-cli-base-coverage.md) —
+  Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and
+  `CLIHandBase` (98% → 99%); 17 tests added, 6510 tests passed
 
 ## Completed plans
+
+- [2026-03-28 v333 — DevinCLIHand & Factory Coverage Hardening](exec-plans/completed/2026/v333-devin-factory-coverage.md) —
+  Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and
+  `factory.py` `get_enabled_backends()` (82% → ~95%); 23 tests added,
+  6485 tests passed
 
 - [2026-03-28 v332 — Validation & Task Result Coverage Hardening](exec-plans/completed/2026/v332-validation-coverage-hardening.md) —
   Close type-validation test gaps in `validation.py` and `task_result.py`:

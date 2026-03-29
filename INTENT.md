@@ -4,12 +4,21 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — In Progress
+### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
 
-Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and `factory.py`
-`get_enabled_backends()` (82% → ~95%). See [v333 plan](docs/exec-plans/active/v333-devin-factory-coverage.md).
+Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and `CLIHandBase`
+(98% → 99%). See [v334 plan](docs/exec-plans/active/v334-goose-cli-base-coverage.md).
 
 ## Recently Completed
+
+### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — Completed
+
+**Implemented (v333):**
+- 15 new DevinCLIHand tests (35 total, up from 20): `_inject_prompt_argument`, `_normalize_base_command`, `_native_cli_auth_env_names`, `_describe_auth`, `_permission_mode`, `_apply_backend_defaults`
+- 8 new `get_enabled_backends` tests (58 factory tests total, up from 50)
+- 6485 backend tests passed, 0 failures, 75.87% coverage
+
+## Previously Completed
 
 ### Validation & Task Result Coverage Hardening (2026-03-28) — Completed
 
