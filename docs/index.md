@@ -8,8 +8,8 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 
 | Document | Purpose |
 |---|---|
-| [ARCHITECTURE.md](https://github.com/suryarastogi/helping_hands/blob/master/ARCHITECTURE.md) | System architecture and module boundaries |
-| [AGENTS.md](https://github.com/suryarastogi/helping_hands/blob/master/AGENTS.md) | AI agent configuration and conventions |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | System architecture and module boundaries |
+| [AGENTS.md](../AGENTS.md) | AI agent configuration and conventions |
 | [DESIGN.md](DESIGN.md) | Internal design patterns and decisions |
 | [FRONTEND.md](FRONTEND.md) | React frontend architecture and conventions |
 | [SECURITY.md](SECURITY.md) | Security model, sandboxing, path safety |
