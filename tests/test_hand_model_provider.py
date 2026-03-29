@@ -480,7 +480,7 @@ class TestBuildEmptyModelValidation:
 
     def test_langchain_empty_model_raises(self) -> None:
         hm = _fake_hand_model("openai", "")
-        with pytest.raises(ValueError, match="hand_model.model"):
+        with pytest.raises(ValueError, match=r"hand_model\.model"):
             build_langchain_chat_model(hm, streaming=False)
 
     def test_atomic_empty_model_raises(self) -> None:
@@ -488,6 +488,6 @@ class TestBuildEmptyModelValidation:
         hm = _fake_hand_model("openai", "")
         with (
             patch.dict("sys.modules", {"instructor": mock_instructor}),
-            pytest.raises(ValueError, match="hand_model.model"),
+            pytest.raises(ValueError, match=r"hand_model\.model"),
         ):
             build_atomic_client(hm)
