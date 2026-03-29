@@ -1,4 +1,15 @@
-"""Shared pytest fixtures for the helping_hands test suite."""
+"""Shared pytest fixtures that enforce test isolation boundaries.
+
+Every test that touches a Hand, Config, or GitHubClient must use these
+fixtures rather than constructing production objects directly.  This
+prevents tests from accidentally reaching the real filesystem, invoking
+real AI providers, or authenticating against live GitHub endpoints.
+The mock_github_client fixture pre-wires the context-manager protocol
+and sensible return values so that tests exercising finalize/PR paths
+stay deterministic without per-test boilerplate.  The make_fake_module
+factory keeps AI-provider tests from importing real SDKs (openai,
+anthropic, etc.) that may not be installed in all CI matrix entries.
+"""
 
 from __future__ import annotations
 
