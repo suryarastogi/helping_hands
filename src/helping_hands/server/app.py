@@ -461,7 +461,17 @@ class ClaudeUsageResponse(BaseModel):
 
 
 def _get_claude_oauth_token() -> str | None:
-    """Read the Claude Code OAuth token from the macOS Keychain."""
+    """Read the Claude Code OAuth token.
+
+    Tries the CLI credentials file first (~/.claude/.credentials.json),
+    then falls back to the macOS Keychain for backwards-compatibility.
+    """
+    # 1) CLI credentials file (works on all platforms)
+    token = _read_claude_credentials_file()
+    if token:
+        return token
+
+    # 2) macOS Keychain fallback
     try:
         result = subprocess.run(
             [
@@ -478,15 +488,26 @@ def _get_claude_oauth_token() -> str | None:
         if result.returncode != 0 or not result.stdout.strip():
             return None
         raw = result.stdout.strip()
-        # The keychain value is JSON — extract the OAuth access token
         try:
             creds = json.loads(raw)
             return creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
         except (json.JSONDecodeError, AttributeError):
-            # Maybe stored as plain token
             return raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
     except (subprocess.SubprocessError, OSError):
         logger.debug("Failed to read Claude OAuth token from Keychain", exc_info=True)
+        return None
+
+
+def _read_claude_credentials_file() -> str | None:
+    """Read the OAuth access token from ~/.claude/.credentials.json."""
+    creds_path = Path.home() / ".claude" / ".credentials.json"
+    try:
+        if not creds_path.is_file():
+            return None
+        creds = json.loads(creds_path.read_text(encoding="utf-8"))
+        return creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
+    except (json.JSONDecodeError, AttributeError, OSError):
+        logger.debug("Failed to read Claude credentials file", exc_info=True)
         return None
 
 
@@ -543,7 +564,7 @@ def _fetch_claude_usage(*, force: bool = False) -> ClaudeUsageResponse:
     token = _get_claude_oauth_token()
     if not token:
         return ClaudeUsageResponse(
-            error="Could not read Claude Code credentials from Keychain",
+            error="Could not read Claude Code credentials",
             fetched_at=now,
         )
 

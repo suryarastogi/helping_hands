@@ -121,7 +121,7 @@ export function useMovement(options: UseMovementOptions): UseMovementReturn {
         target instanceof HTMLTextAreaElement ||
         target?.isContentEditable;
 
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key) && !isTyping) {
         event.preventDefault();
         if (!keysPressed.has(key)) {
           keysPressed.add(key);

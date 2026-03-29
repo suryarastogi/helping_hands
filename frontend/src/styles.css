@@ -46,19 +46,208 @@ body {
 }
 
 .page {
-  max-width: 1280px;
+  max-width: 1440px;
   min-height: 100vh;
   margin: 0 auto;
   padding: 28px 20px 36px;
   display: grid;
   gap: 14px;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr) 260px;
   align-items: start;
+  transition: grid-template-columns 0.25s ease;
+}
+
+.page.left-collapsed {
+  grid-template-columns: 44px minmax(0, 1fr) 260px;
+}
+
+.page.right-collapsed {
+  grid-template-columns: 300px minmax(0, 1fr) 44px;
+}
+
+.page.left-collapsed.right-collapsed {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
 }
 
 .main-column {
   display: grid;
   gap: 14px;
+}
+
+/* ── Sidebar collapse shared ── */
+.sidebar-collapse-btn {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 6px 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  transition: color 0.15s;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--fg);
+}
+
+.collapsed .sidebar-collapse-btn {
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+
+.sidebar-collapsed-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: auto;
+  padding: 8px 0;
+}
+
+/* ── Task list collapse ── */
+.task-list-card.collapsed {
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Chat panel ── */
+.chat-panel-card {
+  position: sticky;
+  top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 60px);
+  overflow: hidden;
+}
+
+.chat-panel-card.collapsed {
+  padding: 8px 4px;
+  align-items: center;
+}
+
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-panel-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.chat-panel-player {
+  display: grid;
+  gap: 6px;
+}
+
+.chat-panel-card .player-name-input {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 5px 8px;
+  outline: none;
+}
+
+.chat-panel-card .player-name-input:focus {
+  border-color: var(--accent, #60a5fa);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.15);
+}
+
+.chat-panel-card .color-picker-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chat-panel-card .color-swatch {
+  width: 18px;
+  height: 18px;
+}
+
+.chat-panel-card .presence-panel {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 0;
+}
+
+.chat-panel-card .presence-list {
+  max-height: 80px;
+}
+
+.chat-panel-card .presence-name {
+  max-width: 140px;
+  font-size: 0.78rem;
+}
+
+.chat-panel-card .chat-history-panel {
+  flex: 1;
+  min-height: 80px;
+  max-height: none;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+}
+
+.chat-empty-hint {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.chat-panel-card .chat-input-form {
+  margin-top: 0;
+}
+
+.chat-panel-card .chat-input {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 6px 8px;
+}
+
+.chat-panel-card .chat-input:focus {
+  border-color: var(--accent, #60a5fa);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.15);
+}
+
+.chat-panel-emote-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-panel-card .emote-picker-panel {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chat-panel-card .emote-picker-item {
+  font-size: 0.72rem;
+  padding: 3px 6px;
 }
 
 .card {
@@ -1483,6 +1672,156 @@ h2 {
   overflow: hidden;
 }
 
+/* ── Hand World Layout: scene + collapsible side panel overlay ── */
+.hand-world-layout {
+  position: relative;
+}
+
+.hand-world-side-panel {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  bottom: 8px;
+  z-index: 11;
+  width: 150px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  font-size: 0.36rem;
+}
+
+.hand-world-side-panel.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.hand-world-side-panel .zen-status-summary,
+.hand-world-side-panel .zen-usage-summary {
+  font-size: 0.36rem;
+  padding: 6px 8px;
+  gap: 3px;
+  border-width: 1px;
+}
+
+.hand-world-side-panel .status-summary-header {
+  font-size: 0.4rem;
+  padding-bottom: 3px;
+  margin-bottom: 1px;
+}
+
+.hand-world-side-panel .stat-icon {
+  font-size: 0.44rem;
+  width: 12px;
+}
+
+.hand-world-side-panel .status-summary-hint {
+  font-size: 0.32rem;
+  margin-top: 2px;
+  padding-top: 2px;
+}
+
+.hand-world-side-panel .player-name-input {
+  font-size: 0.32rem;
+  padding: 2px 3px;
+  width: 70px;
+}
+
+.hand-world-side-panel .color-swatch {
+  width: 13px;
+  height: 13px;
+}
+
+.hand-world-side-panel .presence-name {
+  max-width: 60px;
+}
+
+.hand-world-side-panel .chat-input {
+  font-size: 0.32rem;
+  padding: 2px 4px;
+}
+
+.hand-world-side-panel .chat-history-panel {
+  font-size: 0.32rem;
+  max-height: 50px;
+}
+
+.hand-world-side-panel .emote-picker-panel {
+  font-size: 0.32rem;
+}
+
+.hand-world-side-panel .emote-picker-emoji {
+  font-size: 0.45rem;
+}
+
+.hand-world-side-panel .decoration-toolbar {
+  font-size: 0.3rem;
+}
+
+.hand-world-side-panel .decoration-emoji-btn {
+  font-size: 0.4rem;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  min-width: 0;
+}
+
+.hand-world-side-panel .decoration-palette {
+  gap: 2px;
+}
+
+.hand-world-side-panel .decoration-hint {
+  font-size: 0.28rem;
+}
+
+.hand-world-side-panel .usage-meter-label {
+  font-size: 0.32rem;
+  min-width: 34px;
+}
+
+.hand-world-side-panel .usage-meter-pct {
+  font-size: 0.3rem;
+  min-width: 18px;
+}
+
+.hand-world-side-panel .usage-meter-track {
+  height: 5px;
+  min-width: 38px;
+}
+
+.hand-world-side-panel .usage-placeholder,
+.hand-world-side-panel .usage-error {
+  font-size: 0.3rem;
+}
+
+.side-panel-toggle {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  z-index: 12;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 0.55rem;
+  padding: 3px 5px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  font-family: "Press Start 2P", var(--mono);
+}
+
+.side-panel-toggle:hover {
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.95);
+  border-color: #93c5fd;
+}
+
 .hand-world-card .header h1 {
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -2296,9 +2635,6 @@ h2 {
 }
 
 .zen-status-summary {
-  position: absolute;
-  right: 8px;
-  top: 8px;
   padding: 8px 10px;
   border-radius: 6px;
   background: rgba(15, 23, 42, 0.92);
@@ -2307,10 +2643,9 @@ h2 {
   font-family: "Press Start 2P", var(--mono);
   font-size: 0.42rem;
   line-height: 1.6;
-  z-index: 10;
   display: grid;
   gap: 4px;
-  min-width: 110px;
+  min-width: 0;
 }
 
 .status-summary-header {
@@ -2477,9 +2812,6 @@ h2 {
 
 /* ── Claude Usage Overlay ── */
 .zen-usage-summary {
-  position: absolute;
-  right: 8px;
-  top: 138px;
   padding: 8px 10px;
   border-radius: 6px;
   background: rgba(15, 23, 42, 0.92);
@@ -2488,10 +2820,9 @@ h2 {
   font-family: "Press Start 2P", var(--mono);
   font-size: 0.42rem;
   line-height: 1.6;
-  z-index: 10;
   display: grid;
   gap: 4px;
-  min-width: 130px;
+  min-width: 0;
 }
 
 .zen-usage-summary .status-summary-header {
@@ -3151,7 +3482,7 @@ h2 {
 .minimap {
   position: absolute;
   bottom: 8px;
-  right: 8px;
+  left: 8px;
   width: 120px;
   height: 80px;
   background: rgba(10, 19, 36, 0.85);
@@ -3831,16 +4162,33 @@ button.worker-sprite:disabled .worker-caption {
 }
 
 @media (max-width: 1020px) {
-  .page {
+  .page,
+  .page.left-collapsed,
+  .page.right-collapsed,
+  .page.left-collapsed.right-collapsed {
     grid-template-columns: 1fr;
   }
 
-  .task-list-card {
+  .task-list-card,
+  .chat-panel-card {
     position: static;
   }
 
   .task-list {
     max-height: 280px;
+  }
+
+  .chat-panel-card .chat-history-panel {
+    max-height: 200px;
+  }
+
+  .sidebar-collapse-btn {
+    display: none;
+  }
+
+  .task-list-card.collapsed,
+  .chat-panel-card.collapsed {
+    padding: 16px;
   }
 }
 

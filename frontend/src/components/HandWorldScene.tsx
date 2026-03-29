@@ -3,7 +3,7 @@
  *
  * Renders the background decorations, factory entrance, incinerator exit,
  * work desks, player avatars (local + remote), worker sprites, and the
- * two HUD panels (FactoryFloorPanel + Claude usage).
+ * HUD overlay panels (FactoryFloorPanel + Claude usage).
  */
 import { type CSSProperties, type Ref, useState } from "react";
 
@@ -14,7 +14,6 @@ import type { RemotePlayer } from "../hooks/useMultiplayer";
 import type { ConnectionStatus } from "../hooks/useMultiplayer";
 import type { SceneWorkerEntry } from "../hooks/useSceneWorkers";
 import type {
-  ChatMessage,
   ClaudeUsageResponse,
   CursorPosition,
   DeskSlot,
@@ -67,19 +66,6 @@ export type HandWorldSceneProps = {
   isLocalIdle: boolean;
   isLocalTyping: boolean;
   connectionStatus: ConnectionStatus;
-  chatHistory: ChatMessage[];
-  onSendChat: (message: string) => void;
-  onSetTyping: (typing: boolean) => void;
-  /** Whether chat is on cooldown (disables send). */
-  chatOnCooldown: boolean;
-  /** Trigger an emote by key ("1"–"4"). */
-  onTriggerEmote: (key: string) => void;
-
-  // -- Player name & color --
-  playerNameInput: string;
-  onPlayerNameChange: (name: string) => void;
-  playerColorInput: string;
-  onPlayerColorChange: (color: string) => void;
 
   // -- Claude usage --
   claudeUsage: ClaudeUsageResponse | null;
@@ -126,15 +112,6 @@ export default function HandWorldScene({
   isLocalIdle,
   isLocalTyping,
   connectionStatus,
-  chatHistory,
-  onSendChat,
-  onSetTyping,
-  chatOnCooldown,
-  onTriggerEmote,
-  playerNameInput,
-  onPlayerNameChange,
-  playerColorInput,
-  onPlayerColorChange,
   claudeUsage,
   claudeUsageLoading,
   onRefreshClaudeUsage,
@@ -148,6 +125,7 @@ export default function HandWorldScene({
   onCursorMove,
 }: HandWorldSceneProps) {
   const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
 
   // Build minimap worker positions from desk slot centers.
   const minimapWorkers: MinimapWorker[] = workerEntries
@@ -190,6 +168,7 @@ export default function HandWorldScene({
         <p>{maxWorkers} stations &middot; click a worker to stream its output</p>
       </header>
 
+      <div className="hand-world-layout">
       <div
         ref={sceneRef}
         className={`world-scene office-scene${selectedDecoEmoji ? " deco-placing" : ""}`}
@@ -294,69 +273,16 @@ export default function HandWorldScene({
           );
         })}
 
-        <FactoryFloorPanel
-          maxWorkers={maxWorkers}
-          activeWorkerCount={workerEntries.length}
-          remotePlayers={remotePlayers}
-          connectionStatus={connectionStatus}
-          chatHistory={chatHistory}
-          onSendChat={onSendChat}
-          onSetTyping={onSetTyping}
-          chatOnCooldown={chatOnCooldown}
-          onTriggerEmote={onTriggerEmote}
-          playerNameInput={playerNameInput}
-          onPlayerNameChange={onPlayerNameChange}
-          playerColorInput={playerColorInput}
-          onPlayerColorChange={onPlayerColorChange}
-          decorations={decorations}
-          onClearDecorations={onClearDecorations}
-          decoOnCooldown={decoOnCooldown}
-          selectedDecoEmoji={selectedDecoEmoji}
-          onSelectedDecoEmojiChange={setSelectedDecoEmoji}
-        />
-
-        {showClaudeUsage && (
-        <div className="zen-usage-summary">
-          <div className="status-summary-header">
-            Claude Usage
-            <button
-              type="button"
-              className="usage-refresh-btn"
-              onClick={onRefreshClaudeUsage}
-              disabled={claudeUsageLoading}
-              title="Refresh usage"
-              aria-label="Refresh Claude usage"
-            >
-              &#8635;
-            </button>
-          </div>
-          {claudeUsageLoading && !claudeUsage && (
-            <div className="usage-meter-row">
-              <span className="usage-placeholder">Loading...</span>
-            </div>
-          )}
-          {claudeUsage?.error && (
-            <div className="usage-error">{claudeUsage.error}</div>
-          )}
-          {claudeUsage && !claudeUsage.error && claudeUsage.levels.map((level) => (
-            <div key={level.name} className="usage-meter-row">
-              <span className="usage-meter-label">{level.name}</span>
-              <div className="usage-meter-track">
-                <div
-                  className={`usage-meter-fill${level.percent_used >= 90 ? " crit" : level.percent_used >= 70 ? " warn" : ""}`}
-                  style={{ width: `${Math.min(level.percent_used, 100)}%` }}
-                />
-              </div>
-              <span className="usage-meter-pct">{Math.round(level.percent_used)}%</span>
-            </div>
-          ))}
-          {!claudeUsage && !claudeUsageLoading && (
-            <div className="usage-meter-row">
-              <span className="usage-placeholder">Click &#8635; to load</span>
-            </div>
-          )}
-        </div>
-        )}
+        <button
+          type="button"
+          className="side-panel-toggle"
+          onClick={() => setSidePanelOpen((v) => !v)}
+          aria-label={sidePanelOpen ? "Hide side panel" : "Show side panel"}
+          aria-expanded={sidePanelOpen}
+          title={sidePanelOpen ? "Hide panel" : "Show panel"}
+        >
+          {sidePanelOpen ? "\u25B6" : "\u25C0"}
+        </button>
 
         <PlayerAvatar
           direction={playerDirection}
@@ -453,6 +379,63 @@ export default function HandWorldScene({
             onSelect={onSelectTask}
           />
         ))}
+      </div>
+
+      <div className={`hand-world-side-panel${sidePanelOpen ? " open" : ""}`}>
+        <FactoryFloorPanel
+          maxWorkers={maxWorkers}
+          activeWorkerCount={workerEntries.length}
+          connectionStatus={connectionStatus}
+          decorations={decorations}
+          onClearDecorations={onClearDecorations}
+          decoOnCooldown={decoOnCooldown}
+          selectedDecoEmoji={selectedDecoEmoji}
+          onSelectedDecoEmojiChange={setSelectedDecoEmoji}
+        />
+
+        {showClaudeUsage && (
+        <div className="zen-usage-summary">
+          <div className="status-summary-header">
+            Claude Usage
+            <button
+              type="button"
+              className="usage-refresh-btn"
+              onClick={onRefreshClaudeUsage}
+              disabled={claudeUsageLoading}
+              title="Refresh usage"
+              aria-label="Refresh Claude usage"
+            >
+              &#8635;
+            </button>
+          </div>
+          {claudeUsageLoading && !claudeUsage && (
+            <div className="usage-meter-row">
+              <span className="usage-placeholder">Loading...</span>
+            </div>
+          )}
+          {claudeUsage?.error && (
+            <div className="usage-error">{claudeUsage.error}</div>
+          )}
+          {claudeUsage && !claudeUsage.error && claudeUsage.levels.map((level) => (
+            <div key={level.name} className="usage-meter-row">
+              <span className="usage-meter-label">{level.name}</span>
+              <div className="usage-meter-track">
+                <div
+                  className={`usage-meter-fill${level.percent_used >= 90 ? " crit" : level.percent_used >= 70 ? " warn" : ""}`}
+                  style={{ width: `${Math.min(level.percent_used, 100)}%` }}
+                />
+              </div>
+              <span className="usage-meter-pct">{Math.round(level.percent_used)}%</span>
+            </div>
+          ))}
+          {!claudeUsage && !claudeUsageLoading && (
+            <div className="usage-meter-row">
+              <span className="usage-placeholder">Click &#8635; to load</span>
+            </div>
+          )}
+        </div>
+        )}
+      </div>
       </div>
     </section>
   );

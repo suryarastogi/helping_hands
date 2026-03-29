@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import AppOverlays from "./components/AppOverlays";
+import ChatPanel from "./components/ChatPanel";
 import HandWorldScene from "./components/HandWorldScene";
 import MonitorCard from "./components/MonitorCard";
 import ScheduleCard from "./components/ScheduleCard";
@@ -96,6 +97,8 @@ export default function App() {
   const { recentRepos } = useRecentRepos();
   const [enabledBackends, setEnabledBackends] = useState<Backend[]>(BACKEND_OPTIONS);
   const [showClaudeUsage, setShowClaudeUsage] = useState(true);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
 
@@ -321,7 +324,7 @@ export default function App() {
 
   return (
     <>
-    <main className="page">
+    <main className={`page${leftCollapsed ? " left-collapsed" : ""}${rightCollapsed ? " right-collapsed" : ""}`}>
       <TaskListSidebar
         mainView={mainView}
         showSubmissionOverlay={showSubmissionOverlay}
@@ -331,6 +334,8 @@ export default function App() {
         selectedTaskId={taskId}
         onSelectTask={selectTask}
         onClearHistory={() => setTaskHistory([])}
+        collapsed={leftCollapsed}
+        onToggleCollapsed={() => setLeftCollapsed(v => !v)}
       />
 
       <div className="main-column">
@@ -354,15 +359,6 @@ export default function App() {
           isLocalIdle={isLocalIdle}
           isLocalTyping={isLocalTyping}
           connectionStatus={yjsConnStatus}
-          chatHistory={chatHistory}
-          onSendChat={sendChat}
-          onSetTyping={setTyping}
-          chatOnCooldown={chatOnCooldown}
-          onTriggerEmote={triggerEmote}
-          playerNameInput={playerNameInput}
-          onPlayerNameChange={setPlayerNameInput}
-          playerColorInput={playerColorInput}
-          onPlayerColorChange={setPlayerColorInput}
           claudeUsage={claudeUsage}
           claudeUsageLoading={claudeUsageLoading}
           onRefreshClaudeUsage={() => void refreshClaudeUsage()}
@@ -379,6 +375,22 @@ export default function App() {
         {mainView === "monitor" && taskId && monitorCard}
         {mainView === "schedules" && schedulesCard}
       </div>
+
+      <ChatPanel
+        remotePlayers={remotePlayers}
+        connectionStatus={yjsConnStatus}
+        chatHistory={chatHistory}
+        onSendChat={sendChat}
+        onSetTyping={setTyping}
+        chatOnCooldown={chatOnCooldown}
+        onTriggerEmote={triggerEmote}
+        playerNameInput={playerNameInput}
+        onPlayerNameChange={setPlayerNameInput}
+        playerColorInput={playerColorInput}
+        onPlayerColorChange={setPlayerColorInput}
+        collapsed={rightCollapsed}
+        onToggleCollapsed={() => setRightCollapsed(v => !v)}
+      />
 
       {showSubmissionOverlay && (
         <div className="submission-overlay" onClick={() => setShowSubmissionOverlay(false)}>

@@ -1731,9 +1731,9 @@ describe("Yjs Multiplayer Awareness", () => {
     act(() => { mockProviderInstance!._fireStatus("connected"); });
 
     await waitFor(() => {
-      const dot = screen.getByLabelText("Connection: connected");
-      expect(dot).toBeInTheDocument();
-      expect(dot.classList.contains("conn-status-connected")).toBe(true);
+      const dots = screen.getAllByLabelText("Connection: connected");
+      expect(dots.length).toBeGreaterThanOrEqual(1);
+      expect(dots[0].classList.contains("conn-status-connected")).toBe(true);
     });
   });
 
