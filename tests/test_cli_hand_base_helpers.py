@@ -575,11 +575,13 @@ class TestRepoHasChangesHeadAdvance:
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
-            cwd=tmp_path, capture_output=True,
+            cwd=tmp_path,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test"],
-            cwd=tmp_path, capture_output=True,
+            cwd=tmp_path,
+            capture_output=True,
         )
         (tmp_path / "a.txt").write_text("hello")
         subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
@@ -590,7 +592,9 @@ class TestRepoHasChangesHeadAdvance:
         # Capture baseline HEAD
         baseline = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            cwd=tmp_path, capture_output=True, text=True,
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
 
         # Make a new commit
@@ -612,11 +616,13 @@ class TestRepoHasChangesHeadAdvance:
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
-            cwd=tmp_path, capture_output=True,
+            cwd=tmp_path,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test"],
-            cwd=tmp_path, capture_output=True,
+            cwd=tmp_path,
+            capture_output=True,
         )
         (tmp_path / "a.txt").write_text("hello")
         subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
@@ -626,7 +632,9 @@ class TestRepoHasChangesHeadAdvance:
 
         baseline = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            cwd=tmp_path, capture_output=True, text=True,
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
 
         stub = _Stub()

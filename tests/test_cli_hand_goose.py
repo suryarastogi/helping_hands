@@ -520,7 +520,9 @@ class TestReadGooseConfig:
         with patch.dict("sys.modules", {"yaml": None}):
             # Force re-import failure by patching builtins.__import__
             original_import = (
-                __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+                __builtins__.__import__
+                if hasattr(__builtins__, "__import__")
+                else __import__
             )
 
             def fake_import(name, *args, **kwargs):
@@ -596,9 +598,7 @@ class TestResolveGooseProviderModelFromConfigFile:
     def test_default_model_reads_from_config(self, make_cli_hand, tmp_path) -> None:
         """When model is 'default', falls back to goose config YAML."""
         config_file = tmp_path / "goose_config.yaml"
-        config_file.write_text(
-            "GOOSE_PROVIDER: openai\nGOOSE_MODEL: gpt-5.2\n"
-        )
+        config_file.write_text("GOOSE_PROVIDER: openai\nGOOSE_MODEL: gpt-5.2\n")
         hand = make_cli_hand(GooseCLIHand, model="default")
         with patch.object(GooseCLIHand, "_GOOSE_CONFIG_PATHS", (config_file,)):
             provider, model = hand._resolve_goose_provider_model_from_config()
