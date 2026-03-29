@@ -693,6 +693,36 @@ class TestGetPlayerActivitySummary:
             result = get_player_activity_summary()
             assert result == {"total": 0, "active": 0, "idle": 0, "players": []}
 
+    def test_skips_room_with_awareness_none(self) -> None:
+        """A room whose awareness is None should be skipped gracefully."""
+        mock_room = MagicMock()
+        mock_room.awareness = None
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_player_activity_summary()
+            assert result == {"total": 0, "active": 0, "idle": 0, "players": []}
+
+    def test_skips_unparseable_awareness_state(self) -> None:
+        """When _parse_awareness_state returns None, the state is skipped."""
+        mock_awareness = MagicMock()
+        # bytes value that can't be parsed — _parse_awareness_state returns None
+        mock_awareness.states = {1: b"invalid-msgpack-data"}
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_player_activity_summary()
+            assert result == {"total": 0, "active": 0, "idle": 0, "players": []}
+
     def test_skips_states_without_player_data(self) -> None:
         """States without player data are ignored in activity summary."""
         mock_awareness = MagicMock()
@@ -896,6 +926,54 @@ class TestGetDecorationState:
             result = get_decoration_state()
             assert result["count"] == 1
             assert result["decorations"][0]["emoji"] == "\U0001f48e"
+
+    def test_skips_room_with_ydoc_none(self) -> None:
+        """A room whose ydoc is None should be skipped gracefully."""
+        mock_room = MagicMock()
+        mock_room.ydoc = None
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_decoration_state()
+            assert result == {"decorations": [], "count": 0}
+
+    def test_skips_room_when_ydoc_get_raises(self) -> None:
+        """When ydoc.get raises, the room is skipped gracefully."""
+        mock_ydoc = MagicMock()
+        mock_ydoc.get.side_effect = RuntimeError("corrupted ydoc")
+
+        mock_room = MagicMock()
+        mock_room.ydoc = mock_ydoc
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_decoration_state()
+            assert result == {"decorations": [], "count": 0}
+
+    def test_skips_room_when_deco_map_is_none(self) -> None:
+        """When ydoc.get returns None, the room is skipped."""
+        mock_ydoc = MagicMock()
+        mock_ydoc.get.return_value = None
+
+        mock_room = MagicMock()
+        mock_room.ydoc = mock_ydoc
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_decoration_state()
+            assert result == {"decorations": [], "count": 0}
 
     def test_handles_exception_gracefully(self) -> None:
         """Exceptions reading room state should return empty result."""

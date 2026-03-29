@@ -4,12 +4,18 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
+### Stream Emitter & Multiplayer Coverage + Test Fix (2026-03-29) — Completed
 
-Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and `CLIHandBase`
-(98% → 99%). See [v334 plan](docs/exec-plans/active/v334-goose-cli-base-coverage.md).
+Fix failing `test_env_var_forwarding`, close coverage gaps in `_StreamJsonEmitter`
+(claude.py) and `multiplayer_yjs.py`. See [v335 plan](docs/exec-plans/active/v335-stream-emitter-multiplayer-coverage.md).
 
 ## Recently Completed
+
+### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
+
+**Implemented (v334):**
+- 17 new tests: GooseCLIHand coverage 88% → 99%, CLIHandBase 98% → 99%
+- 6510 backend tests passed, 0 failures, 75.97% coverage
 
 ### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — Completed
 

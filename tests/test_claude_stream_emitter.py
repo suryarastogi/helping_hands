@@ -119,3 +119,77 @@ class TestStreamJsonEmitterLabelMsg:
 
         asyncio.run(run())
         assert any("[back] hi there" in c for c in collected)
+
+
+class TestStreamJsonEmitterProcessLine:
+    """Cover _process_line branches for JSON primitives and malformed blocks."""
+
+    def test_json_primitive_string_passed_through(self) -> None:
+        """A valid JSON string (not a dict) is passed through verbatim."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "test")
+            await emitter('"just a string"\n')
+
+        asyncio.run(run())
+        assert any('"just a string"' in c for c in collected)
+
+    def test_json_primitive_number_passed_through(self) -> None:
+        """A valid JSON number is passed through verbatim."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "test")
+            await emitter("42\n")
+
+        asyncio.run(run())
+        assert any("42" in c for c in collected)
+
+    def test_non_dict_block_in_assistant_event_skipped(self) -> None:
+        """Non-dict entries in message.content are silently skipped."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "test")
+            # content array has a string instead of a dict, followed by a real block
+            event = (
+                '{"type":"assistant","message":{"content":'
+                '["not-a-dict",'
+                '{"type":"tool_use","name":"Read","input":{"file_path":"/ok.py"}}]}}'
+            )
+            await emitter(event + "\n")
+
+        asyncio.run(run())
+        # The real tool_use block should still be processed
+        assert any("Read /ok.py" in c for c in collected)
+
+    def test_non_dict_block_in_user_event_skipped(self) -> None:
+        """Non-dict entries in user event message.content are silently skipped."""
+        collected: list[str] = []
+
+        async def capture(text: str) -> None:
+            collected.append(text)
+
+        async def run() -> None:
+            emitter = _StreamJsonEmitter(capture, "test")
+            # content array has an integer instead of a dict, followed by a result
+            event = (
+                '{"type":"user","message":{"content":'
+                "[999,"
+                '{"type":"tool_result","content":"some output"}]}}'
+            )
+            await emitter(event + "\n")
+
+        asyncio.run(run())
+        # The real tool_result block should still be processed
+        assert any("some output" in c for c in collected)
