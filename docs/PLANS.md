@@ -4,11 +4,18 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v337 — Multiplayer YJS & Claude Stream Emitter Coverage](exec-plans/active/v337-multiplayer-and-claude-emitter-coverage.md) —
-  Close remaining coverage gaps in `multiplayer_yjs.py` (95% → 99%) and
-  `cli/claude.py` (98% → 99%)
+*(none)*
 
 ## Completed plans
+
+- [2026-03-29 v338 — Server App & Celery Pure Function Coverage](exec-plans/completed/2026/v338-server-app-celery-pure-function-coverage.md) —
+  Cover remaining uncovered branches in `server/app.py` and `server/celery_app.py`
+  pure helpers; 16 tests added, 7656 tests passed, 96.45% coverage
+
+- [2026-03-29 v337 — Multiplayer YJS & Claude Stream Emitter Coverage](exec-plans/completed/2026/v337-multiplayer-and-claude-emitter-coverage.md) —
+  Close remaining coverage gaps in `multiplayer_yjs.py` (95% → 99%) and
+  `cli/claude.py` (98% → 99%); 9 tests added, 6533 tests passed
+
 
 - [2026-03-29 v336 — OAuth Token Test Fix & Credentials Coverage](exec-plans/completed/2026/v336-oauth-token-test-fix-and-credentials-coverage.md) —
   Fix 16 broken `_get_claude_oauth_token` tests and add `_read_claude_credentials_file`

@@ -17,6 +17,7 @@ or missing streaming output.
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -26,6 +27,7 @@ pytest.importorskip("fastapi")
 
 from helping_hands.server.app import (
     _MAX_TASK_KWARGS_LEN,
+    _RECENT_TERMINAL_WINDOW_S,
     _coerce_optional_str,
     _collect_celery_current_tasks,
     _extract_task_id,
@@ -35,6 +37,7 @@ from helping_hands.server.app import (
     _flower_api_base_url,
     _flower_timeout_seconds,
     _is_helping_hands_task,
+    _is_recently_terminal,
     _merge_source_tags,
     _normalize_task_status,
     _parse_backend,
@@ -953,3 +956,120 @@ class TestFirstValidationErrorMsg:
             {"msg": "Second error", "type": "b"},
         ]
         assert _first_validation_error_msg(exc) == "First error"
+
+
+# --- _is_recently_terminal ---
+
+
+class TestIsRecentlyTerminal:
+    """Tests for _is_recently_terminal — Flower timestamp-based recency check."""
+
+    def test_non_terminal_status_returns_false(self) -> None:
+        assert _is_recently_terminal({"timestamp": time.time()}, "PROGRESS") is False
+
+    def test_failure_with_recent_failed_timestamp(self) -> None:
+        entry = {"failed": time.time() - 5}
+        assert _is_recently_terminal(entry, "FAILURE") is True
+
+    def test_success_with_recent_succeeded_timestamp(self) -> None:
+        entry = {"succeeded": time.time() - 5}
+        assert _is_recently_terminal(entry, "SUCCESS") is True
+
+    def test_failure_falls_back_to_timestamp_field(self) -> None:
+        entry = {"timestamp": time.time() - 5}
+        assert _is_recently_terminal(entry, "FAILURE") is True
+
+    def test_success_falls_back_to_timestamp_field(self) -> None:
+        entry = {"timestamp": time.time() - 5}
+        assert _is_recently_terminal(entry, "SUCCESS") is True
+
+    def test_old_timestamp_returns_false(self) -> None:
+        entry = {"failed": time.time() - _RECENT_TERMINAL_WINDOW_S - 100}
+        assert _is_recently_terminal(entry, "FAILURE") is False
+
+    def test_no_timestamp_returns_false(self) -> None:
+        assert _is_recently_terminal({}, "FAILURE") is False
+
+    def test_non_numeric_timestamp_returns_false(self) -> None:
+        assert _is_recently_terminal({"failed": "not-a-number"}, "FAILURE") is False
+
+    def test_revoked_with_timestamp(self) -> None:
+        entry = {"timestamp": time.time() - 5}
+        assert _is_recently_terminal(entry, "REVOKED") is True
+
+
+# --- _upsert_current_task edge cases ---
+
+
+class TestUpsertCurrentTaskEdgeCases:
+    """Additional edge cases for _upsert_current_task."""
+
+    def test_empty_source_does_not_merge_sources(self) -> None:
+        tasks: dict[str, dict] = {}
+        _upsert_current_task(
+            tasks,
+            task_id="t1",
+            status="STARTED",
+            backend="e2e",
+            repo_path="/r",
+            worker="w1",
+            source="flower",
+        )
+        _upsert_current_task(
+            tasks,
+            task_id="t1",
+            status="STARTED",
+            backend=None,
+            repo_path=None,
+            worker=None,
+            source="",
+        )
+        assert tasks["t1"]["source"] == "flower"
+
+    def test_fills_missing_backend_from_incoming(self) -> None:
+        tasks: dict[str, dict] = {}
+        _upsert_current_task(
+            tasks,
+            task_id="t1",
+            status="STARTED",
+            backend=None,
+            repo_path=None,
+            worker=None,
+            source="inspect",
+        )
+        _upsert_current_task(
+            tasks,
+            task_id="t1",
+            status="STARTED",
+            backend="e2e",
+            repo_path="/repo",
+            worker="w1",
+            source="flower",
+        )
+        assert tasks["t1"]["backend"] == "e2e"
+        assert tasks["t1"]["repo_path"] == "/repo"
+        assert tasks["t1"]["worker"] == "w1"
+
+    def test_does_not_overwrite_existing_backend(self) -> None:
+        tasks: dict[str, dict] = {}
+        _upsert_current_task(
+            tasks,
+            task_id="t1",
+            status="STARTED",
+            backend="codexcli",
+            repo_path="/a",
+            worker="w1",
+            source="inspect",
+        )
+        _upsert_current_task(
+            tasks,
+            task_id="t1",
+            status="STARTED",
+            backend="goose",
+            repo_path="/b",
+            worker="w2",
+            source="flower",
+        )
+        assert tasks["t1"]["backend"] == "codexcli"
+        assert tasks["t1"]["repo_path"] == "/a"
+        assert tasks["t1"]["worker"] == "w1"

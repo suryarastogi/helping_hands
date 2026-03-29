@@ -30,8 +30,10 @@ support via GraphQL API, GitHub integration test coverage hardening
 (form endpoint, PR body "Closes #N", invalid project URL edge case),
 server/validation/CLI hand coverage hardening (v331–v335), OAuth
 token test regression fix with `_read_claude_credentials_file` coverage (v336),
-and multiplayer YJS decoration/activity + Claude stream emitter edge case
-coverage (v337).
+multiplayer YJS decoration/activity + Claude stream emitter edge case
+coverage (v337), and server app & Celery pure function coverage hardening
+with `_is_recently_terminal`, `_upsert_current_task`, `_update_progress`,
+`_sync_issue_status`, and `ensure_usage_schedule` branch tests (v338).
 
 ---
 

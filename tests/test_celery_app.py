@@ -20,6 +20,7 @@ import asyncio
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -1189,6 +1190,30 @@ class TestSyncIssueStatus:
         assert "failed" in body
         assert "RuntimeError: something broke" in body
 
+    def test_failed_without_error_omits_error_line(self) -> None:
+        """Failed status with no error string still posts without error line."""
+        mock_gh = MagicMock()
+        mock_gh.__enter__ = MagicMock(return_value=mock_gh)
+        mock_gh.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "helping_hands.lib.github.GitHubClient",
+            return_value=mock_gh,
+        ):
+            from helping_hands.server import celery_app as _mod
+
+            _mod._sync_issue_status(
+                "owner/repo",
+                42,
+                "failed",
+                "tok",
+                error=None,
+            )
+
+        body = mock_gh.upsert_pr_comment.call_args[1]["body"]
+        assert "failed" in body
+        assert "Error:" not in body
+
     def test_exception_does_not_propagate(self) -> None:
         """API errors are swallowed — sync is best-effort."""
         with patch(
@@ -1419,3 +1444,98 @@ class TestSetupPeriodicTasks:
             celery_app._setup_periodic_tasks(sender=MagicMock())
 
         mock_ensure.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _update_progress — issue_number branch (line 531)
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateProgressIssueNumber:
+    """Test _update_progress includes issue_number in metadata when set."""
+
+    def test_issue_number_included_when_set(self) -> None:
+        mock_task = MagicMock()
+        celery_app._update_progress(
+            mock_task,
+            task_id="tid-issue",
+            stage="running",
+            updates=["progress"],
+            prompt="fix bug",
+            pr_number=None,
+            backend="codexcli",
+            runtime_backend="codexcli",
+            repo_path="/tmp/repo",
+            model="gpt-5",
+            max_iterations=6,
+            no_pr=False,
+            enable_execution=False,
+            enable_web=False,
+            use_native_cli_auth=False,
+            tools=(),
+            skills=(),
+            issue_number=42,
+        )
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert meta["issue_number"] == 42
+
+    def test_issue_number_absent_when_none(self) -> None:
+        mock_task = MagicMock()
+        celery_app._update_progress(
+            mock_task,
+            task_id="tid-no-issue",
+            stage="running",
+            updates=[],
+            prompt="p",
+            pr_number=None,
+            backend="codexcli",
+            runtime_backend="codexcli",
+            repo_path="/tmp/repo",
+            model=None,
+            max_iterations=1,
+            no_pr=False,
+            enable_execution=False,
+            enable_web=False,
+            use_native_cli_auth=False,
+            tools=(),
+            skills=(),
+        )
+        meta = mock_task.update_state.call_args.kwargs["meta"]
+        assert "issue_number" not in meta
+
+
+# ---------------------------------------------------------------------------
+# ensure_usage_schedule — OSError catch (lines 1501-1502)
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureUsageScheduleOSError:
+    """Test ensure_usage_schedule swallows OSError from RedBeat."""
+
+    def test_swallows_os_error(self) -> None:
+        """OSError (e.g. Redis unavailable) is caught and logged."""
+        mock_redbeat_entry = MagicMock()
+        mock_redbeat_entry.from_key.side_effect = KeyError("not found")
+        mock_entry_instance = MagicMock()
+        mock_entry_instance.save.side_effect = OSError("Connection refused")
+        mock_redbeat_entry.return_value = mock_entry_instance
+
+        mock_schedule = MagicMock()
+
+        fake_redbeat = MagicMock()
+        fake_redbeat.RedBeatSchedulerEntry = mock_redbeat_entry
+
+        fake_celery_schedules = MagicMock()
+        fake_celery_schedules.schedule = mock_schedule
+
+        with (
+            patch.dict(
+                sys.modules,
+                {
+                    "redbeat": fake_redbeat,
+                    "celery.schedules": fake_celery_schedules,
+                },
+            ),
+        ):
+            # Should not raise
+            celery_app.ensure_usage_schedule()

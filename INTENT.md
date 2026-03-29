@@ -4,14 +4,25 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Multiplayer YJS & Claude Stream Emitter Coverage (2026-03-29)
+*(none — awaiting next task)*
+
+## Recently Completed
+
+### Server App & Celery Pure Function Coverage (2026-03-29) — Completed
+
+Covered remaining uncovered branches in `server/app.py` and `server/celery_app.py`
+pure helper functions: `_is_recently_terminal` all branches, `_upsert_current_task`
+edge cases, `_update_progress` issue_number branch, `_sync_issue_status`
+failed-without-error branch, `ensure_usage_schedule` OSError catch. 16 new tests,
+7656 tests passed, 96.45% coverage. See
+[v338 plan](docs/exec-plans/completed/2026/v338-server-app-celery-pure-function-coverage.md).
+
+### Multiplayer YJS & Claude Stream Emitter Coverage (2026-03-29) — Completed
 
 Close remaining testable coverage gaps in `multiplayer_yjs.py` (95% → 99%) and
 `cli/claude.py` (98% → 99%): decoration state reading branches, activity summary
 edge cases, and stream emitter non-dict event/block handling. See
-[v337 plan](docs/exec-plans/active/v337-multiplayer-and-claude-emitter-coverage.md).
-
-## Recently Completed
+[v337 plan](docs/exec-plans/completed/2026/v337-multiplayer-and-claude-emitter-coverage.md).
 
 ### OAuth Token Test Fix & Credentials Coverage (2026-03-29) — Completed
 
