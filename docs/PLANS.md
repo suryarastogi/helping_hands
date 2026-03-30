@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v341 — Remaining Branch Coverage Gaps](exec-plans/completed/2026/v341-remaining-branch-coverage.md) —
+  Close last testable branch partials in `github.py` (100%), `e2e.py` (100%),
+  and `cli/base.py` (0 miss); 5 tests added, 6595 tests passed, 76.02% coverage
+
+
 - [2026-03-30 v340 — Hand Base & GitHub Coverage Hardening](exec-plans/completed/2026/v340-hand-base-and-github-coverage.md) —
   Close remaining testable coverage gaps in `hand/base.py` (99% → 100%) and `github.py`
   (line 949 covered); 10 tests added, 6590 tests passed, 75.93% coverage

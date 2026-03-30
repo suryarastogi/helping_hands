@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Remaining Branch Coverage Gaps (2026-03-30) — Completed
+
+Closed last testable branch partials in non-server modules: `_graphql()`
+without-variables path (`github.py` 99% → 100%), E2E `dry_run=True` with
+`pr_number` set (`e2e.py` 99% → 100%), `_poll_ci_checks` deadline break and
+`_ci_fix_loop` loop timeout (`cli/base.py` 4 miss → 0 miss, 1 remaining
+branch partial tracked in tech debt). 5 new tests, 6595 tests passed, 76.02%
+coverage. See [v341 plan](docs/exec-plans/completed/2026/v341-remaining-branch-coverage.md).
+
 ### Hand Base & GitHub Coverage Hardening (2026-03-30) — Completed
 
 Closed remaining testable coverage gaps in `hand/base.py` (99% → 100%) and
