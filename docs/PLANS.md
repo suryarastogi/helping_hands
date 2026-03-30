@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v343 — CLI Main Coverage & Daily Consolidation](exec-plans/completed/2026/v343-cli-main-coverage-and-consolidation.md) —
+  Close `cli/main.py` branch 336→339 gap via argparse default change, update tech debt
+  tracker and daily consolidation; 4 tests added, 6599 tests passed, 76.02% coverage
+
 - [2026-03-30 v342 — Server Helper Coverage & Weekly Consolidation](exec-plans/completed/2026/v342-server-helper-coverage-and-consolidation.md) —
   Close remaining untested server helpers (`_maybe_persist_pr_to_schedule`,
   `_validate_path_param`, `_is_running_in_docker`); 12 tests added, 96.62% coverage

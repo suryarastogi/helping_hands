@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### CLI Main Coverage & Daily Consolidation (2026-03-30) — Completed
+
+Closed last testable non-server coverage gap in `cli/main.py`: changed
+`--max-iterations` argparse default from `6` to `None` so the
+`if args.max_iterations is not None:` False branch (336→339) is reachable.
+Updated tech debt tracker line number for `cli/main.py` `__name__` guard.
+Updated 2026-03-30 daily consolidation to include v342 and v343. 4 new tests,
+6599 tests passed, 76.02% coverage. See
+[v343 plan](docs/exec-plans/completed/2026/v343-cli-main-coverage-and-consolidation.md).
+
 ### Server Helper Coverage & Weekly Consolidation (2026-03-30) — Completed
 
 Closed remaining untested pure/helper functions in server modules:

@@ -242,8 +242,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-iterations",
         type=int,
-        default=6,
-        help="Maximum iterations for basic hands.",
+        default=None,
+        help="Maximum iterations for basic hands (default: hand-specific).",
     )
     parser.add_argument(
         "--no-pr",
