@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -27,13 +28,101 @@ from helping_hands.server.app import (
     ClaudeUsageResponse,
     _fetch_claude_usage,
     _get_claude_oauth_token,
+    _read_claude_credentials_file,
 )
+
+# --- _read_claude_credentials_file ---
+
+
+class TestReadClaudeCredentialsFile:
+    """Direct unit tests for the credentials-file reader."""
+
+    def test_returns_token_from_valid_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        creds = {"claudeAiOauth": {"accessToken": "sk-ant-test123"}}
+        creds_dir = tmp_path / ".claude"
+        creds_dir.mkdir()
+        creds_file = creds_dir / ".credentials.json"
+        creds_file.write_text(json.dumps(creds))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        assert _read_claude_credentials_file() == "sk-ant-test123"
+
+    def test_returns_none_when_file_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        assert _read_claude_credentials_file() is None
+
+    def test_returns_none_for_invalid_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        creds_dir = tmp_path / ".claude"
+        creds_dir.mkdir()
+        (creds_dir / ".credentials.json").write_text("{not valid json")
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        assert _read_claude_credentials_file() is None
+
+    def test_returns_none_when_key_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        creds_dir = tmp_path / ".claude"
+        creds_dir.mkdir()
+        (creds_dir / ".credentials.json").write_text('{"other": "data"}')
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        assert _read_claude_credentials_file() is None
+
+    def test_returns_none_on_os_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        creds_dir = tmp_path / ".claude"
+        creds_dir.mkdir()
+        creds_file = creds_dir / ".credentials.json"
+        creds_file.write_text('{"claudeAiOauth": {"accessToken": "x"}}')
+        # Make the file unreadable
+        creds_file.chmod(0o000)
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        assert _read_claude_credentials_file() is None
+
+        # Restore permissions for cleanup
+        creds_file.chmod(0o644)
+
+
+class TestGetClaudeOauthTokenCredentialsFilePath:
+    """Verify _get_claude_oauth_token uses credentials file first."""
+
+    def test_returns_token_from_credentials_file_without_keychain(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "helping_hands.server.app._read_claude_credentials_file",
+            lambda: "sk-ant-creds-file-token",
+        )
+        # subprocess.run should NOT be called; if it were, this would fail
+        monkeypatch.setattr(
+            subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(AssertionError)
+        )
+
+        assert _get_claude_oauth_token() == "sk-ant-creds-file-token"
+
 
 # --- _get_claude_oauth_token ---
 
 
 class TestGetClaudeOauthToken:
     """Direct unit tests for the macOS Keychain reader."""
+
+    @pytest.fixture(autouse=True)
+    def _skip_credentials_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Bypass the credentials-file reader so the Keychain path is tested."""
+        monkeypatch.setattr(
+            "helping_hands.server.app._read_claude_credentials_file", lambda: None
+        )
 
     def test_returns_access_token_from_json(
         self, monkeypatch: pytest.MonkeyPatch

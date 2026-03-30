@@ -123,6 +123,13 @@ class TestExtractUsageLevel:
 class TestGetClaudeOauthTokenNarrowedExceptions:
     """Verify _get_claude_oauth_token catches specific subprocess/OS errors."""
 
+    @pytest.fixture(autouse=True)
+    def _skip_credentials_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Bypass the credentials-file reader so the Keychain path is tested."""
+        monkeypatch.setattr(
+            "helping_hands.server.app._read_claude_credentials_file", lambda: None
+        )
+
     def test_catches_subprocess_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def _raise(*a: Any, **kw: Any) -> None:
             raise subprocess.TimeoutExpired(cmd="security", timeout=5)

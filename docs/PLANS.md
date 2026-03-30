@@ -4,16 +4,65 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v336 — Hand Base & CLI Hand Coverage Hardening](exec-plans/active/v336-hand-base-cli-coverage.md) —
-  Close remaining coverage gaps in `Hand` base class (99% → 100%) and
-  `_TwoPhaseCLIHand` (99% → ~100%); targeting lines 403-404, 407, 831, 1535, 1719-1727
+*(none)*
 
 ## Completed plans
 
-- [2026-03-29 v335 — Stream Emitter & Multiplayer Coverage + Test Fix](exec-plans/completed/2026/v335-stream-emitter-multiplayer-coverage.md) —
-  Fix failing `test_env_var_forwarding`, close coverage gaps in
-  `_StreamJsonEmitter` (claude.py) and `multiplayer_yjs.py`;
-  9 tests added, 6519 tests passed
+- [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
+  Rewrite README Quick Start as three numbered steps (install, set keys, run);
+  implement first-run welcome banner with `~/.helping_hands/.first_run_done`
+  marker; 5 tests added
+
+- [2026-03-30 v345 — Examples Directory & New User Onboarding](exec-plans/completed/2026/v345-examples-directory.md) —
+  Implement `examples/` directory with sample repo and run script; add doctor
+  early-return test and examples structure tests; 6 tests added, 6633 tests
+  passed, 76.41% coverage
+
+- [2026-03-30 v344 — Doctor Command](exec-plans/completed/2026/v344-doctor-command.md) —
+  Implement `helping-hands doctor` subcommand for environment prerequisite
+  checking; 28 tests added, 6627 tests passed, 76.40% coverage
+
+- [2026-03-30 v343 — CLI Main Coverage & Daily Consolidation](exec-plans/completed/2026/v343-cli-main-coverage-and-consolidation.md) —
+  Close `cli/main.py` branch 336→339 gap via argparse default change, update tech debt
+  tracker and daily consolidation; 4 tests added, 6599 tests passed, 76.02% coverage
+
+- [2026-03-30 v342 — Server Helper Coverage & Weekly Consolidation](exec-plans/completed/2026/v342-server-helper-coverage-and-consolidation.md) —
+  Close remaining untested server helpers (`_maybe_persist_pr_to_schedule`,
+  `_validate_path_param`, `_is_running_in_docker`); 12 tests added, 96.62% coverage
+
+
+- [2026-03-30 v341 — Remaining Branch Coverage Gaps](exec-plans/completed/2026/v341-remaining-branch-coverage.md) —
+  Close last testable branch partials in `github.py` (100%), `e2e.py` (100%),
+  and `cli/base.py` (0 miss); 5 tests added, 6595 tests passed, 76.02% coverage
+
+
+- [2026-03-30 v340 — Hand Base & GitHub Coverage Hardening](exec-plans/completed/2026/v340-hand-base-and-github-coverage.md) —
+  Close remaining testable coverage gaps in `hand/base.py` (99% → 100%) and `github.py`
+  (line 949 covered); 10 tests added, 6590 tests passed, 75.93% coverage
+
+- [2026-03-30 v339 — Meta Tools Coverage Hardening](exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md) —
+  Close testable coverage gaps in `web.py` (81% → 98%) and `filesystem.py` (92% → 100%);
+  42 tests added, 6580 tests passed, 75.84% coverage
+
+
+- [2026-03-29 v338 — Server App & Celery Pure Function Coverage](exec-plans/completed/2026/v338-server-app-celery-pure-function-coverage.md) —
+  Cover remaining uncovered branches in `server/app.py` and `server/celery_app.py`
+  pure helpers; 16 tests added, 7656 tests passed, 96.45% coverage
+
+- [2026-03-29 v337 — Multiplayer YJS & Claude Stream Emitter Coverage](exec-plans/completed/2026/v337-multiplayer-and-claude-emitter-coverage.md) —
+  Close remaining coverage gaps in `multiplayer_yjs.py` (95% → 99%) and
+  `cli/claude.py` (98% → 99%); 9 tests added, 6533 tests passed
+
+
+- [2026-03-29 v336 — OAuth Token Test Fix & Credentials Coverage](exec-plans/completed/2026/v336-oauth-token-test-fix-and-credentials-coverage.md) —
+  Fix 16 broken `_get_claude_oauth_token` tests and add `_read_claude_credentials_file`
+  unit tests; 6 tests added, 7631 tests passed
+
+
+- [2026-03-29 v335 — ModelProvider Coverage Hardening](exec-plans/completed/2026/v335-model-provider-coverage-hardening.md) —
+  Close remaining coverage gaps in `model_provider.py`: `_require_langchain_class`
+  direct tests, provider-name resolution branches, empty model validation;
+  15 tests added, pre-existing env leak fixed, 6524 tests passed
 
 - [2026-03-29 v334 — GooseCLIHand & CLIHandBase Coverage Hardening](exec-plans/completed/2026/v334-goose-cli-base-coverage.md) —
   Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and

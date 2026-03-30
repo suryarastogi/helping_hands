@@ -4,6 +4,105 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+*(none — awaiting next task)*
+
+## Recently Completed
+
+### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
+
+Rewrote README Quick Start as three numbered steps (install → set API keys →
+run first task) with references to `helping-hands doctor` and
+`examples/fix-greeting/`. Implemented first-run welcome banner via
+`_maybe_show_first_run_banner()` in `cli/main.py` — prints a one-time welcome
+on first invocation, tracked by `~/.helping_hands/.first_run_done` marker.
+5 new tests. Product spec must-have #1 and nice-to-have #5 now complete. See
+[v346 plan](docs/exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md).
+
+### Examples Directory & Doctor Early-Return Test (2026-03-30) — Completed
+
+Implemented `examples/` directory from the New User Onboarding product spec
+(must-have item #2). Created `examples/fix-greeting/` with a tiny Python
+package containing a deliberate bug in `greet()`, tests that assert the
+correct behavior, and a `run.sh` script for local evaluation with `--no-pr`.
+Also covered `cli/main.py` line 340 (doctor early-return path) and added 5
+examples directory structure tests. 6 new tests, `cli/main.py` 99% → 99%
+(only `__name__` guard remaining). See
+[v345 plan](docs/exec-plans/completed/2026/v345-examples-directory.md).
+
+### Doctor Command (2026-03-30) — Completed
+
+Implemented `helping-hands doctor` subcommand from the New User Onboarding
+product spec. Checks Python version (3.12+), git, uv, AI provider API keys,
+GitHub token, optional CLI backends (claude, codex, goose, gemini), and
+optional Python extras (langchain, atomic, server). Returns exit 0 when all
+required checks pass, exit 1 on failures. 28 new tests at 100% coverage on
+`doctor.py`. 6627 tests passed, 76.40% overall coverage. See
+[v344 plan](docs/exec-plans/completed/2026/v344-doctor-command.md).
+
+### CLI Main Coverage & Daily Consolidation (2026-03-30) — Completed
+
+Closed last testable non-server coverage gap in `cli/main.py`: changed
+`--max-iterations` argparse default from `6` to `None` so the
+`if args.max_iterations is not None:` False branch (336→339) is reachable.
+Updated tech debt tracker line number for `cli/main.py` `__name__` guard.
+Updated 2026-03-30 daily consolidation to include v342 and v343. 4 new tests,
+6599 tests passed, 76.02% coverage. See
+[v343 plan](docs/exec-plans/completed/2026/v343-cli-main-coverage-and-consolidation.md).
+
+### Server Helper Coverage & Weekly Consolidation (2026-03-30) — Completed
+
+Closed remaining untested pure/helper functions in server modules:
+`_maybe_persist_pr_to_schedule` guard conditions (6 tests),
+`_validate_path_param` wrapper (3 tests), `_is_running_in_docker` container
+detection (3 tests). 12 new tests, 7738 tests passed, 96.62% coverage (with
+server extras installed). See
+[v342 plan](docs/exec-plans/completed/2026/v342-server-helper-coverage-and-consolidation.md).
+
+### Remaining Branch Coverage Gaps (2026-03-30) — Completed
+
+Closed last testable branch partials in non-server modules: `_graphql()`
+without-variables path (`github.py` 99% → 100%), E2E `dry_run=True` with
+`pr_number` set (`e2e.py` 99% → 100%), `_poll_ci_checks` deadline break and
+`_ci_fix_loop` loop timeout (`cli/base.py` 4 miss → 0 miss, 1 remaining
+branch partial tracked in tech debt). 5 new tests, 6595 tests passed, 76.02%
+coverage. See [v341 plan](docs/exec-plans/completed/2026/v341-remaining-branch-coverage.md).
+
+### Hand Base & GitHub Coverage Hardening (2026-03-30) — Completed
+
+Closed remaining testable coverage gaps in `hand/base.py` (99% → 100%) and
+`github.py` (line 949): `_working_tree_is_clean` TimeoutExpired/OSError/dirty-tree
+paths, `_push_to_existing_pr` clean-tree rev-parse path, `add_to_project_v2`
+project-resolution-failure RuntimeError for org/user/missing-key scenarios. 10 new
+tests, 6590 tests passed, 75.93% coverage. `base.py` now at 100% statement coverage.
+See [v340 plan](docs/exec-plans/completed/2026/v340-hand-base-and-github-coverage.md).
+
+### Meta Tools Coverage Hardening (2026-03-30) — Completed
+
+Closed testable coverage gaps in `meta/tools/web.py` (81% → 98%) and
+`meta/tools/filesystem.py` (92% → 100%): `_raise_url_error` HTTP vs URL paths,
+`_require_http_url` scheme/netloc validation, `_decode_bytes` encoding fallback,
+`_as_string_keyed_dict` edge cases, `_extract_related_topics` nested recursion,
+`search_web` error handling and deduplication, `browse_url` non-HTML content,
+`normalize_relative_path` type check, `read_text_file` large file rejection,
+`mkdir_path` OSError wrapping. 42 new tests, 6580 tests passed, 75.84% coverage.
+See [v339 plan](docs/exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md).
+
+### Server App & Celery Pure Function Coverage (2026-03-29) — Completed
+
+Covered remaining uncovered branches in `server/app.py` and `server/celery_app.py`
+pure helper functions: `_is_recently_terminal` all branches, `_upsert_current_task`
+edge cases, `_update_progress` issue_number branch, `_sync_issue_status`
+failed-without-error branch, `ensure_usage_schedule` OSError catch. 16 new tests,
+7656 tests passed, 96.45% coverage. See
+[v338 plan](docs/exec-plans/completed/2026/v338-server-app-celery-pure-function-coverage.md).
+
+### Multiplayer YJS & Claude Stream Emitter Coverage (2026-03-29) — Completed
+
+Close remaining testable coverage gaps in `multiplayer_yjs.py` (95% → 99%) and
+`cli/claude.py` (98% → 99%): decoration state reading branches, activity summary
+edge cases, and stream emitter non-dict event/block handling. See
+[v337 plan](docs/exec-plans/completed/2026/v337-multiplayer-and-claude-emitter-coverage.md).
+
 ### Hand Base & CLI Hand Coverage Hardening (2026-03-29) — Completed
 
 Close remaining coverage gaps in `Hand` base class and `_TwoPhaseCLIHand`.
@@ -15,7 +114,26 @@ See [v336 plan](docs/exec-plans/active/v336-hand-base-cli-coverage.md).
 - base.py 99% → 100%, cli/base.py 99% (4 miss → 1 branch)
 - 6526 backend tests passed, 75.95% coverage
 
-## Recently Completed
+### OAuth Token Test Fix & Credentials Coverage (2026-03-29) — Completed
+
+Fixed 16 broken `_get_claude_oauth_token` tests across 3 test files — the
+addition of `_read_claude_credentials_file()` as a first-try path caused tests
+that only mock `subprocess.run` to find a real token before the mock was reached.
+Added 6 new tests (5 `_read_claude_credentials_file` + 1 credentials-file-first
+path). See [v336 plan](docs/exec-plans/completed/2026/v336-oauth-token-test-fix-and-credentials-coverage.md).
+
+
+### ModelProvider Coverage Hardening (2026-03-29) — Completed
+
+Close remaining coverage gaps in `model_provider.py`: `_require_langchain_class`
+direct tests, provider-name resolution branches, empty model validation. Also
+fixed pre-existing `test_env_var_forwarding` env leak. See
+[v335 plan](docs/exec-plans/completed/2026/v335-model-provider-coverage-hardening.md).
+
+### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
+
+Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and `CLIHandBase`
+(98% → 99%). See [v334 plan](docs/exec-plans/completed/2026/v334-goose-cli-base-coverage.md).
 
 ### Stream Emitter & Multiplayer Coverage + Test Fix (2026-03-29) — Completed
 

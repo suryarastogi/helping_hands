@@ -751,6 +751,36 @@ class TestGetPlayerActivitySummary:
             assert result["total"] == 1
             assert result["active"] == 1
 
+    def test_skips_unparseable_raw_state(self) -> None:
+        """Raw states that ``_parse_awareness_state`` returns None for are skipped."""
+        mock_awareness = MagicMock()
+        # _parse_awareness_state returns None for non-dict, non-bytes data
+        mock_awareness.states = {
+            1: None,  # unparseable
+            2: {
+                "player": {
+                    "player_id": "p1",
+                    "name": "Alice",
+                    "color": "#e74c3c",
+                    "x": 50.0,
+                    "y": 50.0,
+                    "idle": False,
+                },
+            },
+        }
+        mock_room = MagicMock()
+        mock_room.awareness = mock_awareness
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_player_activity_summary()
+            # Only the valid player should be counted
+            assert result["total"] == 1
+            assert result["active"] == 1
+
 
 class TestExtractPlayerState:
     """Tests for the ``_extract_player_state`` helper."""
@@ -983,6 +1013,40 @@ class TestGetDecorationState:
         type(mock_server).rooms = property(
             lambda self: (_ for _ in ()).throw(RuntimeError("boom"))
         )
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_decoration_state()
+            assert result == {"decorations": [], "count": 0}
+
+    def test_skips_room_where_deco_map_get_raises(self) -> None:
+        """When ``ydoc.get("decorations", ...)`` raises, the room is skipped."""
+        mock_ydoc = MagicMock()
+        mock_ydoc.get.side_effect = TypeError("unsupported type")
+
+        mock_room = MagicMock()
+        mock_room.ydoc = mock_ydoc
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
+
+        with patch(
+            "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server
+        ):
+            result = get_decoration_state()
+            assert result == {"decorations": [], "count": 0}
+
+    def test_skips_room_where_deco_map_is_none(self) -> None:
+        """When ``ydoc.get()`` returns None, the room is skipped."""
+        mock_ydoc = MagicMock()
+        mock_ydoc.get.return_value = None
+
+        mock_room = MagicMock()
+        mock_room.ydoc = mock_ydoc
+
+        mock_server = MagicMock()
+        mock_server.rooms = {"hand-world": mock_room}
 
         with patch(
             "helping_hands.server.multiplayer_yjs.yjs_websocket_server", mock_server

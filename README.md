@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** February 27, 2026
+**Last updated:** March 30, 2026
 
 ## What is this?
 
@@ -66,70 +66,86 @@ runs, UUIDs are generated in-hand as needed.
 
 ## Quick start
 
-```bash
-# Requires Python 3.12+
+Get from zero to your first AI-driven code change in three steps.
+Requires **Python 3.12+** and [uv](https://docs.astral.sh/uv/).
 
-# Clone the repo
+### 1. Install
+
+```bash
 git clone git@github.com:suryarastogi/helping_hands.git
 cd helping_hands
-
-# Install with uv (creates .venv automatically)
 uv sync --dev
+```
 
-# Run in CLI mode (default) against a target repo
-uv run helping-hands <local-path-or-owner/repo>
+### 2. Set API keys
 
-# Run iterative LangGraph backend (owner/repo is auto-cloned)
+Export at least one AI provider key:
+
+```bash
+export OPENAI_API_KEY="sk-..."        # for GPT models
+# — or —
+export ANTHROPIC_API_KEY="sk-ant-..." # for Claude models
+# — or —
+export GOOGLE_API_KEY="..."           # for Gemini models
+```
+
+Verify your environment is ready:
+
+```bash
+uv run helping-hands doctor
+```
+
+### 3. Run your first task
+
+Try the bundled example — a tiny Python package with a deliberate bug:
+
+```bash
+cd examples/fix-greeting
+bash run.sh   # runs helping-hands with --no-pr (no GitHub access needed)
+```
+
+Or point at any local repo:
+
+```bash
+uv run helping-hands ./my-project --backend basic-langgraph --model gpt-5.2 \
+  --prompt "Add type hints to utils.py" --no-pr
+```
+
+### More examples
+
+```bash
+# Iterative backends (owner/repo is auto-cloned)
 uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4
-
-# Run iterative Atomic backend
 uv run helping-hands owner/repo --backend basic-atomic --model gpt-5.2 --prompt "Implement X" --max-iterations 4
-
-# Run iterative Agent backend (same dependency extra as basic-atomic)
 uv run helping-hands owner/repo --backend basic-agent --model gpt-5.2 --prompt "Implement X" --max-iterations 4
 
-# Run Codex CLI backend (two-phase: initialize repo context, then execute task)
+# CLI backends (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --prompt "Implement X"
-
-# Run Claude Code CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend claudecodecli --model anthropic/claude-sonnet-4-5 --prompt "Implement X"
-
-# Run Gemini CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend geminicli --prompt "Implement X"
-
-# Force native Codex/Claude auth session usage (ignore provider API key env vars)
-uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --use-native-cli-auth --prompt "Implement X"
-
-# Run Goose CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend goose --prompt "Implement X"
-
-# Run OpenCode CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend opencodecli --model litellm/claude-sonnet-4-6 --prompt "Implement X"
-
-# Run Devin CLI backend (two-phase: initialize repo context, then execute task)
 uv run helping-hands owner/repo --backend devincli --prompt "Implement X"
 
-# Disable final commit/push/PR step explicitly
-uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --max-iterations 4 --no-pr
+# Force native CLI auth (ignore provider API key env vars)
+uv run helping-hands owner/repo --backend codexcli --model gpt-5.2 --use-native-cli-auth --prompt "Implement X"
 
-# Enable execution/web tools for iterative backends (disabled by default)
+# Disable final commit/push/PR step
+uv run helping-hands owner/repo --backend basic-langgraph --model gpt-5.2 --prompt "Implement X" --no-pr
+
+# Enable execution/web tools for iterative backends
 uv run helping-hands owner/repo --backend basic-langgraph --enable-execution --enable-web --prompt "Run the smoke test prompt"
 
-# Run E2E mode against a GitHub repo (owner/repo)
+# E2E mode against a GitHub repo
 uv run helping-hands owner/repo --e2e --prompt "E2E smoke test"
-
-# Resume/update an existing PR (e.g., PR #1)
 uv run helping-hands owner/repo --e2e --pr-number 1 --prompt "Update PR 1"
 
-# App mode: start the full stack with Docker Compose
+# App mode (Docker Compose)
 cp .env.example .env  # edit as needed
-docker compose down
 docker compose up --build
 
-# Optional: run React frontend wrapper for submit/monitor flows
-cd frontend
-npm install
-npm run dev
+# React frontend
+cd frontend && npm install && npm run dev
 ```
 
 ### Trigger a run in app mode

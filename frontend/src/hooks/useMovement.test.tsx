@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
 import { OFFICE_BOUNDS, PLAYER_MOVE_STEP, SPAWN_PADDING } from "../constants";
@@ -43,6 +43,20 @@ describe("randomSpawnPosition", () => {
 });
 
 describe("useMovement hook", () => {
+  // Mock Math.random to return 0.5, placing the spawn at (50, 49) — safely
+  // away from all fixed collision boxes (factory, incinerator, arcade).
+  let randomSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
+  });
+
+  afterEach(() => {
+    randomSpy.mockRestore();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
   it("returns a random position and default direction when inactive", () => {
     const { result } = renderHook(() =>
       useMovement({ active: false, deskSlots: emptyDesks }),
@@ -77,9 +91,6 @@ describe("useMovement hook", () => {
 
     releaseKey("ArrowUp");
     expect(result.current.isPlayerWalking).toBe(false);
-
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("moves player with WASD keys", () => {
@@ -98,9 +109,6 @@ describe("useMovement hook", () => {
     expect(result.current.playerDirection).toBe("right");
     expect(result.current.playerPosition.x).toBeGreaterThan(initialX);
     releaseKey("d");
-
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("clamps position within office bounds", () => {
@@ -123,8 +131,6 @@ describe("useMovement hook", () => {
     expect(result.current.playerPosition.y).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minY);
     releaseKey("ArrowUp");
 
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("detects desk collision and blocks movement", () => {
@@ -151,8 +157,6 @@ describe("useMovement hook", () => {
     // (exact behavior depends on collision geometry)
     expect(result.current.playerPosition.y).toBeDefined();
 
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("does not bind keys when inactive", () => {
@@ -176,8 +180,6 @@ describe("useMovement hook", () => {
     expect(result.current.playerPosition).toEqual(pos);
     expect(result.current.isPlayerWalking).toBe(false);
 
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("ignores WASD when typing in an input field", () => {
@@ -208,8 +210,6 @@ describe("useMovement hook", () => {
     expect(result.current.playerPosition).toEqual(pos);
 
     document.body.removeChild(input);
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("moves player left on ArrowLeft", () => {
@@ -229,8 +229,6 @@ describe("useMovement hook", () => {
     expect(result.current.playerPosition.x).toBeLessThan(initialX);
     releaseKey("ArrowLeft");
 
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("moves player left on 'a' key", () => {
@@ -250,8 +248,6 @@ describe("useMovement hook", () => {
     expect(result.current.playerPosition.x).toBeLessThan(initialX);
     releaseKey("a");
 
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("cancels pending animation frame on cleanup", () => {
@@ -277,8 +273,6 @@ describe("useMovement hook", () => {
 
     expect(cancelSpy).toHaveBeenCalled();
 
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("cleans up event listeners on deactivation", () => {
@@ -299,7 +293,5 @@ describe("useMovement hook", () => {
     expect(removedEvents).toContain("keydown");
     expect(removedEvents).toContain("keyup");
 
-    vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 });

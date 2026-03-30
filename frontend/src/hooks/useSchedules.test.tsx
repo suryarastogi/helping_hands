@@ -126,7 +126,7 @@ describe("useSchedules", () => {
     await act(() => result.current.saveSchedule(fakeEvent));
 
     expect(result.current.scheduleError).toBe(
-      "Name, cron expression, repository path, and prompt are required.",
+      "Name, repository path, and prompt are required.",
     );
   });
 

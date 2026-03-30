@@ -1,4 +1,4 @@
-# Week 13 (Mar 20 – Mar 28, 2026)
+# Week 13 (Mar 20 – Mar 29, 2026)
 
 Multiplayer Hand World feature implementation, testing/consolidation, emotes, Yjs
 migration, frontend decomposition, chat bubbles, schedule hook coverage, chat
@@ -26,8 +26,14 @@ issue lifecycle sync (in-progress/completed/failed labels + status
 comments + frontend issue badge), task status sync to GitHub issues
 (running/completed/failed lifecycle comments via marker-tagged upsert),
 GitHub Projects v2 board integration with full-stack `project_url`
-support via GraphQL API, and GitHub integration test coverage hardening
-(form endpoint, PR body "Closes #N", invalid project URL edge case).
+support via GraphQL API, GitHub integration test coverage hardening
+(form endpoint, PR body "Closes #N", invalid project URL edge case),
+server/validation/CLI hand coverage hardening (v331–v335), OAuth
+token test regression fix with `_read_claude_credentials_file` coverage (v336),
+multiplayer YJS decoration/activity + Claude stream emitter edge case
+coverage (v337), and server app & Celery pure function coverage hardening
+with `_is_recently_terminal`, `_upsert_current_task`, `_update_progress`,
+`_sync_issue_status`, and `ensure_usage_schedule` branch tests (v338).
 
 ---
 
@@ -525,6 +531,58 @@ support via GraphQL API, and GitHub integration test coverage hardening
 
 ---
 
+## Mar 29 — GooseCLIHand & CLIHandBase Coverage Hardening (v334)
+
+**GooseCLIHand coverage (88% → 99%):** 10 new tests covering `_read_goose_config` (yaml ImportError, parse exception, non-dict, success, model-only, empty keys, not found) and `_resolve_goose_provider_model_from_config` (config file fallback, empty provider inference, unknown model). **CLIHandBase coverage (98% → 99%):** 7 new tests covering `_repo_has_changes` HEAD advance, `_has_pending_changes` delegation, `_fetch_failed_check_logs` edge cases.
+
+**17 new tests. 6510 backend tests, 75.97% coverage.**
+
+---
+
+## Mar 29 — ModelProvider Coverage Hardening (v335)
+
+**`_require_langchain_class` direct unit tests:** 3 tests covering success path, failure with derived install string, and failure with custom install string. **`resolve_hand_model` provider-name branches:** 4 tests for direct provider names (openai, anthropic, google, litellm), 5 tests for `provider/` trailing-slash with empty model. **Empty model validation:** 2 tests for `build_langchain_chat_model` and `build_atomic_client` with empty model. **Bug fix:** `test_env_var_forwarding` — cleared `HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH` env var leaking into test.
+
+**15 new tests (51 model_provider total). 6524 backend tests, 75.64% coverage.**
+
+---
+
+## Mar 29 — OAuth Token Test Fix & Credentials Coverage (v336)
+
+**Test regression fix:** 16 broken `_get_claude_oauth_token` tests across 3 test files — `_read_claude_credentials_file()` (added as first-try path before Keychain fallback) was finding a real credentials file before the `subprocess.run` mock was reached. Fixed by mocking `_read_claude_credentials_file` to return `None` in all Keychain-path tests.
+
+**New coverage:** 5 `_read_claude_credentials_file` unit tests (valid file, missing file, invalid JSON, missing key, OSError). 1 credentials-file-first-path test verifying `_get_claude_oauth_token` returns the file token without hitting Keychain.
+
+**6 new tests. 7631 backend tests, 96.09% coverage.**
+
+---
+
+## Mar 29 — Multiplayer YJS & Claude Stream Emitter Coverage (v337)
+
+**multiplayer_yjs.py (95% → 99%):** 5 new tests covering `get_player_activity_summary` awareness-None room skip and unparseable raw state skip; `get_decoration_state` ydoc-None room skip, deco_map exception skip, deco_map-None skip.
+
+**cli/claude.py (98% → 99%):** 4 new `_StreamJsonEmitter` tests covering JSON primitive string/number pass-through, non-dict block in assistant message skipped, non-dict block in user message skipped.
+
+**9 new tests. 6533 backend tests, 75.84% coverage.**
+
+---
+
+## Mar 29 — Server App & Celery Pure Function Coverage (v338)
+
+**`_is_recently_terminal` (all branches):** 9 new tests covering non-terminal returns false, FAILURE with `failed` timestamp, SUCCESS with `succeeded` timestamp, fallback to `timestamp` field, old timestamp returns false, missing timestamp, non-numeric timestamp, REVOKED with timestamp.
+
+**`_upsert_current_task` edge cases:** 3 new tests covering empty source skip, fill-missing-backend from incoming, preserve-existing-backend.
+
+**`_update_progress` issue_number:** 2 new tests covering included when set, absent when None.
+
+**`_sync_issue_status`:** 1 new test covering failed without error omits error line.
+
+**`ensure_usage_schedule`:** 1 new test covering OSError (Redis unavailable) swallowed.
+
+**16 new tests. 7656 backend tests, 96.45% coverage.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -588,3 +646,8 @@ support via GraphQL API, and GitHub integration test coverage hardening
 - `v331-server-test-coverage.md`
 - `v332-validation-coverage-hardening.md`
 - `v333-devin-factory-coverage.md`
+- `v334-goose-cli-base-coverage.md`
+- `v335-model-provider-coverage-hardening.md`
+- `v336-oauth-token-test-fix-and-credentials-coverage.md`
+- `v337-multiplayer-and-claude-emitter-coverage.md`
+- `v338-server-app-celery-pure-function-coverage.md`

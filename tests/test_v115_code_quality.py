@@ -267,6 +267,8 @@ class _FakeScheduledTask:
             "reference_repos": [],
             "tools": [],
             "skills": [],
+            "schedule_type": "cron",
+            "interval_seconds": None,
             "enabled": True,
             "created_at": "2026-03-10T00:00:00",
             "last_run_at": "2026-03-10T00:00:00",
