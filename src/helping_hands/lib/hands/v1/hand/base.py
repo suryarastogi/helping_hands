@@ -646,6 +646,18 @@ class Hand(abc.ABC):
         """
         return None
 
+    def _pr_description_prompt_as_arg(self) -> bool:
+        """Whether the PR description CLI takes the prompt as an argument.
+
+        When ``True``, the prompt text is appended as the last CLI
+        argument instead of being piped via stdin.  Override in
+        subclasses whose CLI does not read from stdin (e.g. Devin).
+
+        Returns:
+            ``False`` by default (prompt piped via stdin).
+        """
+        return False
+
     def _should_run_precommit_before_pr(self) -> bool:
         """Whether pre-commit hooks should run before PR finalization.
 
@@ -840,6 +852,7 @@ class Hand(abc.ABC):
                 backend=backend,
                 prompt=prompt,
                 summary=summary,
+                prompt_as_arg=self._pr_description_prompt_as_arg(),
             ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
             commit_sha = self._add_and_commit_with_hook_retry(
@@ -944,6 +957,7 @@ class Hand(abc.ABC):
             backend=backend,
             prompt=prompt,
             summary=summary,
+            prompt_as_arg=self._pr_description_prompt_as_arg(),
         )
         if rich_desc is not None:
             return rich_desc.title, rich_desc.body
@@ -982,7 +996,7 @@ class Hand(abc.ABC):
             raise ValueError(
                 "pr_number must be set before calling _update_pr_description"
             )
-        _, pr_body = self._generate_pr_title_and_body(
+        pr_title, pr_body = self._generate_pr_title_and_body(
             repo_dir=repo_dir,
             base_branch=base_branch,
             backend=backend,
@@ -991,7 +1005,7 @@ class Hand(abc.ABC):
             commit_sha=commit_sha,
         )
         try:
-            gh.update_pr_body(repo, self.pr_number, body=pr_body)
+            gh.update_pr(repo, self.pr_number, title=pr_title, body=pr_body)
         except _GITHUB_ERRORS:
             logger.debug(
                 "Failed to update PR #%s description", self.pr_number, exc_info=True
@@ -1097,6 +1111,7 @@ class Hand(abc.ABC):
                 backend=backend,
                 prompt=prompt,
                 summary=summary,
+                prompt_as_arg=self._pr_description_prompt_as_arg(),
             ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
             commit_sha = self._add_and_commit_with_hook_retry(

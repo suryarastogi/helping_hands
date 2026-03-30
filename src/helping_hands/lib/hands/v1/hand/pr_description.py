@@ -371,6 +371,7 @@ def generate_pr_description(
     backend: str,
     prompt: str,
     summary: str,
+    prompt_as_arg: bool = False,
 ) -> PRDescription | None:
     """Generate a rich PR description using a CLI tool.
 
@@ -385,6 +386,9 @@ def generate_pr_description(
         backend: The hand backend name (e.g., ``"claudecodecli"``).
         prompt: The original user task prompt.
         summary: The AI-generated summary from the hand run.
+        prompt_as_arg: When ``True``, append the prompt as the last CLI
+            argument instead of piping it via stdin.  Used by backends
+            that do not read from stdin (e.g. Devin CLI).
     """
     if cmd is None:
         return None
@@ -411,12 +415,15 @@ def generate_pr_description(
         summary=summary,
     )
 
+    run_cmd = [*cmd, cli_prompt] if prompt_as_arg else cmd
+    stdin_text = None if prompt_as_arg else cli_prompt
+
     cli_label = cmd[0]
     timeout = _timeout_seconds()
     try:
         result = subprocess.run(
-            cmd,
-            input=cli_prompt,
+            run_cmd,
+            input=stdin_text,
             cwd=repo_dir,
             capture_output=True,
             text=True,
@@ -671,6 +678,7 @@ def generate_commit_message(
     backend: str,
     prompt: str,
     summary: str,
+    prompt_as_arg: bool = False,
 ) -> str | None:
     """Generate a meaningful commit message using a CLI tool.
 
@@ -683,6 +691,10 @@ def generate_commit_message(
     This stages all changes (``git add .``) as a side effect so the diff
     includes new files.  The subsequent ``git commit`` will use the staged
     changes.
+
+    Args:
+        prompt_as_arg: When ``True``, append the prompt as the last CLI
+            argument instead of piping it via stdin.
     """
     require_non_empty_string(backend, "backend")
 
@@ -708,11 +720,14 @@ def generate_commit_message(
         summary=summary,
     )
 
+    run_cmd = [*cmd, cli_prompt] if prompt_as_arg else cmd
+    stdin_text = None if prompt_as_arg else cli_prompt
+
     cli_label = cmd[0]
     try:
         result = subprocess.run(
-            cmd,
-            input=cli_prompt,
+            run_cmd,
+            input=stdin_text,
             cwd=repo_dir,
             capture_output=True,
             text=True,

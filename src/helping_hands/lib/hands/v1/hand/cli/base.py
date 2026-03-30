@@ -288,6 +288,47 @@ def _format_cli_failure(
     return f"{backend_name} failed (exit={return_code}). Output:\n{tail}"
 
 
+class _LinePrefixEmitter:
+    """Wrap an emitter to prefix every output line with ``[label]``.
+
+    Buffers incoming chunks and emits complete lines prefixed with
+    ``[<label>] ``.  Lines that already carry the ``[<label>]`` prefix
+    (e.g. control messages from :meth:`_TwoPhaseCLIHand._label_msg`)
+    are forwarded unchanged to avoid double-prefixing.
+
+    Blank lines are passed through without a prefix.
+    """
+
+    __slots__ = ("_buffer", "_emit", "_label", "_prefix")
+
+    def __init__(self, emit: Hand._Emitter, label: str) -> None:
+        self._emit = emit
+        self._label = label
+        self._prefix = f"[{label}] "
+        self._buffer = ""
+
+    async def __call__(self, chunk: str) -> None:
+        """Buffer incoming text and emit prefixed complete lines."""
+        self._buffer += chunk
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            if not line.strip():
+                await self._emit("\n")
+            elif line.startswith(self._prefix):
+                await self._emit(line + "\n")
+            else:
+                await self._emit(f"{self._prefix}{line}\n")
+
+    async def flush(self) -> None:
+        """Emit any remaining buffered text."""
+        if self._buffer.strip():
+            if self._buffer.startswith(self._prefix):
+                await self._emit(self._buffer)
+            else:
+                await self._emit(f"{self._prefix}{self._buffer}")
+            self._buffer = ""
+
+
 class _TwoPhaseCLIHand(Hand):
     """Shared two-phase subprocess hand logic for CLI-driven backends."""
 
@@ -1329,7 +1370,19 @@ class _TwoPhaseCLIHand(Hand):
             self._active_process = None
 
     async def _invoke_backend(self, prompt: str, *, emit: _Emitter) -> str:
-        return await self._invoke_cli(prompt, emit=emit)
+        """Invoke the CLI backend with line-prefixed output.
+
+        Wraps the *emit* callback with :class:`_LinePrefixEmitter` so
+        every output line is tagged with ``[<label>]`` for frontend
+        filtering.  Subclasses that perform their own structured
+        parsing (e.g. Claude's stream-json emitter) should override
+        this method.
+        """
+        prefixer = _LinePrefixEmitter(emit, self._CLI_LABEL)
+        try:
+            return await self._invoke_cli(prompt, emit=prefixer)
+        finally:
+            await prefixer.flush()
 
     async def _run_two_phase(
         self,

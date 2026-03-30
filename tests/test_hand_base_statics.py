@@ -430,6 +430,7 @@ class TestUpdatePrDescription:
 
         mock_gh = MagicMock()
         rich = MagicMock()
+        rich.title = "Rich PR title"
         rich.body = "Rich PR body"
 
         with patch(
@@ -447,9 +448,10 @@ class TestUpdatePrDescription:
                 commit_sha="abc123",
             )
 
-        mock_gh.update_pr_body.assert_called_once()
-        call_args = mock_gh.update_pr_body.call_args
+        mock_gh.update_pr.assert_called_once()
+        call_args = mock_gh.update_pr.call_args
         assert call_args[1]["body"] == "Rich PR body"
+        assert call_args[1]["title"] == "Rich PR title"
 
     def test_fallback_to_generic_body(self, repo_index: RepoIndex) -> None:
         config = Config(repo=str(repo_index.root), model="test-model")
@@ -473,8 +475,8 @@ class TestUpdatePrDescription:
                 commit_sha="abc123",
             )
 
-        mock_gh.update_pr_body.assert_called_once()
-        body = mock_gh.update_pr_body.call_args[1]["body"]
+        mock_gh.update_pr.assert_called_once()
+        body = mock_gh.update_pr.call_args[1]["body"]
         assert "test" in body  # backend name in generic body
 
     def test_update_pr_body_exception_suppressed(self, repo_index: RepoIndex) -> None:
@@ -483,7 +485,7 @@ class TestUpdatePrDescription:
         hand.pr_number = 42
 
         mock_gh = MagicMock()
-        mock_gh.update_pr_body.side_effect = GithubException(500, "API error", None)
+        mock_gh.update_pr.side_effect = GithubException(500, "API error", None)
 
         with patch(
             "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",

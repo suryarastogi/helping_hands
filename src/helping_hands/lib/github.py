@@ -519,6 +519,38 @@ class GitHubClient:
         pr = repo.get_pull(number)
         pr.edit(body=body)
 
+    def update_pr(
+        self,
+        full_name: str,
+        number: int,
+        *,
+        title: str | None = None,
+        body: str | None = None,
+    ) -> None:
+        """Update the title and/or body of an existing pull request.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            number: PR number (must be positive).
+            title: New PR title, or ``None`` to leave unchanged.
+            body: New Markdown body text, or ``None`` to leave unchanged.
+
+        Raises:
+            ValueError: If *number* is not positive or both *title* and
+                *body* are ``None``.
+        """
+        require_positive_int(number, "PR number")
+        if title is None and body is None:
+            return
+        from github import NotSet
+
+        repo = self.get_repo(full_name)
+        pr = repo.get_pull(number)
+        pr.edit(
+            title=title if title is not None else NotSet,
+            body=body if body is not None else NotSet,
+        )
+
     def get_check_runs(
         self,
         full_name: str,

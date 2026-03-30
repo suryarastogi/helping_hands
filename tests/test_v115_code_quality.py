@@ -213,7 +213,7 @@ class TestUpdatePrDescriptionLogging:
         hand.pr_number = 99
 
         mock_gh = MagicMock()
-        mock_gh.update_pr_body.side_effect = GithubException(500, "API error", None)
+        mock_gh.update_pr.side_effect = GithubException(500, "API error", None)
 
         with (
             patch(
