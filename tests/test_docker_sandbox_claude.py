@@ -170,6 +170,9 @@ class TestWrapSandboxExec:
     def test_env_var_forwarding(self, hand, monkeypatch) -> None:
         monkeypatch.setenv("HELPING_HANDS_DOCKER_SANDBOX_NAME", "test-sb")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test123")
+        # Ensure native CLI auth is off so ANTHROPIC_API_KEY is forwarded.
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_USE_NATIVE_CLI_AUTH", raising=False)
 
         result = hand._wrap_sandbox_exec(["claude", "-p", "hello"])
         # Should contain --env flag with the API key

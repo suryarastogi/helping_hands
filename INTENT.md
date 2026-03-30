@@ -4,12 +4,31 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
+### Hand Base & CLI Hand Coverage Hardening (2026-03-29) — Completed
 
-Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and `CLIHandBase`
-(98% → 99%). See [v334 plan](docs/exec-plans/active/v334-goose-cli-base-coverage.md).
+Close remaining coverage gaps in `Hand` base class and `_TwoPhaseCLIHand`.
+See [v336 plan](docs/exec-plans/active/v336-hand-base-cli-coverage.md).
+
+**Implemented (v336):**
+- 7 new tests: 4 `_working_tree_is_clean`, 1 `_push_to_existing_pr` clean tree,
+  1 `_ci_fix_loop` timeout, 1 `_poll_ci_checks` early break
+- base.py 99% → 100%, cli/base.py 99% (4 miss → 1 branch)
+- 6526 backend tests passed, 75.95% coverage
 
 ## Recently Completed
+
+### Stream Emitter & Multiplayer Coverage + Test Fix (2026-03-29) — Completed
+
+**Implemented (v335):**
+- Fixed `test_env_var_forwarding`, 9 new tests
+- claude.py 98% → 100%, multiplayer_yjs.py 95% → 99%
+- 6519 backend tests passed, 75.84% coverage
+
+### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
+
+**Implemented (v334):**
+- 17 new tests: GooseCLIHand coverage 88% → 99%, CLIHandBase 98% → 99%
+- 6510 backend tests passed, 0 failures, 75.97% coverage
 
 ### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — Completed
 
