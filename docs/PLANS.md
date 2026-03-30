@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v340 — Hand Base & CI Fix Edge Case Coverage](exec-plans/completed/2026/v340-hand-base-ci-fix-edge-cases.md) —
+  Close testable coverage gaps in `_working_tree_is_clean`, CI fix loop timeout,
+  and CI poll deadline break; 7 tests added, 6587 tests passed, 75.95% coverage
+
 - [2026-03-30 v339 — Meta Tools Coverage Hardening](exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md) —
   Close testable coverage gaps in `web.py` (81% → 98%) and `filesystem.py` (92% → 100%);
   42 tests added, 6580 tests passed, 75.84% coverage

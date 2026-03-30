@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Hand Base & CI Fix Edge Case Coverage (2026-03-30) — Completed
+
+Close testable coverage gaps in `Hand._working_tree_is_clean` (zero direct tests
+→ 5 unit tests covering TimeoutExpired, OSError, returncode, dirty, clean paths)
+and CLI hand CI fix edge cases (`_poll_ci_checks` deadline break, `_ci_fix_loop`
+loop timeout). base.py lines 403-404/407 and cli/base.py lines 1535/1719-1727
+now covered. 7 new tests, 6587 tests passed, 75.95% coverage.
+See [v340 plan](docs/exec-plans/completed/2026/v340-hand-base-ci-fix-edge-cases.md).
+
 ### Meta Tools Coverage Hardening (2026-03-30) — Completed
 
 Closed testable coverage gaps in `meta/tools/web.py` (81% → 98%) and
