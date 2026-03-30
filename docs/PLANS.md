@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v340 — Server App Workspace, Diff, Tree & Worker Capacity Coverage](exec-plans/completed/2026/v340-server-app-workspace-diff-tree-coverage.md) —
+  Close coverage gaps in `server/app.py` workspace/diff/tree endpoints, worker capacity,
+  arcade scores, multiplayer health; 50 tests added, 7753 tests passed, 99.13% coverage
+
 - [2026-03-30 v339 — Meta Tools Coverage Hardening](exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md) —
   Close testable coverage gaps in `web.py` (81% → 98%) and `filesystem.py` (92% → 100%);
   42 tests added, 6580 tests passed, 75.84% coverage

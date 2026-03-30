@@ -8,6 +8,14 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Server App Workspace, Diff, Tree & Worker Capacity Coverage (2026-03-30) — Completed
+
+Closed coverage gaps in `server/app.py` (80% → 97%): `_resolve_task_workspace`,
+`_build_task_diff`, `_build_task_tree`, `_read_task_file`, `_resolve_worker_capacity`,
+arcade high-score endpoints, multiplayer health endpoints. 50 new tests,
+7753 tests passed, 99.13% coverage.
+See [v340 plan](docs/exec-plans/completed/2026/v340-server-app-workspace-diff-tree-coverage.md).
+
 ### Meta Tools Coverage Hardening (2026-03-30) — Completed
 
 Closed testable coverage gaps in `meta/tools/web.py` (81% → 98%) and
