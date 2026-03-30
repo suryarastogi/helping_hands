@@ -36,8 +36,12 @@ class DevinCLIHand(_TwoPhaseCLIHand):
             Command token list when ``devin`` is on ``$PATH``, else ``None``.
         """
         if shutil.which("devin") is not None:
-            return ["devin", "-p"]
+            return ["devin", "-p", "--"]
         return None
+
+    def _pr_description_prompt_as_arg(self) -> bool:
+        """Devin takes the prompt as a positional argument after ``--``."""
+        return True
 
     def _inject_prompt_argument(self, cmd: list[str], prompt: str) -> bool:
         """Append ``-- <prompt>`` to the command.

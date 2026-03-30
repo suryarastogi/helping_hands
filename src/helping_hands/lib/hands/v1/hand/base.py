@@ -646,6 +646,18 @@ class Hand(abc.ABC):
         """
         return None
 
+    def _pr_description_prompt_as_arg(self) -> bool:
+        """Whether the PR description CLI takes the prompt as an argument.
+
+        When ``True``, the prompt text is appended as the last CLI
+        argument instead of being piped via stdin.  Override in
+        subclasses whose CLI does not read from stdin (e.g. Devin).
+
+        Returns:
+            ``False`` by default (prompt piped via stdin).
+        """
+        return False
+
     def _should_run_precommit_before_pr(self) -> bool:
         """Whether pre-commit hooks should run before PR finalization.
 
@@ -840,6 +852,7 @@ class Hand(abc.ABC):
                 backend=backend,
                 prompt=prompt,
                 summary=summary,
+                prompt_as_arg=self._pr_description_prompt_as_arg(),
             ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
             commit_sha = self._add_and_commit_with_hook_retry(
@@ -944,6 +957,7 @@ class Hand(abc.ABC):
             backend=backend,
             prompt=prompt,
             summary=summary,
+            prompt_as_arg=self._pr_description_prompt_as_arg(),
         )
         if rich_desc is not None:
             return rich_desc.title, rich_desc.body
@@ -1097,6 +1111,7 @@ class Hand(abc.ABC):
                 backend=backend,
                 prompt=prompt,
                 summary=summary,
+                prompt_as_arg=self._pr_description_prompt_as_arg(),
             ) or _DEFAULT_COMMIT_MSG_TEMPLATE.format(backend=backend)
 
             commit_sha = self._add_and_commit_with_hook_retry(
