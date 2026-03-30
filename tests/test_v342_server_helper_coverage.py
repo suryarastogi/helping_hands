@@ -72,7 +72,10 @@ class TestMaybePersistPrToSchedule:
 
 pytest.importorskip("fastapi")
 
-from helping_hands.server.app import _is_running_in_docker, _validate_path_param
+from helping_hands.server.app import (  # noqa: E402
+    _is_running_in_docker,
+    _validate_path_param,
+)
 
 
 class TestValidatePathParam:
