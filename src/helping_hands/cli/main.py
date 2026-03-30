@@ -47,7 +47,7 @@ from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import install_hint, require_positive_int
 
-__all__ = ["build_parser", "main"]
+__all__ = ["build_parser", "doctor", "main"]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -208,7 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for CLI mode."""
     parser = argparse.ArgumentParser(
         prog="helping-hands",
-        description="AI-powered repo builder.",
+        description="AI-powered repo builder. Use 'helping-hands doctor' to check prerequisites.",
     )
     parser.add_argument(
         "repo",
@@ -315,8 +315,30 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def doctor(argv: list[str] | None = None) -> None:
+    """Run environment checks and report missing prerequisites.
+
+    This is the ``helping-hands doctor`` subcommand.  It verifies Python
+    version, required tools, API keys, and optional extras so a new user
+    can diagnose what's missing before their first run.
+
+    Args:
+        argv: Optional argument list (unused, accepted for consistency).
+    """
+    from helping_hands.cli.doctor import run_doctor
+
+    sys.exit(run_doctor())
+
+
 def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
+    # Handle 'doctor' subcommand before full arg parsing, since the main
+    # parser requires a positional 'repo' argument.
+    effective_argv = argv if argv is not None else sys.argv[1:]
+    if effective_argv and effective_argv[0] == "doctor":
+        doctor(effective_argv[1:])
+        return
+
     parser = build_parser()
     args = parser.parse_args(argv)
     selected_tools: frozenset[str] = cast(

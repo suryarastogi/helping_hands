@@ -1,7 +1,8 @@
 # Product Spec: New User Onboarding
 
-**Status:** Draft
+**Status:** Partially implemented
 **Created:** 2026-03-04
+**Updated:** 2026-03-30
 
 ## User story
 
@@ -24,9 +25,11 @@ can evaluate whether the tool fits my workflow.
 2. **`examples/` directory** with at least one minimal sample repo (e.g. a tiny
    Python package with a deliberate bug) and a script that runs helping_hands
    against it.
-3. **Environment checklist** — a CLI command (`helping-hands doctor` or similar)
+3. **Environment checklist** — ~~a CLI command (`helping-hands doctor` or similar)
    that verifies required env vars and dependencies are present and reports
-   what's missing.
+   what's missing.~~ **Implemented** (v344, 2026-03-30): `helping-hands doctor`
+   checks Python version, git, uv, provider API keys, GitHub token, optional
+   CLI backends, and optional extras.
 
 ### Nice to have
 

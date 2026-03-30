@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v344 — Doctor Command](exec-plans/completed/2026/v344-doctor-command.md) —
+  Implement `helping-hands doctor` subcommand for environment prerequisite
+  checking; 28 tests added, 6627 tests passed, 76.40% coverage
+
 - [2026-03-30 v343 — CLI Main Coverage & Daily Consolidation](exec-plans/completed/2026/v343-cli-main-coverage-and-consolidation.md) —
   Close `cli/main.py` branch 336→339 gap via argparse default change, update tech debt
   tracker and daily consolidation; 4 tests added, 6599 tests passed, 76.02% coverage

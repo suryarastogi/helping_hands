@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Doctor Command (2026-03-30) — Completed
+
+Implemented `helping-hands doctor` subcommand from the New User Onboarding
+product spec. Checks Python version (3.12+), git, uv, AI provider API keys,
+GitHub token, optional CLI backends (claude, codex, goose, gemini), and
+optional Python extras (langchain, atomic, server). Returns exit 0 when all
+required checks pass, exit 1 on failures. 28 new tests at 100% coverage on
+`doctor.py`. 6627 tests passed, 76.40% overall coverage. See
+[v344 plan](docs/exec-plans/completed/2026/v344-doctor-command.md).
+
 ### CLI Main Coverage & Daily Consolidation (2026-03-30) — Completed
 
 Closed last testable non-server coverage gap in `cli/main.py`: changed
