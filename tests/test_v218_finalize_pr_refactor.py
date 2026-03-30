@@ -467,7 +467,7 @@ class TestUpdatePrDescriptionDelegation:
         with patch.object(
             hand,
             "_generate_pr_title_and_body",
-            return_value=("ignored title", "generated body"),
+            return_value=("generated title", "generated body"),
         ):
             hand._update_pr_description(
                 gh=mock_gh,
@@ -480,8 +480,8 @@ class TestUpdatePrDescriptionDelegation:
                 commit_sha="sha1",
             )
 
-        mock_gh.update_pr_body.assert_called_once_with(
-            "owner/repo", 5, body="generated body"
+        mock_gh.update_pr.assert_called_once_with(
+            "owner/repo", 5, title="generated title", body="generated body"
         )
 
     def test_update_pr_description_raises_without_pr_number(

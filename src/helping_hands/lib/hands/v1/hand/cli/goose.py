@@ -54,6 +54,8 @@ class GooseCLIHand(_TwoPhaseCLIHand):
         provider, _model = self._resolve_goose_provider_model_from_config()
         if provider == _PROVIDER_ANTHROPIC and shutil.which("claude") is not None:
             return ["claude", "-p", "--output-format", "text"]
+        if provider == _PROVIDER_GOOGLE and shutil.which("gemini") is not None:
+            return ["gemini", "-p"]
         return None
 
     def _describe_auth(self) -> str:

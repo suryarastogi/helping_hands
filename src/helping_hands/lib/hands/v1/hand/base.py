@@ -982,7 +982,7 @@ class Hand(abc.ABC):
             raise ValueError(
                 "pr_number must be set before calling _update_pr_description"
             )
-        _, pr_body = self._generate_pr_title_and_body(
+        pr_title, pr_body = self._generate_pr_title_and_body(
             repo_dir=repo_dir,
             base_branch=base_branch,
             backend=backend,
@@ -991,7 +991,7 @@ class Hand(abc.ABC):
             commit_sha=commit_sha,
         )
         try:
-            gh.update_pr_body(repo, self.pr_number, body=pr_body)
+            gh.update_pr(repo, self.pr_number, title=pr_title, body=pr_body)
         except _GITHUB_ERRORS:
             logger.debug(
                 "Failed to update PR #%s description", self.pr_number, exc_info=True

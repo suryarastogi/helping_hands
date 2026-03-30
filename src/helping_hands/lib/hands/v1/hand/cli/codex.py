@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
@@ -29,6 +30,16 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     _CONTAINER_ENABLED_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER"
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER_IMAGE"
     _NATIVE_CLI_AUTH_ENV_VAR = "HELPING_HANDS_CODEX_USE_NATIVE_CLI_AUTH"
+
+    def _pr_description_cmd(self) -> list[str] | None:
+        """Use Codex CLI to generate PR descriptions and commit messages.
+
+        Returns:
+            Command token list when ``codex`` is on ``$PATH``, else ``None``.
+        """
+        if shutil.which("codex") is not None:
+            return ["codex", "exec"]
+        return None
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         """Return env var names used for native Codex CLI authentication.
