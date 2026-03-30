@@ -10,6 +10,13 @@ Complete New User Onboarding product spec must-have #1 (Quick Start section in
 README with three numbered steps) and nice-to-have #5 (first-run welcome banner
 on first CLI invocation).
 
+## Tasks
+
+- [x] Rewrite README Quick Start with three numbered steps
+- [x] Add first-run welcome banner (`_maybe_show_first_run_banner()`)
+- [x] Add tests for first-run banner
+- [x] Update product spec status
+
 ## Changes
 
 ### README Quick Start rewrite
