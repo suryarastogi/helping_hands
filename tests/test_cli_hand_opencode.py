@@ -106,6 +106,70 @@ class TestResolveCliModel:
 
 
 # ---------------------------------------------------------------------------
+# _describe_auth
+# ---------------------------------------------------------------------------
+
+
+class TestDescribeAuth:
+    def test_no_model_returns_empty(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="")
+        assert hand._describe_auth() == ""
+
+    def test_model_without_slash_returns_empty(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="gpt-4o")
+        assert hand._describe_auth() == ""
+
+    def test_known_provider_key_set(
+        self, opencode_hand, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+        result = opencode_hand._describe_auth()
+        assert "provider=anthropic" in result
+        assert "ANTHROPIC_API_KEY" in result
+        assert "set" in result
+
+    def test_known_provider_key_not_set(
+        self, opencode_hand, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        result = opencode_hand._describe_auth()
+        assert "provider=anthropic" in result
+        assert "ANTHROPIC_API_KEY" in result
+        assert "not set" in result
+
+    def test_unknown_provider_returns_short_string(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="xyzprovider/some-model")
+        result = hand._describe_auth()
+        assert result == "auth=provider=xyzprovider"
+
+    def test_default_marker_returns_empty(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="default")
+        assert hand._describe_auth() == ""
+
+
+# ---------------------------------------------------------------------------
+# Class attributes
+# ---------------------------------------------------------------------------
+
+
+class TestClassAttributes:
+    def test_backend_name(self) -> None:
+        assert OpenCodeCLIHand._BACKEND_NAME == "opencodecli"
+
+    def test_cli_display_name(self) -> None:
+        assert OpenCodeCLIHand._CLI_DISPLAY_NAME == "OpenCode CLI"
+
+    def test_command_env_var(self) -> None:
+        assert OpenCodeCLIHand._COMMAND_ENV_VAR == "HELPING_HANDS_OPENCODE_CLI_CMD"
+
+    def test_default_cli_cmd(self) -> None:
+        assert OpenCodeCLIHand._DEFAULT_CLI_CMD == "opencode run"
+
+    def test_default_model_empty(self) -> None:
+        assert OpenCodeCLIHand._DEFAULT_MODEL == ""
+
+
+# ---------------------------------------------------------------------------
 # _command_not_found_message
 # ---------------------------------------------------------------------------
 

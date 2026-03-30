@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### OpenCode Auth Coverage, Lint Fix & Design Doc (2026-03-30) — Completed
+
+Closed `OpenCodeCLIHand._describe_auth()` coverage gap (68% → 100%): 6
+`_describe_auth` tests + 5 class attribute tests. Fixed ruff E402 lint
+violation in `test_v342_server_helper_coverage.py`. Added GitHub Issue
+Integration design doc covering v325-v329 features (issue creation, status
+sync, label management, Projects v2). Updated 2026-03-30 daily consolidation
+to include v342. 11 new tests, 6606 tests passed, 76.02% coverage. See
+[v343 plan](docs/exec-plans/active/v343-opencode-auth-coverage-and-docs.md).
+
 ### Server Helper Coverage & Weekly Consolidation (2026-03-30) — Completed
 
 Closed remaining untested pure/helper functions in server modules:

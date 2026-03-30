@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v343 — OpenCode Auth Coverage, Lint Fix & Design Doc](exec-plans/completed/2026/v343-opencode-auth-coverage-and-docs.md) —
+  Close `OpenCodeCLIHand._describe_auth()` coverage gap (68% → 100%), fix ruff E402
+  lint violation, add GitHub Issue Integration design doc; 11 tests added, 6606 tests passed
+
+
 - [2026-03-30 v342 — Server Helper Coverage & Weekly Consolidation](exec-plans/completed/2026/v342-server-helper-coverage-and-consolidation.md) —
   Close remaining untested server helpers (`_maybe_persist_pr_to_schedule`,
   `_validate_path_param`, `_is_running_in_docker`); 12 tests added, 96.62% coverage

@@ -38,6 +38,7 @@ Index of design documents for helping_hands.
 - [Task Lifecycle](task-lifecycle.md) — Celery task enqueue, progress streaming, update buffering, result normalization
 - [Scheduling System](scheduling-system.md) — RedBeat, ScheduleManager CRUD, cron presets, trigger-now
 - [GitHub Client](github-client.md) — Authentication, clone/branch/PR lifecycle, and token safety
+- [GitHub Issue Integration](github-issue-integration.md) — Issue creation, status sync, label management, and Projects v2
 - [CI Pipeline](ci-pipeline.md) — GitHub Actions workflows, matrix strategy, coverage, and docs deployment
 - [Local Stack](local-stack.md) — Native process management for local development with Docker data services
 - [Usage Monitoring](usage-monitoring.md) — Claude Code OAuth usage polling, Keychain token retrieval, Postgres persistence
