@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Hand Base & GitHub Coverage Hardening (2026-03-30) — Completed
+
+Closed remaining testable coverage gaps in `hand/base.py` (99% → 100%) and
+`github.py` (line 949): `_working_tree_is_clean` TimeoutExpired/OSError/dirty-tree
+paths, `_push_to_existing_pr` clean-tree rev-parse path, `add_to_project_v2`
+project-resolution-failure RuntimeError for org/user/missing-key scenarios. 10 new
+tests, 6590 tests passed, 75.93% coverage. `base.py` now at 100% statement coverage.
+See [v340 plan](docs/exec-plans/completed/2026/v340-hand-base-and-github-coverage.md).
+
 ### Meta Tools Coverage Hardening (2026-03-30) — Completed
 
 Closed testable coverage gaps in `meta/tools/web.py` (81% → 98%) and

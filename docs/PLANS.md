@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v340 — Hand Base & GitHub Coverage Hardening](exec-plans/completed/2026/v340-hand-base-and-github-coverage.md) —
+  Close remaining testable coverage gaps in `hand/base.py` (99% → 100%) and `github.py`
+  (line 949 covered); 10 tests added, 6590 tests passed, 75.93% coverage
+
 - [2026-03-30 v339 — Meta Tools Coverage Hardening](exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md) —
   Close testable coverage gaps in `web.py` (81% → 98%) and `filesystem.py` (92% → 100%);
   42 tests added, 6580 tests passed, 75.84% coverage
