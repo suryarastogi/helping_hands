@@ -208,3 +208,23 @@ class TestInvokeOpenCodeDelegation:
         result = asyncio.run(opencode_hand._invoke_backend("hello", emit=emit))
         assert result == "delegated"
         assert calls == ["hello"]
+
+
+# ---------------------------------------------------------------------------
+# _pr_description_cmd
+# ---------------------------------------------------------------------------
+
+
+class TestPrDescriptionCmd:
+    def test_returns_command_when_opencode_on_path(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/opencode")
+        result = opencode_hand._pr_description_cmd()
+        assert result == ["opencode", "run"]
+
+    def test_returns_none_when_opencode_missing(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: None)
+        assert opencode_hand._pr_description_cmd() is None

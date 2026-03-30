@@ -640,6 +640,59 @@ class TestUpdatePRBody:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# update_pr
+# ---------------------------------------------------------------------------
+
+
+class TestUpdatePr:
+    def test_updates_title_only(self, client: GitHubClient) -> None:
+        not_set = object()
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_repo.get_pull.return_value = mock_pr
+        client._gh.get_repo.return_value = mock_repo
+
+        with patch.dict("sys.modules", {"github": MagicMock(NotSet=not_set)}):
+            client.update_pr("owner/repo", 5, title="New title")
+
+        mock_repo.get_pull.assert_called_once_with(5)
+        mock_pr.edit.assert_called_once_with(title="New title", body=not_set)
+
+    def test_updates_body_only(self, client: GitHubClient) -> None:
+        not_set = object()
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_repo.get_pull.return_value = mock_pr
+        client._gh.get_repo.return_value = mock_repo
+
+        with patch.dict("sys.modules", {"github": MagicMock(NotSet=not_set)}):
+            client.update_pr("owner/repo", 7, body="New body")
+
+        mock_repo.get_pull.assert_called_once_with(7)
+        mock_pr.edit.assert_called_once_with(title=not_set, body="New body")
+
+    def test_updates_title_and_body(self, client: GitHubClient) -> None:
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_repo.get_pull.return_value = mock_pr
+        client._gh.get_repo.return_value = mock_repo
+
+        with patch.dict("sys.modules", {"github": MagicMock(NotSet="SENTINEL")}):
+            client.update_pr("owner/repo", 3, title="T", body="B")
+
+        mock_pr.edit.assert_called_once_with(title="T", body="B")
+
+    def test_both_none_returns_early(self, client: GitHubClient) -> None:
+        client.update_pr("owner/repo", 1)
+        # get_repo should not be called when both are None
+        client._gh.get_repo.assert_not_called()
+
+    def test_invalid_pr_number_raises(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="PR number"):
+            client.update_pr("owner/repo", 0, title="x")
+
+
 class TestContextManager:
     def test_context_manager_calls_close(self, client: GitHubClient) -> None:
         with client as c:

@@ -307,3 +307,33 @@ class TestInvokeDevinDelegation:
         result = asyncio.run(devin_hand._invoke_backend("hello", emit=emit))
         assert result == "delegated"
         assert calls == ["hello"]
+
+
+# ---------------------------------------------------------------------------
+# _pr_description_cmd
+# ---------------------------------------------------------------------------
+
+
+class TestPrDescriptionCmd:
+    def test_returns_command_when_devin_on_path(
+        self, devin_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/devin")
+        result = devin_hand._pr_description_cmd()
+        assert result == ["devin", "-p", "--"]
+
+    def test_returns_none_when_devin_missing(
+        self, devin_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: None)
+        assert devin_hand._pr_description_cmd() is None
+
+
+# ---------------------------------------------------------------------------
+# _pr_description_prompt_as_arg
+# ---------------------------------------------------------------------------
+
+
+class TestPrDescriptionPromptAsArg:
+    def test_returns_true(self, devin_hand) -> None:
+        assert devin_hand._pr_description_prompt_as_arg() is True

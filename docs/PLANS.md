@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v347 — Coverage Threshold Fix & CLI Hand PR Description Tests](exec-plans/completed/2026/v347-coverage-threshold-fix.md) —
+  Fix coverage drop to 74.99% by adding tests for `opencode.py` _pr_description_cmd,
+  `devin.py` _pr_description_cmd/_pr_description_prompt_as_arg, and `github.py`
+  update_pr; 10 tests added, 6659 tests passed, 75.21% coverage
+
+
 - [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
   Rewrite README Quick Start as three numbered steps (install, set keys, run);
   implement first-run welcome banner with `~/.helping_hands/.first_run_done`

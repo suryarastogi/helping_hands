@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Coverage Threshold Fix (2026-03-30) — Completed
+
+Coverage dropped to 74.99% (below 75% CI gate). Added 10 tests covering
+`opencode.py` `_pr_description_cmd` (2 tests), `devin.py`
+`_pr_description_cmd` + `_pr_description_prompt_as_arg` (3 tests), and
+`github.py` `update_pr` method (5 tests). Coverage restored to 75.21%.
+6659 tests passed. See
+[v347 plan](docs/exec-plans/completed/2026/v347-coverage-threshold-fix.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →
