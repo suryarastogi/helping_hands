@@ -51,6 +51,22 @@ __all__ = ["build_parser", "doctor", "main"]
 
 # --- Module-level constants ---------------------------------------------------
 
+_FIRST_RUN_DIR = Path("~/.helping_hands").expanduser()
+"""Directory used to persist first-run state."""
+
+_FIRST_RUN_MARKER = _FIRST_RUN_DIR / ".first_run_done"
+"""Marker file whose existence indicates the welcome banner has been shown."""
+
+_WELCOME_BANNER = """\
+👋 Welcome to helping_hands!
+
+Quick start:
+  1. Run 'helping-hands doctor' to check your environment.
+  2. Try the example: cd examples/fix-greeting && bash run.sh
+  3. See README.md for all backends and options.
+"""
+"""One-time welcome message shown on first CLI invocation."""
+
 _DEFAULT_CLONE_DEPTH = 1
 """Shallow clone depth used when cloning ``owner/repo`` inputs."""
 
@@ -110,6 +126,27 @@ def _validate_or_exit(
         return fn(*args, **kwargs)
     except ValueError as exc:
         _error_exit(str(exc))
+
+
+def _maybe_show_first_run_banner() -> bool:
+    """Print a welcome banner on the very first CLI invocation.
+
+    Creates ``~/.helping_hands/.first_run_done`` after showing the banner so
+    it is only displayed once.  Silently swallows any filesystem errors (e.g.
+    permission denied, read-only HOME) to avoid blocking normal CLI usage.
+
+    Returns:
+        ``True`` if the banner was printed, ``False`` otherwise.
+    """
+    try:
+        if _FIRST_RUN_MARKER.exists():
+            return False
+        _FIRST_RUN_DIR.mkdir(parents=True, exist_ok=True)
+        _FIRST_RUN_MARKER.write_text("")
+        print(_WELCOME_BANNER)
+        return True
+    except OSError:
+        return False
 
 
 def _run_git_clone(
@@ -332,6 +369,8 @@ def doctor(argv: list[str] | None = None) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
+    _maybe_show_first_run_banner()
+
     # Handle 'doctor' subcommand before full arg parsing, since the main
     # parser requires a positional 'repo' argument.
     effective_argv = argv if argv is not None else sys.argv[1:]

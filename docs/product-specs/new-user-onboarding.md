@@ -1,6 +1,6 @@
 # Product Spec: New User Onboarding
 
-**Status:** Partially implemented
+**Status:** Mostly implemented (only nice-to-have #4 remaining)
 **Created:** 2026-03-04
 **Updated:** 2026-03-30
 
@@ -20,8 +20,11 @@ can evaluate whether the tool fits my workflow.
 
 ### Must have
 
-1. **Quick-start section in README** — three numbered steps: install, set keys,
-   run a trivial task against a local directory.
+1. **Quick-start section in README** — ~~three numbered steps: install, set keys,
+   run a trivial task against a local directory.~~ **Implemented** (v346,
+   2026-03-30): README Quick Start rewritten as three numbered steps
+   (install → set API keys → run first task) with references to `doctor`
+   and `examples/fix-greeting/`.
 2. **`examples/` directory** ~~with at least one minimal sample repo (e.g. a tiny
    Python package with a deliberate bug) and a script that runs helping_hands
    against it.~~ **Implemented** (v345, 2026-03-30): `examples/fix-greeting/`
@@ -37,8 +40,10 @@ can evaluate whether the tool fits my workflow.
 
 4. **Interactive mode** — if no `--prompt` is provided, prompt the user
    interactively for a task description.
-5. **First-run banner** — on first invocation, print a short welcome message
-   with a link to the quick-start guide.
+5. **First-run banner** — ~~on first invocation, print a short welcome message
+   with a link to the quick-start guide.~~ **Implemented** (v346, 2026-03-30):
+   `_maybe_show_first_run_banner()` in `cli/main.py` prints a welcome message
+   on first invocation, tracked via `~/.helping_hands/.first_run_done` marker.
 
 ## Acceptance criteria
 

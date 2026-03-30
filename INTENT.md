@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
+
+Rewrote README Quick Start as three numbered steps (install → set API keys →
+run first task) with references to `helping-hands doctor` and
+`examples/fix-greeting/`. Implemented first-run welcome banner via
+`_maybe_show_first_run_banner()` in `cli/main.py` — prints a one-time welcome
+on first invocation, tracked by `~/.helping_hands/.first_run_done` marker.
+5 new tests. Product spec must-have #1 and nice-to-have #5 now complete. See
+[v346 plan](docs/exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md).
+
 ### Examples Directory & Doctor Early-Return Test (2026-03-30) — Completed
 
 Implemented `examples/` directory from the New User Onboarding product spec
