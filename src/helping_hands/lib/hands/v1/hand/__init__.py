@@ -17,6 +17,7 @@ from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse
 from helping_hands.lib.hands.v1.hand.cli import (
     ClaudeCodeHand,
     CodexCLIHand,
+    DevinCLIHand,
     DockerSandboxClaudeCodeHand,
     GeminiCLIHand,
     GooseCLIHand,
@@ -43,6 +44,7 @@ __all__ = [
     "BasicLangGraphHand",
     "ClaudeCodeHand",
     "CodexCLIHand",
+    "DevinCLIHand",
     "DockerSandboxClaudeCodeHand",
     "E2EHand",
     "GeminiCLIHand",

@@ -11,11 +11,15 @@ from helping_hands.lib.hands.v1.hand import (
     BasicLangGraphHand,
     ClaudeCodeHand,
     CodexCLIHand,
+    DevinCLIHand,
+    DockerSandboxClaudeCodeHand,
     E2EHand,
     GeminiCLIHand,
+    GooseCLIHand,
     Hand,
     HandResponse,
     LangGraphHand,
+    OpenCodeCLIHand,
 )
 
 __all__ = [
@@ -24,9 +28,13 @@ __all__ = [
     "BasicLangGraphHand",
     "ClaudeCodeHand",
     "CodexCLIHand",
+    "DevinCLIHand",
+    "DockerSandboxClaudeCodeHand",
     "E2EHand",
     "GeminiCLIHand",
+    "GooseCLIHand",
     "Hand",
     "HandResponse",
     "LangGraphHand",
+    "OpenCodeCLIHand",
 ]

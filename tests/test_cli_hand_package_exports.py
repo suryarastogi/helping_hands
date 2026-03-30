@@ -16,6 +16,7 @@ import helping_hands.lib.hands.v1.hand.cli as pkg
 from helping_hands.lib.hands.v1.hand.cli import (
     ClaudeCodeHand,
     CodexCLIHand,
+    DevinCLIHand,
     DockerSandboxClaudeCodeHand,
     GeminiCLIHand,
     GooseCLIHand,
@@ -90,6 +91,13 @@ class TestCLIPackageIdentity:
         )
 
         assert GooseCLIHand is Src
+
+    def test_devin_identity(self) -> None:
+        from helping_hands.lib.hands.v1.hand.cli.devin import (
+            DevinCLIHand as Src,
+        )
+
+        assert DevinCLIHand is Src
 
     def test_opencode_identity(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.opencode import (

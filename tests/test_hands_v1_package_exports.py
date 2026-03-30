@@ -16,11 +16,15 @@ from helping_hands.lib.hands.v1 import (
     BasicLangGraphHand,
     ClaudeCodeHand,
     CodexCLIHand,
+    DevinCLIHand,
+    DockerSandboxClaudeCodeHand,
     E2EHand,
     GeminiCLIHand,
+    GooseCLIHand,
     Hand,
     HandResponse,
     LangGraphHand,
+    OpenCodeCLIHand,
     __all__,
 )
 
@@ -35,11 +39,15 @@ class TestHandsV1PackageAll:
             "BasicLangGraphHand",
             "ClaudeCodeHand",
             "CodexCLIHand",
+            "DevinCLIHand",
+            "DockerSandboxClaudeCodeHand",
             "E2EHand",
             "GeminiCLIHand",
+            "GooseCLIHand",
             "Hand",
             "HandResponse",
             "LangGraphHand",
+            "OpenCodeCLIHand",
         }
         assert set(__all__) == expected
 
@@ -100,3 +108,25 @@ class TestHandsV1PackageIdentity:
         from helping_hands.lib.hands.v1.hand import GeminiCLIHand as Src
 
         assert GeminiCLIHand is Src
+
+    def test_goose_identity(self) -> None:
+        from helping_hands.lib.hands.v1.hand import GooseCLIHand as Src
+
+        assert GooseCLIHand is Src
+
+    def test_docker_sandbox_identity(self) -> None:
+        from helping_hands.lib.hands.v1.hand import (
+            DockerSandboxClaudeCodeHand as Src,
+        )
+
+        assert DockerSandboxClaudeCodeHand is Src
+
+    def test_opencode_identity(self) -> None:
+        from helping_hands.lib.hands.v1.hand import OpenCodeCLIHand as Src
+
+        assert OpenCodeCLIHand is Src
+
+    def test_devin_identity(self) -> None:
+        from helping_hands.lib.hands.v1.hand import DevinCLIHand as Src
+
+        assert DevinCLIHand is Src

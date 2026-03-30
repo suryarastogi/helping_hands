@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### CLI Hand Package Re-exports (2026-03-30) — Completed
+
+Fixed missing re-exports of `DevinCLIHand`, `DockerSandboxClaudeCodeHand`,
+`GooseCLIHand`, and `OpenCodeCLIHand` at the `hands/v1/__init__.py` and
+`hands/v1/hand/__init__.py` package layers. These CLI hands were available
+from `cli/__init__.py` but not from the higher-level documented import
+surfaces, causing `ImportError` for downstream consumers. Added 5 new
+identity test assertions. 6604 tests passed, 76.04% coverage. See
+[v344 plan](docs/exec-plans/completed/2026/v344-cli-hand-package-reexports.md).
+
 ### CLI Main Coverage & Daily Consolidation (2026-03-30) — Completed
 
 Closed last testable non-server coverage gap in `cli/main.py`: changed

@@ -18,6 +18,7 @@ from helping_hands.lib.hands.v1.hand import (
     BasicLangGraphHand,
     ClaudeCodeHand,
     CodexCLIHand,
+    DevinCLIHand,
     DockerSandboxClaudeCodeHand,
     E2EHand,
     GeminiCLIHand,
@@ -42,6 +43,7 @@ class TestHandPackageAll:
             "BasicLangGraphHand",
             "ClaudeCodeHand",
             "CodexCLIHand",
+            "DevinCLIHand",
             "DockerSandboxClaudeCodeHand",
             "E2EHand",
             "GeminiCLIHand",
@@ -113,6 +115,7 @@ class TestHandPackageIdentity:
         from helping_hands.lib.hands.v1.hand.cli import (
             ClaudeCodeHand as SrcClaude,
             CodexCLIHand as SrcCodex,
+            DevinCLIHand as SrcDevin,
             DockerSandboxClaudeCodeHand as SrcDocker,
             GeminiCLIHand as SrcGemini,
             GooseCLIHand as SrcGoose,
@@ -121,6 +124,7 @@ class TestHandPackageIdentity:
 
         assert ClaudeCodeHand is SrcClaude
         assert CodexCLIHand is SrcCodex
+        assert DevinCLIHand is SrcDevin
         assert DockerSandboxClaudeCodeHand is SrcDocker
         assert GeminiCLIHand is SrcGemini
         assert GooseCLIHand is SrcGoose
