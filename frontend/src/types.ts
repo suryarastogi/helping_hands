@@ -149,10 +149,14 @@ export type ServiceHealthState = {
   health: ServiceHealth | null;
 };
 
+export type ScheduleType = "cron" | "interval";
+
 export type ScheduleItem = {
   schedule_id: string;
   name: string;
+  schedule_type: ScheduleType;
   cron_expression: string;
+  interval_seconds: number | null;
   repo_path: string;
   prompt: string;
   backend: string;
@@ -179,7 +183,9 @@ export type ScheduleItem = {
 
 export type ScheduleFormState = {
   name: string;
+  schedule_type: ScheduleType;
   cron_expression: string;
+  interval_seconds: number;
   repo_path: string;
   prompt: string;
   backend: Backend;

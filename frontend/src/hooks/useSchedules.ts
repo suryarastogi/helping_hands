@@ -70,7 +70,9 @@ export function useSchedules(): UseSchedulesReturn {
       const item = (await response.json()) as ScheduleItem;
       setScheduleForm({
         name: item.name,
+        schedule_type: item.schedule_type ?? "cron",
         cron_expression: item.cron_expression,
+        interval_seconds: item.interval_seconds ?? 300,
         repo_path: item.repo_path,
         prompt: item.prompt,
         backend: item.backend as Backend,
@@ -104,13 +106,24 @@ export function useSchedules(): UseSchedulesReturn {
     const cronExpr = scheduleForm.cron_expression.trim();
     const schedRepoPath = scheduleForm.repo_path.trim();
     const schedPrompt = scheduleForm.prompt.trim();
-    if (!name || !cronExpr || !schedRepoPath || !schedPrompt) {
-      setScheduleError("Name, cron expression, repository path, and prompt are required.");
+    const isInterval = scheduleForm.schedule_type === "interval";
+
+    if (!name || !schedRepoPath || !schedPrompt) {
+      setScheduleError("Name, repository path, and prompt are required.");
+      return;
+    }
+    if (!isInterval && !cronExpr) {
+      setScheduleError("Cron expression is required for cron schedules.");
+      return;
+    }
+    if (isInterval && (!scheduleForm.interval_seconds || scheduleForm.interval_seconds < 30)) {
+      setScheduleError("Interval must be at least 30 seconds.");
       return;
     }
 
     const body: Record<string, unknown> = {
       name,
+      schedule_type: scheduleForm.schedule_type,
       cron_expression: cronExpr,
       repo_path: schedRepoPath,
       prompt: schedPrompt,
@@ -124,6 +137,9 @@ export function useSchedules(): UseSchedulesReturn {
       ci_check_wait_minutes: scheduleForm.ci_check_wait_minutes,
       enabled: scheduleForm.enabled,
     };
+    if (isInterval) {
+      body.interval_seconds = scheduleForm.interval_seconds;
+    }
     if (scheduleForm.github_token.trim()) {
       body.github_token = scheduleForm.github_token.trim();
     }

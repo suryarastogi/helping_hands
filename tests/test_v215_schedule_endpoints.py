@@ -39,7 +39,9 @@ class _FakeScheduledTask:
 
     schedule_id: str = "sched-abc123"
     name: str = "Nightly build"
+    schedule_type: str = "cron"
     cron_expression: str = "0 0 * * *"
+    interval_seconds: int | None = None
     repo_path: str = "/tmp/repo"
     prompt: str = "fix all bugs"
     backend: str = "claudecodecli"

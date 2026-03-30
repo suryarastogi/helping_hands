@@ -31,7 +31,9 @@ class _FakeScheduledTask:
 
     schedule_id: str = "sched-1"
     name: str = "Test Schedule"
+    schedule_type: str = "cron"
     cron_expression: str = "0 * * * *"
+    interval_seconds: int | None = None
     repo_path: str = "/tmp/repo"
     prompt: str = "fix bugs"
     backend: str = "claudecodecli"

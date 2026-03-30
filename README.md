@@ -390,6 +390,45 @@ helping_hands/
 4. **Iterate** — Accept, reject, or refine. The agent learns from your feedback and adjusts its approach.
 5. **Record** — Preferences and patterns discovered during the session are captured back into `AGENT.md` so future sessions start smarter.
 
+## Scheduling
+
+App mode supports two schedule types for recurring builds:
+
+### Cron schedules (fixed-time)
+
+Fires at the times defined by a standard cron expression (e.g. `0 0 * * *` for
+midnight daily) using RedBeat.  Runs **may overlap** if a previous build hasn't
+finished when the next trigger fires.
+
+### Interval schedules (non-concurrent)
+
+Runs a build, waits for it to complete, then waits an additional N seconds
+before starting the next one.  This guarantees **no overlap** — each run has
+exclusive access to the repo.  The chain is:
+`build → complete → wait interval → build → …`
+
+Disabling or deleting an interval schedule stops the chain immediately (pending
+tasks are revoked and `build_feature` checks the enabled flag at startup).
+
+### PR number semantics
+
+When a **PR number is specified** on a schedule (or one-off build):
+
+1. The hand checks out that PR's branch and performs its updates there.
+2. It attempts to push directly to the PR branch.
+3. If the push is rejected (e.g. diverged history), a **follow-up PR** is
+   created targeting the original PR's branch.
+4. The schedule **retains the original PR number** — subsequent runs keep
+   targeting the same PR, not the follow-up.
+
+When **no PR number is specified**:
+
+1. The first build creates a new PR.
+2. That PR number is **auto-persisted** back to the schedule.
+3. All subsequent runs push to that same PR.
+4. Once set (either by the user or by auto-persist), the PR number is never
+   silently overwritten.
+
 ## Configuration
 
 `helping_hands` currently reads configuration from:

@@ -836,18 +836,16 @@ class TestScheduleManagerUpdatePrNumber:
         assert result is False
         mock_redis.set.assert_not_called()
 
-    def test_update_pr_number_overwrites_existing(self) -> None:
-        """update_pr_number should overwrite a previously set PR number."""
+    def test_update_pr_number_skips_when_already_pinned(self) -> None:
+        """update_pr_number must not overwrite a previously set PR number."""
         mgr, mock_redis, _ = _build_manager()
         task = _make_task(pr_number=10)
         mock_redis.get.return_value = json.dumps(task.to_dict())
 
         result = mgr.update_pr_number("sched_test123456", 99)
 
-        assert result is True
-        call_args = mock_redis.set.call_args[0]
-        saved_data = json.loads(call_args[1])
-        assert saved_data["pr_number"] == 99
+        assert result is False
+        mock_redis.set.assert_not_called()
 
     def test_update_pr_number_logs_info(self, caplog) -> None:
         """update_pr_number should log when it persists a PR number."""

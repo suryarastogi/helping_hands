@@ -1,7 +1,7 @@
 import { type FormEvent, useMemo } from "react";
 
-import { backendDisplayName, CRON_PRESETS, defaultModelForBackend } from "../App.utils";
-import type { Backend, ScheduleFormState, ScheduleItem } from "../types";
+import { backendDisplayName, CRON_PRESETS, defaultModelForBackend, formatInterval, INTERVAL_PRESETS } from "../App.utils";
+import type { Backend, ScheduleFormState, ScheduleItem, ScheduleType } from "../types";
 import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
 
@@ -66,6 +66,68 @@ function ScheduleFormFields({
 
       <div className="row two-col">
         <label>
+          Schedule type
+          <select
+            value={scheduleForm.schedule_type}
+            onChange={(e) => onUpdateField("schedule_type", e.target.value as ScheduleType)}
+          >
+            <option value="cron">Cron (fixed times)</option>
+            <option value="interval">Interval (non-concurrent)</option>
+          </select>
+        </label>
+        {scheduleForm.schedule_type === "cron" ? (
+          <label>
+            Cron preset
+            <select
+              value={
+                Object.entries(CRON_PRESETS).find(
+                  ([, v]) => v === scheduleForm.cron_expression,
+                )?.[0] ?? ""
+              }
+              onChange={(e) => {
+                const preset = e.target.value;
+                if (preset && CRON_PRESETS[preset]) {
+                  onUpdateField("cron_expression", CRON_PRESETS[preset]);
+                }
+              }}
+            >
+              <option value="">Custom</option>
+              {Object.entries(CRON_PRESETS).map(([key, val]) => (
+                <option key={key} value={key}>
+                  {key.replace(/_/g, " ")} ({val})
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label>
+            Interval preset
+            <select
+              value={
+                Object.entries(INTERVAL_PRESETS).find(
+                  ([, v]) => v === scheduleForm.interval_seconds,
+                )?.[0] ?? ""
+              }
+              onChange={(e) => {
+                const preset = e.target.value;
+                if (preset && INTERVAL_PRESETS[preset]) {
+                  onUpdateField("interval_seconds", INTERVAL_PRESETS[preset]);
+                }
+              }}
+            >
+              <option value="">Custom</option>
+              {Object.entries(INTERVAL_PRESETS).map(([key, val]) => (
+                <option key={key} value={key}>
+                  {key.replace(/_/g, " ")} ({formatInterval(val)})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+
+      {scheduleForm.schedule_type === "cron" ? (
+        <label>
           Cron expression
           <input
             value={scheduleForm.cron_expression}
@@ -74,30 +136,24 @@ function ScheduleFormFields({
             placeholder="0 0 * * * (midnight)"
           />
         </label>
+      ) : (
         <label>
-          Or preset
-          <select
-            value={
-              Object.entries(CRON_PRESETS).find(
-                ([, v]) => v === scheduleForm.cron_expression,
-              )?.[0] ?? ""
+          Interval (seconds)
+          <input
+            type="number"
+            min={30}
+            max={604800}
+            value={scheduleForm.interval_seconds}
+            onChange={(e) =>
+              onUpdateField("interval_seconds", Math.max(30, Number(e.target.value || 30)))
             }
-            onChange={(e) => {
-              const preset = e.target.value;
-              if (preset && CRON_PRESETS[preset]) {
-                onUpdateField("cron_expression", CRON_PRESETS[preset]);
-              }
-            }}
-          >
-            <option value="">Custom</option>
-            {Object.entries(CRON_PRESETS).map(([key, val]) => (
-              <option key={key} value={key}>
-                {key.replace(/_/g, " ")} ({val})
-              </option>
-            ))}
-          </select>
+            required
+          />
+          <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+            Runs, completes, then waits {formatInterval(scheduleForm.interval_seconds)} before next run
+          </span>
         </label>
-      </div>
+      )}
 
       <label>
         Repo path (owner/repo)
@@ -350,10 +406,17 @@ export default function ScheduleCard({
                     <span className={`status-pill ${item.enabled ? "ok" : "idle"}`}>
                       {item.enabled ? "enabled" : "disabled"}
                     </span>
+                    <span className="status-pill run" style={{ fontSize: "0.55rem" }}>
+                      {item.schedule_type === "interval" ? "interval" : "cron"}
+                    </span>
                   </div>
                   <div className="schedule-item-meta">
-                    <code>{item.cron_expression}</code> &middot; {item.repo_path} &middot;{" "}
-                    {item.backend}
+                    {item.schedule_type === "interval" ? (
+                      <code>every {formatInterval(item.interval_seconds ?? 0)}</code>
+                    ) : (
+                      <code>{item.cron_expression}</code>
+                    )}
+                    {" "}&middot; {item.repo_path} &middot; {item.backend}
                     {item.next_run_at && (
                       <> &middot; next: {new Date(item.next_run_at).toLocaleString()}</>
                     )}

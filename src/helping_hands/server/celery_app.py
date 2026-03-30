@@ -55,6 +55,8 @@ from helping_hands.server.constants import (
     REDBEAT_USAGE_ENTRY_NAME as _REDBEAT_USAGE_ENTRY_NAME,
     RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
     RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
+    SCHEDULE_TYPE_INTERVAL as _SCHEDULE_TYPE_INTERVAL,
+    TASK_NAME_INTERVAL_RESCHEDULE as _TASK_NAME_INTERVAL_RESCHEDULE,
     TASK_NAME_LOG_USAGE as _TASK_NAME_LOG_USAGE,
     TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
@@ -63,7 +65,7 @@ from helping_hands.server.constants import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["build_feature", "celery_app"]
+__all__ = ["build_feature", "celery_app", "interval_reschedule"]
 
 
 def _resolve_celery_urls() -> tuple[str, str]:
@@ -559,6 +561,19 @@ def _maybe_persist_pr_to_schedule(
     1. The build was triggered from a schedule (*schedule_id* is not None).
     2. The schedule had no pre-existing PR (*input_pr_number* is None).
     3. The hand created a new PR (*result_pr_number* is a non-empty digit string).
+
+    **PR number behavioural semantics for scheduled tasks:**
+
+    - When the user specifies PR X on a schedule, it is treated as a
+      *pinned* target.  Every subsequent run checks out that PR's branch
+      and attempts to push updates directly to it.
+    - If a push conflict causes the hand to create a follow-up PR Y,
+      the schedule still retains PR X.  The next scheduled run will
+      again target PR X (not Y).
+    - When no PR number is specified, the first build that creates a PR
+      auto-persists the number so subsequent runs push to the same PR.
+    - ``update_pr_number`` has its own guard and will never overwrite an
+      existing (user-set or previously auto-persisted) PR number.
     """
     if schedule_id is None or input_pr_number is not None:
         return
@@ -908,6 +923,23 @@ def build_feature(
     from helping_hands.lib.repo import RepoIndex
 
     task_id = self.request.id  # type: ignore[unresolved-attribute]
+
+    # ---- Early exit for disabled schedules --------------------------------
+    # When a build is dispatched via an interval chain with a countdown, the
+    # schedule may have been disabled before the countdown expires.  Bail out
+    # immediately so the user doesn't see a stale build start running.
+    if schedule_id:
+        from helping_hands.server.schedules import get_schedule_manager
+
+        _sched = get_schedule_manager(celery_app).get_schedule(schedule_id)
+        if _sched is not None and not _sched.enabled:
+            return {
+                "status": "skipped",
+                "message": f"Schedule {schedule_id} is disabled, skipping build",
+                "schedule_id": schedule_id,
+                "task_id": task_id,
+            }
+
     requested_backend, runtime_backend = _normalize_backend(backend)
     resolved_iterations = max(1, int(max_iterations))
     selected_tools = meta_tools.normalize_tool_selection(tools)
@@ -1319,6 +1351,79 @@ def scheduled_build(
         "build_task_id": result.id,
         "prompt": schedule.prompt,
         "repo_path": schedule.repo_path,
+    }
+
+
+@celery_app.task(name=_TASK_NAME_INTERVAL_RESCHEDULE)
+def interval_reschedule(
+    schedule_id: str,
+    chain_nonce: str | None = None,
+) -> dict[str, Any]:  # pragma: no cover - exercised in integration
+    """Callback fired after an interval build completes (or fails).
+
+    Looks up the schedule and, if still enabled, dispatches the next build
+    with a countdown equal to ``interval_seconds``.  This creates a
+    non-concurrent loop: run → complete → wait → run → …
+
+    The *chain_nonce* is compared against the schedule's active nonce to
+    detect stale callbacks from superseded chains (e.g. after the user
+    updated the schedule, which launches a fresh chain).  A mismatch means
+    this callback belongs to an old chain and should not reschedule.
+    """
+    from helping_hands.server.schedules import get_schedule_manager
+
+    manager = get_schedule_manager(celery_app)
+    schedule = manager.get_schedule(schedule_id)
+
+    if schedule is None:
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"Schedule {schedule_id} not found",
+            "schedule_id": schedule_id,
+        }
+
+    if not schedule.enabled:
+        return {
+            "status": "stopped",
+            "message": f"Schedule {schedule_id} is disabled, not rescheduling",
+            "schedule_id": schedule_id,
+        }
+
+    if (
+        schedule.schedule_type != _SCHEDULE_TYPE_INTERVAL
+        or not schedule.interval_seconds
+    ):
+        return {
+            "status": "stopped",
+            "message": f"Schedule {schedule_id} is not an interval schedule",
+            "schedule_id": schedule_id,
+        }
+
+    # Stale-chain detection: if this callback's nonce doesn't match the
+    # schedule's active nonce, a newer chain has been launched (e.g. via
+    # update/re-enable) and this callback should bow out.
+    if chain_nonce is not None:
+        active_nonce = manager.get_chain_nonce(schedule_id)
+        if active_nonce is not None and chain_nonce != active_nonce:
+            return {
+                "status": "stopped",
+                "message": (
+                    f"Stale chain for schedule {schedule_id} "
+                    f"(nonce {chain_nonce!r} != active {active_nonce!r})"
+                ),
+                "schedule_id": schedule_id,
+            }
+
+    # Launch the next iteration after the configured delay
+    task_id = manager._launch_interval_chain(
+        schedule, countdown=schedule.interval_seconds
+    )
+
+    return {
+        "status": "rescheduled",
+        "schedule_id": schedule_id,
+        "next_build_task_id": task_id,
+        "interval_seconds": schedule.interval_seconds,
     }
 
 
