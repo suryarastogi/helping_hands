@@ -1,11 +1,15 @@
 """Tests for Hand base.py docstrings and claude.py stream-json constants.
 
-Verifies that key protected methods in the Hand base class carry Google-style
-docstrings (Args/Returns/Raises sections), enforcing the project convention
-that public API helpers are self-documenting. Also guards the stream-JSON
-parsing constants in ClaudeCodeHand's claude.py: if _EVENT_TYPE_* or
-_BLOCK_TYPE_* values are changed or collide, the Claude CLI output parser
-will silently misclassify events, dropping tool-use blocks or result events.
+Guards the stream-JSON parsing constants in ClaudeCodeHand's claude.py: if
+_EVENT_TYPE_* or _BLOCK_TYPE_* values are changed or collide, the Claude CLI
+output parser will silently misclassify events, dropping tool-use blocks or
+result events without raising any exception.
+
+# TODO: CLEANUP CANDIDATE
+TestHandBaseDocstringsPresent verifies stylistic convention (Google-style
+docstring sections) rather than behavioral invariants — these tests will fail
+on any future method rename but do not protect against correctness regressions
+in the Hand PR lifecycle.
 """
 
 from __future__ import annotations
