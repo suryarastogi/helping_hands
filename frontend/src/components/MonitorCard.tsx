@@ -77,6 +77,7 @@ export default function MonitorCard({
   const blinkerColor = statusBlinkerColor(status);
   const isBlinkerAnimated = statusTone(status) === "run";
   const [filesTab, setFilesTab] = useState<FilesTab>("explorer");
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <section className="card status-card compact-monitor">
@@ -116,6 +117,16 @@ export default function MonitorCard({
           </div>
         </div>
         <div className="monitor-bar-right">
+          <button
+            type="button"
+            className="secondary"
+            style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+            title={collapsed ? "Expand console" : "Collapse console"}
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "Expand console" : "Collapse console"}
+          >
+            {collapsed ? "Console Expand" : "Console Collapse"}
+          </button>
           {taskId && !isTerminalTaskStatus(status) && (
             <button
               type="button"
@@ -160,76 +171,80 @@ export default function MonitorCard({
           </span>
         </div>
       </div>
-      {(accUsage || (detectedPrefixes.length > 0 && outputTab !== "payload")) && (
-        <div className="prefix-filters">
-          {detectedPrefixes.length > 0 && outputTab !== "payload" && (
-            <>
-              <span className="prefix-filters-label">Filter:</span>
-              {detectedPrefixes.map((prefix) => {
-                const mode = prefixFilters[prefix] ?? "show";
-                return (
-                  <button
-                    key={prefix}
-                    type="button"
-                    className={`prefix-chip ${mode}`}
-                    title={`[${prefix}] — ${mode === "show" ? "Showing (click to hide)" : mode === "hide" ? "Hidden (click for only)" : "Only (click to reset)"}`}
-                    onClick={() => {
-                      onPrefixFiltersChange((prev) => {
-                        const current = prev[prefix] ?? "show";
-                        const next: PrefixFilterMode =
-                          current === "show" ? "hide" : current === "hide" ? "only" : "show";
-                        const updated = { ...prev };
-                        if (next === "show") {
-                          delete updated[prefix];
-                        } else {
-                          updated[prefix] = next;
-                        }
-                        return updated;
-                      });
-                    }}
-                  >
-                    <span className="prefix-chip-icon">
-                      {mode === "show" ? "●" : mode === "hide" ? "○" : "◉"}
-                    </span>
-                    [{prefix}]
-                  </button>
-                );
-              })}
-              {Object.keys(prefixFilters).length > 0 && (
-                <button
-                  type="button"
-                  className="prefix-chip reset"
-                  title="Reset all filters"
-                  onClick={() => onPrefixFiltersChange({})}
-                >
-                  Reset
-                </button>
+      {!collapsed && (
+        <>
+          {(accUsage || (detectedPrefixes.length > 0 && outputTab !== "payload")) && (
+            <div className="prefix-filters">
+              {detectedPrefixes.length > 0 && outputTab !== "payload" && (
+                <>
+                  <span className="prefix-filters-label">Filter:</span>
+                  {detectedPrefixes.map((prefix) => {
+                    const mode = prefixFilters[prefix] ?? "show";
+                    return (
+                      <button
+                        key={prefix}
+                        type="button"
+                        className={`prefix-chip ${mode}`}
+                        title={`[${prefix}] — ${mode === "show" ? "Showing (click to hide)" : mode === "hide" ? "Hidden (click for only)" : "Only (click to reset)"}`}
+                        onClick={() => {
+                          onPrefixFiltersChange((prev) => {
+                            const current = prev[prefix] ?? "show";
+                            const next: PrefixFilterMode =
+                              current === "show" ? "hide" : current === "hide" ? "only" : "show";
+                            const updated = { ...prev };
+                            if (next === "show") {
+                              delete updated[prefix];
+                            } else {
+                              updated[prefix] = next;
+                            }
+                            return updated;
+                          });
+                        }}
+                      >
+                        <span className="prefix-chip-icon">
+                          {mode === "show" ? "●" : mode === "hide" ? "○" : "◉"}
+                        </span>
+                        [{prefix}]
+                      </button>
+                    );
+                  })}
+                  {Object.keys(prefixFilters).length > 0 && (
+                    <button
+                      type="button"
+                      className="prefix-chip reset"
+                      title="Reset all filters"
+                      onClick={() => onPrefixFiltersChange({})}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </>
               )}
-            </>
+              {accUsage && (
+                <span
+                  className="usage-total"
+                  title={`${accUsage.count} API call${accUsage.count !== 1 ? "s" : ""}, ${Math.round(accUsage.totalSeconds)}s, in=${accUsage.totalIn.toLocaleString()} out=${accUsage.totalOut.toLocaleString()}`}
+                >
+                  api: ${accUsage.totalCost.toFixed(4)}, {Math.round(accUsage.totalSeconds)}s, in={accUsage.totalIn.toLocaleString()} out={accUsage.totalOut.toLocaleString()}
+                </span>
+              )}
+            </div>
           )}
-          {accUsage && (
-            <span
-              className="usage-total"
-              title={`${accUsage.count} API call${accUsage.count !== 1 ? "s" : ""}, ${Math.round(accUsage.totalSeconds)}s, in=${accUsage.totalIn.toLocaleString()} out=${accUsage.totalOut.toLocaleString()}`}
-            >
-              api: ${accUsage.totalCost.toFixed(4)}, {Math.round(accUsage.totalSeconds)}s, in={accUsage.totalIn.toLocaleString()} out={accUsage.totalOut.toLocaleString()}
-            </span>
+          {taskError && (
+            <div className="task-error-banner">
+              <strong>{taskError.errorType}</strong>
+              <code>{taskError.error}</code>
+            </div>
           )}
-        </div>
+          <pre
+            ref={monitorOutputRef as LegacyRef<HTMLPreElement>}
+            className="monitor-output"
+            onScroll={onMonitorScroll}
+            style={monitorHeight != null ? { height: monitorHeight, minHeight: 60, maxHeight: "none" } : undefined}
+          >{activeOutputText}</pre>
+          <div className="monitor-resize-handle" onMouseDown={onResizeStart} title="Drag to resize" />
+        </>
       )}
-      {taskError && (
-        <div className="task-error-banner">
-          <strong>{taskError.errorType}</strong>
-          <code>{taskError.error}</code>
-        </div>
-      )}
-      <pre
-        ref={monitorOutputRef as LegacyRef<HTMLPreElement>}
-        className="monitor-output"
-        onScroll={onMonitorScroll}
-        style={monitorHeight != null ? { height: monitorHeight, minHeight: 60, maxHeight: "none" } : undefined}
-      >{activeOutputText}</pre>
-      <div className="monitor-resize-handle" onMouseDown={onResizeStart} title="Drag to resize" />
 
       <details className="compact-advanced monitor-inputs">
         <summary>Task inputs</summary>

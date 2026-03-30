@@ -430,6 +430,7 @@ class TestUpdatePrDescription:
 
         mock_gh = MagicMock()
         rich = MagicMock()
+        rich.title = "Rich PR title"
         rich.body = "Rich PR body"
 
         with patch(
@@ -447,9 +448,10 @@ class TestUpdatePrDescription:
                 commit_sha="abc123",
             )
 
-        mock_gh.update_pr_body.assert_called_once()
-        call_args = mock_gh.update_pr_body.call_args
+        mock_gh.update_pr.assert_called_once()
+        call_args = mock_gh.update_pr.call_args
         assert call_args[1]["body"] == "Rich PR body"
+        assert call_args[1]["title"] == "Rich PR title"
 
     def test_fallback_to_generic_body(self, repo_index: RepoIndex) -> None:
         config = Config(repo=str(repo_index.root), model="test-model")
@@ -473,8 +475,8 @@ class TestUpdatePrDescription:
                 commit_sha="abc123",
             )
 
-        mock_gh.update_pr_body.assert_called_once()
-        body = mock_gh.update_pr_body.call_args[1]["body"]
+        mock_gh.update_pr.assert_called_once()
+        body = mock_gh.update_pr.call_args[1]["body"]
         assert "test" in body  # backend name in generic body
 
     def test_update_pr_body_exception_suppressed(self, repo_index: RepoIndex) -> None:
@@ -483,7 +485,7 @@ class TestUpdatePrDescription:
         hand.pr_number = 42
 
         mock_gh = MagicMock()
-        mock_gh.update_pr_body.side_effect = GithubException(500, "API error", None)
+        mock_gh.update_pr.side_effect = GithubException(500, "API error", None)
 
         with patch(
             "helping_hands.lib.hands.v1.hand.pr_description.generate_pr_description",
@@ -1314,3 +1316,104 @@ class TestPrNumberNoneGuards:
                 commit_sha="abc123",
                 metadata={},
             )
+
+
+# ---------------------------------------------------------------------------
+# _working_tree_is_clean — edge cases (v336)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkingTreeIsClean:
+    """Tests for _working_tree_is_clean exception and return paths."""
+
+    def test_timeout_returns_false(self, tmp_path: Path) -> None:
+        """TimeoutExpired during git status returns False."""
+        with patch(
+            "helping_hands.lib.hands.v1.hand.base.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="git", timeout=10),
+        ):
+            assert Hand._working_tree_is_clean(tmp_path) is False
+
+    def test_oserror_returns_false(self, tmp_path: Path) -> None:
+        """OSError during git status returns False."""
+        with patch(
+            "helping_hands.lib.hands.v1.hand.base.subprocess.run",
+            side_effect=OSError("git not found"),
+        ):
+            assert Hand._working_tree_is_clean(tmp_path) is False
+
+    def test_clean_tree_returns_true(self, tmp_path: Path) -> None:
+        """Empty stdout with rc=0 returns True (clean tree)."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        with patch(
+            "helping_hands.lib.hands.v1.hand.base.subprocess.run",
+            return_value=mock_result,
+        ):
+            assert Hand._working_tree_is_clean(tmp_path) is True
+
+    def test_dirty_tree_returns_false(self, tmp_path: Path) -> None:
+        """Non-empty stdout with rc=0 returns False (dirty tree)."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "M file.py\n"
+        with patch(
+            "helping_hands.lib.hands.v1.hand.base.subprocess.run",
+            return_value=mock_result,
+        ):
+            assert Hand._working_tree_is_clean(tmp_path) is False
+
+
+# ---------------------------------------------------------------------------
+# _push_to_existing_pr — clean working tree branch (v336)
+# ---------------------------------------------------------------------------
+
+
+class TestPushToExistingPrCleanTree:
+    """Test _push_to_existing_pr when working tree is already clean (line 831)."""
+
+    def test_clean_tree_skips_commit_uses_head(self, repo_index: RepoIndex) -> None:
+        """When working tree is clean, use current HEAD instead of committing."""
+        config = Config(repo=str(repo_index.root), model="test-model")
+        hand = _StubHand(config, repo_index)
+        hand.pr_number = 42
+
+        mock_gh = MagicMock()
+        mock_gh.get_pr.return_value = {
+            "head": "feature-branch",
+            "base": "main",
+            "url": "https://github.com/owner/repo/pull/42",
+            "user": "bot-user",
+        }
+        mock_gh.whoami.return_value = {"login": "bot-user"}
+
+        with (
+            patch.object(
+                Hand,
+                "_working_tree_is_clean",
+                return_value=True,
+            ),
+            patch.object(
+                Hand,
+                "_run_git_read",
+                return_value="abc1234",
+            ) as mock_git_read,
+            patch.object(Hand, "_push_noninteractive"),
+            patch.object(Hand, "_update_pr_description"),
+        ):
+            result = hand._push_to_existing_pr(
+                gh=mock_gh,
+                repo="owner/repo",
+                repo_dir=repo_index.root,
+                backend="test",
+                prompt="fix bug",
+                summary="fixed it",
+                metadata={},
+            )
+
+        mock_git_read.assert_called_once_with(
+            repo_index.root, "rev-parse", "--short", "HEAD"
+        )
+        assert result["pr_status"] == "updated"
+        assert result["pr_commit"] == "abc1234"

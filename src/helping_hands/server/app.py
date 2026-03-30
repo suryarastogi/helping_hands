@@ -54,6 +54,7 @@ from helping_hands.server.constants import (
     DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
     DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
+    INTERVAL_PRESETS as _INTERVAL_PRESETS,
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
     KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
     KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
@@ -61,15 +62,19 @@ from helping_hands.server.constants import (
     KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
     MAX_CI_WAIT_MINUTES as _MAX_CI_WAIT_MINUTES,
     MAX_GITHUB_TOKEN_LENGTH as _MAX_GITHUB_TOKEN_LENGTH,
+    MAX_INTERVAL_SECONDS as _MAX_INTERVAL_SECONDS,
     MAX_ITERATIONS_UPPER_BOUND as _MAX_ITERATIONS_UPPER_BOUND,
     MAX_MODEL_LENGTH as _MAX_MODEL_LENGTH,
     MAX_PROMPT_LENGTH as _MAX_PROMPT_LENGTH,
     MAX_REFERENCE_REPOS as _MAX_REFERENCE_REPOS,
     MAX_REPO_PATH_LENGTH as _MAX_REPO_PATH_LENGTH,
     MIN_CI_WAIT_MINUTES as _MIN_CI_WAIT_MINUTES,
+    MIN_INTERVAL_SECONDS as _MIN_INTERVAL_SECONDS,
     RESPONSE_STATUS_ERROR as _RESPONSE_STATUS_ERROR,
     RESPONSE_STATUS_NA as _RESPONSE_STATUS_NA,
     RESPONSE_STATUS_OK as _RESPONSE_STATUS_OK,
+    SCHEDULE_TYPE_CRON as _SCHEDULE_TYPE_CRON,
+    SCHEDULE_TYPE_INTERVAL as _SCHEDULE_TYPE_INTERVAL,
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
@@ -361,10 +366,20 @@ class ScheduleRequest(_ToolSkillValidatorMixin):
     """Request body for creating/updating a scheduled task."""
 
     name: str = Field(min_length=1, max_length=100)
+    schedule_type: str = Field(
+        default=_SCHEDULE_TYPE_CRON,
+        description="'cron' for fixed-time or 'interval' for delay-after-completion",
+    )
     cron_expression: str = Field(
-        min_length=1,
+        default="",
         max_length=100,
-        description="Cron expression (e.g., '0 0 * * *') or preset name",
+        description="Cron expression (e.g., '0 0 * * *') or preset name. Required for cron schedules.",
+    )
+    interval_seconds: int | None = Field(
+        default=None,
+        ge=_MIN_INTERVAL_SECONDS,
+        le=_MAX_INTERVAL_SECONDS,
+        description="Seconds between completion and next start. Required for interval schedules.",
     )
     repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
     prompt: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
@@ -398,7 +413,9 @@ class ScheduleResponse(BaseModel):
 
     schedule_id: str
     name: str
-    cron_expression: str
+    schedule_type: str = _SCHEDULE_TYPE_CRON
+    cron_expression: str = ""
+    interval_seconds: int | None = None
     repo_path: str
     prompt: str
     backend: str
@@ -439,9 +456,10 @@ class ScheduleTriggerResponse(BaseModel):
 
 
 class CronPresetsResponse(BaseModel):
-    """Response for listing available cron presets."""
+    """Response for listing available cron and interval presets."""
 
     presets: dict[str, str]
+    interval_presets: dict[str, int] = Field(default_factory=dict)
 
 
 class ClaudeUsageLevel(BaseModel):
@@ -4672,12 +4690,17 @@ def _schedule_to_response(task) -> ScheduleResponse:
     Returns:
         A ``ScheduleResponse`` with computed ``next_run`` and redacted token.
     """
-    from helping_hands.server.schedules import next_run_time
+    from helping_hands.server.schedules import next_interval_run_time, next_run_time
 
     next_run = None
     if task.enabled:
         try:
-            next_run = next_run_time(task.cron_expression).isoformat()
+            if task.schedule_type == _SCHEDULE_TYPE_INTERVAL and task.interval_seconds:
+                next_run = next_interval_run_time(
+                    task.interval_seconds, task.last_run_at
+                ).isoformat()
+            elif task.cron_expression:
+                next_run = next_run_time(task.cron_expression).isoformat()
         except (ValueError, TypeError):
             logger.debug(
                 "Failed to calculate next run for schedule %s",
@@ -4688,7 +4711,9 @@ def _schedule_to_response(task) -> ScheduleResponse:
     return ScheduleResponse(
         schedule_id=task.schedule_id,
         name=task.name,
+        schedule_type=task.schedule_type,
         cron_expression=task.cron_expression,
+        interval_seconds=task.interval_seconds,
         repo_path=task.repo_path,
         prompt=task.prompt,
         backend=task.backend,
@@ -4716,10 +4741,13 @@ def _schedule_to_response(task) -> ScheduleResponse:
 
 @app.get("/schedules/presets", response_model=CronPresetsResponse)
 def get_cron_presets() -> CronPresetsResponse:
-    """Get available cron expression presets."""
+    """Get available cron expression presets and interval presets."""
     from helping_hands.server.schedules import CRON_PRESETS
 
-    return CronPresetsResponse(presets=CRON_PRESETS)
+    return CronPresetsResponse(
+        presets=CRON_PRESETS,
+        interval_presets=_INTERVAL_PRESETS,
+    )
 
 
 @app.get("/schedules", response_model=ScheduleListResponse)
@@ -4745,7 +4773,9 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
     task = ScheduledTask(
         schedule_id=generate_schedule_id(),
         name=request.name,
+        schedule_type=request.schedule_type,
         cron_expression=request.cron_expression,
+        interval_seconds=request.interval_seconds,
         repo_path=request.repo_path,
         prompt=request.prompt,
         backend=request.backend,
@@ -4805,7 +4835,9 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
     task = ScheduledTask(
         schedule_id=schedule_id,
         name=request.name,
+        schedule_type=request.schedule_type,
         cron_expression=request.cron_expression,
+        interval_seconds=request.interval_seconds,
         repo_path=request.repo_path,
         prompt=request.prompt,
         backend=request.backend,

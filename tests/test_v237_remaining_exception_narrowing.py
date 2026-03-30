@@ -96,29 +96,25 @@ def _find_handlers_near_keyword(path: Path, keyword: str) -> list[ast.ExceptHand
 
 
 # ---------------------------------------------------------------------------
-# base.py — update_pr_body handler (line ~936)
+# base.py — update_pr handler (line ~936)
 # ---------------------------------------------------------------------------
 
 
-class TestBaseUpdatePrBodyHandler:
-    """Verify update_pr_body handler is narrowed."""
+class TestBaseUpdatePrHandler:
+    """Verify update_pr handler is narrowed."""
 
     def test_no_bare_exception(self) -> None:
         """Handler should not catch bare Exception."""
-        handlers = _find_try_handlers_by_keyword(
-            _hand_root() / "base.py", "update_pr_body"
-        )
+        handlers = _find_try_handlers_by_keyword(_hand_root() / "base.py", "update_pr")
         for handler in handlers:
             assert not _handler_catches_bare_exception(handler), (
-                "update_pr_body handler still catches bare Exception"
+                "update_pr handler still catches bare Exception"
             )
 
     def test_catches_github_errors_constant(self) -> None:
         """Handler should reference ``_GITHUB_ERRORS`` constant."""
-        handlers = _find_try_handlers_by_keyword(
-            _hand_root() / "base.py", "update_pr_body"
-        )
-        assert handlers, "No handler found for update_pr_body"
+        handlers = _find_try_handlers_by_keyword(_hand_root() / "base.py", "update_pr")
+        assert handlers, "No handler found for update_pr"
         names = _handler_type_names(handlers[0])
         assert "_GITHUB_ERRORS" in names
 

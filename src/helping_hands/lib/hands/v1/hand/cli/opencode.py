@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _EMPTY_MODEL_MARKERS,
     _format_cli_failure,
@@ -23,6 +25,16 @@ class OpenCodeCLIHand(_TwoPhaseCLIHand):
     _COMMAND_ENV_VAR = "HELPING_HANDS_OPENCODE_CLI_CMD"
     _DEFAULT_CLI_CMD = "opencode run"
     _DEFAULT_MODEL = ""
+
+    def _pr_description_cmd(self) -> list[str] | None:
+        """Use OpenCode CLI to generate PR descriptions and commit messages.
+
+        Returns:
+            Command token list when ``opencode`` is on ``$PATH``, else ``None``.
+        """
+        if shutil.which("opencode") is not None:
+            return ["opencode", "run"]
+        return None
 
     def _resolve_cli_model(self) -> str:
         """Preserve provider/model format (e.g. anthropic/claude-sonnet-4-6)."""

@@ -2468,14 +2468,27 @@ class TestCodexCLIHand:
         assert len(prompts) == 1
         mock_finalize.assert_not_called()
 
-    def test_pr_description_cmd_returns_none(
+    def test_pr_description_cmd_returns_codex(
         self,
         config: Config,
         repo_index: RepoIndex,
     ) -> None:
-        """Codex has no safe prompt-only mode for PR description."""
-        hand = CodexCLIHand(config, repo_index)
-        assert hand._pr_description_cmd() is None
+        """Codex uses its own CLI for PR description generation."""
+        with patch("shutil.which", return_value="/usr/bin/codex"):
+            hand = CodexCLIHand(config, repo_index)
+            cmd = hand._pr_description_cmd()
+            assert cmd is not None
+            assert cmd[0] == "codex"
+
+    def test_pr_description_cmd_returns_none_when_codex_missing(
+        self,
+        config: Config,
+        repo_index: RepoIndex,
+    ) -> None:
+        """Falls back to None when codex CLI is not available."""
+        with patch("shutil.which", return_value=None):
+            hand = CodexCLIHand(config, repo_index)
+            assert hand._pr_description_cmd() is None
 
 
 # ---------------------------------------------------------------------------

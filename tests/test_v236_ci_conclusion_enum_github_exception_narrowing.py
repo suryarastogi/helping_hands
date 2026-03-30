@@ -188,8 +188,8 @@ class TestBaseGithubExceptionNarrowing:
                         "should use _GITHUB_ERRORS"
                     )
 
-    def test_no_bare_exception_for_update_pr_body(self) -> None:
-        """update_pr_body() handler should not catch bare Exception."""
+    def test_no_bare_exception_for_update_pr(self) -> None:
+        """update_pr() handler should not catch bare Exception."""
         source = (_hand_root() / "base.py").read_text()
         tree = _parse_file(_hand_root() / "base.py")
         for node in ast.walk(tree):
@@ -197,9 +197,9 @@ class TestBaseGithubExceptionNarrowing:
                 node
             ):
                 handler_src = ast.get_source_segment(source, node)
-                if handler_src and "update_pr_body" in handler_src:
+                if handler_src and "update_pr" in handler_src:
                     pytest.fail(
-                        "update_pr_body() handler catches bare Exception; "
+                        "update_pr() handler catches bare Exception; "
                         "should use _GITHUB_ERRORS"
                     )
 

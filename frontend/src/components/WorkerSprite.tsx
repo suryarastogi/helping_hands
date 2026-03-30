@@ -13,7 +13,7 @@ import type {
   SceneWorkerPhase,
   WorkerVariant,
 } from "../types";
-import { cronFrequency, formatProviderName, repoName } from "../App.utils";
+import { cronFrequency, formatInterval, formatProviderName, repoName } from "../App.utils";
 
 export type WorkerSpriteProps = {
   taskId: string;
@@ -32,7 +32,9 @@ export type WorkerSpriteProps = {
   };
   schedule: {
     name: string;
+    schedule_type?: string;
     cron_expression: string;
+    interval_seconds?: number | null;
   } | null;
   floatingNumbers: FloatingNumber[];
   onSelect: (taskId: string) => void;
@@ -73,7 +75,7 @@ export default function WorkerSprite({
       className={`worker-sprite ${phase}${isSelected ? " selected" : ""}`}
       style={{ left: `${posLeft}%`, top: `${posTop}%` }}
       onClick={() => onSelect(taskId)}
-      title={`${task.backend ?? "unknown"} • ${taskId}${task.repoPath ? ` • ${task.repoPath}` : ""}${schedule ? ` • ${schedule.name} (${schedule.cron_expression})` : ""}`}
+      title={`${task.backend ?? "unknown"} • ${taskId}${task.repoPath ? ` • ${task.repoPath}` : ""}${schedule ? ` • ${schedule.name} (${schedule.schedule_type === "interval" && schedule.interval_seconds ? `every ${formatInterval(schedule.interval_seconds)}` : schedule.cron_expression})` : ""}`}
       disabled={!isActive}
     >
       <span className={`worker-art ${spriteVariant}`} aria-hidden="true">
@@ -98,6 +100,17 @@ export default function WorkerSprite({
         </span>
         {schedule &&
           (() => {
+            if (schedule.schedule_type === "interval" && schedule.interval_seconds) {
+              const label = formatInterval(schedule.interval_seconds);
+              return (
+                <span
+                  className="worker-cron"
+                  title={`Schedule: ${schedule.name} (every ${label}, non-concurrent)`}
+                >
+                  {"\uD83D\uDD04"} {label}
+                </span>
+              );
+            }
             const freq = cronFrequency(schedule.cron_expression);
             return freq ? (
               <span

@@ -103,9 +103,29 @@ export const CRON_PRESETS: Record<string, string> = {
   weekdays: "0 9 * * 1-5",
 };
 
+export const INTERVAL_PRESETS: Record<string, number> = {
+  every_1_minute: 60,
+  every_5_minutes: 300,
+  every_15_minutes: 900,
+  every_30_minutes: 1800,
+  every_hour: 3600,
+  every_6_hours: 21600,
+  every_12_hours: 43200,
+  every_day: 86400,
+};
+
+export function formatInterval(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`;
+  return `${Math.round(seconds / 86400)}d`;
+}
+
 export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   name: "",
+  schedule_type: "cron",
   cron_expression: "",
+  interval_seconds: 300,
   repo_path: "suryarastogi/helping_hands",
   prompt: "",
   backend: "claudecodecli",

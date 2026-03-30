@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _EMPTY_MODEL_MARKERS,
@@ -27,6 +28,20 @@ class DevinCLIHand(_TwoPhaseCLIHand):
     _NATIVE_CLI_AUTH_ENV_VAR = "HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH"
     _DEFAULT_PERMISSION_MODE = "dangerous"
     _RETRY_ON_NO_CHANGES = True
+
+    def _pr_description_cmd(self) -> list[str] | None:
+        """Use Devin CLI to generate PR descriptions and commit messages.
+
+        Returns:
+            Command token list when ``devin`` is on ``$PATH``, else ``None``.
+        """
+        if shutil.which("devin") is not None:
+            return ["devin", "-p", "--"]
+        return None
+
+    def _pr_description_prompt_as_arg(self) -> bool:
+        """Devin takes the prompt as a positional argument after ``--``."""
+        return True
 
     def _inject_prompt_argument(self, cmd: list[str], prompt: str) -> bool:
         """Append ``-- <prompt>`` to the command.

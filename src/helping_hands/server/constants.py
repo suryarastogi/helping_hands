@@ -22,6 +22,7 @@ __all__ = [
     "DEFAULT_CI_WAIT_MINUTES",
     "DEFAULT_MAX_ITERATIONS",
     "DEFAULT_REDIS_URL",
+    "INTERVAL_PRESETS",
     "JWT_TOKEN_PREFIX",
     "KEYCHAIN_ACCESS_TOKEN_KEY",
     "KEYCHAIN_OAUTH_KEY",
@@ -29,18 +30,23 @@ __all__ = [
     "KEYCHAIN_TIMEOUT_S",
     "MAX_CI_WAIT_MINUTES",
     "MAX_GITHUB_TOKEN_LENGTH",
+    "MAX_INTERVAL_SECONDS",
     "MAX_ITERATIONS_UPPER_BOUND",
     "MAX_MODEL_LENGTH",
     "MAX_PROMPT_LENGTH",
     "MAX_REFERENCE_REPOS",
     "MAX_REPO_PATH_LENGTH",
     "MIN_CI_WAIT_MINUTES",
+    "MIN_INTERVAL_SECONDS",
     "REDBEAT_KEY_PREFIX",
     "REDBEAT_SCHEDULE_ENTRY_PREFIX",
     "REDBEAT_USAGE_ENTRY_NAME",
     "RESPONSE_STATUS_ERROR",
     "RESPONSE_STATUS_NA",
     "RESPONSE_STATUS_OK",
+    "SCHEDULE_TYPE_CRON",
+    "SCHEDULE_TYPE_INTERVAL",
+    "TASK_NAME_INTERVAL_RESCHEDULE",
     "TASK_NAME_LOG_USAGE",
     "TASK_NAME_SCHEDULED_BUILD",
     "USAGE_API_TIMEOUT_S",
@@ -141,8 +147,39 @@ REDBEAT_USAGE_ENTRY_NAME = "helping_hands:usage-logger"
 TASK_NAME_SCHEDULED_BUILD = "helping_hands.scheduled_build"
 """Celery task name for scheduled build executions."""
 
+TASK_NAME_INTERVAL_RESCHEDULE = "helping_hands.interval_reschedule"
+"""Celery task name for the interval reschedule callback."""
+
 TASK_NAME_LOG_USAGE = "helping_hands.log_claude_usage"
 """Celery task name for the periodic Claude usage logger."""
+
+# --- Schedule types -----------------------------------------------------------
+
+SCHEDULE_TYPE_CRON: Final[str] = "cron"
+"""Schedule type for cron-based (fixed-time) schedules."""
+
+SCHEDULE_TYPE_INTERVAL: Final[str] = "interval"
+"""Schedule type for interval-based (non-concurrent, delay-after-completion) schedules."""
+
+# --- Interval scheduling bounds -----------------------------------------------
+
+MIN_INTERVAL_SECONDS = 30
+"""Minimum interval in seconds for interval-based schedules."""
+
+MAX_INTERVAL_SECONDS = 604_800
+"""Maximum interval in seconds (7 days) for interval-based schedules."""
+
+INTERVAL_PRESETS: dict[str, int] = {
+    "every_1_minute": 60,
+    "every_5_minutes": 300,
+    "every_15_minutes": 900,
+    "every_30_minutes": 1800,
+    "every_hour": 3600,
+    "every_6_hours": 21600,
+    "every_12_hours": 43200,
+    "every_day": 86400,
+}
+"""Named presets for common interval durations (in seconds)."""
 
 # --- Response status values ---------------------------------------------------
 
