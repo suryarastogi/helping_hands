@@ -110,14 +110,10 @@ def _check_provider_keys() -> list[CheckResult]:
     found_any = False
     for env_var, provider_name in _PROVIDER_ENV_VARS:
         if os.environ.get(env_var, "").strip():
-            results.append(
-                CheckResult(env_var, _OK, f"{provider_name} key set")
-            )
+            results.append(CheckResult(env_var, _OK, f"{provider_name} key set"))
             found_any = True
         else:
-            results.append(
-                CheckResult(env_var, _WARN, f"{provider_name} key not set")
-            )
+            results.append(CheckResult(env_var, _WARN, f"{provider_name} key not set"))
     if not found_any:
         results.append(
             CheckResult(

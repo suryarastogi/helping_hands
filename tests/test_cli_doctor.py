@@ -49,7 +49,9 @@ class TestCheckPython:
 
 class TestCheckGit:
     def test_ok_when_git_found(self) -> None:
-        with patch("helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/git"):
+        with patch(
+            "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/git"
+        ):
             result = _check_git()
         assert result.status == "ok"
 
@@ -72,7 +74,9 @@ class TestCheckUv:
 
 
 class TestCheckProviderKeys:
-    def test_ok_when_at_least_one_key_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_ok_when_at_least_one_key_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -210,7 +214,9 @@ class TestFormatResults:
 
 
 class TestRunDoctor:
-    def test_returns_zero_when_no_failures(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_returns_zero_when_no_failures(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         with patch(
             "helping_hands.cli.doctor.collect_checks",
             return_value=[CheckResult("test", "ok", "fine")],
