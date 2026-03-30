@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Coverage Gap Closure (2026-03-30) — Completed
+
+Closed remaining non-server coverage gaps that kept overall coverage at 74.99%
+(below the 75% threshold). Added 21 tests covering `_LinePrefixEmitter`
+line-by-line emission and flush (11 tests), `DevinCLIHand._pr_description_cmd`
+and `_pr_description_prompt_as_arg` (3 tests), `OpenCodeCLIHand._pr_description_cmd`
+(2 tests), and `GitHubClient.update_pr` title/body/NotSet passthrough (5 tests).
+6670 tests passed, 75.44% coverage. `github.py` now at 100%, `cli/base.py` at
+99% (1 branch partial tracked in tech debt). See
+[v347 plan](docs/exec-plans/completed/2026/v347-coverage-gap-closure.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →
