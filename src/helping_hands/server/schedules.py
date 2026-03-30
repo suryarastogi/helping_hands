@@ -591,7 +591,7 @@ class ScheduleManager:
                 task.last_run_task_id,
                 task.schedule_id,
             )
-        except Exception:
+        except (ConnectionError, OSError):
             logger.debug(
                 "Failed to revoke task %s for schedule %s (best-effort)",
                 task.last_run_task_id,

@@ -385,7 +385,7 @@ class TestCeleryAppAllExport:
         pytest.importorskip("celery")
         from helping_hands.server.celery_app import __all__
 
-        assert len(__all__) == 2
+        assert len(__all__) == 3
 
 
 # ---------------------------------------------------------------------------

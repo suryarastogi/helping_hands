@@ -351,4 +351,4 @@ class TestSchedulesAllExport:
         pytest.importorskip("celery")
         from helping_hands.server.schedules import __all__
 
-        assert len(__all__) == 7
+        assert len(__all__) == 8
