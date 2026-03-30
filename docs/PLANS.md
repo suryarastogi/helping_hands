@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v339 — Meta Tools Coverage Hardening](exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md) —
+  Close testable coverage gaps in `web.py` (81% → 98%) and `filesystem.py` (92% → 100%);
+  42 tests added, 6580 tests passed, 75.84% coverage
+
+
 - [2026-03-29 v338 — Server App & Celery Pure Function Coverage](exec-plans/completed/2026/v338-server-app-celery-pure-function-coverage.md) —
   Cover remaining uncovered branches in `server/app.py` and `server/celery_app.py`
   pure helpers; 16 tests added, 7656 tests passed, 96.45% coverage

@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Meta Tools Coverage Hardening (2026-03-30) — Completed
+
+Closed testable coverage gaps in `meta/tools/web.py` (81% → 98%) and
+`meta/tools/filesystem.py` (92% → 100%): `_raise_url_error` HTTP vs URL paths,
+`_require_http_url` scheme/netloc validation, `_decode_bytes` encoding fallback,
+`_as_string_keyed_dict` edge cases, `_extract_related_topics` nested recursion,
+`search_web` error handling and deduplication, `browse_url` non-HTML content,
+`normalize_relative_path` type check, `read_text_file` large file rejection,
+`mkdir_path` OSError wrapping. 42 new tests, 6580 tests passed, 75.84% coverage.
+See [v339 plan](docs/exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md).
+
 ### Server App & Celery Pure Function Coverage (2026-03-29) — Completed
 
 Covered remaining uncovered branches in `server/app.py` and `server/celery_app.py`

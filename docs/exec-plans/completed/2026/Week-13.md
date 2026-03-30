@@ -567,6 +567,22 @@ with `_is_recently_terminal`, `_upsert_current_task`, `_update_progress`,
 
 ---
 
+## Mar 29 — Server App & Celery Pure Function Coverage (v338)
+
+**`_is_recently_terminal` (all branches):** 9 new tests covering non-terminal returns false, FAILURE with `failed` timestamp, SUCCESS with `succeeded` timestamp, fallback to `timestamp` field, old timestamp returns false, missing timestamp, non-numeric timestamp, REVOKED with timestamp.
+
+**`_upsert_current_task` edge cases:** 3 new tests covering empty source skip, fill-missing-backend from incoming, preserve-existing-backend.
+
+**`_update_progress` issue_number:** 2 new tests covering included when set, absent when None.
+
+**`_sync_issue_status`:** 1 new test covering failed without error omits error line.
+
+**`ensure_usage_schedule`:** 1 new test covering OSError (Redis unavailable) swallowed.
+
+**16 new tests. 7656 backend tests, 96.45% coverage.**
+
+---
+
 ## Individual plan files
 
 - `v273-multiplayer-hand-world.md`
@@ -634,3 +650,4 @@ with `_is_recently_terminal`, `_upsert_current_task`, `_update_progress`,
 - `v335-model-provider-coverage-hardening.md`
 - `v336-oauth-token-test-fix-and-credentials-coverage.md`
 - `v337-multiplayer-and-claude-emitter-coverage.md`
+- `v338-server-app-celery-pure-function-coverage.md`

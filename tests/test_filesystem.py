@@ -186,6 +186,41 @@ class TestMkdirPath:
         assert result == "existing"
 
 
+class TestNormalizeRelativePathTypeCheck:
+    """Non-string input raises TypeError."""
+
+    def test_int_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="must be a string"):
+            normalize_relative_path(42)  # type: ignore[arg-type]
+
+    def test_none_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="must be a string"):
+            normalize_relative_path(None)  # type: ignore[arg-type]
+
+
+class TestReadTextFileLargeFile:
+    """File exceeding max_file_size raises ValueError with MB sizes."""
+
+    def test_rejects_file_exceeding_size_limit(self, tmp_path: Path) -> None:
+        big = tmp_path / "big.bin"
+        big.write_bytes(b"x" * 200)
+        with pytest.raises(ValueError, match="too large"):
+            read_text_file(tmp_path, "big.bin", max_file_size=100)
+
+
+class TestMkdirPathOSError:
+    """OSError during mkdir is wrapped in RuntimeError."""
+
+    def test_wraps_oserror_in_runtime_error(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        with (
+            patch.object(Path, "mkdir", side_effect=PermissionError("denied")),
+            pytest.raises(RuntimeError, match="cannot create directory"),
+        ):
+            mkdir_path(tmp_path, "blocked_dir")
+
+
 class TestPathExists:
     def test_existing_file(self, tmp_path: Path) -> None:
         (tmp_path / "exists.txt").write_text("yes")
