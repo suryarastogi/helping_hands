@@ -258,3 +258,13 @@ class TestMainDoctorDispatch:
         ):
             main(["doctor"])
         assert exc_info.value.code == 1
+
+    def test_main_doctor_early_return(self) -> None:
+        """Cover the ``return`` after ``doctor()`` when it does not raise."""
+        from helping_hands.cli.main import main
+
+        # Patch the local ``doctor`` function so it returns normally
+        # instead of calling ``sys.exit()``.  This exercises line 340.
+        with patch("helping_hands.cli.main.doctor") as mock_doctor:
+            main(["doctor", "--verbose"])
+        mock_doctor.assert_called_once_with(["--verbose"])

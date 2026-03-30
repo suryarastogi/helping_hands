@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-03-30 v345 — Examples Directory & New User Onboarding](exec-plans/completed/2026/v345-examples-directory.md) —
+  Implement `examples/` directory with sample repo and run script; add doctor
+  early-return test and examples structure tests; 6 tests added, 6633 tests
+  passed, 76.41% coverage
+
 - [2026-03-30 v344 — Doctor Command](exec-plans/completed/2026/v344-doctor-command.md) —
   Implement `helping-hands doctor` subcommand for environment prerequisite
   checking; 28 tests added, 6627 tests passed, 76.40% coverage

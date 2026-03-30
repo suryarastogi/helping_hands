@@ -22,9 +22,11 @@ can evaluate whether the tool fits my workflow.
 
 1. **Quick-start section in README** — three numbered steps: install, set keys,
    run a trivial task against a local directory.
-2. **`examples/` directory** with at least one minimal sample repo (e.g. a tiny
+2. **`examples/` directory** ~~with at least one minimal sample repo (e.g. a tiny
    Python package with a deliberate bug) and a script that runs helping_hands
-   against it.
+   against it.~~ **Implemented** (v345, 2026-03-30): `examples/fix-greeting/`
+   contains a tiny Python package with a deliberate bug in `greet()` and a
+   `run.sh` script that runs `helping-hands` with `--no-pr`.
 3. **Environment checklist** — ~~a CLI command (`helping-hands doctor` or similar)
    that verifies required env vars and dependencies are present and reports
    what's missing.~~ **Implemented** (v344, 2026-03-30): `helping-hands doctor`

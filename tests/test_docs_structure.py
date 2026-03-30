@@ -7526,3 +7526,48 @@ class TestGitignorePlaywrightArtifacts:
         self, gitignore_text: str, pattern: str
     ) -> None:
         assert pattern in gitignore_text, f".gitignore should contain '{pattern}'"
+
+
+# ---------------------------------------------------------------------------
+# Examples directory
+# ---------------------------------------------------------------------------
+
+
+class TestExamplesDirectory:
+    """Verify the examples/ directory structure for new-user onboarding."""
+
+    examples_dir: ClassVar[Path] = REPO_ROOT / "examples"
+
+    def test_examples_readme_exists(self) -> None:
+        assert (self.examples_dir / "README.md").is_file()
+
+    def test_fix_greeting_example_exists(self) -> None:
+        example = self.examples_dir / "fix-greeting"
+        assert example.is_dir()
+        assert (example / "README.md").is_file()
+        assert (example / "run.sh").is_file()
+        assert (example / "src" / "greet.py").is_file()
+        assert (example / "tests" / "test_greet.py").is_file()
+
+    def test_run_script_is_executable(self) -> None:
+        import os
+
+        run_sh = self.examples_dir / "fix-greeting" / "run.sh"
+        assert os.access(run_sh, os.X_OK), "run.sh should be executable"
+
+    def test_greet_has_deliberate_bug(self) -> None:
+        """The sample greet function should have the known bug."""
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "greet", self.examples_dir / "fix-greeting" / "src" / "greet.py"
+        )
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # The bug: name is not interpolated.
+        assert mod.greet("Alice") == "Hello, !"
+
+    def test_examples_readme_lists_fix_greeting(self) -> None:
+        text = (self.examples_dir / "README.md").read_text()
+        assert "fix-greeting" in text

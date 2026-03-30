@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Examples Directory & Doctor Early-Return Test (2026-03-30) — Completed
+
+Implemented `examples/` directory from the New User Onboarding product spec
+(must-have item #2). Created `examples/fix-greeting/` with a tiny Python
+package containing a deliberate bug in `greet()`, tests that assert the
+correct behavior, and a `run.sh` script for local evaluation with `--no-pr`.
+Also covered `cli/main.py` line 340 (doctor early-return path) and added 5
+examples directory structure tests. 6 new tests, `cli/main.py` 99% → 99%
+(only `__name__` guard remaining). See
+[v345 plan](docs/exec-plans/completed/2026/v345-examples-directory.md).
+
 ### Doctor Command (2026-03-30) — Completed
 
 Implemented `helping-hands doctor` subcommand from the New User Onboarding
