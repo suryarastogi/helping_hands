@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Server Helper Coverage & Weekly Consolidation (2026-03-30) — Completed
+
+Closed remaining untested pure/helper functions in server modules:
+`_maybe_persist_pr_to_schedule` guard conditions (6 tests),
+`_validate_path_param` wrapper (3 tests), `_is_running_in_docker` container
+detection (3 tests). 12 new tests, 7738 tests passed, 96.62% coverage (with
+server extras installed). See
+[v342 plan](docs/exec-plans/completed/2026/v342-server-helper-coverage-and-consolidation.md).
+
 ### Remaining Branch Coverage Gaps (2026-03-30) — Completed
 
 Closed last testable branch partials in non-server modules: `_graphql()`
