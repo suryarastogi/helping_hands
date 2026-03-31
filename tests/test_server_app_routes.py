@@ -121,9 +121,7 @@ class TestBuildJsonEndpoint:
 
         assert response.status_code == 422
 
-    def test_passes_optional_fields(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_passes_optional_fields(self, monkeypatch: pytest.MonkeyPatch) -> None:
         captured: dict[str, object] = {}
 
         def fake_delay(**kwargs: object) -> SimpleNamespace:
@@ -325,9 +323,7 @@ class TestConfigEndpoint:
         assert payload["has_github_token"] is True
         assert "codexcli" in payload["enabled_backends"]
 
-    def test_returns_config_in_docker(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_returns_config_in_docker(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
             "helping_hands.server.app._is_running_in_docker",
             lambda: True,
