@@ -23,12 +23,11 @@ Index of design documents for helping_hands.
 - [Provider Abstraction](provider-abstraction.md) — AI provider interface, model resolution, and backend adapters
 - [Model Resolution](model-resolution.md) — HandModel dataclass, provider inference heuristics, LangChain/Atomic adapters
 
-## Tools and Skills
+## Tools
 
 - [Filesystem Security](filesystem-security.md) — Path confinement via resolve_repo_target, MCP sharing, and sandboxing boundaries
 - [Command Execution](command-execution.md) — Path-confined Python/Bash runners, tool registry, CLI guidance translation
 - [Web Tools](web-tools.md) — DuckDuckGo search, URL browsing, HTML extraction, content truncation
-- [Skills System](skills-system.md) — Catalog discovery, normalization, staging, and prompt injection
 - [Repo Indexing](repo-indexing.md) — Repository ingestion, tree walking, and RepoIndex design
 
 ## Infrastructure

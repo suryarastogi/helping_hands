@@ -6,7 +6,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.validation import parse_comma_list
 
@@ -39,9 +38,6 @@ _ENV_USE_NATIVE_CLI_AUTH = "HELPING_HANDS_USE_NATIVE_CLI_AUTH"
 
 _ENV_TOOLS = "HELPING_HANDS_TOOLS"
 """Env var for comma-separated tool category names."""
-
-_ENV_SKILLS = "HELPING_HANDS_SKILLS"
-"""Env var for comma-separated skill names."""
 
 _ENV_GITHUB_TOKEN = "HELPING_HANDS_GITHUB_TOKEN"
 """Env var for a per-task GitHub personal access token."""
@@ -106,8 +102,6 @@ class Config:
             instead of token-based auth.
         enabled_tools: Normalised tool category names selected via
             ``--tools`` or ``HELPING_HANDS_TOOLS``.
-        enabled_skills: Normalised skill names selected via ``--skills`` or
-            ``HELPING_HANDS_SKILLS``.
         github_token: Per-task GitHub personal access token; overrides the
             default ``GITHUB_TOKEN`` when non-empty.
         reference_repos: Additional ``owner/repo`` slugs cloned as read-only
@@ -123,7 +117,6 @@ class Config:
     enable_web: bool = False
     use_native_cli_auth: bool = False
     enabled_tools: tuple[str, ...] = ()
-    enabled_skills: tuple[str, ...] = ()
     github_token: str = ""
     reference_repos: tuple[str, ...] = ()
     config_path: Path | None = None
@@ -144,7 +137,6 @@ class Config:
             "enable_web": _is_truthy_env(_ENV_ENABLE_WEB),
             "use_native_cli_auth": _is_truthy_env(_ENV_USE_NATIVE_CLI_AUTH),
             "enabled_tools": os.environ.get(_ENV_TOOLS),
-            "enabled_skills": os.environ.get(_ENV_SKILLS),
             "github_token": os.environ.get(_ENV_GITHUB_TOKEN),
             "reference_repos": os.environ.get(_ENV_REFERENCE_REPOS),
         }
@@ -158,12 +150,6 @@ class Config:
             normalized_tools_input: str | tuple[str, ...] | None = ()
         else:
             normalized_tools_input = raw_tool_selection
-
-        raw_skill_selection = merged.get("enabled_skills", cls.enabled_skills)
-        if isinstance(raw_skill_selection, bool):
-            normalized_skills_input: str | tuple[str, ...] | None = ()
-        else:
-            normalized_skills_input = raw_skill_selection
 
         raw_ref_repos = merged.get("reference_repos", cls.reference_repos)
         if isinstance(raw_ref_repos, str):
@@ -183,9 +169,6 @@ class Config:
                 merged.get("use_native_cli_auth", cls.use_native_cli_auth)
             ),
             enabled_tools=meta_tools.normalize_tool_selection(normalized_tools_input),
-            enabled_skills=meta_skills.normalize_skill_selection(
-                normalized_skills_input
-            ),
             github_token=str(merged.get("github_token", cls.github_token)).strip(),
             reference_repos=ref_repos,
         )

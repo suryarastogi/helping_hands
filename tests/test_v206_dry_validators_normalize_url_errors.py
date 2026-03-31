@@ -5,7 +5,7 @@ duplicated in both iterative.py and registry.py. These tests assert identity (is
 rather than equality, ensuring iterative.py uses the exact same function objects
 from registry.py. If a future refactor re-introduces a local copy, the two parsers
 could silently diverge for edge cases (e.g., handling of None vs missing key).
-_normalize_and_deduplicate tests protect the tool/skill selection normalisation
+_normalize_and_deduplicate tests protect the tool selection normalisation
 that feeds the AI's tool-use context: if deduplication is lost, the AI context
 could receive duplicate tool descriptions. _raise_url_error tests ensure HTTP and
 network errors produce consistent, contextual error messages for users.
@@ -112,19 +112,11 @@ class TestNormalizeAndDeduplicate:
     def test_label_appears_in_error_messages(self) -> None:
         with pytest.raises(TypeError, match="tools must be"):
             _normalize_and_deduplicate(42, label="tools")  # type: ignore[arg-type]
-        with pytest.raises(TypeError, match="skills must be"):
-            _normalize_and_deduplicate(42, label="skills")  # type: ignore[arg-type]
 
     def test_tool_selection_uses_shared_helper(self) -> None:
         from helping_hands.lib.meta.tools.registry import normalize_tool_selection
 
         source = inspect.getsource(normalize_tool_selection)
-        assert "_normalize_and_deduplicate" in source
-
-    def test_skill_selection_uses_shared_helper(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        source = inspect.getsource(normalize_skill_selection)
         assert "_normalize_and_deduplicate" in source
 
     def test_in_registry_all(self) -> None:

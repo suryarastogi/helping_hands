@@ -119,7 +119,6 @@ class TestBuildConfigOverrides:
             ns,
             repo="/override/path",
             selected_tools=frozenset({"execution"}),
-            selected_skills=frozenset({"uv"}),
         )
         assert result["repo"] == "/override/path"
         assert result["model"] == "gpt-5.2"
@@ -128,7 +127,6 @@ class TestBuildConfigOverrides:
         assert result["enable_web"] is True
         assert result["use_native_cli_auth"] is False
         assert result["enabled_tools"] == frozenset({"execution"})
-        assert result["enabled_skills"] == frozenset({"uv"})
         assert result["github_token"] == "gh_abc"
         assert result["reference_repos"] == ("owner/ref",)
 
@@ -138,7 +136,6 @@ class TestBuildConfigOverrides:
             ns,
             repo="/different/path",
             selected_tools=frozenset(),
-            selected_skills=frozenset(),
         )
         assert result["repo"] == "/different/path"
 
@@ -148,33 +145,28 @@ class TestBuildConfigOverrides:
             ns,
             repo="/tmp",
             selected_tools=frozenset(),
-            selected_skills=frozenset(),
         )
         assert result["model"] is None
         assert result["github_token"] is None
         assert result["verbose"] is None
 
-    def test_empty_tools_and_skills(self) -> None:
+    def test_empty_tools(self) -> None:
         ns = self._make_namespace()
         result = _build_config_overrides(
             ns,
             repo="/tmp",
             selected_tools=frozenset(),
-            selected_skills=frozenset(),
         )
         assert result["enabled_tools"] == frozenset()
-        assert result["enabled_skills"] == frozenset()
 
-    def test_multiple_tools_and_skills(self) -> None:
+    def test_multiple_tools(self) -> None:
         ns = self._make_namespace()
         result = _build_config_overrides(
             ns,
             repo="/tmp",
             selected_tools=frozenset({"execution", "web"}),
-            selected_skills=frozenset({"uv", "ruff"}),
         )
         assert result["enabled_tools"] == frozenset({"execution", "web"})
-        assert result["enabled_skills"] == frozenset({"uv", "ruff"})
 
 
 # ---------------------------------------------------------------------------

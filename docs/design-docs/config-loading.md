@@ -28,9 +28,9 @@ The `Config.from_env()` classmethod implements this chain:
    (e.g. `HELPING_HANDS_VERBOSE=""` keeps the default `verbose=True`).
 4. **Override merge** -- CLI-provided `overrides` dict is merged on top, with
    `None` values filtered out so unset CLI flags don't clobber env vars.
-5. **Normalization** -- tool and skill selections are passed through
-   `normalize_tool_selection()` / `normalize_skill_selection()`, which accept
-   comma-separated strings, tuples, or booleans.
+5. **Normalization** -- tool selections are passed through
+   `normalize_tool_selection()`, which accepts comma-separated strings,
+   tuples, or booleans.
 
 ## Frozen dataclass
 
@@ -68,15 +68,15 @@ Because the merge step filters falsy values, boolean env vars can only turn
 features *on*, not explicitly off. To disable a default-on feature like
 `verbose`, use CLI overrides (`overrides={"verbose": False}`).
 
-## Tool and skill selection
+## Tool selection
 
-The `enabled_tools` and `enabled_skills` fields accept multiple input types:
+The `enabled_tools` field accepts multiple input types:
 
 | Input | Behavior |
 |---|---|
-| `None` or unset | Empty tuple (no tools/skills) |
+| `None` or unset | Empty tuple (no tools) |
 | `bool` (`True`/`False`) | Normalized to empty tuple |
-| Comma-separated string | Split and normalized by registry/skills module |
+| Comma-separated string | Split and normalized by registry module |
 | Tuple of strings | Passed through to normalizer |
 
 This flexibility supports both env var strings (`"python.run_code, bash"`) and

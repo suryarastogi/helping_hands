@@ -1578,7 +1578,7 @@ class TestDesignDocsIndexCategories:
             "## Core",
             "## Hands",
             "## Providers and Models",
-            "## Tools and Skills",
+            "## Tools",
             "## Infrastructure",
             "## Quality",
         ],
@@ -1602,12 +1602,12 @@ class TestDesignDocsIndexCategories:
 
     def test_provider_abstraction_in_providers_section(self, index_text: str) -> None:
         providers_start = index_text.index("## Providers and Models")
-        tools_start = index_text.index("## Tools and Skills")
+        tools_start = index_text.index("## Tools")
         providers_section = index_text[providers_start:tools_start]
         assert "provider-abstraction.md" in providers_section
 
     def test_filesystem_security_in_tools_section(self, index_text: str) -> None:
-        tools_start = index_text.index("## Tools and Skills")
+        tools_start = index_text.index("## Tools")
         infra_start = index_text.index("## Infrastructure")
         tools_section = index_text[tools_start:infra_start]
         assert "filesystem-security.md" in tools_section
@@ -1769,7 +1769,6 @@ _FORMAL_DESIGN_DOCS = [
     "scheduling-system.md",
     "deployment-modes.md",
     "ci-pipeline.md",
-    "skills-system.md",
     "github-client.md",
     "pr-description.md",
     "default-prompts.md",
@@ -2759,7 +2758,6 @@ class TestDesignMdPatternSubsections:
     @pytest.mark.parametrize(
         "heading",
         [
-            "### Skill catalog",
             "### PR description",
             "### Scheduled task management",
             "### Health checks",
@@ -3946,121 +3944,6 @@ class TestSchedulingSystemDocContent:
 
 
 # ---------------------------------------------------------------------------
-# Skills system design doc cross-reference validation
-# ---------------------------------------------------------------------------
-
-
-class TestSkillsSystemDocContent:
-    """skills-system.md should accurately describe the skills catalog."""
-
-    @pytest.fixture()
-    def doc_text(self) -> str:
-        return (DOCS_DIR / "design-docs" / "skills-system.md").read_text()
-
-    def test_has_context_section(self, doc_text: str) -> None:
-        assert "## Context" in doc_text, (
-            "skills-system.md should have a Context section"
-        )
-
-    @pytest.mark.parametrize(
-        "concept",
-        [
-            "normalize_skill_selection",
-            "stage_skill_catalog",
-            "_discover_catalog",
-            "SkillSpec",
-        ],
-    )
-    def test_key_functions_documented(self, doc_text: str, concept: str) -> None:
-        assert concept in doc_text, f"skills-system.md should document '{concept}'"
-
-    def test_skills_vs_tools_distinction(self, doc_text: str) -> None:
-        assert "Skills vs tools" in doc_text or "vs tools" in doc_text.lower(), (
-            "skills-system.md should distinguish skills from tools"
-        )
-
-    def test_catalog_structure_documented(self, doc_text: str) -> None:
-        assert "catalog/" in doc_text, (
-            "skills-system.md should document the catalog directory structure"
-        )
-
-    @pytest.mark.parametrize(
-        "catalog_file",
-        ["execution.md", "prd.md", "ralph.md", "web.md"],
-    )
-    def test_catalog_files_listed(self, doc_text: str, catalog_file: str) -> None:
-        assert catalog_file in doc_text, (
-            f"skills-system.md should list catalog file '{catalog_file}'"
-        )
-
-    def test_cli_vs_iterative_injection_paths(self, doc_text: str) -> None:
-        assert "CLI" in doc_text and "iterative" in doc_text.lower(), (
-            "skills-system.md should document both CLI and iterative injection paths"
-        )
-
-    def test_alternatives_considered(self, doc_text: str) -> None:
-        assert "Alternatives considered" in doc_text, (
-            "skills-system.md should have an Alternatives section"
-        )
-
-    def test_consequences_section(self, doc_text: str) -> None:
-        assert "Consequences" in doc_text, (
-            "skills-system.md should have a Consequences section"
-        )
-
-    def test_skill_catalog_source_exists(self) -> None:
-        catalog_dir = (
-            REPO_ROOT / "src" / "helping_hands" / "lib" / "meta" / "skills" / "catalog"
-        )
-        assert catalog_dir.exists(), (
-            "skills catalog directory should exist at lib/meta/skills/catalog/"
-        )
-
-
-# ---------------------------------------------------------------------------
-# DESIGN.md skill catalog section validation
-# ---------------------------------------------------------------------------
-
-
-class TestDesignMdSkillCatalogSection:
-    """DESIGN.md should document the skill catalog design pattern."""
-
-    @pytest.fixture()
-    def design_text(self) -> str:
-        return (DOCS_DIR / "DESIGN.md").read_text()
-
-    def test_skill_catalog_section_exists(self, design_text: str) -> None:
-        assert "Skill catalog" in design_text, (
-            "DESIGN.md should have a Skill catalog section"
-        )
-
-    @pytest.mark.parametrize(
-        "concept",
-        [
-            "_discover_catalog",
-            "normalize_skill_selection",
-            "stage_skill_catalog",
-            "_cleanup_skill_catalog",
-        ],
-    )
-    def test_key_functions_referenced(self, design_text: str, concept: str) -> None:
-        assert concept in design_text, (
-            f"DESIGN.md skill catalog section should reference '{concept}'"
-        )
-
-    def test_markdown_only_nature_documented(self, design_text: str) -> None:
-        lower = design_text.lower()
-        assert "markdown" in lower or ".md" in design_text, (
-            "DESIGN.md should note that skills are Markdown-only artifacts"
-        )
-
-    def test_graceful_degradation_documented(self, design_text: str) -> None:
-        assert "graceful" in design_text.lower() or "empty dict" in design_text, (
-            "DESIGN.md should document graceful degradation for missing catalog"
-        )
-
-
-# ---------------------------------------------------------------------------
 # RELIABILITY.md heartbeat and task status validation
 # ---------------------------------------------------------------------------
 
@@ -4233,7 +4116,6 @@ class TestDesignDocSourceReferences:
     @pytest.mark.parametrize(
         ("doc_file", "source_path"),
         [
-            ("skills-system.md", "src/helping_hands/lib/meta/skills/__init__.py"),
             ("scheduling-system.md", "src/helping_hands/server/schedules.py"),
             (
                 "filesystem-security.md",
@@ -4597,7 +4479,7 @@ class TestConfigLoadingDesignDoc:
         "Frozen dataclass",
         "Dotenv integration",
         "Boolean normalization",
-        "Tool and skill selection",
+        "Tool selection",
         "Consequences",
     ]
 
@@ -4609,7 +4491,6 @@ class TestConfigLoadingDesignDoc:
         "Config.from_env()",
         "_load_env_files()",
         "normalize_tool_selection()",
-        "normalize_skill_selection()",
         "HELPING_HANDS_",
         "frozen=True",
         "override=False",
@@ -6462,23 +6343,6 @@ class TestArchitectureMdExternalIntegrations:
             assert flow in content, f"ARCHITECTURE.md should document data flow: {flow}"
 
 
-class TestArchitectureMdSkillCatalogSection:
-    """ARCHITECTURE.md should document the skill catalog."""
-
-    @pytest.fixture()
-    def content(self) -> str:
-        return (REPO_ROOT / "ARCHITECTURE.md").read_text()
-
-    def test_skill_catalog_section_exists(self, content: str) -> None:
-        assert "Skill catalog" in content
-
-    def test_skill_catalog_references(self, content: str) -> None:
-        for ref in ["meta/skills", "catalog", "Markdown", "--skills"]:
-            assert ref in content, (
-                f"ARCHITECTURE.md skill catalog should reference '{ref}'"
-            )
-
-
 class TestArchitectureMdUsageMonitoringPipeline:
     """ARCHITECTURE.md should document the full usage monitoring pipeline."""
 
@@ -6971,7 +6835,7 @@ class TestDesignDocsIndexCategoryStructure:
         "Core",
         "Hands",
         "Providers and Models",
-        "Tools and Skills",
+        "Tools",
         "Infrastructure",
         "Quality",
     ]

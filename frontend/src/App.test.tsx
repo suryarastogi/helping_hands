@@ -304,38 +304,6 @@ describe("Form submission", () => {
     expect(body.model).toBe("gpt-5.2");
   });
 
-  it("includes tools and skills in payload when set", async () => {
-    const mockFetch = mockFetchResponses({
-      "/build": mockResponse({
-        ok: true,
-        status: 200,
-        jsonData: { task_id: "ghi-789", status: "QUEUED", backend: "claudecodecli" },
-      }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    render(<App />);
-    fireEvent.click(screen.getByText("New Task"));
-
-    // Expand advanced and set tools/skills
-    fireEvent.click(screen.getByText("Advanced"));
-    const toolsInput = screen.getByPlaceholderText("execution,web") as HTMLInputElement;
-    fireEvent.change(toolsInput, { target: { value: "execution, web" } });
-    const skillsInput = screen.getByPlaceholderText("execution,web,prd,ralph") as HTMLInputElement;
-    fireEvent.change(skillsInput, { target: { value: "prd, ralph" } });
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Run"));
-    });
-
-    const buildCall = mockFetch.mock.calls.find(
-      (call: string[]) => typeof call[0] === "string" && call[0].includes("/build")
-    );
-    const body = JSON.parse((buildCall![1] as RequestInit).body as string);
-    expect(body.tools).toEqual(["execution", "web"]);
-    expect(body.skills).toEqual(["prd", "ralph"]);
-  });
-
   it("toggles checkbox fields in advanced settings", () => {
     render(<App />);
     fireEvent.click(screen.getByText("New Task"));
@@ -734,7 +702,6 @@ describe("Schedule list CRUD operations", () => {
     fix_ci: false,
     ci_check_wait_minutes: 3,
     tools: [],
-    skills: [],
     enabled: true,
     created_at: "2026-01-01T00:00:00Z",
     last_run_at: null,

@@ -36,7 +36,6 @@ from mcp.server.fastmcp import FastMCP
 from helping_hands.lib.config import Config
 from helping_hands.lib.hands.v1.hand.factory import BACKEND_CODEXCLI
 from helping_hands.lib.hands.v1.hand.iterative import DEFAULT_MAX_ITERATIONS
-from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import (
     command as exec_tools,
     filesystem as fs_tools,
@@ -143,7 +142,6 @@ def build_feature(
     enable_execution: bool = False,
     enable_web: bool = False,
     tools: list[str] | None = None,
-    skills: list[str] | None = None,
 ) -> dict:
     """Enqueue a hand task via Celery and return the task ID.
 
@@ -159,7 +157,6 @@ def build_feature(
         enable_execution: Enable python/bash execution tools.
         enable_web: Enable web.search/web.browse tools.
         tools: Optional tool categories to enable (e.g. execution, web).
-        skills: Optional skill knowledge files to inject.
 
     Returns:
         Dict with task_id and status.
@@ -173,8 +170,6 @@ def build_feature(
 
     selected_tools = meta_tools.normalize_tool_selection(tools)
     meta_tools.validate_tool_category_names(selected_tools)
-    selected_skills = meta_skills.normalize_skill_selection(skills)
-    meta_skills.validate_skill_names(selected_skills)
 
     task = celery_build.delay(
         repo_path=repo_path,
@@ -187,7 +182,6 @@ def build_feature(
         enable_execution=enable_execution,
         enable_web=enable_web,
         tools=list(selected_tools),
-        skills=list(selected_skills),
     )
     return {"task_id": task.id, "status": "queued", "backend": backend}
 

@@ -8,8 +8,7 @@ without surfacing as a test failure elsewhere. Container wrapping
 (_wrap_container_if_enabled) turns a plain CLI command into a docker run
 invocation with volume mounts and forwarded env vars; a broken mount path or
 missing API key forward causes silent runtime failures inside the container.
-Skill catalog staging/cleanup must be symmetric: leaked temp directories
-accumulate on long-running servers.
+Container volume mounts must be correct to avoid silent runtime failures.
 """
 
 from __future__ import annotations
@@ -48,7 +47,6 @@ class _Stub(_TwoPhaseCLIHand):
         repo_root: Path | None = None,
         files: list[str] | None = None,
         tools: tuple[str, ...] = (),
-        skills: tuple = (),
     ) -> None:
         self.config = SimpleNamespace(
             model=model,
@@ -61,9 +59,7 @@ class _Stub(_TwoPhaseCLIHand):
         )
         self.auto_pr = True
         self._active_process = None
-        self._skill_catalog_dir = None
         self._selected_tool_categories = tools
-        self._selected_skills = skills
 
 
 # ---------------------------------------------------------------------------
@@ -310,55 +306,6 @@ class TestBuildApplyChangesPrompt:
 
 
 # ---------------------------------------------------------------------------
-# _stage_skill_catalog
-# ---------------------------------------------------------------------------
-
-
-class TestStageSkillCatalog:
-    @patch("helping_hands.lib.hands.v1.hand.cli.base.tempfile.mkdtemp")
-    @patch("helping_hands.lib.meta.skills.stage_skill_catalog")
-    def test_stages_skills_to_temp_directory(
-        self, mock_stage: MagicMock, mock_mkdtemp: MagicMock
-    ) -> None:
-        mock_mkdtemp.return_value = "/tmp/helping_hands_skills_abc"
-        stub = _Stub(skills=("react-guide", "testing-guide"))
-        stub._stage_skill_catalog()
-        mock_mkdtemp.assert_called_once()
-        mock_stage.assert_called_once_with(
-            ("react-guide", "testing-guide"), Path("/tmp/helping_hands_skills_abc")
-        )
-        assert stub._skill_catalog_dir == Path("/tmp/helping_hands_skills_abc")
-
-    def test_no_op_when_no_skills_selected(self) -> None:
-        stub = _Stub(skills=())
-        stub._stage_skill_catalog()
-        assert stub._skill_catalog_dir is None
-
-
-# ---------------------------------------------------------------------------
-# _cleanup_skill_catalog
-# ---------------------------------------------------------------------------
-
-
-class TestCleanupSkillCatalog:
-    @patch("helping_hands.lib.hands.v1.hand.cli.base.shutil.rmtree")
-    def test_removes_temp_directory(self, mock_rmtree: MagicMock) -> None:
-        stub = _Stub()
-        stub._skill_catalog_dir = Path("/tmp/helping_hands_skills_abc")
-        stub._cleanup_skill_catalog()
-        mock_rmtree.assert_called_once_with(
-            Path("/tmp/helping_hands_skills_abc"), ignore_errors=True
-        )
-        assert stub._skill_catalog_dir is None
-
-    def test_no_op_when_no_catalog_dir(self) -> None:
-        stub = _Stub()
-        stub._skill_catalog_dir = None
-        stub._cleanup_skill_catalog()
-        assert stub._skill_catalog_dir is None
-
-
-# ---------------------------------------------------------------------------
 # _wrap_container_if_enabled
 # ---------------------------------------------------------------------------
 
@@ -428,11 +375,11 @@ class TestWrapContainerIfEnabled:
 
 
 # ---------------------------------------------------------------------------
-# _build_task_prompt — tool and skill sections
+# _build_task_prompt — tool sections
 # ---------------------------------------------------------------------------
 
 
-class TestBuildTaskPromptToolsAndSkills:
+class TestBuildTaskPromptTools:
     @patch(
         "helping_hands.lib.meta.tools.registry.format_tool_instructions_for_cli",
         return_value="Use @@TOOL bash.run_script to run scripts.",
@@ -444,16 +391,6 @@ class TestBuildTaskPromptToolsAndSkills:
         assert "@@TOOL bash.run_script" in result
 
     @patch(
-        "helping_hands.lib.meta.skills.format_skill_catalog_instructions",
-        return_value="Skill catalog: react-guide available at /tmp/skills/react.md",
-    )
-    def test_includes_skill_section(self, _mock: MagicMock) -> None:
-        stub = _Stub(skills=("react-guide",))
-        result = stub._build_task_prompt(prompt="task", learned_summary="summary")
-        assert "Skill knowledge catalog:" in result
-        assert "react-guide" in result
-
-    @patch(
         "helping_hands.lib.meta.tools.registry.format_tool_instructions_for_cli",
         return_value="",
     )
@@ -463,14 +400,3 @@ class TestBuildTaskPromptToolsAndSkills:
         stub = _Stub(tools=("bash",))
         result = stub._build_task_prompt(prompt="task", learned_summary="summary")
         assert "Enabled tools and capabilities:" not in result
-
-    @patch(
-        "helping_hands.lib.meta.skills.format_skill_catalog_instructions",
-        return_value="",
-    )
-    def test_omits_skill_section_when_formatter_returns_empty(
-        self, _mock: MagicMock
-    ) -> None:
-        stub = _Stub(skills=("react-guide",))
-        result = stub._build_task_prompt(prompt="task", learned_summary="summary")
-        assert "Skill knowledge catalog:" not in result

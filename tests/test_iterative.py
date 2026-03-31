@@ -680,24 +680,6 @@ class TestToolInstructions:
         result = hand._tool_instructions()
         assert "@@TOOL_RESULT" in result
 
-    def test_includes_skill_knowledge_when_available(self, tmp_path):
-        hand = _make_hand(tmp_path)
-        with patch(
-            "helping_hands.lib.meta.skills.format_skill_knowledge",
-            return_value="SKILL: test_skill\nDoes cool things.",
-        ):
-            result = hand._tool_instructions()
-            assert "SKILL: test_skill" in result
-
-    def test_no_skill_section_when_empty(self, tmp_path):
-        hand = _make_hand(tmp_path)
-        with patch(
-            "helping_hands.lib.meta.skills.format_skill_knowledge",
-            return_value="",
-        ):
-            result = hand._tool_instructions()
-            assert "SKILL:" not in result
-
 
 # ---------------------------------------------------------------------------
 # BasicLangGraphHand._result_content

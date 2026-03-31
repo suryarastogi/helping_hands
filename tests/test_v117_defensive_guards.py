@@ -52,7 +52,6 @@ class _Stub(_TwoPhaseCLIHand):
         )
         self.auto_pr = True
         self._active_process = None
-        self._skill_catalog_dir = None
 
 
 # ---------------------------------------------------------------------------
@@ -151,9 +150,7 @@ class TestLangGraphHandRunDefensive:
             use_native_cli_auth=False,
             ci_check_wait_minutes=0,
             tools=(),
-            skills=(),
             enabled_tools=(),
-            enabled_skills=(),
             enable_execution=False,
             enable_web=False,
         )

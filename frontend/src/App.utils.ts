@@ -80,7 +80,6 @@ export const INITIAL_FORM: FormState = {
   create_issue: false,
   project_url: "",
   tools: "",
-  skills: "",
   no_pr: false,
   enable_execution: false,
   enable_web: false,
@@ -141,7 +140,6 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   github_token: "",
   reference_repos: "",
   tools: "",
-  skills: "",
   enabled: true,
 };
 
@@ -456,7 +454,7 @@ export function readBoolishValue(value: unknown): string | null {
   return null;
 }
 
-export function readSkillsValue(value: unknown): string | null {
+export function readListValue(value: unknown): string | null {
   if (Array.isArray(value)) {
     const tokens = value
       .map((item) => String(item).trim())

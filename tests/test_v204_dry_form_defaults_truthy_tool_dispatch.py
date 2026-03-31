@@ -333,12 +333,6 @@ class TestSummarizeToolDispatch:
             summarize("MultiTool", {"tool_uses": "not-a-list"}) == "MultiTool (0 tools)"
         )
 
-    def test_skill_with_name(self, summarize) -> None:
-        assert summarize("Skill", {"skill": "commit"}) == "Skill: commit"
-
-    def test_skill_empty(self, summarize) -> None:
-        assert summarize("Skill", {"skill": ""}) == "Skill"
-
     def test_cron_create_with_prompt(self, summarize) -> None:
         result = summarize("CronCreate", {"prompt": "check logs"})
         assert "CronCreate" in result

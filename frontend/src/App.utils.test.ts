@@ -31,7 +31,7 @@ import {
   parseOptimisticUpdates,
   providerFromBackend,
   readBoolishValue,
-  readSkillsValue,
+  readListValue,
   readStringValue,
   repoName,
   shortTaskId,
@@ -540,23 +540,23 @@ describe("readBoolishValue", () => {
   });
 });
 
-describe("readSkillsValue", () => {
+describe("readListValue", () => {
   it("joins array items into comma-separated string", () => {
-    expect(readSkillsValue(["prd", "web"])).toBe("prd, web");
+    expect(readListValue(["prd", "web"])).toBe("prd, web");
   });
 
   it("filters out empty array items", () => {
-    expect(readSkillsValue(["prd", "", "  ", "web"])).toBe("prd, web");
+    expect(readListValue(["prd", "", "  ", "web"])).toBe("prd, web");
   });
 
   it("returns null for empty array", () => {
-    expect(readSkillsValue([])).toBeNull();
+    expect(readListValue([])).toBeNull();
   });
 
   it("falls back to readStringValue for non-arrays", () => {
-    expect(readSkillsValue("prd, web")).toBe("prd, web");
-    expect(readSkillsValue(42)).toBe("42");
-    expect(readSkillsValue(null)).toBeNull();
+    expect(readListValue("prd, web")).toBe("prd, web");
+    expect(readListValue(42)).toBe("42");
+    expect(readListValue(null)).toBeNull();
   });
 });
 

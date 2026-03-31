@@ -46,7 +46,6 @@ const SAMPLE_SCHEDULE = {
   github_token: null,
   reference_repos: [],
   tools: [],
-  skills: ["docs"],
   enabled: true,
   created_at: "2026-03-23T00:00:00Z",
   last_run_at: null,
@@ -165,7 +164,6 @@ describe("useSchedules", () => {
     expect(result.current.editingScheduleId).toBe("sched-1");
     expect(result.current.scheduleForm.name).toBe("Daily docs");
     expect(result.current.scheduleForm.cron_expression).toBe("0 0 * * *");
-    expect(result.current.scheduleForm.skills).toBe("docs");
   });
 
   it("deleteSchedule calls DELETE and reloads", async () => {
@@ -339,7 +337,6 @@ describe("useSchedules", () => {
       result.current.updateScheduleField("github_token", "ghp_abc");
       result.current.updateScheduleField("reference_repos", "foo/bar, baz/qux");
       result.current.updateScheduleField("tools", "read, write");
-      result.current.updateScheduleField("skills", "docs, test");
     });
 
     const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
@@ -351,6 +348,5 @@ describe("useSchedules", () => {
     expect(body.github_token).toBe("ghp_abc");
     expect(body.reference_repos).toEqual(["foo/bar", "baz/qux"]);
     expect(body.tools).toEqual(["read", "write"]);
-    expect(body.skills).toEqual(["docs", "test"]);
   });
 });

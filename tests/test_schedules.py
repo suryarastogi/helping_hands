@@ -132,7 +132,6 @@ class TestScheduledTask:
             enable_web=True,
             use_native_cli_auth=True,
             tools=["read", "write"],
-            skills=["deploy"],
             enabled=False,
             last_run_at="2025-06-01T12:00:00+00:00",
             last_run_task_id="celery-abc",
@@ -146,7 +145,6 @@ class TestScheduledTask:
         assert rebuilt.pr_number == original.pr_number
         assert rebuilt.no_pr == original.no_pr
         assert rebuilt.tools == original.tools
-        assert rebuilt.skills == original.skills
         assert rebuilt.enabled == original.enabled
         assert rebuilt.run_count == original.run_count
         assert rebuilt.last_run_at == original.last_run_at
@@ -166,7 +164,6 @@ class TestScheduledTask:
         assert task.model is None
         assert task.max_iterations == 6
         assert task.tools == []
-        assert task.skills == []
         assert task.enabled is True
 
     def test_to_dict_includes_fix_ci_field(self) -> None:

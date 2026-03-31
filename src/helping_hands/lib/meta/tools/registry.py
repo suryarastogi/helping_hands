@@ -397,15 +397,13 @@ def _normalize_and_deduplicate(
 ) -> tuple[str, ...]:
     """Normalize comma-separated selection values into a deduplicated tuple.
 
-    Shared logic for both tool and skill selection normalization. Splits on
-    commas, lowercases, replaces underscores with hyphens, strips whitespace,
-    and deduplicates while preserving order.
+    Splits on commas, lowercases, replaces underscores with hyphens, strips
+    whitespace, and deduplicates while preserving order.
 
     Args:
         values: Raw user input — a comma-separated string, a list/tuple of
             strings, or ``None``.
-        label: Human-readable label used in error messages (e.g. ``"tools"``
-            or ``"skills"``).
+        label: Human-readable label used in error messages (e.g. ``"tools"``).
 
     Returns:
         Deduplicated tuple of normalized names.
@@ -416,7 +414,7 @@ def _normalize_and_deduplicate(
     """
     if values is None:
         return ()
-    if not isinstance(values, (str, list, tuple)):
+    if not isinstance(values, str | list | tuple):
         raise TypeError(f"{label} must be a string, list, or tuple")
 
     tokens: list[str] = []

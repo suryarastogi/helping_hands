@@ -338,7 +338,6 @@ class _ProgressEmitter:
         enable_web: Whether web tools are enabled.
         use_native_cli_auth: Whether native CLI auth is used.
         tools: Enabled tool category names.
-        skills: Enabled skill names.
         fix_ci: Whether to attempt CI fix.
         ci_check_wait_minutes: Minutes to wait for CI checks.
         reference_repos: Optional reference repo specs.
@@ -364,7 +363,6 @@ class _ProgressEmitter:
         enable_web: bool,
         use_native_cli_auth: bool,
         tools: tuple[str, ...],
-        skills: tuple[str, ...],
         fix_ci: bool = False,
         ci_check_wait_minutes: float = 3.0,
         reference_repos: list[str] | None = None,
@@ -387,7 +385,6 @@ class _ProgressEmitter:
         self._enable_web = enable_web
         self._use_native_cli_auth = use_native_cli_auth
         self._tools = tools
-        self._skills = skills
         self._fix_ci = fix_ci
         self._ci_check_wait_minutes = ci_check_wait_minutes
         self._reference_repos = reference_repos
@@ -433,7 +430,6 @@ class _ProgressEmitter:
                 "use_native_cli_auth", self._use_native_cli_auth
             ),
             tools=overrides.get("tools", self._tools),
-            skills=overrides.get("skills", self._skills),
             fix_ci=overrides.get("fix_ci", self._fix_ci),
             ci_check_wait_minutes=overrides.get(
                 "ci_check_wait_minutes", self._ci_check_wait_minutes
@@ -463,7 +459,6 @@ def _update_progress(
     enable_web: bool,
     use_native_cli_auth: bool,
     tools: tuple[str, ...],
-    skills: tuple[str, ...],
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
     reference_repos: list[str] | None = None,
@@ -497,7 +492,6 @@ def _update_progress(
         enable_web: Whether web search/browse tools are enabled.
         use_native_cli_auth: Whether to use native CLI authentication.
         tools: Tuple of enabled tool category names.
-        skills: Tuple of enabled skill names.
         fix_ci: Whether to attempt CI fix after PR creation.
         ci_check_wait_minutes: Minutes to wait for CI checks.
         reference_repos: Optional list of reference repo specs.
@@ -525,7 +519,6 @@ def _update_progress(
         "fix_ci": fix_ci,
         "ci_check_wait_minutes": ci_check_wait_minutes,
         "tools": list(tools),
-        "skills": list(skills),
         "reference_repos": list(reference_repos or []),
         "updates": list(updates),
     }
@@ -899,7 +892,6 @@ def build_feature(
     enable_web: bool = False,
     use_native_cli_auth: bool = False,
     tools: list[str] | None = None,
-    skills: list[str] | None = None,
     fix_ci: bool = False,
     ci_check_wait_minutes: float = 3.0,
     github_token: str | None = None,
@@ -918,7 +910,6 @@ def build_feature(
     """
     from helping_hands.lib.config import Config, ConfigValue
     from helping_hands.lib.hands.v1.hand import E2EHand
-    from helping_hands.lib.meta import skills as meta_skills
     from helping_hands.lib.meta.tools import registry as meta_tools
     from helping_hands.lib.repo import RepoIndex
 
@@ -944,8 +935,6 @@ def build_feature(
     resolved_iterations = max(1, int(max_iterations))
     selected_tools = meta_tools.normalize_tool_selection(tools)
     meta_tools.validate_tool_category_names(selected_tools)
-    selected_skills = meta_skills.normalize_skill_selection(skills)
-    meta_skills.validate_skill_names(selected_skills)
     task_started_at = datetime.now(UTC).isoformat()
     updates: list[str] = []
     _append_update(
@@ -956,7 +945,6 @@ def build_feature(
             f"no_pr={no_pr}, enable_execution={enable_execution}, "
             f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}, "
             f"tools={','.join(selected_tools) or 'none'}, "
-            f"skills={','.join(selected_skills) or 'none'}, "
             f"reference_repos={','.join(reference_repos) if reference_repos else 'none'}"
         ),
     )
@@ -976,7 +964,6 @@ def build_feature(
         enable_web=enable_web,
         use_native_cli_auth=use_native_cli_auth,
         tools=selected_tools,
-        skills=selected_skills,
         fix_ci=fix_ci,
         ci_check_wait_minutes=ci_check_wait_minutes,
         reference_repos=list(reference_repos or []),
@@ -994,7 +981,6 @@ def build_feature(
                 "enable_web": enable_web,
                 "use_native_cli_auth": use_native_cli_auth,
                 "enabled_tools": selected_tools,
-                "enabled_skills": selected_skills,
                 "github_token": github_token,
                 "reference_repos": tuple(reference_repos) if reference_repos else (),
             }
@@ -1046,7 +1032,6 @@ def build_feature(
         overrides["enable_web"] = enable_web
         overrides["use_native_cli_auth"] = use_native_cli_auth
         overrides["enabled_tools"] = selected_tools
-        overrides["enabled_skills"] = selected_skills
         overrides["github_token"] = github_token
         overrides["reference_repos"] = tuple(reference_repos) if reference_repos else ()
         config = Config.from_env(overrides=overrides)
@@ -1268,7 +1253,6 @@ def build_feature(
             "fix_ci": str(fix_ci).lower(),
             "ci_check_wait_minutes": str(ci_check_wait_minutes),
             "tools": list(selected_tools),
-            "skills": list(selected_skills),
             "runtime": runtime_str,
             "message": message,
             "updates": updates,
@@ -1334,7 +1318,6 @@ def scheduled_build(
         enable_web=schedule.enable_web,
         use_native_cli_auth=schedule.use_native_cli_auth,
         tools=schedule.tools,
-        skills=schedule.skills,
         fix_ci=schedule.fix_ci,
         ci_check_wait_minutes=schedule.ci_check_wait_minutes,
         reference_repos=schedule.reference_repos,

@@ -308,7 +308,6 @@ class TestUpdateProgress:
             enable_web=False,
             use_native_cli_auth=False,
             tools=("filesystem",),
-            skills=(),
         )
         mock_task.update_state.assert_called_once()
         call_kwargs = mock_task.update_state.call_args
@@ -341,7 +340,6 @@ class TestUpdateProgress:
             enable_web=False,
             use_native_cli_auth=False,
             tools=(),
-            skills=(),
         )
 
     def test_workspace_included_when_set(self) -> None:
@@ -363,7 +361,6 @@ class TestUpdateProgress:
             enable_web=False,
             use_native_cli_auth=False,
             tools=(),
-            skills=(),
             workspace="/tmp/workspace",
         )
         meta = mock_task.update_state.call_args.kwargs["meta"]
@@ -387,7 +384,6 @@ def _make_emitter(mock_task=None, updates=None, **kwargs):
         "enable_web": False,
         "use_native_cli_auth": False,
         "tools": (),
-        "skills": (),
     }
     defaults.update(kwargs)
     task = mock_task or MagicMock()
@@ -1473,7 +1469,6 @@ class TestUpdateProgressIssueNumber:
             enable_web=False,
             use_native_cli_auth=False,
             tools=(),
-            skills=(),
             issue_number=42,
         )
         meta = mock_task.update_state.call_args.kwargs["meta"]
@@ -1498,7 +1493,6 @@ class TestUpdateProgressIssueNumber:
             enable_web=False,
             use_native_cli_auth=False,
             tools=(),
-            skills=(),
         )
         meta = mock_task.update_state.call_args.kwargs["meta"]
         assert "issue_number" not in meta

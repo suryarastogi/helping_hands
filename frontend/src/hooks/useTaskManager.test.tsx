@@ -297,7 +297,6 @@ describe("useTaskManager", () => {
       result.current.updateField("model", " gpt-4 ");
       result.current.updateField("pr_number", " 42 ");
       result.current.updateField("tools", "tool1, tool2");
-      result.current.updateField("skills", "skill1, skill2");
     });
 
     const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
@@ -315,7 +314,6 @@ describe("useTaskManager", () => {
     expect(body.model).toBe("gpt-4");
     expect(body.pr_number).toBe(42);
     expect(body.tools).toEqual(["tool1", "tool2"]);
-    expect(body.skills).toEqual(["skill1", "skill2"]);
   });
 
   it("submitRun includes issue_number when set", async () => {
@@ -733,7 +731,6 @@ describe("useTaskManager", () => {
             no_pr: true,
             enable_execution: false,
             tools: ["tool1"],
-            skills: ["sk1"],
           },
         });
       }

@@ -40,7 +40,6 @@ class TestConfigAttributesSection:
             "enable_web",
             "use_native_cli_auth",
             "enabled_tools",
-            "enabled_skills",
             "github_token",
             "reference_repos",
             "config_path",

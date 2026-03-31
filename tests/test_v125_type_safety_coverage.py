@@ -185,9 +185,6 @@ class TestIsBoilerplateLine:
     def test_implement_the_task(self) -> None:
         assert _is_boilerplate_line("Implement the task directly") is True
 
-    def test_skill_knowledge_catalog(self) -> None:
-        assert _is_boilerplate_line("Skill knowledge catalog: prd, ralph") is True
-
     # --- Case insensitivity ---
 
     def test_prefix_case_insensitive(self) -> None:
@@ -220,4 +217,4 @@ class TestIsBoilerplateLine:
 
     def test_boilerplate_prefixes_count(self) -> None:
         """Verify the constant has the expected number of prefixes."""
-        assert len(_BOILERPLATE_PREFIXES) == 18
+        assert len(_BOILERPLATE_PREFIXES) == 17

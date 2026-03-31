@@ -128,7 +128,6 @@ class ScheduledTask:
         github_token: Per-task GitHub token override, or ``None``.
         reference_repos: Additional repos cloned as read-only context.
         tools: Selected tool category names.
-        skills: Selected skill names.
         enabled: Whether the schedule is active in RedBeat.
         created_at: ISO 8601 creation timestamp (auto-set on init).
         last_run_at: ISO 8601 timestamp of the most recent run, or ``None``.
@@ -156,7 +155,6 @@ class ScheduledTask:
     github_token: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    skills: list[str] = field(default_factory=list)
     enabled: bool = True
     created_at: str = ""
     last_run_at: str | None = None
@@ -190,7 +188,6 @@ class ScheduledTask:
             "github_token": self.github_token,
             "reference_repos": self.reference_repos,
             "tools": self.tools,
-            "skills": self.skills,
             "enabled": self.enabled,
             "created_at": self.created_at,
             "last_run_at": self.last_run_at,
@@ -256,7 +253,6 @@ class ScheduledTask:
             github_token=data.get("github_token"),
             reference_repos=data.get("reference_repos", []),
             tools=data.get("tools", []),
-            skills=data.get("skills", []),
             enabled=data.get("enabled", True),
             created_at=data.get("created_at", ""),
             last_run_at=data.get("last_run_at"),
@@ -649,7 +645,6 @@ class ScheduleManager:
                 "enable_web": task.enable_web,
                 "use_native_cli_auth": task.use_native_cli_auth,
                 "tools": task.tools,
-                "skills": task.skills,
                 "fix_ci": task.fix_ci,
                 "ci_check_wait_minutes": task.ci_check_wait_minutes,
                 "reference_repos": task.reference_repos,
@@ -957,7 +952,6 @@ class ScheduleManager:
             enable_web=task.enable_web,
             use_native_cli_auth=task.use_native_cli_auth,
             tools=task.tools,
-            skills=task.skills,
             fix_ci=task.fix_ci,
             ci_check_wait_minutes=task.ci_check_wait_minutes,
             github_token=task.github_token,

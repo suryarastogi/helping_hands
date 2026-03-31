@@ -133,22 +133,6 @@ export default function SubmissionForm({
                 placeholder="https://github.com/orgs/myorg/projects/1"
               />
             </label>
-            <label>
-              Tools
-              <input
-                value={form.tools}
-                onChange={(event) => onFieldChange("tools", event.target.value)}
-                placeholder="execution,web"
-              />
-            </label>
-            <label>
-              Skills
-              <input
-                value={form.skills}
-                onChange={(event) => onFieldChange("skills", event.target.value)}
-                placeholder="execution,web,prd,ralph"
-              />
-            </label>
             <div className="row check-grid">
               <label className="check-row compact-check">
                 <input

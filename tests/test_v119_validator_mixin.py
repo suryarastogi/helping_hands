@@ -1,14 +1,12 @@
-"""Tests for v119: _ToolSkillValidatorMixin provides shared coercion to both request models.
+"""Tests for v119: _ToolValidatorMixin provides shared coercion to both request models.
 
 Before this mixin, BuildRequest and ScheduleRequest each had their own copy of the
-tools/skills string-to-list coercion logic; divergence caused different endpoints to
+tools string-to-list coercion logic; divergence caused different endpoints to
 accept different input formats.  The mixin must be an actual base class of both
 models (not just copied code) so that a single fix propagates to both.
 
 String inputs ("execution,web") must be split into lists; None must become an empty
 list; and per-item max_length constraints must prevent unbounded tool name strings.
-A regression would cause the scheduler endpoint to silently accept raw comma-separated
-strings while the build endpoint coerces them (or vice versa).
 """
 
 from __future__ import annotations
@@ -21,22 +19,22 @@ pytest.importorskip("fastapi")
 
 
 # ---------------------------------------------------------------------------
-# _ToolSkillValidatorMixin shared behaviour
+# _ToolValidatorMixin shared behavior
 # ---------------------------------------------------------------------------
 
 
-class TestToolSkillValidatorMixin:
+class TestToolValidatorMixin:
     """Validate that the shared mixin provides coercion/validation to both models."""
 
     def test_build_request_inherits_mixin(self) -> None:
-        from helping_hands.server.app import BuildRequest, _ToolSkillValidatorMixin
+        from helping_hands.server.app import BuildRequest, _ToolValidatorMixin
 
-        assert issubclass(BuildRequest, _ToolSkillValidatorMixin)
+        assert issubclass(BuildRequest, _ToolValidatorMixin)
 
     def test_schedule_request_inherits_mixin(self) -> None:
-        from helping_hands.server.app import ScheduleRequest, _ToolSkillValidatorMixin
+        from helping_hands.server.app import ScheduleRequest, _ToolValidatorMixin
 
-        assert issubclass(ScheduleRequest, _ToolSkillValidatorMixin)
+        assert issubclass(ScheduleRequest, _ToolValidatorMixin)
 
     def test_mixin_coerces_tools_string_to_list(self) -> None:
         from helping_hands.server.app import BuildRequest
@@ -44,12 +42,6 @@ class TestToolSkillValidatorMixin:
         req = BuildRequest(repo_path="/tmp/repo", prompt="test", tools="execution,web")
         assert isinstance(req.tools, list)
         assert "execution" in req.tools
-
-    def test_mixin_coerces_skills_string_to_list(self) -> None:
-        from helping_hands.server.app import BuildRequest
-
-        req = BuildRequest(repo_path="/tmp/repo", prompt="test", skills="prd,ralph")
-        assert isinstance(req.skills, list)
 
     def test_schedule_request_coerces_tools(self) -> None:
         from helping_hands.server.app import ScheduleRequest
@@ -64,43 +56,25 @@ class TestToolSkillValidatorMixin:
         assert isinstance(req.tools, list)
         assert "execution" in req.tools
 
-    def test_schedule_request_coerces_skills(self) -> None:
-        from helping_hands.server.app import ScheduleRequest
-
-        req = ScheduleRequest(
-            name="t",
-            cron_expression="0 0 * * *",
-            repo_path="/tmp/repo",
-            prompt="test",
-            skills="prd",
-        )
-        assert isinstance(req.skills, list)
-
     def test_mixin_none_tools_becomes_empty_list(self) -> None:
         from helping_hands.server.app import BuildRequest
 
         req = BuildRequest(repo_path="/tmp/repo", prompt="test", tools=None)
         assert req.tools == []
 
-    def test_mixin_none_skills_becomes_empty_list(self) -> None:
-        from helping_hands.server.app import BuildRequest
-
-        req = BuildRequest(repo_path="/tmp/repo", prompt="test", skills=None)
-        assert req.skills == []
-
 
 # ---------------------------------------------------------------------------
-# tools/skills max_length constraints
+# tools max_length constraints
 # ---------------------------------------------------------------------------
 
 
-class TestToolSkillMaxLength:
-    """Validate max_length constraint on tools and skills list fields."""
+class TestToolMaxLength:
+    """Validate max_length constraint on tools list fields."""
 
-    def test_max_tool_skill_items_constant(self) -> None:
-        from helping_hands.server.app import _MAX_TOOL_SKILL_ITEMS
+    def test_max_tool_items_constant(self) -> None:
+        from helping_hands.server.app import _MAX_TOOL_ITEMS
 
-        assert _MAX_TOOL_SKILL_ITEMS == 50
+        assert _MAX_TOOL_ITEMS == 50
 
     def test_build_request_rejects_oversized_tools_list(self) -> None:
         from pydantic import ValidationError
@@ -130,34 +104,6 @@ class TestToolSkillMaxLength:
         )
         assert len(req.tools) == 1
 
-    def test_schedule_request_rejects_oversized_skills_list(self) -> None:
-        from pydantic import ValidationError
-
-        from helping_hands.server.app import ScheduleRequest
-
-        skills = [f"skill_{i}" for i in range(51)]
-        with pytest.raises(ValidationError):
-            ScheduleRequest(
-                name="t",
-                cron_expression="0 0 * * *",
-                repo_path="/tmp/repo",
-                prompt="test",
-                skills=skills,
-            )
-
-    def test_schedule_request_accepts_skills_at_limit(self) -> None:
-        """Valid skill entries at the limit should be accepted."""
-        from helping_hands.server.app import ScheduleRequest
-
-        req = ScheduleRequest(
-            name="t",
-            cron_expression="0 0 * * *",
-            repo_path="/tmp/repo",
-            prompt="test",
-            skills=["prd"],
-        )
-        assert len(req.skills) == 1
-
 
 # ---------------------------------------------------------------------------
 # base.py pr_number guards (assert -> ValueError)
@@ -180,7 +126,6 @@ class TestPrNumberExplicitGuards:
 
         config = MagicMock()
         config.enabled_tools = ()
-        config.enabled_skills = ()
         config.enable_execution = False
         config.enable_web = False
         repo_index = MagicMock()

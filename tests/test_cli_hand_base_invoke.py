@@ -8,8 +8,7 @@ Critical invariants: FileNotFoundError triggers the npx fallback before raising
 to the user; idle timeout terminates the process rather than hanging forever;
 interrupt signals cleanly cancel the running process; non-zero exit codes with
 a retry hook use the adjusted command on retry but refuse to loop if the retry
-produces the same command. The two-phase skill catalog setup/teardown must run
-even when the inner phase raises.
+produces the same command.
 """
 
 from __future__ import annotations
@@ -473,51 +472,6 @@ class TestInvokeBackend:
         result = _run(stub._invoke_backend("hello", emit=emit))
         assert result == "delegated"
         assert calls == ["hello"]
-
-
-# ===================================================================
-# _run_two_phase — skill catalog lifecycle
-# ===================================================================
-
-
-class TestRunTwoPhase:
-    def test_stages_and_cleans_up_skill_catalog(self) -> None:
-        stub = _Stub()
-        stage_calls: list[bool] = []
-        cleanup_calls: list[bool] = []
-        reset_calls: list[bool] = []
-
-        stub._stage_skill_catalog = lambda: stage_calls.append(True)
-        stub._cleanup_skill_catalog = lambda: cleanup_calls.append(True)
-        stub.reset_interrupt = lambda: reset_calls.append(True)
-
-        async def fake_inner(prompt, *, emit):
-            return "inner result"
-
-        stub._run_two_phase_inner = fake_inner
-
-        result = _run(stub._run_two_phase("task", emit=_noop_emit()))
-        assert result == "inner result"
-        assert reset_calls == [True]
-        assert stage_calls == [True]
-        assert cleanup_calls == [True]
-
-    def test_cleans_up_on_exception(self) -> None:
-        stub = _Stub()
-        cleanup_calls: list[bool] = []
-
-        stub._stage_skill_catalog = lambda: None
-        stub._cleanup_skill_catalog = lambda: cleanup_calls.append(True)
-        stub.reset_interrupt = lambda: None
-
-        async def fake_inner(prompt, *, emit):
-            raise RuntimeError("boom")
-
-        stub._run_two_phase_inner = fake_inner
-
-        with pytest.raises(RuntimeError, match="boom"):
-            _run(stub._run_two_phase("task", emit=_noop_emit()))
-        assert cleanup_calls == [True]
 
 
 # ===================================================================

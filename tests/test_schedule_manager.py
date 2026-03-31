@@ -600,7 +600,6 @@ class TestScheduleManagerTriggerNow:
             enable_execution=True,
             enable_web=True,
             tools=["read"],
-            skills=["deploy"],
             fix_ci=True,
             ci_check_wait_minutes=5.0,
         )
@@ -624,7 +623,6 @@ class TestScheduleManagerTriggerNow:
         assert call_kwargs["enable_execution"] is True
         assert call_kwargs["enable_web"] is True
         assert call_kwargs["tools"] == ["read"]
-        assert call_kwargs["skills"] == ["deploy"]
         assert call_kwargs["fix_ci"] is True
         assert call_kwargs["ci_check_wait_minutes"] == 5.0
 

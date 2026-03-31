@@ -74,11 +74,6 @@ _TARGETS: list[tuple[str, str, list[str]]] = [
         ["provider", "model", "raw"],
     ),
     (
-        "helping_hands.lib.meta.skills",
-        "SkillSpec",
-        ["name", "title", "content"],
-    ),
-    (
         "helping_hands.lib.repo",
         "RepoIndex",
         ["root", "files", "reference_repos"],

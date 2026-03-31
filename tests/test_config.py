@@ -4,7 +4,7 @@ Guards the Config frozen-dataclass contract: defaults, immutability, and the
 three-layer precedence chain (dotenv file < env var < explicit override).
 Also protects the normalisation rules that prevent bad inputs from reaching
 AI backends — whitespace stripping on model/token/repo, bool-flag parsing,
-comma-list expansion for tools/skills/reference_repos, and tilde expansion
+comma-list expansion for tools/reference_repos, and tilde expansion
 for repo paths. If this precedence logic regresses, CLI users lose the ability
 to override env vars, or CI pipelines pick up stale dotenv values.
 """
@@ -30,7 +30,6 @@ class TestConfigDefaults:
         assert config.enable_web is False
         assert config.use_native_cli_auth is False
         assert config.enabled_tools == ()
-        assert config.enabled_skills == ()
 
     def test_frozen_immutability(self) -> None:
         """Config is a frozen dataclass; attribute assignment raises."""
@@ -54,12 +53,10 @@ class TestConfigDefaults:
         monkeypatch.setenv("HELPING_HANDS_ENABLE_EXECUTION", "1")
         monkeypatch.setenv("HELPING_HANDS_ENABLE_WEB", "true")
         monkeypatch.setenv("HELPING_HANDS_USE_NATIVE_CLI_AUTH", "yes")
-        monkeypatch.setenv("HELPING_HANDS_SKILLS", "execution, web")
         config = Config.from_env()
         assert config.enable_execution is True
         assert config.enable_web is True
         assert config.use_native_cli_auth is True
-        assert config.enabled_skills == ("execution", "web")
 
     def test_from_env_empty_model_env_uses_default(
         self, monkeypatch: pytest.MonkeyPatch
@@ -124,16 +121,11 @@ class TestLoadEnvFilesNoDotenv:
         config_module._load_env_files(repo="/some/path")
 
 
-class TestBoolToolAndSkillOverrides:
+class TestBoolToolOverrides:
     def test_bool_tools_override_normalizes_to_empty_tuple(self) -> None:
         """If overrides pass enabled_tools=True (a bool), it normalizes to ()."""
         config = Config.from_env(overrides={"enabled_tools": True})
         assert config.enabled_tools == ()
-
-    def test_bool_skills_override_normalizes_to_empty_tuple(self) -> None:
-        """If overrides pass enabled_skills=True (a bool), it normalizes to ()."""
-        config = Config.from_env(overrides={"enabled_skills": True})
-        assert config.enabled_skills == ()
 
 
 class TestFromEnvRepoDotenv:
@@ -263,18 +255,13 @@ class TestConfigPathField:
             config.config_path = None  # type: ignore[misc]
 
 
-class TestFromEnvToolsAndSkillsStringOverrides:
+class TestFromEnvToolsStringOverrides:
     def test_string_tools_override_parsed(self) -> None:
         """String overrides for enabled_tools are normalized."""
         config = Config.from_env(
             overrides={"enabled_tools": "python.run_code, bash.run_script"}
         )
         assert len(config.enabled_tools) == 2
-
-    def test_string_skills_override_parsed(self) -> None:
-        """String overrides for enabled_skills are normalized."""
-        config = Config.from_env(overrides={"enabled_skills": "execution, web"})
-        assert config.enabled_skills == ("execution", "web")
 
     def test_tuple_tools_override_normalized(self) -> None:
         """Tuple overrides for enabled_tools are normalized (underscores to dashes)."""
@@ -316,7 +303,6 @@ class TestFromEnvPrecedence:
         monkeypatch.delenv("HELPING_HANDS_ENABLE_WEB", raising=False)
         monkeypatch.delenv("HELPING_HANDS_USE_NATIVE_CLI_AUTH", raising=False)
         monkeypatch.delenv("HELPING_HANDS_TOOLS", raising=False)
-        monkeypatch.delenv("HELPING_HANDS_SKILLS", raising=False)
         config = Config.from_env()
         assert config.model == "default"
         assert config.verbose is True

@@ -42,7 +42,6 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     build_langchain_chat_model,
     resolve_hand_model,
 )
-from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import (
     command as system_exec_tools,
     filesystem as system_tools,
@@ -152,7 +151,7 @@ class _BasicIterativeHand(Hand):
         """Initialize the iterative hand with iteration cap and tool dispatch.
 
         Args:
-            config: Hand configuration object (model, tools, skills, etc.).
+            config: Hand configuration object (model, tools, etc.).
             repo_index: Repository index providing file listing and root path.
             max_iterations: Maximum number of AI loop iterations (clamped to
                 ``[1, _MAX_ITERATIONS]``).
@@ -184,16 +183,13 @@ class _BasicIterativeHand(Hand):
         """Build tool usage instructions for the iteration prompt.
 
         Returns:
-            Formatted instruction text describing available tools and skills.
+            Formatted instruction text describing available tools.
         """
         lines = [tool_registry.format_tool_instructions(self._selected_tool_categories)]
         lines.append(
             "Tool results are returned as @@TOOL_RESULT blocks "
             "in the next iteration summary."
         )
-        skill_knowledge = system_skills.format_skill_knowledge(self._selected_skills)
-        if skill_knowledge:
-            lines.append(skill_knowledge)
         return "\n".join(lines)
 
     def _build_iteration_prompt(

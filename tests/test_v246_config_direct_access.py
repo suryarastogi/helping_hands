@@ -45,7 +45,7 @@ _HAND_FILES = [
 
 _CONFIG_BOOL_FIELDS = ("enable_execution", "enable_web", "use_native_cli_auth")
 _CONFIG_STR_FIELDS = ("github_token",)
-_CONFIG_TUPLE_FIELDS = ("enabled_tools", "enabled_skills")
+_CONFIG_TUPLE_FIELDS = ("enabled_tools",)
 
 
 # ===========================================================================

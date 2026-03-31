@@ -4,7 +4,7 @@ Protects the shared validation primitives used throughout the library to guard
 API boundaries: require_non_empty_string (strips whitespace and raises with the
 parameter name in the message), require_positive_int and require_positive_float
 (reject zero, negatives, NaN, and infinity with clear messages), and
-parse_comma_list (used to normalise env-var lists for tools/skills/repos).
+parse_comma_list (used to normalise env-var lists for tools/repos).
 These helpers are called in Config.from_env, GitHubClient methods, and server
 endpoints; silent regressions would allow empty branch names, zero depths, or
 NaN timeouts to reach git and AI provider calls.

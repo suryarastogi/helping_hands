@@ -88,7 +88,6 @@ export function useSchedules(): UseSchedulesReturn {
         github_token: item.github_token ?? "",
         reference_repos: (item.reference_repos ?? []).join(", "),
         tools: (item.tools ?? []).join(", "),
-        skills: item.skills.join(", "),
         enabled: item.enabled,
       });
       setEditingScheduleId(scheduleId);
@@ -159,13 +158,6 @@ export function useSchedules(): UseSchedulesReturn {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
     }
-    if (scheduleForm.skills.trim()) {
-      body.skills = scheduleForm.skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    }
-
     const isEdit = editingScheduleId !== null;
     const url = isEdit ? apiUrl(`/schedules/${editingScheduleId}`) : apiUrl("/schedules");
     const method = isEdit ? "PUT" : "POST";

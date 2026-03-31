@@ -210,11 +210,6 @@ class TestConfigEnvConstants:
 
         assert _ENV_TOOLS == "HELPING_HANDS_TOOLS"
 
-    def test_env_skills(self) -> None:
-        from helping_hands.lib.config import _ENV_SKILLS
-
-        assert _ENV_SKILLS == "HELPING_HANDS_SKILLS"
-
     def test_env_github_token(self) -> None:
         from helping_hands.lib.config import _ENV_GITHUB_TOKEN
 

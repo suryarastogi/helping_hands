@@ -63,7 +63,6 @@ class TestBuildFormRedirectQuery:
         assert "ci_check_wait_minutes" not in result
         assert "pr_number" not in result
         assert "tools" not in result
-        assert "skills" not in result
 
     def test_all_optional_fields_included(self) -> None:
         result = _build_form_redirect_query(
@@ -81,7 +80,6 @@ class TestBuildFormRedirectQuery:
             ci_check_wait_minutes=5.0,
             pr_number=42,
             tools="bash,python",
-            skills="prd",
         )
         assert result["model"] == "gpt-5.2"
         assert result["no_pr"] == "1"
@@ -92,7 +90,6 @@ class TestBuildFormRedirectQuery:
         assert result["ci_check_wait_minutes"] == "5.0"
         assert result["pr_number"] == "42"
         assert result["tools"] == "bash,python"
-        assert result["skills"] == "prd"
 
     def test_false_booleans_excluded(self) -> None:
         result = _build_form_redirect_query(
@@ -156,17 +153,6 @@ class TestBuildFormRedirectQuery:
             tools="   ",
         )
         assert "tools" not in result
-
-    def test_whitespace_skills_excluded(self) -> None:
-        result = _build_form_redirect_query(
-            repo_path="/repo",
-            prompt="task",
-            backend="codexcli",
-            max_iterations=6,
-            error="err",
-            skills="   ",
-        )
-        assert "skills" not in result
 
     def test_none_model_excluded(self) -> None:
         result = _build_form_redirect_query(
@@ -266,7 +252,6 @@ class _FakeScheduledTask:
             "github_token": None,
             "reference_repos": [],
             "tools": [],
-            "skills": [],
             "schedule_type": "cron",
             "interval_seconds": None,
             "enabled": True,

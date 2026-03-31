@@ -57,7 +57,6 @@ class _FakeScheduledTask:
     github_token: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    skills: list[str] = field(default_factory=list)
     enabled: bool = True
     created_at: str = "2026-03-15T00:00:00"
     last_run_at: str | None = None
@@ -613,7 +612,7 @@ class TestEnqueueBuildFormValidationError:
     def test_form_with_optional_flags(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test form submission with fix_ci, pr_number, valid tools/skills."""
+        """Test form submission with fix_ci, pr_number, valid tools."""
         mock_task = MagicMock()
         mock_task.id = "task-opts"
         monkeypatch.setattr(
@@ -630,7 +629,6 @@ class TestEnqueueBuildFormValidationError:
                 "fix_ci": "true",
                 "pr_number": "42",
                 "tools": "execution,web",
-                "skills": "",
                 "enable_execution": "true",
                 "enable_web": "true",
                 "use_native_cli_auth": "true",

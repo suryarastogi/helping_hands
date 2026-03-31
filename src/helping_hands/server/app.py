@@ -39,7 +39,6 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_GOOSE,
     BACKEND_OPENCODECLI,
 )
-from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.validation import (
     install_hint,
@@ -119,8 +118,8 @@ __all__ = [
 # Lazy import for optional schedule dependencies
 _schedule_manager: ScheduleManager | None = None
 
-# Maximum number of tool or skill entries in a single request.
-_MAX_TOOL_SKILL_ITEMS = 50
+# Maximum number of tool entries in a single request.
+_MAX_TOOL_ITEMS = 50
 
 # --- Health-check timeout constants (seconds) ---
 _REDIS_HEALTH_TIMEOUT_S = 2
@@ -174,11 +173,10 @@ if _yjs_app is not None:
     app.mount("/ws/yjs", _yjs_app)
 
 
-class _ToolSkillValidatorMixin(BaseModel):
-    """Shared coercion and validation for tools/skills list fields."""
+class _ToolValidatorMixin(BaseModel):
+    """Shared coercion and validation for tools list fields."""
 
-    tools: list[str] = Field(default_factory=list, max_length=_MAX_TOOL_SKILL_ITEMS)
-    skills: list[str] = Field(default_factory=list, max_length=_MAX_TOOL_SKILL_ITEMS)
+    tools: list[str] = Field(default_factory=list, max_length=_MAX_TOOL_ITEMS)
 
     @field_validator("tools", mode="before")
     @classmethod
@@ -216,42 +214,6 @@ class _ToolSkillValidatorMixin(BaseModel):
         meta_tools.validate_tool_category_names(tuple(value))
         return value
 
-    @field_validator("skills", mode="before")
-    @classmethod
-    def _coerce_skills(
-        cls, value: str | list[str] | tuple[str, ...] | None
-    ) -> list[str]:
-        """Normalize raw skill input into a list of skill names.
-
-        Accepts comma-separated strings, sequences, or ``None`` and
-        delegates to ``normalize_skill_selection``.
-
-        Args:
-            value: Raw skill selection from the request body.
-
-        Returns:
-            A normalized list of skill name strings.
-        """
-        normalized = meta_skills.normalize_skill_selection(value)
-        return list(normalized)
-
-    @field_validator("skills")
-    @classmethod
-    def _validate_skills(cls, value: list[str]) -> list[str]:
-        """Validate that all skill names are recognized.
-
-        Args:
-            value: List of skill names to validate.
-
-        Returns:
-            The unchanged list if all names are valid.
-
-        Raises:
-            ValueError: If any name is not a known skill.
-        """
-        meta_skills.validate_skill_names(tuple(value))
-        return value
-
 
 BackendName = Literal[
     "e2e",
@@ -268,7 +230,7 @@ BackendName = Literal[
 ]
 
 
-class BuildRequest(_ToolSkillValidatorMixin):
+class BuildRequest(_ToolValidatorMixin):
     """Request body for the /build endpoint."""
 
     repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
@@ -362,7 +324,7 @@ class ServerConfig(BaseModel):
 # --- Scheduled Task Models ---
 
 
-class ScheduleRequest(_ToolSkillValidatorMixin):
+class ScheduleRequest(_ToolValidatorMixin):
     """Request body for creating/updating a scheduled task."""
 
     name: str = Field(min_length=1, max_length=100)
@@ -431,7 +393,6 @@ class ScheduleResponse(BaseModel):
     github_token: str | None = None
     reference_repos: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
     enabled: bool = True
     created_at: str
     last_run_at: str | None = None
@@ -1448,15 +1409,6 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     id="tools"
                     name="tools"
                     placeholder="execution,web"
-                  />
-                </label>
-
-                <label for="skills">
-                  Skills (comma-separated, optional)
-                  <input
-                    id="skills"
-                    name="skills"
-                    placeholder="prd,ralph"
                   />
                 </label>
 
@@ -2481,7 +2433,6 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const useNativeCliAuth = params.get("use_native_cli_auth");
         const fixCi = params.get("fix_ci");
         const tools = params.get("tools");
-        const skills = params.get("skills");
         const taskId = params.get("task_id");
         const status = params.get("status");
         const error = params.get("error");
@@ -2506,9 +2457,6 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (tools) {
           document.getElementById("tools").value = tools;
-        }
-        if (skills) {
-          document.getElementById("skills").value = skills;
         }
         if (noPr === "1" || noPr === "true") {
           document.getElementById("no_pr").checked = true;
@@ -2693,7 +2641,6 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const maxIterationsRaw = document.getElementById("max_iterations").value.trim();
         const prRaw = document.getElementById("pr_number").value.trim();
         const toolsRaw = document.getElementById("tools").value.trim();
-        const skillsRaw = document.getElementById("skills").value.trim();
         const noPr = document.getElementById("no_pr").checked;
         const enableExecution = document.getElementById("enable_execution").checked;
         const enableWeb = document.getElementById("enable_web").checked;
@@ -2720,12 +2667,6 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (toolsRaw) {
           payload.tools = toolsRaw
-            .split(",")
-            .map((item) => item.trim())
-            .filter((item) => item.length > 0);
-        }
-        if (skillsRaw) {
-          payload.skills = skillsRaw
             .split(",")
             .map((item) => item.trim())
             .filter((item) => item.length > 0);
@@ -3236,7 +3177,6 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         enable_web=req.enable_web,
         use_native_cli_auth=req.use_native_cli_auth,
         tools=req.tools,
-        skills=req.skills,
         fix_ci=req.fix_ci,
         ci_check_wait_minutes=req.ci_check_wait_minutes,
         github_token=req.github_token,
@@ -3960,7 +3900,6 @@ def _build_form_redirect_query(
     ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES,
     pr_number: int | None = None,
     tools: str | None = None,
-    skills: str | None = None,
 ) -> dict[str, str]:
     """Build the query dict for form error redirects back to the index page."""
     query: dict[str, str] = {
@@ -3988,8 +3927,6 @@ def _build_form_redirect_query(
         query["pr_number"] = str(pr_number)
     if tools and tools.strip():
         query["tools"] = tools
-    if skills and skills.strip():
-        query["skills"] = skills
     return query
 
 
@@ -4009,7 +3946,6 @@ def enqueue_build_form(
     create_issue: bool = Form(False),
     project_url: str | None = Form(None),
     tools: str | None = Form(None),
-    skills: str | None = Form(None),
     fix_ci: bool = Form(False),
     ci_check_wait_minutes: float = Form(_DEFAULT_CI_WAIT_MINUTES),
     github_token: str | None = Form(None),
@@ -4034,7 +3970,6 @@ def enqueue_build_form(
             ci_check_wait_minutes=ci_check_wait_minutes,
             pr_number=pr_number,
             tools=tools,
-            skills=skills,
         )
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
 
@@ -4056,7 +3991,6 @@ def enqueue_build_form(
             fix_ci=fix_ci,
             ci_check_wait_minutes=ci_check_wait_minutes,
             tools=list(meta_tools.normalize_tool_selection(tools)),
-            skills=list(meta_skills.normalize_skill_selection(skills)),
             github_token=github_token
             if github_token and github_token.strip()
             else None,
@@ -4080,7 +4014,6 @@ def enqueue_build_form(
             ci_check_wait_minutes=ci_check_wait_minutes,
             pr_number=pr_number,
             tools=tools,
-            skills=skills,
         )
         return RedirectResponse(url=f"/?{urlencode(query)}", status_code=303)
 
@@ -4109,8 +4042,6 @@ def enqueue_build_form(
         query["pr_number"] = str(req.pr_number)
     if req.tools:
         query["tools"] = ",".join(req.tools)
-    if req.skills:
-        query["skills"] = ",".join(req.skills)
     return RedirectResponse(url=f"/monitor/{response.task_id}", status_code=303)
 
 
@@ -4729,7 +4660,6 @@ def _schedule_to_response(task) -> ScheduleResponse:
         github_token=_redact_token(task.github_token),
         reference_repos=task.reference_repos,
         tools=task.tools,
-        skills=task.skills,
         enabled=task.enabled,
         created_at=task.created_at,
         last_run_at=task.last_run_at,
@@ -4791,7 +4721,6 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         github_token=request.github_token,
         reference_repos=request.reference_repos,
         tools=request.tools,
-        skills=request.skills,
         enabled=request.enabled,
     )
 
@@ -4853,7 +4782,6 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         github_token=github_token,
         reference_repos=request.reference_repos,
         tools=request.tools,
-        skills=request.skills,
         enabled=request.enabled,
     )
 

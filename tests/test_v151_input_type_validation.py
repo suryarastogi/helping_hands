@@ -110,63 +110,7 @@ class TestNormalizeToolSelectionTypeValidation:
 
 
 # ---------------------------------------------------------------------------
-# 3. normalize_skill_selection input type validation
-# ---------------------------------------------------------------------------
-
-
-class TestNormalizeSkillSelectionTypeValidation:
-    """normalize_skill_selection rejects non-(str|list|tuple|None) inputs."""
-
-    def test_rejects_dict(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        with pytest.raises(TypeError, match="skills must be a string, list, or tuple"):
-            normalize_skill_selection({"prd": True})  # type: ignore[arg-type]
-
-    def test_rejects_set(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        with pytest.raises(TypeError, match="skills must be a string, list, or tuple"):
-            normalize_skill_selection({"prd", "ralph"})  # type: ignore[arg-type]
-
-    def test_rejects_int(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        with pytest.raises(TypeError, match="skills must be a string, list, or tuple"):
-            normalize_skill_selection(42)  # type: ignore[arg-type]
-
-    def test_accepts_none(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        assert normalize_skill_selection(None) == ()
-
-    def test_accepts_string(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        result = normalize_skill_selection("prd")
-        assert "prd" in result
-
-    def test_accepts_list(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        result = normalize_skill_selection(["prd"])
-        assert "prd" in result
-
-    def test_accepts_tuple(self) -> None:
-        from helping_hands.lib.meta.skills import normalize_skill_selection
-
-        result = normalize_skill_selection(("prd",))
-        assert "prd" in result
-
-    def test_guard_in_source(self) -> None:
-        from helping_hands.lib.meta.tools.registry import _normalize_and_deduplicate
-
-        source = inspect.getsource(_normalize_and_deduplicate)
-        assert "isinstance(values, (str, list, tuple))" in source
-
-
-# ---------------------------------------------------------------------------
-# 4. _truncate_summary positive limit validation
+# 3. _truncate_summary positive limit validation
 # ---------------------------------------------------------------------------
 
 

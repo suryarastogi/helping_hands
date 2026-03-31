@@ -61,7 +61,6 @@ Three runtime surfaces share the same core library:
 - **ai_providers/** — Provider wrappers (OpenAI, Anthropic, Google, LiteLLM, Ollama) with common interface
 - **hands/v1/hand/** — Execution backends (see below)
 - **meta/tools/** — Filesystem, command, web, and registry tools
-- **meta/skills/** — Skill catalog for agent capabilities
 
 ### 3. Hand backends
 
@@ -220,15 +219,7 @@ tasks. `task_result.py` normalizes all results into JSON-serializable dicts
 before API surfaces return them. This prevents leaking Python objects through
 the REST/MCP boundary.
 
-### 8. Skill catalog
-
-Skills (`meta/skills/`) are composable knowledge bundles (Markdown files)
-injected into hand prompts via `--skills`. Unlike tools (callable capabilities),
-skills carry no executable code — they are pure knowledge artifacts discovered
-from `catalog/*.md` at import time. CLI hands stage selected skill files into
-a temporary directory during execution and clean up afterward.
-
-### 9. Usage monitoring
+### 8. Usage monitoring
 
 The Celery worker includes an automated usage monitoring pipeline
 (`log_claude_usage` task) that tracks Claude Code API consumption:
@@ -274,7 +265,6 @@ outage still surfaces the utilization percentages in the task result.
 | Command tools | `src/helping_hands/lib/meta/tools/command.py` |
 | Web tools | `src/helping_hands/lib/meta/tools/web.py` |
 | Tool registry | `src/helping_hands/lib/meta/tools/registry.py` |
-| Skill catalog | `src/helping_hands/lib/meta/skills/__init__.py` |
 | CLI entry | `src/helping_hands/cli/main.py` |
 | Server entry | `src/helping_hands/server/app.py` |
 | Celery workers | `src/helping_hands/server/celery_app.py` |

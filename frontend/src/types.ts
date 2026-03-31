@@ -104,7 +104,6 @@ export type FormState = {
   create_issue: boolean;
   project_url: string;
   tools: string;
-  skills: string;
   no_pr: boolean;
   enable_execution: boolean;
   enable_web: boolean;
@@ -172,7 +171,6 @@ export type ScheduleItem = {
   github_token: string | null;
   reference_repos: string[];
   tools: string[];
-  skills: string[];
   enabled: boolean;
   created_at: string;
   last_run_at: string | null;
@@ -201,7 +199,6 @@ export type ScheduleFormState = {
   github_token: string;
   reference_repos: string;
   tools: string;
-  skills: string;
   enabled: boolean;
 };
 

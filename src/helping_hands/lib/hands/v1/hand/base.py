@@ -35,7 +35,6 @@ from helping_hands.lib.github_url import (
     GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
     REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
 )
-from helping_hands.lib.meta import skills as system_skills
 from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.validation import require_non_empty_string
 
@@ -283,11 +282,7 @@ class Hand(abc.ABC):
             merged_tools
         )
 
-        # Resolve SKILLS (knowledge catalog) — independent axis.
-        skill_names = system_skills.normalize_skill_selection(
-            self.config.enabled_skills
-        )
-        self._selected_skills = system_skills.resolve_skills(skill_names)
+        self._selected_skills: tuple[object, ...] = ()
 
     def _build_system_prompt(self) -> str:
         """Build a system prompt that includes repo context.

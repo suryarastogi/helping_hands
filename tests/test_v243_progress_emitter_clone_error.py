@@ -111,7 +111,6 @@ class TestProgressEmitter:
             "enable_web": False,
             "use_native_cli_auth": False,
             "tools": ("filesystem",),
-            "skills": (),
             "fix_ci": False,
             "ci_check_wait_minutes": 3.0,
             "reference_repos": None,
@@ -185,7 +184,6 @@ class TestProgressEmitter:
             enable_web=True,
             use_native_cli_auth=True,
             tools=("a", "b"),
-            skills=("s",),
             fix_ci=True,
             ci_check_wait_minutes=5.0,
             reference_repos=["ref/repo"],
@@ -209,7 +207,6 @@ class TestProgressEmitter:
             assert kw["enable_web"] is True
             assert kw["use_native_cli_auth"] is True
             assert kw["tools"] == ("a", "b")
-            assert kw["skills"] == ("s",)
             assert kw["fix_ci"] is True
             assert kw["ci_check_wait_minutes"] == 5.0
             assert kw["reference_repos"] == ["ref/repo"]
@@ -285,7 +282,6 @@ class TestCollectStreamEmitter:
             "enable_web",
             "use_native_cli_auth",
             "tools",
-            "skills",
             "fix_ci",
             "ci_check_wait_minutes",
             "workspace",

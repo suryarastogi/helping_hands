@@ -8,7 +8,7 @@ response so it never appears in API payloads; and all 20+ fields are forwarded
 without silent truncation or type coercion.
 
 A regression in field forwarding would silently drop user-configured options
-(tools, skills, fix_ci, etc.) from every GET /schedules response, making it
+(tools, fix_ci, etc.) from every GET /schedules response, making it
 impossible for the UI to display or round-trip schedule edits correctly.
 """
 
@@ -49,7 +49,6 @@ class _FakeScheduledTask:
     github_token: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    skills: list[str] = field(default_factory=list)
     enabled: bool = True
     created_at: str = "2026-03-10T00:00:00"
     last_run_at: str | None = None
@@ -102,7 +101,6 @@ class TestScheduleToResponse:
             github_token="ghp_longtoken1234567890abcdef",
             reference_repos=["owner/ref-repo"],
             tools=["bash", "python"],
-            skills=["prd"],
             enabled=False,
             created_at="2026-01-01T00:00:00",
             last_run_at="2026-03-09T12:00:00",
@@ -133,7 +131,6 @@ class TestScheduleToResponse:
         assert "***" in resp.github_token
         assert resp.reference_repos == ["owner/ref-repo"]
         assert resp.tools == ["bash", "python"]
-        assert resp.skills == ["prd"]
         assert resp.enabled is False
         assert resp.created_at == "2026-01-01T00:00:00"
         assert resp.last_run_at == "2026-03-09T12:00:00"

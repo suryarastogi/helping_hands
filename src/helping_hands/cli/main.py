@@ -42,7 +42,6 @@ from helping_hands.lib.hands.v1.hand.factory import (
     SUPPORTED_BACKENDS,
     create_hand,
 )
-from helping_hands.lib.meta import skills as meta_skills
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import install_hint, require_positive_int
@@ -189,7 +188,6 @@ def _build_config_overrides(
     *,
     repo: str,
     selected_tools: frozenset[str],
-    selected_skills: frozenset[str],
 ) -> dict[str, ConfigValue]:
     """Build the ``Config.from_env`` overrides dict from parsed CLI args.
 
@@ -201,7 +199,6 @@ def _build_config_overrides(
         repo: The repo value to embed (raw string for e2e, resolved path
             string otherwise).
         selected_tools: Validated tool category names.
-        selected_skills: Validated skill names.
 
     Returns:
         A dict suitable for passing as ``Config.from_env(overrides=…)``.
@@ -216,7 +213,6 @@ def _build_config_overrides(
             "enable_web": args.enable_web,
             "use_native_cli_auth": args.use_native_cli_auth,
             "enabled_tools": selected_tools,
-            "enabled_skills": selected_skills,
             "github_token": args.github_token,
             "reference_repos": args.reference_repos,
         },
@@ -319,14 +315,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--skills",
-        default=None,
-        help=(
-            "Comma-separated skill knowledge files to inject "
-            f"(available: {', '.join(meta_skills.available_skill_names())})."
-        ),
-    )
-    parser.add_argument(
         "--github-token",
         default=None,
         help=(
@@ -386,12 +374,6 @@ def main(argv: list[str] | None = None) -> None:
     )
     _validate_or_exit(meta_tools.validate_tool_category_names, selected_tools)
 
-    selected_skills: frozenset[str] = cast(
-        frozenset[str],
-        _validate_or_exit(meta_skills.normalize_skill_selection, args.skills),
-    )
-    _validate_or_exit(meta_skills.validate_skill_names, selected_skills)
-
     if args.pr_number is not None:
         _validate_or_exit(require_positive_int, args.pr_number, "--pr-number")
     if args.max_iterations is not None:
@@ -403,7 +385,6 @@ def main(argv: list[str] | None = None) -> None:
                 args,
                 repo=args.repo,
                 selected_tools=selected_tools,
-                selected_skills=selected_skills,
             )
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
@@ -430,7 +411,6 @@ def main(argv: list[str] | None = None) -> None:
             args,
             repo=str(repo_path),
             selected_tools=selected_tools,
-            selected_skills=selected_skills,
         )
     )
     repo_index = RepoIndex.from_path(Path(config.repo))

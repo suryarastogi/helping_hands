@@ -224,22 +224,6 @@ function ScheduleFormFields({
               />
             </label>
           </div>
-          <label>
-            Tools
-            <input
-              value={scheduleForm.tools}
-              onChange={(e) => onUpdateField("tools", e.target.value)}
-              placeholder="execution,web"
-            />
-          </label>
-          <label>
-            Skills
-            <input
-              value={scheduleForm.skills}
-              onChange={(e) => onUpdateField("skills", e.target.value)}
-              placeholder="execution,web,prd"
-            />
-          </label>
           <div className="row check-grid">
             <label className="check-row">
               <input

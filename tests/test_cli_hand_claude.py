@@ -1227,15 +1227,6 @@ class TestSummarizeTool:
 
     # v123 — new tool type summarizations
 
-    def test_skill_tool(self) -> None:
-        assert (
-            _StreamJsonEmitter._summarize_tool("Skill", {"skill": "commit"})
-            == "Skill: commit"
-        )
-
-    def test_skill_tool_no_skill(self) -> None:
-        assert _StreamJsonEmitter._summarize_tool("Skill", {}) == "Skill"
-
     def test_cron_create_tool(self) -> None:
         assert (
             _StreamJsonEmitter._summarize_tool(

@@ -1,6 +1,6 @@
 """GitHub integration: auth, clone, branch, commit, and pull requests.
 
-This module is designed to be used by agents (hands) as a tool/skill.
+This module is designed to be used by agents (hands) as a tool.
 It wraps PyGithub for the API and subprocess git for local operations.
 """
 

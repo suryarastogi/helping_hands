@@ -5,10 +5,10 @@ are the main extension points for anyone adding a new LangGraph-based backend.
 Without Args/Returns sections, callers cannot know what config keys are required or
 what HandResponse fields to expect.
 
-_ToolSkillValidatorMixin's four validator methods (_coerce_tools, _validate_tools,
-_coerce_skills, _validate_skills) are Pydantic field validators wired by name; a
-developer who renames one without understanding the wiring would silently break
-validation.  Docstrings on each method describe the expected input/output contract.
+_ToolValidatorMixin's validator methods (_coerce_tools, _validate_tools)
+are Pydantic field validators wired by name; a developer who renames one without
+understanding the wiring would silently break validation.  Docstrings on each
+method describe the expected input/output contract.
 
 cli/base.py configuration and utility methods document the abstract interface that
 all CLI hand subclasses must implement.
@@ -63,33 +63,31 @@ class TestLangGraphHandDocstrings:
 
 
 # ---------------------------------------------------------------------------
-# app.py _ToolSkillValidatorMixin docstrings
+# app.py _ToolValidatorMixin docstrings
 # ---------------------------------------------------------------------------
 
 _APP_VALIDATOR_METHODS = [
     "_coerce_tools",
     "_validate_tools",
-    "_coerce_skills",
-    "_validate_skills",
 ]
 
 
 class TestAppValidatorDocstrings:
-    """Verify _ToolSkillValidatorMixin validator methods have docstrings."""
+    """Verify _ToolValidatorMixin validator methods have docstrings."""
 
     @pytest.fixture()
     def mixin_cls(self):
         pytest.importorskip("fastapi")
-        from helping_hands.server.app import _ToolSkillValidatorMixin
+        from helping_hands.server.app import _ToolValidatorMixin
 
-        return _ToolSkillValidatorMixin
+        return _ToolValidatorMixin
 
     @pytest.mark.parametrize("method_name", _APP_VALIDATOR_METHODS)
     def test_method_has_docstring(self, mixin_cls, method_name):
         method = getattr(mixin_cls, method_name)
         doc = inspect.getdoc(method)
         assert doc and len(doc.strip()) >= 10, (
-            f"_ToolSkillValidatorMixin.{method_name} is missing a docstring"
+            f"_ToolValidatorMixin.{method_name} is missing a docstring"
         )
 
     @pytest.mark.parametrize("method_name", _APP_VALIDATOR_METHODS)
@@ -97,7 +95,7 @@ class TestAppValidatorDocstrings:
         method = getattr(mixin_cls, method_name)
         doc = inspect.getdoc(method)
         assert "Args:" in doc, (
-            f"_ToolSkillValidatorMixin.{method_name} docstring missing Args"
+            f"_ToolValidatorMixin.{method_name} docstring missing Args"
         )
 
     @pytest.mark.parametrize("method_name", _APP_VALIDATOR_METHODS)
@@ -105,15 +103,15 @@ class TestAppValidatorDocstrings:
         method = getattr(mixin_cls, method_name)
         doc = inspect.getdoc(method)
         assert "Returns:" in doc, (
-            f"_ToolSkillValidatorMixin.{method_name} docstring missing Returns"
+            f"_ToolValidatorMixin.{method_name} docstring missing Returns"
         )
 
-    @pytest.mark.parametrize("method_name", ["_validate_tools", "_validate_skills"])
+    @pytest.mark.parametrize("method_name", ["_validate_tools"])
     def test_validate_method_docstring_has_raises(self, mixin_cls, method_name):
         method = getattr(mixin_cls, method_name)
         doc = inspect.getdoc(method)
         assert "Raises:" in doc, (
-            f"_ToolSkillValidatorMixin.{method_name} docstring missing Raises"
+            f"_ToolValidatorMixin.{method_name} docstring missing Raises"
         )
 
 

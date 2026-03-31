@@ -75,6 +75,9 @@ ignore = [
     "E501",  # line too long — handled by formatter, not enforced in lint
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802"]  # AST visitor methods like visit_Call follow stdlib convention
+
 [tool.ruff.lint.isort]
 known-first-party = ["helping_hands"]
 combine-as-imports = true

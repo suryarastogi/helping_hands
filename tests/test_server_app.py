@@ -69,7 +69,6 @@ class TestHomeUI:
         assert 'id="enable_execution"' in response.text
         assert 'id="enable_web"' in response.text
         assert 'id="use_native_cli_auth"' in response.text
-        assert 'id="skills"' in response.text
 
 
 class TestBuildForm:
@@ -122,7 +121,6 @@ class TestBuildForm:
             "fix_ci": False,
             "ci_check_wait_minutes": 3.0,
             "tools": [],
-            "skills": [],
             "github_token": None,
             "reference_repos": [],
         }
@@ -171,7 +169,6 @@ class TestBuildForm:
             "fix_ci": False,
             "ci_check_wait_minutes": 3.0,
             "tools": [],
-            "skills": [],
             "github_token": None,
             "reference_repos": [],
         }
@@ -222,7 +219,6 @@ class TestBuildForm:
             "fix_ci": False,
             "ci_check_wait_minutes": 3.0,
             "tools": [],
-            "skills": [],
             "github_token": None,
             "reference_repos": [],
         }
@@ -270,7 +266,6 @@ class TestBuildForm:
             "fix_ci": False,
             "ci_check_wait_minutes": 3.0,
             "tools": [],
-            "skills": [],
             "github_token": None,
             "reference_repos": [],
         }
@@ -319,7 +314,6 @@ class TestBuildForm:
             "fix_ci": False,
             "ci_check_wait_minutes": 3.0,
             "tools": [],
-            "skills": [],
             "github_token": None,
             "reference_repos": [],
         }
@@ -355,37 +349,6 @@ class TestBuildForm:
         assert captured["enable_execution"] is True
         assert captured["enable_web"] is True
         assert captured["use_native_cli_auth"] is True
-        assert captured["skills"] == []
-
-    def test_enqueues_with_dynamic_skills(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        captured: dict[str, object] = {}
-
-        def fake_delay(**kwargs: object) -> SimpleNamespace:
-            captured.update(kwargs)
-            return SimpleNamespace(id="task-skills")
-
-        monkeypatch.setattr(
-            "helping_hands.server.app.build_feature.delay",
-            fake_delay,
-        )
-
-        client = TestClient(app)
-        response = client.post(
-            "/build/form",
-            data={
-                "repo_path": "suryarastogi/helping_hands",
-                "prompt": "run with skills",
-                "backend": "basic-langgraph",
-                "skills": "execution,web",
-            },
-            follow_redirects=False,
-        )
-
-        assert response.status_code == 303
-        assert response.headers["location"] == "/monitor/task-skills"
-        assert captured["skills"] == ["execution", "web"]
 
     def test_redirects_with_error_for_invalid_backend(
         self, monkeypatch: pytest.MonkeyPatch

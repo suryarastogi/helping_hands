@@ -129,7 +129,6 @@ class TestBuildFormRedirectQuery:
             ci_check_wait_minutes=5.0,
             pr_number=42,
             tools="bash,python",
-            skills="deploy",
         )
         assert query["model"] == "gpt-5.2"
         assert query["no_pr"] == "1"
@@ -140,7 +139,6 @@ class TestBuildFormRedirectQuery:
         assert query["ci_check_wait_minutes"] == "5.0"
         assert query["pr_number"] == "42"
         assert query["tools"] == "bash,python"
-        assert query["skills"] == "deploy"
 
     def test_default_ci_wait_not_included(self) -> None:
         query = _build_form_redirect_query(
@@ -176,10 +174,8 @@ class TestBuildFormRedirectQuery:
             max_iterations=6,
             error="e",
             tools="   ",
-            skills="   ",
         )
         assert "tools" not in query
-        assert "skills" not in query
 
 
 # ---------------------------------------------------------------------------

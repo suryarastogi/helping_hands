@@ -8,7 +8,6 @@ import os
 import shlex
 import shutil
 import subprocess
-import tempfile
 import time
 from collections.abc import AsyncIterator
 from contextlib import suppress
@@ -364,7 +363,6 @@ class _TwoPhaseCLIHand(Hand):
         super().__init__(config, repo_index)
         self._active_process: asyncio.subprocess.Process | None = None
         self._ci_fix_mode: bool = False
-        self._skill_catalog_dir: Path | None = None
         self._baseline_head: str = ""
 
     def _label_msg(self, msg: str) -> str:
@@ -946,28 +944,11 @@ class _TwoPhaseCLIHand(Hand):
             f"{ref_section}"
         )
 
-    def _stage_skill_catalog(self) -> None:
-        """Stage selected skill catalog files to a temp directory."""
-        from helping_hands.lib.meta import skills as system_skills
-
-        if not self._selected_skills:
-            return
-        self._skill_catalog_dir = Path(tempfile.mkdtemp(prefix="helping_hands_skills_"))
-        system_skills.stage_skill_catalog(
-            self._selected_skills, self._skill_catalog_dir
-        )
-
-    def _cleanup_skill_catalog(self) -> None:
-        """Remove the staged skill catalog temp directory."""
-        if self._skill_catalog_dir is not None:
-            shutil.rmtree(self._skill_catalog_dir, ignore_errors=True)
-            self._skill_catalog_dir = None
-
     def _build_task_prompt(self, *, prompt: str, learned_summary: str) -> str:
         """Build the phase-2 task execution prompt.
 
         Combines the truncated initialization summary, user prompt, tool
-        and skill catalog sections, and reference repo context.
+        sections, and reference repo context.
 
         Args:
             prompt: The original user task prompt.
@@ -976,7 +957,6 @@ class _TwoPhaseCLIHand(Hand):
         Returns:
             The task execution prompt string.
         """
-        from helping_hands.lib.meta import skills as system_skills
         from helping_hands.lib.meta.tools import registry as tool_reg
 
         summary = self._truncate_summary(
@@ -991,14 +971,6 @@ class _TwoPhaseCLIHand(Hand):
             )
             if tool_text:
                 tool_section = f"\n\nEnabled tools and capabilities:\n{tool_text}"
-
-        skill_section = ""
-        if self._selected_skills:
-            skill_text = system_skills.format_skill_catalog_instructions(
-                self._selected_skills, self._skill_catalog_dir
-            )
-            if skill_text:
-                skill_section = f"\n\nSkill knowledge catalog:\n{skill_text}"
 
         return (
             "Task execution phase.\n\n"
@@ -1017,7 +989,6 @@ class _TwoPhaseCLIHand(Hand):
             "the caller handles version control after you finish. "
             "Do not ask the user to paste files."
             f"{tool_section}"
-            f"{skill_section}"
             f"{self._build_reference_repos_prompt_section()}"
         )
 
@@ -1391,11 +1362,7 @@ class _TwoPhaseCLIHand(Hand):
         emit: _Emitter,
     ) -> str:
         self.reset_interrupt()
-        self._stage_skill_catalog()
-        try:
-            return await self._run_two_phase_inner(prompt, emit=emit)
-        finally:
-            self._cleanup_skill_catalog()
+        return await self._run_two_phase_inner(prompt, emit=emit)
 
     async def _run_two_phase_inner(
         self,

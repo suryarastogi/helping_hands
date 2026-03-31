@@ -591,7 +591,6 @@ _BOILERPLATE_PREFIXES = (
     "Follow-up enforcement",
     "Now apply the required",
     "Enabled tools and capabilities:",
-    "Skill knowledge catalog:",
 )
 
 _BOILERPLATE_PREFIXES_LOWER = tuple(p.lower() for p in _BOILERPLATE_PREFIXES)

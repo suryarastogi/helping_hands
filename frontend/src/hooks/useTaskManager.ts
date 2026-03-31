@@ -28,7 +28,7 @@ import {
   parseError,
   parseOptimisticUpdates,
   readBoolishValue,
-  readSkillsValue,
+  readListValue,
   readStringValue,
   shortTaskId,
   statusTone,
@@ -312,13 +312,6 @@ export function useTaskManager(): UseTaskManagerReturn {
         .map((item) => item.trim())
         .filter((item) => item.length > 0);
     }
-    if (form.skills.trim()) {
-      body.skills = form.skills
-        .split(",")
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0);
-    }
-
     try {
       const response = await fetch(apiUrl("/build"), {
         method: "POST",
@@ -439,11 +432,11 @@ export function useTaskManager(): UseTaskManagerReturn {
       return null;
     };
 
-    const readSkills = (keys: string[]): string | null => {
+    const readList = (keys: string[]): string | null => {
       for (const key of keys) {
-        const fromResult = readSkillsValue(result?.[key]);
+        const fromResult = readListValue(result?.[key]);
         if (fromResult) return fromResult;
-        const fromRoot = readSkillsValue(root[key]);
+        const fromRoot = readListValue(root[key]);
         if (fromRoot) return fromRoot;
       }
       return null;
@@ -461,11 +454,10 @@ export function useTaskManager(): UseTaskManagerReturn {
     const enableWeb = readBoolish(["enable_web"]);
     const useNativeAuth = readBoolish(["use_native_cli_auth"]);
     const fixCi = readBoolish(["fix_ci"]);
-    const tools = readSkills(["tools"]);
-    const skills = readSkills(["skills"]);
+    const tools = readList(["tools"]);
     const runtime = readString(["runtime"]);
     const issueNumber = readString(["issue_number"]);
-    const referenceRepos = readSkills(["reference_repos"]);
+    const referenceRepos = readList(["reference_repos"]);
 
     if (repoPath) items.push({ label: "Repo", value: repoPath });
     if (prompt) items.push({ label: "Prompt", value: prompt });
@@ -479,7 +471,6 @@ export function useTaskManager(): UseTaskManagerReturn {
     if (useNativeAuth) items.push({ label: "Native CLI auth", value: useNativeAuth });
     if (fixCi) items.push({ label: "Fix CI", value: fixCi });
     if (tools) items.push({ label: "Tools", value: tools });
-    if (skills) items.push({ label: "Skills", value: skills });
     if (issueNumber) items.push({ label: "Issue", value: `#${issueNumber}` });
     if (referenceRepos) items.push({ label: "Reference repos", value: referenceRepos });
     if (runtime) items.push({ label: "Runtime", value: runtime });
@@ -686,8 +677,6 @@ export function useTaskManager(): UseTaskManagerReturn {
       if (issueNumber) next.issue_number = issueNumber;
       const tools = params.get("tools");
       if (tools) next.tools = tools;
-      const skills = params.get("skills");
-      if (skills) next.skills = skills;
       next.create_issue = parseBool(params.get("create_issue"));
       const projectUrl = params.get("project_url");
       if (projectUrl) next.project_url = projectUrl;
