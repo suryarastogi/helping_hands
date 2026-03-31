@@ -19,6 +19,7 @@ from helping_hands.lib.validation import has_cli_flag
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "_DEFAULT_BUDGET_TOKENS",
     "_OUTPUT_FORMAT_STREAM_JSON",
     "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
@@ -115,6 +116,9 @@ _DEFAULT_COST_BUDGET = 0.0
 _DEFAULT_MAX_TURNS_RESUME_LIMIT = 3
 """Maximum number of ``--resume`` retries when max-turns is exhausted."""
 
+_DEFAULT_BUDGET_TOKENS = 0
+"""Default budget-tokens (0 = omit flag). Set via env var."""
+
 _BLOCK_TYPE_THINKING = "thinking"
 """Block type for extended thinking output inside an assistant message."""
 
@@ -143,6 +147,7 @@ class _StreamJsonEmitter:
         self._total_subagents: int = 0
         self._model: str = ""
         self._is_error: bool = False
+        self._error_subtype: str = ""
         self._thinking_tokens: int = 0
         self._cache_creation_tokens: int = 0
         self._cache_read_tokens: int = 0
@@ -249,6 +254,9 @@ class _StreamJsonEmitter:
                     await self._emit(self._label_msg(summary) + "\n")
                 elif block_type == _BLOCK_TYPE_THINKING:
                     thinking = block.get("thinking", "")
+                    thinking_tokens = block.get("tokens", 0)
+                    if isinstance(thinking_tokens, int) and thinking_tokens > 0:
+                        self._thinking_tokens += thinking_tokens
                     if thinking:
                         preview = self._normalize_preview(thinking)
                         preview = _truncate_with_ellipsis(
@@ -276,6 +284,11 @@ class _StreamJsonEmitter:
                     continue
                 if block.get("type") != _BLOCK_TYPE_TOOL_RESULT:
                     continue
+                # Track subagent completion: Agent tool results decrement
+                # the active count, clamped to zero for robustness.
+                tool_name = block.get("name", "")
+                if tool_name == "Agent" and self._active_subagents > 0:
+                    self._active_subagents -= 1
                 content = block.get("content", "")
                 if isinstance(content, list):
                     content = " ".join(
@@ -299,6 +312,9 @@ class _StreamJsonEmitter:
         elif event_type == _EVENT_TYPE_RESULT:
             self._result = event.get("result", "")
             self._is_error = bool(event.get("is_error", False))
+            subtype = event.get("subtype", "")
+            if isinstance(subtype, str) and subtype:
+                self._error_subtype = subtype
             # Capture session ID for --continue / --resume support.
             session_id = event.get("session_id", "")
             if isinstance(session_id, str) and session_id:
@@ -482,6 +498,63 @@ class _StreamJsonEmitter:
         return self._is_error
 
     @property
+    def error_subtype(self) -> str:
+        """Return the error subtype from the result event.
+
+        Claude Code result events may include a ``subtype`` field that
+        classifies the error (e.g. ``"tool_error"``, ``"max_turns"``).
+        This enables smarter retry decisions upstream.
+
+        Returns:
+            The error subtype string, or empty if not available.
+        """
+        return self._error_subtype
+
+    @property
+    def is_retryable_error(self) -> bool:
+        """Return whether the error is likely retryable.
+
+        Classifies errors based on ``subtype`` and result text patterns.
+        Transient errors (rate limits, overloaded, timeouts) are retryable.
+        Fatal errors (auth failures, invalid requests) are not.
+
+        Returns:
+            ``True`` if the error looks transient and worth retrying.
+        """
+        if not self._is_error:
+            return False
+        retryable_subtypes = {"overloaded", "rate_limit", "timeout", "max_turns"}
+        if self._error_subtype in retryable_subtypes:
+            return True
+        lowered = (self._result or "").lower()
+        retryable_patterns = (
+            "overloaded",
+            "rate limit",
+            "too many requests",
+            "timeout",
+            "529",
+        )
+        return any(p in lowered for p in retryable_patterns)
+
+    @property
+    def thinking_tokens(self) -> int:
+        """Return total thinking tokens observed across thinking blocks.
+
+        Returns:
+            Cumulative thinking token count from extended thinking blocks.
+        """
+        return self._thinking_tokens
+
+    @property
+    def active_subagents(self) -> int:
+        """Return the number of currently active (in-flight) subagents.
+
+        Returns:
+            Count of subagents started but not yet completed.
+        """
+        return self._active_subagents
+
+    @property
     def total_subagents(self) -> int:
         """Return the total number of Agent tool invocations observed.
 
@@ -535,6 +608,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
       before aborting execution. Default: unlimited.
     - ``HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME``: Maximum number of automatic
       ``--resume`` retries when max-turns is exhausted. Default: ``3``.
+    - ``HELPING_HANDS_CLAUDE_BUDGET_TOKENS``: Total token budget per
+      invocation (maps to ``--budget-tokens``). Limits combined input +
+      output tokens. Default: omitted (unlimited).
+    - ``HELPING_HANDS_CLAUDE_CWD``: Working directory override for Claude
+      Code execution (maps to ``--cwd``). Useful when the repo root
+      differs from the process working directory. Default: omitted.
 
     Reference repos from ``config.reference_repos`` are automatically
     passed as ``--add-dir`` flags for read-only context.
@@ -578,6 +657,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         self._cumulative_output_tokens: int = 0
         self._cumulative_cache_creation_tokens: int = 0
         self._cumulative_cache_read_tokens: int = 0
+        self._cumulative_thinking_tokens: int = 0
         self._next_invoke_continue: bool = False
         self._last_num_turns: int = 0
 
@@ -1285,6 +1365,107 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return self._cumulative_cost_usd >= budget
 
     # ------------------------------------------------------------------
+    # --budget-tokens support (total token budget per invocation)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_budget_tokens() -> int:
+        """Resolve the ``--budget-tokens`` value from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_BUDGET_TOKENS`` (default ``0`` = omit).
+        This limits the total token usage (input + output) for a single
+        Claude Code invocation. Unlike ``--thinking-budget-tokens`` which
+        controls extended thinking, this is the overall token budget.
+
+        Returns:
+            The budget-tokens integer, or ``0`` to omit the flag.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_BUDGET_TOKENS", "")
+        if not raw.strip():
+            return _DEFAULT_BUDGET_TOKENS
+        try:
+            value = int(raw.strip())
+        except ValueError:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_BUDGET_TOKENS has non-integer value %r, "
+                "omitting flag",
+                raw,
+            )
+            return _DEFAULT_BUDGET_TOKENS
+        return value if value > 0 else _DEFAULT_BUDGET_TOKENS
+
+    @staticmethod
+    def _inject_budget_tokens(cmd: list[str], budget: int) -> list[str]:
+        """Insert ``--budget-tokens <n>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            budget: Token budget for the invocation (0 = skip injection).
+
+        Returns:
+            Command tokens with ``--budget-tokens`` injected when applicable.
+        """
+        if budget <= 0:
+            return cmd
+        if has_cli_flag(cmd, "budget-tokens"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--budget-tokens", str(budget), *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --cwd working directory support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_cwd() -> str:
+        """Resolve the ``--cwd`` working directory from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_CWD``. When set, this overrides the
+        working directory Claude Code runs in. Useful when the repo root
+        differs from the process working directory.
+
+        Returns:
+            The validated directory path string, or empty if not configured.
+        """
+        import pathlib
+
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_CWD", "").strip()
+        if not raw:
+            return ""
+        path = pathlib.Path(raw).expanduser().resolve()
+        if not path.is_dir():
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_CWD path %r is not a directory, skipping",
+                raw,
+            )
+            return ""
+        return str(path)
+
+    @staticmethod
+    def _inject_cwd(cmd: list[str], cwd: str) -> list[str]:
+        """Insert ``--cwd <path>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            cwd: Working directory path (empty = skip injection).
+
+        Returns:
+            Command tokens with ``--cwd`` injected when applicable.
+        """
+        if not cwd:
+            return cmd
+        if has_cli_flag(cmd, "cwd"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--cwd", cwd, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
     # Max-turns auto-resume support
     # ------------------------------------------------------------------
 
@@ -1334,6 +1515,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             "cache_creation_input_tokens", 0
         )
         self._cumulative_cache_read_tokens += usage.get("cache_read_input_tokens", 0)
+        self._cumulative_thinking_tokens += parser.thinking_tokens
 
     # ------------------------------------------------------------------
     # Core invocation (overrides)
@@ -1427,6 +1609,19 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                     + "\n"
                 )
 
+        # --budget-tokens
+        budget_tokens = self._resolve_budget_tokens()
+        cmd = self._inject_budget_tokens(cmd, budget_tokens)
+        if budget_tokens > 0 and self.config.verbose:
+            await emit(self._label_msg(f"budget-tokens={budget_tokens}") + "\n")
+
+        # --cwd
+        cwd_override = self._resolve_cwd()
+        if cwd_override:
+            cmd = self._inject_cwd(cmd, cwd_override)
+            if self.config.verbose:
+                await emit(self._label_msg(f"cwd={cwd_override}") + "\n")
+
         # --prefill
         prefill = self._resolve_prefill()
         if prefill:
@@ -1462,8 +1657,21 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         # Log warning when the result indicates an error.
         if parser.is_error:
             result_preview = (parser.result_text() or "")[:200]
-            logger.warning("Claude Code CLI returned is_error=True: %s", result_preview)
-            await emit(self._label_msg("warning: result flagged as error") + "\n")
+            subtype = parser.error_subtype
+            retryable = parser.is_retryable_error
+            subtype_info = f" subtype={subtype}" if subtype else ""
+            logger.warning(
+                "Claude Code CLI returned is_error=True%s retryable=%s: %s",
+                subtype_info,
+                retryable,
+                result_preview,
+            )
+            error_detail = "warning: result flagged as error"
+            if subtype:
+                error_detail += f" ({subtype})"
+            if retryable:
+                error_detail += " [retryable]"
+            await emit(self._label_msg(error_detail) + "\n")
 
         return parser.result_text() or raw
 
@@ -1670,6 +1878,8 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 f"in={self._cumulative_input_tokens}",
                 f"out={self._cumulative_output_tokens}",
             ]
+            if self._cumulative_thinking_tokens:
+                cost_parts.append(f"thinking={self._cumulative_thinking_tokens}")
             if self._cumulative_cache_creation_tokens:
                 cost_parts.append(
                     f"cache_write={self._cumulative_cache_creation_tokens}"

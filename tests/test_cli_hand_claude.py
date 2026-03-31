@@ -21,6 +21,7 @@ import json
 import pytest
 
 from helping_hands.lib.hands.v1.hand.cli.claude import (
+    _DEFAULT_BUDGET_TOKENS,
     _DEFAULT_MAX_TURNS_RESUME_LIMIT,
     ClaudeCodeHand,
     _StreamJsonEmitter,
@@ -2366,3 +2367,342 @@ class TestMaxTurnsResume:
     def test_max_turns_exhausted_false_unlimited(self, claude_hand) -> None:
         claude_hand._last_num_turns = 100
         assert claude_hand._max_turns_exhausted(0) is False
+
+
+# ---------------------------------------------------------------------------
+# --budget-tokens
+# ---------------------------------------------------------------------------
+
+
+class TestBudgetTokens:
+    def test_default_omit(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_BUDGET_TOKENS", raising=False)
+        assert ClaudeCodeHand._resolve_budget_tokens() == _DEFAULT_BUDGET_TOKENS
+
+    def test_valid_positive_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_BUDGET_TOKENS", "50000")
+        assert ClaudeCodeHand._resolve_budget_tokens() == 50000
+
+    def test_zero_returns_default(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_BUDGET_TOKENS", "0")
+        assert ClaudeCodeHand._resolve_budget_tokens() == 0
+
+    def test_negative_returns_default(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_BUDGET_TOKENS", "-100")
+        assert ClaudeCodeHand._resolve_budget_tokens() == 0
+
+    def test_non_integer_returns_default(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_BUDGET_TOKENS", "abc")
+        assert ClaudeCodeHand._resolve_budget_tokens() == 0
+
+    def test_whitespace_only_returns_default(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_BUDGET_TOKENS", "   ")
+        assert ClaudeCodeHand._resolve_budget_tokens() == 0
+
+
+class TestInjectBudgetTokens:
+    def test_zero_budget_skips(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        assert ClaudeCodeHand._inject_budget_tokens(cmd, 0) == cmd
+
+    def test_injects_before_p(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        result = ClaudeCodeHand._inject_budget_tokens(cmd, 50000)
+        assert result == ["claude", "--budget-tokens", "50000", "-p", "hello"]
+
+    def test_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--budget-tokens", "10000", "-p", "hello"]
+        result = ClaudeCodeHand._inject_budget_tokens(cmd, 50000)
+        assert result == cmd
+
+    def test_appends_when_no_p_flag(self) -> None:
+        cmd = ["claude"]
+        result = ClaudeCodeHand._inject_budget_tokens(cmd, 50000)
+        assert result == ["claude", "--budget-tokens", "50000"]
+
+
+# ---------------------------------------------------------------------------
+# --cwd working directory
+# ---------------------------------------------------------------------------
+
+
+class TestCwd:
+    def test_default_empty(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_CWD", raising=False)
+        assert ClaudeCodeHand._resolve_cwd() == ""
+
+    def test_valid_directory(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CWD", str(tmp_path))
+        assert ClaudeCodeHand._resolve_cwd() == str(tmp_path)
+
+    def test_nonexistent_directory_skipped(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CWD", str(tmp_path / "nonexistent"))
+        assert ClaudeCodeHand._resolve_cwd() == ""
+
+    def test_whitespace_only_returns_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_CWD", "   ")
+        assert ClaudeCodeHand._resolve_cwd() == ""
+
+
+class TestInjectCwd:
+    def test_empty_cwd_unchanged(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        assert ClaudeCodeHand._inject_cwd(cmd, "") == cmd
+
+    def test_cwd_injected(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        result = ClaudeCodeHand._inject_cwd(cmd, "/tmp/myrepo")
+        assert result == ["claude", "--cwd", "/tmp/myrepo", "-p", "hello"]
+
+    def test_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--cwd", "/other", "-p", "hello"]
+        result = ClaudeCodeHand._inject_cwd(cmd, "/tmp/myrepo")
+        assert result == cmd
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — error subtype and retryable classification
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterErrorClassification:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_error_subtype_captured(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "Rate limit exceeded",
+                "is_error": True,
+                "subtype": "rate_limit",
+                "total_cost_usd": 0.01,
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert emitter.error_subtype == "rate_limit"
+        assert emitter.is_retryable_error is True
+
+    def test_non_retryable_error(self) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "Authentication failed",
+                "is_error": True,
+                "subtype": "auth_error",
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert emitter.error_subtype == "auth_error"
+        assert emitter.is_retryable_error is False
+
+    def test_retryable_by_result_text_pattern(self) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "Error: overloaded, please try again",
+                "is_error": True,
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert emitter.error_subtype == ""
+        assert emitter.is_retryable_error is True
+
+    def test_not_retryable_when_no_error(self) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "Success",
+                "is_error": False,
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert emitter.is_retryable_error is False
+
+    def test_no_subtype_when_absent(self) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert emitter.error_subtype == ""
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — thinking token tracking
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterThinkingTokens:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_thinking_tokens_accumulated(self) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        # Two thinking blocks with token counts.
+        for tokens in (500, 300):
+            event = json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "thinking",
+                                "thinking": "analyzing...",
+                                "tokens": tokens,
+                            }
+                        ]
+                    },
+                }
+            )
+            self._run(emitter(event + "\n"))
+        assert emitter.thinking_tokens == 800
+
+    def test_thinking_tokens_zero_when_absent(self) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "thinking", "thinking": "no tokens field"}]
+                },
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert emitter.thinking_tokens == 0
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — subagent lifecycle tracking
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterSubagentLifecycle:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_active_subagents_increments_and_decrements(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        # Launch two subagents.
+        for desc in ("research", "implement"):
+            event = json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Agent",
+                                "input": {"description": desc},
+                            }
+                        ]
+                    },
+                }
+            )
+            self._run(emitter(event + "\n"))
+        assert emitter.total_subagents == 2
+        assert emitter.active_subagents == 2
+
+        # One subagent completes.
+        result_event = json.dumps(
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "name": "Agent",
+                            "content": "done",
+                        }
+                    ]
+                },
+            }
+        )
+        self._run(emitter(result_event + "\n"))
+        assert emitter.active_subagents == 1
+        assert emitter.total_subagents == 2
+
+    def test_active_subagents_does_not_go_negative(self) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        # Tool result without a preceding tool_use — should not go negative.
+        result_event = json.dumps(
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "name": "Agent",
+                            "content": "done",
+                        }
+                    ]
+                },
+            }
+        )
+        self._run(emitter(result_event + "\n"))
+        assert emitter.active_subagents == 0
+
+
+# ---------------------------------------------------------------------------
+# Cumulative thinking token tracking in ClaudeCodeHand
+# ---------------------------------------------------------------------------
+
+
+class TestCumulativeThinkingTokens:
+    def test_accumulate_includes_thinking(self, claude_hand) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        # Simulate thinking tokens via the internal field.
+        emitter._thinking_tokens = 1200
+        # Simulate a result event for cost metadata.
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.05,
+                "usage": {"input_tokens": 1000, "output_tokens": 500},
+            }
+        )
+        asyncio.run(emitter(event + "\n"))
+        claude_hand._accumulate_cost(emitter)
+        assert claude_hand._cumulative_thinking_tokens == 1200
