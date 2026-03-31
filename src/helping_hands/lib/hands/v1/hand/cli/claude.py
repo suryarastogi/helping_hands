@@ -69,11 +69,19 @@ _TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
     "Write": "file_path",
     "Glob": "pattern",
     "NotebookEdit": "notebook_path",
+    "AskUserQuestion": "question",
 }
 """Simple tool-name → input key mapping for ``_summarize_tool``."""
 
 # Tools that need no input key — just return the tool name.
-_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
+_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset(
+    {
+        "TodoWrite",
+        "CronList",
+        "ExitPlanMode",
+        "EnterPlanMode",
+    }
+)
 """Tools whose summary is simply their name with no parameters."""
 
 _OUTPUT_FORMAT_STREAM_JSON = "stream-json"
@@ -97,6 +105,15 @@ _DEFAULT_THINKING_BUDGET = 0
 _MCP_CONFIG_MAX_SIZE = 64 * 1024
 """Maximum size (bytes) for MCP config files to prevent accidental huge reads."""
 
+_PREFILL_MAX_LENGTH = 2000
+"""Maximum character length for ``--prefill`` content."""
+
+_BLOCK_TYPE_THINKING = "thinking"
+"""Block type for extended thinking output inside an assistant message."""
+
+_THINKING_PREVIEW_MAX_LENGTH = 120
+"""Maximum length for thinking content previews before truncation."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -119,6 +136,9 @@ class _StreamJsonEmitter:
         self._total_subagents: int = 0
         self._model: str = ""
         self._is_error: bool = False
+        self._thinking_tokens: int = 0
+        self._cache_creation_tokens: int = 0
+        self._cache_read_tokens: int = 0
 
     def _label_msg(self, msg: str) -> str:
         """Prefix *msg* with the backend label.
@@ -218,6 +238,17 @@ class _StreamJsonEmitter:
                         self._active_subagents += 1
                     summary = self._summarize_tool(name, input_data)
                     await self._emit(self._label_msg(summary) + "\n")
+                elif block_type == _BLOCK_TYPE_THINKING:
+                    thinking = block.get("thinking", "")
+                    if thinking:
+                        preview = self._normalize_preview(thinking)
+                        preview = _truncate_with_ellipsis(
+                            preview, _THINKING_PREVIEW_MAX_LENGTH
+                        )
+                        if preview:
+                            await self._emit(
+                                self._label_msg(f"thinking: {preview}") + "\n"
+                            )
                 elif block_type == _BLOCK_TYPE_TEXT:
                     text = block.get("text", "")
                     if text:
@@ -286,6 +317,14 @@ class _StreamJsonEmitter:
                     if out is not None:
                         tok_parts.append(f"out={out}")
                         self._usage["output_tokens"] = int(out)
+                    cache_create = usage.get("cache_creation_input_tokens")
+                    cache_read = usage.get("cache_read_input_tokens")
+                    if cache_create is not None:
+                        self._cache_creation_tokens = int(cache_create)
+                        tok_parts.append(f"cache_write={cache_create}")
+                    if cache_read is not None:
+                        self._cache_read_tokens = int(cache_read)
+                        tok_parts.append(f"cache_read={cache_read}")
                     parts.append(" ".join(tok_parts))
             if parts:
                 await self._emit(self._label_msg(f"api: {', '.join(parts)}") + "\n")
@@ -407,7 +446,12 @@ class _StreamJsonEmitter:
         if self._duration_ms is not None:
             meta["duration_ms"] = self._duration_ms
         if self._usage:
-            meta["usage"] = dict(self._usage)
+            usage = dict(self._usage)
+            if self._cache_creation_tokens:
+                usage["cache_creation_input_tokens"] = self._cache_creation_tokens
+            if self._cache_read_tokens:
+                usage["cache_read_input_tokens"] = self._cache_read_tokens
+            meta["usage"] = usage
         return meta
 
     @property
@@ -461,6 +505,11 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
       thinking (maps to ``--thinking-budget-tokens``). Default: omitted.
     - ``HELPING_HANDS_CLAUDE_PERMISSION_MODE``: Permission mode string
       (e.g. ``plan``, ``default``) for ``--permission-mode``.
+    - ``HELPING_HANDS_CLAUDE_PREFILL``: Text to prefill the assistant's
+      response (maps to ``--prefill``). Useful for guiding output format.
+
+    Reference repos from ``config.reference_repos`` are automatically
+    passed as ``--add-dir`` flags for read-only context.
     """
 
     _BACKEND_NAME = "claudecodecli"
@@ -498,6 +547,8 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         self._cumulative_cost_usd: float = 0.0
         self._cumulative_input_tokens: int = 0
         self._cumulative_output_tokens: int = 0
+        self._cumulative_cache_creation_tokens: int = 0
+        self._cumulative_cache_read_tokens: int = 0
         self._next_invoke_continue: bool = False
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
@@ -546,8 +597,11 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     def _resolve_cli_model(self) -> str:
         """Resolve the CLI model, filtering out incompatible non-Anthropic models.
 
-        Rejects GPT-family models (``gpt-*``) and explicitly OpenAI-prefixed
-        models (``openai/*``) that survive the base-class provider strip.
+        Rejects GPT-family models (``gpt-*``), explicitly OpenAI-prefixed
+        models (``openai/*``), and Google/Gemini models that survive the
+        base-class provider strip. Passes through Anthropic, Bedrock, and
+        Vertex provider prefixes (``bedrock:``, ``vertex:``) which Claude
+        Code CLI natively supports.
 
         Returns:
             The resolved model name, or an empty string if the model is
@@ -557,7 +611,10 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         if not model:
             return ""
         lowered = model.lower()
-        if lowered.startswith(("gpt-", "openai/")):
+        # Allow bedrock: and vertex: provider prefixes through directly.
+        if lowered.startswith(("bedrock:", "vertex:")):
+            return model
+        if lowered.startswith(("gpt-", "openai/", "gemini", "google/")):
             logger.warning(
                 "Model %r is incompatible with Claude Code CLI — "
                 "falling back to CLI default model",
@@ -1021,6 +1078,100 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return [*cmd[:p_idx], "--permission-mode", mode, *cmd[p_idx:]]
 
     # ------------------------------------------------------------------
+    # --add-dir support (reference repos as read-only context)
+    # ------------------------------------------------------------------
+
+    def _resolve_add_dirs(self) -> list[str]:
+        """Resolve ``--add-dir`` paths from reference repos.
+
+        Maps ``self.repo_index.reference_repos`` to directory paths that
+        Claude Code can mount as additional read-only context directories.
+
+        Returns:
+            List of absolute directory path strings to pass via ``--add-dir``.
+        """
+        dirs: list[str] = []
+        if not self.repo_index.reference_repos:
+            return dirs
+        for _name, path in self.repo_index.reference_repos:
+            resolved = path if path.is_absolute() else path.resolve()
+            if resolved.is_dir():
+                dirs.append(str(resolved))
+            else:
+                logger.debug(
+                    "Reference repo path %s is not a directory, skipping", path
+                )
+        return dirs
+
+    @staticmethod
+    def _inject_add_dirs(cmd: list[str], dirs: list[str]) -> list[str]:
+        """Insert ``--add-dir <path>`` flags before ``-p`` for each directory.
+
+        Args:
+            cmd: Command tokens.
+            dirs: Directory paths to add (empty = skip).
+
+        Returns:
+            Command tokens with ``--add-dir`` flags injected.
+        """
+        if not dirs:
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        extra: list[str] = []
+        for d in dirs:
+            extra.extend(["--add-dir", d])
+        return [*cmd[:p_idx], *extra, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --prefill support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_prefill() -> str:
+        """Resolve the ``--prefill`` text from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_PREFILL``. The text is used to
+        prefill the assistant's response to guide output format.
+
+        Returns:
+            The prefill string, or empty if not configured.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_PREFILL", "").strip()
+        if not raw:
+            return ""
+        if len(raw) > _PREFILL_MAX_LENGTH:
+            raw = raw[:_PREFILL_MAX_LENGTH]
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_PREFILL truncated to %d chars",
+                _PREFILL_MAX_LENGTH,
+            )
+        return raw
+
+    @staticmethod
+    def _inject_prefill(cmd: list[str], prefill: str) -> list[str]:
+        """Insert ``--prefill <text>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            prefill: Prefill text (empty = skip injection).
+
+        Returns:
+            Command tokens with ``--prefill`` injected when applicable.
+        """
+        if not prefill:
+            return cmd
+        if has_cli_flag(cmd, "prefill"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--prefill", prefill, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
     # --resume support (continue without a new prompt)
     # ------------------------------------------------------------------
 
@@ -1075,6 +1226,10 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         usage = meta.get("usage", {})
         self._cumulative_input_tokens += usage.get("input_tokens", 0)
         self._cumulative_output_tokens += usage.get("output_tokens", 0)
+        self._cumulative_cache_creation_tokens += usage.get(
+            "cache_creation_input_tokens", 0
+        )
+        self._cumulative_cache_read_tokens += usage.get("cache_read_input_tokens", 0)
 
     # ------------------------------------------------------------------
     # Core invocation (overrides)
@@ -1158,6 +1313,24 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             if self.config.verbose:
                 await emit(self._label_msg(f"permission-mode={permission_mode}") + "\n")
 
+        # --add-dir (reference repos as read-only context)
+        add_dirs = self._resolve_add_dirs()
+        if add_dirs:
+            cmd = self._inject_add_dirs(cmd, add_dirs)
+            if self.config.verbose:
+                await emit(
+                    self._label_msg(f"add-dir: {len(add_dirs)} reference repo(s)")
+                    + "\n"
+                )
+
+        # --prefill
+        prefill = self._resolve_prefill()
+        if prefill:
+            cmd = self._inject_prefill(cmd, prefill)
+            if self.config.verbose:
+                preview = prefill[:60].replace("\n", " ")
+                await emit(self._label_msg(f"prefill: {preview}...") + "\n")
+
         # --continue session resumption
         if continue_session and self._last_session_id:
             cmd = self._inject_continue_session(cmd, self._last_session_id)
@@ -1178,6 +1351,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
         # Accumulate cost tracking.
         self._accumulate_cost(parser)
+
+        # Log warning when the result indicates an error.
+        if parser.is_error:
+            result_preview = (parser.result_text() or "")[:200]
+            logger.warning("Claude Code CLI returned is_error=True: %s", result_preview)
+            await emit(self._label_msg("warning: result flagged as error") + "\n")
 
         return parser.result_text() or raw
 
@@ -1272,12 +1451,19 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
         # Emit cumulative cost summary.
         if self._cumulative_cost_usd > 0:
-            await emit(
-                self._label_msg(
-                    f"total cost: ${self._cumulative_cost_usd:.4f} "
-                    f"(in={self._cumulative_input_tokens}, "
-                    f"out={self._cumulative_output_tokens})\n"
+            cost_parts = [
+                f"total cost: ${self._cumulative_cost_usd:.4f}",
+                f"in={self._cumulative_input_tokens}",
+                f"out={self._cumulative_output_tokens}",
+            ]
+            if self._cumulative_cache_creation_tokens:
+                cost_parts.append(
+                    f"cache_write={self._cumulative_cache_creation_tokens}"
                 )
+            if self._cumulative_cache_read_tokens:
+                cost_parts.append(f"cache_read={self._cumulative_cache_read_tokens}")
+            await emit(
+                self._label_msg(f"{cost_parts[0]} ({', '.join(cost_parts[1:])})\n")
             )
 
         return combined_output

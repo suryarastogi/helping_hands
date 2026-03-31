@@ -1957,3 +1957,233 @@ class TestSummarizeToolNew:
 
     def test_task_stop_no_id(self) -> None:
         assert _StreamJsonEmitter._summarize_tool("TaskStop", {}) == "TaskStop"
+
+    def test_ask_user_question(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool(
+                "AskUserQuestion", {"question": "What should I do?"}
+            )
+            == "AskUserQuestion What should I do?"
+        )
+
+    def test_enter_plan_mode(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("EnterPlanMode", {}) == "EnterPlanMode"
+        )
+
+    def test_exit_plan_mode(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("ExitPlanMode", {}) == "ExitPlanMode"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_cli_model — bedrock/vertex provider prefixes
+# ---------------------------------------------------------------------------
+
+
+class TestResolveCliModelProviderPrefixes:
+    def test_bedrock_prefix_passes_through(self, make_cli_hand) -> None:
+        hand = make_cli_hand(
+            ClaudeCodeHand, model="bedrock:us.anthropic.claude-sonnet-4-5"
+        )
+        assert hand._resolve_cli_model() == "bedrock:us.anthropic.claude-sonnet-4-5"
+
+    def test_vertex_prefix_passes_through(self, make_cli_hand) -> None:
+        hand = make_cli_hand(ClaudeCodeHand, model="vertex:claude-sonnet-4-5")
+        assert hand._resolve_cli_model() == "vertex:claude-sonnet-4-5"
+
+    def test_gemini_model_filtered(self, make_cli_hand) -> None:
+        hand = make_cli_hand(ClaudeCodeHand, model="gemini-2.5-pro")
+        assert hand._resolve_cli_model() == ""
+
+    def test_google_prefix_filtered(self, make_cli_hand) -> None:
+        hand = make_cli_hand(ClaudeCodeHand, model="google/gemini-2.5-pro")
+        assert hand._resolve_cli_model() == ""
+
+
+# ---------------------------------------------------------------------------
+# --add-dir support
+# ---------------------------------------------------------------------------
+
+
+class TestInjectAddDirs:
+    def test_no_dirs_returns_unchanged(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        assert ClaudeCodeHand._inject_add_dirs(cmd, []) == cmd
+
+    def test_single_dir_injected(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        result = ClaudeCodeHand._inject_add_dirs(cmd, ["/tmp/ref"])
+        assert result == ["claude", "--add-dir", "/tmp/ref", "-p", "hello"]
+
+    def test_multiple_dirs_injected(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        result = ClaudeCodeHand._inject_add_dirs(cmd, ["/tmp/a", "/tmp/b"])
+        assert result == [
+            "claude",
+            "--add-dir",
+            "/tmp/a",
+            "--add-dir",
+            "/tmp/b",
+            "-p",
+            "hello",
+        ]
+
+    def test_no_p_flag_appends_at_end(self) -> None:
+        cmd = ["claude", "hello"]
+        result = ClaudeCodeHand._inject_add_dirs(cmd, ["/tmp/ref"])
+        assert result == ["claude", "hello", "--add-dir", "/tmp/ref"]
+
+
+# ---------------------------------------------------------------------------
+# --prefill support
+# ---------------------------------------------------------------------------
+
+
+class TestResolvePrefill:
+    def test_empty_when_not_set(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_PREFILL", raising=False)
+        assert ClaudeCodeHand._resolve_prefill() == ""
+
+    def test_returns_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_PREFILL", "I'll start by")
+        assert ClaudeCodeHand._resolve_prefill() == "I'll start by"
+
+    def test_truncates_long_prefill(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_PREFILL", "x" * 3000)
+        result = ClaudeCodeHand._resolve_prefill()
+        assert len(result) == 2000
+
+
+class TestInjectPrefill:
+    def test_empty_prefill_unchanged(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        assert ClaudeCodeHand._inject_prefill(cmd, "") == cmd
+
+    def test_prefill_injected(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        result = ClaudeCodeHand._inject_prefill(cmd, "Sure, I'll")
+        assert result == ["claude", "--prefill", "Sure, I'll", "-p", "hello"]
+
+    def test_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--prefill", "existing", "-p", "hello"]
+        result = ClaudeCodeHand._inject_prefill(cmd, "other")
+        assert result == cmd
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — thinking block visibility
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterThinking:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_thinking_block_emitted(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "thinking", "thinking": "Let me analyze this code..."}
+                    ]
+                },
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert any("thinking:" in c for c in collected)
+        assert any("analyze" in c for c in collected)
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — cache token tracking
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterCacheTokens:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_cache_tokens_captured(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.05,
+                "duration_ms": 5000,
+                "usage": {
+                    "input_tokens": 1000,
+                    "output_tokens": 500,
+                    "cache_creation_input_tokens": 200,
+                    "cache_read_input_tokens": 800,
+                },
+            }
+        )
+        self._run(emitter(event + "\n"))
+        meta = emitter.cost_metadata
+        assert meta["usage"]["cache_creation_input_tokens"] == 200
+        assert meta["usage"]["cache_read_input_tokens"] == 800
+        # Verify cache info in emitted output
+        assert any("cache_write=200" in c for c in collected)
+        assert any("cache_read=800" in c for c in collected)
+
+    def test_no_cache_tokens_when_absent(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.01,
+                "usage": {"input_tokens": 100, "output_tokens": 50},
+            }
+        )
+        self._run(emitter(event + "\n"))
+        meta = emitter.cost_metadata
+        assert "cache_creation_input_tokens" not in meta.get("usage", {})
+        assert "cache_read_input_tokens" not in meta.get("usage", {})
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — is_error handling
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterIsError:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_is_error_captured(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "Error: something went wrong",
+                "is_error": True,
+                "total_cost_usd": 0.01,
+            }
+        )
+        self._run(emitter(event + "\n"))
+        assert emitter.is_error is True
+        assert "something went wrong" in emitter.result_text()
