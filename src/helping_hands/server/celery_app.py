@@ -937,6 +937,7 @@ def build_feature(
     meta_tools.validate_tool_category_names(selected_tools)
     task_started_at = datetime.now(UTC).isoformat()
     updates: list[str] = []
+    _has_token = bool(github_token and github_token.strip())
     _append_update(
         updates,
         (
@@ -945,7 +946,8 @@ def build_feature(
             f"no_pr={no_pr}, enable_execution={enable_execution}, "
             f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}, "
             f"tools={','.join(selected_tools) or 'none'}, "
-            f"reference_repos={','.join(reference_repos) if reference_repos else 'none'}"
+            f"reference_repos={','.join(reference_repos) if reference_repos else 'none'}, "
+            f"github_token={'present' if _has_token else 'NOT SET'}"
         ),
     )
     emitter = _ProgressEmitter(
@@ -1035,6 +1037,10 @@ def build_feature(
         overrides["github_token"] = github_token
         overrides["reference_repos"] = tuple(reference_repos) if reference_repos else ()
         config = Config.from_env(overrides=overrides)
+        _append_update(
+            updates,
+            f"Config github_token={'present' if config.github_token else 'NOT SET'}",
+        )
         repo_index = RepoIndex.from_path(Path(config.repo))
 
         # Clone reference repos as read-only context

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import AppOverlays from "./components/AppOverlays";
 import AsteroidsGame from "./components/AsteroidsGame";
+import OnboardingOverlay from "./components/OnboardingOverlay";
 import ChatPanel from "./components/ChatPanel";
 import HandWorldScene from "./components/HandWorldScene";
 import MonitorCard from "./components/MonitorCard";
@@ -9,6 +10,7 @@ import ScheduleCard from "./components/ScheduleCard";
 import SubmissionForm from "./components/SubmissionForm";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
+import { useOnboarding } from "./hooks/useOnboarding";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
 import { useRecentRepos } from "./hooks/useRecentRepos";
@@ -96,6 +98,13 @@ export default function App() {
     cancelScheduleForm,
   } = useSchedules();
   const { recentRepos } = useRecentRepos();
+  const [serverHasGithubToken, setServerHasGithubToken] = useState(true);
+  const onboarding = useOnboarding({
+    hasActiveTasks: activeTaskIds.size > 0,
+    hasSchedules: schedules.length > 0,
+    serverHasGithubToken,
+  });
+
   const [enabledBackends, setEnabledBackends] = useState<Backend[]>(BACKEND_OPTIONS);
   const [showClaudeUsage, setShowClaudeUsage] = useState(true);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -154,6 +163,24 @@ export default function App() {
     playerName: playerNameInput,
     playerColor: playerColorInput,
   });
+
+  // -- Onboarding: auto-open submission overlay for form-targeting steps -----
+  useEffect(() => {
+    if (!onboarding.isActive || !onboarding.currentStep) return;
+    const formStepIds = ["repo-input", "prompt-input", "github-token", "submit-btn"];
+    if (formStepIds.includes(onboarding.currentStep.id) && !showSubmissionOverlay) {
+      setShowSubmissionOverlay(true);
+    }
+    // Auto-open the Advanced <details> when the github-token step is active
+    if (onboarding.currentStep.id === "github-token") {
+      requestAnimationFrame(() => {
+        const details = document.querySelector<HTMLDetailsElement>(".submission-overlay .compact-advanced");
+        if (details && !details.open) {
+          details.open = true;
+        }
+      });
+    }
+  }, [onboarding.isActive, onboarding.currentStep, showSubmissionOverlay, setShowSubmissionOverlay]);
 
   // -- Load schedules on view switch ----------------------------------------
   useEffect(() => {
@@ -258,6 +285,9 @@ export default function App() {
         if (config.claude_native_cli_auth === false) {
           setShowClaudeUsage(false);
         }
+        if (config.has_github_token === false) {
+          setServerHasGithubToken(false);
+        }
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, [setForm]);
@@ -272,7 +302,7 @@ export default function App() {
   }, [status, payload]);
 
   const submissionCard = (
-    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} />
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} serverHasGithubToken={serverHasGithubToken} />
   );
 
   const monitorCard = (
@@ -322,6 +352,7 @@ export default function App() {
       onCancelForm={cancelScheduleForm}
       onRefresh={loadSchedules}
       recentRepos={recentRepos}
+      serverHasGithubToken={serverHasGithubToken}
     />
   );
 
@@ -333,6 +364,7 @@ export default function App() {
         showSubmissionOverlay={showSubmissionOverlay}
         onNewSubmission={openSubmissionView}
         onToggleSchedules={() => setMainView(v => v === "schedules" ? "submission" : "schedules")}
+        onStartTutorial={onboarding.restart}
         taskHistory={taskHistory}
         selectedTaskId={taskId}
         onSelectTask={selectTask}
@@ -422,6 +454,16 @@ export default function App() {
       toasts={toasts}
       onRemoveToast={removeToast}
     />
+    {onboarding.isActive && onboarding.currentStep && (
+      <OnboardingOverlay
+        step={onboarding.currentStep}
+        stepIndex={onboarding.currentStepIndex!}
+        totalSteps={onboarding.totalSteps}
+        onNext={onboarding.nextStep}
+        onPrev={onboarding.prevStep}
+        onDismiss={onboarding.dismiss}
+      />
+    )}
     </>
   );
 }
