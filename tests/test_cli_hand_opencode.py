@@ -168,6 +168,30 @@ class TestBuildOpenCodeFailureMessageExtraTokens:
 
 
 # ---------------------------------------------------------------------------
+# _pr_description_cmd
+# ---------------------------------------------------------------------------
+
+
+class TestPrDescriptionCmd:
+    def test_returns_cmd_when_opencode_available(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "shutil.which",
+            lambda name: "/usr/bin/opencode" if name == "opencode" else None,
+        )
+        result = opencode_hand._pr_description_cmd()
+        assert result == ["opencode", "run"]
+
+    def test_returns_none_when_opencode_not_found(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr("shutil.which", lambda name: None)
+        result = opencode_hand._pr_description_cmd()
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
 # _invoke_opencode / _invoke_backend — async delegation
 # ---------------------------------------------------------------------------
 

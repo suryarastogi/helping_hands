@@ -636,6 +636,77 @@ class TestUpdatePRBody:
 
 
 # ---------------------------------------------------------------------------
+# update_pr
+# ---------------------------------------------------------------------------
+
+
+class TestUpdatePR:
+    def _patch_notset(self):
+        """Patch ``github.NotSet`` so ``update_pr`` can import it."""
+        import types
+
+        import github as gh_mod
+
+        sentinel = types.SimpleNamespace()
+        if not hasattr(gh_mod, "NotSet"):
+            gh_mod.NotSet = sentinel  # type: ignore[attr-defined]
+        return gh_mod.NotSet
+
+    def test_title_only_update(self, client: GitHubClient) -> None:
+        not_set = self._patch_notset()
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_repo.get_pull.return_value = mock_pr
+        client._gh.get_repo.return_value = mock_repo
+
+        client.update_pr("owner/repo", 5, title="New title")
+
+        mock_repo.get_pull.assert_called_once_with(5)
+        call_kwargs = mock_pr.edit.call_args[1]
+        assert call_kwargs["title"] == "New title"
+        assert call_kwargs["body"] is not_set
+
+    def test_body_only_update(self, client: GitHubClient) -> None:
+        not_set = self._patch_notset()
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_repo.get_pull.return_value = mock_pr
+        client._gh.get_repo.return_value = mock_repo
+
+        client.update_pr("owner/repo", 5, body="New body")
+
+        call_kwargs = mock_pr.edit.call_args[1]
+        assert call_kwargs["title"] is not_set
+        assert call_kwargs["body"] == "New body"
+
+    def test_both_title_and_body(self, client: GitHubClient) -> None:
+        self._patch_notset()
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_repo.get_pull.return_value = mock_pr
+        client._gh.get_repo.return_value = mock_repo
+
+        client.update_pr("owner/repo", 5, title="T", body="B")
+
+        call_kwargs = mock_pr.edit.call_args[1]
+        assert call_kwargs["title"] == "T"
+        assert call_kwargs["body"] == "B"
+
+    def test_noop_when_both_none(self, client: GitHubClient) -> None:
+        """When neither title nor body is given, no API call is made."""
+        client.update_pr("owner/repo", 5)
+        client._gh.get_repo.assert_not_called()
+
+    def test_invalid_pr_number_raises(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="PR number"):
+            client.update_pr("owner/repo", 0, title="X")
+
+    def test_negative_pr_number_raises(self, client: GitHubClient) -> None:
+        with pytest.raises(ValueError, match="PR number"):
+            client.update_pr("owner/repo", -1, title="X")
+
+
+# ---------------------------------------------------------------------------
 # Context manager
 # ---------------------------------------------------------------------------
 

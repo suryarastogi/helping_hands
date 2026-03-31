@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-01 v347 — Coverage Gap Closure & Weekly Consolidation](exec-plans/completed/2026/v347-coverage-gaps-and-consolidation.md) —
+  Close CLI hand and GitHub client coverage gaps (`_pr_description_cmd`,
+  `_LinePrefixEmitter`, `update_pr`); 21 tests added, 6589 passed, 75.20% coverage
+
 - [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
   Rewrite README Quick Start as three numbered steps (install, set keys, run);
   implement first-run welcome banner with `~/.helping_hands/.first_run_done`

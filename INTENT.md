@@ -8,6 +8,13 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Coverage Gap Closure (2026-04-01) — Completed
+
+Closed remaining testable coverage gaps in CLI hand modules (`_pr_description_cmd`,
+`_LinePrefixEmitter`) and GitHub client (`update_pr`). 21 new tests; coverage
+74.73% → 75.20%. See
+[v347 plan](docs/exec-plans/completed/2026/v347-coverage-gaps-and-consolidation.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →
