@@ -10,7 +10,16 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** March 31, 2026
+
+**Smoke test results** (March 31, 2026):
+
+| Check | Result |
+|-------|--------|
+| `uv run pytest -v` | 6568 passed, 268 skipped, 3 warnings (27.87s) |
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 274 files already formatted |
+| Coverage | 74.73% (threshold: 75.0%) |
 
 ## What is this?
 
