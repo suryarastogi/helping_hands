@@ -106,7 +106,7 @@ class TestNormalizeToolSelectionTypeValidation:
         from helping_hands.lib.meta.tools.registry import _normalize_and_deduplicate
 
         source = inspect.getsource(_normalize_and_deduplicate)
-        assert "isinstance(values, (str, list, tuple))" in source
+        assert "isinstance(values, str | list | tuple)" in source
 
 
 # ---------------------------------------------------------------------------
