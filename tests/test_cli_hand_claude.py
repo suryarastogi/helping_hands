@@ -21,6 +21,7 @@ import json
 import pytest
 
 from helping_hands.lib.hands.v1.hand.cli.claude import (
+    _DEFAULT_MAX_TURNS_RESUME_LIMIT,
     ClaudeCodeHand,
     _StreamJsonEmitter,
 )
@@ -2187,3 +2188,181 @@ class TestStreamJsonEmitterIsError:
         self._run(emitter(event + "\n"))
         assert emitter.is_error is True
         assert "something went wrong" in emitter.result_text()
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — num_turns tracking
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterNumTurns:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_counts_assistant_events_as_turns(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        for i in range(5):
+            event = json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": f"turn {i}"}]},
+                }
+            )
+            self._run(parser(event + "\n"))
+        assert parser.num_turns == 5
+
+    def test_zero_turns_initially(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        assert parser.num_turns == 0
+
+    def test_non_assistant_events_not_counted(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        for event_type in ("user", "result", "system"):
+            event = json.dumps({"type": event_type, "result": "x"})
+            self._run(parser(event + "\n"))
+        assert parser.num_turns == 0
+
+
+# ---------------------------------------------------------------------------
+# Per-backend model override (HELPING_HANDS_CLAUDE_MODEL)
+# ---------------------------------------------------------------------------
+
+
+class TestModelEnvVarOverride:
+    def test_env_var_takes_precedence(self, make_cli_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MODEL", "claude-haiku-4-5")
+        hand = make_cli_hand(ClaudeCodeHand, model="claude-sonnet-4-5")
+        assert hand._resolve_cli_model() == "claude-haiku-4-5"
+
+    def test_env_var_empty_falls_through(self, make_cli_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MODEL", "")
+        hand = make_cli_hand(ClaudeCodeHand, model="claude-sonnet-4-5")
+        assert hand._resolve_cli_model() == "claude-sonnet-4-5"
+
+    def test_env_var_default_marker_falls_through(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MODEL", "default")
+        hand = make_cli_hand(ClaudeCodeHand, model="claude-sonnet-4-5")
+        assert hand._resolve_cli_model() == "claude-sonnet-4-5"
+
+    def test_env_var_gpt_model_rejected(self, make_cli_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MODEL", "gpt-5.2")
+        hand = make_cli_hand(ClaudeCodeHand, model="claude-sonnet-4-5")
+        assert hand._resolve_cli_model() == ""
+
+    def test_env_var_bedrock_prefix_passes(self, make_cli_hand, monkeypatch) -> None:
+        monkeypatch.setenv(
+            "HELPING_HANDS_CLAUDE_MODEL", "bedrock:us.anthropic.claude-sonnet-4-5"
+        )
+        hand = make_cli_hand(ClaudeCodeHand, model="claude-sonnet-4-5")
+        assert hand._resolve_cli_model() == "bedrock:us.anthropic.claude-sonnet-4-5"
+
+    def test_env_var_not_set_uses_config(self, make_cli_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_MODEL", raising=False)
+        hand = make_cli_hand(ClaudeCodeHand, model="claude-sonnet-4-5")
+        assert hand._resolve_cli_model() == "claude-sonnet-4-5"
+
+
+# ---------------------------------------------------------------------------
+# Cost budget
+# ---------------------------------------------------------------------------
+
+
+class TestCostBudget:
+    def test_default_unlimited(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_COST_BUDGET", raising=False)
+        assert ClaudeCodeHand._resolve_cost_budget() == 0.0
+
+    def test_valid_positive_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_COST_BUDGET", "5.50")
+        assert ClaudeCodeHand._resolve_cost_budget() == 5.50
+
+    def test_zero_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_COST_BUDGET", "0")
+        assert ClaudeCodeHand._resolve_cost_budget() == 0.0
+
+    def test_negative_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_COST_BUDGET", "-1.5")
+        assert ClaudeCodeHand._resolve_cost_budget() == 0.0
+
+    def test_non_numeric_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_COST_BUDGET", "abc")
+        assert ClaudeCodeHand._resolve_cost_budget() == 0.0
+
+    def test_whitespace_only_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_COST_BUDGET", "   ")
+        assert ClaudeCodeHand._resolve_cost_budget() == 0.0
+
+    def test_cost_budget_exceeded_when_over(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_COST_BUDGET", "1.00")
+        claude_hand._cumulative_cost_usd = 1.50
+        assert claude_hand._cost_budget_exceeded() is True
+
+    def test_cost_budget_not_exceeded_when_under(
+        self, claude_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_COST_BUDGET", "5.00")
+        claude_hand._cumulative_cost_usd = 2.00
+        assert claude_hand._cost_budget_exceeded() is False
+
+    def test_cost_budget_not_exceeded_when_unlimited(
+        self, claude_hand, monkeypatch
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_COST_BUDGET", raising=False)
+        claude_hand._cumulative_cost_usd = 100.0
+        assert claude_hand._cost_budget_exceeded() is False
+
+
+# ---------------------------------------------------------------------------
+# Max-turns auto-resume
+# ---------------------------------------------------------------------------
+
+
+class TestMaxTurnsResume:
+    def test_default_resume_limit(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME", raising=False)
+        assert (
+            ClaudeCodeHand._resolve_max_turns_resume_limit()
+            == _DEFAULT_MAX_TURNS_RESUME_LIMIT
+        )
+
+    def test_valid_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME", "5")
+        assert ClaudeCodeHand._resolve_max_turns_resume_limit() == 5
+
+    def test_zero_disables(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME", "0")
+        assert ClaudeCodeHand._resolve_max_turns_resume_limit() == 0
+
+    def test_negative_clamped_to_zero(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME", "-2")
+        assert ClaudeCodeHand._resolve_max_turns_resume_limit() == 0
+
+    def test_non_integer_uses_default(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME", "abc")
+        assert (
+            ClaudeCodeHand._resolve_max_turns_resume_limit()
+            == _DEFAULT_MAX_TURNS_RESUME_LIMIT
+        )
+
+    def test_max_turns_exhausted_true(self, claude_hand) -> None:
+        claude_hand._last_num_turns = 10
+        assert claude_hand._max_turns_exhausted(10) is True
+
+    def test_max_turns_exhausted_false_under(self, claude_hand) -> None:
+        claude_hand._last_num_turns = 5
+        assert claude_hand._max_turns_exhausted(10) is False
+
+    def test_max_turns_exhausted_false_unlimited(self, claude_hand) -> None:
+        claude_hand._last_num_turns = 100
+        assert claude_hand._max_turns_exhausted(0) is False

@@ -9,6 +9,7 @@ import shutil
 from typing import Any
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
+    _EMPTY_MODEL_MARKERS,
     _format_cli_failure,
     _truncate_with_ellipsis,
     _TwoPhaseCLIHand,
@@ -108,6 +109,12 @@ _MCP_CONFIG_MAX_SIZE = 64 * 1024
 _PREFILL_MAX_LENGTH = 2000
 """Maximum character length for ``--prefill`` content."""
 
+_DEFAULT_COST_BUDGET = 0.0
+"""Default cost budget in USD (0 = unlimited). Set via env var."""
+
+_DEFAULT_MAX_TURNS_RESUME_LIMIT = 3
+"""Maximum number of ``--resume`` retries when max-turns is exhausted."""
+
 _BLOCK_TYPE_THINKING = "thinking"
 """Block type for extended thinking output inside an assistant message."""
 
@@ -139,6 +146,7 @@ class _StreamJsonEmitter:
         self._thinking_tokens: int = 0
         self._cache_creation_tokens: int = 0
         self._cache_read_tokens: int = 0
+        self._num_turns: int = 0
 
     def _label_msg(self, msg: str) -> str:
         """Prefix *msg* with the backend label.
@@ -226,6 +234,7 @@ class _StreamJsonEmitter:
         if event_type == _EVENT_TYPE_ASSISTANT:
             # Claude Code stream-json: message is a full Anthropic API message
             # with message.content[] array of {type: "text"} / {type: "tool_use"}.
+            self._num_turns += 1
             for block in self._extract_message_blocks(event):
                 if not isinstance(block, dict):
                     continue
@@ -481,6 +490,18 @@ class _StreamJsonEmitter:
         """
         return self._total_subagents
 
+    @property
+    def num_turns(self) -> int:
+        """Return the number of assistant turns observed in the stream.
+
+        Each assistant event (containing text, tool_use, or thinking blocks)
+        counts as one turn. This enables detection of max-turns exhaustion.
+
+        Returns:
+            Count of assistant events seen in the stream.
+        """
+        return self._num_turns
+
 
 class ClaudeCodeHand(_TwoPhaseCLIHand):
     """Hand backed by Claude Code CLI subprocess execution.
@@ -507,6 +528,13 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
       (e.g. ``plan``, ``default``) for ``--permission-mode``.
     - ``HELPING_HANDS_CLAUDE_PREFILL``: Text to prefill the assistant's
       response (maps to ``--prefill``). Useful for guiding output format.
+    - ``HELPING_HANDS_CLAUDE_MODEL``: Per-backend model override. Takes
+      precedence over ``--model`` from the shared config. Useful when
+      the Claude hand should use a different model than the global default.
+    - ``HELPING_HANDS_CLAUDE_COST_BUDGET``: Maximum cumulative cost in USD
+      before aborting execution. Default: unlimited.
+    - ``HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME``: Maximum number of automatic
+      ``--resume`` retries when max-turns is exhausted. Default: ``3``.
 
     Reference repos from ``config.reference_repos`` are automatically
     passed as ``--add-dir`` flags for read-only context.
@@ -518,6 +546,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     _COMMAND_ENV_VAR = "HELPING_HANDS_CLAUDE_CLI_CMD"
     _DEFAULT_CLI_CMD = "claude -p"
     _DEFAULT_MODEL = "claude-opus-4-6"
+    _MODEL_ENV_VAR = "HELPING_HANDS_CLAUDE_MODEL"
     _DEFAULT_APPEND_ARGS = ("-p",)
     _CONTAINER_ENABLED_ENV_VAR = "HELPING_HANDS_CLAUDE_CONTAINER"
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CLAUDE_CONTAINER_IMAGE"
@@ -550,6 +579,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         self._cumulative_cache_creation_tokens: int = 0
         self._cumulative_cache_read_tokens: int = 0
         self._next_invoke_continue: bool = False
+        self._last_num_turns: int = 0
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         return ("ANTHROPIC_API_KEY",)
@@ -595,19 +625,24 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         )
 
     def _resolve_cli_model(self) -> str:
-        """Resolve the CLI model, filtering out incompatible non-Anthropic models.
+        """Resolve the CLI model with per-backend env var override.
 
-        Rejects GPT-family models (``gpt-*``), explicitly OpenAI-prefixed
-        models (``openai/*``), and Google/Gemini models that survive the
-        base-class provider strip. Passes through Anthropic, Bedrock, and
-        Vertex provider prefixes (``bedrock:``, ``vertex:``) which Claude
-        Code CLI natively supports.
+        Checks ``HELPING_HANDS_CLAUDE_MODEL`` first, then falls back to
+        the shared config model. Rejects GPT-family models (``gpt-*``),
+        explicitly OpenAI-prefixed models (``openai/*``), and Google/Gemini
+        models. Passes through Anthropic, Bedrock, and Vertex provider
+        prefixes (``bedrock:``, ``vertex:``) which Claude Code CLI natively
+        supports.
 
         Returns:
             The resolved model name, or an empty string if the model is
             missing or incompatible with Claude Code.
         """
-        model = super()._resolve_cli_model()
+        env_model = os.environ.get(self._MODEL_ENV_VAR, "").strip()
+        if env_model and env_model not in _EMPTY_MODEL_MARKERS:
+            model = env_model
+        else:
+            model = super()._resolve_cli_model()
         if not model:
             return ""
         lowered = model.lower()
@@ -1211,6 +1246,75 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return result
 
     # ------------------------------------------------------------------
+    # Cost budget support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_cost_budget() -> float:
+        """Resolve the maximum cumulative cost budget from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_COST_BUDGET`` (default ``0`` = unlimited).
+        Non-numeric or non-positive values are treated as unlimited.
+
+        Returns:
+            The cost budget in USD, or ``0.0`` for unlimited.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_COST_BUDGET", "")
+        if not raw.strip():
+            return _DEFAULT_COST_BUDGET
+        try:
+            value = float(raw.strip())
+        except ValueError:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_COST_BUDGET has non-numeric value %r, "
+                "using unlimited",
+                raw,
+            )
+            return _DEFAULT_COST_BUDGET
+        return value if value > 0 else _DEFAULT_COST_BUDGET
+
+    def _cost_budget_exceeded(self) -> bool:
+        """Check whether the cumulative cost has exceeded the budget.
+
+        Returns:
+            ``True`` if a cost budget is configured and has been exceeded.
+        """
+        budget = self._resolve_cost_budget()
+        if budget <= 0:
+            return False
+        return self._cumulative_cost_usd >= budget
+
+    # ------------------------------------------------------------------
+    # Max-turns auto-resume support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_max_turns_resume_limit() -> int:
+        """Resolve the max-turns auto-resume retry limit from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME`` (default ``3``).
+        When max-turns is exhausted, the hand will automatically
+        ``--resume`` the session up to this many times.
+
+        Returns:
+            The resume retry limit, or ``0`` to disable auto-resume.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME", "")
+        if not raw.strip():
+            return _DEFAULT_MAX_TURNS_RESUME_LIMIT
+        try:
+            value = int(raw.strip())
+        except ValueError:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_MAX_TURNS_RESUME has non-integer value %r, "
+                "using default %d",
+                raw,
+                _DEFAULT_MAX_TURNS_RESUME_LIMIT,
+            )
+            return _DEFAULT_MAX_TURNS_RESUME_LIMIT
+        return max(0, value)
+
+    # ------------------------------------------------------------------
     # Cost tracking
     # ------------------------------------------------------------------
 
@@ -1349,6 +1453,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         if parser.session_id:
             self._last_session_id = parser.session_id
 
+        # Capture turn count for max-turns exhaustion detection.
+        self._last_num_turns = parser.num_turns
+
         # Accumulate cost tracking.
         self._accumulate_cost(parser)
 
@@ -1368,6 +1475,84 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     ) -> str:
         return await self._invoke_claude(prompt, emit=emit)
 
+    def _max_turns_exhausted(self, max_turns: int) -> bool:
+        """Check whether the last invocation hit the max-turns limit.
+
+        When ``max_turns`` is configured and the number of assistant turns
+        observed in the stream equals or exceeds it, the session was likely
+        cut short and may benefit from auto-resuming.
+
+        Args:
+            max_turns: The configured max-turns limit (0 = unlimited).
+
+        Returns:
+            ``True`` if max-turns was reached in the last invocation.
+        """
+        if max_turns <= 0:
+            return False
+        return self._last_num_turns >= max_turns
+
+    async def _auto_resume_loop(
+        self,
+        *,
+        emit: _TwoPhaseCLIHand._Emitter,
+        max_turns: int,
+        combined_output: str,
+    ) -> str:
+        """Auto-resume the session when max-turns is exhausted.
+
+        Detects when Claude Code stopped because it hit the max-turns
+        limit and automatically issues ``--resume`` to continue the
+        work. Respects cost budget and resume retry limits.
+
+        Args:
+            emit: Async callback for streaming output.
+            max_turns: The configured max-turns limit.
+            combined_output: Output accumulated so far.
+
+        Returns:
+            Updated combined output including all resume iterations.
+        """
+        resume_limit = self._resolve_max_turns_resume_limit()
+        if resume_limit <= 0:
+            return combined_output
+        resume_count = 0
+        while (
+            self._max_turns_exhausted(max_turns)
+            and resume_count < resume_limit
+            and not self._is_interrupted()
+            and not self._cost_budget_exceeded()
+            and self._last_session_id
+        ):
+            resume_count += 1
+            await emit(
+                self._label_msg(
+                    f"max-turns exhausted, auto-resuming session "
+                    f"({resume_count}/{resume_limit})...\n"
+                )
+            )
+            # Build a resume command (no prompt, just --resume + session-id).
+            cmd = self._render_command("(resumed)")
+            cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
+            cmd = self._inject_max_turns(cmd, max_turns)
+            cmd = self._inject_resume_session(cmd, self._last_session_id)
+
+            parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
+            try:
+                raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
+            finally:
+                await parser.flush()
+
+            if parser.session_id:
+                self._last_session_id = parser.session_id
+            self._last_num_turns = parser.num_turns
+            self._accumulate_cost(parser)
+
+            resume_output = parser.result_text() or raw
+            combined_output += resume_output
+
+        return combined_output
+
     async def _run_two_phase_inner(
         self,
         prompt: str,
@@ -1377,8 +1562,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         """Run the two-phase flow with Claude-specific enhancements.
 
         Overrides the base to use ``--continue`` for the apply-changes
-        enforcement phase when session continuation is enabled, and to
-        emit cumulative cost summary at the end.
+        enforcement phase when session continuation is enabled, auto-resume
+        when max-turns is exhausted, enforce cost budget limits, and emit
+        cumulative cost summary at the end.
         """
         import time
 
@@ -1386,6 +1572,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         auth = self._describe_auth()
         auth_part = f" | {auth}" if auth else ""
         await emit(self._label_msg(f"isolation={self._execution_mode()}{auth_part}\n"))
+
+        # Log cost budget if configured.
+        cost_budget = self._resolve_cost_budget()
+        if cost_budget > 0:
+            await emit(self._label_msg(f"cost budget: ${cost_budget:.2f}\n"))
+
         if self.config.verbose:
             model = self._resolve_cli_model() or "(default)"
             await emit(
@@ -1400,6 +1592,11 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         init_output = await self._invoke_claude(self._build_init_prompt(), emit=emit)
         if self._is_interrupted():
             await emit(self._label_msg("Interrupted during initialization.\n"))
+            return init_output
+        if self._cost_budget_exceeded():
+            await emit(
+                self._label_msg("Cost budget exceeded after phase 1, stopping.\n")
+            )
             return init_output
         if self.config.verbose:
             phase1_elapsed = time.monotonic() - run_start
@@ -1422,7 +1619,24 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             )
         combined_output = f"{init_output}{task_output}"
 
-        if self._should_retry_without_changes(prompt):
+        # Auto-resume when max-turns is exhausted.
+        max_turns = self._resolve_max_turns()
+        if max_turns > 0 and not self._cost_budget_exceeded():
+            combined_output = await self._auto_resume_loop(
+                emit=emit,
+                max_turns=max_turns,
+                combined_output=combined_output,
+            )
+
+        if self._cost_budget_exceeded():
+            await emit(
+                self._label_msg(
+                    f"Cost budget exceeded "
+                    f"(${self._cumulative_cost_usd:.4f} >= ${cost_budget:.2f}), "
+                    f"stopping.\n"
+                )
+            )
+        elif self._should_retry_without_changes(prompt):
             await emit(
                 self._label_msg(
                     "No file edits detected; requesting direct file application...\n"
