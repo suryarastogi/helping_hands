@@ -11,6 +11,10 @@ The CLI entry module's __all__ test ensures the main() entry point remains
 importable for testing and for programmatic invocation from external scripts.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only verify __all__ membership and symbol
+# counts; no runtime behavior is exercised.  Consider consolidating into a single
+# parametrized __all__-completeness check.
+
 from __future__ import annotations
 
 import pytest

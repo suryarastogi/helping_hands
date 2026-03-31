@@ -25,6 +25,7 @@ from helping_hands.lib.hands.v1.hand.cli.claude import (
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestStreamJsonEmitterDocstrings:
     """Verify Google-style docstrings on _StreamJsonEmitter methods."""
 
@@ -64,6 +65,7 @@ class TestStreamJsonEmitterDocstrings:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestClaudeCodeHandDocstrings:
     """Verify Google-style docstrings on ClaudeCodeHand overrides."""
 
@@ -181,6 +183,7 @@ class TestMcpRunBashScriptValidation:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestMcpPathExistsDocstring:
     """Verify that MCP path_exists has a proper docstring."""
 
@@ -205,6 +208,7 @@ class TestMcpPathExistsDocstring:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestMcpRunBashScriptDocstring:
     """Verify that MCP run_bash_script has a proper docstring."""
 

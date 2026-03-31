@@ -10,6 +10,10 @@ load-bearing. If these docstring checks regress, new provider authors lose the
 structured guidance the codebase relies on to keep all implementations consistent.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring presence and section
+# keywords; no runtime behavior is exercised.  Could be replaced by enabling ruff
+# D rules (pydocstyle) for provider/github/hand modules.
+
 from __future__ import annotations
 
 import inspect

@@ -12,6 +12,10 @@ field added to the dataclass without updating the docstring) and renames that br
 the documented contract.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring Attributes: section
+# presence and field-name mentions; no runtime behavior is exercised.  Could be
+# replaced by a ruff D rule or a single parametrized docstring linter.
+
 from __future__ import annotations
 
 import inspect

@@ -10,6 +10,10 @@ internals or raise ImportError. These tests also confirm the cli/base constants
 (_FAILURE_OUTPUT_TAIL_LENGTH etc.) are exported so subclasses can reference them.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only verify __all__ membership, export
+# counts, and docstring presence; no runtime behavior is exercised.  Consider
+# consolidating into a single parametrized __all__-completeness check.
+
 from __future__ import annotations
 
 import pytest

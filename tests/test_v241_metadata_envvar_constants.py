@@ -11,6 +11,11 @@ hand hard-codes the string rather than importing the constant, a typo silently
 skips the suppression and the hand hangs indefinitely waiting for user input.
 """
 
+# TODO: CLEANUP CANDIDATE — tests only assert constant string values equal their
+# expected literals (tautological) and check types; no runtime behavior or
+# cross-module usage is verified.  The invariant is already protected by the
+# importing modules themselves — if the constant changes, call-sites break.
+
 from __future__ import annotations
 
 import ast

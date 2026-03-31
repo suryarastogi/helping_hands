@@ -40,6 +40,7 @@ _GOOSE_METHODS = (
 )
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestGooseDocstrings:
     """Verify all GooseCLIHand methods have Google-style docstrings."""
 
@@ -92,6 +93,7 @@ class TestGooseDocstrings:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestOpenCodeDocstrings:
     """Verify OpenCodeCLIHand methods have Google-style docstrings."""
 
@@ -256,6 +258,7 @@ _E2E_METHODS = (
 )
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestE2EDocstrings:
     """Verify all E2EHand methods have Google-style docstrings."""
 

@@ -190,6 +190,7 @@ class TestGeminiAuthDetection:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestLangGraphHandDocstrings:
     """Verify BasicLangGraphHand.run and .stream have Google-style docstrings."""
 
@@ -241,6 +242,7 @@ class TestLangGraphHandDocstrings:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestAtomicHandDocstrings:
     """Verify BasicAtomicHand.run and .stream have Google-style docstrings."""
 

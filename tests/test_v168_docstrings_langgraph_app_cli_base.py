@@ -14,6 +14,10 @@ cli/base.py configuration and utility methods document the abstract interface th
 all CLI hand subclasses must implement.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring presence and section
+# keywords (Args:, Returns:); no runtime behavior is exercised.  Could be replaced
+# by enabling ruff D rules (pydocstyle) for these modules.
+
 from __future__ import annotations
 
 import inspect

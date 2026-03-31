@@ -9,6 +9,10 @@ new callers risks passing arguments in the wrong order or omitting the stage fie
 which breaks the frontend progress display without raising an error.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring presence and section
+# keywords via inspect.getdoc(); no runtime behavior is exercised.  Could be
+# replaced by enabling ruff D rules (pydocstyle) for celery_app.py.
+
 from __future__ import annotations
 
 import inspect

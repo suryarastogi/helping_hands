@@ -147,6 +147,7 @@ _TEMPLATE_METHODS_WITH_DOCSTRINGS = [
 ]
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestCLIHandDocstrings:
     """Verify that public and template methods have Google-style docstrings."""
 

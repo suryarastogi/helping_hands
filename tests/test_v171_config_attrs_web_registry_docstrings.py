@@ -9,6 +9,10 @@ If these tests regress, new contributors will lack the context to safely extend 
 modules and type checkers lose the parameter-intent signal from the docstrings.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring presence and section
+# keywords (Attributes:, Args:, Returns:); no runtime behavior is exercised.
+# Could be replaced by enabling ruff D rules (pydocstyle) for these modules.
+
 from __future__ import annotations
 
 import inspect

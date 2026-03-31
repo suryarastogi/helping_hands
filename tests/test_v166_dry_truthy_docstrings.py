@@ -121,6 +121,7 @@ class TestCLITruthyValues:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestCodexDocstrings:
     """Verify Google-style docstrings on CodexCLIHand methods."""
 
@@ -215,6 +216,7 @@ class TestCodexDocstrings:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence tests below; no runtime behavior.
 class TestGeminiDocstrings:
     """Verify Google-style docstrings on GeminiCLIHand methods."""
 

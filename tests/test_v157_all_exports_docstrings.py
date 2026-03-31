@@ -11,6 +11,10 @@ public surface; the "all importable" assertion catches __all__ entries that were
 renamed without updating the declaration.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert __all__ membership and
+# docstring presence; no runtime behavior is exercised.  Consider replacing
+# with a single parametrized __all__-completeness check or a ruff D rule.
+
 from __future__ import annotations
 
 import helping_hands.lib.ai_providers.types as types_module

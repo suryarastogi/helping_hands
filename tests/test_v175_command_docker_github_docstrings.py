@@ -9,6 +9,10 @@ that documents which errors propagate to callers. The github.py dunder checks
 similarly ensure the GitHub client's identity comparison semantics are documented.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring presence and section
+# keywords; no runtime behavior is exercised.  Could be replaced by enabling ruff
+# D rules (pydocstyle) for these modules.
+
 from __future__ import annotations
 
 import inspect

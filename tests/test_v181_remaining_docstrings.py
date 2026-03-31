@@ -10,6 +10,10 @@ expected to return, making it easy for a refactor to break the endpoint response
 schema silently.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring presence, section
+# keywords, and keyword mentions; no runtime behavior is exercised.  Could be
+# replaced by enabling ruff D rules (pydocstyle) for these modules.
+
 from __future__ import annotations
 
 import inspect

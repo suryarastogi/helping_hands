@@ -12,6 +12,10 @@ and _run_tool_request documents the exceptions that the iteration loop must catc
 missing these would cause silent swallowing of parse errors.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only assert docstring presence and section
+# keywords (Args:, Returns:, Raises:); no runtime behavior is exercised.  Could
+# be replaced by enabling ruff D rules (pydocstyle) for this module.
+
 from __future__ import annotations
 
 import inspect

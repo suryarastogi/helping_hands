@@ -13,6 +13,10 @@ The schedules module __all__ test ensures ScheduleManager and ScheduledTask are
 importable for the FastAPI dependency-injection paths.
 """
 
+# TODO: CLEANUP CANDIDATE — all tests only verify __all__ membership and symbol
+# importability; no runtime behavior is exercised.  A single parametrized
+# __all__-completeness helper could replace these per-symbol assertions.
+
 from __future__ import annotations
 
 import pytest
