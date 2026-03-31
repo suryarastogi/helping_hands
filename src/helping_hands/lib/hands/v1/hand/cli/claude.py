@@ -18,10 +18,12 @@ from helping_hands.lib.validation import has_cli_flag
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "_DEFAULT_PERMISSION_MODE",
     "_OUTPUT_FORMAT_STREAM_JSON",
     "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
     "_TOOL_SUMMARY_STATIC",
+    "_VALID_PERMISSION_MODES",
     "ClaudeCodeHand",
 ]
 
@@ -70,7 +72,15 @@ _TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
 """Simple tool-name → input key mapping for ``_summarize_tool``."""
 
 # Tools that need no input key — just return the tool name.
-_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
+_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset(
+    {
+        "TodoWrite",
+        "CronList",
+        "ExitPlanMode",
+        "EnterPlanMode",
+        "ExitWorktree",
+    }
+)
 """Tools whose summary is simply their name with no parameters."""
 
 _OUTPUT_FORMAT_STREAM_JSON = "stream-json"
@@ -87,6 +97,12 @@ _SYSTEM_PROMPT_MAX_LENGTH = 12000
 
 _AGENT_DOC_CANDIDATES = ("AGENT.md", "agent.md", "CLAUDE.md")
 """Filenames to read from repo root for ``--append-system-prompt`` injection."""
+
+_VALID_PERMISSION_MODES = frozenset({"default", "plan", "bypassPermissions"})
+"""Recognised values for the Claude Code ``--permission-mode`` flag."""
+
+_DEFAULT_PERMISSION_MODE = "bypassPermissions"
+"""Default permission mode for non-interactive automation."""
 
 
 class _StreamJsonEmitter:
@@ -326,9 +342,22 @@ class _StreamJsonEmitter:
         if name == "EnterWorktree":
             wt_name = input_data.get("name", "")
             return f"EnterWorktree {wt_name}" if wt_name else "EnterWorktree"
-        if name == "ExitWorktree":
-            action = input_data.get("action", "")
-            return f"ExitWorktree {action}" if action else "ExitWorktree"
+        if name == "ToolSearch":
+            query = input_data.get("query", "")
+            return f"ToolSearch {query!r}" if query else "ToolSearch"
+        if name == "SendMessage":
+            to = input_data.get("to", "")
+            return f"SendMessage -> {to}" if to else "SendMessage"
+        if name == "TaskOutput":
+            task_id = input_data.get("task_id", "")
+            return f"TaskOutput {task_id}" if task_id else "TaskOutput"
+        if name == "TaskStop":
+            task_id = input_data.get("task_id", "")
+            return f"TaskStop {task_id}" if task_id else "TaskStop"
+        if name == "AskUserQuestion":
+            question = input_data.get("question", "")
+            preview = _truncate_with_ellipsis(question, _COMMAND_PREVIEW_MAX_LENGTH)
+            return f"AskUser: {preview}" if preview else "AskUserQuestion"
         return f"tool: {name}"
 
     def result_text(self) -> str:
@@ -393,6 +422,17 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     - ``HELPING_HANDS_CLAUDE_SESSION_CONTINUE``: Set to ``1`` to enable
       session continuation (``--continue``) for the apply-changes enforcement
       phase, reusing the session from the task phase.
+    - ``HELPING_HANDS_CLAUDE_PERMISSION_MODE``: Set to ``default``, ``plan``,
+      or ``bypassPermissions`` to use ``--permission-mode`` instead of
+      ``--dangerously-skip-permissions``. Takes precedence when set.
+    - ``HELPING_HANDS_CLAUDE_MCP_CONFIG``: Path to a JSON file with MCP
+      server definitions (maps to ``--mcp-config``).
+    - ``HELPING_HANDS_CLAUDE_ADD_DIRS``: Comma-separated directory paths
+      to add via ``--add-dir``. Reference repos are also auto-added.
+    - ``HELPING_HANDS_CLAUDE_NO_USER_PROFILE``: Set to ``1`` (default) to
+      add ``--no-user-profile`` for consistent automation behavior.
+    - ``HELPING_HANDS_CLAUDE_SESSION_RESUME``: Set to ``1`` to use
+      ``--resume`` (most recent session) when no session ID is available.
     """
 
     _BACKEND_NAME = "claudecodecli"
@@ -498,6 +538,21 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             return ""
         return model
 
+    def _is_running_as_root(self) -> bool:
+        """Check if the current process is running as root (UID 0).
+
+        Returns:
+            ``True`` if the process has root privileges.
+        """
+        geteuid = getattr(os, "geteuid", None)
+        if callable(geteuid):
+            try:
+                if int(geteuid()) == 0:
+                    return True
+            except (ValueError, OSError):
+                logger.debug("geteuid() check failed", exc_info=True)
+        return False
+
     def _skip_permissions_enabled(self) -> bool:
         """Check whether ``--dangerously-skip-permissions`` should be added.
 
@@ -515,22 +570,60 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         )
         if not self._is_truthy(raw):
             return False
-        geteuid = getattr(os, "geteuid", None)
-        if callable(geteuid):
-            try:
-                if int(geteuid()) == 0:
-                    return False
-            except (ValueError, OSError):
-                logger.debug("geteuid() check failed", exc_info=True)
-        return True
+        return not self._is_running_as_root()
+
+    def _resolve_permission_mode(self) -> str:
+        """Resolve the ``--permission-mode`` value from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_PERMISSION_MODE``. When set to a
+        recognised value (``default``, ``plan``, ``bypassPermissions``),
+        this takes precedence over ``--dangerously-skip-permissions``.
+
+        Returns:
+            The permission mode string, or empty if not configured.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_PERMISSION_MODE", "").strip()
+        if not raw:
+            return ""
+        if raw not in _VALID_PERMISSION_MODES:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_PERMISSION_MODE=%r is not a recognised "
+                "mode (%s); ignoring",
+                raw,
+                ", ".join(sorted(_VALID_PERMISSION_MODES)),
+            )
+            return ""
+        return raw
+
+    @staticmethod
+    def _inject_permission_mode(cmd: list[str], mode: str) -> list[str]:
+        """Insert ``--permission-mode <mode>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            mode: Permission mode value (empty = skip injection).
+
+        Returns:
+            Command tokens with ``--permission-mode`` injected when applicable.
+        """
+        if not mode:
+            return cmd
+        if has_cli_flag(cmd, "permission-mode"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--permission-mode", mode, *cmd[p_idx:]]
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
-        if (
-            cmd
-            and cmd[0] == "claude"
-            and self._skip_permissions_enabled()
-            and _SKIP_PERMISSIONS_FLAG not in cmd
-        ):
+        if not cmd or cmd[0] != "claude":
+            return cmd
+        # --permission-mode takes precedence over --dangerously-skip-permissions.
+        perm_mode = self._resolve_permission_mode()
+        if perm_mode:
+            return self._inject_permission_mode(cmd, perm_mode)
+        if self._skip_permissions_enabled() and _SKIP_PERMISSIONS_FLAG not in cmd:
             return [cmd[0], _SKIP_PERMISSIONS_FLAG, *cmd[1:]]
         return cmd
 
@@ -757,6 +850,162 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return [*cmd[:p_idx], *extra, *cmd[p_idx:]]
 
     # ------------------------------------------------------------------
+    # --mcp-config support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_mcp_config() -> str:
+        """Resolve the ``--mcp-config`` file path from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_MCP_CONFIG`` for a path to a JSON file
+        containing MCP server definitions that Claude Code should connect to.
+
+        Returns:
+            The file path string, or empty if not configured.
+        """
+        return os.environ.get("HELPING_HANDS_CLAUDE_MCP_CONFIG", "").strip()
+
+    @staticmethod
+    def _inject_mcp_config(cmd: list[str], config_path: str) -> list[str]:
+        """Insert ``--mcp-config <path>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            config_path: Path to MCP config JSON (empty = skip).
+
+        Returns:
+            Command tokens with ``--mcp-config`` injected when applicable.
+        """
+        if not config_path:
+            return cmd
+        if has_cli_flag(cmd, "mcp-config"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--mcp-config", config_path, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --add-dir support (reference repos)
+    # ------------------------------------------------------------------
+
+    def _resolve_add_dirs(self) -> list[str]:
+        """Resolve additional directories to pass via ``--add-dir``.
+
+        Sources:
+        1. ``HELPING_HANDS_CLAUDE_ADD_DIRS`` env var (comma-separated paths).
+        2. Reference repos from ``self.repo_index.reference_repos``.
+
+        Returns:
+            List of directory path strings.
+        """
+        dirs: list[str] = []
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_ADD_DIRS", "").strip()
+        if raw:
+            dirs.extend(d.strip() for d in raw.split(",") if d.strip())
+        if self.repo_index.reference_repos:
+            for _name, path in self.repo_index.reference_repos:
+                dir_str = str(path)
+                if dir_str not in dirs:
+                    dirs.append(dir_str)
+        return dirs
+
+    @staticmethod
+    def _inject_add_dirs(cmd: list[str], dirs: list[str]) -> list[str]:
+        """Insert ``--add-dir <path>`` flags before ``-p``.
+
+        Args:
+            cmd: Command tokens.
+            dirs: Directory paths to add (empty = skip).
+
+        Returns:
+            Command tokens with ``--add-dir`` flags injected.
+        """
+        if not dirs:
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        extra: list[str] = []
+        for d in dirs:
+            extra.extend(["--add-dir", d])
+        return [*cmd[:p_idx], *extra, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --no-user-profile support
+    # ------------------------------------------------------------------
+
+    def _no_user_profile_enabled(self) -> bool:
+        """Check whether ``--no-user-profile`` should be added.
+
+        Reads ``HELPING_HANDS_CLAUDE_NO_USER_PROFILE`` (default ``"1"``
+        for consistent automation behavior — user profiles can introduce
+        unpredictable behaviour in CI/automation contexts).
+
+        Returns:
+            ``True`` if the flag should be injected.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_NO_USER_PROFILE", "1")
+        return self._is_truthy(raw)
+
+    @staticmethod
+    def _inject_no_user_profile(cmd: list[str]) -> list[str]:
+        """Insert ``--no-user-profile`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+
+        Returns:
+            Command tokens with the flag injected.
+        """
+        if has_cli_flag(cmd, "no-user-profile"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--no-user-profile", *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --resume support (resume most recent session)
+    # ------------------------------------------------------------------
+
+    def _session_resume_enabled(self) -> bool:
+        """Check whether ``--resume`` mode is enabled.
+
+        When enabled and no explicit session ID is available, uses
+        ``--resume`` to continue the most recent Claude Code session.
+        Reads ``HELPING_HANDS_CLAUDE_SESSION_RESUME`` (default ``"0"``).
+
+        Returns:
+            ``True`` if ``--resume`` should be used when no session ID exists.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_SESSION_RESUME", "0")
+        return self._is_truthy(raw)
+
+    @staticmethod
+    def _inject_resume_session(cmd: list[str]) -> list[str]:
+        """Replace ``-p`` with ``--resume`` to continue the most recent session.
+
+        Args:
+            cmd: Command tokens containing ``-p``.
+
+        Returns:
+            Command tokens with ``--resume`` replacing ``-p``.
+        """
+        if has_cli_flag(cmd, "resume") or has_cli_flag(cmd, "continue"):
+            return cmd
+        result = list(cmd)
+        try:
+            p_idx = result.index("-p")
+            result[p_idx] = "--resume"
+        except ValueError:
+            pass
+        return result
+
+    # ------------------------------------------------------------------
     # --continue session resumption support
     # ------------------------------------------------------------------
 
@@ -882,13 +1131,34 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 self._label_msg(f"disallowedTools={','.join(disallowed)}") + "\n"
             )
 
-        # --continue session resumption
+        # --mcp-config
+        mcp_config = self._resolve_mcp_config()
+        if mcp_config:
+            cmd = self._inject_mcp_config(cmd, mcp_config)
+            if self.config.verbose:
+                await emit(self._label_msg(f"mcp-config={mcp_config}") + "\n")
+
+        # --add-dir (reference repos and extra directories)
+        add_dirs = self._resolve_add_dirs()
+        if add_dirs:
+            cmd = self._inject_add_dirs(cmd, add_dirs)
+            if self.config.verbose:
+                await emit(self._label_msg(f"add-dirs: {', '.join(add_dirs)}") + "\n")
+
+        # --no-user-profile
+        if self._no_user_profile_enabled():
+            cmd = self._inject_no_user_profile(cmd)
+
+        # --continue / --resume session resumption
         if continue_session and self._last_session_id:
             cmd = self._inject_continue_session(cmd, self._last_session_id)
             await emit(
                 self._label_msg(f"continuing session {self._last_session_id[:12]}...")
                 + "\n"
             )
+        elif continue_session and self._session_resume_enabled():
+            cmd = self._inject_resume_session(cmd)
+            await emit(self._label_msg("resuming most recent session...") + "\n")
 
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
         try:
