@@ -1,7 +1,7 @@
 # v347 — Server Route Coverage & API Endpoint Tests
 
 **Date**: 2026-04-01
-**Status**: Completed
+**Status:** Completed
 **Goal**: Add HTTP-level tests for untested server API routes
 
 ## Context
@@ -37,6 +37,14 @@ direct route-level tests:
 - **TestResolveTaskWorkspace** (6 tests) — workspace from metadata, repo_path
   fallback, repo key fallback, no workspace error, completed cleanup error,
   running not-found error
+
+## Tasks
+
+- [x] Add route-level tests for `POST /build` JSON API
+- [x] Add route-level tests for `GET /tasks/{task_id}` and `POST /tasks/{task_id}/cancel`
+- [x] Add route-level tests for `GET /config` and `GET /notif-sw.js`
+- [x] Add route-level tests for multiplayer health endpoints
+- [x] Add `resolve_task_workspace` unit tests
 
 ## Results
 
