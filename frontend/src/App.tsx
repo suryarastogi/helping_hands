@@ -288,6 +288,12 @@ export default function App() {
         if (config.has_github_token === false) {
           setServerHasGithubToken(false);
         }
+        if (config.default_repo) {
+          setForm((current) => ({
+            ...current,
+            repo_path: config.default_repo!,
+          }));
+        }
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, [setForm]);

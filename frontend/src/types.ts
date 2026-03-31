@@ -136,6 +136,7 @@ export type ServerConfig = {
   enabled_backends?: string[];
   claude_native_cli_auth?: boolean;
   has_github_token?: boolean;
+  default_repo?: string | null;
 };
 
 export type ServiceHealth = {
