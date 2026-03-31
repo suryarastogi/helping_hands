@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-01 v347 — Server Route Coverage & API Endpoint Tests](exec-plans/completed/2026/v347-server-route-coverage.md) —
+  Add 26 tests covering POST /build JSON API, GET /tasks/{task_id}, task cancel,
+  GET /config, GET /notif-sw.js, health/multiplayer endpoints, and
+  _resolve_task_workspace helper; 287 server tests passed, no regressions
+
 - [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
   Rewrite README Quick Start as three numbered steps (install, set keys, run);
   implement first-run welcome banner with `~/.helping_hands/.first_run_done`

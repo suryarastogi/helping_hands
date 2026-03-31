@@ -15,6 +15,7 @@ HTTP errors, making them easy to miss without targeted tests.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -32,6 +33,7 @@ from helping_hands.server.app import (
     _enqueue_build_task,
     _fetch_flower_current_tasks,
     _redact_token,
+    _resolve_task_workspace,
     _resolve_worker_capacity,
     _validate_path_param,
 )
@@ -904,3 +906,121 @@ class TestIterWorkerTaskEntriesNonStringKey:
         payload = {1: [{"id": "t1"}], 2: [{"id": "t2"}]}
         entries = _iter_worker_task_entries(payload)
         assert entries == []
+
+
+# ---------------------------------------------------------------------------
+# _resolve_task_workspace
+# ---------------------------------------------------------------------------
+
+
+class TestResolveTaskWorkspace:
+    """Cover the workspace-resolution logic used by diff/tree/file endpoints."""
+
+    def test_returns_workspace_from_task_metadata(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Happy path: workspace key points to a real directory."""
+        workspace_dir = tmp_path / "work"
+        workspace_dir.mkdir()
+
+        fake_result = MagicMock()
+        fake_result.ready.return_value = False
+        fake_result.info = {"workspace": str(workspace_dir)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda _tid: fake_result,
+        )
+
+        path, ws_str, ready, error = _resolve_task_workspace("t1")
+        assert path == workspace_dir
+        assert ws_str == str(workspace_dir)
+        assert ready is False
+        assert error is None
+
+    def test_falls_back_to_repo_path(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """When workspace is absent, falls back to repo_path if it exists."""
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+
+        fake_result = MagicMock()
+        fake_result.ready.return_value = False
+        fake_result.info = {"repo_path": str(repo_dir)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda _tid: fake_result,
+        )
+
+        path, _ws_str, _ready, error = _resolve_task_workspace("t2")
+        assert path is not None
+        assert error is None
+
+    def test_returns_error_when_no_workspace(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No workspace or repo_path available."""
+        fake_result = MagicMock()
+        fake_result.ready.return_value = False
+        fake_result.info = None
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda _tid: fake_result,
+        )
+
+        path, _ws_str, _ready, error = _resolve_task_workspace("t3")
+        assert path is None
+        assert error == "Workspace not available yet"
+
+    def test_returns_cleanup_error_for_completed_missing_workspace(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Completed task with nonexistent workspace directory."""
+        fake_result = MagicMock()
+        fake_result.ready.return_value = True
+        fake_result.result = {"workspace": str(tmp_path / "gone")}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda _tid: fake_result,
+        )
+
+        path, _ws_str, ready, error = _resolve_task_workspace("t4")
+        assert path is None
+        assert ready is True
+        assert "cleaned up" in error.lower()
+
+    def test_returns_not_found_for_running_missing_workspace(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Running task with nonexistent workspace directory."""
+        fake_result = MagicMock()
+        fake_result.ready.return_value = False
+        fake_result.info = {"workspace": str(tmp_path / "gone")}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda _tid: fake_result,
+        )
+
+        path, _ws_str, ready, error = _resolve_task_workspace("t5")
+        assert path is None
+        assert ready is False
+        assert "not found" in error.lower()
+
+    def test_uses_repo_key_as_fallback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Falls back to 'repo' key when 'repo_path' is missing."""
+        repo_dir = tmp_path / "alt-repo"
+        repo_dir.mkdir()
+
+        fake_result = MagicMock()
+        fake_result.ready.return_value = False
+        fake_result.info = {"repo": str(repo_dir)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda _tid: fake_result,
+        )
+
+        path, _ws_str, _ready, error = _resolve_task_workspace("t6")
+        assert path is not None
+        assert error is None

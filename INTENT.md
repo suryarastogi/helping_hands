@@ -8,6 +8,18 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Server Route Coverage & API Endpoint Tests (2026-04-01) — Completed
+
+Added 26 new tests covering previously untested server HTTP routes: `POST /build`
+JSON API (7 tests), `GET /tasks/{task_id}` status lookup (3 tests),
+`POST /tasks/{task_id}/cancel` cancellation (2 tests), `GET /config` runtime
+configuration (3 tests), `GET /notif-sw.js` service worker (1 test),
+`GET /health/multiplayer` family (4 tests), and `_resolve_task_workspace` helper
+(6 tests). These cover the primary programmatic API used by the React frontend
+and critical workspace-resolution logic for diff/tree/file endpoints. 287 server
+tests passed, no regressions. See
+[v347 plan](docs/exec-plans/completed/2026/v347-server-route-coverage.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →
