@@ -1636,3 +1636,324 @@ class TestCostAccumulation:
         assert claude_hand._cumulative_input_tokens == 300
         assert claude_hand._cumulative_output_tokens == 150
         assert claude_hand._last_session_id == "sess-2"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_mcp_config / _inject_mcp_config
+# ---------------------------------------------------------------------------
+
+
+class TestMcpConfig:
+    def test_empty_when_no_env(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_MCP_CONFIG", raising=False)
+        assert ClaudeCodeHand._resolve_mcp_config() == ""
+
+    def test_returns_path_when_file_exists(self, monkeypatch, tmp_path) -> None:
+        config_file = tmp_path / "mcp.json"
+        config_file.write_text('{"mcpServers": {}}')
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MCP_CONFIG", str(config_file))
+        result = ClaudeCodeHand._resolve_mcp_config()
+        assert result == str(config_file.resolve())
+
+    def test_empty_when_file_missing(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setenv(
+            "HELPING_HANDS_CLAUDE_MCP_CONFIG", str(tmp_path / "nonexistent.json")
+        )
+        assert ClaudeCodeHand._resolve_mcp_config() == ""
+
+    def test_empty_when_file_too_large(self, monkeypatch, tmp_path) -> None:
+        config_file = tmp_path / "huge.json"
+        config_file.write_text("x" * (64 * 1024 + 1))
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MCP_CONFIG", str(config_file))
+        assert ClaudeCodeHand._resolve_mcp_config() == ""
+
+    def test_inject_mcp_config_before_p_flag(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_mcp_config(cmd, "/path/to/mcp.json")
+        assert "--mcp-config" in result
+        assert "/path/to/mcp.json" in result
+        assert result.index("--mcp-config") < result.index("-p")
+
+    def test_inject_mcp_config_skips_empty(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_mcp_config(cmd, "")
+        assert "--mcp-config" not in result
+
+    def test_inject_mcp_config_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--mcp-config", "/existing.json", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_mcp_config(cmd, "/new.json")
+        assert result.count("--mcp-config") == 1
+
+    def test_inject_mcp_config_no_p_flag(self) -> None:
+        cmd = ["claude", "do stuff"]
+        result = ClaudeCodeHand._inject_mcp_config(cmd, "/path/to/mcp.json")
+        assert "--mcp-config" in result
+        assert "/path/to/mcp.json" in result
+
+
+# ---------------------------------------------------------------------------
+# _resolve_thinking_budget / _inject_thinking_budget
+# ---------------------------------------------------------------------------
+
+
+class TestThinkingBudget:
+    def test_default_omit(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_THINKING_BUDGET", raising=False)
+        assert ClaudeCodeHand._resolve_thinking_budget() == 0
+
+    def test_valid_positive_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_THINKING_BUDGET", "10000")
+        assert ClaudeCodeHand._resolve_thinking_budget() == 10000
+
+    def test_zero_returns_omit(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_THINKING_BUDGET", "0")
+        assert ClaudeCodeHand._resolve_thinking_budget() == 0
+
+    def test_negative_returns_omit(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_THINKING_BUDGET", "-100")
+        assert ClaudeCodeHand._resolve_thinking_budget() == 0
+
+    def test_non_integer_returns_omit(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_THINKING_BUDGET", "abc")
+        assert ClaudeCodeHand._resolve_thinking_budget() == 0
+
+    def test_whitespace_only_returns_omit(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_THINKING_BUDGET", "   ")
+        assert ClaudeCodeHand._resolve_thinking_budget() == 0
+
+    def test_inject_before_p_flag(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_thinking_budget(cmd, 8000)
+        assert "--thinking-budget-tokens" in result
+        assert result[result.index("--thinking-budget-tokens") + 1] == "8000"
+        assert result.index("--thinking-budget-tokens") < result.index("-p")
+
+    def test_zero_budget_skips(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_thinking_budget(cmd, 0)
+        assert "--thinking-budget-tokens" not in result
+
+    def test_already_present_skips(self) -> None:
+        cmd = ["claude", "--thinking-budget-tokens", "5000", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_thinking_budget(cmd, 10000)
+        assert result.count("--thinking-budget-tokens") == 1
+        assert result[result.index("--thinking-budget-tokens") + 1] == "5000"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_permission_mode / _inject_permission_mode
+# ---------------------------------------------------------------------------
+
+
+class TestPermissionMode:
+    def test_empty_when_no_env(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_PERMISSION_MODE", raising=False)
+        assert ClaudeCodeHand._resolve_permission_mode() == ""
+
+    def test_reads_env_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_PERMISSION_MODE", "plan")
+        assert ClaudeCodeHand._resolve_permission_mode() == "plan"
+
+    def test_strips_whitespace(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_PERMISSION_MODE", "  default  ")
+        assert ClaudeCodeHand._resolve_permission_mode() == "default"
+
+    def test_inject_before_p_flag(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_permission_mode(cmd, "plan")
+        assert "--permission-mode" in result
+        assert "plan" in result
+        assert result.index("--permission-mode") < result.index("-p")
+
+    def test_inject_skips_empty(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_permission_mode(cmd, "")
+        assert "--permission-mode" not in result
+
+    def test_inject_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--permission-mode", "default", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_permission_mode(cmd, "plan")
+        assert result.count("--permission-mode") == 1
+
+
+# ---------------------------------------------------------------------------
+# _inject_resume_session
+# ---------------------------------------------------------------------------
+
+
+class TestResumeSession:
+    def test_replaces_p_with_resume_and_removes_prompt(self) -> None:
+        cmd = ["claude", "--output-format", "stream-json", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_resume_session(cmd, "sess-abc123")
+        assert "--resume" in result
+        assert "-p" not in result
+        assert "do stuff" not in result
+        assert "--session-id" in result
+        assert "sess-abc123" in result
+
+    def test_skips_empty_session_id(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_resume_session(cmd, "")
+        assert result == cmd
+
+    def test_skips_if_resume_already_present(self) -> None:
+        cmd = ["claude", "--resume"]
+        result = ClaudeCodeHand._inject_resume_session(cmd, "sess-abc123")
+        assert result.count("--resume") == 1
+
+    def test_skips_if_continue_present(self) -> None:
+        cmd = ["claude", "--continue", "do more stuff"]
+        result = ClaudeCodeHand._inject_resume_session(cmd, "sess-abc123")
+        assert "--resume" not in result
+
+    def test_no_p_flag_returns_unchanged(self) -> None:
+        cmd = ["claude", "do stuff"]
+        result = ClaudeCodeHand._inject_resume_session(cmd, "sess-abc123")
+        assert result == cmd
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter system event and subagent tracking
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterNewFeatures:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_system_event_captures_model(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "system", "model": "claude-opus-4-6"})
+        self._run(parser(event + "\n"))
+        assert parser.model == "claude-opus-4-6"
+
+    def test_system_event_empty_model_ignored(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "system", "model": ""})
+        self._run(parser(event + "\n"))
+        assert parser.model == ""
+
+    def test_system_event_non_string_model_ignored(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "system", "model": 42})
+        self._run(parser(event + "\n"))
+        assert parser.model == ""
+
+    def test_result_event_captures_is_error(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {"type": "result", "result": "error occurred", "is_error": True}
+        )
+        self._run(parser(event + "\n"))
+        assert parser.is_error is True
+
+    def test_result_event_is_error_defaults_false(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "result", "result": "done"})
+        self._run(parser(event + "\n"))
+        assert parser.is_error is False
+
+    def test_subagent_count_tracks_agent_tool(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        for i in range(3):
+            event = json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Agent",
+                                "input": {"description": f"task {i}"},
+                            }
+                        ]
+                    },
+                }
+            )
+            self._run(parser(event + "\n"))
+        assert parser.total_subagents == 3
+
+    def test_non_agent_tool_does_not_count(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Read",
+                            "input": {"file_path": "/a.py"},
+                        }
+                    ]
+                },
+            }
+        )
+        self._run(parser(event + "\n"))
+        assert parser.total_subagents == 0
+
+
+# ---------------------------------------------------------------------------
+# New tool summary entries (ToolSearch, SendMessage, TaskOutput, TaskStop)
+# ---------------------------------------------------------------------------
+
+
+class TestSummarizeToolNew:
+    def test_tool_search(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("ToolSearch", {"query": "select:Read"})
+            == "ToolSearch 'select:Read'"
+        )
+
+    def test_tool_search_no_query(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("ToolSearch", {}) == "ToolSearch"
+
+    def test_send_message(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("SendMessage", {"to": "agent-123"})
+            == "SendMessage -> agent-123"
+        )
+
+    def test_send_message_no_to(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("SendMessage", {}) == "SendMessage"
+
+    def test_task_output(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("TaskOutput", {"id": "task-456"})
+            == "TaskOutput task-456"
+        )
+
+    def test_task_output_no_id(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("TaskOutput", {}) == "TaskOutput"
+
+    def test_task_stop(self) -> None:
+        assert (
+            _StreamJsonEmitter._summarize_tool("TaskStop", {"id": "task-789"})
+            == "TaskStop task-789"
+        )
+
+    def test_task_stop_no_id(self) -> None:
+        assert _StreamJsonEmitter._summarize_tool("TaskStop", {}) == "TaskStop"

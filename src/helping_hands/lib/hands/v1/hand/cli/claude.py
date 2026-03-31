@@ -47,6 +47,9 @@ _EVENT_TYPE_USER = "user"
 _EVENT_TYPE_RESULT = "result"
 """Event type for the final result summary (cost, duration, usage)."""
 
+_EVENT_TYPE_SYSTEM = "system"
+"""Event type for system messages (configuration, model info, etc.)."""
+
 # Content block types within assistant/user message payloads.
 
 _BLOCK_TYPE_TOOL_USE = "tool_use"
@@ -88,6 +91,12 @@ _SYSTEM_PROMPT_MAX_LENGTH = 12000
 _AGENT_DOC_CANDIDATES = ("AGENT.md", "agent.md", "CLAUDE.md")
 """Filenames to read from repo root for ``--append-system-prompt`` injection."""
 
+_DEFAULT_THINKING_BUDGET = 0
+"""Default thinking-budget-tokens (0 = omit flag). Set via env var."""
+
+_MCP_CONFIG_MAX_SIZE = 64 * 1024
+"""Maximum size (bytes) for MCP config files to prevent accidental huge reads."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -106,6 +115,10 @@ class _StreamJsonEmitter:
         self._total_cost_usd: float | None = None
         self._duration_ms: float | None = None
         self._usage: dict[str, int] = {}
+        self._active_subagents: int = 0
+        self._total_subagents: int = 0
+        self._model: str = ""
+        self._is_error: bool = False
 
     def _label_msg(self, msg: str) -> str:
         """Prefix *msg* with the backend label.
@@ -200,6 +213,9 @@ class _StreamJsonEmitter:
                 if block_type == _BLOCK_TYPE_TOOL_USE:
                     name = block.get("name", "unknown")
                     input_data = block.get("input", {})
+                    if name == "Agent":
+                        self._total_subagents += 1
+                        self._active_subagents += 1
                     summary = self._summarize_tool(name, input_data)
                     await self._emit(self._label_msg(summary) + "\n")
                 elif block_type == _BLOCK_TYPE_TEXT:
@@ -234,8 +250,15 @@ class _StreamJsonEmitter:
                     )
                     await self._emit(self._label_msg(f"-> {preview}") + "\n")
 
+        elif event_type == _EVENT_TYPE_SYSTEM:
+            # System events carry model info and configuration.
+            model = event.get("model", "")
+            if isinstance(model, str) and model:
+                self._model = model
+
         elif event_type == _EVENT_TYPE_RESULT:
             self._result = event.get("result", "")
+            self._is_error = bool(event.get("is_error", False))
             # Capture session ID for --continue / --resume support.
             session_id = event.get("session_id", "")
             if isinstance(session_id, str) and session_id:
@@ -329,6 +352,18 @@ class _StreamJsonEmitter:
         if name == "ExitWorktree":
             action = input_data.get("action", "")
             return f"ExitWorktree {action}" if action else "ExitWorktree"
+        if name == "ToolSearch":
+            query = input_data.get("query", "")
+            return f"ToolSearch {query!r}" if query else "ToolSearch"
+        if name == "SendMessage":
+            to = input_data.get("to", "")
+            return f"SendMessage -> {to}" if to else "SendMessage"
+        if name == "TaskOutput":
+            task_id = input_data.get("id", "")
+            return f"TaskOutput {task_id}" if task_id else "TaskOutput"
+        if name == "TaskStop":
+            task_id = input_data.get("id", "")
+            return f"TaskStop {task_id}" if task_id else "TaskStop"
         return f"tool: {name}"
 
     def result_text(self) -> str:
@@ -375,6 +410,33 @@ class _StreamJsonEmitter:
             meta["usage"] = dict(self._usage)
         return meta
 
+    @property
+    def model(self) -> str:
+        """Return the model name captured from a system event.
+
+        Returns:
+            The model string, or empty if no system event was received.
+        """
+        return self._model
+
+    @property
+    def is_error(self) -> bool:
+        """Return whether the result event indicated an error.
+
+        Returns:
+            ``True`` if the result was flagged as an error.
+        """
+        return self._is_error
+
+    @property
+    def total_subagents(self) -> int:
+        """Return the total number of Agent tool invocations observed.
+
+        Returns:
+            Count of Agent tool_use blocks seen in the stream.
+        """
+        return self._total_subagents
+
 
 class ClaudeCodeHand(_TwoPhaseCLIHand):
     """Hand backed by Claude Code CLI subprocess execution.
@@ -393,6 +455,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     - ``HELPING_HANDS_CLAUDE_SESSION_CONTINUE``: Set to ``1`` to enable
       session continuation (``--continue``) for the apply-changes enforcement
       phase, reusing the session from the task phase.
+    - ``HELPING_HANDS_CLAUDE_MCP_CONFIG``: Path to a JSON MCP config file
+      passed via ``--mcp-config`` to give Claude access to external MCP tools.
+    - ``HELPING_HANDS_CLAUDE_THINKING_BUDGET``: Token budget for extended
+      thinking (maps to ``--thinking-budget-tokens``). Default: omitted.
+    - ``HELPING_HANDS_CLAUDE_PERMISSION_MODE``: Permission mode string
+      (e.g. ``plan``, ``default``) for ``--permission-mode``.
     """
 
     _BACKEND_NAME = "claudecodecli"
@@ -804,6 +872,194 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return result
 
     # ------------------------------------------------------------------
+    # --mcp-config support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_mcp_config() -> str:
+        """Resolve the ``--mcp-config`` file path from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_MCP_CONFIG``. The file must exist and
+        be a valid JSON file within the size limit.
+
+        Returns:
+            The validated file path string, or empty if not configured.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_MCP_CONFIG", "").strip()
+        if not raw:
+            return ""
+        import pathlib
+
+        path = pathlib.Path(raw).expanduser().resolve()
+        if not path.is_file():
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_MCP_CONFIG path %r does not exist, skipping",
+                raw,
+            )
+            return ""
+        try:
+            size = path.stat().st_size
+        except OSError:
+            logger.warning("Cannot stat MCP config %r, skipping", raw, exc_info=True)
+            return ""
+        if size > _MCP_CONFIG_MAX_SIZE:
+            logger.warning(
+                "MCP config %r is %d bytes (max %d), skipping",
+                raw,
+                size,
+                _MCP_CONFIG_MAX_SIZE,
+            )
+            return ""
+        return str(path)
+
+    @staticmethod
+    def _inject_mcp_config(cmd: list[str], config_path: str) -> list[str]:
+        """Insert ``--mcp-config <path>`` before the ``-p`` flag if not present.
+
+        Args:
+            cmd: Command tokens.
+            config_path: Path to the MCP config JSON file (empty = skip).
+
+        Returns:
+            Command tokens with ``--mcp-config`` injected when applicable.
+        """
+        if not config_path:
+            return cmd
+        if has_cli_flag(cmd, "mcp-config"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--mcp-config", config_path, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --thinking-budget-tokens support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_thinking_budget() -> int:
+        """Resolve the ``--thinking-budget-tokens`` value from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_THINKING_BUDGET`` (default ``0`` = omit).
+        Non-numeric or non-positive values are treated as omit.
+
+        Returns:
+            The thinking budget integer, or ``0`` to omit the flag.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_THINKING_BUDGET", "")
+        if not raw.strip():
+            return _DEFAULT_THINKING_BUDGET
+        try:
+            value = int(raw.strip())
+        except ValueError:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_THINKING_BUDGET has non-integer value %r, "
+                "omitting flag",
+                raw,
+            )
+            return _DEFAULT_THINKING_BUDGET
+        return value if value > 0 else _DEFAULT_THINKING_BUDGET
+
+    @staticmethod
+    def _inject_thinking_budget(cmd: list[str], budget: int) -> list[str]:
+        """Insert ``--thinking-budget-tokens <n>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            budget: Token budget for extended thinking (0 = skip injection).
+
+        Returns:
+            Command tokens with ``--thinking-budget-tokens`` injected.
+        """
+        if budget <= 0:
+            return cmd
+        if has_cli_flag(cmd, "thinking-budget-tokens"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--thinking-budget-tokens", str(budget), *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --permission-mode support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_permission_mode() -> str:
+        """Resolve the ``--permission-mode`` value from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_PERMISSION_MODE``. When set, this is
+        passed directly to the Claude CLI. Common values include
+        ``plan``, ``default``, and ``bypassPermissions``.
+
+        Returns:
+            The permission mode string, or empty if not configured.
+        """
+        return os.environ.get("HELPING_HANDS_CLAUDE_PERMISSION_MODE", "").strip()
+
+    @staticmethod
+    def _inject_permission_mode(cmd: list[str], mode: str) -> list[str]:
+        """Insert ``--permission-mode <mode>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            mode: Permission mode string (empty = skip injection).
+
+        Returns:
+            Command tokens with ``--permission-mode`` injected when applicable.
+        """
+        if not mode:
+            return cmd
+        if has_cli_flag(cmd, "permission-mode"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--permission-mode", mode, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --resume support (continue without a new prompt)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _inject_resume_session(cmd: list[str], session_id: str) -> list[str]:
+        """Replace ``-p`` with ``--resume`` and inject the session ID.
+
+        Unlike ``--continue`` which takes a new prompt, ``--resume`` resumes
+        the session without additional user input. Useful for retrying after
+        max-turns or interruptions.
+
+        Args:
+            cmd: Command tokens containing ``-p``.
+            session_id: Session ID from a prior result event.
+
+        Returns:
+            Command tokens with ``--resume`` and ``--session-id`` injected,
+            with the prompt argument removed.
+        """
+        if not session_id:
+            return cmd
+        if has_cli_flag(cmd, "resume") or has_cli_flag(cmd, "continue"):
+            return cmd
+        result = list(cmd)
+        try:
+            p_idx = result.index("-p")
+        except ValueError:
+            return cmd
+        # Remove -p and the prompt argument that follows it.
+        if p_idx + 1 < len(result):
+            result.pop(p_idx + 1)
+        result[p_idx] = "--resume"
+        # Inject --session-id before --resume.
+        if not has_cli_flag(result, "session-id"):
+            result.insert(p_idx, session_id)
+            result.insert(p_idx, "--session-id")
+        return result
+
+    # ------------------------------------------------------------------
     # Cost tracking
     # ------------------------------------------------------------------
 
@@ -881,6 +1137,26 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             await emit(
                 self._label_msg(f"disallowedTools={','.join(disallowed)}") + "\n"
             )
+
+        # --mcp-config
+        mcp_config = self._resolve_mcp_config()
+        if mcp_config:
+            cmd = self._inject_mcp_config(cmd, mcp_config)
+            if self.config.verbose:
+                await emit(self._label_msg(f"mcp-config={mcp_config}") + "\n")
+
+        # --thinking-budget-tokens
+        thinking_budget = self._resolve_thinking_budget()
+        cmd = self._inject_thinking_budget(cmd, thinking_budget)
+        if thinking_budget > 0 and self.config.verbose:
+            await emit(self._label_msg(f"thinking-budget={thinking_budget}") + "\n")
+
+        # --permission-mode
+        permission_mode = self._resolve_permission_mode()
+        if permission_mode:
+            cmd = self._inject_permission_mode(cmd, permission_mode)
+            if self.config.verbose:
+                await emit(self._label_msg(f"permission-mode={permission_mode}") + "\n")
 
         # --continue session resumption
         if continue_session and self._last_session_id:
