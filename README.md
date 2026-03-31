@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** April 1, 2026
 
 ## What is this?
 
@@ -813,6 +813,16 @@ services if they are not set in `.env`:
 - `CELERY_RESULT_BACKEND=redis://redis:6379/1`
 - `HELPING_HANDS_FLOWER_API_URL=http://flower:5555` (server-side `/tasks/current`
   discovery path)
+
+## Smoke Test Results
+
+Last run: **April 1, 2026** (Python 3.12)
+
+| Check | Result |
+|-------|--------|
+| `uv run pytest -v` | 6568 passed, 268 skipped (28.63s) |
+| `uv run ruff check .` | All checks passed |
+| Coverage | 74.73% (threshold 75.0%) |
 
 ## License
 
