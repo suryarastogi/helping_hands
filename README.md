@@ -10,7 +10,16 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** April 1, 2026
+
+### Smoke Test Results (April 1, 2026)
+
+| Check | Result |
+|-------|--------|
+| Ruff lint | All checks passed |
+| Ruff format | 274 files already formatted |
+| Pytest | 6568 passed, 268 skipped, 3 warnings (25.00s) |
+| Coverage | 74.73% (target: 75.0%) |
 
 ## What is this?
 
