@@ -1290,3 +1290,349 @@ class TestInjectOutputFormatEdgeCases:
     def test_empty_cmd(self) -> None:
         result = ClaudeCodeHand._inject_output_format([], "stream-json")
         assert result == ["--output-format", "stream-json"]
+
+
+# ---------------------------------------------------------------------------
+# _resolve_max_turns
+# ---------------------------------------------------------------------------
+
+
+class TestResolveMaxTurns:
+    def test_default_unlimited(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_MAX_TURNS", raising=False)
+        assert ClaudeCodeHand._resolve_max_turns() == 0
+
+    def test_valid_positive_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS", "25")
+        assert ClaudeCodeHand._resolve_max_turns() == 25
+
+    def test_zero_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS", "0")
+        assert ClaudeCodeHand._resolve_max_turns() == 0
+
+    def test_negative_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS", "-5")
+        assert ClaudeCodeHand._resolve_max_turns() == 0
+
+    def test_non_integer_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS", "abc")
+        assert ClaudeCodeHand._resolve_max_turns() == 0
+
+    def test_whitespace_only_returns_unlimited(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_MAX_TURNS", "   ")
+        assert ClaudeCodeHand._resolve_max_turns() == 0
+
+
+# ---------------------------------------------------------------------------
+# _inject_max_turns
+# ---------------------------------------------------------------------------
+
+
+class TestInjectMaxTurns:
+    def test_injects_before_p_flag(self) -> None:
+        cmd = ["claude", "--dangerously-skip-permissions", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_max_turns(cmd, 10)
+        assert "--max-turns" in result
+        assert result[result.index("--max-turns") + 1] == "10"
+        # --max-turns should appear before -p
+        assert result.index("--max-turns") < result.index("-p")
+
+    def test_zero_max_turns_skips_injection(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_max_turns(cmd, 0)
+        assert "--max-turns" not in result
+
+    def test_already_present_skips_injection(self) -> None:
+        cmd = ["claude", "--max-turns", "5", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_max_turns(cmd, 10)
+        # Should not add a second --max-turns
+        assert result.count("--max-turns") == 1
+        assert result[result.index("--max-turns") + 1] == "5"
+
+    def test_no_p_flag_appends(self) -> None:
+        cmd = ["claude", "do stuff"]
+        result = ClaudeCodeHand._inject_max_turns(cmd, 15)
+        assert "--max-turns" in result
+        assert result[result.index("--max-turns") + 1] == "15"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_system_prompt / _inject_system_prompt
+# ---------------------------------------------------------------------------
+
+
+class TestSystemPrompt:
+    def test_explicit_env_var_takes_priority(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", "custom instructions")
+        assert claude_hand._resolve_system_prompt() == "custom instructions"
+
+    def test_reads_agent_md(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", raising=False)
+        agent_md = claude_hand.repo_index.root / "AGENT.md"
+        agent_md.write_text("# Agent Guidelines\nDo good things.")
+        result = claude_hand._resolve_system_prompt()
+        assert "Agent Guidelines" in result
+
+    def test_reads_claude_md_as_fallback(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", raising=False)
+        claude_md = claude_hand.repo_index.root / "CLAUDE.md"
+        claude_md.write_text("# Claude Instructions\nBe helpful.")
+        result = claude_hand._resolve_system_prompt()
+        assert "Claude Instructions" in result
+
+    def test_agent_md_takes_priority_over_claude_md(
+        self, claude_hand, monkeypatch
+    ) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", raising=False)
+        (claude_hand.repo_index.root / "AGENT.md").write_text("agent doc")
+        (claude_hand.repo_index.root / "CLAUDE.md").write_text("claude doc")
+        result = claude_hand._resolve_system_prompt()
+        assert result == "agent doc"
+
+    def test_empty_when_no_files(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", raising=False)
+        assert claude_hand._resolve_system_prompt() == ""
+
+    def test_truncates_long_content(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", raising=False)
+        (claude_hand.repo_index.root / "AGENT.md").write_text("x" * 20000)
+        result = claude_hand._resolve_system_prompt()
+        assert len(result) < 20000
+        assert result.endswith("...[truncated]")
+
+    def test_inject_system_prompt_inserts_before_p(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_system_prompt(cmd, "be careful")
+        assert "--append-system-prompt" in result
+        assert result.index("--append-system-prompt") < result.index("-p")
+
+    def test_inject_system_prompt_skips_empty(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_system_prompt(cmd, "")
+        assert "--append-system-prompt" not in result
+
+    def test_inject_system_prompt_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--append-system-prompt", "existing", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_system_prompt(cmd, "new prompt")
+        assert result.count("--append-system-prompt") == 1
+
+    def test_inject_system_prompt_skips_if_system_prompt_present(self) -> None:
+        cmd = ["claude", "--system-prompt", "existing", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_system_prompt(cmd, "new prompt")
+        assert "--append-system-prompt" not in result
+
+
+# ---------------------------------------------------------------------------
+# _resolve_tool_filters / _inject_tool_filters
+# ---------------------------------------------------------------------------
+
+
+class TestToolFilters:
+    def test_empty_when_no_env(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_ALLOWED_TOOLS", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS", raising=False)
+        allowed, disallowed = ClaudeCodeHand._resolve_tool_filters()
+        assert allowed == []
+        assert disallowed == []
+
+    def test_parses_allowed_tools(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_ALLOWED_TOOLS", "Bash,Read,Write")
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS", raising=False)
+        allowed, disallowed = ClaudeCodeHand._resolve_tool_filters()
+        assert allowed == ["Bash", "Read", "Write"]
+        assert disallowed == []
+
+    def test_parses_disallowed_tools(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_ALLOWED_TOOLS", raising=False)
+        monkeypatch.setenv(
+            "HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS", "WebFetch,WebSearch"
+        )
+        allowed, disallowed = ClaudeCodeHand._resolve_tool_filters()
+        assert allowed == []
+        assert disallowed == ["WebFetch", "WebSearch"]
+
+    def test_strips_whitespace(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_ALLOWED_TOOLS", " Bash , Read ")
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS", raising=False)
+        allowed, _ = ClaudeCodeHand._resolve_tool_filters()
+        assert allowed == ["Bash", "Read"]
+
+    def test_inject_tool_filters_inserts_both(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_tool_filters(
+            cmd, allowed=["Bash", "Read"], disallowed=["WebFetch"]
+        )
+        assert "--allowedTools" in result
+        assert "Bash,Read" in result
+        assert "--disallowedTools" in result
+        assert "WebFetch" in result
+        assert result.index("--allowedTools") < result.index("-p")
+
+    def test_inject_tool_filters_skips_empty(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_tool_filters(cmd, allowed=[], disallowed=[])
+        assert "--allowedTools" not in result
+        assert "--disallowedTools" not in result
+
+    def test_inject_tool_filters_respects_existing(self) -> None:
+        cmd = ["claude", "--allowedTools", "Bash", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_tool_filters(
+            cmd, allowed=["Read"], disallowed=[]
+        )
+        assert result.count("--allowedTools") == 1
+
+
+# ---------------------------------------------------------------------------
+# Session continue / --continue support
+# ---------------------------------------------------------------------------
+
+
+class TestSessionContinue:
+    def test_session_continue_enabled_default(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_SESSION_CONTINUE", raising=False)
+        assert claude_hand._session_continue_enabled() is True
+
+    def test_session_continue_disabled(self, claude_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_SESSION_CONTINUE", "0")
+        assert claude_hand._session_continue_enabled() is False
+
+    def test_inject_continue_session_replaces_p_flag(self) -> None:
+        cmd = ["claude", "--output-format", "stream-json", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_continue_session(cmd, "sess-abc123")
+        assert "--continue" in result
+        assert "-p" not in result
+        assert "--session-id" in result
+        assert "sess-abc123" in result
+
+    def test_inject_continue_session_skips_empty_id(self) -> None:
+        cmd = ["claude", "-p", "do stuff"]
+        result = ClaudeCodeHand._inject_continue_session(cmd, "")
+        assert result == cmd
+
+    def test_inject_continue_session_skips_if_continue_present(self) -> None:
+        cmd = ["claude", "--continue", "do stuff"]
+        result = ClaudeCodeHand._inject_continue_session(cmd, "sess-abc123")
+        assert result.count("--continue") == 1
+
+    def test_inject_continue_session_skips_if_resume_present(self) -> None:
+        cmd = ["claude", "--resume", "sess-xyz"]
+        result = ClaudeCodeHand._inject_continue_session(cmd, "sess-abc123")
+        # Should not modify
+        assert "--session-id" not in result
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter session_id and cost_metadata
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterMetadata:
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_session_id_captured(self) -> None:
+        emitted: list[str] = []
+
+        async def emit(text: str) -> None:
+            emitted.append(text)
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "session_id": "sess-12345678",
+                "total_cost_usd": 0.05,
+            }
+        )
+        self._run(parser(event + "\n"))
+        assert parser.session_id == "sess-12345678"
+
+    def test_session_id_empty_when_not_present(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "result", "result": "done"})
+        self._run(parser(event + "\n"))
+        assert parser.session_id == ""
+
+    def test_cost_metadata_captured(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.1234,
+                "duration_ms": 5000,
+                "usage": {"input_tokens": 100, "output_tokens": 200},
+            }
+        )
+        self._run(parser(event + "\n"))
+        meta = parser.cost_metadata
+        assert meta["total_cost_usd"] == pytest.approx(0.1234)
+        assert meta["duration_ms"] == pytest.approx(5000.0)
+        assert meta["usage"]["input_tokens"] == 100
+        assert meta["usage"]["output_tokens"] == 200
+
+    def test_cost_metadata_empty_when_no_result(self) -> None:
+        async def emit(text: str) -> None:
+            pass
+
+        parser = _StreamJsonEmitter(emit, "test")
+        assert parser.cost_metadata == {}
+
+
+# ---------------------------------------------------------------------------
+# Cost accumulation
+# ---------------------------------------------------------------------------
+
+
+class TestCostAccumulation:
+    def test_accumulates_across_invocations(self, claude_hand, monkeypatch) -> None:
+        call_count = 0
+
+        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+            nonlocal call_count
+            call_count += 1
+            event = json.dumps(
+                {
+                    "type": "result",
+                    "result": f"result-{call_count}",
+                    "total_cost_usd": 0.01 * call_count,
+                    "usage": {
+                        "input_tokens": 100 * call_count,
+                        "output_tokens": 50 * call_count,
+                    },
+                    "session_id": f"sess-{call_count}",
+                }
+            )
+            await emit(event + "\n")
+            return ""
+
+        monkeypatch.setattr(
+            claude_hand, "_invoke_cli_with_cmd", fake_invoke_cli_with_cmd
+        )
+        monkeypatch.setattr(
+            claude_hand,
+            "_render_command",
+            lambda prompt: ["claude", "-p", prompt],
+        )
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_MAX_TURNS", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_ALLOWED_TOOLS", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS", raising=False)
+
+        async def emit(text: str) -> None:
+            pass
+
+        asyncio.run(claude_hand._invoke_claude("first", emit=emit))
+        asyncio.run(claude_hand._invoke_claude("second", emit=emit))
+
+        assert claude_hand._cumulative_cost_usd == pytest.approx(0.03)
+        assert claude_hand._cumulative_input_tokens == 300
+        assert claude_hand._cumulative_output_tokens == 150
+        assert claude_hand._last_session_id == "sess-2"
