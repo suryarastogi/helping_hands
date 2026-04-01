@@ -10,7 +10,18 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** April 1, 2026
+
+### Latest Smoke Test Results
+
+| Check | Result |
+|-------|--------|
+| **pytest** | 6567 passed, 1 failed, 268 skipped (21s) |
+| **ruff lint** | All checks passed |
+| **ruff format** | 274 files already formatted |
+| **coverage** | 74.69% (threshold 75.0%) |
+
+> One test failure: `test_design_doc_count_in_parenthetical` — `docs/index.md` lists 26 design docs but 27 `.md` files exist in `design-docs/`.
 
 ## What is this?
 
