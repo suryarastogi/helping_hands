@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "_DEFAULT_BUDGET_TOKENS",
     "_OUTPUT_FORMAT_STREAM_JSON",
+    "_PERMISSION_PROMPT_TOOL_MAX_LENGTH",
+    "_PROMPT_STDIN_LENGTH_THRESHOLD",
     "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
     "_TOOL_SUMMARY_STATIC",
@@ -125,6 +127,13 @@ _BLOCK_TYPE_THINKING = "thinking"
 _THINKING_PREVIEW_MAX_LENGTH = 120
 """Maximum length for thinking content previews before truncation."""
 
+_PROMPT_STDIN_LENGTH_THRESHOLD = 80_000
+"""Prompt length (chars) above which the prompt is piped via stdin instead of
+CLI arguments, to avoid OS ``E2BIG`` / ``ARG_MAX`` limits."""
+
+_PERMISSION_PROMPT_TOOL_MAX_LENGTH = 500
+"""Maximum character length for ``--permission-prompt-tool`` MCP tool name."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -152,6 +161,7 @@ class _StreamJsonEmitter:
         self._cache_creation_tokens: int = 0
         self._cache_read_tokens: int = 0
         self._num_turns: int = 0
+        self._compaction_count: int = 0
 
     def _label_msg(self, msg: str) -> str:
         """Prefix *msg* with the backend label.
@@ -304,10 +314,18 @@ class _StreamJsonEmitter:
                     await self._emit(self._label_msg(f"-> {preview}") + "\n")
 
         elif event_type == _EVENT_TYPE_SYSTEM:
-            # System events carry model info and configuration.
+            # System events carry model info, configuration, and compaction.
             model = event.get("model", "")
             if isinstance(model, str) and model:
                 self._model = model
+            subtype = event.get("subtype", "")
+            if subtype == "conversation_compacted":
+                self._compaction_count += 1
+                await self._emit(
+                    self._label_msg(
+                        f"conversation compacted (#{self._compaction_count})\n"
+                    )
+                )
 
         elif event_type == _EVENT_TYPE_RESULT:
             self._result = event.get("result", "")
@@ -575,6 +593,20 @@ class _StreamJsonEmitter:
         """
         return self._num_turns
 
+    @property
+    def compaction_count(self) -> int:
+        """Return the number of conversation compaction events observed.
+
+        Claude Code compacts the conversation when the context window
+        fills up, discarding older messages while preserving a summary.
+        Tracking this helps detect long-running sessions that may lose
+        important early context.
+
+        Returns:
+            Count of compaction events seen in the stream.
+        """
+        return self._compaction_count
+
 
 class ClaudeCodeHand(_TwoPhaseCLIHand):
     """Hand backed by Claude Code CLI subprocess execution.
@@ -614,6 +646,16 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     - ``HELPING_HANDS_CLAUDE_CWD``: Working directory override for Claude
       Code execution (maps to ``--cwd``). Useful when the repo root
       differs from the process working directory. Default: omitted.
+    - ``HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL``: MCP tool name for
+      programmatic permission handling (maps to ``--permission-prompt-tool``).
+      Routes permission decisions to the named MCP tool instead of the
+      built-in interactive prompt.
+    - ``HELPING_HANDS_CLAUDE_INPUT_FORMAT``: Input format for the prompt
+      (maps to ``--input-format``). Set to ``stream-json`` to send
+      structured JSON input with image attachments via stdin.
+
+    Prompts exceeding ~80K characters are automatically piped via stdin
+    instead of CLI arguments to avoid OS ``ARG_MAX`` limits.
 
     Reference repos from ``config.reference_repos`` are automatically
     passed as ``--add-dir`` flags for read-only context.
@@ -658,6 +700,8 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         self._cumulative_cache_creation_tokens: int = 0
         self._cumulative_cache_read_tokens: int = 0
         self._cumulative_thinking_tokens: int = 0
+        self._cumulative_duration_ms: float = 0.0
+        self._cumulative_compactions: int = 0
         self._next_invoke_continue: bool = False
         self._last_num_turns: int = 0
 
@@ -1287,6 +1331,152 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return [*cmd[:p_idx], "--prefill", prefill, *cmd[p_idx:]]
 
     # ------------------------------------------------------------------
+    # --permission-prompt-tool support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_permission_prompt_tool() -> str:
+        """Resolve the ``--permission-prompt-tool`` MCP tool name from env.
+
+        Reads ``HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL``. When set,
+        Claude Code routes permission decisions to this MCP tool instead
+        of using the built-in interactive prompt. This enables programmatic
+        permission handling in automated pipelines.
+
+        Returns:
+            The MCP tool name string, or empty if not configured.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL", "").strip()
+        if not raw:
+            return ""
+        if len(raw) > _PERMISSION_PROMPT_TOOL_MAX_LENGTH:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL value too long "
+                "(%d chars, max %d), skipping",
+                len(raw),
+                _PERMISSION_PROMPT_TOOL_MAX_LENGTH,
+            )
+            return ""
+        return raw
+
+    @staticmethod
+    def _inject_permission_prompt_tool(cmd: list[str], tool_name: str) -> list[str]:
+        """Insert ``--permission-prompt-tool <name>`` before ``-p``.
+
+        Args:
+            cmd: Command tokens.
+            tool_name: MCP tool name for permission handling (empty = skip).
+
+        Returns:
+            Command tokens with flag injected when applicable.
+        """
+        if not tool_name:
+            return cmd
+        if has_cli_flag(cmd, "permission-prompt-tool"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [
+            *cmd[:p_idx],
+            "--permission-prompt-tool",
+            tool_name,
+            *cmd[p_idx:],
+        ]
+
+    # ------------------------------------------------------------------
+    # --input-format support (structured input)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_input_format() -> str:
+        """Resolve the ``--input-format`` value from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_INPUT_FORMAT``. When set to
+        ``stream-json``, Claude Code accepts structured JSON input via
+        stdin, enabling image attachments and multi-part messages.
+
+        Returns:
+            The input format string, or empty if not configured.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_INPUT_FORMAT", "").strip()
+        if raw and raw not in ("text", "stream-json"):
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_INPUT_FORMAT has unknown value %r, skipping",
+                raw,
+            )
+            return ""
+        return raw
+
+    @staticmethod
+    def _inject_input_format(cmd: list[str], fmt: str) -> list[str]:
+        """Insert ``--input-format <fmt>`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+            fmt: Input format string (empty = skip injection).
+
+        Returns:
+            Command tokens with ``--input-format`` injected when applicable.
+        """
+        if not fmt:
+            return cmd
+        if has_cli_flag(cmd, "input-format"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--input-format", fmt, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # Stdin prompt delivery for long prompts
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _should_pipe_prompt_via_stdin(prompt: str) -> bool:
+        """Check whether the prompt should be piped via stdin.
+
+        Prompts exceeding ``_PROMPT_STDIN_LENGTH_THRESHOLD`` characters are
+        delivered via stdin instead of CLI arguments to avoid OS ``E2BIG``
+        / ``ARG_MAX`` errors.
+
+        Args:
+            prompt: The prompt text to evaluate.
+
+        Returns:
+            ``True`` if the prompt should be piped via stdin.
+        """
+        return len(prompt) > _PROMPT_STDIN_LENGTH_THRESHOLD
+
+    @staticmethod
+    def _strip_prompt_from_cmd(cmd: list[str], prompt: str) -> list[str]:
+        """Remove the prompt argument from the command for stdin delivery.
+
+        When the prompt is piped via stdin, the ``-p`` flag must remain
+        but the prompt text argument that follows it is removed so the CLI
+        reads from stdin instead.
+
+        Args:
+            cmd: Command tokens containing ``-p <prompt>``.
+            prompt: The prompt text to remove.
+
+        Returns:
+            Command tokens with the prompt argument removed after ``-p``.
+        """
+        result = list(cmd)
+        try:
+            p_idx = result.index("-p")
+        except ValueError:
+            return result
+        # Remove the prompt argument after -p.
+        next_idx = p_idx + 1
+        if next_idx < len(result) and result[next_idx] == prompt:
+            result.pop(next_idx)
+        return result
+
+    # ------------------------------------------------------------------
     # --resume support (continue without a new prompt)
     # ------------------------------------------------------------------
 
@@ -1500,7 +1690,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     # ------------------------------------------------------------------
 
     def _accumulate_cost(self, parser: _StreamJsonEmitter) -> None:
-        """Accumulate cost and usage metadata from a completed invocation.
+        """Accumulate cost, duration, and usage metadata from a completed invocation.
 
         Args:
             parser: The stream parser that processed the CLI output.
@@ -1508,6 +1698,8 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         meta = parser.cost_metadata
         if "total_cost_usd" in meta:
             self._cumulative_cost_usd += meta["total_cost_usd"]
+        if "duration_ms" in meta:
+            self._cumulative_duration_ms += meta["duration_ms"]
         usage = meta.get("usage", {})
         self._cumulative_input_tokens += usage.get("input_tokens", 0)
         self._cumulative_output_tokens += usage.get("output_tokens", 0)
@@ -1516,6 +1708,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         )
         self._cumulative_cache_read_tokens += usage.get("cache_read_input_tokens", 0)
         self._cumulative_thinking_tokens += parser.thinking_tokens
+        self._cumulative_compactions += parser.compaction_count
 
     # ------------------------------------------------------------------
     # Core invocation (overrides)
@@ -1630,6 +1823,20 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 preview = prefill[:60].replace("\n", " ")
                 await emit(self._label_msg(f"prefill: {preview}...") + "\n")
 
+        # --permission-prompt-tool
+        ppt = self._resolve_permission_prompt_tool()
+        if ppt:
+            cmd = self._inject_permission_prompt_tool(cmd, ppt)
+            if self.config.verbose:
+                await emit(self._label_msg(f"permission-prompt-tool={ppt}") + "\n")
+
+        # --input-format
+        input_format = self._resolve_input_format()
+        if input_format:
+            cmd = self._inject_input_format(cmd, input_format)
+            if self.config.verbose:
+                await emit(self._label_msg(f"input-format={input_format}") + "\n")
+
         # --continue session resumption
         if continue_session and self._last_session_id:
             cmd = self._inject_continue_session(cmd, self._last_session_id)
@@ -1638,9 +1845,20 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 + "\n"
             )
 
+        # Stdin pipe for long prompts to avoid OS ARG_MAX limits.
+        stdin_data: str | None = None
+        if self._should_pipe_prompt_via_stdin(prompt) and not continue_session:
+            cmd = self._strip_prompt_from_cmd(cmd, prompt)
+            stdin_data = prompt
+            await emit(
+                self._label_msg(f"prompt piped via stdin ({len(prompt)} chars)\n")
+            )
+
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
         try:
-            raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
+            raw = await self._invoke_cli_with_cmd(
+                cmd, emit=parser, stdin_data=stdin_data
+            )
         finally:
             await parser.flush()
 
@@ -1886,6 +2104,12 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 )
             if self._cumulative_cache_read_tokens:
                 cost_parts.append(f"cache_read={self._cumulative_cache_read_tokens}")
+            if self._cumulative_duration_ms > 0:
+                cost_parts.append(
+                    f"duration={self._cumulative_duration_ms / 1000:.1f}s"
+                )
+            if self._cumulative_compactions > 0:
+                cost_parts.append(f"compactions={self._cumulative_compactions}")
             await emit(
                 self._label_msg(f"{cost_parts[0]} ({', '.join(cost_parts[1:])})\n")
             )

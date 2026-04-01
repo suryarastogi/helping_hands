@@ -23,6 +23,8 @@ import pytest
 from helping_hands.lib.hands.v1.hand.cli.claude import (
     _DEFAULT_BUDGET_TOKENS,
     _DEFAULT_MAX_TURNS_RESUME_LIMIT,
+    _PERMISSION_PROMPT_TOOL_MAX_LENGTH,
+    _PROMPT_STDIN_LENGTH_THRESHOLD,
     ClaudeCodeHand,
     _StreamJsonEmitter,
 )
@@ -927,7 +929,7 @@ class TestInvokeClaude:
     ) -> None:
         captured_cmd: list[str] = []
 
-        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+        async def fake_invoke_cli_with_cmd(cmd, *, emit, stdin_data=None):
             captured_cmd.extend(cmd)
             # Simulate stream-json output
             result_event = json.dumps(
@@ -959,7 +961,7 @@ class TestInvokeClaude:
     def test_invoke_claude_falls_back_to_raw(self, claude_hand, monkeypatch) -> None:
         """When no result event is parsed, falls back to raw CLI output."""
 
-        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+        async def fake_invoke_cli_with_cmd(cmd, *, emit, stdin_data=None):
             # No stream-json events, just raw output
             await emit("plain text output\n")
             return "raw result"
@@ -1002,7 +1004,7 @@ class TestInvokeClaude:
     ) -> None:
         """Parser flush runs even when _invoke_cli_with_cmd raises."""
 
-        async def failing_invoke(cmd, *, emit):
+        async def failing_invoke(cmd, *, emit, stdin_data=None):
             # Feed partial buffer (no trailing newline) then crash
             await emit("partial data without newline")
             raise RuntimeError("subprocess crashed")
@@ -1597,7 +1599,7 @@ class TestCostAccumulation:
     def test_accumulates_across_invocations(self, claude_hand, monkeypatch) -> None:
         call_count = 0
 
-        async def fake_invoke_cli_with_cmd(cmd, *, emit):
+        async def fake_invoke_cli_with_cmd(cmd, *, emit, stdin_data=None):
             nonlocal call_count
             call_count += 1
             event = json.dumps(
@@ -2706,3 +2708,258 @@ class TestCumulativeThinkingTokens:
         asyncio.run(emitter(event + "\n"))
         claude_hand._accumulate_cost(emitter)
         assert claude_hand._cumulative_thinking_tokens == 1200
+
+
+# ---------------------------------------------------------------------------
+# --permission-prompt-tool support
+# ---------------------------------------------------------------------------
+
+
+class TestPermissionPromptTool:
+    def test_default_empty(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL", raising=False)
+        assert ClaudeCodeHand._resolve_permission_prompt_tool() == ""
+
+    def test_valid_tool_name(self, monkeypatch) -> None:
+        monkeypatch.setenv(
+            "HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL", "mcp__auth__approve"
+        )
+        assert ClaudeCodeHand._resolve_permission_prompt_tool() == "mcp__auth__approve"
+
+    def test_whitespace_only_returns_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL", "   ")
+        assert ClaudeCodeHand._resolve_permission_prompt_tool() == ""
+
+    def test_too_long_returns_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv(
+            "HELPING_HANDS_CLAUDE_PERMISSION_PROMPT_TOOL",
+            "x" * (_PERMISSION_PROMPT_TOOL_MAX_LENGTH + 1),
+        )
+        assert ClaudeCodeHand._resolve_permission_prompt_tool() == ""
+
+
+class TestInjectPermissionPromptTool:
+    def test_empty_tool_unchanged(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        assert ClaudeCodeHand._inject_permission_prompt_tool(cmd, "") == cmd
+
+    def test_injects_before_p(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        result = ClaudeCodeHand._inject_permission_prompt_tool(cmd, "mcp__approve")
+        assert result == [
+            "claude",
+            "--permission-prompt-tool",
+            "mcp__approve",
+            "-p",
+            "hello",
+        ]
+
+    def test_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--permission-prompt-tool", "other", "-p", "hello"]
+        result = ClaudeCodeHand._inject_permission_prompt_tool(cmd, "mcp__approve")
+        assert result == cmd
+
+
+# ---------------------------------------------------------------------------
+# --input-format support
+# ---------------------------------------------------------------------------
+
+
+class TestInputFormat:
+    def test_default_empty(self, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CLAUDE_INPUT_FORMAT", raising=False)
+        assert ClaudeCodeHand._resolve_input_format() == ""
+
+    def test_text_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_INPUT_FORMAT", "text")
+        assert ClaudeCodeHand._resolve_input_format() == "text"
+
+    def test_stream_json_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_INPUT_FORMAT", "stream-json")
+        assert ClaudeCodeHand._resolve_input_format() == "stream-json"
+
+    def test_unknown_value_returns_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_INPUT_FORMAT", "binary")
+        assert ClaudeCodeHand._resolve_input_format() == ""
+
+    def test_whitespace_only_returns_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_INPUT_FORMAT", "   ")
+        assert ClaudeCodeHand._resolve_input_format() == ""
+
+
+class TestInjectInputFormat:
+    def test_empty_format_unchanged(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        assert ClaudeCodeHand._inject_input_format(cmd, "") == cmd
+
+    def test_injects_before_p(self) -> None:
+        cmd = ["claude", "-p", "hello"]
+        result = ClaudeCodeHand._inject_input_format(cmd, "stream-json")
+        assert result == [
+            "claude",
+            "--input-format",
+            "stream-json",
+            "-p",
+            "hello",
+        ]
+
+    def test_skips_if_already_present(self) -> None:
+        cmd = ["claude", "--input-format", "text", "-p", "hello"]
+        result = ClaudeCodeHand._inject_input_format(cmd, "stream-json")
+        assert result == cmd
+
+
+# ---------------------------------------------------------------------------
+# Stdin prompt delivery for long prompts
+# ---------------------------------------------------------------------------
+
+
+class TestStdinPromptDelivery:
+    def test_short_prompt_not_piped(self) -> None:
+        assert not ClaudeCodeHand._should_pipe_prompt_via_stdin("short prompt")
+
+    def test_long_prompt_piped(self) -> None:
+        long_prompt = "x" * (_PROMPT_STDIN_LENGTH_THRESHOLD + 1)
+        assert ClaudeCodeHand._should_pipe_prompt_via_stdin(long_prompt)
+
+    def test_exact_threshold_not_piped(self) -> None:
+        prompt = "x" * _PROMPT_STDIN_LENGTH_THRESHOLD
+        assert not ClaudeCodeHand._should_pipe_prompt_via_stdin(prompt)
+
+    def test_strip_prompt_from_cmd(self) -> None:
+        prompt = "my long prompt"
+        cmd = ["claude", "--output-format", "stream-json", "-p", prompt]
+        result = ClaudeCodeHand._strip_prompt_from_cmd(cmd, prompt)
+        assert result == ["claude", "--output-format", "stream-json", "-p"]
+
+    def test_strip_prompt_no_p_flag(self) -> None:
+        cmd = ["claude", "some-arg"]
+        result = ClaudeCodeHand._strip_prompt_from_cmd(cmd, "prompt")
+        assert result == ["claude", "some-arg"]
+
+    def test_strip_prompt_p_without_matching_arg(self) -> None:
+        cmd = ["claude", "-p", "different-text"]
+        result = ClaudeCodeHand._strip_prompt_from_cmd(cmd, "my prompt")
+        assert result == ["claude", "-p", "different-text"]
+
+
+# ---------------------------------------------------------------------------
+# _StreamJsonEmitter — conversation compaction tracking
+# ---------------------------------------------------------------------------
+
+
+class TestStreamJsonEmitterCompaction:
+    def test_compaction_event_increments_count(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "system", "subtype": "conversation_compacted"})
+        asyncio.run(emitter(event + "\n"))
+        assert emitter.compaction_count == 1
+
+    def test_multiple_compactions(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        async def run():
+            emitter = _StreamJsonEmitter(emit, "test")
+            event = json.dumps(
+                {"type": "system", "subtype": "conversation_compacted"}
+            )
+            await emitter(event + "\n")
+            await emitter(event + "\n")
+            return emitter
+
+        emitter = asyncio.run(run())
+        assert emitter.compaction_count == 2
+
+    def test_system_event_without_compaction(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "system", "model": "claude-opus-4-6"})
+        asyncio.run(emitter(event + "\n"))
+        assert emitter.compaction_count == 0
+
+    def test_compaction_emits_message(self) -> None:
+        collected: list[str] = []
+
+        async def emit(chunk: str) -> None:
+            collected.append(chunk)
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps({"type": "system", "subtype": "conversation_compacted"})
+        asyncio.run(emitter(event + "\n"))
+        assert any("compacted" in c for c in collected)
+
+
+# ---------------------------------------------------------------------------
+# Cumulative duration and compaction tracking in ClaudeCodeHand
+# ---------------------------------------------------------------------------
+
+
+class TestCumulativeDurationTracking:
+    def test_accumulate_includes_duration(self, claude_hand) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.02,
+                "duration_ms": 15000.0,
+                "usage": {"input_tokens": 500, "output_tokens": 200},
+            }
+        )
+        asyncio.run(emitter(event + "\n"))
+        claude_hand._accumulate_cost(emitter)
+        assert claude_hand._cumulative_duration_ms == 15000.0
+
+    def test_accumulate_duration_across_invocations(self, claude_hand) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        for dur in [10000.0, 5000.0]:
+            emitter = _StreamJsonEmitter(emit, "test")
+            event = json.dumps(
+                {
+                    "type": "result",
+                    "result": "done",
+                    "total_cost_usd": 0.01,
+                    "duration_ms": dur,
+                    "usage": {"input_tokens": 100, "output_tokens": 50},
+                }
+            )
+            asyncio.run(emitter(event + "\n"))
+            claude_hand._accumulate_cost(emitter)
+        assert claude_hand._cumulative_duration_ms == 15000.0
+
+
+class TestCumulativeCompactionTracking:
+    def test_accumulate_includes_compactions(self, claude_hand) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        emitter._compaction_count = 2
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.03,
+                "usage": {"input_tokens": 1000, "output_tokens": 500},
+            }
+        )
+        asyncio.run(emitter(event + "\n"))
+        claude_hand._accumulate_cost(emitter)
+        assert claude_hand._cumulative_compactions == 2
