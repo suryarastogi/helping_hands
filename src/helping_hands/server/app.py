@@ -53,6 +53,7 @@ from helping_hands.server.constants import (
     DEFAULT_CI_WAIT_MINUTES as _DEFAULT_CI_WAIT_MINUTES,
     DEFAULT_MAX_ITERATIONS as _DEFAULT_MAX_ITERATIONS,
     DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
+    GRILL_ME_ENABLED_ENV_VAR as _GRILL_ME_ENABLED_ENV_VAR,
     INTERVAL_PRESETS as _INTERVAL_PRESETS,
     JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
     KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
@@ -4863,9 +4864,7 @@ def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
 
 def _grill_enabled() -> bool:
     """Return whether the Grill Me feature is enabled via environment."""
-    from helping_hands.server.constants import GRILL_ME_ENABLED_ENV_VAR
-
-    return _is_truthy_env(GRILL_ME_ENABLED_ENV_VAR)
+    return _is_truthy_env(_GRILL_ME_ENABLED_ENV_VAR)
 
 
 class GrillRequest(BaseModel):
@@ -4945,7 +4944,7 @@ def send_grill_message(session_id: str, req: GrillMessageRequest) -> dict[str, s
     import redis
 
     session_id = _validate_path_param(session_id, "session_id")
-    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
     r = redis.from_url(redis_url, decode_responses=True)
 
     # Check session exists
@@ -4982,7 +4981,7 @@ def poll_grill(session_id: str) -> GrillPollResponse:
     import redis
 
     session_id = _validate_path_param(session_id, "session_id")
-    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
     r = redis.from_url(redis_url, decode_responses=True)
 
     # Get state
