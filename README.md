@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** April 1, 2026
 
 ## What is this?
 
@@ -813,6 +813,22 @@ services if they are not set in `.env`:
 - `CELERY_RESULT_BACKEND=redis://redis:6379/1`
 - `HELPING_HANDS_FLOWER_API_URL=http://flower:5555` (server-side `/tasks/current`
   discovery path)
+
+## Smoke Test Results
+
+Last run: **April 1, 2026** (Python 3.12, `uv run pytest -v`)
+
+| Metric | Result |
+|--------|--------|
+| Passed | 6 567 |
+| Failed | 1 |
+| Skipped | 268 |
+| Duration | 21.28 s |
+| Coverage | 74.69 % |
+| Lint (`ruff check`) | All checks passed |
+
+One test failure: `test_design_doc_count_in_parenthetical` — `docs/index.md` lists
+26 design docs but 27 `.md` files exist in `docs/design-docs/`.
 
 ## License
 
