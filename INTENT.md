@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Coverage Gap Closure & PrefixEmitter Tests (2026-04-01) — Completed
+
+Pushed overall test coverage from 74.73% to 75.20%, crossing the 75% CI
+gate. Added 19 new tests covering: `_LinePrefixEmitter` async line
+buffering/prefix injection (10 tests), `opencode.py` `_pr_description_cmd`
+on-PATH branch (2 tests), `devin.py` `_pr_description_cmd` and
+`_pr_description_prompt_as_arg` (3 tests), `github.py` `update_pr`
+title/body/both/None paths (4 tests). 6587 tests passed, 0 failures. See
+[v347 plan](docs/exec-plans/completed/2026/v347-coverage-gap-closure-and-prefix-emitter-tests.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →

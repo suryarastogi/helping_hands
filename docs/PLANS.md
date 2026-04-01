@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-01 v347 — Coverage Gap Closure & PrefixEmitter Tests](exec-plans/completed/2026/v347-coverage-gap-closure-and-prefix-emitter-tests.md) —
+  Close small coverage gaps in `_LinePrefixEmitter`, `opencode.py`, `devin.py`,
+  and `github.py` `update_pr`; 19 tests added, 6587 passed, 75.20% coverage
+
+
 - [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
   Rewrite README Quick Start as three numbered steps (install, set keys, run);
   implement first-run welcome banner with `~/.helping_hands/.first_run_done`
