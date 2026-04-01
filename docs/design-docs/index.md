@@ -44,6 +44,7 @@ Index of design documents for helping_hands.
 ## Frontend
 
 - [Multiplayer Hand World](multiplayer-hand-world.md) — WebSocket-based real-time avatar synchronization in Hand World
+- [Repo Selection UI](repo-selection-ui.md) — Chip inputs, autocomplete suggestions, and localStorage-backed recent repos
 
 ## Quality
 

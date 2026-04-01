@@ -319,6 +319,8 @@ class ServerConfig(BaseModel):
     native_auth_default: bool
     enabled_backends: list[str]
     claude_native_cli_auth: bool
+    has_github_token: bool
+    default_repo: str | None = None
 
 
 # --- Scheduled Task Models ---
@@ -3152,11 +3154,15 @@ def get_server_config() -> ServerConfig:
 
     in_docker = _is_running_in_docker()
     claude_native = _is_truthy_env("HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH")
+    has_github_token = bool(os.environ.get("GITHUB_TOKEN", "").strip())
+    default_repo = os.environ.get("HELPING_HANDS_DEFAULT_REPO", "").strip() or None
     return ServerConfig(
         in_docker=in_docker,
         native_auth_default=not in_docker,
         enabled_backends=get_enabled_backends(),
         claude_native_cli_auth=claude_native,
+        has_github_token=has_github_token,
+        default_repo=default_repo,
     )
 
 

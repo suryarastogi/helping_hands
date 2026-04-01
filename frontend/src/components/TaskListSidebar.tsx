@@ -6,6 +6,7 @@ export type TaskListSidebarProps = {
   showSubmissionOverlay: boolean;
   onNewSubmission: () => void;
   onToggleSchedules: () => void;
+  onStartTutorial: () => void;
   taskHistory: TaskHistoryItem[];
   selectedTaskId: string | null;
   onSelectTask: (taskId: string) => void;
@@ -19,6 +20,7 @@ export default function TaskListSidebar({
   showSubmissionOverlay,
   onNewSubmission,
   onToggleSchedules,
+  onStartTutorial,
   taskHistory,
   selectedTaskId,
   onSelectTask,
@@ -59,6 +61,13 @@ export default function TaskListSidebar({
             onClick={onToggleSchedules}
           >
             Scheduled tasks
+          </button>
+          <button
+            type="button"
+            className="tutorial-button"
+            onClick={onStartTutorial}
+          >
+            Tutorial
           </button>
           <div className="task-list-header">
             <h2>Submitted tasks</h2>

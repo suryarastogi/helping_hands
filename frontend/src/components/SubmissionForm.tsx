@@ -11,6 +11,8 @@ export interface SubmissionFormProps {
   onSubmit: (event: FormEvent) => void;
   backends: Backend[];
   recentRepos?: string[];
+  /** Whether the server has GITHUB_TOKEN set. When false, the token field becomes required. */
+  serverHasGithubToken?: boolean;
 }
 
 export default function SubmissionForm({
@@ -19,7 +21,9 @@ export default function SubmissionForm({
   onSubmit,
   backends,
   recentRepos = [],
+  serverHasGithubToken = true,
 }: SubmissionFormProps) {
+  const tokenRequired = !serverHasGithubToken;
   const referenceChips = useMemo(
     () =>
       form.reference_repos
@@ -105,34 +109,6 @@ export default function SubmissionForm({
                 />
               </label>
             </div>
-            <div className="row two-col">
-              <label>
-                Issue number
-                <input
-                  type="number"
-                  min={1}
-                  value={form.issue_number}
-                  onChange={(event) => onFieldChange("issue_number", event.target.value)}
-                  placeholder="Link to GitHub issue"
-                />
-              </label>
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.create_issue}
-                  onChange={(event) => onFieldChange("create_issue", event.target.checked)}
-                />
-                Create issue
-              </label>
-            </div>
-            <label>
-              Project URL
-              <input
-                value={form.project_url}
-                onChange={(event) => onFieldChange("project_url", event.target.value)}
-                placeholder="https://github.com/orgs/myorg/projects/1"
-              />
-            </label>
             <div className="row check-grid">
               <label className="check-row compact-check">
                 <input
@@ -169,15 +145,50 @@ export default function SubmissionForm({
             </div>
             <div className="row">
               <label>
-                GitHub Token
+                GitHub Token{tokenRequired && <span className="required-star"> *</span>}
                 <input
+                  className="github-token-input"
                   type="password"
                   value={form.github_token}
                   onChange={(event) => onFieldChange("github_token", event.target.value)}
-                  placeholder="ghp_... (optional)"
+                  placeholder={tokenRequired ? "ghp_... (required — no server token)" : "ghp_... (optional)"}
+                  required={tokenRequired}
                 />
               </label>
             </div>
+            <details className="compact-advanced">
+              <summary>GitHub Project</summary>
+              <div className="compact-advanced-body">
+                <div className="row two-col">
+                  <label>
+                    Issue number
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.issue_number}
+                      onChange={(event) => onFieldChange("issue_number", event.target.value)}
+                      placeholder="Link to GitHub issue"
+                    />
+                  </label>
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={form.create_issue}
+                      onChange={(event) => onFieldChange("create_issue", event.target.checked)}
+                    />
+                    Create issue
+                  </label>
+                </div>
+                <label>
+                  Project URL
+                  <input
+                    value={form.project_url}
+                    onChange={(event) => onFieldChange("project_url", event.target.value)}
+                    placeholder="https://github.com/orgs/myorg/projects/1"
+                  />
+                </label>
+              </div>
+            </details>
             <div className="row">
               <label>
                 Reference Repos

@@ -25,6 +25,7 @@ export interface ScheduleCardProps {
   onRefresh: () => Promise<void>;
   backends: Backend[];
   recentRepos?: string[];
+  serverHasGithubToken?: boolean;
 }
 
 function ScheduleFormFields({
@@ -35,10 +36,12 @@ function ScheduleFormFields({
   onCancelForm,
   backends,
   recentRepos = [],
+  serverHasGithubToken = true,
 }: Pick<
   ScheduleCardProps,
-  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm" | "backends" | "recentRepos"
+  "scheduleForm" | "editingScheduleId" | "onUpdateField" | "onSaveSchedule" | "onCancelForm" | "backends" | "recentRepos" | "serverHasGithubToken"
 >) {
+  const tokenRequired = !serverHasGithubToken;
   const referenceChips = useMemo(
     () =>
       scheduleForm.reference_repos
@@ -268,12 +271,14 @@ function ScheduleFormFields({
           </div>
           <div className="row">
             <label>
-              GitHub Token
+              GitHub Token{tokenRequired && <span className="required-star"> *</span>}
               <input
+                className="github-token-input"
                 type="password"
                 value={scheduleForm.github_token}
                 onChange={(e) => onUpdateField("github_token", e.target.value)}
-                placeholder="ghp_... (optional)"
+                placeholder={tokenRequired ? "ghp_... (required — no server token)" : "ghp_... (optional)"}
+                required={tokenRequired}
               />
             </label>
           </div>
@@ -325,6 +330,7 @@ export default function ScheduleCard({
   onCancelForm,
   onRefresh,
   recentRepos = [],
+  serverHasGithubToken = true,
 }: ScheduleCardProps) {
   const formFieldsProps = {
     scheduleForm,
@@ -334,6 +340,7 @@ export default function ScheduleCard({
     onCancelForm,
     backends,
     recentRepos,
+    serverHasGithubToken,
   };
 
   return (
