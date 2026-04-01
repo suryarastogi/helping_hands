@@ -1,16 +1,16 @@
-"""Tests for _build_inner() across LiteLLM, Google, and Anthropic providers.
+"""Protects lazy-init contracts for all three AI provider backends.
 
-This file focuses narrowly on the lazy-init path of three providers and
-partially overlaps with the dedicated per-provider test files.  It exists as
-an integration-style cross-check ensuring that the same SDK-absence, api-key,
-and no-api-key behaviors hold consistently across providers when tested together.
+Each provider's .inner property must: (1) raise RuntimeError with a clear
+message when the SDK package is not installed, (2) forward the env-var API
+key to the SDK client when set, and (3) create a client without an API key
+when the env var is absent.  If these regress, users get cryptic ImportErrors
+or silent None-key clients that fail deep inside SDK internals.
 
 # TODO: CLEANUP CANDIDATE
-The three test classes here (TestLiteLLMBuildInner, TestGoogleBuildInner,
-TestAnthropicBuildInner) duplicate tests that already exist in
+All three test classes duplicate assertions already present in the dedicated
 test_litellm_provider.py, test_google_provider.py, and
-test_anthropic_provider.py with identical assertions.  Consider removing this
-file once coverage from those files is confirmed sufficient.
+test_anthropic_provider.py files.  Remove once per-provider coverage is
+confirmed sufficient.
 """
 
 from __future__ import annotations

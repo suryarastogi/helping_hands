@@ -1,17 +1,14 @@
-"""Tests for v245: _SCHEDULE_NOT_FOUND_DETAIL and _SKIP_PERMISSIONS_FLAG constants.
+"""Protect the Claude skip-permissions flag lifecycle and the schedule-not-found HTTP detail contract.
 
-_SKIP_PERMISSIONS_FLAG is passed to the Claude binary to bypass interactive
-permission prompts in automated runs. If the string drifts from
-"--dangerously-skip-permissions", the flag is silently ignored by the binary
-and every Claude run stalls waiting for user approval.
+_SKIP_PERMISSIONS_FLAG must equal "--dangerously-skip-permissions" exactly;
+if the string drifts, the Claude binary silently ignores it and every
+automated run stalls waiting for interactive approval. The insert/remove
+symmetry between _apply_backend_defaults and _retry_command_after_failure
+is critical: broken insert double-adds the flag; broken remove prevents
+recovery from "root required" errors.
 
-The _apply_backend_defaults / _retry_command_after_failure symmetry test is
-important: the flag must be inserted on the way in and removed on retry after
-a "root required" error — if insert or remove is broken, the retry loop either
-double-adds the flag or fails to recover from the permission error.
-
-_SCHEDULE_NOT_FOUND_DETAIL is the HTTP 404 detail string checked by API clients;
-if it changes, clients that pattern-match on the detail text silently break.
+_SCHEDULE_NOT_FOUND_DETAIL is an API contract: external clients match on
+this 404 detail string, so any change silently breaks client error handling.
 """
 
 from __future__ import annotations
@@ -43,16 +40,16 @@ def _src_root() -> Path:
 class TestSkipPermissionsFlag:
     """Tests for the _SKIP_PERMISSIONS_FLAG constant."""
 
-    def test_is_string(self) -> None:
+    def test_is_string(self) -> None:  # TODO: CLEANUP CANDIDATE — subsumed by test_value
         assert isinstance(_SKIP_PERMISSIONS_FLAG, str)
 
-    def test_non_empty(self) -> None:
+    def test_non_empty(self) -> None:  # TODO: CLEANUP CANDIDATE — subsumed by test_value
         assert len(_SKIP_PERMISSIONS_FLAG) > 0
 
     def test_value(self) -> None:
         assert _SKIP_PERMISSIONS_FLAG == "--dangerously-skip-permissions"
 
-    def test_starts_with_double_dash(self) -> None:
+    def test_starts_with_double_dash(self) -> None:  # TODO: CLEANUP CANDIDATE — subsumed by test_value
         assert _SKIP_PERMISSIONS_FLAG.startswith("--")
 
 
@@ -230,6 +227,9 @@ class TestScheduleNotFoundDetailSourceConsistency:
         )
 
 
+# TODO: CLEANUP CANDIDATE — these runtime tests duplicate the AST-based value
+# checks above (TestScheduleNotFoundDetailSourceConsistency already verifies
+# the constant equals "Schedule not found" and is referenced consistently).
 class TestScheduleNotFoundDetailRuntime:
     """Runtime tests for _SCHEDULE_NOT_FOUND_DETAIL (requires fastapi)."""
 

@@ -1,13 +1,13 @@
-"""Tests for OpenCodeCLIHand static/pure helper methods.
+"""Protects OpenCode CLI model resolution and auth-failure detection.
 
-OpenCodeCLIHand wraps the `opencode` CLI and overrides model resolution to
-preserve the full "provider/model" string (like DevinCLIHand), returning an
-empty string when no explicit model is configured rather than falling back to a
-default. A regression that returns a non-empty default would force a specific
-model on users who rely on OpenCode's own default selection. Auth detection
-covers multiple failure-message patterns specific to OpenCode's error format,
-including the "opencode auth login" recovery hint that improves user experience
-on auth failures.
+OpenCodeCLIHand intentionally returns empty string (not a default model) when
+no explicit model is configured, deferring to OpenCode's own model selection.
+A regression that returns a non-empty default silently overrides the user's
+OpenCode config. Auth detection must match several vendor-specific error
+patterns (401, "invalid api key", "not valid") and surface the "opencode auth
+login" recovery hint -- without it, users see a raw exit-code error with no
+actionable next step. The delegation chain (_invoke_backend -> _invoke_opencode
+-> _invoke_cli) is tested to ensure no layer silently drops the prompt or output.
 """
 
 from __future__ import annotations

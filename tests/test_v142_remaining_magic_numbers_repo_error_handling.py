@@ -1,15 +1,15 @@
-"""Tests for v142: preview truncation constants and PermissionError handling in repo.py.
+"""Enforces DRY usage of preview/truncation constants and PermissionError resilience.
 
-_HTTP_ERROR_BODY_PREVIEW_LENGTH and _USAGE_DATA_PREVIEW_LENGTH control how much of
-an API error body is logged; if these constants are removed or the code reverts to
-inline literals, a future change to one log site will not automatically apply to all,
-causing inconsistent log verbosity.
+_HTTP_ERROR_BODY_PREVIEW_LENGTH and _USAGE_DATA_PREVIEW_LENGTH must be referenced
+by name in _fetch_claude_usage (not as inline literals), so a single change
+propagates to all log sites.  The "used in source" tests enforce this via
+inspect.getsource, catching silent reversions to magic numbers.
 
-The "used in source" tests verify that _fetch_claude_usage actually references the
-constants rather than re-stating the literals, enforcing the DRY refactor.
+_HOOK_ERROR_TRUNCATION_LIMIT and _GIT_REF_DISPLAY_LENGTH pin subprocess error
+and commit-ref display sizes in the two-phase CLI hand.
 
-_HOOK_ERROR_TRUNCATION_LIMIT and _GIT_REF_DISPLAY_LENGTH follow the same pattern
-for CLI hand subprocess error reporting.
+RepoIndex.from_path must handle PermissionError gracefully -- returning an empty
+file list with a warning -- so restricted subdirectories do not abort indexing.
 """
 
 from __future__ import annotations
@@ -35,13 +35,13 @@ class TestServerAppPreviewConstants:
 
         assert _HTTP_ERROR_BODY_PREVIEW_LENGTH == 200
 
-    def test_http_error_body_preview_length_type(self) -> None:
+    def test_http_error_body_preview_length_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         pytest.importorskip("fastapi")
         from helping_hands.server.app import _HTTP_ERROR_BODY_PREVIEW_LENGTH
 
         assert isinstance(_HTTP_ERROR_BODY_PREVIEW_LENGTH, int)
 
-    def test_http_error_body_preview_length_positive(self) -> None:
+    def test_http_error_body_preview_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         pytest.importorskip("fastapi")
         from helping_hands.server.app import _HTTP_ERROR_BODY_PREVIEW_LENGTH
 
@@ -53,13 +53,13 @@ class TestServerAppPreviewConstants:
 
         assert _USAGE_DATA_PREVIEW_LENGTH == 300
 
-    def test_usage_data_preview_length_type(self) -> None:
+    def test_usage_data_preview_length_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         pytest.importorskip("fastapi")
         from helping_hands.server.app import _USAGE_DATA_PREVIEW_LENGTH
 
         assert isinstance(_USAGE_DATA_PREVIEW_LENGTH, int)
 
-    def test_usage_data_preview_length_positive(self) -> None:
+    def test_usage_data_preview_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         pytest.importorskip("fastapi")
         from helping_hands.server.app import _USAGE_DATA_PREVIEW_LENGTH
 
@@ -95,14 +95,14 @@ class TestCLIBaseHookDisplayConstants:
 
         assert _HOOK_ERROR_TRUNCATION_LIMIT == 3000
 
-    def test_hook_error_truncation_limit_type(self) -> None:
+    def test_hook_error_truncation_limit_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.base import (
             _HOOK_ERROR_TRUNCATION_LIMIT,
         )
 
         assert isinstance(_HOOK_ERROR_TRUNCATION_LIMIT, int)
 
-    def test_hook_error_truncation_limit_positive(self) -> None:
+    def test_hook_error_truncation_limit_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.base import (
             _HOOK_ERROR_TRUNCATION_LIMIT,
         )
@@ -122,14 +122,14 @@ class TestCLIBaseHookDisplayConstants:
 
         assert _GIT_REF_DISPLAY_LENGTH == 8
 
-    def test_git_ref_display_length_type(self) -> None:
+    def test_git_ref_display_length_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.base import (
             _GIT_REF_DISPLAY_LENGTH,
         )
 
         assert isinstance(_GIT_REF_DISPLAY_LENGTH, int)
 
-    def test_git_ref_display_length_positive(self) -> None:
+    def test_git_ref_display_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.base import (
             _GIT_REF_DISPLAY_LENGTH,
         )
@@ -158,14 +158,14 @@ class TestDockerSandboxNamingConstants:
 
         assert _SANDBOX_NAME_MAX_LENGTH == 30
 
-    def test_sandbox_name_max_length_type(self) -> None:
+    def test_sandbox_name_max_length_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
             _SANDBOX_NAME_MAX_LENGTH,
         )
 
         assert isinstance(_SANDBOX_NAME_MAX_LENGTH, int)
 
-    def test_sandbox_name_max_length_positive(self) -> None:
+    def test_sandbox_name_max_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
             _SANDBOX_NAME_MAX_LENGTH,
         )
@@ -179,14 +179,14 @@ class TestDockerSandboxNamingConstants:
 
         assert _SANDBOX_UUID_HEX_LENGTH == 8
 
-    def test_sandbox_uuid_hex_length_type(self) -> None:
+    def test_sandbox_uuid_hex_length_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
             _SANDBOX_UUID_HEX_LENGTH,
         )
 
         assert isinstance(_SANDBOX_UUID_HEX_LENGTH, int)
 
-    def test_sandbox_uuid_hex_length_positive(self) -> None:
+    def test_sandbox_uuid_hex_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
             _SANDBOX_UUID_HEX_LENGTH,
         )

@@ -1,11 +1,12 @@
-"""Live integration test for E2EHand against GitHub.
+"""Live integration test: clone, commit, push, and PR update against GitHub.
 
-This test is opt-in and intended for CI with secrets configured.  It exercises
-the full end-to-end path against a real GitHub repository: clone, write marker
-file, push changes, and update an existing PR.  On the primary Python version
-of the master branch it performs a real push; on all other targets it runs in
-dry-run mode to verify workspace setup without side effects.  Skipped unless
-HELPING_HANDS_RUN_E2E_INTEGRATION=1 and a GitHub token are present.
+Validates the full E2EHand lifecycle against a real repository, catching
+regressions that unit tests cannot: token-authenticated git push, branch
+creation, PR API interaction, and workspace teardown. Only the master branch
+on Python 3.13 performs a real push; all other matrix cells run dry-run mode to
+verify workspace setup without side effects. Skipped unless
+HELPING_HANDS_RUN_E2E_INTEGRATION=1 and a GitHub token are present, so it
+never blocks local development or PRs without secrets configured.
 """
 
 from __future__ import annotations

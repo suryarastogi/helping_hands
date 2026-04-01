@@ -1,13 +1,12 @@
-"""Tests for _TwoPhaseCLIHand._finalize_after_run and _collect_run_output.
+"""Protects the boundary between backend output and GitHub PR creation.
 
-_finalize_after_run is the bridge between raw backend output and the PR
-creation step: it decides whether the run was interrupted (returning a
-sentinel dict rather than calling _finalize_repo_pr) and truncates long
-output before passing it as the PR summary. A regression here causes either
-spurious PR creation after interrupts, or PR descriptions that exceed the
-GitHub API body limit. _collect_run_output is the synchronous adapter that
-drives the async two-phase backend and joins emitted chunks; a bug there
-drops output that feeds both the caller response and the PR summary.
+_finalize_after_run must short-circuit on interrupt (returning a sentinel dict)
+rather than pushing partial work to GitHub as a real PR. It also truncates long
+AI output before embedding it in the PR description; exceeding the GitHub API
+body limit causes a silent 422 that loses the entire PR. _collect_run_output
+joins streamed chunks into the single string that feeds both the caller response
+and the PR summary -- dropping chunks here silently truncates user-visible output
+and produces misleading PR descriptions.
 """
 
 from __future__ import annotations

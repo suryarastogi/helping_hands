@@ -1,14 +1,15 @@
-"""Tests for v128: robustness against corrupted state and unbounded iteration.
+"""Protects against corrupted Redis state, unbounded loops, and write failures.
 
-_load_meta() reads scheduled-task metadata from Redis; if the stored value is not
-valid JSON (e.g. due to partial writes or manual edits), the function must return
-None and log a warning rather than crashing the scheduler with a JSONDecodeError.
+_load_meta must return None (not crash) when Redis holds invalid JSON, partial
+data, or non-dict values -- otherwise a single corrupted schedule entry takes
+down the entire scheduler with a JSONDecodeError.
 
-_MAX_ITERATIONS caps the iterative-hand loop so a buggy or adversarial prompt
-cannot cause a worker to spin indefinitely, exhausting API quota.
+_MAX_ITERATIONS caps the iterative-hand loop at 1000 so adversarial or buggy
+prompts cannot spin a worker indefinitely, exhausting API quota and blocking
+the task queue.
 
-_apply_inline_edits must swallow OSError (permissions, missing parent dir) and
-continue so that a single bad file write does not abort the entire AI task.
+_apply_inline_edits must swallow OSError per-file and continue, so one
+permission-denied write does not abort an entire multi-file AI task.
 """
 
 from __future__ import annotations

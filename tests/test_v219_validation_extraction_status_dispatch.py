@@ -1,14 +1,15 @@
-"""Tests for v219 finalization precondition extraction and status dispatch tables.
+"""Protect the finalization gate and status-message dispatch tables.
 
-_validate_finalization_preconditions() is the gatekeeper before any git/GitHub
-operations run. If it stops raising early on bad state (disabled flag, no git
-repo, no staged changes, no remote) those operations will fail with confusing
-errors deep in the stack rather than a clear early message.
+_validate_finalization_preconditions() is the single checkpoint before git
+commit/push/PR operations. If any early-exit path (auto_pr disabled, missing
+git repo, no staged changes, no GitHub remote, pre-commit failure) regresses,
+users see cryptic git errors deep in the stack instead of a clear status.
 
-The dispatch tables (_PR_STATUS_TEMPLATES, _CI_FIX_TEMPLATES) map status codes
-to human-readable message templates. If a key is missing or a template is
-mangled, the status line shown in the PR body will be blank or broken, making
-it impossible to diagnose what happened during a run.
+_PR_STATUS_TEMPLATES and _CI_FIX_TEMPLATES map status codes to user-facing
+message templates shown in PR bodies and CLI output. A missing key or broken
+placeholder renders the status line blank, making post-run diagnosis impossible.
+Dispatch-table tests also verify that transient states (CHECKING, NO_CHECKS)
+are excluded from final-message rendering.
 """
 
 from __future__ import annotations

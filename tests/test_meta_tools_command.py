@@ -1,12 +1,14 @@
-"""Tests for helping_hands.lib.meta.tools.command.
+"""Protects the security and correctness boundary for AI-authored command execution.
 
-Protects the command execution layer used by iterative hands to run AI-authored
-code: CommandResult.success must be False whenever timed_out is True regardless
-of exit code (the AI needs an accurate signal to retry); _resolve_cwd must
-reject non-directories and canonicalise paths against the repo root to prevent
-path traversal; run_python_script must reject paths that escape the repo root.
-These checks are the security and correctness boundary between AI-generated
-payloads and the host filesystem.
+These tools run code the AI generates against the host filesystem. Key invariants:
+- CommandResult.success must be False when timed_out is True regardless of exit
+  code, so the AI retries rather than treating partial output as correct.
+- _resolve_cwd rejects non-directories and canonicalises relative paths against
+  the repo root -- without this, a malicious or confused AI prompt can read/write
+  anywhere on the host via path traversal.
+- run_python_script rejects paths escaping the repo root (same traversal guard).
+- run_bash_script enforces exactly-one-source (inline XOR file) to prevent
+  ambiguous execution where both are silently concatenated or one is ignored.
 """
 
 from __future__ import annotations

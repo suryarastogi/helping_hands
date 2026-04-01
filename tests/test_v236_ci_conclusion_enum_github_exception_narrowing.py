@@ -1,14 +1,12 @@
-"""Tests for v236: CIConclusion enum consistency and GitHub exception narrowing.
+"""Protect CI status detection from string/enum drift and GitHub error handling discipline.
 
-get_check_runs() maps GitHub check-run conclusions to CIConclusion enum members.
-If it compares against bare "success"/"failure" strings instead of enum values,
-a future rename or addition to the enum silently breaks CI status detection and
-the system never triggers the CI fix loop when it should.
-
-The _GITHUB_ERRORS constant centralises the except tuple used for GitHub API
-failures. If base.py or e2e.py diverge back to catching bare Exception, GitHub
-rate-limit errors and unrelated bugs are both swallowed, making failures
-invisible and hard to reproduce.
+get_check_runs must compare conclusions against CIConclusion enum members, not
+bare strings. If a bare "success" comparison slips in and the enum value later
+changes, CI status detection silently breaks and the CI fix loop never triggers
+on genuine failures. _GITHUB_ERRORS centralises the except tuple for GitHub API
+calls in base.py and e2e.py; if either module falls back to bare Exception, rate
+limit errors and programming bugs are both swallowed, making GitHub failures
+invisible and non-reproducible in production.
 """
 
 from __future__ import annotations
@@ -270,6 +268,8 @@ class TestE2EGithubExceptionNarrowing:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — tests below verify Python's own exception hierarchy,
+# not project behavior.
 class TestGithubExceptionRuntime:
     """Verify GithubException can be raised and caught properly."""
 

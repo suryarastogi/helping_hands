@@ -1,16 +1,14 @@
-"""Tests for v240: DRY stream iteration processing and nested field extraction.
+"""Protect the iterative-hand loop exit signal, post-loop finalization order, and nested-field extraction safety.
 
-_process_stream_iteration() is the per-iteration state machine in the iterative
-hand loop; if it stops emitting the "satisfied" signal correctly, the hand
-never exits the loop and runs until the max_iterations hard stop.
+_process_stream_iteration is the per-iteration state machine: if the
+"satisfied" signal stops propagating, the hand runs until max_iterations,
+wasting API credits and user time. _stream_max_iterations_tail emits the
+trailing status block when the budget is exhausted; wrong ordering produces
+confusing interleaved output in the streaming response.
 
-_stream_max_iterations_tail() emits the trailing status messages when the loop
-exhausts its iteration budget; wrong message ordering here means users see
-confusing interleaved output.
-
-_extract_nested_str_field() is used to pull the model name and other string
-fields from nested request/response dicts; if it stops handling missing keys
-gracefully, metadata logging raises KeyError for responses with partial data.
+_extract_nested_str_field safely pulls string metadata (model name, etc.)
+from nested request/response dicts. If it stops tolerating missing keys or
+non-string values, metadata logging raises KeyError on partial API responses.
 """
 
 from __future__ import annotations
@@ -179,6 +177,8 @@ class TestStreamMaxIterationsTail:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence checks are stylistic; they don't
+# protect runtime behavior and are better enforced by a linter rule.
 class TestStreamHelperDocstrings:
     """Ensure new DRY helpers have docstrings."""
 
@@ -250,5 +250,5 @@ class TestExtractNestedStrField:
     def test_empty_keys_returns_none(self) -> None:
         assert self._fn()({"a": "val"}, ()) is None
 
-    def test_has_docstring(self) -> None:
+    def test_has_docstring(self) -> None:  # TODO: CLEANUP CANDIDATE — stylistic
         assert self._fn().__doc__

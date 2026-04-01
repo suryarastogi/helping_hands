@@ -1,17 +1,12 @@
-"""Tests for v261: REPO_SPEC_PATTERN, invalid_repo_msg, and format_type_error.
+"""Guards centralised repo-spec validation and type-error formatting so the
+CLI and Celery server never diverge on what constitutes a valid input.
 
-REPO_SPEC_PATTERN was previously duplicated between cli/main.py and
-celery_app.py. If the two copies diverged, the CLI would accept repo specs
-that the server rejected (or vice versa), causing confusing "invalid repo"
-errors only on one path.
-
-invalid_repo_msg() provides the canonical human-readable error text for an
-invalid repo spec. If it stops mentioning "directory" and "owner/repo", users
-have no guidance on what the valid formats are.
-
-format_type_error() is used by all require_* validators. If the inline format
-strings re-appear instead of using this helper, a wording change requires
-touching every validator function individually.
+REPO_SPEC_PATTERN must be the single regex for owner/repo matching; if
+cli/main.py or celery_app.py re-introduce local copies the two entry points
+can silently accept different repo formats. invalid_repo_msg() must include
+both "directory" and "owner/repo" so users know the valid input shapes.
+format_type_error() must be used by all require_* validators; inline format
+strings would require touching every validator for a wording change.
 """
 
 from __future__ import annotations
@@ -28,7 +23,9 @@ import pytest
 class TestRepoSpecPattern:
     """Verify the shared REPO_SPEC_PATTERN constant."""
 
-    def test_pattern_is_string(self) -> None:
+    def test_pattern_is_string(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — asserts type, not behavior
         from helping_hands.lib.github_url import REPO_SPEC_PATTERN
 
         assert isinstance(REPO_SPEC_PATTERN, str)
@@ -68,7 +65,9 @@ class TestRepoSpecPattern:
 
         assert not re.fullmatch(REPO_SPEC_PATTERN, "/")
 
-    def test_pattern_in_all(self) -> None:
+    def test_pattern_in_all(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — stylistic __all__ check
         from helping_hands.lib import github_url
 
         assert "REPO_SPEC_PATTERN" in github_url.__all__
@@ -103,7 +102,9 @@ class TestRepoSpecPattern:
 class TestInvalidRepoMsg:
     """Verify the shared invalid_repo_msg helper."""
 
-    def test_returns_string(self) -> None:
+    def test_returns_string(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — asserts return type, not content
         from helping_hands.lib.github_url import invalid_repo_msg
 
         result = invalid_repo_msg("bad-input")
@@ -127,7 +128,7 @@ class TestInvalidRepoMsg:
         msg = invalid_repo_msg("xyz")
         assert "owner/repo" in msg
 
-    def test_in_all(self) -> None:
+    def test_in_all(self) -> None:  # TODO: CLEANUP CANDIDATE — stylistic __all__ check
         from helping_hands.lib import github_url
 
         assert "invalid_repo_msg" in github_url.__all__
@@ -160,7 +161,9 @@ class TestInvalidRepoMsg:
 class TestFormatTypeError:
     """Verify the shared format_type_error helper."""
 
-    def test_returns_string(self) -> None:
+    def test_returns_string(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — asserts return type, not content
         from helping_hands.lib.validation import format_type_error
 
         assert isinstance(format_type_error("x", "a string", 42), str)
@@ -190,7 +193,7 @@ class TestFormatTypeError:
 
         assert "NoneType" in format_type_error("x", "a string", None)
 
-    def test_in_all(self) -> None:
+    def test_in_all(self) -> None:  # TODO: CLEANUP CANDIDATE — stylistic __all__ check
         from helping_hands.lib import validation
 
         assert "format_type_error" in validation.__all__

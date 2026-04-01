@@ -1,17 +1,13 @@
-"""Tests for v266: _require_langchain_class() import guard in model_provider.
+"""Guards that missing optional LangChain extras produce actionable install
+instructions instead of opaque import tracebacks.
 
-LangChain providers are optional extras; if a user runs with --backend
-basic-langgraph without installing langchain, the error should immediately name
-the missing package and provide the exact install command rather than raising
-an obscure AttributeError from inside the LangChain call stack.
-
-The auto-derive test (langchain_foo_bar → "uv add langchain-foo-bar") ensures
-that new providers added in the future get correct install instructions without
-having to manually specify the package name every time.
-
-The explicit-install-override test protects the langchain-community provider,
-which requires two packages (langchain-community and litellm) and cannot use
-the auto-derived single-package hint.
+_require_langchain_class() must auto-derive the package name from the module
+path (langchain_foo_bar -> "uv add langchain-foo-bar") so new providers get
+correct hints without manual wiring. The explicit-install override must work
+for multi-package cases like langchain-community+litellm. The RuntimeError
+must chain the original ModuleNotFoundError so debugging context is preserved.
+Without this guard, users who run --backend basic-langgraph without the extra
+see an AttributeError deep in the LangChain call stack.
 """
 
 from __future__ import annotations
@@ -182,7 +178,7 @@ class TestBuildLangchainUsesHelper:
 # ---------------------------------------------------------------------------
 
 
-class TestExport:
+class TestExport:  # TODO: CLEANUP CANDIDATE — stylistic __all__ check, no behavioral invariant
     """Verify _require_langchain_class is exported."""
 
     def test_in_all(self) -> None:

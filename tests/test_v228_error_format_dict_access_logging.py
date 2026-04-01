@@ -1,17 +1,14 @@
-"""Tests for v228: DRY _format_error_result, safe dict access, and skip logging.
+"""Protect error envelope format, crash-safe metadata access, and debug observability.
 
-_format_error_result() is the standard error envelope returned by every
-iterative hand when an exception escapes the run loop. If its structure changes,
-the server's error deserialisation and status display break without a clear
-signal.
+_format_error_result() is the canonical error block format (@@TAG_RESULT + ERROR
+line) consumed by iterative loop parsing. If its structure drifts, error recovery
+in _execute_read_requests and _execute_tool_requests silently breaks.
 
-_pr_status_line() must use .get() rather than bracket access on the metadata
-dict so a partial result (e.g. a hand that crashed before setting all keys)
-still produces a readable status line instead of raising KeyError.
-
-_build_tree_snapshot should log at DEBUG when it skips invalid paths, not
-silently discard them — missing this logging makes repo indexing failures
-invisible during debugging.
+_pr_status_line() must use .get() for metadata keys because hands that crash
+mid-run leave partial metadata dicts. Bracket access would raise KeyError and
+mask the actual failure. _build_tree_snapshot must log skipped invalid paths
+at DEBUG level; without this, repo-indexing problems are invisible when
+debugging why the AI loop cannot see expected files.
 """
 
 from __future__ import annotations
@@ -80,11 +77,11 @@ class TestFormatErrorResult:
         )
         assert result == "@@TOOL_RESULT: bash\nERROR: line1\nline2"
 
-    def test_is_static_method(self) -> None:
+    def test_is_static_method(self) -> None:  # TODO: CLEANUP CANDIDATE
         attr = inspect.getattr_static(_BasicIterativeHand, "_format_error_result")
         assert isinstance(attr, staticmethod)
 
-    def test_has_docstring(self) -> None:
+    def test_has_docstring(self) -> None:  # TODO: CLEANUP CANDIDATE
         doc = _BasicIterativeHand._format_error_result.__doc__
         assert doc is not None and "error" in doc.lower()
 

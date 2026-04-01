@@ -1,12 +1,13 @@
-"""Tests for helping_hands.lib.meta.tools.web.
+"""Protects web search and browsing tools exposed to the AI during agentic loops.
 
-Protects the web tool implementations that iterative hands expose to the AI:
-search_web must parse the DuckDuckGo JSON envelope correctly and reject empty
-queries; browse_url must strip scripts/styles from HTML, respect max_chars
-truncation, and track the final URL after redirects.  The pre-compiled regex
-constants (_SCRIPT_STYLE_RE, _HTML_TAG_RE, etc.) must remain compiled and
-referenced by _strip_html — inlining them would cause repeated recompilation on
-every call, degrading performance on pages fetched during long agentic loops.
+search_web must correctly parse the DuckDuckGo JSON envelope and reject empty
+queries (an empty query returns unrelated results that mislead the AI).
+browse_url must strip scripts/styles before returning content -- leaving them in
+wastes context tokens and confuses the AI with JavaScript noise. max_chars
+truncation prevents oversized pages from blowing the prompt budget. The
+pre-compiled regex constants must stay compiled module-level; inlining them
+causes re-compilation on every call, measurably degrading performance when the
+AI browses multiple pages in a single agentic loop.
 """
 
 from __future__ import annotations

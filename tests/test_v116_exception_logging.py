@@ -1,14 +1,12 @@
-"""Tests for v116: silent exception handlers now emit structured debug logs.
+"""Ensures health-check and token helpers emit debug logs on failure.
 
-Health-check helpers (_check_redis_health, _check_db_health, _check_workers_health,
-_resolve_worker_capacity, _get_claude_oauth_token) must log at DEBUG level when
-they catch exceptions and return an error sentinel.  Without these log lines,
-operators see only a degraded /health response with no clue about the root cause,
-making it impossible to distinguish a mis-configured DATABASE_URL from a genuinely
-down service.
-
-If these tests regress, on-call engineers lose observability into why the health
-endpoint reports "error" for a dependency.
+_check_redis_health, _check_db_health, _check_workers_health,
+_resolve_worker_capacity, and _get_claude_oauth_token all swallow exceptions
+and return error sentinels.  Each must log at DEBUG level so operators can
+distinguish a misconfigured DATABASE_URL from a genuinely down service.
+Without these logs, /health reports "error" with no root-cause clue, making
+on-call triage impossible.  ensure_usage_schedule follows the same pattern
+for the Celery beat registration path.
 """
 
 from __future__ import annotations

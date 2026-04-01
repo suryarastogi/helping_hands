@@ -1,13 +1,13 @@
-"""Tests for _TwoPhaseCLIHand retry, apply-changes, and interrupt helpers.
+"""Protects the no-change retry gate and subprocess lifecycle on interrupt.
 
-_should_retry_without_changes guards the no-change retry loop: it only triggers
-a second backend invocation when (a) the feature flag is on, (b) the prompt
-looks like an edit request, (c) no interrupt was received, and (d) the repo
-truly has no changes. A bug in any of those four conditions causes either wasted
-retries on read-only prompts or missed retries on real edit tasks. The
-_terminate_active_process logic ensures that an interrupt (or idle timeout)
-escalates from SIGTERM to SIGKILL when the process does not exit promptly —
-critical to prevent zombie subprocesses on long-running server deployments.
+_should_retry_without_changes has four conjunctive guards (feature flag, edit
+heuristic, no interrupt, no repo changes). A false-true on any guard wastes a
+full backend invocation; a false-negative skips the retry and returns an empty
+diff to the user. _terminate_active_process must escalate SIGTERM to SIGKILL
+on timeout -- without this, zombie CLI subprocesses accumulate on long-running
+server deployments and eventually exhaust the process table. The interrupt()
+method bridges synchronous callers to the async termination path; a regression
+there leaves the subprocess running after the user cancels.
 """
 
 from __future__ import annotations

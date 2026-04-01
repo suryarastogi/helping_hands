@@ -1,14 +1,13 @@
-"""Tests for v249: deduplicating env-var constants between github_url.py and base.py.
+"""Protect single-source-of-truth for GIT_TERMINAL_PROMPT and GCM_INTERACTIVE env var names.
 
-Before v249, both github_url.py (used during clone) and base.py (used during
-authenticated push setup) independently defined the same environment variable
-name strings. If either copy was updated and the other was not, one of the two
-code paths would fail to suppress git's interactive credential prompts, causing
-hangs in non-interactive CI environments.
+Clone (github_url.py) and push (base.py) both suppress git's interactive
+credential prompts via these env vars. If either module defines its own copy
+and the two drift, one code path silently stops suppressing prompts, causing
+hangs in non-interactive CI environments with no error message.
 
-The identity test (is, not ==) confirms that base.py re-exports the exact same
-object from github_url.py rather than re-defining a new string with the same
-value, which guarantees there is a single definition to maintain.
+The ``is`` identity checks (not just ``==``) ensure base.py re-exports the
+same object from github_url.py rather than redefining an equal string,
+guaranteeing a single constant to maintain.
 """
 
 from __future__ import annotations
@@ -243,6 +242,8 @@ class TestPushBranchUsesConstants:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — docstring-presence checks are stylistic; they don't
+# protect runtime behavior and are better enforced by a linter rule.
 class TestDocstringsInGithubUrl:
     """Canonical constants in github_url.py must have docstrings."""
 

@@ -1,16 +1,16 @@
-"""Tests for v154: git diff and clone subprocess calls respect their timeout constants.
+"""Ensures git subprocess calls honour timeout constants and degrade gracefully.
 
-PR description generation runs git diff against the base branch; on large repos or
-slow networks this can stall indefinitely.  _get_diff and _get_uncommitted_diff must
-catch TimeoutExpired and return an empty string rather than propagating the exception,
-because a missing diff is recoverable (the PR is still opened) while an unhandled
-exception aborts the entire task.
+_get_diff and _get_uncommitted_diff must catch TimeoutExpired and return an
+empty string so a slow git-diff does not abort the entire task -- a missing
+diff is recoverable (the PR still opens), but an unhandled exception is not.
+The "passes timeout param" tests verify the constant is actually forwarded to
+subprocess.run; without them the constant could exist as dead code while git
+hangs indefinitely on large repos.
 
-The "passes timeout param" test verifies the constant is actually forwarded to
-subprocess.run — without it, the constant is dead code and git can still hang.
-
-CLI clone timeout (_GIT_CLONE_TIMEOUT_S) follows the same pattern for the
-owner/repo auto-clone path in the CLI entry point.
+_GIT_CLONE_TIMEOUT_S is tested for both cli/main.py and celery_app.py to
+ensure the owner/repo auto-clone path cannot block a worker forever.
+read_text_file max_chars validation prevents callers from passing non-positive
+limits that would silently return empty content.
 """
 
 from __future__ import annotations
@@ -45,10 +45,10 @@ class TestGitDiffTimeoutConstant:
     def test_value(self) -> None:
         assert _GIT_DIFF_TIMEOUT_S == 30
 
-    def test_type(self) -> None:
+    def test_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         assert isinstance(_GIT_DIFF_TIMEOUT_S, int)
 
-    def test_positive(self) -> None:
+    def test_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         assert _GIT_DIFF_TIMEOUT_S > 0
 
 
@@ -152,10 +152,10 @@ class TestCliGitCloneTimeoutConstant:
     def test_value(self) -> None:
         assert CLI_GIT_CLONE_TIMEOUT_S == 120
 
-    def test_type(self) -> None:
+    def test_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         assert isinstance(CLI_GIT_CLONE_TIMEOUT_S, int)
 
-    def test_positive(self) -> None:
+    def test_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         assert CLI_GIT_CLONE_TIMEOUT_S > 0
 
 
@@ -222,13 +222,13 @@ class TestCeleryGitCloneTimeoutConstant:
 
         assert _GIT_CLONE_TIMEOUT_S == 120
 
-    def test_type(self) -> None:
+    def test_type(self) -> None:  # TODO: CLEANUP CANDIDATE
         pytest.importorskip("celery")
         from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
 
         assert isinstance(_GIT_CLONE_TIMEOUT_S, int)
 
-    def test_positive(self) -> None:
+    def test_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         pytest.importorskip("celery")
         from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
 

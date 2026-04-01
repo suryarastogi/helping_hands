@@ -1,11 +1,11 @@
-"""Smoke tests: every concrete Hand subclass can be instantiated with Config + RepoIndex.
+"""Smoke tests: every Hand backend constructs and exposes the public API surface.
 
-Ensures the public Hand API surface — run(), stream(), interrupt(), auto_pr,
-fix_ci, and _interrupt_event — is present on every backend after construction.
-If a new hand is added but wired incorrectly, or a required attribute is
-renamed in the base class, these tests catch it before integration tests run.
-Also confirms HandResponse defaults are safe (independent mutable metadata
-dicts per instance) so callers can annotate responses without cross-talk.
+Guards against wiring regressions when new hands are added or the base class
+evolves: if any concrete hand fails to construct from (Config, RepoIndex), or
+loses run()/stream()/interrupt()/auto_pr/fix_ci, the CLI and server will crash
+at dispatch time with no prior signal. Also validates that HandResponse uses
+per-instance metadata dicts (not a shared default) -- a mutable-default-arg bug
+would cause cross-talk between concurrent server responses.
 """
 
 from __future__ import annotations
@@ -167,6 +167,9 @@ class TestHandInstantiation:
 
 class TestHandResponseConstruction:
     """HandResponse dataclass construction tests."""
+
+    # TODO: CLEANUP CANDIDATE — test_equality, test_inequality, test_repr_contains_message
+    # just exercise auto-generated dataclass methods; they protect no custom logic.
 
     def test_minimal_construction(self) -> None:
         resp = HandResponse(message="done")

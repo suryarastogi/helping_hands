@@ -1,14 +1,15 @@
-"""Enforce Google-style docstrings on ClaudeCodeHand and _StreamJsonEmitter.
+"""Protect Claude CLI streaming parser docs and MCP input validation boundaries.
 
-_StreamJsonEmitter is the JSON-line parser that converts raw `claude --output-format
-stream-json` output into streaming text chunks. Its _process_line method handles
-multiple event types (assistant, result) with different extraction paths. Without
-documented Args: and the list of recognised event types, contributors risk adding
-new event types in the wrong branch. ClaudeCodeHand._resolve_cli_model guards the
-GPT → Claude model-name translation that prevents non-Claude models from being
-passed to the Claude CLI. _skip_permissions_enabled documents the dangerous
-HELPING_HANDS_CLAUDE_DANGEROUS_SKIP_PERMISSIONS env var that must stay under
-controlled conditions (root user only).
+_StreamJsonEmitter parses raw stream-json output into text chunks; its event-type
+branching (assistant vs result) is the main place contributors add new event
+handling, so docstrings listing recognised types prevent mis-routed additions.
+ClaudeCodeHand._resolve_cli_model and _skip_permissions_enabled are security-
+sensitive: the former prevents non-Claude models reaching the Claude binary, the
+latter gates a dangerous permission-skip flag to root-only contexts.
+
+MCP path_exists and run_bash_script must reject empty/whitespace inputs at the
+validation boundary; without this, downstream subprocess calls receive blank
+arguments and produce misleading success results or silent no-ops.
 """
 
 from __future__ import annotations

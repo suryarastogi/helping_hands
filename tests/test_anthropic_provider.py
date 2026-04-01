@@ -1,17 +1,15 @@
-"""Tests for Anthropic provider _build_inner() and _complete_impl().
+"""Protects Anthropic SDK integration: client construction and completion dispatch.
 
-Protects the following behavioral invariants of `AnthropicProvider`:
-- `_build_inner` raises a descriptive `RuntimeError` (not `ImportError`) when the
-  `anthropic` SDK is absent, giving users an actionable install hint.
-- When `ANTHROPIC_API_KEY` is set, the SDK client is constructed with that key;
-  when absent, it is constructed without arguments so the SDK can apply its own
-  fallback (e.g. env var re-lookup or interactive prompt).
-- `_complete_impl` always forwards `max_tokens` to `inner.messages.create`
-  (Anthropic requires it; omitting it raises an API error), defaulting to 1024
-  but respecting any caller-supplied override.
-- Extra kwargs such as `temperature` and `top_p` are passed through transparently.
-- The module-level `ANTHROPIC_PROVIDER` singleton is stable across imports so
-  lazy init state is not lost.
+AnthropicProvider is the bridge between the generic AIProvider interface and the
+Anthropic Messages API. Key invariants:
+- Missing SDK raises RuntimeError with install hint, not a raw ImportError (users
+  need actionable guidance, not a stack trace from deep in the import chain).
+- max_tokens is always forwarded (Anthropic requires it); omitting it causes a
+  400 error at runtime with no obvious diagnostic.
+- API key presence/absence controls whether the client is constructed with an
+  explicit key or defers to the SDK's own env-var lookup.
+- The module-level singleton must be identity-stable across imports so lazy-init
+  state (cached inner client) is never silently discarded.
 """
 
 from __future__ import annotations
@@ -29,6 +27,8 @@ from helping_hands.lib.ai_providers.anthropic import AnthropicProvider
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — these tests just assert hardcoded class attributes;
+# any rename is caught by the downstream integration tests and _build_inner tests.
 class TestAnthropicProviderAttributes:
     def test_name(self) -> None:
         assert AnthropicProvider.name == "anthropic"
@@ -175,6 +175,8 @@ class TestAnthropicCompleteImpl:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — singleton identity is guaranteed by Python's module
+# system; the isinstance check duplicates what _build_inner tests already cover.
 class TestAnthropicProviderSingleton:
     def test_singleton_is_anthropic_provider_instance(self) -> None:
         from helping_hands.lib.ai_providers.anthropic import ANTHROPIC_PROVIDER

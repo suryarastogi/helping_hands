@@ -1,17 +1,13 @@
-"""Tests for v251: _GITHUB_ERRORS constant and Celery inspect exception narrowing.
+"""Protect canonical _GITHUB_ERRORS tuple usage across hand implementations and Celery inspect exception specificity.
 
-_GITHUB_ERRORS = (GithubException, OSError) is the canonical except tuple for
-all GitHub API interactions. If base.py or e2e.py import GithubException
-separately and construct the tuple inline, a future change (e.g. adding
-RateLimitExceededException to the tuple) must be made in multiple places and
-can be missed, causing some GitHub errors to propagate uncaught.
+_GITHUB_ERRORS centralizes the except-tuple for all GitHub API calls. If
+base.py or e2e.py construct the tuple inline, adding a new exception type
+(e.g. RateLimitExceededException) requires edits in multiple files and a
+missed site lets that error propagate uncaught, crashing the PR flow.
 
-The "exactly 4 uses in base.py" test enforces that all GitHub error handlers
-use the constant rather than a subset or superset of the types.
-
-app.py Celery inspect helpers must catch only connection/OS/timeout errors so
-that attribute errors from Celery API changes surface immediately rather than
-reporting incorrect worker capacity.
+The "exactly 4 uses" count in base.py guards against handlers that silently
+revert to a bare tuple. Celery inspect helpers must catch only broker/network
+errors so Celery API changes crash loudly instead of reporting wrong capacity.
 """
 
 from __future__ import annotations
@@ -70,6 +66,8 @@ class TestGithubErrorsConstant:
 
         assert len(_GITHUB_ERRORS) == 2
 
+    # TODO: CLEANUP CANDIDATE — asserts that exception types are exception
+    # subclasses, which is a tautology if the content tests above pass.
     def test_all_are_exception_subclasses(self) -> None:
         from helping_hands.lib.hands.v1.hand.base import _GITHUB_ERRORS
 

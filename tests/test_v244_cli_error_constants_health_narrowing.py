@@ -1,17 +1,14 @@
-"""Tests for v244: CLI error constants and health-check exception narrowing.
+"""Protect CLI model-detection markers, backend error-exit routing, and Celery health-check exception specificity.
 
-_MODEL_NOT_FOUND_MARKERS is used to detect "model not installed" stderr output
-from CLI backends. If the marker strings drift or a backend produces a new
-variant that isn't covered, the hand silently returns an empty result rather
-than raising a user-facing "model not available" error.
+_MODEL_NOT_FOUND_MARKERS must match every known "model not installed" stderr
+pattern across CLI backends. If a marker drifts or a new variant is missed,
+the hand silently returns empty output instead of a clear "model not available"
+error, leaving users to debug a blank response.
 
-_CLI_ERROR_EXIT_BACKENDS controls which backends trigger the "exit on error"
-recovery path. Adding a backend to the set without updating this constant
-means its non-zero exit codes are silently ignored.
-
-_check_workers_health and _resolve_worker_capacity must only catch connection
-errors, not bare Exception, so Celery inspection bugs surface immediately
-rather than causing the API to report incorrect worker capacity.
+_CLI_ERROR_EXIT_BACKENDS gates the error-recovery path; omitting a backend
+means its non-zero exit codes are silently swallowed. _check_workers_health
+and _resolve_worker_capacity must catch only connection/OS/timeout errors so
+Celery API changes surface as crashes, not as silently wrong capacity numbers.
 """
 
 from __future__ import annotations
@@ -77,10 +74,10 @@ def _handler_type_names(handler: ast.ExceptHandler) -> set[str]:
 class TestModelNotFoundMarkers:
     """Tests for the _MODEL_NOT_FOUND_MARKERS constant."""
 
-    def test_is_tuple(self) -> None:
+    def test_is_tuple(self) -> None:  # TODO: CLEANUP CANDIDATE — asserts container type, not behavior
         assert isinstance(_MODEL_NOT_FOUND_MARKERS, tuple)
 
-    def test_non_empty(self) -> None:
+    def test_non_empty(self) -> None:  # TODO: CLEANUP CANDIDATE — subsumed by the content checks below
         assert len(_MODEL_NOT_FOUND_MARKERS) > 0
 
     def test_contains_model_not_found(self) -> None:
@@ -89,6 +86,8 @@ class TestModelNotFoundMarkers:
     def test_contains_does_not_exist(self) -> None:
         assert "does not exist" in _MODEL_NOT_FOUND_MARKERS
 
+    # TODO: CLEANUP CANDIDATE — type/shape assertions on constant entries; the type
+    # checker already enforces this and the content checks above are sufficient.
     def test_all_entries_are_strings(self) -> None:
         for marker in _MODEL_NOT_FOUND_MARKERS:
             assert isinstance(marker, str)
@@ -141,6 +140,10 @@ class TestModelNotFoundMarkersSourceConsistency:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — these tests assert static properties of a string
+# template (is-a-string, has placeholder, mentions --model). The format_works
+# test has marginal value; the rest are type/shape checks with no behavioral
+# protection.
 class TestModelNotAvailableMsg:
     """Tests for the _MODEL_NOT_AVAILABLE_MSG template."""
 
@@ -166,10 +169,10 @@ class TestModelNotAvailableMsg:
 class TestCliErrorExitBackends:
     """Tests for the _CLI_ERROR_EXIT_BACKENDS constant."""
 
-    def test_is_frozenset(self) -> None:
+    def test_is_frozenset(self) -> None:  # TODO: CLEANUP CANDIDATE — asserts container type, not behavior
         assert isinstance(_CLI_ERROR_EXIT_BACKENDS, frozenset)
 
-    def test_non_empty(self) -> None:
+    def test_non_empty(self) -> None:  # TODO: CLEANUP CANDIDATE — subsumed by test_contains_known_cli_backends
         assert len(_CLI_ERROR_EXIT_BACKENDS) > 0
 
     def test_contains_known_cli_backends(self) -> None:
@@ -182,6 +185,8 @@ class TestCliErrorExitBackends:
         }
         assert expected == _CLI_ERROR_EXIT_BACKENDS
 
+    # TODO: CLEANUP CANDIDATE — type/shape assertions; the exact-set check above
+    # already validates all entries.
     def test_all_entries_are_strings(self) -> None:
         for name in _CLI_ERROR_EXIT_BACKENDS:
             assert isinstance(name, str)

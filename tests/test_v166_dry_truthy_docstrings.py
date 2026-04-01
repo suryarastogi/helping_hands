@@ -1,14 +1,13 @@
-"""Tests for v166: _FAILURE_OUTPUT_TAIL_LENGTH consolidation and "on" added to truthy set.
+"""Protect single-source-of-truth for CLI failure scan window and truthy env parsing.
 
-Before v166, codex.py, claude.py, gemini.py, and opencode.py each defined their own
-tail-length constant.  If one subclass's constant drifted, auth-failure detection
-would scan different amounts of subprocess output per backend, causing inconsistent
-"wrong credentials" detection.  The consolidation into base.py's single constant
-means all four backends share the same scan window.
+_FAILURE_OUTPUT_TAIL_LENGTH must live in cli/base.py and be shared by all four
+CLI hand subclasses (codex, claude, gemini, opencode). If any subclass re-defines
+the constant, auth-failure detection scans a different tail length, causing
+inconsistent "wrong credentials" errors across backends.
 
-Adding "on" to _TRUTHY_VALUES matches common shell/ansible conventions where
-FEATURE=on means enabled; without it, environment variables set to "on" would be
-silently treated as false, disabling features for users following those conventions.
+_TRUTHY_VALUES must include "on" alongside "1"/"true"/"yes" so that env vars
+like FEATURE=on (common in shell/ansible) are not silently treated as false,
+which would disable features for users following those conventions.
 """
 
 from __future__ import annotations

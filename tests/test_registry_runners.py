@@ -1,13 +1,12 @@
-"""Tests for registry runner wrappers (payload validation + mocked dispatch).
+"""Protects input validation at the AI-to-subprocess boundary in tool runners.
 
-Protects the boundary between AI-generated @@TOOL payloads and the underlying
-command/web implementations: each runner must reject missing, empty, or
+AI-generated @@TOOL payloads are untrusted dicts; each runner (_run_python_code,
+_run_bash_script, _run_web_search, etc.) must reject missing, empty, or
 wrong-typed required fields with a clear ValueError before dispatching, and must
-forward all optional parameters (args, timeout_s, cwd, max_results) to the
-underlying call with correct defaults.  Without these guards, malformed AI
-payloads would reach subprocess execution with silent None values or crash with
-unhelpful AttributeErrors rather than returning a structured error the AI can
-recover from.
+forward optional parameters (args, timeout_s, cwd, max_results) with correct
+defaults.  Without these guards, malformed payloads reach subprocess execution
+with None values or crash with unhelpful AttributeErrors instead of returning
+structured errors the AI loop can recover from.
 """
 
 from __future__ import annotations

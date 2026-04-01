@@ -1,14 +1,15 @@
-"""Tests for v234: DEFAULT_REDIS_URL constant and health-check exception narrowing.
+"""Protect single-source Redis URL and narrowed health-check exception handling.
 
-If celery_app.py and app.py hard-code different Redis URL defaults, the worker
-and the API server connect to different Redis instances in environments where
-REDIS_URL is not set, silently splitting the task queue.
+celery_app.py and app.py must both import DEFAULT_REDIS_URL from constants.py
+rather than hard-coding the URL. If they diverge, the worker and API server
+silently connect to different Redis instances when REDIS_URL is unset, splitting
+the task queue with no visible error.
 
-Health-check handlers must catch specific exceptions (ImportError, RedisError,
-OSError) rather than bare Exception, so that programming errors in the health
-endpoint surface immediately. The runtime ImportError tests verify that the
-health checks degrade gracefully when the redis or celery packages are absent,
-which is a real scenario in minimal deployments.
+Health-check handlers (_check_redis_health, _check_db_health) and Celery helpers
+(log_claude_usage, ensure_usage_schedule) must catch only ImportError, RedisError/
+psycopg2.Error, and OSError -- never bare Exception. Bare catches hide programming
+bugs in production. The runtime tests verify graceful degradation when redis or
+psycopg2 packages are absent, a real scenario in minimal deployments.
 """
 
 from __future__ import annotations
@@ -51,7 +52,7 @@ class TestDefaultRedisUrlConstant:
 
         assert DEFAULT_REDIS_URL == "redis://localhost:6379/0"
 
-    def test_is_string(self) -> None:
+    def test_is_string(self) -> None:  # TODO: CLEANUP CANDIDATE — redundant with test_value
         from helping_hands.server.constants import DEFAULT_REDIS_URL
 
         assert isinstance(DEFAULT_REDIS_URL, str)

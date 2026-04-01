@@ -1,15 +1,13 @@
-"""Tests for v258: DRY env var parsing in pr_description.py.
+"""Protect centralized env-var parsing for PR-description timeout and diff-char-limit settings.
 
-Before this refactor, _timeout_seconds() and _diff_char_limit() each contained
-their own try/except blocks, non-numeric/non-positive guards, and logger.warning
-calls. Any change to the warning message or fallback logic had to be applied to
-both functions. The shared _parse_positive_env_var() helper removes this
-duplication.
+_timeout_seconds and _diff_char_limit previously duplicated try/except,
+non-positive guards, and logger.warning calls. If the duplication returns,
+a fix to one function's fallback logic can miss the other, causing silent
+misconfiguration (e.g. negative timeout accepted, or wrong warning text).
 
-The AST tests enforce the delegation: _timeout_seconds and _diff_char_limit
-must be single-statement return functions with no inline logger.warning calls.
-If either function grows new branches, CI catches it before the duplication
-re-establishes itself.
+The AST one-liner checks are the key invariant: they ensure both functions
+remain single-return delegations to _parse_positive_env_var, so CI catches
+any re-introduced branching before duplication re-establishes itself.
 """
 
 from __future__ import annotations
@@ -95,6 +93,8 @@ class TestParsePositiveEnvVar:
         assert result == 42
         assert "non-positive" in caplog.text
 
+    # TODO: CLEANUP CANDIDATE — stylistic docstring-presence check; better
+    # enforced by a linter rule than a runtime test.
     def test_has_docstring(self) -> None:
         assert _parse_positive_env_var.__doc__ is not None
         assert "positive" in _parse_positive_env_var.__doc__.lower()

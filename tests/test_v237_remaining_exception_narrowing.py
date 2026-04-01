@@ -1,16 +1,14 @@
-"""Tests for v237: narrowing the remaining bare except Exception handlers.
+"""Protect exception-handler specificity in PR finalization, CI fix loops, and server helpers.
 
-Each handler here was previously catching Exception, meaning any programming
-error (AttributeError, NameError, etc.) would be silently logged and swallowed
-rather than propagating. The specific replacements are:
+Bare ``except Exception`` in these paths silently swallows programming errors
+(AttributeError, NameError, etc.) that should crash loudly. If specificity
+regresses, bugs in PR creation, CI-fix retries, worker-capacity probing, or
+schedule next-run calculation become invisible in production logs -- users see
+empty results or stale data with no traceback to diagnose.
 
-- update_pr_body / _finalize_repo_pr: only GitHub API or OS errors are expected
-- _ci_fix_loop: subprocess and OS errors only; logic errors must surface
-- _resolve_worker_capacity: connection/OS/timeout only; Celery inspect errors are real bugs
-- _schedule_to_response next_run: datetime parse can only raise ValueError/TypeError
-
-Leaving these as bare Exception would make production regressions invisible and
-test the wrong failure mode.
+Design decision: each handler's exception set is chosen to match the failure
+modes of the external call it wraps (GitHub API, subprocess, Celery broker,
+datetime parsing) and nothing else.
 """
 
 from __future__ import annotations
@@ -276,6 +274,9 @@ class TestAppScheduleToResponseHandler:
 # ---------------------------------------------------------------------------
 
 
+# TODO: CLEANUP CANDIDATE — these assert stdlib exception hierarchy facts that
+# cannot change without a Python major version bump; they duplicate language
+# guarantees and add no regression protection for this codebase.
 class TestExceptionHierarchy:
     """Verify that narrowed exception types cover expected scenarios."""
 

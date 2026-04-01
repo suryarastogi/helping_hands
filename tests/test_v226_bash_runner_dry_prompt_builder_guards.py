@@ -1,14 +1,13 @@
-"""Tests for v226: DRY _run_bash_script and prompt builder type guards.
+"""Protect type validation at subprocess and AI-model call boundaries.
 
-_run_bash_script() is the shared subprocess wrapper used to execute pre-commit
-and other bash scripts from within PR description generation. If it stops using
-_parse_optional_str, callers can pass non-string script paths that reach
-subprocess.run and raise an unguarded TypeError instead of a clear validation
-error.
+_run_bash_script must validate script_path/inline_script via _parse_optional_str
+so non-string or whitespace-only values are rejected before reaching subprocess.run.
+Without this, callers passing ints, bools, or lists trigger unguarded TypeErrors
+deep in the subprocess layer instead of clear validation messages.
 
-The prompt builder type guards (_build_prompt, _build_commit_message_prompt)
-sit at the boundary between hand logic and AI model calls. Wrong types reaching
-the model client produce confusing API errors; early TypeError is clearer.
+_build_prompt and _build_commit_message_prompt sit at the hand-to-model boundary.
+If diff or backend slip through as None, empty, or non-string, the model API
+returns confusing errors; require_non_empty_string catches these at the source.
 """
 
 from __future__ import annotations

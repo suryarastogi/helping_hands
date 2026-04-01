@@ -1,18 +1,12 @@
-"""Tests for v270: has_cli_flag(), install_hint(), and _check_optional_dep().
+"""Guards CLI flag injection safety, install-hint formatting, and optional
+dependency gating used by hand backends and the schedules endpoint.
 
-has_cli_flag() is used to detect whether a flag is already present in a
-command token list before injecting it again. The exact-match vs prefix-match
-semantics are critical: "--model-name" must not match "--model", otherwise
-injecting --model after the user has already supplied --model-name produces
-a duplicate-flag CLI error.
-
-install_hint() generates the "uv add X" message shown when an optional
-dependency is missing. If the format changes, users receive malformed install
-commands.
-
-_check_optional_dep() gates Celery schedule functionality; if it stops raising
-ImportError for missing packages rather than propagating the error, the
-schedules endpoint returns 500 instead of a clear "install celery" message.
+has_cli_flag() must use exact-match and --flag= prefix semantics; if
+"--model-name" falsely matches "--model", CLI hands inject duplicate flags
+that crash the subprocess. install_hint() must produce copy-pasteable
+"uv sync --extra X" commands; malformed output leaves users unable to
+install. _check_optional_dep() must raise ImportError (not 500) when a
+package is missing, so the schedules endpoint returns a clear message.
 """
 
 from __future__ import annotations
@@ -103,7 +97,11 @@ class TestInstallHint:
         result = install_hint("my-custom-extra")
         assert result == "Install with: uv sync --extra my-custom-extra"
 
-    def test_returns_string(self) -> None:
+    def test_returns_string(
+        self,
+    ) -> (
+        None
+    ):  # TODO: CLEANUP CANDIDATE — asserts return type, duplicated by test_server_extra
         assert isinstance(install_hint("server"), str)
 
 

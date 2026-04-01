@@ -1,17 +1,16 @@
-"""Tests for v137: health-check timeout values and Anthropic API endpoint constant.
+"""Pins health-check timeouts and Anthropic API endpoint constants.
 
-Each health-check helper uses its own timeout to avoid letting a slow dependency
-stall the entire /health response.  If _REDIS_HEALTH_TIMEOUT_S regresses to 30 s,
-a hung Redis connection would make /health time out for every load-balancer probe.
-These tests pin the exact values agreed on in the v137 review so future edits
-require an explicit acknowledgement of the change.
+Each health-check helper has its own timeout so a slow dependency cannot stall
+the entire /health response for load-balancer probes.  These tests pin the
+exact values so changes require explicit acknowledgement.
 
-_ANTHROPIC_USAGE_URL must remain an HTTPS endpoint; a regression to HTTP would
-transmit OAuth tokens in cleartext.
+_ANTHROPIC_USAGE_URL must remain HTTPS; a regression to HTTP would transmit
+OAuth tokens in cleartext.  The cross-module sync test ensures app.py and
+celery_app.py cannot silently diverge on URL, header, or timeout values.
 
-# TODO: CLEANUP CANDIDATE — the individual positive/type assertions per constant
-# duplicate the all_timeouts_are_positive aggregate test; they add no extra
-# failure signal once the value tests pass.
+# TODO: CLEANUP CANDIDATE -- individual positive/type assertions per constant
+# duplicate the all_timeouts_are_positive aggregate test and the value tests;
+# they add no extra failure signal.
 """
 
 from __future__ import annotations
@@ -88,7 +87,7 @@ class TestAppAnthropicApiConstants:
 
         assert _ANTHROPIC_USAGE_URL == "https://api.anthropic.com/api/oauth/usage"
 
-    def test_usage_url_is_https(self) -> None:
+    def test_usage_url_is_https(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.server.app import _ANTHROPIC_USAGE_URL
 
         assert _ANTHROPIC_USAGE_URL.startswith("https://")
@@ -103,7 +102,7 @@ class TestAppAnthropicApiConstants:
 
         assert _USAGE_USER_AGENT == "claude-code/2.0.32"
 
-    def test_user_agent_has_version(self) -> None:
+    def test_user_agent_has_version(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.server.app import _USAGE_USER_AGENT
 
         assert "/" in _USAGE_USER_AGENT

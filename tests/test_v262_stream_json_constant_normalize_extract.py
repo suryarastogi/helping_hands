@@ -1,18 +1,13 @@
-"""Tests for v262: _OUTPUT_FORMAT_STREAM_JSON, _normalize_preview, _extract_message_blocks.
+"""Guards the Claude CLI streaming pipeline against format drift and
+malformed events that would silently break real-time progress output.
 
-_OUTPUT_FORMAT_STREAM_JSON is passed as --output-format to the Claude binary.
-If the literal "stream-json" drifts between the constant and any usage site,
-the binary either produces non-streaming output (whole response arrives at
-once) or fails to start, silently breaking the Claude CLI hand.
-
-_normalize_preview() strips and collapses newlines in content text before it
-is emitted as a one-line progress update. Without this, multi-line assistant
-messages produce garbled single-line previews in the task status display.
-
-_extract_message_blocks() safely extracts the content list from an event dict.
-If it raises on non-dict message values (which the stream can legitimately
-produce for certain event types), _process_line crashes and the entire stream
-is lost rather than skipping the malformed event.
+_OUTPUT_FORMAT_STREAM_JSON must equal "stream-json"; any drift causes the
+Claude binary to emit non-streaming output or fail to start.
+_normalize_preview() must strip/collapse newlines so multi-line assistant
+text renders as a clean one-line progress update in the task status UI.
+_extract_message_blocks() must return [] (not raise) for non-dict message
+values the stream legitimately produces, otherwise _process_line crashes
+and the entire streaming session is lost.
 """
 
 from __future__ import annotations
@@ -34,14 +29,16 @@ class TestOutputFormatStreamJson:
 
         assert _OUTPUT_FORMAT_STREAM_JSON == "stream-json"
 
-    def test_is_str(self) -> None:
+    def test_is_str(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — asserts type, not behavior; test_value already covers this
         from helping_hands.lib.hands.v1.hand.cli.claude import (
             _OUTPUT_FORMAT_STREAM_JSON,
         )
 
         assert isinstance(_OUTPUT_FORMAT_STREAM_JSON, str)
 
-    def test_in_all(self) -> None:
+    def test_in_all(self) -> None:  # TODO: CLEANUP CANDIDATE — stylistic __all__ check
         from helping_hands.lib.hands.v1.hand.cli.claude import __all__
 
         assert "_OUTPUT_FORMAT_STREAM_JSON" in __all__

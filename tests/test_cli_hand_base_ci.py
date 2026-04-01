@@ -1,14 +1,13 @@
-"""Tests for _TwoPhaseCLIHand static helpers: CI-fix prompt building, PR status
-formatting, edit-request detection, and failed-check log fetching.
+"""Protects CI-fix loop correctness and user-facing status reporting.
 
-These helpers govern what the AI sees when CI fails (prompt content and log
-snippets) and what the user sees after a run completes (PR/CI status messages).
-Regressions here silently degrade the AI's ability to fix CI failures — wrong
-check filtering causes the agent to attempt fixes on passing checks, while
-broken log fetching removes the exact error context it needs. The
-_looks_like_edit_request heuristic controls whether a no-change run triggers
-an automatic retry; misclassification either wastes retries on read-only
-prompts or skips retries on real edit tasks.
+These helpers determine (a) what the AI sees when CI fails and (b) what the
+user sees after a run completes. A regression in _build_ci_fix_prompt's check
+filtering causes the agent to waste tokens fixing already-passing checks. Broken
+log fetching strips the exact compiler/linter output the AI needs to diagnose
+failures. _looks_like_edit_request gates the no-change retry: a false positive
+wastes a full backend invocation; a false negative skips the retry and returns
+an empty diff to the user. _format_pr_status_message maps every PR lifecycle
+state to a human message -- an unhandled status silently swallows the PR URL.
 """
 
 from __future__ import annotations

@@ -1,13 +1,13 @@
-"""Tests for v254: eliminating the remaining getattr() calls across server modules.
+"""Protect direct attribute access on typed objects, preventing getattr-with-default from hiding typos.
 
-These are the last getattr() callsites not covered by v246/v253. Each one is on
-an object with well-defined attributes: HTTPResponse (stdlib), PyGitHub
-Repository, ScheduledTask dataclass, and Celery Task.request. Using getattr
-with a default on these objects hides attribute name typos and makes the code
-harder to trace in an IDE.
+getattr(obj, "attr", default) on objects with well-defined schemas
+(HTTPResponse, PyGitHub Repository, ScheduledTask dataclass, Celery
+Task.request) silently returns the default when the attribute name is
+misspelled, producing wrong values with no error. Direct access lets both
+the type checker and runtime catch name mismatches immediately.
 
-The AST checks cover browse_url (HTTPResponse), base.py (Repository),
-app.py (ScheduledTask.github_token), and celery_app.py (self.request.id).
+The AST checks ensure no regression to getattr patterns in browse_url,
+finalize_pr, update_schedule, and run_hand.
 """
 
 from __future__ import annotations

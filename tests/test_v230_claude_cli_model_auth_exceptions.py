@@ -1,17 +1,14 @@
-"""Tests for v230: Claude CLI model filter, auth description, exception narrowing.
+"""Protect Claude CLI model filtering, auth diagnostics, and exception boundaries.
 
-_resolve_cli_model() must strip the "openai/" prefix before passing the model
-name to the Claude binary; if it regresses, the binary receives an unrecognised
-model string and fails with a confusing error rather than a clear filter warning.
+_resolve_cli_model() filters out non-Claude models (openai/*, gpt-*) before
+they reach the Claude binary. A regression here sends an unrecognised model
+string to the CLI, producing a cryptic binary error instead of a clear skip.
 
-_describe_auth() drives the authentication status banner shown to users; if key
-env-var checks are skipped, users see misleading "not set" statuses and cannot
-diagnose credential issues.
-
-_skip_permissions_enabled() must catch ValueError and OSError (permission
-errors reading the flag file) but let TypeError and RuntimeError propagate —
-swallowing the latter would hide bugs; swallowing too few would crash on
-legitimate permission-denied scenarios.
+_describe_auth() powers the credential-status banner; if it stops detecting
+empty/whitespace ANTHROPIC_API_KEY, users see misleading "set" status and
+cannot diagnose auth failures. _skip_permissions_enabled() must catch only
+ValueError and OSError (legitimate env/permission issues) while letting
+TypeError and RuntimeError propagate as programming bugs.
 """
 
 from __future__ import annotations

@@ -1,18 +1,17 @@
-"""Tests for v139: preview/tail truncation constants extracted to named symbols.
+"""Pins streaming-preview and failure-tail truncation constants.
 
-Claude CLI streaming emits tool results and text blocks; truncating them to named
-constants (_TEXT_PREVIEW_MAX_LENGTH = 200, _TOOL_RESULT_PREVIEW_MAX_LENGTH = 150)
-keeps streaming output readable without flooding the terminal.  A regression that
-removes the truncation would log multi-kilobyte blobs per tool call, making live
-output unreadable.
+CLI streaming truncates tool results and text blocks to named constants so
+live output stays readable; without these limits, multi-kilobyte blobs per
+tool call flood the terminal.  The key behavioral test is
+test_detect_auth_failure_uses_tail_length, which verifies _detect_auth_failure
+actually slices output to _FAILURE_OUTPUT_TAIL_LENGTH rather than ignoring it.
 
-The behaviorally important test is test_detect_auth_failure_uses_tail_length, which
-verifies that _detect_auth_failure actually slices the output to the constant value
-rather than storing it but ignoring it during auth-failure scanning.
+PR description constants (_PR_SUMMARY_TRUNCATION_LENGTH, etc.) bound the text
+sent to the description-generation LLM, preventing token-limit blowouts.
 
-# TODO: CLEANUP CANDIDATE — individual positive/is_int assertions per constant
-# add no failure signal beyond the value tests; consider collapsing to a single
-# parametrized positive-and-typed assertion.
+# TODO: CLEANUP CANDIDATE -- individual positive/is_int assertions per constant
+# add no failure signal beyond the value tests; collapse to a single
+# parametrized positive-and-typed check.
 """
 
 # ---------------------------------------------------------------------------
@@ -30,14 +29,14 @@ class TestClaudeCLIPreviewConstants:
 
         assert _TEXT_PREVIEW_MAX_LENGTH == 200
 
-    def test_text_preview_max_length_positive(self) -> None:
+    def test_text_preview_max_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.claude import (
             _TEXT_PREVIEW_MAX_LENGTH,
         )
 
         assert _TEXT_PREVIEW_MAX_LENGTH > 0
 
-    def test_text_preview_max_length_is_int(self) -> None:
+    def test_text_preview_max_length_is_int(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.claude import (
             _TEXT_PREVIEW_MAX_LENGTH,
         )
@@ -51,7 +50,7 @@ class TestClaudeCLIPreviewConstants:
 
         assert _TOOL_RESULT_PREVIEW_MAX_LENGTH == 150
 
-    def test_tool_result_preview_max_length_positive(self) -> None:
+    def test_tool_result_preview_max_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.claude import (
             _TOOL_RESULT_PREVIEW_MAX_LENGTH,
         )
@@ -65,7 +64,7 @@ class TestClaudeCLIPreviewConstants:
 
         assert _COMMAND_PREVIEW_MAX_LENGTH == 80
 
-    def test_command_preview_max_length_positive(self) -> None:
+    def test_command_preview_max_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.claude import (
             _COMMAND_PREVIEW_MAX_LENGTH,
         )
@@ -92,7 +91,7 @@ class TestFailureOutputTailConstants:
 
         assert _FAILURE_OUTPUT_TAIL_LENGTH == 2000
 
-    def test_base_failure_tail_positive(self) -> None:
+    def test_base_failure_tail_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.cli.base import (
             _FAILURE_OUTPUT_TAIL_LENGTH,
         )
@@ -126,7 +125,7 @@ class TestPRDescriptionConstants:
 
         assert _PR_SUMMARY_TRUNCATION_LENGTH == 2000
 
-    def test_pr_summary_truncation_length_positive(self) -> None:
+    def test_pr_summary_truncation_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.pr_description import (
             _PR_SUMMARY_TRUNCATION_LENGTH,
         )
@@ -140,7 +139,7 @@ class TestPRDescriptionConstants:
 
         assert _COMMIT_SUMMARY_TRUNCATION_LENGTH == 1000
 
-    def test_commit_summary_truncation_length_positive(self) -> None:
+    def test_commit_summary_truncation_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.pr_description import (
             _COMMIT_SUMMARY_TRUNCATION_LENGTH,
         )
@@ -162,7 +161,7 @@ class TestPRDescriptionConstants:
 
         assert _PROMPT_CONTEXT_LENGTH == 500
 
-    def test_prompt_context_length_positive(self) -> None:
+    def test_prompt_context_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.pr_description import (
             _PROMPT_CONTEXT_LENGTH,
         )
@@ -176,7 +175,7 @@ class TestPRDescriptionConstants:
 
         assert _PR_ERROR_TAIL_LENGTH == 500
 
-    def test_pr_error_tail_length_positive(self) -> None:
+    def test_pr_error_tail_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.pr_description import (
             _PR_ERROR_TAIL_LENGTH,
         )
@@ -190,7 +189,7 @@ class TestPRDescriptionConstants:
 
         assert _COMMIT_ERROR_TAIL_LENGTH == 300
 
-    def test_commit_error_tail_length_positive(self) -> None:
+    def test_commit_error_tail_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.pr_description import (
             _COMMIT_ERROR_TAIL_LENGTH,
         )
@@ -204,14 +203,14 @@ class TestPRDescriptionConstants:
 
         assert _COMMIT_MSG_MAX_LENGTH == 72
 
-    def test_commit_msg_max_length_positive(self) -> None:
+    def test_commit_msg_max_length_positive(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.pr_description import (
             _COMMIT_MSG_MAX_LENGTH,
         )
 
         assert _COMMIT_MSG_MAX_LENGTH > 0
 
-    def test_commit_msg_max_length_is_int(self) -> None:
+    def test_commit_msg_max_length_is_int(self) -> None:  # TODO: CLEANUP CANDIDATE
         from helping_hands.lib.hands.v1.hand.pr_description import (
             _COMMIT_MSG_MAX_LENGTH,
         )

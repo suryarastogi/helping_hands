@@ -1,15 +1,12 @@
-"""Tests for v169: Google-style docstrings on all 21 _BasicIterativeHand methods.
+"""Enforce structured docstrings on the iterative hand extension surface.
 
-_BasicIterativeHand contains the core agentic loop shared by BasicLangGraphHand and
-BasicAtomicHand.  Its helpers (_build_iteration_prompt, _extract_inline_edits,
-_run_tool_request, etc.) are the primary extension surface for anyone adding a new
-iterative backend or debugging a stuck loop.  Without Args/Returns/Raises sections,
-the non-obvious parameter semantics (e.g. what counts as "satisfied", the @@READ
-protocol in _execute_read_requests) are invisible to new contributors.
-
-The Raises: requirement on _parse_str_list, _parse_positive_int, _parse_optional_str,
-and _run_tool_request documents the exceptions that the iteration loop must catch;
-missing these would cause silent swallowing of parse errors.
+_BasicIterativeHand is the primary extension point for new AI loop backends.
+Its helpers (_build_iteration_prompt, _extract_inline_edits, _run_tool_request,
+etc.) have non-obvious parameter semantics (what counts as "satisfied", the
+@@READ protocol) that must be documented via Args/Returns/Raises sections.
+Without these, contributors adding new backends or debugging stuck loops
+operate blind. The Raises: requirement on parse helpers and _run_tool_request
+ensures the iteration loop's exception-catching contract stays visible.
 """
 
 # TODO: CLEANUP CANDIDATE — all tests only assert docstring presence and section

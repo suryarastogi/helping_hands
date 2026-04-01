@@ -1,18 +1,14 @@
-"""Tests for v160: task cancellation endpoint correctly handles terminal and active states.
+"""Protect the task cancellation contract between the UI and the Celery backend.
 
-Users can click "Cancel" in the UI while a build is running; the server must revoke
-the Celery task and return cancelled=True.  If a task is already in a terminal state
-(SUCCESS, FAILURE, REVOKED, etc.), issuing a revoke would be a no-op at best and
-confusing at worst, so the endpoint must return cancelled=False with the current
-state in the detail string.
+When a user clicks "Cancel" in the web UI, the server must distinguish active
+tasks (revoke + SIGTERM, return cancelled=True) from terminal tasks (no-op,
+return cancelled=False). A regression here causes the UI to show a success
+banner for already-finished tasks or silently fail to kill running workers.
 
-An empty or whitespace task_id must raise ValueError immediately rather than
-forwarding a blank ID to Celery, which would silently revoke a non-existent task
-and return a misleading success response.
-
-_TERMINAL_TASK_STATES must be exhaustive; missing a terminal state would cause the
-endpoint to send a redundant revoke signal that Celery ignores, but would also
-return cancelled=True to the UI, confusing the user.
+Empty/whitespace task IDs must fail fast with ValueError; forwarding a blank
+ID to Celery silently "revokes" nothing and returns a misleading 200 OK.
+The inline HTML monitor must render the cancel button only while a task is
+active -- showing it for terminal tasks invites a confusing double-cancel.
 """
 
 from __future__ import annotations
@@ -35,6 +31,8 @@ from helping_hands.server.app import (
 # --- Response model tests ---
 
 
+# TODO: CLEANUP CANDIDATE — tests below only assert Pydantic field assignment;
+# Pydantic's own validation already guarantees field presence and types.
 class TestTaskCancelResponseModel:
     """Tests for TaskCancelResponse Pydantic model."""
 

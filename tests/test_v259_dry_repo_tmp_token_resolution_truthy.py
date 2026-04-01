@@ -1,15 +1,14 @@
-"""Tests for v259: DRY repo_tmp_dir(), resolve_github_token(), and truthy values.
+"""Guards the token priority chain and CI workspace override used by every
+clone and GitHub API call.
 
-resolve_github_token() implements the priority chain: explicit token > GITHUB_TOKEN
-env var > GH_TOKEN env var > empty string. If the priority order is wrong, a
-user who sets both GITHUB_TOKEN and GH_TOKEN gets the wrong token used for
-clone/API calls. Whitespace-only values must fall through to the next level
-rather than being used verbatim.
-
-repo_tmp_dir() is the optional workspace override used in CI environments that
-pre-provision a temp directory. If it fails to create nested directories on
-first call or returns a Path for whitespace-only env var values, downstream
-clone operations fail with confusing OSErrors.
+resolve_github_token() must honour explicit > GITHUB_TOKEN > GH_TOKEN > empty,
+stripping whitespace and falling through on blank values. A wrong priority
+silently authenticates clones and API calls with the wrong credential.
+repo_tmp_dir() must create nested directories on first call and treat
+whitespace-only HELPING_HANDS_REPO_TMP as unset; otherwise CI clone jobs
+fail with confusing OSErrors. _is_disabled() must accept the unified
+_TRUTHY_VALUES set so feature-flag env vars behave consistently across
+PR-description and CLI paths.
 """
 
 from __future__ import annotations
@@ -186,12 +185,20 @@ class TestRepoTmpDir:
             result = repo_tmp_dir()
             assert result is not None
 
-    def test_exported_in_all(self) -> None:
+    def test_exported_in_all(
+        self,
+    ) -> (
+        None
+    ):  # TODO: CLEANUP CANDIDATE — stylistic __all__ check, no behavioral invariant
         from helping_hands.lib import github_url
 
         assert "repo_tmp_dir" in github_url.__all__
 
-    def test_resolve_github_token_exported_in_all(self) -> None:
+    def test_resolve_github_token_exported_in_all(
+        self,
+    ) -> (
+        None
+    ):  # TODO: CLEANUP CANDIDATE — stylistic __all__ check, no behavioral invariant
         from helping_hands.lib import github_url
 
         assert "resolve_github_token" in github_url.__all__
@@ -202,7 +209,7 @@ class TestRepoTmpDir:
 # ---------------------------------------------------------------------------
 
 
-class TestEnvVarConstants:
+class TestEnvVarConstants:  # TODO: CLEANUP CANDIDATE — asserts string literal equality of private constants; duplicates coverage from behavioral tests above
     """Verify the new env var name constants exist."""
 
     def test_env_github_token_value(self) -> None:

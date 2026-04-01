@@ -1,14 +1,13 @@
-"""Tests for v260: unified truthy values, _is_truthy_env, and _get_env_stripped.
+"""Guards the single-source-of-truth for boolean env var parsing across all
+consumer modules (PR description, CLI base, E2E hand).
 
-Before v260, pr_description.py defined _PR_TRUTHY_VALUES and cli/base.py
-defined _CLI_TRUTHY_VALUES. Both were frozensets of flag strings but could
-drift — e.g. if "on" was added to one but not the other, disabling a feature
-via the env var would work from the CLI but not from the PR description path.
-
-_is_truthy_env() and _get_env_stripped() centralise the two most common env
-var read patterns. If _is_truthy_env stops stripping whitespace, environment
-variables set with trailing newlines (common in shell scripts) are silently
-treated as falsy.
+_TRUTHY_VALUES must be the only frozenset defining truthy strings; duplicate
+constants (_PR_TRUTHY_VALUES, _CLI_TRUTHY_VALUES) must not exist.
+_is_truthy_env() must strip whitespace and lower-case before checking, so
+env vars set with trailing newlines in shell scripts are not silently treated
+as falsy. _get_env_stripped() must normalise tabs/newlines. If any consumer
+re-introduces a local truthy set, "on" may work in one path but not another,
+causing feature flags to behave inconsistently depending on entry point.
 """
 
 from __future__ import annotations
@@ -23,7 +22,9 @@ import pytest
 class TestTruthyValuesUnified:
     """Verify _TRUTHY_VALUES is the single source of truth with 'on' included."""
 
-    def test_truthy_is_frozenset(self) -> None:
+    def test_truthy_is_frozenset(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — asserts container type, not behavior
         from helping_hands.lib.config import _TRUTHY_VALUES
 
         assert isinstance(_TRUTHY_VALUES, frozenset)

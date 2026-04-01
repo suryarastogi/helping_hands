@@ -1,17 +1,13 @@
-"""Tests for v264: shared validation, exception tuple constants, and env var constants.
+"""Guards that validation delegation, exception tuples, and env-var name
+constants remain centralised so changes propagate consistently.
 
-_validate_full_name() in github.py was duplicating the owner/repo format check
-that validate_repo_spec() already implements. If _validate_full_name stops
-delegating and re-implements its own rules, the two can drift: e.g. one allows
-hyphens in org names while the other rejects them.
-
-_TOOL_EXECUTION_ERRORS and _RUN_ASYNC_ERRORS are the canonical except tuples
-for tool dispatch and async runner errors. Centralising them means that adding
-a new recoverable exception type (e.g. PermissionError) only requires one
-change; without the constants, every handler must be hunted down and updated.
-
-The config _ENV_* constants record the names of configuration env vars; if
-they drift, feature flags silently stop working for the env vars they rename.
+_validate_full_name() must delegate to validate_repo_spec(); if it
+re-implements its own rules, the GitHub API client and CLI can diverge on
+which owner/repo strings are legal. _TOOL_EXECUTION_ERRORS and
+_RUN_ASYNC_ERRORS must be shared tuples (atomic.py imports from
+iterative.py); adding a recoverable exception in one place must cover all
+handlers. Config _ENV_* constants must match the actual env var names read
+by Config.from_env(); drift silently disables feature flags.
 """
 
 from __future__ import annotations
@@ -87,7 +83,9 @@ class TestValidateFullNameDelegation:
 class TestToolExecutionErrors:
     """_TOOL_EXECUTION_ERRORS contains the expected exception types."""
 
-    def test_is_tuple(self) -> None:
+    def test_is_tuple(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — asserts container type, not behavior
         from helping_hands.lib.hands.v1.hand.iterative import _TOOL_EXECUTION_ERRORS
 
         assert isinstance(_TOOL_EXECUTION_ERRORS, tuple)
@@ -133,7 +131,9 @@ class TestToolExecutionErrors:
 class TestRunAsyncErrors:
     """_RUN_ASYNC_ERRORS is shared between iterative.py and atomic.py."""
 
-    def test_is_tuple(self) -> None:
+    def test_is_tuple(
+        self,
+    ) -> None:  # TODO: CLEANUP CANDIDATE — asserts container type, not behavior
         from helping_hands.lib.hands.v1.hand.iterative import _RUN_ASYNC_ERRORS
 
         assert isinstance(_RUN_ASYNC_ERRORS, tuple)
@@ -177,7 +177,7 @@ class TestRunAsyncErrors:
 # ---------------------------------------------------------------------------
 
 
-class TestConfigEnvConstants:
+class TestConfigEnvConstants:  # TODO: CLEANUP CANDIDATE — asserts string literal equality of private constants; the from_env integration tests below are the meaningful ones
     """Env var name constants exist and match the expected values."""
 
     def test_env_model(self) -> None:

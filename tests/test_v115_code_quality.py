@@ -1,16 +1,13 @@
-"""Tests for v115 code quality hardening: DRY extraction and structured error logging.
+"""Protects form-redirect field fidelity and failure-path debug logging.
 
-The _build_form_redirect_query helper was extracted from enqueue_build_form to
-eliminate duplicate query-string construction.  Regressions here mean form
-redirects lose fields (error messages, model, pr_number, etc.), breaking the
-browser feedback loop when a build submission fails.
+_build_form_redirect_query must include all truthy optional fields and exclude
+false/None/blank ones; if a field is dropped, the browser redirect after a
+failed build submission silently loses user input (model, pr_number, etc.),
+forcing the user to re-enter everything.
 
-The logging tests confirm that health-check and usage helpers emit structured
-debug messages on failure; without these logs, silent exceptions make production
-incidents nearly impossible to diagnose.
-
-Note: _base_command shlex.split error wrapping tests were moved to
-test_cli_hand_base_utils.py (v120) to avoid the fastapi importorskip gate.
+The logging tests verify that _update_pr_description, _schedule_to_response,
+and _fetch_claude_usage emit structured debug messages on failure.  Without
+these, silent exception swallowing makes production incidents undiagnosable.
 """
 
 from __future__ import annotations
