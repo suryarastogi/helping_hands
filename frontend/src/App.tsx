@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import AppOverlays from "./components/AppOverlays";
 import AsteroidsGame from "./components/AsteroidsGame";
+import GrillMeOverlay from "./components/GrillMeOverlay";
 import OnboardingOverlay from "./components/OnboardingOverlay";
 import ChatPanel from "./components/ChatPanel";
 import HandWorldScene from "./components/HandWorldScene";
@@ -10,6 +11,7 @@ import ScheduleCard from "./components/ScheduleCard";
 import SubmissionForm from "./components/SubmissionForm";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
+import { useGrillSession } from "./hooks/useGrillSession";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
@@ -67,6 +69,7 @@ export default function App() {
     removeToast,
     fetchedCapacity,
     submitRun,
+    submitBuild,
     selectTask,
     openSubmissionView,
   } = useTaskManager();
@@ -107,11 +110,14 @@ export default function App() {
 
   const [enabledBackends, setEnabledBackends] = useState<Backend[]>(BACKEND_OPTIONS);
   const [showClaudeUsage, setShowClaudeUsage] = useState(true);
+  const [grillEnabled, setGrillEnabled] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [arcadeOpen, setArcadeOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
+  const [showGrillOverlay, setShowGrillOverlay] = useState(false);
+  const grillSession = useGrillSession();
 
   const {
     maxOfficeWorkers,
@@ -294,6 +300,9 @@ export default function App() {
             repo_path: config.default_repo!,
           }));
         }
+        if (config.grill_enabled) {
+          setGrillEnabled(true);
+        }
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, [setForm]);
@@ -307,8 +316,35 @@ export default function App() {
     return { error, errorType: errorType ?? "Error" };
   }, [status, payload]);
 
+  const handleOpenGrill = () => {
+    grillSession.reset();
+    setShowGrillOverlay(true);
+  };
+
+  const handleGrillSubmitPlan = (plan: string) => {
+    setShowGrillOverlay(false);
+    grillSession.reset();
+
+    // Submit directly with the plan and grill form fields, bypassing
+    // form state timing issues.
+    void submitBuild({
+      prompt: plan,
+      repo_path: grillInitialForm.repo_path || form.repo_path,
+      github_token: grillInitialForm.github_token || form.github_token,
+      reference_repos: grillInitialForm.reference_repos || form.reference_repos,
+    });
+  };
+
+  const grillInitialForm = useMemo(() => ({
+    repo_path: form.repo_path,
+    prompt: form.prompt,
+    model: form.model,
+    github_token: form.github_token,
+    reference_repos: form.reference_repos,
+  }), [form.repo_path, form.prompt, form.model, form.github_token, form.reference_repos]);
+
   const submissionCard = (
-    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} serverHasGithubToken={serverHasGithubToken} />
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} onGrillMe={grillEnabled ? handleOpenGrill : undefined} backends={enabledBackends} recentRepos={recentRepos} serverHasGithubToken={serverHasGithubToken} />
   );
 
   const monitorCard = (
@@ -369,6 +405,7 @@ export default function App() {
         mainView={mainView}
         showSubmissionOverlay={showSubmissionOverlay}
         onNewSubmission={openSubmissionView}
+        onGrillMe={grillEnabled ? handleOpenGrill : undefined}
         onToggleSchedules={() => setMainView(v => v === "schedules" ? "submission" : "schedules")}
         onStartTutorial={onboarding.restart}
         taskHistory={taskHistory}
@@ -454,7 +491,21 @@ export default function App() {
           </div>
         </div>
       )}
+
     </main>
+    {grillEnabled && showGrillOverlay && (
+      <GrillMeOverlay
+        session={grillSession}
+        recentRepos={recentRepos}
+        serverHasGithubToken={serverHasGithubToken}
+        initialForm={grillInitialForm}
+        onClose={() => {
+          setShowGrillOverlay(false);
+          grillSession.reset();
+        }}
+        onSubmitPlan={handleGrillSubmitPlan}
+      />
+    )}
     <AppOverlays
       serviceHealthState={serviceHealthState}
       toasts={toasts}

@@ -191,3 +191,8 @@ RESPONSE_STATUS_ERROR = "error"
 
 RESPONSE_STATUS_NA = "na"
 """Status value when a service is not configured or unavailable."""
+
+# --- Feature flags -----------------------------------------------------------
+
+GRILL_ME_ENABLED_ENV_VAR = "GRILL_ME_ENABLED"
+"""Environment variable that enables the Grill Me feature (default off)."""

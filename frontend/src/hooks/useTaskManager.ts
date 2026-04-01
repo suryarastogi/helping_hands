@@ -110,6 +110,7 @@ export type UseTaskManagerReturn = {
 
   // Actions
   submitRun: (event: FormEvent) => Promise<void>;
+  submitBuild: (overrides: Partial<FormState>) => Promise<void>;
   selectTask: (selectedTaskId: string) => void;
   openSubmissionView: () => void;
 };
@@ -318,6 +319,94 @@ export function useTaskManager(): UseTaskManagerReturn {
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const detail = await parseError(response);
+        throw new Error(detail);
+      }
+
+      const data = (await response.json()) as BuildResponse;
+      setMainView("monitor");
+      setTaskId(data.task_id);
+      setStatus(data.status);
+      setPayload(data as unknown as Record<string, unknown>);
+      setIsPolling(true);
+      setTaskHistory((current) =>
+        upsertTaskHistory(current, {
+          taskId: data.task_id,
+          status: data.status,
+          backend: data.backend,
+          repoPath,
+        })
+      );
+    } catch (error) {
+      setStatus("error");
+      setPayload({ error: String(error) });
+      setUpdates([`Error: ${String(error)}`]);
+      setIsPolling(false);
+    }
+  }, [form]);
+
+  const submitBuild = useCallback(async (overrides: Partial<FormState>) => {
+    const merged = { ...form, ...overrides };
+    const repoPath = merged.repo_path.trim();
+    // Strip "## FINAL PLAN" header line if present (from grill sessions).
+    const prompt = merged.prompt.trim().replace(/^## FINAL PLAN\n*/i, "").trim();
+    if (!repoPath || !prompt) {
+      setStatus("error");
+      setPayload({ error: "Repository path and prompt are required." });
+      setUpdates(["Error: Repository path and prompt are required."]);
+      return;
+    }
+
+    // Also update the form state so the UI reflects what was submitted.
+    setForm((current) => ({ ...current, ...overrides }));
+
+    setStatus("submitting");
+    setShowSubmissionOverlay(false);
+    setMainView("monitor");
+    setPayload(null);
+    setUpdates([]);
+    const body: Record<string, unknown> = {
+      repo_path: repoPath,
+      prompt,
+      backend: merged.backend,
+      max_iterations: merged.max_iterations,
+      no_pr: merged.no_pr,
+      enable_execution: merged.enable_execution,
+      enable_web: merged.enable_web,
+      use_native_cli_auth: merged.use_native_cli_auth,
+      fix_ci: merged.fix_ci,
+      ci_check_wait_minutes: merged.ci_check_wait_minutes,
+    };
+
+    if (merged.github_token.trim()) {
+      body.github_token = merged.github_token.trim();
+    }
+    if (merged.reference_repos.trim()) {
+      body.reference_repos = merged.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+    }
+    if (merged.model.trim()) {
+      body.model = merged.model.trim();
+    }
+    if (merged.pr_number.trim()) {
+      const parsed = Number(merged.pr_number.trim());
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+        body.pr_number = parsed;
+      }
+    }
+    if (merged.tools.trim()) {
+      body.tools = merged.tools
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+    }
+    try {
+      const response = await fetch(apiUrl("/build"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
@@ -890,6 +979,7 @@ export function useTaskManager(): UseTaskManagerReturn {
     removeToast,
     fetchedCapacity,
     submitRun,
+    submitBuild,
     selectTask,
     openSubmissionView,
   };

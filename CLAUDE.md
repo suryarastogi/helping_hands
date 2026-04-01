@@ -82,6 +82,15 @@ These layers communicate through plain data (dicts, dataclasses), not by importi
 
 All filesystem/command operations for hands route through `src/helping_hands/lib/meta/tools/filesystem.py` for path-safe behavior (prevents path traversal via `resolve_repo_target()`). MCP tools use the same layer.
 
+### Grill Me (interactive planning)
+
+An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan before submitting a task. The frontend opens an overlay chat where the AI interviews the user about their design, exploring the codebase via Claude Code CLI in read-only mode (`--allowedTools Read,Glob,Grep --disallowedTools Edit,Write,Bash,Agent,...`).
+
+- **Backend**: `src/helping_hands/server/grill.py` — long-running Celery task using `claude -p --session-id/--resume` for multi-turn conversation, Redis queues for user↔worker message passing.
+- **Frontend**: `GrillMeOverlay` component + `useGrillSession` hook — 3-phase UI (form → chat → plan), polls `GET /grill/{id}` for messages.
+- **Endpoints**: `POST /grill`, `POST /grill/{id}/message`, `GET /grill/{id}` — all gated by `GRILL_ME_ENABLED`.
+- **Plan submission**: final plan auto-populates the submission form prompt (with `## FINAL PLAN` header stripped) and submits via `submitBuild()`.
+
 ## Code Conventions
 
 - **Python 3.12+**, `uv` for package management

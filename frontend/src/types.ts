@@ -137,6 +137,7 @@ export type ServerConfig = {
   claude_native_cli_auth?: boolean;
   has_github_token?: boolean;
   default_repo?: string | null;
+  grill_enabled?: boolean;
 };
 
 export type ServiceHealth = {
@@ -255,3 +256,36 @@ export type AccumulatedUsage = {
   totalOut: number;
   count: number;
 };
+
+// ---------------------------------------------------------------------------
+// Grill Me — interactive AI interview sessions
+// ---------------------------------------------------------------------------
+
+export type GrillStartResponse = {
+  session_id: string;
+  status: string;
+};
+
+export type GrillMessage = {
+  id: string;
+  role: "assistant" | "system" | "user";
+  content: string;
+  type: "message" | "plan" | "error" | "timeout";
+  timestamp: number;
+};
+
+export type GrillPollResponse = {
+  session_id: string;
+  status: string;
+  messages: GrillMessage[];
+};
+
+export type GrillFormState = {
+  repo_path: string;
+  prompt: string;
+  model: string;
+  github_token: string;
+  reference_repos: string;
+};
+
+export type GrillPhase = "form" | "chatting" | "plan";

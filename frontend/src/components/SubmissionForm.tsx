@@ -9,6 +9,7 @@ export interface SubmissionFormProps {
   form: FormState;
   onFieldChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onSubmit: (event: FormEvent) => void;
+  onGrillMe?: () => void;
   backends: Backend[];
   recentRepos?: string[];
   /** Whether the server has GITHUB_TOKEN set. When false, the token field becomes required. */
@@ -19,6 +20,7 @@ export default function SubmissionForm({
   form,
   onFieldChange,
   onSubmit,
+  onGrillMe,
   backends,
   recentRepos = [],
   serverHasGithubToken = true,
@@ -59,6 +61,11 @@ export default function SubmissionForm({
             aria-label="Task prompt"
           />
           <button type="submit" className="submit-inline">Run</button>
+          {onGrillMe && (
+            <button type="button" className="grill-me-btn" onClick={onGrillMe}>
+              Grill Me
+            </button>
+          )}
         </div>
 
         <details className="compact-advanced">

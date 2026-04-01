@@ -5,6 +5,7 @@ export type TaskListSidebarProps = {
   mainView: MainView;
   showSubmissionOverlay: boolean;
   onNewSubmission: () => void;
+  onGrillMe?: () => void;
   onToggleSchedules: () => void;
   onStartTutorial: () => void;
   taskHistory: TaskHistoryItem[];
@@ -19,6 +20,7 @@ export default function TaskListSidebar({
   mainView,
   showSubmissionOverlay,
   onNewSubmission,
+  onGrillMe,
   onToggleSchedules,
   onStartTutorial,
   taskHistory,
@@ -45,13 +47,32 @@ export default function TaskListSidebar({
         <div className="sidebar-collapsed-label">Tasks</div>
       ) : (
         <>
-          <button
-            type="button"
-            className={`new-submission-button${showSubmissionOverlay ? " active" : ""}`}
-            onClick={onNewSubmission}
-          >
-            New Task
-          </button>
+          {onGrillMe ? (
+            <div className="sidebar-action-row">
+              <button
+                type="button"
+                className={`new-submission-button${showSubmissionOverlay ? " active" : ""}`}
+                onClick={onNewSubmission}
+              >
+                New Task
+              </button>
+              <button
+                type="button"
+                className="grill-me-sidebar-btn"
+                onClick={onGrillMe}
+              >
+                Grill Me
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={`new-submission-button${showSubmissionOverlay ? " active" : ""}`}
+              onClick={onNewSubmission}
+            >
+              New Task
+            </button>
+          )}
           <button
             type="button"
             className={`new-submission-button${

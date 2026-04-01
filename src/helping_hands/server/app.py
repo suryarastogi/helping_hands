@@ -321,6 +321,7 @@ class ServerConfig(BaseModel):
     claude_native_cli_auth: bool
     has_github_token: bool
     default_repo: str | None = None
+    grill_enabled: bool = False
 
 
 # --- Scheduled Task Models ---
@@ -3163,6 +3164,7 @@ def get_server_config() -> ServerConfig:
         claude_native_cli_auth=claude_native,
         has_github_token=has_github_token,
         default_repo=default_repo,
+        grill_enabled=_grill_enabled(),
     )
 
 
@@ -4851,4 +4853,159 @@ def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
         schedule_id=schedule_id,
         task_id=task_id,
         message="Schedule triggered successfully",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Grill Me — interactive AI interview sessions
+# ---------------------------------------------------------------------------
+
+
+def _grill_enabled() -> bool:
+    """Return whether the Grill Me feature is enabled via environment."""
+    from helping_hands.server.constants import GRILL_ME_ENABLED_ENV_VAR
+
+    return _is_truthy_env(GRILL_ME_ENABLED_ENV_VAR)
+
+
+class GrillRequest(BaseModel):
+    """Request body for starting a grill session."""
+
+    repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
+    prompt: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
+    model: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    github_token: str | None = Field(default=None, max_length=_MAX_GITHUB_TOKEN_LENGTH)
+    reference_repos: list[str] = Field(
+        default_factory=list, max_length=_MAX_REFERENCE_REPOS
+    )
+
+
+class GrillStartResponse(BaseModel):
+    """Response for a newly started grill session."""
+
+    session_id: str
+    status: str
+
+
+class GrillMessageRequest(BaseModel):
+    """Request body for sending a message to a grill session."""
+
+    content: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
+    type: str = "message"
+
+
+class GrillMessageOut(BaseModel):
+    """A single message from the grill session outbound queue."""
+
+    id: str
+    role: str
+    content: str
+    type: str
+    timestamp: float
+
+
+class GrillPollResponse(BaseModel):
+    """Response for polling grill session state + new messages."""
+
+    session_id: str
+    status: str
+    messages: list[GrillMessageOut]
+
+
+@app.post("/grill", response_model=GrillStartResponse, status_code=201)
+def start_grill(req: GrillRequest) -> GrillStartResponse:
+    """Start a new interactive grill session."""
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    from helping_hands.server.grill import grill_session
+
+    task = grill_session.delay(
+        repo_path=req.repo_path,
+        prompt=req.prompt,
+        model=req.model,
+        github_token=req.github_token,
+        reference_repos=req.reference_repos,
+    )
+    return GrillStartResponse(session_id=task.id, status="starting")
+
+
+@app.post("/grill/{session_id}/message")
+def send_grill_message(session_id: str, req: GrillMessageRequest) -> dict[str, str]:
+    """Send a user message to an active grill session."""
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    import json as _json
+
+    import redis
+
+    session_id = _validate_path_param(session_id, "session_id")
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    r = redis.from_url(redis_url, decode_responses=True)
+
+    # Check session exists
+    state_key = f"grill:{session_id}:state"
+    state_raw = r.get(state_key)
+    if state_raw is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Grill session not found")
+
+    # Push message to user queue
+    msg_key = f"grill:{session_id}:user_msgs"
+    msg = {
+        "content": req.content,
+        "type": req.type,
+        "timestamp": time.time(),
+    }
+    r.rpush(msg_key, _json.dumps(msg))
+    r.expire(msg_key, 3600)
+
+    return {"status": "sent"}
+
+
+@app.get("/grill/{session_id}", response_model=GrillPollResponse)
+def poll_grill(session_id: str) -> GrillPollResponse:
+    """Poll for new AI messages and session state."""
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    import json as _json
+
+    import redis
+
+    session_id = _validate_path_param(session_id, "session_id")
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    r = redis.from_url(redis_url, decode_responses=True)
+
+    # Get state
+    state_key = f"grill:{session_id}:state"
+    state_raw = r.get(state_key)
+    if state_raw is None:
+        return GrillPollResponse(session_id=session_id, status="not_found", messages=[])
+
+    state = _json.loads(state_raw)
+    status = state.get("status", "unknown")
+
+    # Drain all pending AI messages
+    ai_key = f"grill:{session_id}:ai_msgs"
+    messages: list[GrillMessageOut] = []
+    while True:
+        raw = r.lpop(ai_key)
+        if raw is None:
+            break
+        msg = _json.loads(raw)
+        messages.append(GrillMessageOut(**msg))
+
+    return GrillPollResponse(
+        session_id=session_id,
+        status=status,
+        messages=messages,
     )
