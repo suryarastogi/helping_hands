@@ -10,7 +10,8 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** April 1, 2026
+**Smoke test:** ❌ 6567 passed, 1 failed, 268 skipped (pytest, April 1 2026 — failure: test_design_doc_count_in_parenthetical)
 
 ## What is this?
 
