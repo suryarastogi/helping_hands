@@ -20,12 +20,15 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "_DEFAULT_BUDGET_TOKENS",
+    "_DEFAULT_TRANSIENT_RETRY_LIMIT",
     "_OUTPUT_FORMAT_STREAM_JSON",
     "_PERMISSION_PROMPT_TOOL_MAX_LENGTH",
     "_PROMPT_STDIN_LENGTH_THRESHOLD",
     "_SKIP_PERMISSIONS_FLAG",
     "_TOOL_SUMMARY_KEY_MAP",
     "_TOOL_SUMMARY_STATIC",
+    "_TRANSIENT_RETRY_BASE_DELAY_S",
+    "_TRANSIENT_RETRY_MAX_DELAY_S",
     "ClaudeCodeHand",
 ]
 
@@ -133,6 +136,16 @@ CLI arguments, to avoid OS ``E2BIG`` / ``ARG_MAX`` limits."""
 
 _PERMISSION_PROMPT_TOOL_MAX_LENGTH = 500
 """Maximum character length for ``--permission-prompt-tool`` MCP tool name."""
+
+_DEFAULT_TRANSIENT_RETRY_LIMIT = 3
+"""Maximum number of automatic retries on transient errors (overloaded,
+rate_limit, timeout). Set via ``HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT``."""
+
+_TRANSIENT_RETRY_BASE_DELAY_S = 5.0
+"""Base delay in seconds for exponential backoff between transient retries."""
+
+_TRANSIENT_RETRY_MAX_DELAY_S = 60.0
+"""Maximum delay in seconds between transient retries."""
 
 
 class _StreamJsonEmitter:
@@ -653,6 +666,15 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     - ``HELPING_HANDS_CLAUDE_INPUT_FORMAT``: Input format for the prompt
       (maps to ``--input-format``). Set to ``stream-json`` to send
       structured JSON input with image attachments via stdin.
+    - ``HELPING_HANDS_CLAUDE_NO_USER_INPUT``: Set to ``1`` (default) to
+      inject ``--no-user-input`` flag, preventing interactive prompts in
+      automated pipelines.
+    - ``HELPING_HANDS_CLAUDE_SESSION_ID``: Pre-seed a session ID for
+      cross-invocation session resumption. The hand will use this as the
+      initial session ID for ``--continue``/``--resume``.
+    - ``HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT``: Maximum retries on
+      transient errors (overloaded, rate_limit, timeout) with exponential
+      backoff. Default: ``3``.
 
     Prompts exceeding ~80K characters are automatically piped via stdin
     instead of CLI arguments to avoid OS ``ARG_MAX`` limits.
@@ -693,7 +715,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             repo_index: Repository index providing the file tree and root path.
         """
         super().__init__(config, repo_index)
-        self._last_session_id: str = ""
+        self._last_session_id: str = self._resolve_initial_session_id()
         self._cumulative_cost_usd: float = 0.0
         self._cumulative_input_tokens: int = 0
         self._cumulative_output_tokens: int = 0
@@ -702,8 +724,10 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         self._cumulative_thinking_tokens: int = 0
         self._cumulative_duration_ms: float = 0.0
         self._cumulative_compactions: int = 0
+        self._cumulative_subagents: int = 0
         self._next_invoke_continue: bool = False
         self._last_num_turns: int = 0
+        self._last_is_retryable_error: bool = False
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         return ("ANTHROPIC_API_KEY",)
@@ -1431,6 +1455,108 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return [*cmd[:p_idx], "--input-format", fmt, *cmd[p_idx:]]
 
     # ------------------------------------------------------------------
+    # --no-user-input support (non-interactive mode)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_no_user_input() -> bool:
+        """Resolve whether ``--no-user-input`` should be injected.
+
+        Reads ``HELPING_HANDS_CLAUDE_NO_USER_INPUT`` (default ``"1"``).
+        When enabled, Claude Code will never prompt for interactive input,
+        which is critical for automated pipelines where stdin is not
+        connected to a terminal.
+
+        Returns:
+            ``True`` if the flag should be injected.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_NO_USER_INPUT", "1").strip()
+        return raw.lower() in ("1", "true", "yes")
+
+    @staticmethod
+    def _inject_no_user_input(cmd: list[str]) -> list[str]:
+        """Insert ``--no-user-input`` before ``-p`` if not present.
+
+        Args:
+            cmd: Command tokens.
+
+        Returns:
+            Command tokens with ``--no-user-input`` injected when applicable.
+        """
+        if has_cli_flag(cmd, "no-user-input"):
+            return cmd
+        try:
+            p_idx = cmd.index("-p")
+        except ValueError:
+            p_idx = len(cmd)
+        return [*cmd[:p_idx], "--no-user-input", *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # Session ID pre-seeding support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_initial_session_id() -> str:
+        """Resolve an initial session ID from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_SESSION_ID``. When set, this seeds
+        the session ID for the first invocation, enabling cross-invocation
+        session resumption (e.g. resuming a conversation from a previous
+        hand run).
+
+        Returns:
+            The session ID string, or empty if not configured.
+        """
+        return os.environ.get("HELPING_HANDS_CLAUDE_SESSION_ID", "").strip()
+
+    # ------------------------------------------------------------------
+    # Transient error auto-retry support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_transient_retry_limit() -> int:
+        """Resolve the transient error retry limit from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT`` (default ``3``).
+        When a transient error occurs (overloaded, rate_limit, timeout),
+        the hand retries the invocation with exponential backoff up to
+        this many times.
+
+        Returns:
+            The retry limit, or ``0`` to disable transient error retries.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT", "")
+        if not raw.strip():
+            return _DEFAULT_TRANSIENT_RETRY_LIMIT
+        try:
+            value = int(raw.strip())
+        except ValueError:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT has non-integer "
+                "value %r, using default %d",
+                raw,
+                _DEFAULT_TRANSIENT_RETRY_LIMIT,
+            )
+            return _DEFAULT_TRANSIENT_RETRY_LIMIT
+        return max(0, value)
+
+    @staticmethod
+    def _compute_retry_delay(attempt: int) -> float:
+        """Compute the delay for exponential backoff.
+
+        Uses ``_TRANSIENT_RETRY_BASE_DELAY_S`` as the base with exponential
+        growth, capped at ``_TRANSIENT_RETRY_MAX_DELAY_S``.
+
+        Args:
+            attempt: The retry attempt number (0-based).
+
+        Returns:
+            Delay in seconds before the next retry.
+        """
+        delay = _TRANSIENT_RETRY_BASE_DELAY_S * (2**attempt)
+        return min(delay, _TRANSIENT_RETRY_MAX_DELAY_S)
+
+    # ------------------------------------------------------------------
     # Stdin prompt delivery for long prompts
     # ------------------------------------------------------------------
 
@@ -1709,6 +1835,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         self._cumulative_cache_read_tokens += usage.get("cache_read_input_tokens", 0)
         self._cumulative_thinking_tokens += parser.thinking_tokens
         self._cumulative_compactions += parser.compaction_count
+        self._cumulative_subagents += parser.total_subagents
 
     # ------------------------------------------------------------------
     # Core invocation (overrides)
@@ -1837,6 +1964,10 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             if self.config.verbose:
                 await emit(self._label_msg(f"input-format={input_format}") + "\n")
 
+        # --no-user-input (non-interactive mode for automation)
+        if self._resolve_no_user_input():
+            cmd = self._inject_no_user_input(cmd)
+
         # --continue session resumption
         if continue_session and self._last_session_id:
             cmd = self._inject_continue_session(cmd, self._last_session_id)
@@ -1871,6 +2002,9 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
         # Accumulate cost tracking.
         self._accumulate_cost(parser)
+
+        # Track retryable error state for transient retry logic.
+        self._last_is_retryable_error = parser.is_retryable_error
 
         # Log warning when the result indicates an error.
         if parser.is_error:
@@ -1979,6 +2113,50 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
         return combined_output
 
+    async def _invoke_claude_with_transient_retry(
+        self,
+        prompt: str,
+        *,
+        emit: _TwoPhaseCLIHand._Emitter,
+    ) -> str:
+        """Invoke Claude Code CLI with automatic retry on transient errors.
+
+        Wraps ``_invoke_claude`` with exponential backoff retry logic for
+        transient errors (overloaded, rate_limit, timeout). Non-retryable
+        errors and successful completions return immediately.
+
+        Args:
+            prompt: Task prompt to send to Claude Code.
+            emit: Async callback for streaming output chunks.
+
+        Returns:
+            The parsed result text from the stream-json output.
+        """
+        import asyncio as _asyncio
+
+        retry_limit = self._resolve_transient_retry_limit()
+        result = await self._invoke_claude(prompt, emit=emit)
+
+        retry_count = 0
+        while (
+            self._last_is_retryable_error
+            and retry_count < retry_limit
+            and not self._is_interrupted()
+            and not self._cost_budget_exceeded()
+        ):
+            retry_count += 1
+            delay = self._compute_retry_delay(retry_count - 1)
+            await emit(
+                self._label_msg(
+                    f"transient error, retrying in {delay:.0f}s "
+                    f"({retry_count}/{retry_limit})...\n"
+                )
+            )
+            await _asyncio.sleep(delay)
+            result = await self._invoke_claude(prompt, emit=emit)
+
+        return result
+
     async def _run_two_phase_inner(
         self,
         prompt: str,
@@ -2013,9 +2191,19 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                     f"| idle_timeout={self._idle_timeout_seconds():.0f}s\n"
                 )
             )
+        # Log pre-seeded session ID if resuming a previous conversation.
+        if self._last_session_id and self._resolve_initial_session_id():
+            await emit(
+                self._label_msg(
+                    f"pre-seeded session: {self._last_session_id[:12]}...\n"
+                )
+            )
+
         run_start = time.monotonic()
         await emit(self._label_msg("[phase 1/2] Initializing repository context...\n"))
-        init_output = await self._invoke_claude(self._build_init_prompt(), emit=emit)
+        init_output = await self._invoke_claude_with_transient_retry(
+            self._build_init_prompt(), emit=emit
+        )
         if self._is_interrupted():
             await emit(self._label_msg("Interrupted during initialization.\n"))
             return init_output
@@ -2030,7 +2218,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
 
         phase2_start = time.monotonic()
         await emit(self._label_msg("[phase 2/2] Executing user task...\n"))
-        task_output = await self._invoke_claude(
+        task_output = await self._invoke_claude_with_transient_retry(
             self._build_task_prompt(prompt=prompt, learned_summary=init_output),
             emit=emit,
         )
@@ -2110,6 +2298,8 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
                 )
             if self._cumulative_compactions > 0:
                 cost_parts.append(f"compactions={self._cumulative_compactions}")
+            if self._cumulative_subagents > 0:
+                cost_parts.append(f"subagents={self._cumulative_subagents}")
             await emit(
                 self._label_msg(f"{cost_parts[0]} ({', '.join(cost_parts[1:])})\n")
             )

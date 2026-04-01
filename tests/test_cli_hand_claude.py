@@ -23,8 +23,11 @@ import pytest
 from helping_hands.lib.hands.v1.hand.cli.claude import (
     _DEFAULT_BUDGET_TOKENS,
     _DEFAULT_MAX_TURNS_RESUME_LIMIT,
+    _DEFAULT_TRANSIENT_RETRY_LIMIT,
     _PERMISSION_PROMPT_TOOL_MAX_LENGTH,
     _PROMPT_STDIN_LENGTH_THRESHOLD,
+    _TRANSIENT_RETRY_BASE_DELAY_S,
+    _TRANSIENT_RETRY_MAX_DELAY_S,
     ClaudeCodeHand,
     _StreamJsonEmitter,
 )
@@ -2868,9 +2871,7 @@ class TestStreamJsonEmitterCompaction:
 
         async def run():
             emitter = _StreamJsonEmitter(emit, "test")
-            event = json.dumps(
-                {"type": "system", "subtype": "conversation_compacted"}
-            )
+            event = json.dumps({"type": "system", "subtype": "conversation_compacted"})
             await emitter(event + "\n")
             await emitter(event + "\n")
             return emitter
@@ -2963,3 +2964,162 @@ class TestCumulativeCompactionTracking:
         asyncio.run(emitter(event + "\n"))
         claude_hand._accumulate_cost(emitter)
         assert claude_hand._cumulative_compactions == 2
+
+
+# ---------------------------------------------------------------------------
+# --no-user-input support
+# ---------------------------------------------------------------------------
+
+
+class TestNoUserInput:
+    def test_enabled_by_default(self) -> None:
+        """--no-user-input defaults to enabled (env var defaults to '1')."""
+        assert ClaudeCodeHand._resolve_no_user_input() is True
+
+    def test_disabled_via_env(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_NO_USER_INPUT", "0")
+        assert ClaudeCodeHand._resolve_no_user_input() is False
+
+    def test_disabled_false_string(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_NO_USER_INPUT", "false")
+        assert ClaudeCodeHand._resolve_no_user_input() is False
+
+    def test_enabled_true_string(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_NO_USER_INPUT", "true")
+        assert ClaudeCodeHand._resolve_no_user_input() is True
+
+
+class TestInjectNoUserInput:
+    def test_injects_before_p(self) -> None:
+        cmd = ["claude", "--output-format", "stream-json", "-p", "hello"]
+        result = ClaudeCodeHand._inject_no_user_input(cmd)
+        assert "--no-user-input" in result
+        assert result.index("--no-user-input") < result.index("-p")
+
+    def test_skips_when_already_present(self) -> None:
+        cmd = ["claude", "--no-user-input", "-p", "hello"]
+        result = ClaudeCodeHand._inject_no_user_input(cmd)
+        assert result.count("--no-user-input") == 1
+
+    def test_appends_without_p_flag(self) -> None:
+        cmd = ["claude", "--continue", "hello"]
+        result = ClaudeCodeHand._inject_no_user_input(cmd)
+        assert "--no-user-input" in result
+
+
+# ---------------------------------------------------------------------------
+# Session ID pre-seeding
+# ---------------------------------------------------------------------------
+
+
+class TestInitialSessionId:
+    def test_empty_by_default(self) -> None:
+        assert ClaudeCodeHand._resolve_initial_session_id() == ""
+
+    def test_reads_from_env(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_SESSION_ID", "sess_abc123")
+        assert ClaudeCodeHand._resolve_initial_session_id() == "sess_abc123"
+
+    def test_strips_whitespace(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_SESSION_ID", "  sess_def456  ")
+        assert ClaudeCodeHand._resolve_initial_session_id() == "sess_def456"
+
+    def test_seeds_hand_session_id(self, monkeypatch, claude_hand) -> None:
+        """Pre-seeded session ID should be available on the hand instance."""
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_SESSION_ID", "sess_pre_seed")
+        # Re-init to pick up the env var.
+        hand = claude_hand.__class__(claude_hand.config, claude_hand.repo_index)
+        assert hand._last_session_id == "sess_pre_seed"
+
+
+# ---------------------------------------------------------------------------
+# Transient error auto-retry
+# ---------------------------------------------------------------------------
+
+
+class TestTransientRetryLimit:
+    def test_default_limit(self) -> None:
+        assert (
+            ClaudeCodeHand._resolve_transient_retry_limit()
+            == _DEFAULT_TRANSIENT_RETRY_LIMIT
+        )
+
+    def test_custom_limit_via_env(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT", "5")
+        assert ClaudeCodeHand._resolve_transient_retry_limit() == 5
+
+    def test_zero_disables(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT", "0")
+        assert ClaudeCodeHand._resolve_transient_retry_limit() == 0
+
+    def test_negative_clamps_to_zero(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT", "-1")
+        assert ClaudeCodeHand._resolve_transient_retry_limit() == 0
+
+    def test_non_integer_uses_default(self, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CLAUDE_TRANSIENT_RETRY_LIMIT", "abc")
+        assert (
+            ClaudeCodeHand._resolve_transient_retry_limit()
+            == _DEFAULT_TRANSIENT_RETRY_LIMIT
+        )
+
+
+class TestComputeRetryDelay:
+    def test_first_attempt(self) -> None:
+        delay = ClaudeCodeHand._compute_retry_delay(0)
+        assert delay == _TRANSIENT_RETRY_BASE_DELAY_S
+
+    def test_exponential_growth(self) -> None:
+        d0 = ClaudeCodeHand._compute_retry_delay(0)
+        d1 = ClaudeCodeHand._compute_retry_delay(1)
+        d2 = ClaudeCodeHand._compute_retry_delay(2)
+        assert d1 == d0 * 2
+        assert d2 == d0 * 4
+
+    def test_capped_at_max(self) -> None:
+        delay = ClaudeCodeHand._compute_retry_delay(100)
+        assert delay == _TRANSIENT_RETRY_MAX_DELAY_S
+
+
+# ---------------------------------------------------------------------------
+# Cumulative subagent tracking
+# ---------------------------------------------------------------------------
+
+
+class TestCumulativeSubagentTracking:
+    def test_accumulate_includes_subagents(self, claude_hand) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        emitter = _StreamJsonEmitter(emit, "test")
+        emitter._total_subagents = 3
+        event = json.dumps(
+            {
+                "type": "result",
+                "result": "done",
+                "total_cost_usd": 0.05,
+                "usage": {"input_tokens": 2000, "output_tokens": 800},
+            }
+        )
+        asyncio.run(emitter(event + "\n"))
+        claude_hand._accumulate_cost(emitter)
+        assert claude_hand._cumulative_subagents == 3
+
+    def test_accumulate_subagents_across_invocations(self, claude_hand) -> None:
+        async def emit(chunk: str) -> None:
+            pass
+
+        for count in [2, 1]:
+            emitter = _StreamJsonEmitter(emit, "test")
+            emitter._total_subagents = count
+            event = json.dumps(
+                {
+                    "type": "result",
+                    "result": "done",
+                    "total_cost_usd": 0.01,
+                    "usage": {"input_tokens": 100, "output_tokens": 50},
+                }
+            )
+            asyncio.run(emitter(event + "\n"))
+            claude_hand._accumulate_cost(emitter)
+        assert claude_hand._cumulative_subagents == 3
