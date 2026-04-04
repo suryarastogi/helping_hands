@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Remaining Server Coverage Gaps (2026-04-05) — Completed
+
+Closed last coverage gaps in server modules. Added 10 new tests covering
+grill enabled-path endpoints (POST /grill, POST /grill/{id}/message,
+GET /grill/{id}), `_launch_interval_chain` Celery chain dispatch,
+`_get_redis_client` Redis URL resolution, and app lifespan async context
+manager. Coverage with server extras: 98.71% → 99.44%. 8139 tests pass.
+See [v366 plan](docs/exec-plans/active/v366-remaining-server-coverage-gaps.md).
+
 ### CLI `--version` Flag & Doctor Version Display (2026-04-04) — Completed
 
 Added `--version` / `-V` flag to the CLI entry point — intercepted before

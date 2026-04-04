@@ -2038,3 +2038,172 @@ class TestTaskTreeStatusParsing:
         assert result.error is None
         dir_paths = {e.path for e in result.tree if e.type == "dir"}
         assert "x" in dir_paths
+
+
+# ---------------------------------------------------------------------------
+# v366 — Grill enabled-path endpoint coverage
+# ---------------------------------------------------------------------------
+
+
+class TestGrillEnabledEndpoints:
+    """Cover the grill endpoints when GRILL_ME_ENABLED=1 (happy paths)."""
+
+    def test_start_grill_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        fake_result = MagicMock()
+        fake_result.id = "celery-task-abc"
+        with patch("helping_hands.server.grill.grill_session") as mock_grill:
+            mock_grill.delay.return_value = fake_result
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.post(
+                "/grill",
+                json={
+                    "repo_path": "/tmp/repo",
+                    "prompt": "test prompt",
+                },
+            )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["session_id"] == "celery-task-abc"
+        assert data["status"] == "starting"
+
+    def test_send_grill_message_enabled_session_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        monkeypatch.setenv("REDIS_URL", "redis://fake:6379")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = '{"status": "active"}'
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.post(
+                "/grill/test-session-123/message",
+                json={"content": "hello", "type": "text"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "sent"}
+        mock_redis.rpush.assert_called_once()
+        mock_redis.expire.assert_called_once()
+
+    def test_send_grill_message_enabled_session_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.post(
+                "/grill/nonexistent/message",
+                json={"content": "hello", "type": "text"},
+            )
+
+        assert resp.status_code == 404
+
+    def test_poll_grill_enabled_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.get("/grill/nonexistent")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "not_found"
+        assert data["messages"] == []
+
+    def test_poll_grill_enabled_with_messages(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import json as _json
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = _json.dumps({"status": "active"})
+        msg1 = _json.dumps(
+            {
+                "id": "m1",
+                "role": "assistant",
+                "content": "Hello",
+                "type": "text",
+                "timestamp": 1000.0,
+            }
+        )
+        # lpop returns one message then None
+        mock_redis.lpop.side_effect = [msg1, None]
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.get("/grill/sess-abc")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "active"
+        assert len(data["messages"]) == 1
+        assert data["messages"][0]["content"] == "Hello"
+
+
+# ---------------------------------------------------------------------------
+# v366 — App lifespan coverage
+# ---------------------------------------------------------------------------
+
+
+class TestAppLifespan:
+    """Cover the _lifespan async context manager."""
+
+    @pytest.mark.anyio
+    async def test_lifespan_starts_and_stops_yjs(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from helping_hands.server.app import _lifespan
+
+        mock_start = AsyncMock()
+        mock_stop = AsyncMock()
+        with (
+            patch("helping_hands.server.app.start_yjs_server", mock_start),
+            patch("helping_hands.server.app.stop_yjs_server", mock_stop),
+        ):
+            async with _lifespan(None):
+                mock_start.assert_awaited_once()
+                mock_stop.assert_not_awaited()
+            mock_stop.assert_awaited_once()

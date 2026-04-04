@@ -289,3 +289,24 @@ before `parse_args()` so it works without a positional `repo` argument. Doctor
 output header now includes the version string (e.g. `helping-hands doctor v0.1.0`).
 
 **5 new tests. 6859 total tests. 76.17% coverage.**
+
+---
+
+## Apr 5 — Remaining Server Coverage Gaps (v366)
+
+Closed last coverage gaps in server modules by testing previously-uncovered
+enabled paths:
+
+- **Grill enabled-path endpoints** (5 tests): `POST /grill` with mocked
+  `grill_session.delay`, `POST /grill/{id}/message` session-found and
+  session-not-found paths with mocked Redis, `GET /grill/{id}` not-found
+  and message-drain paths
+- **`_launch_interval_chain`** (2 tests): Happy path verifying Celery chain
+  dispatch with mocked `build_feature.apply_async`, nonce persistence, and
+  meta save; ImportError fallback returning None
+- **`_get_redis_client`** (2 tests): Uses `redbeat_redis_url` when set,
+  falls back to `broker_url` when not
+- **App lifespan** (1 test): Async context manager calls
+  `start_yjs_server`/`stop_yjs_server`
+
+**10 new tests. 8139 total tests (with server extras). 99.44% coverage.**

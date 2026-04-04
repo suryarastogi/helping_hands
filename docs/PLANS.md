@@ -4,7 +4,7 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [v366 — Remaining Server Coverage Gaps](exec-plans/active/v366-remaining-server-coverage-gaps.md) — Close last coverage gaps in server modules; grill endpoints, interval chain, redis client, lifespan
 
 ## Completed plans
 

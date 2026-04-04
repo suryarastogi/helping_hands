@@ -1178,3 +1178,138 @@ class TestCreateRedbeatEntryBody:
             mod.RedBeatSchedulerEntry = orig
 
         mock_entry.save.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# v366 — _get_redis_client coverage
+# ---------------------------------------------------------------------------
+
+
+class TestGetRedisClient:
+    """Cover ScheduleManager._get_redis_client (lines 409-415)."""
+
+    def test_uses_redbeat_redis_url(self) -> None:
+        from helping_hands.server.schedules import ScheduleManager
+
+        mock_app = MagicMock()
+        mock_app.conf.get.return_value = "redis://redbeat-host:6379/1"
+        mock_app.conf.broker_url = "redis://broker-host:6379/0"
+
+        sentinel = object()
+        with (
+            patch.object(ScheduleManager, "__init__", lambda self, app: None),
+            patch("redis.from_url", return_value=sentinel) as mock_from_url,
+        ):
+            mgr = ScheduleManager(mock_app)
+            mgr._app = mock_app
+            result = mgr._get_redis_client()
+
+        mock_from_url.assert_called_once_with("redis://redbeat-host:6379/1")
+        assert result is sentinel
+
+    def test_falls_back_to_broker_url(self) -> None:
+        from helping_hands.server.schedules import ScheduleManager
+
+        mock_app = MagicMock()
+        # Return broker_url when redbeat_redis_url is not set
+        mock_app.conf.get.side_effect = lambda key, default: default
+        mock_app.conf.broker_url = "redis://broker-host:6379/0"
+
+        sentinel = object()
+        with (
+            patch.object(ScheduleManager, "__init__", lambda self, app: None),
+            patch("redis.from_url", return_value=sentinel) as mock_from_url,
+        ):
+            mgr = ScheduleManager(mock_app)
+            mgr._app = mock_app
+            result = mgr._get_redis_client()
+
+        mock_from_url.assert_called_once_with("redis://broker-host:6379/0")
+        assert result is sentinel
+
+
+# ---------------------------------------------------------------------------
+# v366 — _launch_interval_chain coverage
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchIntervalChain:
+    """Cover ScheduleManager._launch_interval_chain (lines 619-667)."""
+
+    def test_dispatches_build_chain(self) -> None:
+        """Happy path: build_feature.apply_async called with correct kwargs."""
+        mgr, _mock_redis, _mock_app = _build_manager()
+        task = _make_task(
+            schedule_type="interval",
+            interval_seconds=300,
+            cron_expression="",
+        )
+        assert task.run_count == 0
+
+        mock_result = MagicMock()
+        mock_result.id = "task-id-123"
+        mock_build = MagicMock()
+        mock_build.apply_async.return_value = mock_result
+        mock_reschedule = MagicMock()
+
+        with (
+            patch.object(mgr, "_revoke_interval_chain") as mock_revoke,
+            patch.object(mgr, "_save_chain_nonce") as mock_save_nonce,
+            patch.object(mgr, "_save_meta") as mock_save_meta,
+            patch(
+                "helping_hands.server.celery_app.build_feature",
+                mock_build,
+            ),
+            patch(
+                "helping_hands.server.celery_app.interval_reschedule",
+                mock_reschedule,
+            ),
+        ):
+            result_id = mgr._launch_interval_chain(task, countdown=10)
+
+        assert result_id == "task-id-123"
+        mock_revoke.assert_called_once_with(task)
+        mock_build.apply_async.assert_called_once()
+        call_kwargs = mock_build.apply_async.call_args
+        assert call_kwargs.kwargs["kwargs"]["repo_path"] == "owner/repo"
+        assert call_kwargs.kwargs["kwargs"]["schedule_id"] == task.schedule_id
+        assert call_kwargs.kwargs["countdown"] == 10
+        mock_save_nonce.assert_called_once()
+        mock_save_meta.assert_called_once()
+        assert task.run_count == 1
+        assert task.last_run_task_id == "task-id-123"
+        assert task.last_run_at is not None
+
+    def test_import_error_returns_none(self) -> None:
+        """When celery tasks can't be imported, returns None."""
+        import sys
+
+        mgr, _mock_redis, _mock_app = _build_manager()
+        task = _make_task(
+            schedule_type="interval",
+            interval_seconds=300,
+            cron_expression="",
+        )
+
+        with patch.object(mgr, "_revoke_interval_chain"):
+            # Temporarily remove celery_app from sys.modules and block re-import
+            saved = sys.modules.pop("helping_hands.server.celery_app", None)
+            real_import = (
+                __builtins__.__import__
+                if hasattr(__builtins__, "__import__")
+                else __import__
+            )  # type: ignore[union-attr]
+
+            def _block_celery_app(name, *args, **kwargs):  # type: ignore[no-untyped-def]
+                if name == "helping_hands.server.celery_app":
+                    raise ImportError("blocked for test")
+                return real_import(name, *args, **kwargs)
+
+            try:
+                with patch("builtins.__import__", side_effect=_block_celery_app):
+                    result = mgr._launch_interval_chain(task)
+            finally:
+                if saved is not None:
+                    sys.modules["helping_hands.server.celery_app"] = saved
+
+        assert result is None
