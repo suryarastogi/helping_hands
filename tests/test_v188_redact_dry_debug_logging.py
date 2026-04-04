@@ -193,6 +193,8 @@ class TestCiFixLoopDebugLogging:
                 self._interrupt_event.is_set.return_value = False
                 self._active_process = None
                 self.fix_ci = True
+                self.fix_conflicts = False
+                self.master_rebase = False
                 self.ci_check_wait_minutes = 0.001
                 self.ci_max_retries = 2
                 self.repo_index = MagicMock()

@@ -124,6 +124,8 @@ class ScheduledTask:
         enable_web: Enable web search/browse tools.
         use_native_cli_auth: Use native CLI auth instead of token-based.
         fix_ci: Attempt automated CI fix retries after PR creation.
+        fix_conflicts: Attempt AI-driven conflict resolution on push failure.
+        master_rebase: Rebase on master/main and resolve conflicts with AI before push.
         ci_check_wait_minutes: Minutes to wait between CI check polls.
         github_token: Per-task GitHub token override, or ``None``.
         reference_repos: Additional repos cloned as read-only context.
@@ -151,6 +153,8 @@ class ScheduledTask:
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
+    fix_conflicts: bool = False
+    master_rebase: bool = False
     ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
     github_token: str | None = None
     reference_repos: list[str] = field(default_factory=list)
@@ -184,6 +188,8 @@ class ScheduledTask:
             "enable_web": self.enable_web,
             "use_native_cli_auth": self.use_native_cli_auth,
             "fix_ci": self.fix_ci,
+            "fix_conflicts": self.fix_conflicts,
+            "master_rebase": self.master_rebase,
             "ci_check_wait_minutes": self.ci_check_wait_minutes,
             "github_token": self.github_token,
             "reference_repos": self.reference_repos,
@@ -247,6 +253,8 @@ class ScheduledTask:
             enable_web=data.get("enable_web", False),
             use_native_cli_auth=data.get("use_native_cli_auth", False),
             fix_ci=data.get("fix_ci", False),
+            fix_conflicts=data.get("fix_conflicts", False),
+            master_rebase=data.get("master_rebase", False),
             ci_check_wait_minutes=data.get(
                 "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
             ),
@@ -953,6 +961,8 @@ class ScheduleManager:
             use_native_cli_auth=task.use_native_cli_auth,
             tools=task.tools,
             fix_ci=task.fix_ci,
+            fix_conflicts=task.fix_conflicts,
+            master_rebase=task.master_rebase,
             ci_check_wait_minutes=task.ci_check_wait_minutes,
             github_token=task.github_token,
             reference_repos=task.reference_repos,

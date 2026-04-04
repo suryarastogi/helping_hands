@@ -45,6 +45,8 @@ class _FakeScheduledTask:
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
+    fix_conflicts: bool = False
+    master_rebase: bool = False
     ci_check_wait_minutes: float = 3.0
     github_token: str | None = None
     reference_repos: list[str] = field(default_factory=list)

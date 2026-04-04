@@ -263,6 +263,22 @@ function ScheduleFormFields({
             <label className="check-row">
               <input
                 type="checkbox"
+                checked={scheduleForm.fix_conflicts}
+                onChange={(e) => onUpdateField("fix_conflicts", e.target.checked)}
+              />
+              AI Fix Conflicts
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={scheduleForm.master_rebase}
+                onChange={(e) => onUpdateField("master_rebase", e.target.checked)}
+              />
+              AI Master Rebase
+            </label>
+            <label className="check-row">
+              <input
+                type="checkbox"
                 checked={scheduleForm.enabled}
                 onChange={(e) => onUpdateField("enabled", e.target.checked)}
               />

@@ -277,6 +277,8 @@ export function useTaskManager(): UseTaskManagerReturn {
       enable_web: form.enable_web,
       use_native_cli_auth: form.use_native_cli_auth,
       fix_ci: form.fix_ci,
+      fix_conflicts: form.fix_conflicts,
+      master_rebase: form.master_rebase,
       ci_check_wait_minutes: form.ci_check_wait_minutes,
     };
 
@@ -379,6 +381,8 @@ export function useTaskManager(): UseTaskManagerReturn {
       enable_web: merged.enable_web,
       use_native_cli_auth: merged.use_native_cli_auth,
       fix_ci: merged.fix_ci,
+      fix_conflicts: merged.fix_conflicts,
+      master_rebase: merged.master_rebase,
       ci_check_wait_minutes: merged.ci_check_wait_minutes,
     };
 
@@ -543,6 +547,8 @@ export function useTaskManager(): UseTaskManagerReturn {
     const enableWeb = readBoolish(["enable_web"]);
     const useNativeAuth = readBoolish(["use_native_cli_auth"]);
     const fixCi = readBoolish(["fix_ci"]);
+    const fixConflicts = readBoolish(["fix_conflicts"]);
+    const masterRebase = readBoolish(["master_rebase"]);
     const tools = readList(["tools"]);
     const runtime = readString(["runtime"]);
     const issueNumber = readString(["issue_number"]);
@@ -559,6 +565,8 @@ export function useTaskManager(): UseTaskManagerReturn {
     if (enableWeb) items.push({ label: "Web tools", value: enableWeb });
     if (useNativeAuth) items.push({ label: "Native CLI auth", value: useNativeAuth });
     if (fixCi) items.push({ label: "Fix CI", value: fixCi });
+    if (fixConflicts) items.push({ label: "AI Fix Conflicts", value: fixConflicts });
+    if (masterRebase) items.push({ label: "AI Master Rebase", value: masterRebase });
     if (tools) items.push({ label: "Tools", value: tools });
     if (issueNumber) items.push({ label: "Issue", value: `#${issueNumber}` });
     if (referenceRepos) items.push({ label: "Reference repos", value: referenceRepos });
@@ -776,6 +784,10 @@ export function useTaskManager(): UseTaskManagerReturn {
       if (nativeAuthParam !== null) next.use_native_cli_auth = parseBool(nativeAuthParam);
       const fixCiParam = params.get("fix_ci");
       if (fixCiParam !== null) next.fix_ci = parseBool(fixCiParam);
+      const fixConflictsParam = params.get("fix_conflicts");
+      if (fixConflictsParam !== null) next.fix_conflicts = parseBool(fixConflictsParam);
+      const masterRebaseParam = params.get("master_rebase");
+      if (masterRebaseParam !== null) next.master_rebase = parseBool(masterRebaseParam);
       return next;
     });
 

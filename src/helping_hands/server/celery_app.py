@@ -341,6 +341,8 @@ class _ProgressEmitter:
         use_native_cli_auth: Whether native CLI auth is used.
         tools: Enabled tool category names.
         fix_ci: Whether to attempt CI fix.
+        fix_conflicts: Whether to attempt AI conflict resolution.
+        master_rebase: Whether to rebase on master with AI conflict resolution.
         ci_check_wait_minutes: Minutes to wait for CI checks.
         reference_repos: Optional reference repo specs.
         workspace: Optional workspace identifier.
@@ -366,6 +368,8 @@ class _ProgressEmitter:
         use_native_cli_auth: bool,
         tools: tuple[str, ...],
         fix_ci: bool = False,
+        fix_conflicts: bool = False,
+        master_rebase: bool = False,
         ci_check_wait_minutes: float = 3.0,
         reference_repos: list[str] | None = None,
         workspace: str | None = None,
@@ -388,6 +392,8 @@ class _ProgressEmitter:
         self._use_native_cli_auth = use_native_cli_auth
         self._tools = tools
         self._fix_ci = fix_ci
+        self._fix_conflicts = fix_conflicts
+        self._master_rebase = master_rebase
         self._ci_check_wait_minutes = ci_check_wait_minutes
         self._reference_repos = reference_repos
         self._workspace = workspace
@@ -433,6 +439,8 @@ class _ProgressEmitter:
             ),
             tools=overrides.get("tools", self._tools),
             fix_ci=overrides.get("fix_ci", self._fix_ci),
+            fix_conflicts=overrides.get("fix_conflicts", self._fix_conflicts),
+            master_rebase=overrides.get("master_rebase", self._master_rebase),
             ci_check_wait_minutes=overrides.get(
                 "ci_check_wait_minutes", self._ci_check_wait_minutes
             ),
@@ -462,6 +470,8 @@ def _update_progress(
     use_native_cli_auth: bool,
     tools: tuple[str, ...],
     fix_ci: bool = False,
+    fix_conflicts: bool = False,
+    master_rebase: bool = False,
     ci_check_wait_minutes: float = 3.0,
     reference_repos: list[str] | None = None,
     workspace: str | None = None,
@@ -495,6 +505,8 @@ def _update_progress(
         use_native_cli_auth: Whether to use native CLI authentication.
         tools: Tuple of enabled tool category names.
         fix_ci: Whether to attempt CI fix after PR creation.
+        fix_conflicts: Whether to attempt AI conflict resolution.
+        master_rebase: Whether to rebase on master with AI conflict resolution.
         ci_check_wait_minutes: Minutes to wait for CI checks.
         reference_repos: Optional list of reference repo specs.
         workspace: Optional workspace identifier.
@@ -519,6 +531,8 @@ def _update_progress(
         "enable_web": enable_web,
         "use_native_cli_auth": use_native_cli_auth,
         "fix_ci": fix_ci,
+        "fix_conflicts": fix_conflicts,
+        "master_rebase": master_rebase,
         "ci_check_wait_minutes": ci_check_wait_minutes,
         "tools": list(tools),
         "reference_repos": list(reference_repos or []),
@@ -895,6 +909,8 @@ def build_feature(
     use_native_cli_auth: bool = False,
     tools: list[str] | None = None,
     fix_ci: bool = False,
+    fix_conflicts: bool = False,
+    master_rebase: bool = False,
     ci_check_wait_minutes: float = 3.0,
     github_token: str | None = None,
     reference_repos: list[str] | None = None,
@@ -969,6 +985,8 @@ def build_feature(
         use_native_cli_auth=use_native_cli_auth,
         tools=selected_tools,
         fix_ci=fix_ci,
+        fix_conflicts=fix_conflicts,
+        master_rebase=master_rebase,
         ci_check_wait_minutes=ci_check_wait_minutes,
         reference_repos=list(reference_repos or []),
         started_at=task_started_at,
@@ -1186,6 +1204,8 @@ def build_feature(
             _sync_issue_started(_issue_repo, _effective_issue, updates, github_token)
 
         hand.fix_ci = fix_ci
+        hand.fix_conflicts = fix_conflicts
+        hand.master_rebase = master_rebase
         hand.ci_check_wait_minutes = ci_check_wait_minutes
 
         # Sync "running" status to linked GitHub issue.
@@ -1259,6 +1279,8 @@ def build_feature(
             "enable_web": str(enable_web).lower(),
             "use_native_cli_auth": str(use_native_cli_auth).lower(),
             "fix_ci": str(fix_ci).lower(),
+            "fix_conflicts": str(fix_conflicts).lower(),
+            "master_rebase": str(master_rebase).lower(),
             "ci_check_wait_minutes": str(ci_check_wait_minutes),
             "tools": list(selected_tools),
             "runtime": runtime_str,
@@ -1327,6 +1349,8 @@ def scheduled_build(
         use_native_cli_auth=schedule.use_native_cli_auth,
         tools=schedule.tools,
         fix_ci=schedule.fix_ci,
+        fix_conflicts=schedule.fix_conflicts,
+        master_rebase=schedule.master_rebase,
         ci_check_wait_minutes=schedule.ci_check_wait_minutes,
         reference_repos=schedule.reference_repos,
         schedule_id=schedule_id,

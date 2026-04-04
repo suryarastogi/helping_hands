@@ -149,6 +149,22 @@ export default function SubmissionForm({
                 />
                 Fix CI
               </label>
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.fix_conflicts}
+                  onChange={(event) => onFieldChange("fix_conflicts", event.target.checked)}
+                />
+                AI Fix Conflicts
+              </label>
+              <label className="check-row compact-check">
+                <input
+                  type="checkbox"
+                  checked={form.master_rebase}
+                  onChange={(event) => onFieldChange("master_rebase", event.target.checked)}
+                />
+                AI Master Rebase
+              </label>
             </div>
             <div className="row">
               <label>

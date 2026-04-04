@@ -109,6 +109,8 @@ export type FormState = {
   enable_web: boolean;
   use_native_cli_auth: boolean;
   fix_ci: boolean;
+  fix_conflicts: boolean;
+  master_rebase: boolean;
   ci_check_wait_minutes: number;
   github_token: string;
   reference_repos: string;
@@ -170,6 +172,8 @@ export type ScheduleItem = {
   enable_web: boolean;
   use_native_cli_auth: boolean;
   fix_ci: boolean;
+  fix_conflicts: boolean;
+  master_rebase: boolean;
   ci_check_wait_minutes: number;
   github_token: string | null;
   reference_repos: string[];
@@ -198,6 +202,8 @@ export type ScheduleFormState = {
   enable_web: boolean;
   use_native_cli_auth: boolean;
   fix_ci: boolean;
+  fix_conflicts: boolean;
+  master_rebase: boolean;
   ci_check_wait_minutes: number;
   github_token: string;
   reference_repos: string;

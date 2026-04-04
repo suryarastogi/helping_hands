@@ -252,6 +252,8 @@ class BuildRequest(_ToolValidatorMixin):
     create_issue: bool = False
     project_url: str | None = None
     fix_ci: bool = False
+    fix_conflicts: bool = False
+    master_rebase: bool = False
     ci_check_wait_minutes: float = Field(
         default=_DEFAULT_CI_WAIT_MINUTES,
         ge=_MIN_CI_WAIT_MINUTES,
@@ -362,6 +364,8 @@ class ScheduleRequest(_ToolValidatorMixin):
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
+    fix_conflicts: bool = False
+    master_rebase: bool = False
     ci_check_wait_minutes: float = Field(
         default=_DEFAULT_CI_WAIT_MINUTES,
         ge=_MIN_CI_WAIT_MINUTES,
@@ -393,6 +397,8 @@ class ScheduleResponse(BaseModel):
     enable_web: bool = False
     use_native_cli_auth: bool = False
     fix_ci: bool = False
+    fix_conflicts: bool = False
+    master_rebase: bool = False
     ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
     github_token: str | None = None
     reference_repos: list[str] = Field(default_factory=list)
@@ -1449,6 +1455,14 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     <input id="fix_ci" name="fix_ci" type="checkbox" />
                     Fix CI failures (auto-retry)
                   </label>
+                  <label class="check-row" for="fix_conflicts">
+                    <input id="fix_conflicts" name="fix_conflicts" type="checkbox" />
+                    AI Fix Conflicts
+                  </label>
+                  <label class="check-row" for="master_rebase">
+                    <input id="master_rebase" name="master_rebase" type="checkbox" />
+                    AI Master Rebase
+                  </label>
                 </div>
                 <div class="row">
                   <label for="github_token">GitHub Token
@@ -1647,6 +1661,14 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
                     <label class="check-row" for="schedule_fix_ci">
                       <input id="schedule_fix_ci" name="fix_ci" type="checkbox" />
                       Fix CI
+                    </label>
+                    <label class="check-row" for="schedule_fix_conflicts">
+                      <input id="schedule_fix_conflicts" name="fix_conflicts" type="checkbox" />
+                      AI Fix Conflicts
+                    </label>
+                    <label class="check-row" for="schedule_master_rebase">
+                      <input id="schedule_master_rebase" name="master_rebase" type="checkbox" />
+                      AI Master Rebase
                     </label>
                   </div>
                   <div class="row">
@@ -2436,6 +2458,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const enableWeb = params.get("enable_web");
         const useNativeCliAuth = params.get("use_native_cli_auth");
         const fixCi = params.get("fix_ci");
+        const fixConflicts = params.get("fix_conflicts");
+        const masterRebase = params.get("master_rebase");
         const tools = params.get("tools");
         const taskId = params.get("task_id");
         const status = params.get("status");
@@ -2476,6 +2500,12 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         }
         if (fixCi === "1" || fixCi === "true") {
           document.getElementById("fix_ci").checked = true;
+        }
+        if (fixConflicts === "1" || fixConflicts === "true") {
+          document.getElementById("fix_conflicts").checked = true;
+        }
+        if (masterRebase === "1" || masterRebase === "true") {
+          document.getElementById("master_rebase").checked = true;
         }
         const githubTokenParam = params.get("github_token");
         if (githubTokenParam) {
@@ -2650,6 +2680,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
         const enableWeb = document.getElementById("enable_web").checked;
         const useNativeCliAuth = document.getElementById("use_native_cli_auth").checked;
         const fixCi = document.getElementById("fix_ci").checked;
+        const fixConflicts = document.getElementById("fix_conflicts").checked;
+        const masterRebase = document.getElementById("master_rebase").checked;
         const githubToken = document.getElementById("github_token").value.trim();
         const referenceRepos = document.getElementById("reference_repos").value.trim();
         const payload = {
@@ -2662,6 +2694,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           enable_web: enableWeb,
           use_native_cli_auth: useNativeCliAuth,
           fix_ci: fixCi,
+          fix_conflicts: fixConflicts,
+          master_rebase: masterRebase,
         };
         if (model) {
           payload.model = model;
@@ -2831,7 +2865,9 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           pr_number: document.getElementById("schedule_pr_number").value ? Number(document.getElementById("schedule_pr_number").value) : null,
           no_pr: document.getElementById("schedule_no_pr").checked,
           enabled: document.getElementById("schedule_enabled").checked,
-          fix_ci: document.getElementById("schedule_fix_ci").checked
+          fix_ci: document.getElementById("schedule_fix_ci").checked,
+          fix_conflicts: document.getElementById("schedule_fix_conflicts").checked,
+          master_rebase: document.getElementById("schedule_master_rebase").checked
         };
         const schedGhToken = document.getElementById("schedule_github_token").value.trim();
         if (schedGhToken) {
@@ -2881,6 +2917,8 @@ __DEFAULT_SMOKE_TEST_PROMPT__</textarea>
           document.getElementById("schedule_no_pr").checked = s.no_pr;
           document.getElementById("schedule_enabled").checked = s.enabled;
           document.getElementById("schedule_fix_ci").checked = s.fix_ci || false;
+          document.getElementById("schedule_fix_conflicts").checked = s.fix_conflicts || false;
+          document.getElementById("schedule_master_rebase").checked = s.master_rebase || false;
           document.getElementById("schedule_github_token").value = s.github_token || "";
           schedRefReposChip.setChips(s.reference_repos || []);
 
@@ -3187,6 +3225,8 @@ def _enqueue_build_task(req: BuildRequest) -> BuildResponse:
         use_native_cli_auth=req.use_native_cli_auth,
         tools=req.tools,
         fix_ci=req.fix_ci,
+        fix_conflicts=req.fix_conflicts,
+        master_rebase=req.master_rebase,
         ci_check_wait_minutes=req.ci_check_wait_minutes,
         github_token=req.github_token,
         reference_repos=req.reference_repos,
@@ -3906,6 +3946,8 @@ def _build_form_redirect_query(
     enable_web: bool = False,
     use_native_cli_auth: bool = False,
     fix_ci: bool = False,
+    fix_conflicts: bool = False,
+    master_rebase: bool = False,
     ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES,
     pr_number: int | None = None,
     tools: str | None = None,
@@ -3930,6 +3972,10 @@ def _build_form_redirect_query(
         query["use_native_cli_auth"] = "1"
     if fix_ci:
         query["fix_ci"] = "1"
+    if fix_conflicts:
+        query["fix_conflicts"] = "1"
+    if master_rebase:
+        query["master_rebase"] = "1"
     if ci_check_wait_minutes != _DEFAULT_CI_WAIT_MINUTES:
         query["ci_check_wait_minutes"] = str(ci_check_wait_minutes)
     if pr_number is not None:
@@ -3956,6 +4002,8 @@ def enqueue_build_form(
     project_url: str | None = Form(None),
     tools: str | None = Form(None),
     fix_ci: bool = Form(False),
+    fix_conflicts: bool = Form(False),
+    master_rebase: bool = Form(False),
     ci_check_wait_minutes: float = Form(_DEFAULT_CI_WAIT_MINUTES),
     github_token: str | None = Form(None),
     reference_repos: str | None = Form(None),
@@ -3976,6 +4024,8 @@ def enqueue_build_form(
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
             fix_ci=fix_ci,
+            fix_conflicts=fix_conflicts,
+            master_rebase=master_rebase,
             ci_check_wait_minutes=ci_check_wait_minutes,
             pr_number=pr_number,
             tools=tools,
@@ -3998,6 +4048,8 @@ def enqueue_build_form(
             create_issue=create_issue,
             project_url=project_url,
             fix_ci=fix_ci,
+            fix_conflicts=fix_conflicts,
+            master_rebase=master_rebase,
             ci_check_wait_minutes=ci_check_wait_minutes,
             tools=list(meta_tools.normalize_tool_selection(tools)),
             github_token=github_token
@@ -4020,6 +4072,8 @@ def enqueue_build_form(
             enable_web=enable_web,
             use_native_cli_auth=use_native_cli_auth,
             fix_ci=fix_ci,
+            fix_conflicts=fix_conflicts,
+            master_rebase=master_rebase,
             ci_check_wait_minutes=ci_check_wait_minutes,
             pr_number=pr_number,
             tools=tools,
@@ -4047,6 +4101,10 @@ def enqueue_build_form(
         query["use_native_cli_auth"] = "1"
     if req.fix_ci:
         query["fix_ci"] = "1"
+    if req.fix_conflicts:
+        query["fix_conflicts"] = "1"
+    if req.master_rebase:
+        query["master_rebase"] = "1"
     if req.pr_number is not None:
         query["pr_number"] = str(req.pr_number)
     if req.tools:
@@ -4665,6 +4723,8 @@ def _schedule_to_response(task) -> ScheduleResponse:
         enable_web=task.enable_web,
         use_native_cli_auth=task.use_native_cli_auth,
         fix_ci=task.fix_ci,
+        fix_conflicts=task.fix_conflicts,
+        master_rebase=task.master_rebase,
         ci_check_wait_minutes=task.ci_check_wait_minutes,
         github_token=_redact_token(task.github_token),
         reference_repos=task.reference_repos,
@@ -4726,6 +4786,8 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         enable_web=request.enable_web,
         use_native_cli_auth=request.use_native_cli_auth,
         fix_ci=request.fix_ci,
+        fix_conflicts=request.fix_conflicts,
+        master_rebase=request.master_rebase,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
         github_token=request.github_token,
         reference_repos=request.reference_repos,

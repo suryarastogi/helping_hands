@@ -112,6 +112,8 @@ class TestProgressEmitter:
             "use_native_cli_auth": False,
             "tools": ("filesystem",),
             "fix_ci": False,
+            "fix_conflicts": False,
+            "master_rebase": False,
             "ci_check_wait_minutes": 3.0,
             "reference_repos": None,
             "workspace": None,
