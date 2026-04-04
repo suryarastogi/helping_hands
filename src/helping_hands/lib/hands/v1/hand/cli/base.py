@@ -2228,10 +2228,33 @@ class _TwoPhaseCLIHand(Hand):
             metadata[_META_CONFLICT_FIX_STATUS] = ConflictFixStatus.FAILED
             return metadata
 
+        # Re-attempt master rebase if enabled — the initial attempt may have
+        # failed (e.g. network issue fetching origin/main) and without it the
+        # PR branch can be behind master, causing GitHub merge conflicts that
+        # prevent CI from running.
+        from helping_hands.lib.github import GitHubClient
+
+        if self.master_rebase:
+            base = self._default_base_branch(repo_dir)
+            with GitHubClient(token=self.config.github_token) as _gh:
+                rebase_ok = self._try_rebase_for_push(_gh, repo_dir, base)
+            if rebase_ok:
+                await emit(
+                    self._label_msg(f"Rebased onto {base} after conflict resolution.\n")
+                )
+            else:
+                # Non-fatal: abort stale rebase and continue with the push.
+                subprocess.run(
+                    ["git", "rebase", "--abort"],
+                    cwd=repo_dir,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
+
         # Push the rebased branch.
         try:
-            from helping_hands.lib.github import GitHubClient
-
             with GitHubClient(token=self.config.github_token) as gh:
                 self._push_noninteractive(gh, repo_dir, branch)
         except (RuntimeError, OSError) as exc:
