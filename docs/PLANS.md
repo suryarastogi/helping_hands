@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-04 v348 — Doctor Server-Mode Prerequisite Checks](exec-plans/completed/2026/v348-doctor-server-prereqs.md) —
+  Add Redis CLI and Docker Compose checks to `helping-hands doctor`; fix
+  docs index completeness and README sections; 8 new tests, 6591 tests passed
+
 - [2026-04-04 v347 — Doctor & RepoIndex Enhancements](exec-plans/completed/2026/v347-doctor-and-repo-index-enhancements.md) —
   Add Docker and Node.js checks to `helping-hands doctor`, add `file_count`
   property and `has_file()` binary search to `RepoIndex`; 16 tests added

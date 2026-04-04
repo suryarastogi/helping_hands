@@ -8,6 +8,18 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Doctor Server-Mode Prerequisite Checks (2026-04-04) — Completed
+
+Extended `helping-hands doctor` with Redis CLI and Docker Compose availability
+checks for server-mode users. `_check_redis_cli()` verifies `redis-cli` on
+PATH (needed for local-stack), `_check_docker_compose()` verifies `docker
+compose` subcommand (needed for app-mode deployment) with version output and
+graceful error handling. Also fixed docs index completeness (added app-mode.md,
+backends.md, development.md references) and README (added Configuration and
+Development sections). Expanded `__all__` to export `collect_checks` and
+`format_results`. 8 new tests. See
+[v348 plan](docs/exec-plans/completed/2026/v348-doctor-server-prereqs.md).
+
 ### Doctor & RepoIndex Enhancements (2026-04-04) — Completed
 
 Enhanced `helping-hands doctor` with Docker and Node.js availability checks:

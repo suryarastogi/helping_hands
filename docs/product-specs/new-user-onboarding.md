@@ -36,7 +36,9 @@ can evaluate whether the tool fits my workflow.
    checks Python version, git, uv, provider API keys, GitHub token, optional
    CLI backends, and optional extras. **Enhanced** (v347, 2026-04-04): added
    Docker availability check (for docker-sandbox backends) and Node.js
-   version check (for frontend development).
+   version check (for frontend development). **Further enhanced** (v348,
+   2026-04-04): added Redis CLI check (for local-stack server mode) and
+   Docker Compose subcommand check (for app-mode deployment).
 
 ### Nice to have
 

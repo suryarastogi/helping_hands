@@ -38,3 +38,20 @@ See [2026-03-30 daily consolidation](2026-03-30.md) for full details.
   pre-sorted files list
 
 **8 new doctor tests, 8 new RepoIndex tests. 16 new tests total.**
+
+---
+
+## Apr 4 — Doctor Server-Mode Prerequisite Checks (v348)
+
+**Doctor server-mode checks:**
+- `_check_redis_cli()` — checks `redis-cli` on PATH, needed for local-stack
+  server mode
+- `_check_docker_compose()` — checks `docker compose` subcommand availability
+  with version output, timeout/error handling; needed for app-mode deployment
+
+**Docs fixes:**
+- `docs/index.md` — added references to app-mode.md, backends.md, development.md
+- `README.md` — added Configuration and Development sections
+- `__all__` — added `collect_checks` and `format_results` exports
+
+**8 new tests (2 redis-cli, 5 docker-compose, 1 collect_checks). 45 total doctor tests.**

@@ -17,6 +17,7 @@ import pytest
 from helping_hands.cli.doctor import (
     CheckResult,
     _check_docker,
+    _check_docker_compose,
     _check_git,
     _check_github_token,
     _check_node,
@@ -24,6 +25,7 @@ from helping_hands.cli.doctor import (
     _check_optional_extras,
     _check_provider_keys,
     _check_python,
+    _check_redis_cli,
     _check_uv,
     collect_checks,
     format_results,
@@ -176,6 +178,83 @@ class TestCheckDocker:
             result = _check_docker()
         assert result.status == "warn"
         assert "docker-sandbox" in result.message
+
+
+class TestCheckRedisCli:
+    def test_ok_when_redis_cli_found(self) -> None:
+        with patch(
+            "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/redis-cli"
+        ):
+            result = _check_redis_cli()
+        assert result.status == "ok"
+        assert "redis-cli found" in result.message
+
+    def test_warn_when_redis_cli_missing(self) -> None:
+        with patch("helping_hands.cli.doctor.shutil.which", return_value=None):
+            result = _check_redis_cli()
+        assert result.status == "warn"
+        assert "local-stack" in result.message
+
+
+class TestCheckDockerCompose:
+    def test_ok_when_docker_compose_available(self) -> None:
+        mock_result = type(
+            "R", (), {"returncode": 0, "stdout": "Docker Compose version v2.24.0"}
+        )()
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/docker"
+            ),
+            patch("subprocess.run", return_value=mock_result),
+        ):
+            result = _check_docker_compose()
+        assert result.status == "ok"
+        assert "Docker Compose" in result.message
+
+    def test_warn_when_docker_missing(self) -> None:
+        with patch("helping_hands.cli.doctor.shutil.which", return_value=None):
+            result = _check_docker_compose()
+        assert result.status == "warn"
+        assert "docker not found" in result.message
+
+    def test_warn_when_compose_subcommand_fails(self) -> None:
+        mock_result = type("R", (), {"returncode": 1, "stdout": ""})()
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/docker"
+            ),
+            patch("subprocess.run", return_value=mock_result),
+        ):
+            result = _check_docker_compose()
+        assert result.status == "warn"
+        assert "not available" in result.message
+
+    def test_warn_when_timeout(self) -> None:
+        import subprocess
+
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/docker"
+            ),
+            patch(
+                "subprocess.run",
+                side_effect=subprocess.TimeoutExpired("docker", 5),
+            ),
+        ):
+            result = _check_docker_compose()
+        assert result.status == "warn"
+        assert "could not verify" in result.message
+
+    def test_warn_when_os_error(self) -> None:
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/docker"
+            ),
+            patch("subprocess.run", side_effect=OSError("permission denied")),
+        ):
+            result = _check_docker_compose()
+        assert result.status == "warn"
+        assert "could not verify" in result.message
 
 
 class TestCheckNode:

@@ -138,6 +138,34 @@ helping_hands/
 └── README.md
 ```
 
+## Configuration
+
+helping_hands is configured through environment variables and CLI flags.
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI provider key |
+| `ANTHROPIC_API_KEY` | Anthropic provider key |
+| `GOOGLE_API_KEY` | Google (Gemini) provider key |
+| `GITHUB_TOKEN` | GitHub token for PR creation |
+| `HELPING_HANDS_VERBOSE` | Enable verbose logging |
+
+Run `uv run helping-hands doctor` to check which prerequisites are configured.
+
+For server/app-mode configuration (Redis, Celery, PostgreSQL), see
+[App Mode & Scheduling](docs/app-mode.md).
+
+## Development
+
+```bash
+uv run ruff check .          # lint
+uv run ruff format --check . # format check
+uv run pytest -v             # tests + coverage
+uv run pre-commit run --all-files  # all hooks
+```
+
+See [Development & Contributing](docs/development.md) for the full guide.
+
 ## Documentation
 
 - **[Backend Reference](docs/backends.md)** — Environment variables, auth requirements, and usage notes for every backend

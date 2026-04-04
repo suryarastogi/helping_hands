@@ -13,7 +13,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 
-__all__ = ["CheckResult", "run_doctor"]
+__all__ = ["CheckResult", "collect_checks", "format_results", "run_doctor"]
 
 # ---------------------------------------------------------------------------
 # Check result type
@@ -208,6 +208,55 @@ def _check_node() -> CheckResult:
     )
 
 
+def _check_redis_cli() -> CheckResult:
+    """Check that ``redis-cli`` is on PATH (needed for local-stack server mode)."""
+    if shutil.which("redis-cli"):
+        return CheckResult("redis-cli", _OK, "redis-cli found")
+    return CheckResult(
+        "redis-cli",
+        _WARN,
+        "redis-cli not found — needed for local-stack server mode",
+    )
+
+
+def _check_docker_compose() -> CheckResult:
+    """Check that ``docker compose`` subcommand is available.
+
+    Required for app-mode deployment via ``docker compose up`` or
+    ``./scripts/run-local-stack.sh``.
+    """
+    import subprocess
+
+    docker_path = shutil.which("docker")
+    if not docker_path:
+        return CheckResult(
+            "docker-compose",
+            _WARN,
+            "docker compose not available — docker not found",
+        )
+    try:
+        cp = subprocess.run(
+            [docker_path, "compose", "version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if cp.returncode == 0:
+            version_line = cp.stdout.strip()
+            return CheckResult("docker-compose", _OK, f"docker compose: {version_line}")
+        return CheckResult(
+            "docker-compose",
+            _WARN,
+            "docker found but 'docker compose' subcommand not available",
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return CheckResult(
+            "docker-compose",
+            _WARN,
+            "docker found but could not verify 'docker compose'",
+        )
+
+
 def _check_optional_extras() -> list[CheckResult]:
     """Check availability of optional Python package extras."""
     results: list[CheckResult] = []
@@ -249,6 +298,8 @@ def collect_checks() -> list[CheckResult]:
     results.append(_check_github_token())
     results.extend(_check_optional_cli_tools())
     results.append(_check_docker())
+    results.append(_check_docker_compose())
+    results.append(_check_redis_cli())
     results.append(_check_node())
     results.extend(_check_optional_extras())
     return results
