@@ -21,6 +21,9 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 | [product-specs/](product-specs/index.md) | Product specifications (onboarding, etc.) |
 | [exec-plans/](exec-plans/) | Active and completed execution plans |
 | [generated/](generated/db-schema.md) | Auto-generated reference (DB schema) |
+| [backends.md](backends.md) | Backend reference: env vars, auth, and usage notes |
+| [app-mode.md](app-mode.md) | Server setup, Docker Compose, scheduling builds |
+| [development.md](development.md) | Install, lint, test, configuration reference |
 | [references/](references/) | External reference material (uv, ruff, celery-redbeat) |
 
 ## API Reference

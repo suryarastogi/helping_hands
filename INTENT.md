@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Fix Grill Test Failures & Week-14 Consolidation (2026-04-04) — Completed
+
+Added `pytest.importorskip("celery")` to `test_grill.py` — 13 tests were
+failing with `ModuleNotFoundError` when the `server` extra is not installed.
+Updated stale `TestReadmeMdSections` and `TestReadmeSections` tests to match the
+slimmed README (c7601f0). Added `app-mode.md`, `backends.md`, `development.md`
+to `docs/index.md`. Created Week-14 consolidation. See
+[v347 plan](docs/exec-plans/completed/2026/v347-fix-grill-tests-and-weekly-consolidation.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →
