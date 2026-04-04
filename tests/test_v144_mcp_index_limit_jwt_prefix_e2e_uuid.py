@@ -57,35 +57,31 @@ class TestMcpIndexFilesLimit:
 
 
 class TestAppJwtTokenPrefix:
-    """Verify _JWT_TOKEN_PREFIX in server/app.py."""
+    """Verify JWT_TOKEN_PREFIX in server/constants.py."""
 
     def test_jwt_token_prefix_value(self) -> None:
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _JWT_TOKEN_PREFIX
+        from helping_hands.server.constants import JWT_TOKEN_PREFIX
 
-        assert _JWT_TOKEN_PREFIX == "ey"
+        assert JWT_TOKEN_PREFIX == "ey"
 
     def test_jwt_token_prefix_is_str(self) -> None:
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _JWT_TOKEN_PREFIX
+        from helping_hands.server.constants import JWT_TOKEN_PREFIX
 
-        assert isinstance(_JWT_TOKEN_PREFIX, str)
+        assert isinstance(JWT_TOKEN_PREFIX, str)
 
     def test_jwt_token_prefix_nonempty(self) -> None:
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _JWT_TOKEN_PREFIX
+        from helping_hands.server.constants import JWT_TOKEN_PREFIX
 
-        assert len(_JWT_TOKEN_PREFIX) > 0
+        assert len(JWT_TOKEN_PREFIX) > 0
 
     def test_get_claude_oauth_token_uses_constant(self) -> None:
-        """Verify _get_claude_oauth_token uses _JWT_TOKEN_PREFIX, not hardcoded 'ey'."""
-        pytest.importorskip("fastapi")
+        """Verify get_claude_oauth_token uses JWT_TOKEN_PREFIX, not hardcoded 'ey'."""
         import inspect
 
-        from helping_hands.server.app import _get_claude_oauth_token
+        from helping_hands.server.token_helpers import get_claude_oauth_token
 
-        source = inspect.getsource(_get_claude_oauth_token)
-        assert "_JWT_TOKEN_PREFIX" in source
+        source = inspect.getsource(get_claude_oauth_token)
+        assert "JWT_TOKEN_PREFIX" in source
         assert 'startswith("ey")' not in source
 
 
@@ -115,13 +111,15 @@ class TestCeleryJwtTokenPrefix:
 
         assert len(_JWT_TOKEN_PREFIX) > 0
 
-    def test_jwt_prefix_matches_app_module(self) -> None:
-        """Ensure celery_app.py and app.py JWT prefixes are in sync."""
+    def test_jwt_prefix_matches_constants_module(self) -> None:
+        """Ensure celery_app.py JWT prefix matches constants.py."""
         pytest.importorskip("celery")
-        pytest.importorskip("fastapi")
-        from helping_hands.server import app as app_mod, celery_app as celery_mod
+        from helping_hands.server import (
+            celery_app as celery_mod,
+            constants as const_mod,
+        )
 
-        assert app_mod._JWT_TOKEN_PREFIX == celery_mod._JWT_TOKEN_PREFIX
+        assert const_mod.JWT_TOKEN_PREFIX == celery_mod._JWT_TOKEN_PREFIX
 
 
 # ---------------------------------------------------------------------------

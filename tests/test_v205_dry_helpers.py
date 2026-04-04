@@ -224,12 +224,6 @@ class TestTimeoutConstantsImported:
     """Verify app.py and celery_app.py import from constants, not define locally."""
 
     @pytest.mark.skipif(not _has_fastapi, reason="fastapi not installed")
-    def test_app_imports_keychain_timeout(self) -> None:
-        from helping_hands.server import app
-
-        assert app._KEYCHAIN_TIMEOUT_S == KEYCHAIN_TIMEOUT_S
-
-    @pytest.mark.skipif(not _has_fastapi, reason="fastapi not installed")
     def test_app_imports_usage_api_timeout(self) -> None:
         from helping_hands.server import app
 

@@ -25,41 +25,36 @@ import pytest
 
 
 class TestAppKeychainConstants:
-    """Verify keychain constants in server/app.py."""
+    """Verify keychain constants in server/constants.py."""
 
     def test_keychain_service_name_value(self) -> None:
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _KEYCHAIN_SERVICE_NAME
+        from helping_hands.server.constants import KEYCHAIN_SERVICE_NAME
 
-        assert _KEYCHAIN_SERVICE_NAME == "Claude Code-credentials"
+        assert KEYCHAIN_SERVICE_NAME == "Claude Code-credentials"
 
     def test_keychain_service_name_is_str(self) -> None:
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _KEYCHAIN_SERVICE_NAME
+        from helping_hands.server.constants import KEYCHAIN_SERVICE_NAME
 
-        assert isinstance(_KEYCHAIN_SERVICE_NAME, str)
+        assert isinstance(KEYCHAIN_SERVICE_NAME, str)
 
     def test_keychain_oauth_key_value(self) -> None:
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _KEYCHAIN_OAUTH_KEY
+        from helping_hands.server.constants import KEYCHAIN_OAUTH_KEY
 
-        assert _KEYCHAIN_OAUTH_KEY == "claudeAiOauth"
+        assert KEYCHAIN_OAUTH_KEY == "claudeAiOauth"
 
     def test_keychain_access_token_key_value(self) -> None:
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _KEYCHAIN_ACCESS_TOKEN_KEY
+        from helping_hands.server.constants import KEYCHAIN_ACCESS_TOKEN_KEY
 
-        assert _KEYCHAIN_ACCESS_TOKEN_KEY == "accessToken"
+        assert KEYCHAIN_ACCESS_TOKEN_KEY == "accessToken"
 
     def test_get_claude_oauth_token_uses_constants(self) -> None:
-        """Verify _get_claude_oauth_token uses constants, not hardcoded strings."""
-        pytest.importorskip("fastapi")
-        from helping_hands.server.app import _get_claude_oauth_token
+        """Verify get_claude_oauth_token uses constants, not hardcoded strings."""
+        from helping_hands.server.token_helpers import get_claude_oauth_token
 
-        source = inspect.getsource(_get_claude_oauth_token)
-        assert "_KEYCHAIN_SERVICE_NAME" in source
-        assert "_KEYCHAIN_OAUTH_KEY" in source
-        assert "_KEYCHAIN_ACCESS_TOKEN_KEY" in source
+        source = inspect.getsource(get_claude_oauth_token)
+        assert "KEYCHAIN_SERVICE_NAME" in source
+        assert "KEYCHAIN_OAUTH_KEY" in source
+        assert "KEYCHAIN_ACCESS_TOKEN_KEY" in source
         assert '"Claude Code-credentials"' not in source
         assert '"claudeAiOauth"' not in source
         assert '"accessToken"' not in source
@@ -114,40 +109,37 @@ class TestKeychainConstantSync:
     """Verify keychain constants stay in sync across modules."""
 
     def test_service_name_sync(self) -> None:
-        pytest.importorskip("fastapi")
         pytest.importorskip("celery")
-        from helping_hands.server.app import (
-            _KEYCHAIN_SERVICE_NAME as _APP_NAME,
-        )
         from helping_hands.server.celery_app import (
             _KEYCHAIN_SERVICE_NAME as _CELERY_NAME,
         )
+        from helping_hands.server.constants import (
+            KEYCHAIN_SERVICE_NAME as _CONST_NAME,
+        )
 
-        assert _APP_NAME == _CELERY_NAME
+        assert _CONST_NAME == _CELERY_NAME
 
     def test_oauth_key_sync(self) -> None:
-        pytest.importorskip("fastapi")
         pytest.importorskip("celery")
-        from helping_hands.server.app import (
-            _KEYCHAIN_OAUTH_KEY as _APP_KEY,
-        )
         from helping_hands.server.celery_app import (
             _KEYCHAIN_OAUTH_KEY as _CELERY_KEY,
         )
+        from helping_hands.server.constants import (
+            KEYCHAIN_OAUTH_KEY as _CONST_KEY,
+        )
 
-        assert _APP_KEY == _CELERY_KEY
+        assert _CONST_KEY == _CELERY_KEY
 
     def test_access_token_key_sync(self) -> None:
-        pytest.importorskip("fastapi")
         pytest.importorskip("celery")
-        from helping_hands.server.app import (
-            _KEYCHAIN_ACCESS_TOKEN_KEY as _APP_KEY,
-        )
         from helping_hands.server.celery_app import (
             _KEYCHAIN_ACCESS_TOKEN_KEY as _CELERY_KEY,
         )
+        from helping_hands.server.constants import (
+            KEYCHAIN_ACCESS_TOKEN_KEY as _CONST_KEY,
+        )
 
-        assert _APP_KEY == _CELERY_KEY
+        assert _CONST_KEY == _CELERY_KEY
 
 
 # ---------------------------------------------------------------------------

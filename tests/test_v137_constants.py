@@ -25,9 +25,9 @@ class TestAppHealthCheckTimeoutConstants:
     """Verify health-check timeout constants in server/app.py."""
 
     def test_keychain_timeout_value(self) -> None:
-        from helping_hands.server.app import _KEYCHAIN_TIMEOUT_S
+        from helping_hands.server.constants import KEYCHAIN_TIMEOUT_S
 
-        assert _KEYCHAIN_TIMEOUT_S == 5
+        assert KEYCHAIN_TIMEOUT_S == 5
 
     def test_usage_api_timeout_value(self) -> None:
         from helping_hands.server.app import _USAGE_API_TIMEOUT_S
@@ -59,13 +59,13 @@ class TestAppHealthCheckTimeoutConstants:
             _CELERY_HEALTH_TIMEOUT_S,
             _CELERY_INSPECT_TIMEOUT_S,
             _DB_HEALTH_TIMEOUT_S,
-            _KEYCHAIN_TIMEOUT_S,
             _REDIS_HEALTH_TIMEOUT_S,
             _USAGE_API_TIMEOUT_S,
         )
+        from helping_hands.server.constants import KEYCHAIN_TIMEOUT_S
 
         for name, val in [
-            ("_KEYCHAIN_TIMEOUT_S", _KEYCHAIN_TIMEOUT_S),
+            ("KEYCHAIN_TIMEOUT_S", KEYCHAIN_TIMEOUT_S),
             ("_USAGE_API_TIMEOUT_S", _USAGE_API_TIMEOUT_S),
             ("_REDIS_HEALTH_TIMEOUT_S", _REDIS_HEALTH_TIMEOUT_S),
             ("_DB_HEALTH_TIMEOUT_S", _DB_HEALTH_TIMEOUT_S),
@@ -128,11 +128,14 @@ class TestCeleryAppAnthropicApiConstants:
         assert _USAGE_API_TIMEOUT_S == 10
 
     def test_constants_match_app_module(self) -> None:
-        """Ensure app.py and celery_app.py constants stay in sync."""
+        """Ensure constants.py values match the aliased versions in celery_app.py."""
         pytest.importorskip("celery")
-        from helping_hands.server import app as app_mod, celery_app as celery_mod
+        from helping_hands.server import (
+            celery_app as celery_mod,
+            constants as const_mod,
+        )
 
-        assert app_mod._ANTHROPIC_USAGE_URL == celery_mod._ANTHROPIC_USAGE_URL
-        assert app_mod._ANTHROPIC_BETA_HEADER == celery_mod._ANTHROPIC_BETA_HEADER
-        assert app_mod._USAGE_USER_AGENT == celery_mod._USAGE_USER_AGENT
-        assert app_mod._USAGE_API_TIMEOUT_S == celery_mod._USAGE_API_TIMEOUT_S
+        assert const_mod.ANTHROPIC_USAGE_URL == celery_mod._ANTHROPIC_USAGE_URL
+        assert const_mod.ANTHROPIC_BETA_HEADER == celery_mod._ANTHROPIC_BETA_HEADER
+        assert const_mod.USAGE_USER_AGENT == celery_mod._USAGE_USER_AGENT
+        assert const_mod.USAGE_API_TIMEOUT_S == celery_mod._USAGE_API_TIMEOUT_S

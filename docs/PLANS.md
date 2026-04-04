@@ -8,6 +8,11 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-04 v361 — Fix Stale Test Imports & Coverage Recovery](exec-plans/completed/2026/v361-fix-stale-test-imports-and-coverage-recovery.md) —
+  Fix 10 test files with broken imports from v357 extraction; recover server module
+  test coverage; 7968 tests pass, 98.71% coverage
+
+
 - [2026-04-04 v360 — Test Consolidation & Cleanup Candidate Resolution](exec-plans/completed/2026/v360-test-consolidation-cleanup.md) —
   Resolve all `# TODO: CLEANUP CANDIDATE` markers across 6 test files, remove duplicate
   `test_provider_build_inner.py`; 42 redundant tests removed, 0 behavioral coverage lost;

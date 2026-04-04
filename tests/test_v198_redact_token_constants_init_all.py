@@ -12,7 +12,12 @@ version checks.
 
 from __future__ import annotations
 
-import pytest
+from helping_hands.server.token_helpers import (
+    REDACT_TOKEN_MIN_PARTIAL_LEN as _REDACT_TOKEN_MIN_PARTIAL_LEN,
+    REDACT_TOKEN_PREFIX_LEN as _REDACT_TOKEN_PREFIX_LEN,
+    REDACT_TOKEN_SUFFIX_LEN as _REDACT_TOKEN_SUFFIX_LEN,
+    redact_token as _redact_token,
+)
 
 # ---------------------------------------------------------------------------
 # Root package __all__
@@ -49,17 +54,8 @@ class TestRootPackageAll:
 
 
 # ---------------------------------------------------------------------------
-# Redact token constants (requires fastapi)
+# Redact token constants
 # ---------------------------------------------------------------------------
-
-fastapi = pytest.importorskip("fastapi")
-
-from helping_hands.server.app import (  # noqa: E402
-    _REDACT_TOKEN_MIN_PARTIAL_LEN,
-    _REDACT_TOKEN_PREFIX_LEN,
-    _REDACT_TOKEN_SUFFIX_LEN,
-    _redact_token,
-)
 
 
 class TestRedactTokenConstants:

@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Fix Stale Test Imports & Coverage Recovery (2026-04-04) — Completed
+
+Fixed 10 test files with broken imports left behind by v357 token_helpers/github_url
+extraction. Tests were importing symbols (`_git_noninteractive_env`,
+`_read_claude_credentials_file`, `_REDACT_TOKEN_*`, keychain constants) from their
+old locations in `server/app.py` and `server/celery_app.py`. Without server extras
+the breakage was masked by silent skips; with extras, 3 collection errors + 16 test
+failures. Recovery: 6779 → 7968 tests passing, 76.03% → 98.71% coverage.
+See [v361 plan](docs/exec-plans/completed/2026/v361-fix-stale-test-imports-and-coverage-recovery.md).
+
 ### Test Consolidation & Cleanup Candidate Resolution (2026-04-04) — Completed
 
 Resolved all 6 `# TODO: CLEANUP CANDIDATE` markers in test files. Removed 42

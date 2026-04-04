@@ -136,11 +136,11 @@ class TestGetClaudeOauthTokenLogging:
     ) -> None:
         with (
             patch(
-                "helping_hands.server.app._read_claude_credentials_file",
+                "helping_hands.server.token_helpers.read_claude_credentials_file",
                 return_value=None,
             ),
             patch(
-                "helping_hands.server.app.subprocess.run",
+                "helping_hands.server.token_helpers.subprocess.run",
                 side_effect=TimeoutError("keychain timed out"),
             ),
             caplog.at_level(logging.DEBUG),
@@ -158,11 +158,11 @@ class TestGetClaudeOauthTokenLogging:
     ) -> None:
         with (
             patch(
-                "helping_hands.server.app._read_claude_credentials_file",
+                "helping_hands.server.token_helpers.read_claude_credentials_file",
                 return_value=None,
             ),
             patch(
-                "helping_hands.server.app.subprocess.run",
+                "helping_hands.server.token_helpers.subprocess.run",
                 side_effect=OSError("no such binary"),
             ),
             caplog.at_level(logging.DEBUG),

@@ -154,13 +154,15 @@ class TestCeleryTimeoutConstants:
 
         assert _DB_CONNECT_TIMEOUT_S > 0
 
-    def test_keychain_timeout_matches_app_module(self) -> None:
-        """Ensure celery_app.py and app.py keychain timeouts are in sync."""
+    def test_keychain_timeout_matches_constants_module(self) -> None:
+        """Ensure celery_app.py keychain timeout matches constants.py."""
         pytest.importorskip("celery")
-        pytest.importorskip("fastapi")
-        from helping_hands.server import app as app_mod, celery_app as celery_mod
+        from helping_hands.server import (
+            celery_app as celery_mod,
+            constants as const_mod,
+        )
 
-        assert app_mod._KEYCHAIN_TIMEOUT_S == celery_mod._KEYCHAIN_TIMEOUT_S
+        assert const_mod.KEYCHAIN_TIMEOUT_S == celery_mod._KEYCHAIN_TIMEOUT_S
 
 
 # ---------------------------------------------------------------------------
