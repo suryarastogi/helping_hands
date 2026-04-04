@@ -4,7 +4,14 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-*(none — awaiting next task)*
+### Grill Module Testability & Coverage (2026-04-04) — In Progress
+
+Fixing 13 broken grill tests caused by top-level `from celery import Task`
+import failure when the server extra isn't installed. Restructuring `grill.py`
+to defer celery imports so pure helper functions (`_build_system_prompt`,
+`_clone_repo`, `_summarize_tool_use`, `_invoke_claude_turn`, Redis helpers) are
+testable without celery/redis. Adding 37 new tests. See
+[v350 plan](docs/exec-plans/active/v350-grill-module-testability-and-coverage.md).
 
 ## Recently Completed
 
@@ -22,7 +29,7 @@ lazy inner loading, `_require_sdk()`, `complete()` validation, and
 `acomplete()` async delegation. 23 new tests covering all branches.
 
 Updated product spec to mark nice-to-have #4 as implemented. See
-[v349 plan](docs/exec-plans/active/v349-interactive-mode-and-provider-types-coverage.md).
+[v349 plan](docs/exec-plans/completed/2026/v349-interactive-mode-and-provider-types-coverage.md).
 
 
 ### Doctor Server-Mode Prerequisite Checks (2026-04-04) — Completed

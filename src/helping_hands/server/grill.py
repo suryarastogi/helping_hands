@@ -29,9 +29,7 @@ import uuid
 from pathlib import Path
 from subprocess import TimeoutExpired
 from tempfile import mkdtemp
-from typing import Any
-
-from celery import Task
+from typing import TYPE_CHECKING, Any
 
 from helping_hands.lib.github_url import (
     DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
@@ -44,7 +42,9 @@ from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.repo import RepoIndex
-from helping_hands.server.celery_app import celery_app
+
+if TYPE_CHECKING:
+    from celery import Task
 
 logger = logging.getLogger(__name__)
 
@@ -417,9 +417,33 @@ def _invoke_claude_turn(
 
 # --- Celery task -------------------------------------------------------------
 
+try:  # pragma: no cover — requires celery extra
+    from helping_hands.server.celery_app import celery_app as _celery_app
 
-@celery_app.task(bind=True, name="helping_hands.grill_session")
-def grill_session(
+    @_celery_app.task(bind=True, name="helping_hands.grill_session")
+    def grill_session(
+        self: Task,
+        repo_path: str,
+        prompt: str,
+        model: str | None = None,
+        github_token: str | None = None,
+        reference_repos: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Long-running Celery task for interactive grill sessions.
+
+        Clones the repo, builds context, then enters a message loop.
+        Each AI turn is a ``claude -p`` subprocess call using
+        ``--session-id`` / ``--resume`` for conversation continuity.
+        """
+        return _grill_session_body(
+            self, repo_path, prompt, model, github_token, reference_repos
+        )
+
+except ImportError:
+    pass
+
+
+def _grill_session_body(  # pragma: no cover — requires celery + redis
     self: Task,
     repo_path: str,
     prompt: str,

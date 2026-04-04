@@ -13,6 +13,8 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | `_decode_bytes` latin-1 fallback | None | `web.py` | latin-1 accepts all byte values; fallback marked `pragma: no cover` as defensive-only |
 | `if __name__ == "__main__"` guard (MCP) | None | `mcp_server.py` | Line 393: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
 | `_commit_message_from_prompt` unreachable branch | None | `pr_description.py` | Branch 581→583: `if not candidate` False path is unreachable — candidate starts as `""` and `break` always fires on first non-boilerplate line (v173) |
+| `_grill_session_body` integration-only coverage | None | `grill.py` | Lines 460–772: Celery task body requires celery + redis infrastructure; marked `pragma: no cover`; pure helpers tested at 99% (v350) |
+| `_invoke_claude_turn` branch partials | None | `grill.py` | 3 branch partials (384→366, 389→347, 395→397): require specific combinations of stream events within a single invocation (v350) |
 
 ## Resolved items
 

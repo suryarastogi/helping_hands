@@ -77,3 +77,33 @@ See [2026-03-30 daily consolidation](2026-03-30.md) for full details.
 
 **6 new CLI tests + 23 new provider types tests = 29 new tests.**
 **Product spec "New User Onboarding" now fully implemented.**
+
+---
+
+## Apr 4 — Grill Module Testability & Coverage (v350)
+
+**Grill module restructuring:**
+- Deferred celery imports: `from celery import Task` moved to `TYPE_CHECKING`,
+  `celery_app` import wrapped in `try/except ImportError` — pure helpers now
+  importable without the server extra
+- Extracted `_grill_session_body` from the `@celery_app.task` decorator wrapper
+- Marked integration-only code (`_grill_session_body`, celery task wrapper)
+  with `pragma: no cover`
+
+**Test coverage (37 new tests):**
+- `TestRedisClient` (2): `_redis_client` env var and default URL
+- `TestRedisHelpers` (6): `_set_state`/`_get_state` round-trip, `_push_ai_msg`
+  structure and custom type, `_pop_user_msg` present/empty
+- `TestBuildSystemPrompt` (7 new): README.rst fallback, truncation, large file
+  tree, no README, reference repos, index failure, OSError
+- `TestCloneRepo` (3 new): remote clone success, failure, timeout
+- `TestSummarizeToolUse` (2 new): missing key, empty pattern
+- `TestInvokeClaudeTurn` (19): first turn, resume, FileNotFoundError, non-zero
+  exit, stdin OSError, text blocks, on_status callbacks, github_token env,
+  malformed JSON, wait timeout, thinking dedup, tool_use reset, non-dict
+  message/content, empty text block, duration-only result, empty stderr,
+  no-model flag, read-only tools
+- `TestInvokeClaudeTurnStreamError` (1): stdout iteration exception
+- Fixed `TestGrillEnabled` tests: added per-test `pytest.importorskip("fastapi")`
+
+**grill.py coverage: 4% → 99% (pure helpers). 13 test failures → 0.**
