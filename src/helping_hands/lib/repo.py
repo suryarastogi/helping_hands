@@ -25,6 +25,28 @@ class RepoIndex:
     files: list[str] = field(default_factory=list)
     reference_repos: list[tuple[str, Path]] = field(default_factory=list)
 
+    @property
+    def file_count(self) -> int:
+        """Return the total number of indexed files."""
+        return len(self.files)
+
+    def has_file(self, relative_path: str) -> bool:
+        """Check whether *relative_path* exists in the index.
+
+        Uses the pre-sorted ``files`` list for an O(log n) binary search.
+
+        Args:
+            relative_path: Forward-slash separated path relative to repo root
+                (e.g. ``"src/main.py"``).
+
+        Returns:
+            ``True`` if the path is present in the index.
+        """
+        import bisect
+
+        i = bisect.bisect_left(self.files, relative_path)
+        return i < len(self.files) and self.files[i] == relative_path
+
     @classmethod
     def from_path(cls, path: Path) -> RepoIndex:
         """Walk a local repo and build an index of its files."""

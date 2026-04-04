@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-04 v347 — Doctor & RepoIndex Enhancements](exec-plans/completed/2026/v347-doctor-and-repo-index-enhancements.md) —
+  Add Docker and Node.js checks to `helping-hands doctor`, add `file_count`
+  property and `has_file()` binary search to `RepoIndex`; 16 tests added
+
 - [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
   Rewrite README Quick Start as three numbered steps (install, set keys, run);
   implement first-run welcome banner with `~/.helping_hands/.first_run_done`

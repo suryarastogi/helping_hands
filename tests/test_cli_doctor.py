@@ -16,8 +16,10 @@ import pytest
 
 from helping_hands.cli.doctor import (
     CheckResult,
+    _check_docker,
     _check_git,
     _check_github_token,
+    _check_node,
     _check_optional_cli_tools,
     _check_optional_extras,
     _check_provider_keys,
@@ -158,6 +160,93 @@ class TestCheckOptionalExtras:
             results = _check_optional_extras()
         assert all(r.status == "warn" for r in results)
         assert any("uv sync --extra" in r.message for r in results)
+
+
+class TestCheckDocker:
+    def test_ok_when_docker_found(self) -> None:
+        with patch(
+            "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/docker"
+        ):
+            result = _check_docker()
+        assert result.status == "ok"
+        assert "docker found" in result.message
+
+    def test_warn_when_docker_missing(self) -> None:
+        with patch("helping_hands.cli.doctor.shutil.which", return_value=None):
+            result = _check_docker()
+        assert result.status == "warn"
+        assert "docker-sandbox" in result.message
+
+
+class TestCheckNode:
+    def test_ok_when_node_meets_minimum(self) -> None:
+        mock_result = type("R", (), {"stdout": "v20.11.0"})()
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/node"
+            ),
+            patch("subprocess.run", return_value=mock_result),
+        ):
+            result = _check_node()
+        assert result.status == "ok"
+        assert "20.11.0" in result.message
+
+    def test_warn_when_node_below_minimum(self) -> None:
+        mock_result = type("R", (), {"stdout": "v16.0.0"})()
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/node"
+            ),
+            patch("subprocess.run", return_value=mock_result),
+        ):
+            result = _check_node()
+        assert result.status == "warn"
+        assert "v18+" in result.message
+
+    def test_warn_when_node_missing(self) -> None:
+        with patch("helping_hands.cli.doctor.shutil.which", return_value=None):
+            result = _check_node()
+        assert result.status == "warn"
+        assert "not found" in result.message
+
+    def test_warn_when_version_check_fails(self) -> None:
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/node"
+            ),
+            patch("subprocess.run", side_effect=OSError("nope")),
+        ):
+            result = _check_node()
+        assert result.status == "warn"
+        assert "could not determine version" in result.message
+
+    def test_warn_when_version_parse_fails(self) -> None:
+        mock_result = type("R", (), {"stdout": "not-a-version"})()
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/node"
+            ),
+            patch("subprocess.run", return_value=mock_result),
+        ):
+            result = _check_node()
+        assert result.status == "warn"
+        assert "could not determine version" in result.message
+
+    def test_warn_when_timeout(self) -> None:
+        import subprocess
+
+        with (
+            patch(
+                "helping_hands.cli.doctor.shutil.which", return_value="/usr/bin/node"
+            ),
+            patch(
+                "subprocess.run",
+                side_effect=subprocess.TimeoutExpired("node", 5),
+            ),
+        ):
+            result = _check_node()
+        assert result.status == "warn"
+        assert "could not determine version" in result.message
 
 
 class TestCollectChecks:

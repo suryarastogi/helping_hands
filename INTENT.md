@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Doctor & RepoIndex Enhancements (2026-04-04) — Completed
+
+Enhanced `helping-hands doctor` with Docker and Node.js availability checks:
+`_check_docker()` verifies Docker CLI (needed for `docker-sandbox-*` backends),
+`_check_node()` verifies Node.js v18+ (needed for frontend dev) with graceful
+handling of missing binary, version parse failure, and timeout. Added
+`file_count` property and `has_file()` O(log n) binary search to `RepoIndex`.
+16 new tests. Created Week-14 consolidation. See
+[v347 plan](docs/exec-plans/completed/2026/v347-doctor-and-repo-index-enhancements.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →

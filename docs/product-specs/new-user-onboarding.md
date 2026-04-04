@@ -34,7 +34,9 @@ can evaluate whether the tool fits my workflow.
    that verifies required env vars and dependencies are present and reports
    what's missing.~~ **Implemented** (v344, 2026-03-30): `helping-hands doctor`
    checks Python version, git, uv, provider API keys, GitHub token, optional
-   CLI backends, and optional extras.
+   CLI backends, and optional extras. **Enhanced** (v347, 2026-04-04): added
+   Docker availability check (for docker-sandbox backends) and Node.js
+   version check (for frontend development).
 
 ### Nice to have
 
