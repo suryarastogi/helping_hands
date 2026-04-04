@@ -19,6 +19,19 @@ from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "create_yjs_app",
+    "get_connected_players",
+    "get_decoration_state",
+    "get_multiplayer_stats",
+    "get_player_activity_summary",
+    "start_yjs_server",
+    "stop_yjs_server",
+    "validate_awareness_state",
+    "yjs_asgi_app",
+    "yjs_websocket_server",
+]
+
 try:
     from pycrdt.websocket import (  # type: ignore[import-untyped]
         ASGIServer,

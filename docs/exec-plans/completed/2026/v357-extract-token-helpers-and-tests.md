@@ -1,7 +1,7 @@
 # v357 — Extract Token Helpers & Add Tests
 
 **Created:** 2026-04-04
-**Status:** Active
+**Status:** Completed
 
 ## Goal
 

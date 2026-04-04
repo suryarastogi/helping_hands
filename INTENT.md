@@ -4,20 +4,26 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Extract Shared Git Clone Utility (2026-04-04)
+### E2E Coverage & Exports Cleanup (2026-04-04)
+
+Close test gaps in `e2e.py` (`_draft_pr_enabled`, `stream`), add missing
+`__all__` to `multiplayer_yjs.py`, consolidate v357 completion.
+See [v358 plan](docs/exec-plans/active/v358-e2e-coverage-and-exports-cleanup.md).
+
+## Recently Completed
+
+### Extract Shared Git Clone Utility (2026-04-04) — Completed
 
 Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
 `server/celery_app.py` by extracting `run_git_clone()` into `lib/github_url.py`.
-13 new tests, 6 test files updated. See [v357 plan](docs/exec-plans/active/v357-extract-shared-git-clone.md).
+13 new tests, 6 test files updated. See [v357 plan](docs/exec-plans/completed/2026/v357-extract-shared-git-clone.md).
 
-### Extract Token Helpers & Add Tests (2026-04-04)
+### Extract Token Helpers & Add Tests (2026-04-04) — Completed
 
 Extract pure token/credential helpers (`redact_token`,
 `read_claude_credentials_file`, `get_claude_oauth_token`) from `server/app.py`
 into `server/token_helpers.py` — testable without server extras. 22 new tests.
-See [v357 plan](docs/exec-plans/active/v357-extract-token-helpers-and-tests.md).
-
-## Recently Completed
+See [v357 plan](docs/exec-plans/completed/2026/v357-extract-token-helpers-and-tests.md).
 
 ### Server App Endpoint Coverage Hardening (2026-04-04) — Completed
 

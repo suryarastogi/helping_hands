@@ -215,3 +215,15 @@ Extracted `redact_token`, `read_claude_credentials_file`, and
 environments. 22 new tests covering all branches.
 
 **6795+ total tests. 75.89% coverage (without server extras).**
+
+---
+
+## Apr 4 — E2E Coverage & Exports Cleanup (v358)
+
+Closed test gaps in `e2e.py`: added 8 tests for `_draft_pr_enabled` env-var
+gating (default true, explicit true/false/1/0/yes/empty/whitespace) and 2 tests
+for `stream()` async wrapper (delegates to `run()`, yields exactly one message).
+Added missing `__all__` to `server/multiplayer_yjs.py`. Moved completed v357
+plans, fixed doc structure test link failures.
+
+**10 new tests. 6821 total tests. 76.03% coverage.**

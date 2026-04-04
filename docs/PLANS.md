@@ -4,14 +4,20 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v357 — Extract Shared Git Clone Utility](exec-plans/active/v357-extract-shared-git-clone.md) —
-  Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
-  `server/celery_app.py` by extracting shared `run_git_clone()` into `github_url.py`
-- [v357 — Extract Token Helpers & Add Tests](exec-plans/active/v357-extract-token-helpers-and-tests.md) —
-  Extract pure token/credential helpers from `server/app.py` into testable
-  `server/token_helpers.py`; 22 new tests for redaction and credential reading
+- [v358 — E2E Coverage & Exports Cleanup](exec-plans/active/v358-e2e-coverage-and-exports-cleanup.md) —
+  Close test gaps in `e2e.py` (`_draft_pr_enabled`, `stream`), add missing `__all__`
+  to `multiplayer_yjs.py`, consolidate v357 completion
 
 ## Completed plans
+
+- [2026-04-04 v357 — Extract Shared Git Clone Utility](exec-plans/completed/2026/v357-extract-shared-git-clone.md) —
+  Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
+  `server/celery_app.py` by extracting shared `run_git_clone()` into `github_url.py`;
+  13 tests added, 6789 passed
+
+- [2026-04-04 v357 — Extract Token Helpers & Add Tests](exec-plans/completed/2026/v357-extract-token-helpers-and-tests.md) —
+  Extract pure token/credential helpers from `server/app.py` into testable
+  `server/token_helpers.py`; 22 tests added, 6795 passed
 
 - [2026-04-04 v356 — Server App Endpoint Coverage Hardening](exec-plans/completed/2026/v356-server-app-endpoint-coverage.md) —
   Close coverage gaps in `server/app.py` (90% → 95%+) via task diff, file tree,
