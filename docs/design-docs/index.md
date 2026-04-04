@@ -49,6 +49,7 @@ Index of design documents for helping_hands.
 ## Quality
 
 - [Testing Methodology](testing-methodology.md) — Coverage-guided iteration, test patterns, and dead code documentation
+- [Adding Task Parameters](adding-task-parameters.md) — Checklist for wiring new parameters through all layers (frontend, API, Celery, hand, schedules, tests)
 
 ## Adding a design doc
 

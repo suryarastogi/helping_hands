@@ -4849,6 +4849,8 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         enable_web=request.enable_web,
         use_native_cli_auth=request.use_native_cli_auth,
         fix_ci=request.fix_ci,
+        fix_conflicts=request.fix_conflicts,
+        master_rebase=request.master_rebase,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
         github_token=github_token,
         reference_repos=request.reference_repos,
