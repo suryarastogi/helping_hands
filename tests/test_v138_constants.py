@@ -175,14 +175,22 @@ class TestCLIMainConstants:
     """Tests for constants extracted to cli/main.py module level."""
 
     def test_default_clone_depth_value(self) -> None:
-        from helping_hands.cli.main import _DEFAULT_CLONE_DEPTH
+        """Default depth parameter of run_git_clone is 1 (shallow clone)."""
+        import inspect
 
-        assert _DEFAULT_CLONE_DEPTH == 1
+        from helping_hands.lib.github_url import run_git_clone
+
+        sig = inspect.signature(run_git_clone)
+        assert sig.parameters["depth"].default == 1
 
     def test_default_clone_depth_positive(self) -> None:
-        from helping_hands.cli.main import _DEFAULT_CLONE_DEPTH
+        """Default depth parameter of run_git_clone is positive."""
+        import inspect
 
-        assert _DEFAULT_CLONE_DEPTH > 0
+        from helping_hands.lib.github_url import run_git_clone
+
+        sig = inspect.signature(run_git_clone)
+        assert sig.parameters["depth"].default > 0
 
     def test_temp_clone_prefix_value(self) -> None:
         from helping_hands.cli.main import _TEMP_CLONE_PREFIX

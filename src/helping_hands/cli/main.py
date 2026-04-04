@@ -11,20 +11,16 @@ import subprocess
 import sys
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import Any, cast
 
 from helping_hands.lib.config import Config, ConfigValue
 from helping_hands.lib.github_url import (
-    DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
-    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
     REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
     build_clone_url as _build_clone_url,
     invalid_repo_msg as _invalid_repo_msg,
-    noninteractive_env as _git_noninteractive_env,
-    redact_credentials as _redact_sensitive,
     repo_tmp_dir as _repo_tmp_dir,
+    run_git_clone as _run_git_clone_shared,
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.hands.v1.hand import E2EHand, Hand
@@ -64,9 +60,6 @@ Quick start:
   3. See README.md for all backends and options.
 """
 """One-time welcome message shown on first CLI invocation."""
-
-_DEFAULT_CLONE_DEPTH = 1
-"""Shallow clone depth used when cloning ``owner/repo`` inputs."""
 
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
@@ -155,6 +148,8 @@ def _run_git_clone(
 ) -> subprocess.CompletedProcess[str]:
     """Run ``git clone --depth …`` and return the completed process.
 
+    Delegates to :func:`helping_hands.lib.github_url.run_git_clone`.
+
     Args:
         url: The HTTPS clone URL.
         dest: Destination directory for the clone.
@@ -166,23 +161,7 @@ def _run_git_clone(
     Raises:
         ValueError: If cloning times out or exits with a non-zero code.
     """
-    try:
-        result = subprocess.run(
-            ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
-            capture_output=True,
-            text=True,
-            check=False,
-            env=_git_noninteractive_env(),
-            timeout=_GIT_CLONE_TIMEOUT_S,
-        )
-    except TimeoutExpired as exc:
-        raise ValueError(
-            f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {label}"
-        ) from exc
-    if result.returncode != 0:
-        stderr = _redact_sensitive(result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG)
-        raise ValueError(f"failed to clone {label}: {stderr}")
-    return result
+    return _run_git_clone_shared(url, dest, label=label)
 
 
 def _build_config_overrides(

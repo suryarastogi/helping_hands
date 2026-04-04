@@ -22,19 +22,21 @@ import pytest
 
 from helping_hands.cli.main import (
     _error_exit,
-    _git_noninteractive_env,
     _github_clone_url,
     _make_temp_clone_dir,
-    _redact_sensitive,
-    _repo_tmp_dir,
     _resolve_repo_path,
     _stream_hand,
-    _validate_repo_spec,
     build_parser,
     main,
     read_prompt_from_stdin,
 )
 from helping_hands.lib.config import Config
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+    redact_credentials as _redact_sensitive,
+    repo_tmp_dir as _repo_tmp_dir,
+    validate_repo_spec as _validate_repo_spec,
+)
 from helping_hands.lib.hands.v1.hand import HandResponse
 
 # Suppress coroutine warnings from coverage.py tracer holding frame references

@@ -4,8 +4,10 @@ Meta tools coverage hardening, hand base & GitHub coverage hardening,
 remaining branch coverage gaps, server helper coverage, CLI main coverage,
 `helping-hands doctor` command, `examples/` directory for new-user
 onboarding, Quick Start enhancement with first-run welcome banner,
-and doctor/RepoIndex enhancements (Docker + Node.js checks, `file_count`
-property, `has_file()` binary search).
+doctor/RepoIndex enhancements, interactive CLI mode, grill module
+testability, core utility coverage, CLI hand coverage, server coverage gaps,
+remaining edge cases, troubleshooting guide, server endpoint coverage,
+and shared git clone utility extraction.
 
 ---
 
@@ -164,3 +166,41 @@ by adding tests with mocked Redis/Celery and FastAPI TestClient:
 - Grill endpoints (disabled) — 3 tests
 
 **Overall project coverage: 94.73% → 97.60%. ~55 new tests.**
+
+---
+
+## Apr 4 — Remaining Edge Case Coverage (v354)
+
+Close last <2% gaps in high-use modules: `github.py` (`update_pr`
+validation/edit paths), `cli/base.py` (`_LinePrefixEmitter` line buffering
+and flush), `cli/claude.py` (`_summarize_tool` Skill branch), and
+`cli/goose.py` (`_pr_description_cmd` Google/Gemini path). **17 tests added.**
+
+---
+
+## Apr 4 — Troubleshooting Guide & Docs Refresh (v355)
+
+Created user-facing `docs/TROUBLESHOOTING.md` covering common setup issues
+surfaced by `helping-hands doctor`, backend-specific problems, and runtime
+errors. Refreshed stale AGENTS.md metadata. **12 doc structure tests added.**
+
+---
+
+## Apr 4 — Server App Endpoint Coverage Hardening (v356)
+
+Close coverage gaps in `server/app.py` (90% → 95%) via task diff, file tree,
+file content, and helper function edge-case tests. **26 tests added,
+7971 passed, 98.70% coverage (with server extras).**
+
+---
+
+## Apr 4 — Extract Shared Git Clone Utility (v357)
+
+Eliminated duplicated `git clone` subprocess logic between `cli/main.py` and
+`server/celery_app.py` by extracting `run_git_clone()` into `lib/github_url.py`.
+CLI's `_run_git_clone` now delegates to the shared function; server's
+`_resolve_repo_path` and reference repo cloning use it directly.
+Removed redundant imports (`TimeoutExpired`, `_DEFAULT_CLONE_DEPTH`,
+credential-redaction helpers) from both consumer modules.
+
+**13 new tests, 6 test files updated. 6789 passed, 75.48% coverage.**

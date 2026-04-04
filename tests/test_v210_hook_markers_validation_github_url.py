@@ -126,6 +126,7 @@ class TestGithubUrlModuleContract:
             "redact_credentials",
             "repo_tmp_dir",
             "resolve_github_token",
+            "run_git_clone",
             "validate_repo_spec",
         }
 

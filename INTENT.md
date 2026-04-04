@@ -4,13 +4,19 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Server App Endpoint Coverage Hardening (2026-04-04)
+### Extract Shared Git Clone Utility (2026-04-04)
+
+Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
+`server/celery_app.py` by extracting `run_git_clone()` into `lib/github_url.py`.
+13 new tests, 6 test files updated. See [v357 plan](docs/exec-plans/active/v357-extract-shared-git-clone.md).
+
+## Recently Completed
+
+### Server App Endpoint Coverage Hardening (2026-04-04) — Completed
 
 Close coverage gaps in `server/app.py` (90% → 95%+) by testing uncovered
 branches in task diff parsing, file tree building, file content reading, and
-helper functions. See [v356 plan](docs/exec-plans/active/v356-server-app-endpoint-coverage.md).
-
-## Recently Completed
+helper functions. See [v356 plan](docs/exec-plans/completed/2026/v356-server-app-endpoint-coverage.md).
 
 ### Troubleshooting Guide & Docs Refresh (2026-04-04) — Completed
 

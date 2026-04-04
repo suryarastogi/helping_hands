@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 from pathlib import Path
+from subprocess import TimeoutExpired
 
 from helping_hands.lib.validation import require_non_empty_string
 
@@ -27,6 +29,7 @@ __all__ = [
     "redact_credentials",
     "repo_tmp_dir",
     "resolve_github_token",
+    "run_git_clone",
     "validate_repo_spec",
 ]
 
@@ -177,3 +180,56 @@ def noninteractive_env() -> dict[str, str]:
     env[ENV_GIT_TERMINAL_PROMPT] = "0"
     env[ENV_GCM_INTERACTIVE] = "never"
     return env
+
+
+def run_git_clone(
+    url: str,
+    dest: Path,
+    *,
+    label: str,
+    depth: int = 1,
+    no_single_branch: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    """Run ``git clone`` as a subprocess with timeout and error handling.
+
+    This is the single shared implementation used by both the CLI and server
+    code paths.  It builds the clone command from the provided parameters,
+    runs it in a non-interactive environment, and converts failures into
+    :class:`ValueError` exceptions with redacted credentials.
+
+    Args:
+        url: The HTTPS clone URL (may contain embedded credentials).
+        dest: Destination directory for the clone.
+        label: Human-readable label for error messages (e.g. ``owner/repo``).
+        depth: ``--depth`` value for shallow clones (default ``1``).
+        no_single_branch: When ``True`` adds ``--no-single-branch`` so that
+            all remote branches are fetched (needed when checking out a
+            PR branch after cloning).
+
+    Returns:
+        The :class:`subprocess.CompletedProcess` on success.
+
+    Raises:
+        ValueError: If cloning times out or exits with a non-zero code.
+    """
+    cmd: list[str] = ["git", "clone", "--depth", str(depth)]
+    if no_single_branch:
+        cmd.append("--no-single-branch")
+    cmd += [url, str(dest)]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=noninteractive_env(),
+            timeout=GIT_CLONE_TIMEOUT_S,
+        )
+    except TimeoutExpired as exc:
+        raise ValueError(
+            f"git clone timed out after {GIT_CLONE_TIMEOUT_S}s for {label}"
+        ) from exc
+    if result.returncode != 0:
+        stderr = redact_credentials(result.stderr.strip() or DEFAULT_CLONE_ERROR_MSG)
+        raise ValueError(f"failed to clone {label}: {stderr}")
+    return result

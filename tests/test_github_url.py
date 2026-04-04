@@ -13,6 +13,7 @@ downstream GitHub API calls.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -27,6 +28,7 @@ from helping_hands.lib.github_url import (
     redact_credentials,
     repo_tmp_dir,
     resolve_github_token,
+    run_git_clone,
     validate_repo_spec,
 )
 
@@ -53,6 +55,7 @@ class TestModuleAll:
             "redact_credentials",
             "repo_tmp_dir",
             "resolve_github_token",
+            "run_git_clone",
             "validate_repo_spec",
         }
 
@@ -358,3 +361,217 @@ class TestNoninteractiveEnv:
 
     def test_returns_dict(self) -> None:
         assert isinstance(noninteractive_env(), dict)
+
+
+# ---------------------------------------------------------------------------
+# run_git_clone
+# ---------------------------------------------------------------------------
+
+
+class TestRunGitClone:
+    """v357: Shared git clone subprocess wrapper."""
+
+    def test_success_returns_completed_process(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Successful clone returns CompletedProcess."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ):
+            result = run_git_clone(
+                "https://github.com/owner/repo.git",
+                tmp_path / "dest",
+                label="owner/repo",
+            )
+        assert result.returncode == 0
+
+    def test_timeout_raises_value_error(self, tmp_path: Path) -> None:
+        """Clone timeout is converted to ValueError."""
+        from subprocess import TimeoutExpired
+        from unittest.mock import patch
+
+        with (
+            patch(
+                "helping_hands.lib.github_url.subprocess.run",
+                side_effect=TimeoutExpired(cmd=["git", "clone"], timeout=120),
+            ),
+            pytest.raises(ValueError, match="timed out"),
+        ):
+            run_git_clone(
+                "https://github.com/owner/repo.git",
+                tmp_path / "dest",
+                label="owner/repo",
+            )
+
+    def test_nonzero_exit_raises_value_error(self, tmp_path: Path) -> None:
+        """Non-zero exit code raises ValueError with redacted stderr."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=128, stdout="", stderr="fatal: auth failed"
+        )
+        with (
+            patch(
+                "helping_hands.lib.github_url.subprocess.run",
+                return_value=mock_result,
+            ),
+            pytest.raises(ValueError, match="failed to clone"),
+        ):
+            run_git_clone(
+                "https://github.com/owner/repo.git",
+                tmp_path / "dest",
+                label="owner/repo",
+            )
+
+    def test_empty_stderr_uses_default_message(self, tmp_path: Path) -> None:
+        """Empty stderr falls back to DEFAULT_CLONE_ERROR_MSG."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr=""
+        )
+        with (
+            patch(
+                "helping_hands.lib.github_url.subprocess.run",
+                return_value=mock_result,
+            ),
+            pytest.raises(ValueError, match="unknown git clone error"),
+        ):
+            run_git_clone(
+                "https://github.com/owner/repo.git",
+                tmp_path / "dest",
+                label="owner/repo",
+            )
+
+    def test_credentials_redacted_in_error(self, tmp_path: Path) -> None:
+        """Credentials in stderr are redacted before raising."""
+        import subprocess
+        from unittest.mock import patch
+
+        token_url = f"https://{GITHUB_TOKEN_USER}:ghp_secret123@{GITHUB_HOSTNAME}/o/r"
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=128, stdout="", stderr=f"fatal: {token_url}"
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ):
+            with pytest.raises(ValueError, match=r"\*\*\*") as exc_info:
+                run_git_clone(token_url, tmp_path / "dest", label="o/r")
+            assert "ghp_secret123" not in str(exc_info.value)
+
+    def test_default_depth_is_one(self, tmp_path: Path) -> None:
+        """Default clone depth is 1 (shallow)."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ) as mock_run:
+            run_git_clone("https://github.com/o/r.git", tmp_path / "d", label="o/r")
+        cmd = mock_run.call_args[0][0]
+        assert "--depth" in cmd
+        depth_idx = cmd.index("--depth")
+        assert cmd[depth_idx + 1] == "1"
+
+    def test_custom_depth(self, tmp_path: Path) -> None:
+        """Custom depth value is forwarded to git clone."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ) as mock_run:
+            run_git_clone(
+                "https://github.com/o/r.git",
+                tmp_path / "d",
+                label="o/r",
+                depth=5,
+            )
+        cmd = mock_run.call_args[0][0]
+        depth_idx = cmd.index("--depth")
+        assert cmd[depth_idx + 1] == "5"
+
+    def test_no_single_branch_flag(self, tmp_path: Path) -> None:
+        """no_single_branch=True adds --no-single-branch to command."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ) as mock_run:
+            run_git_clone(
+                "https://github.com/o/r.git",
+                tmp_path / "d",
+                label="o/r",
+                no_single_branch=True,
+            )
+        cmd = mock_run.call_args[0][0]
+        assert "--no-single-branch" in cmd
+
+    def test_no_single_branch_false_by_default(self, tmp_path: Path) -> None:
+        """Default clone does not include --no-single-branch."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ) as mock_run:
+            run_git_clone("https://github.com/o/r.git", tmp_path / "d", label="o/r")
+        cmd = mock_run.call_args[0][0]
+        assert "--no-single-branch" not in cmd
+
+    def test_uses_noninteractive_env(self, tmp_path: Path) -> None:
+        """Clone uses non-interactive git environment."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ) as mock_run:
+            run_git_clone("https://github.com/o/r.git", tmp_path / "d", label="o/r")
+        env = mock_run.call_args.kwargs["env"]
+        assert env["GIT_TERMINAL_PROMPT"] == "0"
+        assert env["GCM_INTERACTIVE"] == "never"
+
+    def test_timeout_value(self, tmp_path: Path) -> None:
+        """Clone subprocess uses GIT_CLONE_TIMEOUT_S."""
+        import subprocess
+        from unittest.mock import patch
+
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with patch(
+            "helping_hands.lib.github_url.subprocess.run", return_value=mock_result
+        ) as mock_run:
+            run_git_clone("https://github.com/o/r.git", tmp_path / "d", label="o/r")
+        assert mock_run.call_args.kwargs["timeout"] == GIT_CLONE_TIMEOUT_S
+
+    def test_has_docstring(self) -> None:
+        assert run_git_clone.__doc__ is not None
+        assert "Args:" in run_git_clone.__doc__
+        assert "Returns:" in run_git_clone.__doc__
+        assert "Raises:" in run_git_clone.__doc__

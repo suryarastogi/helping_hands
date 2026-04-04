@@ -19,14 +19,11 @@ from celery import Celery, Task
 
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
-    DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
-    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
     REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
     build_clone_url as _build_clone_url,
     invalid_repo_msg as _invalid_repo_msg,
-    noninteractive_env as _git_noninteractive_env,
-    redact_credentials as _redact_sensitive,
     repo_tmp_dir as _repo_tmp_dir,
+    run_git_clone as _run_git_clone,
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.hands.v1.hand.factory import (
@@ -181,30 +178,16 @@ def _resolve_repo_path(
         dest_root = Path(mkdtemp(prefix="helping_hands_repo_", dir=_repo_tmp_dir()))
         dest = dest_root / "repo"
         url = _github_clone_url(repo, token=token)
-        clone_cmd = ["git", "clone", "--depth", "1"]
-        if pr_number is not None:
-            clone_cmd.append("--no-single-branch")
-        clone_cmd += [url, str(dest)]
         try:
-            result = subprocess.run(
-                clone_cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                env=_git_noninteractive_env(),
-                timeout=_GIT_CLONE_TIMEOUT_S,
+            _run_git_clone(
+                url,
+                dest,
+                label=repo,
+                no_single_branch=pr_number is not None,
             )
-        except TimeoutExpired as exc:
+        except ValueError:
             shutil.rmtree(dest_root, ignore_errors=True)
-            raise ValueError(
-                f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {repo}"
-            ) from exc
-        if result.returncode != 0:
-            shutil.rmtree(dest_root, ignore_errors=True)
-            stderr = result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG
-            stderr = _redact_sensitive(stderr)
-            msg = f"failed to clone {repo}: {stderr}"
-            raise ValueError(msg)
+            raise
         return dest.resolve(), repo, dest_root
 
     raise ValueError(_invalid_repo_msg(repo))
@@ -1061,28 +1044,9 @@ def build_feature(
             ref_dest = ref_root / "repo"
             ref_url = _github_clone_url(ref_spec, token=config.github_token)
             try:
-                ref_result = subprocess.run(
-                    ["git", "clone", "--depth", "1", ref_url, str(ref_dest)],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    env=_git_noninteractive_env(),
-                    timeout=_GIT_CLONE_TIMEOUT_S,
-                )
-            except TimeoutExpired:
-                _append_update(
-                    updates,
-                    f"Reference repo clone timed out: {ref_spec}",
-                )
-                continue
-            if ref_result.returncode != 0:
-                stderr = _redact_sensitive(
-                    ref_result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG
-                )
-                _append_update(
-                    updates,
-                    f"Failed to clone reference repo {ref_spec}: {stderr}",
-                )
+                _run_git_clone(ref_url, ref_dest, label=ref_spec)
+            except ValueError as exc:
+                _append_update(updates, str(exc))
                 continue
             repo_index.reference_repos.append((ref_spec, ref_dest.resolve()))
             _append_update(updates, f"Cloned reference repo {ref_spec}")
