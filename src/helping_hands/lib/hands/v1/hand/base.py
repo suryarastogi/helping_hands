@@ -45,7 +45,8 @@ __all__ = ["Hand", "HandResponse", "PRStatus"]
 # --- Module-level constants ---------------------------------------------------
 
 _DEFAULT_BASE_BRANCH = "main"
-"""Fallback base branch when ``HELPING_HANDS_BASE_BRANCH`` is not set."""
+"""Fallback base branch when ``HELPING_HANDS_BASE_BRANCH`` is not set
+and the remote default branch cannot be detected."""
 
 _DEFAULT_GIT_USER_NAME = "helping-hands[bot]"
 """Default git committer name for PR finalization."""
@@ -382,16 +383,39 @@ class Hand(abc.ABC):
         return self._interrupt_event.is_set()
 
     @staticmethod
-    def _default_base_branch() -> str:
+    def _default_base_branch(repo_dir: Path | None = None) -> str:
         """Return the base branch name for new PRs.
 
-        Reads ``HELPING_HANDS_BASE_BRANCH`` from the environment, falling
-        back to ``_DEFAULT_BASE_BRANCH`` (``"main"``).
+        Resolution order:
+
+        1. ``HELPING_HANDS_BASE_BRANCH`` environment variable.
+        2. The remote ``origin`` HEAD ref (``git symbolic-ref``), if
+           *repo_dir* is provided and the command succeeds.
+        3. ``_DEFAULT_BASE_BRANCH`` (``"main"``).
 
         Returns:
             Branch name string.
         """
-        return os.environ.get("HELPING_HANDS_BASE_BRANCH", _DEFAULT_BASE_BRANCH)
+        env_branch = os.environ.get("HELPING_HANDS_BASE_BRANCH", "").strip()
+        if env_branch:
+            return env_branch
+        if repo_dir is not None:
+            try:
+                result = subprocess.run(
+                    ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+                    cwd=repo_dir,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=10,
+                )
+                # Output: "refs/remotes/origin/master\n" → "master"
+                ref = result.stdout.strip()
+                if ref:
+                    return ref.removeprefix("refs/remotes/origin/")
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+                pass
+        return _DEFAULT_BASE_BRANCH
 
     @staticmethod
     def _working_tree_is_clean(repo_dir: Path) -> bool:
@@ -946,7 +970,7 @@ class Hand(abc.ABC):
 
         # Master rebase: rebase onto base branch before pushing.
         if self.master_rebase:
-            base = os.environ.get("HELPING_HANDS_BASE_BRANCH", _DEFAULT_BASE_BRANCH)
+            base = self._default_base_branch(repo_dir)
             logger.info(
                 "master_rebase=True, rebasing %s onto %s before push.",
                 branch,
@@ -1280,7 +1304,7 @@ class Hand(abc.ABC):
             )
         self._push_noninteractive(gh, repo_dir, branch)
 
-        base_branch = self._default_base_branch()
+        base_branch = self._default_base_branch(repo_dir)
         try:
             repo_obj = gh.get_repo(repo)
             if repo_obj.default_branch:
