@@ -904,3 +904,532 @@ class TestIterWorkerTaskEntriesNonStringKey:
         payload = {1: [{"id": "t1"}], 2: [{"id": "t2"}]}
         entries = _iter_worker_task_entries(payload)
         assert entries == []
+
+
+# ---------------------------------------------------------------------------
+# Arcade endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestArcadeEndpoints:
+    def test_get_high_scores(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        client = TestClient(app)
+        resp = client.get("/arcade/high-scores")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+    def test_submit_high_score(self) -> None:
+        from fastapi.testclient import TestClient
+
+        import helping_hands.server.app as app_mod
+        from helping_hands.server.app import app
+
+        client = TestClient(app)
+        original = list(app_mod._arcade_high_scores)
+        try:
+            resp = client.post(
+                "/arcade/high-scores",
+                json={"name": "TestPlayer", "score": 1000, "wave": 5},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert isinstance(data, list)
+            assert any(e["name"] == "TestPlayer" for e in data)
+        finally:
+            app_mod._arcade_high_scores = original
+
+
+# ---------------------------------------------------------------------------
+# Multiplayer health endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestMultiplayerHealthEndpoints:
+    def test_health_multiplayer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_multiplayer_stats",
+            lambda: {"rooms": 0, "connections": 0},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer")
+        assert resp.status_code == 200
+        assert resp.json()["rooms"] == 0
+
+    def test_health_multiplayer_players(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_connected_players",
+            lambda: {"players": []},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer/players")
+        assert resp.status_code == 200
+
+    def test_health_multiplayer_activity(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_player_activity_summary",
+            lambda: {"summary": {}},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer/activity")
+        assert resp.status_code == 200
+
+    def test_health_multiplayer_decorations(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_decoration_state",
+            lambda: {"decorations": []},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer/decorations")
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# _resolve_task_workspace
+# ---------------------------------------------------------------------------
+
+
+class TestResolveTaskWorkspace:
+    def test_workspace_from_result(self, monkeypatch: pytest.MonkeyPatch, tmp_path):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        ws = tmp_path / "ws"
+        ws.mkdir()
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(ws)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, ready, error = _resolve_task_workspace("tid-1")
+        assert path == ws
+        assert error is None
+        assert ready is True
+
+    def test_workspace_from_repo_path_fallback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {"repo_path": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-2")
+        assert path == tmp_path
+        assert error is None
+
+    def test_workspace_not_available(self, monkeypatch: pytest.MonkeyPatch):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-3")
+        assert path is None
+        assert "not available" in error
+
+    def test_workspace_cleaned_up(self, monkeypatch: pytest.MonkeyPatch):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": "/nonexistent/path"}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-4")
+        assert path is None
+        assert "cleaned up" in error
+
+    def test_workspace_not_found_pending(self, monkeypatch: pytest.MonkeyPatch):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {"workspace": "/nonexistent/path"}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-5")
+        assert path is None
+        assert "not found" in error
+
+
+# ---------------------------------------------------------------------------
+# _build_task_diff via endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestTaskDiffEndpoint:
+    def test_diff_workspace_not_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task-1/diff")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is not None
+        assert data["task_id"] == "test-task-1"
+
+    def test_diff_with_workspace(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        import subprocess
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        # Set up a git repo
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "file.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "file.txt").write_text("changed")
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task-2/diff")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is None
+        assert len(data["files"]) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Task tree endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestTaskTreeEndpoint:
+    def test_tree_workspace_not_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/tree")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is not None
+
+    def test_tree_with_workspace(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        import subprocess
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "main.py").write_text("print('hi')")
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-tree/tree")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is None
+        assert len(data["tree"]) >= 2  # src dir + main.py
+
+
+# ---------------------------------------------------------------------------
+# Task file content endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestTaskFileEndpoint:
+    def test_file_workspace_not_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/file/main.py")
+        assert resp.status_code == 200
+        assert resp.json()["error"] is not None
+
+    def test_file_not_found(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/file/nonexistent.py")
+        assert resp.status_code == 200
+        assert "not found" in resp.json()["error"].lower()
+
+    def test_file_success(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        import subprocess
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "test.txt").write_text("hello world")
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/file/test.txt")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["content"] == "hello world"
+
+
+# ---------------------------------------------------------------------------
+# _schedule_to_response
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleToResponse:
+    def test_cron_schedule(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _schedule_to_response
+
+        task = MagicMock()
+        task.schedule_id = "sched_test"
+        task.name = "Test"
+        task.schedule_type = "cron"
+        task.cron_expression = "0 0 * * *"
+        task.interval_seconds = None
+        task.repo_path = "/repo"
+        task.prompt = "fix"
+        task.backend = "claudecodecli"
+        task.model = None
+        task.max_iterations = 6
+        task.pr_number = None
+        task.no_pr = False
+        task.enable_execution = False
+        task.enable_web = False
+        task.use_native_cli_auth = False
+        task.fix_ci = False
+        task.ci_check_wait_minutes = 3.0
+        task.github_token = None
+        task.reference_repos = []
+        task.tools = []
+        task.enabled = True
+        task.created_at = "2026-01-01T00:00:00"
+        task.last_run_at = None
+        task.last_run_task_id = None
+        task.run_count = 0
+
+        resp = _schedule_to_response(task)
+        assert resp.schedule_id == "sched_test"
+        assert resp.next_run_at is not None
+
+    def test_interval_schedule(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _schedule_to_response
+
+        task = MagicMock()
+        task.schedule_id = "sched_int"
+        task.name = "Interval"
+        task.schedule_type = "interval"
+        task.cron_expression = ""
+        task.interval_seconds = 3600
+        task.repo_path = "/repo"
+        task.prompt = "fix"
+        task.backend = "claudecodecli"
+        task.model = None
+        task.max_iterations = 6
+        task.pr_number = None
+        task.no_pr = False
+        task.enable_execution = False
+        task.enable_web = False
+        task.use_native_cli_auth = False
+        task.fix_ci = False
+        task.ci_check_wait_minutes = 3.0
+        task.github_token = "ghp_secret123456789"
+        task.reference_repos = []
+        task.tools = []
+        task.enabled = True
+        task.created_at = "2026-01-01T00:00:00"
+        task.last_run_at = "2026-04-01T12:00:00+00:00"
+        task.last_run_task_id = None
+        task.run_count = 1
+
+        resp = _schedule_to_response(task)
+        assert resp.schedule_id == "sched_int"
+        assert resp.next_run_at is not None
+        # Token should be redacted
+        assert resp.github_token != "ghp_secret123456789"
+
+    def test_disabled_schedule_no_next_run(self) -> None:
+        from helping_hands.server.app import _schedule_to_response
+
+        task = MagicMock()
+        task.schedule_id = "sched_off"
+        task.name = "Off"
+        task.schedule_type = "cron"
+        task.cron_expression = "0 0 * * *"
+        task.interval_seconds = None
+        task.repo_path = "/repo"
+        task.prompt = "fix"
+        task.backend = "claudecodecli"
+        task.model = None
+        task.max_iterations = 6
+        task.pr_number = None
+        task.no_pr = False
+        task.enable_execution = False
+        task.enable_web = False
+        task.use_native_cli_auth = False
+        task.fix_ci = False
+        task.ci_check_wait_minutes = 3.0
+        task.github_token = None
+        task.reference_repos = []
+        task.tools = []
+        task.enabled = False
+        task.created_at = "2026-01-01T00:00:00"
+        task.last_run_at = None
+        task.last_run_task_id = None
+        task.run_count = 0
+
+        resp = _schedule_to_response(task)
+        assert resp.next_run_at is None
+
+
+# ---------------------------------------------------------------------------
+# Grill endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestGrillEndpoints:
+    def test_start_grill_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post(
+            "/grill",
+            json={
+                "repo_path": "/tmp/repo",
+                "prompt": "test",
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_send_grill_message_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post(
+            "/grill/session-1/message",
+            json={"content": "hello", "type": "text"},
+        )
+        assert resp.status_code == 404
+
+    def test_poll_grill_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/grill/session-1")
+        assert resp.status_code == 404

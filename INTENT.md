@@ -4,14 +4,24 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### CLI Hand Test Coverage: OpenCode + Devin (2026-04-04)
+### Server Module Coverage Gaps (2026-04-04)
 
-Closing coverage gaps in `opencode.py` (`_describe_auth` all branches,
-`_pr_description_cmd` both branches) and `devin.py` (`_pr_description_cmd`,
-`_pr_description_prompt_as_arg`, `_resolve_cli_model` env var edge cases).
-See [v352 plan](docs/exec-plans/active/v352-cli-hand-opencode-devin-coverage.md).
+Closing remaining coverage gaps in `server/app.py` (77% → 90%+) and
+`server/schedules.py` (77% → 90%+). Adding ScheduleManager CRUD tests
+with mocked Redis, task workspace/diff/tree/file endpoint tests via
+TestClient, arcade/multiplayer/grill endpoint tests, and
+`_schedule_to_response` helper tests.
+See [v353 plan](docs/exec-plans/active/v353-server-coverage-gaps.md).
 
 ## Recently Completed
+
+### CLI Hand Test Coverage: OpenCode + Devin (2026-04-04) — Completed
+
+Closed coverage gaps in `opencode.py` (`_describe_auth` all branches,
+`_pr_description_cmd` both branches) and `devin.py` (`_pr_description_cmd`,
+`_pr_description_prompt_as_arg`, `_resolve_cli_model` env var edge cases).
+17 new tests, 6744 total pass. See
+[v352 plan](docs/exec-plans/completed/2026/v352-cli-hand-opencode-devin-coverage.md).
 
 ### Core Utility Module Test Coverage (2026-04-04) — Completed
 

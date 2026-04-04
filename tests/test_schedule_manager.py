@@ -907,3 +907,274 @@ class TestLoadMetaCorruptedData:
         )
         result = mgr._load_meta("sched_empty")
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# validate_interval_seconds
+# ---------------------------------------------------------------------------
+
+
+class TestValidateIntervalSeconds:
+    def test_none_raises(self) -> None:
+        from helping_hands.server.schedules import validate_interval_seconds
+
+        with pytest.raises(ValueError, match="required"):
+            validate_interval_seconds(None)
+
+    def test_below_minimum_raises(self) -> None:
+        from helping_hands.server.schedules import validate_interval_seconds
+
+        with pytest.raises(ValueError, match=">="):
+            validate_interval_seconds(10)
+
+    def test_above_maximum_raises(self) -> None:
+        from helping_hands.server.schedules import validate_interval_seconds
+
+        with pytest.raises(ValueError, match="<="):
+            validate_interval_seconds(999_999_999)
+
+    def test_valid_value(self) -> None:
+        from helping_hands.server.schedules import validate_interval_seconds
+
+        assert validate_interval_seconds(3600) == 3600
+
+    def test_minimum_boundary(self) -> None:
+        from helping_hands.server.schedules import validate_interval_seconds
+
+        assert validate_interval_seconds(60) == 60
+
+
+# ---------------------------------------------------------------------------
+# next_interval_run_time
+# ---------------------------------------------------------------------------
+
+
+class TestNextIntervalRunTime:
+    def test_none_last_run_returns_now(self) -> None:
+        from datetime import UTC, datetime
+
+        from helping_hands.server.schedules import next_interval_run_time
+
+        before = datetime.now(UTC)
+        result = next_interval_run_time(300, last_run_at=None)
+        after = datetime.now(UTC)
+        assert before <= result <= after
+
+    def test_with_last_run_adds_interval(self) -> None:
+        from datetime import UTC, datetime
+
+        from helping_hands.server.schedules import next_interval_run_time
+
+        result = next_interval_run_time(3600, last_run_at="2026-04-01T12:00:00+00:00")
+        expected = datetime(2026, 4, 1, 13, 0, 0, tzinfo=UTC)
+        assert result == expected
+
+    def test_naive_last_run_gets_utc(self) -> None:
+        from datetime import UTC, datetime
+
+        from helping_hands.server.schedules import next_interval_run_time
+
+        result = next_interval_run_time(60, last_run_at="2026-04-01T12:00:00")
+        assert result.tzinfo is not None
+        expected = datetime(2026, 4, 1, 12, 1, 0, tzinfo=UTC)
+        assert result == expected
+
+
+# ---------------------------------------------------------------------------
+# Chain nonce methods (real implementation, mocked Redis)
+# ---------------------------------------------------------------------------
+
+
+class TestChainNonceMethods:
+    def test_save_chain_nonce(self) -> None:
+        mgr, mock_redis, _ = _build_manager()
+        mgr._save_chain_nonce("sched_abc", "nonce123")
+        mock_redis.set.assert_called_once()
+        key = mock_redis.set.call_args[0][0]
+        assert "chain_nonce" in key
+        assert mock_redis.set.call_args[0][1] == "nonce123"
+
+    def test_save_chain_nonce_redis_error(self) -> None:
+        import redis
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.set.side_effect = redis.RedisError("fail")
+        mgr._save_chain_nonce("sched_abc", "nonce")  # should not raise
+
+    def test_get_chain_nonce_bytes(self) -> None:
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = b"nonce123"
+        assert mgr.get_chain_nonce("sched_abc") == "nonce123"
+
+    def test_get_chain_nonce_str(self) -> None:
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = "nonce_str"
+        assert mgr.get_chain_nonce("sched_abc") == "nonce_str"
+
+    def test_get_chain_nonce_none(self) -> None:
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.return_value = None
+        assert mgr.get_chain_nonce("sched_abc") is None
+
+    def test_get_chain_nonce_redis_error(self) -> None:
+        import redis
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.get.side_effect = redis.RedisError("fail")
+        assert mgr.get_chain_nonce("sched_abc") is None
+
+    def test_delete_chain_nonce(self) -> None:
+        mgr, mock_redis, _ = _build_manager()
+        mgr._delete_chain_nonce("sched_abc")
+        mock_redis.delete.assert_called_once()
+
+    def test_delete_chain_nonce_redis_error(self) -> None:
+        import redis
+
+        mgr, mock_redis, _ = _build_manager()
+        mock_redis.delete.side_effect = redis.RedisError("fail")
+        mgr._delete_chain_nonce("sched_abc")  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# _revoke_interval_chain (real implementation)
+# ---------------------------------------------------------------------------
+
+
+class TestRevokeIntervalChainReal:
+    def test_revoke_with_task_id(self) -> None:
+        mgr, _mock_redis, mock_app = _build_manager()
+        task = _make_task(schedule_type="interval", last_run_task_id="tid-123")
+        mgr._revoke_interval_chain(task)
+        mock_app.control.revoke.assert_called_once_with("tid-123", terminate=False)
+
+    def test_revoke_without_task_id(self) -> None:
+        mgr, _mock_redis, mock_app = _build_manager()
+        task = _make_task(schedule_type="interval", last_run_task_id=None)
+        mgr._revoke_interval_chain(task)
+        mock_app.control.revoke.assert_not_called()
+
+    def test_revoke_connection_error_swallowed(self) -> None:
+        mgr, _mock_redis, mock_app = _build_manager()
+        mock_app.control.revoke.side_effect = ConnectionError("down")
+        task = _make_task(schedule_type="interval", last_run_task_id="tid-123")
+        mgr._revoke_interval_chain(task)  # should not raise
+
+    def test_revoke_os_error_swallowed(self) -> None:
+        mgr, _mock_redis, mock_app = _build_manager()
+        mock_app.control.revoke.side_effect = OSError("sock err")
+        task = _make_task(schedule_type="interval", last_run_task_id="tid-123")
+        mgr._revoke_interval_chain(task)  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# create/update/enable/disable/delete with interval type
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleManagerIntervalSchedules:
+    def test_create_interval_schedule(self) -> None:
+        mgr, mock_redis, _mock_app = _build_manager()
+        mock_redis.get.return_value = None  # no duplicate
+        task = _make_task(
+            schedule_type="interval",
+            interval_seconds=3600,
+            cron_expression="",
+            enabled=True,
+        )
+        with patch.object(mgr, "_launch_interval_chain", return_value="tid"):
+            result = mgr.create_schedule(task)
+        assert result.interval_seconds == 3600
+
+    def test_update_interval_schedule(self) -> None:
+        mgr, mock_redis, _mock_app = _build_manager()
+        existing = _make_task(
+            schedule_type="interval",
+            interval_seconds=3600,
+            cron_expression="",
+            run_count=5,
+        )
+        mock_redis.get.return_value = json.dumps(existing.to_dict())
+        updated = _make_task(
+            schedule_type="interval",
+            interval_seconds=7200,
+            cron_expression="",
+            enabled=True,
+        )
+        with (
+            patch.object(mgr, "_launch_interval_chain", return_value="tid"),
+            patch.object(mgr, "_revoke_interval_chain"),
+            patch.object(mgr, "_delete_redbeat_entry"),
+        ):
+            result = mgr.update_schedule(updated)
+        assert result.interval_seconds == 7200
+        assert result.run_count == 5  # preserved
+
+    def test_delete_interval_schedule(self) -> None:
+        mgr, mock_redis, _mock_app = _build_manager()
+        task = _make_task(schedule_type="interval", interval_seconds=3600)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+        with patch.object(mgr, "_revoke_interval_chain") as mock_revoke:
+            result = mgr.delete_schedule("sched_test123456")
+        assert result is True
+        mock_revoke.assert_called_once()
+
+    def test_enable_interval_schedule(self) -> None:
+        mgr, mock_redis, _mock_app = _build_manager()
+        task = _make_task(
+            schedule_type="interval",
+            interval_seconds=3600,
+            enabled=False,
+        )
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+        with patch.object(mgr, "_launch_interval_chain", return_value="tid"):
+            result = mgr.enable_schedule("sched_test123456")
+        assert result is not None
+        assert result.enabled is True
+
+    def test_disable_interval_schedule(self) -> None:
+        mgr, mock_redis, _mock_app = _build_manager()
+        task = _make_task(
+            schedule_type="interval",
+            interval_seconds=3600,
+            enabled=True,
+        )
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+        with patch.object(mgr, "_revoke_interval_chain"):
+            result = mgr.disable_schedule("sched_test123456")
+        assert result is not None
+        assert result.enabled is False
+
+    def test_trigger_now_interval(self) -> None:
+        mgr, mock_redis, _mock_app = _build_manager()
+        task = _make_task(schedule_type="interval", interval_seconds=3600)
+        mock_redis.get.return_value = json.dumps(task.to_dict())
+        with patch.object(mgr, "_launch_interval_chain", return_value="tid-new"):
+            result = mgr.trigger_now("sched_test123456")
+        assert result == "tid-new"
+
+
+# ---------------------------------------------------------------------------
+# _create_redbeat_entry (actual body execution)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateRedbeatEntryBody:
+    def test_valid_5_part_cron_creates_entry(self) -> None:
+        """_create_redbeat_entry with valid 5-part cron creates RedBeat entry."""
+        mgr, _, _mock_app = _build_manager()
+        task = _make_task(cron_expression="30 2 * * 1")
+
+        import helping_hands.server.schedules as mod
+
+        mock_entry_cls = MagicMock()
+        mock_entry = MagicMock()
+        mock_entry_cls.return_value = mock_entry
+        orig = mod.RedBeatSchedulerEntry
+        try:
+            mod.RedBeatSchedulerEntry = mock_entry_cls
+            mgr._create_redbeat_entry(task)
+        finally:
+            mod.RedBeatSchedulerEntry = orig
+
+        mock_entry.save.assert_called_once()

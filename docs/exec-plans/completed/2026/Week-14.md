@@ -124,3 +124,43 @@ See [2026-03-30 daily consolidation](2026-03-30.md) for full details.
   default, sorted, single, truthy values, falsy exclusion, multiple)
 
 **49 new tests. All three modules at 100% coverage. 149 tests pass.**
+
+---
+
+## Apr 4 — CLI Hand Test Coverage: OpenCode + Devin (v352)
+
+Closed test coverage gaps in `opencode.py` and `devin.py` CLI hand modules:
+- `opencode.py` `_describe_auth()` all branches covered (7 tests)
+- `opencode.py` `_pr_description_cmd()` both branches (2 tests)
+- `devin.py` `_pr_description_cmd()` both branches (2 tests)
+- `devin.py` `_pr_description_prompt_as_arg()` (1 test)
+- `devin.py` `_resolve_cli_model` env var edge cases (5 tests)
+
+**17 new tests. 6744 total tests pass. ruff clean.**
+
+---
+
+## Apr 4 — Server Module Coverage Gaps (v353)
+
+Closed remaining coverage gaps in `server/app.py` and `server/schedules.py`
+by adding tests with mocked Redis/Celery and FastAPI TestClient:
+
+**schedules.py (77% → 95%):**
+- `validate_interval_seconds` — 5 tests (None, below min, above max, valid, boundary)
+- `next_interval_run_time` — 3 tests (None last_run, with last_run, naive timestamp)
+- Chain nonce methods (`_save_chain_nonce`, `get_chain_nonce`, `_delete_chain_nonce`) — 8 tests
+- `_revoke_interval_chain` — 4 tests (with/without task_id, connection/OS errors)
+- Interval schedule CRUD — 6 tests (create, update, delete, enable, disable, trigger)
+- `_create_redbeat_entry` body execution — 1 test
+
+**app.py (77% → 90%+):**
+- Arcade endpoints (GET/POST `/arcade/high-scores`) — 2 tests
+- Multiplayer health endpoints (4 sub-routes) — 4 tests
+- `_resolve_task_workspace` — 5 tests (all branches)
+- Task diff endpoint — 2 tests (no workspace, with workspace + git diff)
+- Task tree endpoint — 2 tests (no workspace, with workspace)
+- Task file content endpoint — 3 tests (no workspace, not found, success)
+- `_schedule_to_response` — 3 tests (cron, interval, disabled)
+- Grill endpoints (disabled) — 3 tests
+
+**Overall project coverage: 94.73% → 97.60%. ~55 new tests.**

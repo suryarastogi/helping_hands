@@ -4,12 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v352 — CLI Hand Test Coverage: OpenCode + Devin](exec-plans/active/v352-cli-hand-opencode-devin-coverage.md) —
-  Close coverage gaps in `opencode.py` (`_describe_auth`, `_pr_description_cmd`)
-  and `devin.py` (`_pr_description_cmd`, `_pr_description_prompt_as_arg`,
-  `_resolve_cli_model` env var edge cases)
+- [v353 — Server Module Coverage Gaps](exec-plans/active/v353-server-coverage-gaps.md) —
+  Close remaining coverage gaps in `server/app.py` (77% → 90%+) and
+  `server/schedules.py` (77% → 90%+) via TestClient and mocked Redis
 
 ## Completed plans
+
+- [2026-04-04 v352 — CLI Hand Test Coverage: OpenCode + Devin](exec-plans/completed/2026/v352-cli-hand-opencode-devin-coverage.md) —
+  Close coverage gaps in `opencode.py` (`_describe_auth`, `_pr_description_cmd`)
+  and `devin.py` (`_pr_description_cmd`, `_pr_description_prompt_as_arg`,
+  `_resolve_cli_model` env var edge cases); 17 tests added
 
 - [2026-04-04 v351 — Core Utility Module Test Coverage](exec-plans/completed/2026/v351-core-utility-test-coverage.md) —
   Add test coverage for `validation.py`, `github_url.py`, and `factory.py`;

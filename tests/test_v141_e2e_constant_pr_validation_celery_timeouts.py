@@ -175,21 +175,51 @@ class TestCLIMaxIterationsValidation:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit) as exc_info:
-            main([".", "--backend", "basic-langgraph", "--max-iterations", "0", "--prompt", "t"])
+            main(
+                [
+                    ".",
+                    "--backend",
+                    "basic-langgraph",
+                    "--max-iterations",
+                    "0",
+                    "--prompt",
+                    "t",
+                ]
+            )
         assert exc_info.value.code == 1
 
     def test_negative_max_iterations_exits(self) -> None:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit) as exc_info:
-            main([".", "--backend", "basic-langgraph", "--max-iterations", "-3", "--prompt", "t"])
+            main(
+                [
+                    ".",
+                    "--backend",
+                    "basic-langgraph",
+                    "--max-iterations",
+                    "-3",
+                    "--prompt",
+                    "t",
+                ]
+            )
         assert exc_info.value.code == 1
 
     def test_negative_max_iterations_error_message(self, capsys) -> None:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit):
-            main([".", "--backend", "basic-langgraph", "--max-iterations", "-5", "--prompt", "t"])
+            main(
+                [
+                    ".",
+                    "--backend",
+                    "basic-langgraph",
+                    "--max-iterations",
+                    "-5",
+                    "--prompt",
+                    "t",
+                ]
+            )
         captured = capsys.readouterr()
         assert "--max-iterations" in captured.err
         assert "positive" in captured.err.lower()
