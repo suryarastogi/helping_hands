@@ -16,11 +16,11 @@ test("submission form has required fields", async ({ page }) => {
 });
 
 test("advanced settings expand on click", async ({ page }) => {
-  const details = page.locator("details.compact-advanced");
+  const details = page.locator("details.compact-advanced").first();
   // Initially collapsed — backend select not visible
   await expect(details.locator("select")).not.toBeVisible();
   // Expand
-  await details.locator("summary").click();
+  await details.locator("> summary").click();
   await expect(details.locator("select").first()).toBeVisible();
 });
 
