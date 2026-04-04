@@ -4,16 +4,22 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Server Module Coverage Gaps (2026-04-04)
+### Remaining Edge Case Coverage (2026-04-04)
 
-Closing remaining coverage gaps in `server/app.py` (77% → 90%+) and
-`server/schedules.py` (77% → 90%+). Adding ScheduleManager CRUD tests
-with mocked Redis, task workspace/diff/tree/file endpoint tests via
-TestClient, arcade/multiplayer/grill endpoint tests, and
-`_schedule_to_response` helper tests.
-See [v353 plan](docs/exec-plans/active/v353-server-coverage-gaps.md).
+Closing last <2% coverage gaps in high-use modules: `github.py` (`update_pr`
+validation/edit paths), `cli/base.py` (`_LinePrefixEmitter` line buffering
+and flush), `cli/claude.py` (`_summarize_tool` Skill branch), and
+`cli/goose.py` (`_pr_description_cmd` Google/Gemini path). 17 targeted tests.
+See [v354 plan](docs/exec-plans/active/v354-remaining-edge-case-coverage.md).
 
 ## Recently Completed
+
+### Server Module Coverage Gaps (2026-04-04) — Completed
+
+Closed remaining coverage gaps in `server/app.py` (77% → 90%+) and
+`server/schedules.py` (77% → 90%+) via TestClient and mocked Redis.
+51 new tests, 7919 total pass, 97.60% coverage. See
+[v353 plan](docs/exec-plans/completed/2026/v353-server-coverage-gaps.md).
 
 ### CLI Hand Test Coverage: OpenCode + Devin (2026-04-04) — Completed
 
