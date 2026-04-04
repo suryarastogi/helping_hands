@@ -266,3 +266,16 @@ to use `_OLLAMA_MODEL_PREFIXES` / `_OPENAI_MODEL_PREFIXES` tuple constants.
 Updated `model-resolution.md` design doc.
 
 **21 new tests. 6830 total tests. 76.05% coverage.**
+
+---
+
+## Apr 4 — Config Validation & Finalization Error Hardening (v364)
+
+Hardened config validation and finalization error handling:
+- `validate_repo_value()` in `validation.py` — rejects path traversal, null
+  bytes, newlines; called from `Config.from_env()` for non-empty repo values
+- Debug warning when model remains at `"default"` sentinel
+- Catch-all `except Exception` in `_finalize_repo_pr()` logged at ERROR level
+- Push error handling broadened to include OSError alongside RuntimeError
+
+**24 new tests, 4 updated. 6854 total tests. 76.15% coverage.**

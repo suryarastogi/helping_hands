@@ -23,6 +23,7 @@ from helping_hands.lib.validation import (
     require_non_empty_string,
     require_positive_float,
     require_positive_int,
+    validate_repo_value,
 )
 
 # ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ class TestModuleAll:
             "require_non_empty_string",
             "require_positive_float",
             "require_positive_int",
+            "validate_repo_value",
         }
 
 
@@ -383,3 +385,60 @@ class TestParseCommaList:
             "owner/repo1",
             "owner/repo2",
         )
+
+
+# ---------------------------------------------------------------------------
+# validate_repo_value
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRepoValue:
+    """Tests for validate_repo_value()."""
+
+    def test_valid_local_path(self) -> None:
+        assert validate_repo_value("/tmp/my-repo") == "/tmp/my-repo"
+
+    def test_valid_owner_repo(self) -> None:
+        assert validate_repo_value("owner/repo") == "owner/repo"
+
+    def test_strips_whitespace(self) -> None:
+        assert validate_repo_value("  owner/repo  ") == "owner/repo"
+
+    def test_empty_string_rejected(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            validate_repo_value("")
+
+    def test_whitespace_only_rejected(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            validate_repo_value("   ")
+
+    def test_null_byte_rejected(self) -> None:
+        with pytest.raises(ValueError, match="null bytes"):
+            validate_repo_value("owner/repo\x00")
+
+    def test_newline_rejected(self) -> None:
+        with pytest.raises(ValueError, match="newlines"):
+            validate_repo_value("owner/repo\nmalicious")
+
+    def test_carriage_return_rejected(self) -> None:
+        with pytest.raises(ValueError, match="newlines"):
+            validate_repo_value("owner/repo\rmalicious")
+
+    def test_path_traversal_rejected(self) -> None:
+        with pytest.raises(ValueError, match="path traversal"):
+            validate_repo_value("../../etc/passwd")
+
+    def test_path_traversal_middle_rejected(self) -> None:
+        with pytest.raises(ValueError, match="path traversal"):
+            validate_repo_value("/tmp/../etc/passwd")
+
+    def test_backslash_traversal_rejected(self) -> None:
+        with pytest.raises(ValueError, match="path traversal"):
+            validate_repo_value("..\\..\\etc\\passwd")
+
+    def test_relative_path_accepted(self) -> None:
+        """Single dots (current dir) are fine."""
+        assert validate_repo_value("./my-repo") == "./my-repo"
+
+    def test_deep_path_accepted(self) -> None:
+        assert validate_repo_value("/home/user/repos/my-repo") == "/home/user/repos/my-repo"

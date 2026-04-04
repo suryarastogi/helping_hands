@@ -168,7 +168,7 @@ class TestFinalizeRepoPrDebugLogging:
 
         assert result["pr_status"] == "error"
         assert any(
-            "_finalize_repo_pr unexpected error" in r.message for r in caplog.records
+            "_finalize_repo_pr GitHub/OS error" in r.message for r in caplog.records
         )
 
 

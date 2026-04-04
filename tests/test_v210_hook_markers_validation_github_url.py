@@ -93,6 +93,7 @@ class TestValidationModuleContract:
             "require_non_empty_string",
             "require_positive_float",
             "require_positive_int",
+            "validate_repo_value",
         }
 
     def test_all_exports_are_callable(self) -> None:

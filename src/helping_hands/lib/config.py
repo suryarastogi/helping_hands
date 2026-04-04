@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from helping_hands.lib.meta.tools import registry as meta_tools
-from helping_hands.lib.validation import parse_comma_list
+from helping_hands.lib.validation import parse_comma_list, validate_repo_value
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["Config"]
 
@@ -159,9 +162,21 @@ class Config:
         else:
             ref_repos = ()
 
+        raw_repo = str(merged.get("repo", cls.repo)).strip()
+        if raw_repo:
+            raw_repo = validate_repo_value(raw_repo)
+
+        raw_model = str(merged.get("model", cls.model)).strip()
+        if raw_model == "default":
+            logger.debug(
+                "Model is set to 'default' — ensure a concrete model is "
+                "configured via --model or %s before execution.",
+                _ENV_MODEL,
+            )
+
         return cls(
-            repo=str(merged.get("repo", cls.repo)).strip(),
-            model=str(merged.get("model", cls.model)).strip(),
+            repo=raw_repo,
+            model=raw_model,
             verbose=bool(merged.get("verbose", cls.verbose)),
             enable_execution=bool(merged.get("enable_execution", cls.enable_execution)),
             enable_web=bool(merged.get("enable_web", cls.enable_web)),

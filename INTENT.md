@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Config Validation & Finalization Error Hardening (2026-04-04) — Completed
+
+Hardened two critical paths: (1) Added `validate_repo_value()` to reject path
+traversal, null bytes, and newlines in repo config inputs. Called from
+`Config.from_env()` with debug warning when model remains at default.
+(2) Added catch-all `except Exception` in `_finalize_repo_pr()` logged at ERROR
+level, broadened push error handling to include OSError. 24 new tests, 4 updated.
+Coverage 76.05% → 76.15%. See [v364 plan](docs/exec-plans/completed/2026/v364-config-validation-and-finalization-hardening.md).
+
 ### Server Pure Helper Coverage (2026-04-04) — Completed
 
 Unit-tested pure helper functions across `server/app.py`, `server/celery_app.py`,

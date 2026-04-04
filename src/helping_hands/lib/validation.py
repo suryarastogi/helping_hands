@@ -17,6 +17,7 @@ __all__ = [
     "require_non_empty_string",
     "require_positive_float",
     "require_positive_int",
+    "validate_repo_value",
 ]
 
 
@@ -125,6 +126,43 @@ def require_positive_float(value: float | int, name: str) -> float:
     if fval <= 0:
         raise ValueError(f"{name} must be positive, got {value}")
     return fval
+
+
+def validate_repo_value(value: str) -> str:
+    """Validate that *value* is a plausible repo target.
+
+    Accepts two forms:
+    - A local filesystem path (absolute or relative, must not be empty/whitespace).
+    - An ``owner/repo`` GitHub slug.
+
+    Rejects:
+    - Empty or whitespace-only strings.
+    - Strings containing ``..`` path traversal segments.
+    - Strings with embedded newlines or null bytes.
+
+    Args:
+        value: The raw repo string from CLI flags or environment variables.
+
+    Returns:
+        The stripped value.
+
+    Raises:
+        ValueError: If the value fails validation.
+    """
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("repo must not be empty")
+    if "\x00" in stripped:
+        raise ValueError("repo must not contain null bytes")
+    if "\n" in stripped or "\r" in stripped:
+        raise ValueError("repo must not contain newlines")
+    # Reject path traversal attempts.
+    for segment in stripped.replace("\\", "/").split("/"):
+        if segment == "..":
+            raise ValueError(
+                f"repo must not contain path traversal segments: {stripped!r}"
+            )
+    return stripped
 
 
 def require_positive_int(value: int, name: str) -> int:
