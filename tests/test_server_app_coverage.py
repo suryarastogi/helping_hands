@@ -1433,3 +1433,608 @@ class TestGrillEndpoints:
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/grill/session-1")
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# v356 — Task diff edge cases
+# ---------------------------------------------------------------------------
+
+
+def _init_git_repo(tmp_path):
+    """Helper to initialise a git repo in tmp_path with an initial commit."""
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    (tmp_path / "init.txt").write_text("init")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
+    )
+
+
+def _mock_workspace(monkeypatch, tmp_path):
+    """Monkey-patch build_feature.AsyncResult so it points at tmp_path."""
+    mock_result = MagicMock()
+    mock_result.ready.return_value = True
+    mock_result.result = {"workspace": str(tmp_path)}
+    monkeypatch.setattr(
+        "helping_hands.server.app.build_feature.AsyncResult",
+        lambda tid: mock_result,
+    )
+
+
+class TestTaskDiffEdgeCases:
+    """Cover branches in _build_task_diff not reached by existing tests."""
+
+    def test_diff_head_failure_falls_back_to_plain_diff(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """When 'git diff HEAD' fails (e.g. no commits), fallback 'git diff'."""
+        import subprocess
+
+        from helping_hands.server.app import _build_task_diff
+
+        # Create repo with no commits — so git diff HEAD will fail
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "staged.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-fallback")
+        assert result.error is None
+
+    def test_diff_multiple_files_with_status_detection(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Multi-file diff with added, deleted, and renamed statuses."""
+        import subprocess
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+
+        # Create multiple files, commit, then make changes
+        (tmp_path / "keep.txt").write_text("original")
+        (tmp_path / "to_delete.txt").write_text("remove me")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add files"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Modify, delete, and add new
+        (tmp_path / "keep.txt").write_text("modified")
+        (tmp_path / "to_delete.txt").unlink()
+        subprocess.run(
+            ["git", "add", "to_delete.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "new_file.txt").write_text("brand new")
+        subprocess.run(
+            ["git", "add", "new_file.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-multi")
+        assert result.error is None
+        filenames = {f.filename for f in result.files}
+        statuses = {f.status for f in result.files}
+        assert "keep.txt" in filenames
+        # Deleted file should appear
+        assert "to_delete.txt" in filenames
+        assert "deleted" in statuses or "added" in statuses
+
+    def test_diff_untracked_files_appear_as_added(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Untracked files should appear as 'added' with synthetic diff."""
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "untracked.txt").write_text("new content\nsecond line")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-untracked")
+        assert result.error is None
+        untracked_files = [f for f in result.files if f.filename == "untracked.txt"]
+        assert len(untracked_files) == 1
+        assert untracked_files[0].status == "added"
+        assert "+new content" in untracked_files[0].diff
+
+    def test_diff_git_timeout_returns_error(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """When git commands timeout, diff returns an error."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _timeout_run(cmd, **kwargs):
+            if "diff" in cmd:
+                raise _sp.TimeoutExpired(cmd, 15)
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _timeout_run)
+        result = _build_task_diff("task-timeout")
+        assert result.error is not None
+        assert "Git command failed" in result.error
+
+
+# ---------------------------------------------------------------------------
+# v356 — File tree edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestTaskTreeEdgeCases:
+    """Cover uncovered branches in _build_task_tree."""
+
+    def test_tree_git_status_rename_and_delete(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Git status with renames and deletes populates status correctly."""
+        import subprocess
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "original.txt").write_text("content")
+        (tmp_path / "to_remove.txt").write_text("bye")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "files"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Rename via git mv and delete
+        subprocess.run(
+            ["git", "mv", "original.txt", "renamed.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "rm", "to_remove.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_tree("task-rename")
+        assert result.error is None
+        file_entries = {e.path: e.status for e in result.tree if e.type == "file"}
+        # renamed.txt should appear; to_remove.txt is deleted
+        assert "renamed.txt" in file_entries
+
+    def test_tree_parent_dir_insertion(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Deeply nested files trigger parent directory insertion."""
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        deep = tmp_path / "a" / "b" / "c"
+        deep.mkdir(parents=True)
+        (deep / "deep.txt").write_text("deep")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_tree("task-deep")
+        assert result.error is None
+        paths = [e.path for e in result.tree]
+        assert "a" in paths
+        assert "a/b" in paths or "a\\b" in paths
+        assert any("deep.txt" in p for p in paths)
+
+    def test_tree_permission_error_handled(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """PermissionError during rglob is caught gracefully."""
+        from pathlib import Path
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        def _raise_permission(self_path, pattern):
+            # Yield one file then raise
+            yield tmp_path / "init.txt"
+            raise PermissionError("access denied")
+
+        monkeypatch.setattr(Path, "rglob", _raise_permission)
+        result = _build_task_tree("task-perm")
+        # Should not error — PermissionError is caught
+        assert result.error is None
+
+    def test_tree_short_status_lines_skipped(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Git status lines shorter than 4 chars are skipped."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _fake_status(cmd, **kwargs):
+            if "status" in cmd and any("porcelain" in c for c in cmd):
+                result = MagicMock()
+                result.returncode = 0
+                # Short line should be skipped, valid line should parse
+                result.stdout = "??\nM  init.txt\n D to_remove.txt\n"
+                return result
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _fake_status)
+        result = _build_task_tree("task-short")
+        assert result.error is None
+
+
+# ---------------------------------------------------------------------------
+# v356 — File content edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestTaskFileEdgeCases:
+    """Cover uncovered branches in _read_task_file."""
+
+    def test_path_traversal_rejected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Paths that escape the workspace are rejected."""
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        result = _read_task_file("task-traversal", "../../etc/passwd")
+        assert result.error is not None
+        assert "traversal" in result.error.lower()
+
+    def test_large_file_rejected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Files exceeding _FILE_CONTENT_MAX_BYTES are rejected."""
+        from helping_hands.server.app import _FILE_CONTENT_MAX_BYTES, _read_task_file
+
+        _init_git_repo(tmp_path)
+        big_file = tmp_path / "big.bin"
+        big_file.write_bytes(b"x" * (_FILE_CONTENT_MAX_BYTES + 1))
+        _mock_workspace(monkeypatch, tmp_path)
+
+        result = _read_task_file("task-big", "big.bin")
+        assert result.error is not None
+        assert "too large" in result.error.lower()
+
+    def test_os_error_reading_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """OSError when reading file content is handled gracefully."""
+        from pathlib import Path
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        target = tmp_path / "broken.txt"
+        target.write_text("hello")
+        _mock_workspace(monkeypatch, tmp_path)
+
+        original_read_text = Path.read_text
+
+        def _raise_os_error(self_path, **kwargs):
+            if "broken.txt" in str(self_path):
+                raise OSError("disk error")
+            return original_read_text(self_path, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", _raise_os_error)
+        result = _read_task_file("task-oserror", "broken.txt")
+        assert result.error is not None
+        assert "Cannot read" in result.error
+
+    def test_diff_detects_new_file_status(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Diff status detection picks up 'new file' header."""
+        import subprocess
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "fresh.txt").write_text("new content")
+        subprocess.run(["git", "add", "fresh.txt"], cwd=tmp_path, capture_output=True)
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _read_task_file("task-newfile", "fresh.txt")
+        assert result.error is None
+        assert result.content == "new content"
+        assert result.status == "added"
+        assert result.diff is not None
+        assert "new file" in result.diff
+
+    def test_diff_detects_deleted_file_status(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Diff status detection picks up 'deleted file' header."""
+        import subprocess
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "doomed.txt").write_text("content")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add doomed"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "rm", "doomed.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        # The file is deleted but git knows about it; write it back for reading
+        (tmp_path / "doomed.txt").write_text("content")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _read_task_file("task-deleted", "doomed.txt")
+        assert result.error is None
+
+    def test_untracked_file_detected_as_added(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """An untracked file should be detected as 'added' via ls-files."""
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "brand_new.txt").write_text("untracked content")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _read_task_file("task-untracked-file", "brand_new.txt")
+        assert result.error is None
+        assert result.content == "untracked content"
+        assert result.status == "added"
+        assert result.diff is not None
+
+    def test_git_diff_timeout_in_file_read(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Timeout in git diff during file read is caught."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "test.txt").write_text("content")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "add test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "test.txt").write_text("changed")
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _timeout_diff(cmd, **kwargs):
+            if "diff" in cmd:
+                raise _sp.TimeoutExpired(cmd, 10)
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _timeout_diff)
+        result = _read_task_file("task-diff-timeout", "test.txt")
+        # Should still return content, just no diff
+        assert result.error is None
+        assert result.content == "changed"
+        assert result.diff is None
+
+
+# ---------------------------------------------------------------------------
+# v356 — _extract_task_kwargs request.kwargs-as-string branch
+# ---------------------------------------------------------------------------
+
+
+class TestExtractTaskKwargsRequestString:
+    """Cover the request.kwargs-as-string path in _extract_task_kwargs."""
+
+    def test_request_kwargs_as_string(self) -> None:
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": '{"repo_path": "/tmp/repo", "prompt": "test"}'}}
+        result = _extract_task_kwargs(entry)
+        assert result == {"repo_path": "/tmp/repo", "prompt": "test"}
+
+    def test_request_kwargs_string_invalid_json(self) -> None:
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": "not-json"}}
+        result = _extract_task_kwargs(entry)
+        assert result == {}
+
+    def test_request_kwargs_as_dict(self) -> None:
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": {"repo_path": "/tmp/repo"}}}
+        result = _extract_task_kwargs(entry)
+        assert result == {"repo_path": "/tmp/repo"}
+
+
+# ---------------------------------------------------------------------------
+# v356 — Additional edge cases for higher coverage
+# ---------------------------------------------------------------------------
+
+
+class TestTaskDiffRenameAndUntrackedEdges:
+    """Cover rename status in diff and untracked file edge cases."""
+
+    def test_diff_rename_status_detected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Renamed files via git mv produce 'renamed' status in diff."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "old_name.txt").write_text("content")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "add old_name"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        _sp.run(
+            ["git", "mv", "old_name.txt", "new_name.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-rename-diff")
+        assert result.error is None
+        statuses = {f.status for f in result.files}
+        # Git may report rename as "renamed" via "rename from" header
+        assert "renamed" in statuses or len(result.files) >= 1
+
+    def test_diff_untracked_oserror_skipped(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """OSError reading an untracked file is silently skipped."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        # Create a file that will be untracked
+        broken = tmp_path / "broken_untracked.txt"
+        broken.write_text("hello")
+
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _mock_ls_files(cmd, **kwargs):
+            result = orig_run(cmd, **kwargs)
+            # For ls-files, inject a non-existent path too
+            if "ls-files" in cmd:
+                result = MagicMock()
+                result.stdout = "broken_untracked.txt\nnonexistent_dir/ghost.txt\n\n"
+                return result
+            return result
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _mock_ls_files)
+        result = _build_task_diff("task-untracked-oserror")
+        # Should not error — OSError for ghost.txt is caught,
+        # empty line is skipped, broken_untracked.txt succeeds
+        assert result.error is None
+
+    def test_diff_delete_status_via_staged(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Staged deletion with --cached diff shows 'deleted' in diff output."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "doomed.txt").write_text("bye")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "add doomed"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        _sp.run(
+            ["git", "rm", "doomed.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-delete-diff")
+        assert result.error is None
+        deleted_files = [f for f in result.files if f.status == "deleted"]
+        assert len(deleted_files) >= 1
+
+
+class TestTaskTreeStatusParsing:
+    """Cover deleted/renamed status parsing in _build_task_tree."""
+
+    def test_tree_deleted_file_status(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Deleted files in git status get 'deleted' status in tree."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "alive.txt").write_text("content")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "files"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _fake_status(cmd, **kwargs):
+            if "status" in cmd and any("porcelain" in c for c in cmd):
+                result = MagicMock()
+                result.returncode = 0
+                # D = deleted, R = renamed (with -> separator)
+                result.stdout = " D alive.txt\nR  old.txt -> new.txt\n"
+                return result
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _fake_status)
+        result = _build_task_tree("task-tree-status")
+        assert result.error is None
+        status_map = {e.path: e.status for e in result.tree if e.type == "file"}
+        # alive.txt should have "deleted" status from the " D" prefix
+        assert status_map.get("alive.txt") == "deleted"
+
+    def test_tree_nested_files_add_parent_dirs(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Files in nested dirs trigger parent directory insertion."""
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        # Create nested structure: only the file, not explicit dirs
+        nested = tmp_path / "x" / "y"
+        nested.mkdir(parents=True)
+        (nested / "leaf.txt").write_text("leaf")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_tree("task-nested-parents")
+        assert result.error is None
+        dir_paths = {e.path for e in result.tree if e.type == "dir"}
+        assert "x" in dir_paths

@@ -1,7 +1,8 @@
 # v355 — Troubleshooting Guide & Docs Refresh
 
 **Created:** 2026-04-04
-**Status:** Active
+**Status:** Completed
+**Completed:** 2026-04-04
 
 ## Goal
 

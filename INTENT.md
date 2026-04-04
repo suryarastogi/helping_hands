@@ -4,14 +4,20 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Troubleshooting Guide & Docs Refresh (2026-04-04)
+### Server App Endpoint Coverage Hardening (2026-04-04)
+
+Close coverage gaps in `server/app.py` (90% → 95%+) by testing uncovered
+branches in task diff parsing, file tree building, file content reading, and
+helper functions. See [v356 plan](docs/exec-plans/active/v356-server-app-endpoint-coverage.md).
+
+## Recently Completed
+
+### Troubleshooting Guide & Docs Refresh (2026-04-04) — Completed
 
 Create user-facing `docs/TROUBLESHOOTING.md` covering common setup issues
 surfaced by `helping-hands doctor`, backend-specific problems, and runtime
-errors. Refresh stale AGENTS.md metadata (last-updated date). Add doc
-structure tests. See [v355 plan](docs/exec-plans/active/v355-troubleshooting-guide-and-docs-refresh.md).
-
-## Recently Completed
+errors. Refresh stale AGENTS.md metadata. 12 doc structure tests added.
+See [v355 plan](docs/exec-plans/completed/2026/v355-troubleshooting-guide-and-docs-refresh.md).
 
 ### Remaining Edge Case Coverage (2026-04-04) — Completed
 
