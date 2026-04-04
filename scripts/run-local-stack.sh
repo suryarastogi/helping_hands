@@ -198,6 +198,8 @@ stop_service() {
 
   if [[ ! -f "${pid_file}" ]]; then
     echo "${name}: not running"
+    # Still kill orphaned processes for this service type.
+    _kill_orphaned_processes "${name}"
     return 0
   fi
 
@@ -205,6 +207,7 @@ stop_service() {
   if ! is_pid_running "${pid}"; then
     rm -f "${pid_file}"
     echo "${name}: stale pid file removed"
+    _kill_orphaned_processes "${name}"
     return 0
   fi
 
@@ -213,6 +216,7 @@ stop_service() {
     if ! is_pid_running "${pid}"; then
       rm -f "${pid_file}"
       echo "${name}: stopped"
+      _kill_orphaned_processes "${name}"
       return 0
     fi
     sleep 0.25
@@ -221,6 +225,51 @@ stop_service() {
   kill -9 "${pid}" >/dev/null 2>&1 || true
   rm -f "${pid_file}"
   echo "${name}: force stopped"
+  _kill_orphaned_processes "${name}"
+}
+
+_kill_orphaned_processes() {
+  # Kill orphaned child processes from previous runs that survived the
+  # parent ``uv run`` wrapper being terminated.  Without this, old celery
+  # workers stay connected to Redis and compete for tasks.
+  local name="$1"
+  local pattern=""
+  local tracked_pid=""
+
+  local pid_file
+  pid_file="$(pid_file_for "${name}")"
+  if [[ -f "${pid_file}" ]]; then
+    tracked_pid="$(cat "${pid_file}")"
+  fi
+
+  case "${name}" in
+    worker) pattern="celery.*${CELERY_APP}.*worker" ;;
+    beat)   pattern="celery.*${CELERY_APP}.*beat" ;;
+    flower) pattern="celery.*${CELERY_APP}.*flower" ;;
+    server) pattern="uvicorn.*${SERVER_APP}" ;;
+    *)      return 0 ;;
+  esac
+
+  local orphan_pids
+  orphan_pids="$(pgrep -f "${pattern}" 2>/dev/null || true)"
+  if [[ -z "${orphan_pids}" ]]; then
+    return 0
+  fi
+
+  local count=0
+  local pid
+  while IFS= read -r pid; do
+    [[ -z "${pid}" ]] && continue
+    # Skip the tracked PID (already handled above) and our own shell.
+    [[ "${pid}" == "${tracked_pid}" ]] && continue
+    [[ "${pid}" == "$$" ]] && continue
+    kill "${pid}" >/dev/null 2>&1 || true
+    count=$((count + 1))
+  done <<< "${orphan_pids}"
+
+  if [[ "${count}" -gt 0 ]]; then
+    echo "${name}: killed ${count} orphaned process(es)"
+  fi
 }
 
 status_service() {

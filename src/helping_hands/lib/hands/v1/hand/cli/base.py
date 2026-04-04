@@ -2441,28 +2441,33 @@ class _TwoPhaseCLIHand(Hand):
                 error = exc
             finally:
                 if error is None:
-                    message = "".join(collected)
-                    metadata = self._finalize_after_run(prompt=prompt, message=message)
-
-                    # AI conflict resolution after push rejection
-                    if metadata.get(_META_CONFLICT_FIX_STATUS) == "needs_ai":
-                        metadata = await self._ai_resolve_push_conflicts(
-                            metadata=metadata, emit=_emit
+                    try:
+                        message = "".join(collected)
+                        metadata = self._finalize_after_run(
+                            prompt=prompt, message=message
                         )
 
-                    pr_status_message = self._format_pr_status_message(metadata)
-                    if pr_status_message:
-                        await output_queue.put(f"\n{pr_status_message}\n")
+                        # AI conflict resolution after push rejection
+                        if metadata.get(_META_CONFLICT_FIX_STATUS) == "needs_ai":
+                            metadata = await self._ai_resolve_push_conflicts(
+                                metadata=metadata, emit=_emit
+                            )
 
-                    # CI fix loop (only runs if fix_ci=True and PR was created/updated)
-                    metadata = await self._ci_fix_loop(
-                        prompt=prompt,
-                        metadata=metadata,
-                        emit=_emit,
-                    )
-                    ci_msg = self._format_ci_fix_message(metadata)
-                    if ci_msg:
-                        await output_queue.put(f"\n{ci_msg}\n")
+                        pr_status_message = self._format_pr_status_message(metadata)
+                        if pr_status_message:
+                            await output_queue.put(f"\n{pr_status_message}\n")
+
+                        # CI fix loop (only runs if fix_ci=True and PR created/updated)
+                        metadata = await self._ci_fix_loop(
+                            prompt=prompt,
+                            metadata=metadata,
+                            emit=_emit,
+                        )
+                        ci_msg = self._format_ci_fix_message(metadata)
+                        if ci_msg:
+                            await output_queue.put(f"\n{ci_msg}\n")
+                    except Exception as fin_exc:
+                        error = fin_exc
                 await output_queue.put(None)
             if error is not None:
                 raise error
@@ -2479,7 +2484,7 @@ class _TwoPhaseCLIHand(Hand):
                 producer_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await producer_task
-            else:
+            if producer_task.done() and not producer_task.cancelled():
                 exc = producer_task.exception()
                 if exc is not None:
                     raise exc  # pragma: no cover
