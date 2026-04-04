@@ -4,9 +4,55 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-*(none — awaiting next task)*
+### Grill Module Testability & Coverage (2026-04-04) — In Progress
+
+Fixing 13 broken grill tests caused by top-level `from celery import Task`
+import failure when the server extra isn't installed. Restructuring `grill.py`
+to defer celery imports so pure helper functions (`_build_system_prompt`,
+`_clone_repo`, `_summarize_tool_use`, `_invoke_claude_turn`, Redis helpers) are
+testable without celery/redis. Adding 37 new tests. See
+[v350 plan](docs/exec-plans/active/v350-grill-module-testability-and-coverage.md).
 
 ## Recently Completed
+
+### Interactive CLI Mode & AI Provider Types Coverage (2026-04-04) — Completed
+
+Implemented interactive CLI mode (product spec nice-to-have #4): when
+`--prompt` is omitted, `read_prompt_from_stdin()` reads from stdin. On TTY
+it prints an interactive prompt; on piped input it reads silently. Empty
+input or Ctrl+C causes a clean exit with an error message. Added 6 new
+CLI tests.
+
+Added comprehensive test coverage for `ai_providers/types.py`:
+`normalize_messages()` (string, sequence, error cases), `AIProvider`
+lazy inner loading, `_require_sdk()`, `complete()` validation, and
+`acomplete()` async delegation. 23 new tests covering all branches.
+
+Updated product spec to mark nice-to-have #4 as implemented. See
+[v349 plan](docs/exec-plans/completed/2026/v349-interactive-mode-and-provider-types-coverage.md).
+
+
+### Doctor Server-Mode Prerequisite Checks (2026-04-04) — Completed
+
+Extended `helping-hands doctor` with Redis CLI and Docker Compose availability
+checks for server-mode users. `_check_redis_cli()` verifies `redis-cli` on
+PATH (needed for local-stack), `_check_docker_compose()` verifies `docker
+compose` subcommand (needed for app-mode deployment) with version output and
+graceful error handling. Also fixed docs index completeness (added app-mode.md,
+backends.md, development.md references) and README (added Configuration and
+Development sections). Expanded `__all__` to export `collect_checks` and
+`format_results`. 8 new tests. See
+[v348 plan](docs/exec-plans/completed/2026/v348-doctor-server-prereqs.md).
+
+### Doctor & RepoIndex Enhancements (2026-04-04) — Completed
+
+Enhanced `helping-hands doctor` with Docker and Node.js availability checks:
+`_check_docker()` verifies Docker CLI (needed for `docker-sandbox-*` backends),
+`_check_node()` verifies Node.js v18+ (needed for frontend dev) with graceful
+handling of missing binary, version parse failure, and timeout. Added
+`file_count` property and `has_file()` O(log n) binary search to `RepoIndex`.
+16 new tests. Created Week-14 consolidation. See
+[v347 plan](docs/exec-plans/completed/2026/v347-doctor-and-repo-index-enhancements.md).
 
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 

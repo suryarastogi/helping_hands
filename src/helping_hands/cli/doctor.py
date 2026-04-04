@@ -13,7 +13,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 
-__all__ = ["CheckResult", "run_doctor"]
+__all__ = ["CheckResult", "collect_checks", "format_results", "run_doctor"]
 
 # ---------------------------------------------------------------------------
 # Check result type
@@ -73,6 +73,9 @@ _OPTIONAL_EXTRAS: tuple[tuple[str, str, str], ...] = (
     ("fastapi", "server", "FastAPI server + Celery workers"),
 )
 """(import_name, extra_name, description) for optional pip extras."""
+
+_MIN_NODE = 18
+"""Minimum recommended Node.js major version for frontend development."""
 
 
 def _check_python() -> CheckResult:
@@ -155,6 +158,105 @@ def _check_optional_cli_tools() -> list[CheckResult]:
     return results
 
 
+def _check_docker() -> CheckResult:
+    """Check that ``docker`` is on PATH (needed for docker-sandbox backends)."""
+    if shutil.which("docker"):
+        return CheckResult("docker", _OK, "docker found")
+    return CheckResult(
+        "docker",
+        _WARN,
+        "docker not found — needed for docker-sandbox-* backends",
+    )
+
+
+def _check_node() -> CheckResult:
+    """Check that ``node`` is on PATH and meets the minimum version.
+
+    Node.js is required for frontend development (React + Vite).
+    """
+    node_path = shutil.which("node")
+    if not node_path:
+        return CheckResult(
+            "node",
+            _WARN,
+            "node not found — needed for frontend development",
+        )
+    import subprocess
+
+    try:
+        raw = subprocess.run(
+            [node_path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout.strip()
+        # Node outputs "vXX.YY.ZZ"
+        version_str = raw.lstrip("v")
+        major = int(version_str.split(".")[0])
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return CheckResult(
+            "node",
+            _WARN,
+            "node found but could not determine version",
+        )
+    if major >= _MIN_NODE:
+        return CheckResult("node", _OK, f"node v{version_str}")
+    return CheckResult(
+        "node",
+        _WARN,
+        f"node v{version_str} — recommend v{_MIN_NODE}+ for frontend dev",
+    )
+
+
+def _check_redis_cli() -> CheckResult:
+    """Check that ``redis-cli`` is on PATH (needed for local-stack server mode)."""
+    if shutil.which("redis-cli"):
+        return CheckResult("redis-cli", _OK, "redis-cli found")
+    return CheckResult(
+        "redis-cli",
+        _WARN,
+        "redis-cli not found — needed for local-stack server mode",
+    )
+
+
+def _check_docker_compose() -> CheckResult:
+    """Check that ``docker compose`` subcommand is available.
+
+    Required for app-mode deployment via ``docker compose up`` or
+    ``./scripts/run-local-stack.sh``.
+    """
+    import subprocess
+
+    docker_path = shutil.which("docker")
+    if not docker_path:
+        return CheckResult(
+            "docker-compose",
+            _WARN,
+            "docker compose not available — docker not found",
+        )
+    try:
+        cp = subprocess.run(
+            [docker_path, "compose", "version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if cp.returncode == 0:
+            version_line = cp.stdout.strip()
+            return CheckResult("docker-compose", _OK, f"docker compose: {version_line}")
+        return CheckResult(
+            "docker-compose",
+            _WARN,
+            "docker found but 'docker compose' subcommand not available",
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return CheckResult(
+            "docker-compose",
+            _WARN,
+            "docker found but could not verify 'docker compose'",
+        )
+
+
 def _check_optional_extras() -> list[CheckResult]:
     """Check availability of optional Python package extras."""
     results: list[CheckResult] = []
@@ -195,6 +297,10 @@ def collect_checks() -> list[CheckResult]:
     results.extend(_check_provider_keys())
     results.append(_check_github_token())
     results.extend(_check_optional_cli_tools())
+    results.append(_check_docker())
+    results.append(_check_docker_compose())
+    results.append(_check_redis_cli())
+    results.append(_check_node())
     results.extend(_check_optional_extras())
     return results
 

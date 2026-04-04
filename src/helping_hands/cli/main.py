@@ -16,7 +16,6 @@ from tempfile import mkdtemp
 from typing import Any, cast
 
 from helping_hands.lib.config import Config, ConfigValue
-from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
     DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
     GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
@@ -46,7 +45,7 @@ from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import install_hint, require_positive_int
 
-__all__ = ["build_parser", "doctor", "main"]
+__all__ = ["build_parser", "doctor", "main", "read_prompt_from_stdin"]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -71,6 +70,9 @@ _DEFAULT_CLONE_DEPTH = 1
 
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
+
+_INTERACTIVE_PROMPT_MSG = "Enter task description (Ctrl+D to submit):\n"
+"""Prompt shown when reading a task interactively from a TTY."""
 
 _MODEL_NOT_FOUND_MARKERS: tuple[str, ...] = ("model_not_found", "does not exist")
 """Substrings in exception messages that indicate a model-not-found error."""
@@ -237,6 +239,31 @@ def _make_temp_clone_dir(prefix: str) -> Path:
     return dest_root / "repo"
 
 
+def read_prompt_from_stdin() -> str:
+    """Read a task prompt from standard input.
+
+    When stdin is a TTY (interactive terminal), prints a prompt message
+    before reading.  When stdin is a pipe or redirect, reads silently.
+
+    Returns:
+        The stripped text read from stdin.
+
+    Raises:
+        SystemExit: If the input is empty or stdin is at EOF immediately.
+    """
+    if sys.stdin.isatty():
+        print(_INTERACTIVE_PROMPT_MSG, end="", file=sys.stderr)
+    try:
+        text = sys.stdin.read().strip()
+    except KeyboardInterrupt:
+        _error_exit("interrupted — no prompt provided")
+        return ""  # unreachable, keeps type checker happy
+    if not text:
+        _error_exit("no prompt provided — pass --prompt or pipe text to stdin")
+        return ""  # unreachable
+    return text
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for CLI mode."""
     parser = argparse.ArgumentParser(
@@ -252,8 +279,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--prompt",
-        default=DEFAULT_SMOKE_TEST_PROMPT,
-        help="Prompt to pass to the selected hand.",
+        default=None,
+        help=(
+            "Prompt to pass to the selected hand. "
+            "If omitted, reads from stdin (interactive or piped)."
+        ),
     )
     parser.add_argument(
         "--pr-number",
@@ -374,6 +404,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     _validate_or_exit(meta_tools.validate_tool_category_names, selected_tools)
 
+    # Resolve prompt: explicit --prompt wins, then stdin.
+    prompt = read_prompt_from_stdin() if args.prompt is None else args.prompt
+
     if args.pr_number is not None:
         _validate_or_exit(require_positive_int, args.pr_number, "--pr-number")
     if args.max_iterations is not None:
@@ -389,7 +422,7 @@ def main(argv: list[str] | None = None) -> None:
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         response = E2EHand(config, repo_index).run(
-            args.prompt,
+            prompt,
             pr_number=args.pr_number,
             dry_run=args.no_pr,
         )
@@ -451,7 +484,7 @@ def main(argv: list[str] | None = None) -> None:
                 f"{install_hint(extra)}"
             )
         try:
-            asyncio.run(_stream_hand(hand, args.prompt))
+            asyncio.run(_stream_hand(hand, prompt))
         except KeyboardInterrupt:
             hand.interrupt()
             print("\nInterrupted by user.")

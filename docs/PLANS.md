@@ -4,9 +4,23 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [v350 — Grill Module Testability & Coverage](exec-plans/active/v350-grill-module-testability-and-coverage.md) —
+  Fix 13 broken grill tests (celery import), restructure grill.py for
+  testability without server extra; 37 tests added, grill.py 4% → 99% coverage
 
 ## Completed plans
+
+- [2026-04-04 v349 — Interactive CLI Mode & AI Provider Types Coverage](exec-plans/completed/2026/v349-interactive-mode-and-provider-types-coverage.md) —
+  Interactive CLI mode (product spec nice-to-have #4) + AI provider types.py
+  test coverage; 29 tests added
+
+- [2026-04-04 v348 — Doctor Server-Mode Prerequisite Checks](exec-plans/completed/2026/v348-doctor-server-prereqs.md) —
+  Add Redis CLI and Docker Compose checks to `helping-hands doctor`; fix
+  docs index completeness and README sections; 8 new tests, 6591 tests passed
+
+- [2026-04-04 v347 — Doctor & RepoIndex Enhancements](exec-plans/completed/2026/v347-doctor-and-repo-index-enhancements.md) —
+  Add Docker and Node.js checks to `helping-hands doctor`, add `file_count`
+  property and `has_file()` binary search to `RepoIndex`; 16 tests added
 
 - [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
   Rewrite README Quick Start as three numbered steps (install, set keys, run);

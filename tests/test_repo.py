@@ -115,3 +115,55 @@ class TestRepoIndex:
         b = RepoIndex(root=Path("/b"))
         a.files.append("x.py")
         assert b.files == []
+
+
+class TestRepoIndexFileCount:
+    def test_file_count_empty(self) -> None:
+        idx = RepoIndex(root=Path("/tmp"))
+        assert idx.file_count == 0
+
+    def test_file_count_with_files(self, tmp_path: Path) -> None:
+        (tmp_path / "a.py").write_text("x")
+        (tmp_path / "b.py").write_text("y")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.file_count == 2
+
+    def test_file_count_excludes_git(self, tmp_path: Path) -> None:
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        (git_dir / "config").write_text("data")
+        (tmp_path / "real.py").write_text("code")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.file_count == 1
+
+
+class TestRepoIndexHasFile:
+    def test_has_file_returns_true_for_existing(self, tmp_path: Path) -> None:
+        (tmp_path / "main.py").write_text("code")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.has_file("main.py") is True
+
+    def test_has_file_returns_false_for_missing(self, tmp_path: Path) -> None:
+        (tmp_path / "main.py").write_text("code")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.has_file("other.py") is False
+
+    def test_has_file_nested_path(self, tmp_path: Path) -> None:
+        sub = tmp_path / "src"
+        sub.mkdir()
+        (sub / "app.py").write_text("code")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.has_file("src/app.py") is True
+        assert idx.has_file("app.py") is False
+
+    def test_has_file_empty_index(self) -> None:
+        idx = RepoIndex(root=Path("/tmp"))
+        assert idx.has_file("anything.py") is False
+
+    def test_has_file_uses_bisect_for_efficiency(self, tmp_path: Path) -> None:
+        """Verify the method works correctly with a larger file set."""
+        for i in range(100):
+            (tmp_path / f"file_{i:03d}.py").write_text("")
+        idx = RepoIndex.from_path(tmp_path)
+        assert idx.has_file("file_050.py") is True
+        assert idx.has_file("file_999.py") is False
