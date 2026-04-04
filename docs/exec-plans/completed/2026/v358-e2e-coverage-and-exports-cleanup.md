@@ -1,7 +1,7 @@
 # v358 — E2E Coverage & Exports Cleanup
 
 **Created:** 2026-04-04
-**Status:** Active
+**Status:** Completed
 
 ## Goal
 

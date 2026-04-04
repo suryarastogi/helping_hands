@@ -634,8 +634,7 @@ def _commit_message_from_prompt(prompt: str, summary: str) -> str:
             if _is_boilerplate_line(stripped_line):
                 had_boilerplate = True
                 continue
-            if not candidate:
-                candidate = stripped_line
+            candidate = stripped_line
             break
         if had_boilerplate and candidate:
             first_line = candidate

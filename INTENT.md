@@ -4,13 +4,22 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### E2E Coverage & Exports Cleanup (2026-04-04)
+*(none)*
+
+## Recently Completed
+
+### Dead Code Cleanup & Tech Debt Resolution (2026-04-04) — Completed
+
+Remove unreachable `if not candidate:` guard in `_commit_message_from_prompt`,
+resolve tech debt item, consolidate v358 completion.
+See [v359 plan](docs/exec-plans/completed/2026/v359-dead-code-cleanup-and-tech-debt.md).
+
+### E2E Coverage & Exports Cleanup (2026-04-04) — Completed
 
 Close test gaps in `e2e.py` (`_draft_pr_enabled`, `stream`), add missing
 `__all__` to `multiplayer_yjs.py`, consolidate v357 completion.
-See [v358 plan](docs/exec-plans/active/v358-e2e-coverage-and-exports-cleanup.md).
+See [v358 plan](docs/exec-plans/completed/2026/v358-e2e-coverage-and-exports-cleanup.md).
 
-## Recently Completed
 
 ### Extract Shared Git Clone Utility (2026-04-04) — Completed
 

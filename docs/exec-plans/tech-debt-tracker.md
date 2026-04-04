@@ -12,7 +12,6 @@ Ongoing technical debt items that don't warrant a full execution plan.
 | CLI IO loop heartbeat-without-timeout branch | Low | `cli/base.py` | Branch 552->559: heartbeat fires but idle timeout hasn't been reached; requires real async subprocess timing to trigger both branches in a single invocation |
 | `_decode_bytes` latin-1 fallback | None | `web.py` | latin-1 accepts all byte values; fallback marked `pragma: no cover` as defensive-only |
 | `if __name__ == "__main__"` guard (MCP) | None | `mcp_server.py` | Line 393: standard script entry point guard; inherently untestable via pytest (not actual dead code) |
-| `_commit_message_from_prompt` unreachable branch | None | `pr_description.py` | Branch 581→583: `if not candidate` False path is unreachable — candidate starts as `""` and `break` always fires on first non-boilerplate line (v173) |
 | `_grill_session_body` integration-only coverage | None | `grill.py` | Lines 460–772: Celery task body requires celery + redis infrastructure; marked `pragma: no cover`; pure helpers tested at 99% (v350) |
 | `_invoke_claude_turn` branch partials | None | `grill.py` | 3 branch partials (384→366, 389→347, 395→397): require specific combinations of stream events within a single invocation (v350) |
 
@@ -20,6 +19,7 @@ Ongoing technical debt items that don't warrant a full execution plan.
 
 | Item | Resolved | Notes |
 |---|---|---|
+| `_commit_message_from_prompt` unreachable branch | 2026-04-04 | Removed dead `if not candidate:` guard; candidate was always `""` at that point so the guard was always True (v359) |
 | Dead code in Atomic `stream()` | 2026-03-10 | Removed unreachable `else: delta = current` branches in `iterative.py` (v104) |
 | Codex `_auto_sandbox_mode` dead code | 2026-03-10 | Removed redundant `if not sandbox_mode` guard in `codex.py` (v104) |
 | Goose `_GOOSE_DEFAULT_MODEL` fallback dead code | 2026-03-10 | Removed unreachable `if not model` fallback in `goose.py` (v104) |

@@ -227,3 +227,15 @@ Added missing `__all__` to `server/multiplayer_yjs.py`. Moved completed v357
 plans, fixed doc structure test link failures.
 
 **10 new tests. 6821 total tests. 76.03% coverage.**
+
+---
+
+## Apr 4 — Dead Code Cleanup & Tech Debt Resolution (v359)
+
+Removed unreachable `if not candidate:` guard in `_commit_message_from_prompt`
+(`pr_description.py` line 637). The guard was always True because `candidate`
+starts as `""` and `break` fires on the first non-boilerplate line — the else
+path (candidate already set) was never reachable. Simplified to direct
+assignment. Resolved tech debt item tracked since v173.
+
+**0 new tests (40+ existing tests already cover the simplified logic). 6821 total tests. 76.03% coverage.**

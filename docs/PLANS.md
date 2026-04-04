@@ -4,11 +4,18 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v358 — E2E Coverage & Exports Cleanup](exec-plans/active/v358-e2e-coverage-and-exports-cleanup.md) —
-  Close test gaps in `e2e.py` (`_draft_pr_enabled`, `stream`), add missing `__all__`
-  to `multiplayer_yjs.py`, consolidate v357 completion
+*(none)*
 
 ## Completed plans
+
+- [2026-04-04 v359 — Dead Code Cleanup & Tech Debt Resolution](exec-plans/completed/2026/v359-dead-code-cleanup-and-tech-debt.md) —
+  Remove unreachable `if not candidate:` guard in `_commit_message_from_prompt`,
+  resolve tech debt item, update consolidation docs; 0 tests added (40+ existing tests cover it)
+
+- [2026-04-04 v358 — E2E Coverage & Exports Cleanup](exec-plans/completed/2026/v358-e2e-coverage-and-exports-cleanup.md) —
+  Close test gaps in `e2e.py` (`_draft_pr_enabled`, `stream`), add missing `__all__`
+  to `multiplayer_yjs.py`, consolidate v357 completion; 10 tests added
+
 
 - [2026-04-04 v357 — Extract Shared Git Clone Utility](exec-plans/completed/2026/v357-extract-shared-git-clone.md) —
   Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
