@@ -32,9 +32,9 @@ from helping_hands.cli.main import (
     _validate_repo_spec,
     build_parser,
     main,
+    read_prompt_from_stdin,
 )
 from helping_hands.lib.config import Config
-from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand import HandResponse
 
 # Suppress coroutine warnings from coverage.py tracer holding frame references
@@ -57,10 +57,10 @@ def _close_coroutine(coro: object) -> None:
 
 
 class TestCli:
-    def test_cli_uses_smoke_test_default_prompt(self) -> None:
+    def test_cli_prompt_defaults_to_none(self) -> None:
         parser = build_parser()
         args = parser.parse_args(["/tmp/repo"])
-        assert args.prompt == DEFAULT_SMOKE_TEST_PROMPT
+        assert args.prompt is None
 
     def test_cli_parser_supports_tool_enable_flags(self) -> None:
         parser = build_parser()
@@ -80,13 +80,13 @@ class TestCli:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         (tmp_path / "hello.py").write_text("")
-        main([str(tmp_path)])
+        main([str(tmp_path), "--prompt", "test"])
         captured = capsys.readouterr()
         assert "Ready" in captured.out
 
     def test_cli_exits_on_missing_dir(self, tmp_path: Path) -> None:
         with pytest.raises(SystemExit):
-            main([str(tmp_path / "nope")])
+            main([str(tmp_path / "nope"), "--prompt", "test"])
 
     @patch("helping_hands.cli.main.subprocess.run")
     @patch("helping_hands.cli.main.RepoIndex.from_path")
@@ -113,7 +113,7 @@ class TestCli:
             files=["main.py"],
         )
 
-        main(["suryarastogi/helping_hands"])
+        main(["suryarastogi/helping_hands", "--prompt", "test"])
         captured = capsys.readouterr()
         assert "Cloned suryarastogi/helping_hands" in captured.out
         assert "Ready. Indexed" in captured.out
@@ -142,7 +142,7 @@ class TestCli:
             stderr="fatal: repository not found",
         )
         with pytest.raises(SystemExit):
-            main(["owner/missing"])
+            main(["owner/missing", "--prompt", "test"])
         captured = capsys.readouterr()
         assert "failed to clone owner/missing" in captured.err
 
@@ -941,7 +941,16 @@ class TestGitHubTokenArg:
             )
             mock_hand_cls.return_value = mock_hand
 
-            main(["owner/repo", "--e2e", "--github-token", "ghp_custom"])
+            main(
+                [
+                    "owner/repo",
+                    "--e2e",
+                    "--github-token",
+                    "ghp_custom",
+                    "--prompt",
+                    "test",
+                ]
+            )
             assert len(overrides_seen) > 0
             assert overrides_seen[0].get("github_token") == "ghp_custom"
 
@@ -974,6 +983,8 @@ class TestGitHubTokenArg:
                     "claudecodecli",
                     "--github-token",
                     "ghp_task",
+                    "--prompt",
+                    "test",
                 ]
             )
             assert len(overrides_seen) > 0
@@ -1030,6 +1041,8 @@ class TestReferenceReposArg:
                     "claudecodecli",
                     "--reference-repos",
                     "acme/lib",
+                    "--prompt",
+                    "test",
                 ]
             )
             assert len(overrides_seen) > 0
@@ -1195,3 +1208,74 @@ class TestMakeTempCloneDir:
     def test_has_docstring(self) -> None:
         assert _make_temp_clone_dir.__doc__ is not None
         assert "Args:" in _make_temp_clone_dir.__doc__
+
+
+# ---------------------------------------------------------------------------
+# read_prompt_from_stdin — interactive mode
+# ---------------------------------------------------------------------------
+
+
+class TestReadPromptFromStdin:
+    """Tests for interactive/piped prompt reading via stdin."""
+
+    def test_reads_from_pipe(self) -> None:
+        """Non-TTY stdin reads silently."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = False
+        mock_stdin.read.return_value = "fix the bug\n"
+        with patch("helping_hands.cli.main.sys.stdin", mock_stdin):
+            result = read_prompt_from_stdin()
+        assert result == "fix the bug"
+
+    def test_tty_prints_prompt_message(self) -> None:
+        """TTY stdin prints an interactive prompt to stderr."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = True
+        mock_stdin.read.return_value = "add feature\n"
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            patch("helping_hands.cli.main.print") as mock_print,
+        ):
+            result = read_prompt_from_stdin()
+        assert result == "add feature"
+        mock_print.assert_called_once()
+        call_args = mock_print.call_args
+        assert "task description" in call_args.args[0].lower()
+
+    def test_empty_input_exits(self) -> None:
+        """Empty stdin causes SystemExit."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = False
+        mock_stdin.read.return_value = ""
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            pytest.raises(SystemExit),
+        ):
+            read_prompt_from_stdin()
+
+    def test_whitespace_only_exits(self) -> None:
+        """Whitespace-only stdin causes SystemExit."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = False
+        mock_stdin.read.return_value = "   \n\n  "
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            pytest.raises(SystemExit),
+        ):
+            read_prompt_from_stdin()
+
+    def test_keyboard_interrupt_exits(self) -> None:
+        """Ctrl+C during input causes SystemExit."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = True
+        mock_stdin.read.side_effect = KeyboardInterrupt
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            patch("helping_hands.cli.main.print"),
+            pytest.raises(SystemExit),
+        ):
+            read_prompt_from_stdin()
+
+    def test_has_docstring(self) -> None:
+        assert read_prompt_from_stdin.__doc__ is not None
+        assert "Returns:" in read_prompt_from_stdin.__doc__

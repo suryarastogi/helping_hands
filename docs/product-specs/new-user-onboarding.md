@@ -1,6 +1,6 @@
 # Product Spec: New User Onboarding
 
-**Status:** Mostly implemented (only nice-to-have #4 remaining)
+**Status:** Fully implemented
 **Created:** 2026-03-04
 **Updated:** 2026-03-30
 
@@ -42,8 +42,11 @@ can evaluate whether the tool fits my workflow.
 
 ### Nice to have
 
-4. **Interactive mode** — if no `--prompt` is provided, prompt the user
-   interactively for a task description.
+4. **Interactive mode** — ~~if no `--prompt` is provided, prompt the user
+   interactively for a task description.~~ **Implemented** (v349,
+   2026-04-04): `read_prompt_from_stdin()` reads from stdin when
+   `--prompt` is omitted. On TTY, prints an interactive prompt; on piped
+   input, reads silently. Empty input or Ctrl+C exits cleanly.
 5. **First-run banner** — ~~on first invocation, print a short welcome message
    with a link to the quick-start guide.~~ **Implemented** (v346, 2026-03-30):
    `_maybe_show_first_run_banner()` in `cli/main.py` prints a welcome message

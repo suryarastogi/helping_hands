@@ -8,6 +8,23 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Interactive CLI Mode & AI Provider Types Coverage (2026-04-04) — Completed
+
+Implemented interactive CLI mode (product spec nice-to-have #4): when
+`--prompt` is omitted, `read_prompt_from_stdin()` reads from stdin. On TTY
+it prints an interactive prompt; on piped input it reads silently. Empty
+input or Ctrl+C causes a clean exit with an error message. Added 6 new
+CLI tests.
+
+Added comprehensive test coverage for `ai_providers/types.py`:
+`normalize_messages()` (string, sequence, error cases), `AIProvider`
+lazy inner loading, `_require_sdk()`, `complete()` validation, and
+`acomplete()` async delegation. 23 new tests covering all branches.
+
+Updated product spec to mark nice-to-have #4 as implemented. See
+[v349 plan](docs/exec-plans/active/v349-interactive-mode-and-provider-types-coverage.md).
+
+
 ### Doctor Server-Mode Prerequisite Checks (2026-04-04) — Completed
 
 Extended `helping-hands doctor` with Redis CLI and Docker Compose availability

@@ -4,7 +4,9 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [v349 — Interactive CLI Mode & AI Provider Types Coverage](exec-plans/active/v349-interactive-mode-and-provider-types-coverage.md) —
+  Interactive CLI mode (product spec nice-to-have #4) + AI provider types.py
+  test coverage; 29 new tests
 
 ## Completed plans
 

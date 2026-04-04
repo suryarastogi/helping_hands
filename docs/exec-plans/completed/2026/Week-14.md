@@ -55,3 +55,25 @@ See [2026-03-30 daily consolidation](2026-03-30.md) for full details.
 - `__all__` — added `collect_checks` and `format_results` exports
 
 **8 new tests (2 redis-cli, 5 docker-compose, 1 collect_checks). 45 total doctor tests.**
+
+---
+
+## Apr 4 — Interactive CLI Mode & AI Provider Types Coverage (v349)
+
+**Interactive CLI mode (product spec nice-to-have #4):**
+- `read_prompt_from_stdin()` — reads task from stdin when `--prompt` omitted
+- TTY mode: prints interactive prompt to stderr, reads until Ctrl+D
+- Pipe mode: reads silently (`echo "task" | helping-hands .`)
+- Empty/whitespace input and Ctrl+C exit cleanly with error message
+- `--prompt` default changed from `DEFAULT_SMOKE_TEST_PROMPT` to `None`
+
+**AI provider types.py test coverage:**
+- `normalize_messages()` — string input, sequences, OrderedDict, missing
+  role/content defaults, None content, non-Mapping error, non-str content error
+- `AIProvider` — lazy inner property (inject, build, cache), `_require_sdk()`
+  success/failure, `complete()` model validation and empty content rejection,
+  `acomplete()` async delegation
+- Docstring verification for public API
+
+**6 new CLI tests + 23 new provider types tests = 29 new tests.**
+**Product spec "New User Onboarding" now fully implemented.**
