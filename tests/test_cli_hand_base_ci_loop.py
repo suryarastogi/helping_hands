@@ -824,6 +824,31 @@ class TestStreamWrapper:
         assert chunks == ["chunk1"]
         assert producer_cancelled
 
+    def test_stream_finalization_error_re_raised(self) -> None:
+        """When finalization raises, the error propagates instead of hanging."""
+        stub = _Stub(fix_ci=False)
+
+        async def _ok_two_phase(prompt, *, emit):
+            await emit("done")
+
+        with (
+            patch.object(stub, "_run_two_phase", side_effect=_ok_two_phase),
+            patch.object(
+                stub,
+                "_finalize_after_run",
+                side_effect=RuntimeError("finalize boom"),
+            ),
+        ):
+
+            async def _collect():
+                chunks = []
+                async for chunk in stub.stream("task"):
+                    chunks.append(chunk)
+                return chunks
+
+            with pytest.raises(RuntimeError, match="finalize boom"):
+                _run(_collect())
+
 
 # ===================================================================
 # _ci_fix_loop — loop_deadline timeout (v336, line 1719-1727)

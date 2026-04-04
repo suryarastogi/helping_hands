@@ -132,6 +132,12 @@ export function useTaskManager(): UseTaskManagerReturn {
 
   // -- Task history ---------------------------------------------------------
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
+  const taskHistoryRef = useRef(taskHistory);
+  taskHistoryRef.current = taskHistory;
+  const isPollingRef = useRef(isPolling);
+  isPollingRef.current = isPolling;
+  const taskIdRef = useRef(taskId);
+  taskIdRef.current = taskId;
 
   // -- View management ------------------------------------------------------
   const [mainView, setMainView] = useState<MainView>("submission");
@@ -874,10 +880,13 @@ export function useTaskManager(): UseTaskManagerReturn {
     let cancelled = false;
 
     const pollTrackedTasks = async () => {
-      const pendingTaskIds = taskHistory
+      const currentHistory = taskHistoryRef.current;
+      const currentIsPolling = isPollingRef.current;
+      const currentTaskId = taskIdRef.current;
+      const pendingTaskIds = currentHistory
         .filter((item) => !isTerminalTaskStatus(item.status))
         .map((item) => item.taskId)
-        .filter((id) => !(isPolling && taskId === id));
+        .filter((id) => !(currentIsPolling && currentTaskId === id));
 
       if (pendingTaskIds.length === 0) return;
 
@@ -947,7 +956,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [isPolling, taskHistory, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
+  }, [spawnFloatingNumber, addToast, sendBrowserNotification]);
 
   // =========================================================================
   // Return

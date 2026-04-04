@@ -542,7 +542,7 @@ class GitHubClient:
         require_positive_int(number, "PR number")
         if title is None and body is None:
             return
-        from github import NotSet
+        from github.GithubObject import NotSet
 
         repo = self.get_repo(full_name)
         pr = repo.get_pull(number)
