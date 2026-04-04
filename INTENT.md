@@ -4,16 +4,23 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Grill Module Testability & Coverage (2026-04-04) — In Progress
+### Core Utility Module Test Coverage (2026-04-04) — Complete
 
-Fixing 13 broken grill tests caused by top-level `from celery import Task`
-import failure when the server extra isn't installed. Restructuring `grill.py`
-to defer celery imports so pure helper functions (`_build_system_prompt`,
-`_clone_repo`, `_summarize_tool_use`, `_invoke_claude_turn`, Redis helpers) are
-testable without celery/redis. Adding 37 new tests. See
-[v350 plan](docs/exec-plans/active/v350-grill-module-testability-and-coverage.md).
+Added test coverage for three 0%-covered pure utility modules: `validation.py`
+(10 new tests for `has_cli_flag` + `install_hint`), `github_url.py` (15 new
+tests for `invalid_repo_msg` + `resolve_github_token` + `repo_tmp_dir`), and
+`factory.py` (24 new tests for `create_hand` dispatch + `get_enabled_backends`).
+All three modules now at 100% coverage. See
+[v351 plan](docs/exec-plans/active/v351-core-utility-test-coverage.md).
 
 ## Recently Completed
+
+### Grill Module Testability & Coverage (2026-04-04) — Completed
+
+Restructured `grill.py` to defer celery imports so pure helper functions are
+testable without celery/redis. Fixed 13 broken tests, added 37 new tests,
+grill.py helper coverage 4% → 99%. See
+[v350 plan](docs/exec-plans/completed/2026/v350-grill-module-testability-and-coverage.md).
 
 ### Interactive CLI Mode & AI Provider Types Coverage (2026-04-04) — Completed
 

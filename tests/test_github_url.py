@@ -22,8 +22,11 @@ from helping_hands.lib.github_url import (
     GITHUB_TOKEN_USER,
     __all__ as github_url_all,
     build_clone_url,
+    invalid_repo_msg,
     noninteractive_env,
     redact_credentials,
+    repo_tmp_dir,
+    resolve_github_token,
     validate_repo_spec,
 )
 
@@ -70,6 +73,116 @@ class TestConstants:
 
     def test_git_clone_timeout_positive(self) -> None:
         assert GIT_CLONE_TIMEOUT_S > 0
+
+
+# ---------------------------------------------------------------------------
+# invalid_repo_msg
+# ---------------------------------------------------------------------------
+
+
+class TestInvalidRepoMsg:
+    """Tests for invalid_repo_msg()."""
+
+    def test_includes_repo_arg(self) -> None:
+        msg = invalid_repo_msg("badrepo")
+        assert "badrepo" in msg
+
+    def test_mentions_owner_repo(self) -> None:
+        msg = invalid_repo_msg("/tmp/foo")
+        assert "directory" in msg or "owner/repo" in msg
+
+    def test_returns_string(self) -> None:
+        assert isinstance(invalid_repo_msg("x"), str)
+
+
+# ---------------------------------------------------------------------------
+# resolve_github_token
+# ---------------------------------------------------------------------------
+
+
+class TestResolveGithubToken:
+    """Tests for resolve_github_token()."""
+
+    def test_explicit_token_returned(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        assert resolve_github_token("ghp_explicit") == "ghp_explicit"
+
+    def test_github_token_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_from_env")
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        assert resolve_github_token() == "ghp_from_env"
+
+    def test_gh_token_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.setenv("GH_TOKEN", "ghp_gh")
+        assert resolve_github_token() == "ghp_gh"
+
+    def test_explicit_overrides_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_env")
+        assert resolve_github_token("ghp_arg") == "ghp_arg"
+
+    def test_no_token_returns_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        assert resolve_github_token() == ""
+
+    def test_whitespace_token_treated_as_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        assert resolve_github_token("   ") == ""
+
+    def test_strips_whitespace(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        assert resolve_github_token("  ghp_tok  ") == "ghp_tok"
+
+    def test_github_token_priority_over_gh(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_primary")
+        monkeypatch.setenv("GH_TOKEN", "ghp_secondary")
+        assert resolve_github_token() == "ghp_primary"
+
+
+# ---------------------------------------------------------------------------
+# repo_tmp_dir
+# ---------------------------------------------------------------------------
+
+
+class TestRepoTmpDir:
+    """Tests for repo_tmp_dir()."""
+
+    def test_returns_none_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_REPO_TMP", raising=False)
+        assert repo_tmp_dir() is None
+
+    def test_returns_path_when_set(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: os.PathLike
+    ) -> None:
+        target = str(tmp_path / "clone_dir")
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", target)
+        result = repo_tmp_dir()
+        assert result is not None
+        assert str(result) == target
+        assert result.is_dir()
+
+    def test_creates_directory(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: os.PathLike
+    ) -> None:
+        target = str(tmp_path / "nested" / "deep" / "dir")
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", target)
+        result = repo_tmp_dir()
+        assert result is not None
+        assert result.is_dir()
+
+    def test_whitespace_only_returns_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_REPO_TMP", "   ")
+        assert repo_tmp_dir() is None
 
 
 # ---------------------------------------------------------------------------
