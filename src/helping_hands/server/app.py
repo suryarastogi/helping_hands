@@ -55,11 +55,6 @@ from helping_hands.server.constants import (
     DEFAULT_REDIS_URL as _DEFAULT_REDIS_URL,
     GRILL_ME_ENABLED_ENV_VAR as _GRILL_ME_ENABLED_ENV_VAR,
     INTERVAL_PRESETS as _INTERVAL_PRESETS,
-    JWT_TOKEN_PREFIX as _JWT_TOKEN_PREFIX,
-    KEYCHAIN_ACCESS_TOKEN_KEY as _KEYCHAIN_ACCESS_TOKEN_KEY,
-    KEYCHAIN_OAUTH_KEY as _KEYCHAIN_OAUTH_KEY,
-    KEYCHAIN_SERVICE_NAME as _KEYCHAIN_SERVICE_NAME,
-    KEYCHAIN_TIMEOUT_S as _KEYCHAIN_TIMEOUT_S,
     MAX_CI_WAIT_MINUTES as _MAX_CI_WAIT_MINUTES,
     MAX_GITHUB_TOKEN_LENGTH as _MAX_GITHUB_TOKEN_LENGTH,
     MAX_INTERVAL_SECONDS as _MAX_INTERVAL_SECONDS,
@@ -89,6 +84,10 @@ from helping_hands.server.multiplayer_yjs import (
     stop_yjs_server,
 )
 from helping_hands.server.task_result import normalize_task_result
+from helping_hands.server.token_helpers import (
+    get_claude_oauth_token as _get_claude_oauth_token,
+    redact_token as _redact_token,
+)
 
 if TYPE_CHECKING:
     from helping_hands.server.schedules import ScheduleManager
@@ -132,21 +131,6 @@ _CELERY_INSPECT_TIMEOUT_S = 1.0
 _HTTP_ERROR_BODY_PREVIEW_LENGTH = 200
 _USAGE_DATA_PREVIEW_LENGTH = 300
 
-# --- Token redaction parameters ---
-_REDACT_TOKEN_PREFIX_LEN = 4
-"""Number of leading characters to keep when redacting a token."""
-
-_REDACT_TOKEN_SUFFIX_LEN = 4
-"""Number of trailing characters to keep when redacting a token."""
-
-_REDACT_TOKEN_MIN_PARTIAL_LEN = 12
-"""Minimum token length for partial redaction (show prefix/suffix).
-
-Tokens at or below this length are fully masked to ``"***"`` to avoid
-leaking a disproportionate fraction of the secret.  At the default values
-(prefix=4, suffix=4), a 12-character token would expose 8 of 12 characters
-(67%), which is too much for meaningful redaction.
-"""
 
 # --- Schedule endpoint constants ---
 _SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
@@ -441,57 +425,6 @@ class ClaudeUsageResponse(BaseModel):
     levels: list[ClaudeUsageLevel] = Field(default_factory=list)
     error: str | None = None
     fetched_at: str
-
-
-def _get_claude_oauth_token() -> str | None:
-    """Read the Claude Code OAuth token.
-
-    Tries the CLI credentials file first (~/.claude/.credentials.json),
-    then falls back to the macOS Keychain for backwards-compatibility.
-    """
-    # 1) CLI credentials file (works on all platforms)
-    token = _read_claude_credentials_file()
-    if token:
-        return token
-
-    # 2) macOS Keychain fallback
-    try:
-        result = subprocess.run(
-            [
-                "security",
-                "find-generic-password",
-                "-s",
-                _KEYCHAIN_SERVICE_NAME,
-                "-w",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=_KEYCHAIN_TIMEOUT_S,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return None
-        raw = result.stdout.strip()
-        try:
-            creds = json.loads(raw)
-            return creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
-        except (json.JSONDecodeError, AttributeError):
-            return raw if raw.startswith(_JWT_TOKEN_PREFIX) else None
-    except (subprocess.SubprocessError, OSError):
-        logger.debug("Failed to read Claude OAuth token from Keychain", exc_info=True)
-        return None
-
-
-def _read_claude_credentials_file() -> str | None:
-    """Read the OAuth access token from ~/.claude/.credentials.json."""
-    creds_path = Path.home() / ".claude" / ".credentials.json"
-    try:
-        if not creds_path.is_file():
-            return None
-        creds = json.loads(creds_path.read_text(encoding="utf-8"))
-        return creds.get(_KEYCHAIN_OAUTH_KEY, {}).get(_KEYCHAIN_ACCESS_TOKEN_KEY)
-    except (json.JSONDecodeError, AttributeError, OSError):
-        logger.debug("Failed to read Claude credentials file", exc_info=True)
-        return None
 
 
 def _extract_usage_level(
@@ -4599,26 +4532,6 @@ def _get_schedule_manager() -> ScheduleManager:
                 detail=f"Scheduling not available: {exc}. {install_hint('server')}",
             ) from exc
     return _schedule_manager
-
-
-def _redact_token(token: str | None) -> str | None:
-    """Redact a token, keeping only the first and last few characters.
-
-    Tokens at or below :data:`_REDACT_TOKEN_MIN_PARTIAL_LEN` are fully
-    masked to avoid leaking a meaningful portion of the secret.
-
-    Args:
-        token: Raw token string, or ``None``.
-
-    Returns:
-        Redacted string with prefix/suffix visible, ``"***"`` for short
-        tokens, or ``None`` when *token* is falsy.
-    """
-    if not token:
-        return None
-    if len(token) <= _REDACT_TOKEN_MIN_PARTIAL_LEN:
-        return "***"
-    return f"{token[:_REDACT_TOKEN_PREFIX_LEN]}***{token[-_REDACT_TOKEN_SUFFIX_LEN:]}"
 
 
 def _schedule_to_response(task) -> ScheduleResponse:

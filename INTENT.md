@@ -10,6 +10,13 @@ Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
 `server/celery_app.py` by extracting `run_git_clone()` into `lib/github_url.py`.
 13 new tests, 6 test files updated. See [v357 plan](docs/exec-plans/active/v357-extract-shared-git-clone.md).
 
+### Extract Token Helpers & Add Tests (2026-04-04)
+
+Extract pure token/credential helpers (`redact_token`,
+`read_claude_credentials_file`, `get_claude_oauth_token`) from `server/app.py`
+into `server/token_helpers.py` — testable without server extras. 22 new tests.
+See [v357 plan](docs/exec-plans/active/v357-extract-token-helpers-and-tests.md).
+
 ## Recently Completed
 
 ### Server App Endpoint Coverage Hardening (2026-04-04) — Completed

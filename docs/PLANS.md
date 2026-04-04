@@ -7,12 +7,15 @@ Index of execution plans for helping_hands development.
 - [v357 — Extract Shared Git Clone Utility](exec-plans/active/v357-extract-shared-git-clone.md) —
   Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
   `server/celery_app.py` by extracting shared `run_git_clone()` into `github_url.py`
+- [v357 — Extract Token Helpers & Add Tests](exec-plans/active/v357-extract-token-helpers-and-tests.md) —
+  Extract pure token/credential helpers from `server/app.py` into testable
+  `server/token_helpers.py`; 22 new tests for redaction and credential reading
 
 ## Completed plans
 
 - [2026-04-04 v356 — Server App Endpoint Coverage Hardening](exec-plans/completed/2026/v356-server-app-endpoint-coverage.md) —
   Close coverage gaps in `server/app.py` (90% → 95%+) via task diff, file tree,
-  file content, and helper function edge-case tests; 26 tests added
+  file content, and helper function edge-case tests; 30 tests added
 
 - [2026-04-04 v355 — Troubleshooting Guide & Docs Refresh](exec-plans/completed/2026/v355-troubleshooting-guide-and-docs-refresh.md) —
   Create user-facing troubleshooting guide, refresh AGENTS.md metadata;
