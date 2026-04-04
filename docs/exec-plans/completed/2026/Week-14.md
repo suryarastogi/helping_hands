@@ -7,7 +7,8 @@ onboarding, Quick Start enhancement with first-run welcome banner,
 doctor/RepoIndex enhancements, interactive CLI mode, grill module
 testability, core utility coverage, CLI hand coverage, server coverage gaps,
 remaining edge cases, troubleshooting guide, server endpoint coverage,
-shared git clone utility extraction, and token helper extraction.
+shared git clone utility extraction, token helper extraction, and test
+consolidation cleanup.
 
 ---
 
@@ -239,3 +240,15 @@ path (candidate already set) was never reachable. Simplified to direct
 assignment. Resolved tech debt item tracked since v173.
 
 **0 new tests (40+ existing tests already cover the simplified logic). 6821 total tests. 76.03% coverage.**
+
+---
+
+## Apr 4 — Test Consolidation & Cleanup Candidate Resolution (v360)
+
+Resolved all 6 `# TODO: CLEANUP CANDIDATE` markers across test files. Deleted
+fully-duplicate `test_provider_build_inner.py` (9 tests covered by dedicated
+provider test files). Removed 33 redundant isinstance/positive/type-only
+assertions from constant test files (v135, v137, v138, v139) and 6
+docstring-policy tests from `test_iterative_constants.py`.
+
+**42 tests removed, 0 behavioral coverage lost. 6779 total tests. 76.03% coverage.**

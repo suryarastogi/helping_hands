@@ -4,25 +4,16 @@ Protects the contract between the iterative hand layer and its callers: backend
 name strings are used for CLI --backend dispatch and metadata tagging, so a
 silent rename or case change would break both selection and downstream result
 parsing.  README/AGENT candidate tuples drive bootstrap document lookup on
-case-insensitive and case-sensitive filesystems.  Docstring presence checks
-enforce the Google-style documentation policy for public methods.
-
-# TODO: CLEANUP CANDIDATE
-The docstring-presence tests (TestDocstringsPresent) verify stylistic policy
-rather than behavioral invariants — they will fail on any future refactor that
-renames methods, but don't protect against correctness regressions.
+case-insensitive and case-sensitive filesystems.
 """
 
 from __future__ import annotations
-
-import inspect
 
 from helping_hands.lib.hands.v1.hand.iterative import (
     _AGENT_DOC_CANDIDATES,
     _README_CANDIDATES,
     BasicAtomicHand,
     BasicLangGraphHand,
-    _BasicIterativeHand,
 )
 
 # ---------------------------------------------------------------------------
@@ -95,53 +86,3 @@ class TestBackendNameConstants:
         assert "-" in BasicLangGraphHand._BACKEND_NAME
         assert "-" in BasicAtomicHand._BACKEND_NAME
 
-
-# ---------------------------------------------------------------------------
-# Docstring presence on key methods
-# ---------------------------------------------------------------------------
-
-_METHODS_WITH_DOCSTRINGS = [
-    "_execution_tools_enabled",
-    "_web_tools_enabled",
-    "_tool_instructions",
-    "_format_command",
-    "_tool_disabled_error",
-    "_read_bootstrap_doc",
-    "_build_tree_snapshot",
-    "_build_bootstrap_context",
-]
-
-
-class TestDocstringsPresent:
-    """Verify that key _BasicIterativeHand methods have docstrings."""
-
-    def test_all_key_methods_have_docstrings(self):
-        for method_name in _METHODS_WITH_DOCSTRINGS:
-            method = getattr(_BasicIterativeHand, method_name)
-            doc = inspect.getdoc(method)
-            assert doc, f"{method_name} is missing a docstring"
-
-    def test_docstrings_are_non_trivial(self):
-        """Docstrings should be at least 10 characters (not just whitespace)."""
-        for method_name in _METHODS_WITH_DOCSTRINGS:
-            method = getattr(_BasicIterativeHand, method_name)
-            doc = inspect.getdoc(method)
-            assert doc and len(doc.strip()) >= 10, (
-                f"{method_name} docstring is too short"
-            )
-
-    def test_tool_instructions_docstring_has_returns(self):
-        doc = inspect.getdoc(_BasicIterativeHand._tool_instructions)
-        assert "Returns:" in doc
-
-    def test_format_command_docstring_has_args(self):
-        doc = inspect.getdoc(_BasicIterativeHand._format_command)
-        assert "Args:" in doc
-
-    def test_read_bootstrap_doc_docstring_has_args(self):
-        doc = inspect.getdoc(_BasicIterativeHand._read_bootstrap_doc)
-        assert "Args:" in doc
-
-    def test_build_tree_snapshot_docstring_has_returns(self):
-        doc = inspect.getdoc(_BasicIterativeHand._build_tree_snapshot)
-        assert "Returns:" in doc

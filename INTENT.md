@@ -8,6 +8,14 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Test Consolidation & Cleanup Candidate Resolution (2026-04-04) — Completed
+
+Resolved all 6 `# TODO: CLEANUP CANDIDATE` markers in test files. Removed 42
+redundant tests (isinstance/positive/type-only assertions that duplicated
+value-equality tests, plus fully-duplicate `test_provider_build_inner.py`).
+All behavioral tests preserved, coverage unchanged at 76.03%.
+See [v360 plan](docs/exec-plans/completed/2026/v360-test-consolidation-cleanup.md).
+
 ### Dead Code Cleanup & Tech Debt Resolution (2026-04-04) — Completed
 
 Remove unreachable `if not candidate:` guard in `_commit_message_from_prompt`,

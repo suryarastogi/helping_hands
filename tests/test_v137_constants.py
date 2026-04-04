@@ -8,10 +8,6 @@ require an explicit acknowledgement of the change.
 
 _ANTHROPIC_USAGE_URL must remain an HTTPS endpoint; a regression to HTTP would
 transmit OAuth tokens in cleartext.
-
-# TODO: CLEANUP CANDIDATE — the individual positive/type assertions per constant
-# duplicate the all_timeouts_are_positive aggregate test; they add no extra
-# failure signal once the value tests pass.
 """
 
 from __future__ import annotations
@@ -88,11 +84,6 @@ class TestAppAnthropicApiConstants:
 
         assert _ANTHROPIC_USAGE_URL == "https://api.anthropic.com/api/oauth/usage"
 
-    def test_usage_url_is_https(self) -> None:
-        from helping_hands.server.app import _ANTHROPIC_USAGE_URL
-
-        assert _ANTHROPIC_USAGE_URL.startswith("https://")
-
     def test_beta_header_value(self) -> None:
         from helping_hands.server.app import _ANTHROPIC_BETA_HEADER
 
@@ -102,11 +93,6 @@ class TestAppAnthropicApiConstants:
         from helping_hands.server.app import _USAGE_USER_AGENT
 
         assert _USAGE_USER_AGENT == "claude-code/2.0.32"
-
-    def test_user_agent_has_version(self) -> None:
-        from helping_hands.server.app import _USAGE_USER_AGENT
-
-        assert "/" in _USAGE_USER_AGENT
 
 
 # ---------------------------------------------------------------------------

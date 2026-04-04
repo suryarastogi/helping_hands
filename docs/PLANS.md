@@ -8,6 +8,12 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-04 v360 — Test Consolidation & Cleanup Candidate Resolution](exec-plans/completed/2026/v360-test-consolidation-cleanup.md) —
+  Resolve all `# TODO: CLEANUP CANDIDATE` markers across 6 test files, remove duplicate
+  `test_provider_build_inner.py`; 42 redundant tests removed, 0 behavioral coverage lost;
+  6779 tests pass, 76.03% coverage
+
+
 - [2026-04-04 v359 — Dead Code Cleanup & Tech Debt Resolution](exec-plans/completed/2026/v359-dead-code-cleanup-and-tech-debt.md) —
   Remove unreachable `if not candidate:` guard in `_commit_message_from_prompt`,
   resolve tech debt item, update consolidation docs; 0 tests added (40+ existing tests cover it)
