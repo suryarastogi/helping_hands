@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Server Pure Helper Coverage (2026-04-04) — Completed
+
+Unit-tested pure helper functions across `server/app.py`, `server/celery_app.py`,
+and `server/schedules.py` — task extraction, status normalization, source-tag
+merging, Flower env config, kwargs parsing, usage-level extraction, backend
+validation, runtime formatting, repo-path resolution, cron/interval scheduling.
+111 new tests across 3 files. With server extras: app.py 1%→94%,
+celery_app.py 3%→99%, schedules.py 2%→95%, total 98.71%.
+See [v363 plan](docs/exec-plans/completed/2026/v363-server-pure-helper-coverage.md).
+
 ### Expand Model Inference Prefixes (2026-04-04) — Completed
 
 Added 10 common open-source model family prefixes (mistral, mixtral, phi,

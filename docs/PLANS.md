@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-04 v363 — Server Pure Helper Coverage](exec-plans/completed/2026/v363-server-pure-helper-coverage.md) — Unit-test pure helpers in app.py, celery_app.py, schedules.py; 111 tests, coverage 98.71%
+
+
 - [2026-04-04 v362 — Expand Model Inference Prefixes](exec-plans/completed/2026/v362-expand-model-inference-prefixes.md) — Expand `_infer_provider_name` with 10 Ollama OSS prefixes and OpenAI reasoning prefixes; 21 tests added
 
 - [2026-04-04 v361 — Fix Stale Test Imports & Coverage Recovery](exec-plans/completed/2026/v361-fix-stale-test-imports-and-coverage-recovery.md) —
