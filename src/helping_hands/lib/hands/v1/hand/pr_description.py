@@ -529,7 +529,8 @@ def _build_commit_message_prompt(
         "You are generating a git commit message for a code change.\n\n"
         "Instructions:\n"
         "- Write a single-line commit message under 72 characters.\n"
-        "- Use conventional commit style (e.g., feat:, fix:, refactor:, docs:, chore:).\n"
+        "- Use conventional commit style "
+        "(e.g., feat:, fix:, refactor:, docs:, chore:).\n"
         "- Be specific about WHAT changed — do not use generic messages like "
         '"apply updates" or "make changes".\n'
         "- Focus on the purpose/effect of the change, not the mechanism.\n"

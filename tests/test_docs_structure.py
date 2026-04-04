@@ -7435,3 +7435,59 @@ class TestExamplesDirectory:
     def test_examples_readme_lists_fix_greeting(self) -> None:
         text = (self.examples_dir / "README.md").read_text()
         assert "fix-greeting" in text
+
+
+class TestTroubleshootingMd:
+    """docs/TROUBLESHOOTING.md should exist with actionable sections."""
+
+    @pytest.fixture()
+    def content(self) -> str:
+        path = DOCS_DIR / "TROUBLESHOOTING.md"
+        assert path.exists(), "docs/TROUBLESHOOTING.md should exist"
+        return path.read_text()
+
+    def test_has_top_heading(self, content: str) -> None:
+        assert content.startswith("# Troubleshooting")
+
+    def test_has_environment_setup_section(self, content: str) -> None:
+        assert "## Environment setup" in content
+
+    def test_has_api_keys_section(self, content: str) -> None:
+        assert "## API keys" in content
+
+    def test_has_backend_specific_section(self, content: str) -> None:
+        assert "## Backend-specific issues" in content
+
+    def test_has_runtime_errors_section(self, content: str) -> None:
+        assert "## Common runtime errors" in content
+
+    def test_has_server_mode_section(self, content: str) -> None:
+        assert "## Server mode" in content
+
+    def test_references_doctor_command(self, content: str) -> None:
+        assert "helping-hands doctor" in content
+
+    def test_references_provider_env_vars(self, content: str) -> None:
+        """Should mention at least the major provider env vars."""
+        for var in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN"):
+            assert var in content, f"TROUBLESHOOTING.md should mention {var}"
+
+    def test_references_idle_timeout_env(self, content: str) -> None:
+        assert "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS" in content
+
+    def test_has_code_blocks(self, content: str) -> None:
+        """Should contain actionable code snippets."""
+        assert content.count("```") >= 6, (
+            "TROUBLESHOOTING.md should have multiple code blocks with solutions"
+        )
+
+    def test_minimum_length(self, content: str) -> None:
+        assert len(content) >= 2000, (
+            "TROUBLESHOOTING.md should be substantial (≥2000 chars)"
+        )
+
+    def test_docs_index_references_troubleshooting(self) -> None:
+        index = (DOCS_DIR / "index.md").read_text()
+        assert "TROUBLESHOOTING.md" in index, (
+            "docs/index.md should reference TROUBLESHOOTING.md"
+        )

@@ -4,11 +4,15 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v354 — Remaining Edge Case Coverage](exec-plans/active/v354-remaining-edge-case-coverage.md) —
-  Close last <2% gaps in `github.py`, `cli/base.py`, `cli/claude.py`, `cli/goose.py`;
-  17 targeted tests for PR workflow and output correctness edge cases
+- [v355 — Troubleshooting Guide & Docs Refresh](exec-plans/active/v355-troubleshooting-guide-and-docs-refresh.md) —
+  Create user-facing troubleshooting guide, refresh AGENTS.md metadata,
+  add doc structure tests
 
 ## Completed plans
+
+- [2026-04-04 v354 — Remaining Edge Case Coverage](exec-plans/completed/2026/v354-remaining-edge-case-coverage.md) —
+  Close last <2% gaps in `github.py`, `cli/base.py`, `cli/claude.py`, `cli/goose.py`;
+  17 tests added for PR workflow and output correctness edge cases
 
 - [2026-04-04 v353 — Server Module Coverage Gaps](exec-plans/completed/2026/v353-server-coverage-gaps.md) —
   Close remaining coverage gaps in `server/app.py` and `server/schedules.py`

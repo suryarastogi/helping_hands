@@ -16,6 +16,7 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 | [RELIABILITY.md](RELIABILITY.md) | Reliability patterns and error handling |
 | [PRODUCT_SENSE.md](PRODUCT_SENSE.md) | Product capabilities and roadmap |
 | [QUALITY_SCORE.md](QUALITY_SCORE.md) | Test coverage targets and quality gates |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions |
 | [PLANS.md](PLANS.md) | Execution plan index (active and completed) |
 | [app-mode.md](app-mode.md) | App mode setup, Docker Compose, Celery scheduling |
 | [backends.md](backends.md) | Backend reference: env vars, auth, and usage notes |
