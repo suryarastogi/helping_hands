@@ -17,6 +17,9 @@ For full project details, see the [README](https://github.com/suryarastogi/helpi
 | [PRODUCT_SENSE.md](PRODUCT_SENSE.md) | Product capabilities and roadmap |
 | [QUALITY_SCORE.md](QUALITY_SCORE.md) | Test coverage targets and quality gates |
 | [PLANS.md](PLANS.md) | Execution plan index (active and completed) |
+| [app-mode.md](app-mode.md) | App mode setup (Docker Compose, local stack, scheduling) |
+| [backends.md](backends.md) | Backend reference (env vars, auth, usage notes) |
+| [development.md](development.md) | Development setup, install, lint, test, configuration |
 | [design-docs/](design-docs/index.md) | Design documents (core beliefs, hand abstraction, provider abstraction, two-phase CLI, testing methodology, error handling, MCP architecture, config loading, repo indexing, scheduling system, deployment modes, CI pipeline, GitHub client, PR description, default prompts, filesystem security, model resolution, E2E hand workflow, task lifecycle, web tools, docker sandbox, command execution, local stack, usage monitoring, backend routing, multiplayer hand world, repo selection UI) |
 | [product-specs/](product-specs/index.md) | Product specifications (onboarding, etc.) |
 | [exec-plans/](exec-plans/) | Active and completed execution plans |

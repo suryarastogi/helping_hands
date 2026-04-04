@@ -548,8 +548,7 @@ class TestReadmeMdSections:
         [
             "## Quick start",
             "## Project structure",
-            "## Configuration",
-            "## Development",
+            "## Documentation",
         ],
     )
     def test_required_section_exists(self, readme_text: str, section: str) -> None:

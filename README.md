@@ -59,6 +59,12 @@ export ANTHROPIC_API_KEY="sk-ant-..." # for Claude models
 export GOOGLE_API_KEY="..."           # for Gemini models
 ```
 
+For commit/push/PR features, also set a GitHub token:
+
+```bash
+export GITHUB_TOKEN="ghp_..."
+```
+
 Verify your environment is ready:
 
 ```bash

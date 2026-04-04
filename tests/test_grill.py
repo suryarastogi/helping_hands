@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytest.importorskip("celery", reason="celery required (install with --extra server)")
+
 from helping_hands.lib.repo import RepoIndex
 
 

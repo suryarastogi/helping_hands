@@ -8,6 +8,18 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Fix Test Regressions & Weekly Consolidation (2026-04-04) — Completed
+
+Fixed 17 test failures introduced by README slim-down (c7601f0): updated
+`docs/index.md` to reference `app-mode.md`/`development.md`/`backends.md`,
+added `GITHUB_TOKEN` mention to README Quick Start, updated
+`TestReadmeMdSections` to match slimmed README, and added
+`pytest.importorskip("celery")` guard to `test_grill.py`. Created Week-14
+consolidation. 6567 tests passed, 269 skipped, 0 failures. See
+[v347 plan](docs/exec-plans/completed/2026/v347-fix-test-regressions-and-consolidation.md).
+
+## Previously Completed
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →
