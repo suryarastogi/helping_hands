@@ -212,6 +212,18 @@ _META_CI_FIX_ATTEMPTS = "ci_fix_attempts"
 _META_CI_FIX_ERROR = "ci_fix_error"
 """Metadata key for the error message from a failed CI-fix loop."""
 
+_META_CONFLICT_FIX_STATUS = "conflict_fix_status"
+"""Metadata key for the conflict resolution outcome."""
+
+_META_CONFLICT_FIX_ERROR = "conflict_fix_error"
+"""Metadata key for the error message from conflict resolution."""
+
+_META_MASTER_REBASE_STATUS = "master_rebase_status"
+"""Metadata key for the master rebase outcome."""
+
+_META_MASTER_REBASE_ERROR = "master_rebase_error"
+"""Metadata key for the error message from master rebase."""
+
 _META_PR_ERROR = "pr_error"
 """Metadata key for the error message from a failed PR operation."""
 
@@ -265,6 +277,8 @@ class Hand(abc.ABC):
         self.pr_number: int | None = None
         self.issue_number: int | None = None
         self.fix_ci: bool = False
+        self.fix_conflicts: bool = False
+        self.master_rebase: bool = False
         self.ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
         self.ci_max_retries: int = _DEFAULT_CI_MAX_RETRIES
         self.last_pr_metadata: dict[str, str] = {}

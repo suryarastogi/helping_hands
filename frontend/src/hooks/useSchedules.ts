@@ -84,6 +84,8 @@ export function useSchedules(): UseSchedulesReturn {
         enable_web: item.enable_web,
         use_native_cli_auth: item.use_native_cli_auth,
         fix_ci: item.fix_ci ?? false,
+        fix_conflicts: item.fix_conflicts ?? false,
+        master_rebase: item.master_rebase ?? false,
         ci_check_wait_minutes: item.ci_check_wait_minutes ?? 3,
         github_token: item.github_token ?? "",
         reference_repos: (item.reference_repos ?? []).join(", "),
@@ -133,6 +135,8 @@ export function useSchedules(): UseSchedulesReturn {
       enable_web: scheduleForm.enable_web,
       use_native_cli_auth: scheduleForm.use_native_cli_auth,
       fix_ci: scheduleForm.fix_ci,
+      fix_conflicts: scheduleForm.fix_conflicts,
+      master_rebase: scheduleForm.master_rebase,
       ci_check_wait_minutes: scheduleForm.ci_check_wait_minutes,
       enabled: scheduleForm.enabled,
     };

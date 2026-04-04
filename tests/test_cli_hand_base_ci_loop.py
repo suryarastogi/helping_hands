@@ -37,6 +37,8 @@ class _Stub(_TwoPhaseCLIHand):
         self._active_process = None
         self._ci_fix_mode = False
         self.fix_ci = fix_ci
+        self.fix_conflicts = False
+        self.master_rebase = False
         self.ci_check_wait_minutes = 0.001  # near-instant for tests
         self.ci_max_retries = 2
         self.repo_index = MagicMock()

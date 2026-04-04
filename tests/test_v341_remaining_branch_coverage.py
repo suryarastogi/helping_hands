@@ -166,6 +166,8 @@ class TestPollCiChecksDeadlineBreak:
                 self._active_process = None
                 self._ci_fix_mode = False
                 self.fix_ci = False
+                self.fix_conflicts = False
+                self.master_rebase = False
                 self.ci_check_wait_minutes = 0.001
                 self.ci_max_retries = 1
                 self.repo_index = MagicMock()
@@ -241,6 +243,8 @@ class TestCiFixLoopTimeout:
                 self._active_process = None
                 self._ci_fix_mode = False
                 self.fix_ci = True
+                self.fix_conflicts = False
+                self.master_rebase = False
                 self.ci_check_wait_minutes = 0.001
                 self.ci_max_retries = 3
                 self.repo_index = MagicMock()
