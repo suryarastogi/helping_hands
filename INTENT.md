@@ -8,6 +8,16 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Expand Model Inference Prefixes (2026-04-04) — Completed
+
+Added 10 common open-source model family prefixes (mistral, mixtral, phi,
+codellama, deepseek, qwen, starcoder, vicuna, yi) to `_infer_provider_name`
+for correct Ollama routing. Added explicit OpenAI reasoning model prefixes
+(gpt, o1, o3, o4). Previously, bare model names like `mistral-7b` or
+`deepseek-coder-v2` were incorrectly routed to OpenAI. Refactored to use
+`_OLLAMA_MODEL_PREFIXES` / `_OPENAI_MODEL_PREFIXES` tuples. 21 new tests.
+See [v362 plan](docs/exec-plans/completed/2026/v362-expand-model-inference-prefixes.md).
+
 ### Fix Stale Test Imports & Coverage Recovery (2026-04-04) — Completed
 
 Fixed 10 test files with broken imports left behind by v357 token_helpers/github_url

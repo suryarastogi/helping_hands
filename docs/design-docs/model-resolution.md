@@ -46,8 +46,11 @@ reference exactly what the user typed.
    inference.
 
 4. **Prefix inference** — bare model names are matched against common prefixes:
-   `claude*` to Anthropic, `gemini*` to Google, `llama*` to Ollama, everything
-   else to OpenAI.
+   `claude*` to Anthropic, `gemini*` to Google, common open-source families
+   (`llama`, `mistral`, `mixtral`, `phi`, `codellama`, `deepseek`, `qwen`,
+   `starcoder`, `vicuna`, `yi`) to Ollama, explicit OpenAI families (`gpt`,
+   `o1`, `o3`, `o4`) to OpenAI, and everything else to OpenAI as default
+   fallback.
 
 This ordering means explicit forms always win over heuristics.  The fallthrough
 from stage 3 (unrecognized `provider/model`) to stage 4 handles cases like
@@ -96,8 +99,11 @@ OpenAI-compatible model.
 - **Lazy SDK imports** — LangChain and Atomic dependencies are imported only
   when the corresponding backend is selected, keeping the base install lean.
 - **Heuristic inference as last resort** — prefix matching (`claude*` to
-  Anthropic) is convenient but imprecise.  The slash-separated form
-  (`anthropic/model-name`) is always preferred for unambiguous resolution.
+  Anthropic, `mistral*` to Ollama, etc.) is convenient but imprecise.  The
+  slash-separated form (`anthropic/model-name`) is always preferred for
+  unambiguous resolution.  Prefix tuples (`_OLLAMA_MODEL_PREFIXES`,
+  `_OPENAI_MODEL_PREFIXES`) are used for maintainability — new model
+  families can be added by appending to the tuple.
 - **Provider registry as source of truth** — `PROVIDERS` dict from
   `lib/ai_providers/__init__.py` is the single registry.  Model resolution
   never creates provider instances independently.

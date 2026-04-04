@@ -15,6 +15,8 @@ from helping_hands.lib.validation import require_non_empty_string
 
 __all__ = [
     "PROVIDER_API_KEY_ENV",
+    "_OLLAMA_MODEL_PREFIXES",
+    "_OPENAI_MODEL_PREFIXES",
     "_PROVIDER_ANTHROPIC",
     "_PROVIDER_GOOGLE",
     "_PROVIDER_LITELLM",
@@ -137,14 +139,40 @@ def resolve_hand_model(model: str | None) -> HandModel:
     return HandModel(provider=provider, model=raw, raw=raw)
 
 
+_OLLAMA_MODEL_PREFIXES = (
+    "llama",
+    "mistral",
+    "mixtral",
+    "phi",
+    "codellama",
+    "deepseek",
+    "qwen",
+    "starcoder",
+    "vicuna",
+    "yi",
+)
+"""Model-name prefixes that indicate an Ollama-hosted open-source model."""
+
+_OPENAI_MODEL_PREFIXES = ("gpt", "o1", "o3", "o4")
+"""Model-name prefixes that indicate an OpenAI model."""
+
+
 def _infer_provider_name(model: str) -> str:
+    """Infer AI provider from a bare model name using prefix heuristics.
+
+    Resolution order: Anthropic (``claude*``), Google (``gemini*``),
+    Ollama (common open-source families), explicit OpenAI (``gpt*``,
+    ``o1*``, ``o3*``, ``o4*``), then OpenAI as default fallback.
+    """
     lowered = model.lower()
     if lowered.startswith("claude"):
         return _PROVIDER_ANTHROPIC
     if lowered.startswith("gemini"):
         return _PROVIDER_GOOGLE
-    if lowered.startswith("llama"):
+    if any(lowered.startswith(p) for p in _OLLAMA_MODEL_PREFIXES):
         return _PROVIDER_OLLAMA
+    if any(lowered.startswith(p) for p in _OPENAI_MODEL_PREFIXES):
+        return _PROVIDER_OPENAI
     return _PROVIDER_OPENAI
 
 

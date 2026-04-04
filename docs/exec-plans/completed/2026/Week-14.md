@@ -252,3 +252,17 @@ assertions from constant test files (v135, v137, v138, v139) and 6
 docstring-policy tests from `test_iterative_constants.py`.
 
 **42 tests removed, 0 behavioral coverage lost. 6779 total tests. 76.03% coverage.**
+
+---
+
+## Apr 4 — Expand Model Inference Prefixes (v362)
+
+Added common open-source model family prefixes to `_infer_provider_name`
+for correct Ollama routing: `mistral`, `mixtral`, `phi`, `codellama`,
+`deepseek`, `qwen`, `starcoder`, `vicuna`, `yi`. Added explicit OpenAI
+reasoning model prefixes: `gpt`, `o1`, `o3`, `o4`. Previously, bare model
+names like `mistral-7b` were silently misrouted to OpenAI. Refactored
+to use `_OLLAMA_MODEL_PREFIXES` / `_OPENAI_MODEL_PREFIXES` tuple constants.
+Updated `model-resolution.md` design doc.
+
+**21 new tests. 6830 total tests. 76.05% coverage.**
