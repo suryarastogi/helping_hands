@@ -8,6 +8,18 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Fix Test Drift & Validation Coverage (2026-04-04) — Completed
+
+Fixed 17 test failures caused by README slimming (commit `c7601f0`):
+updated `TestReadmeMdSections` to match new README shape (no `## Configuration`
+/ `## Development`), replaced `test_mentions_github_token` with
+`test_has_documentation_section`, added missing `app-mode.md`/`backends.md`/
+`development.md` references to `docs/index.md`, added `pytest.importorskip`
+guard to `test_grill.py` for environments without server extras, and added
+`TestHasCliFlag`/`TestInstallHint` test classes to `test_validation.py` for
+100% validation module coverage. 12 new tests, 7710 tests passed, 91.33%
+overall coverage. See [v347 plan](docs/exec-plans/completed/2026/v347-fix-test-drift-and-validation-coverage.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →

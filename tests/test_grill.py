@@ -7,6 +7,9 @@ from unittest.mock import patch
 
 import pytest
 
+# Server extras (celery, etc.) may not be installed.
+pytest.importorskip("celery", reason="server extras not installed")
+
 from helping_hands.lib.repo import RepoIndex
 
 

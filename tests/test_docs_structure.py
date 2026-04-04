@@ -548,8 +548,7 @@ class TestReadmeMdSections:
         [
             "## Quick start",
             "## Project structure",
-            "## Configuration",
-            "## Development",
+            "## Documentation",
         ],
     )
     def test_required_section_exists(self, readme_text: str, section: str) -> None:
@@ -7133,8 +7132,8 @@ class TestReadmeSections:
     def test_mentions_e2e_hand(self, content: str) -> None:
         assert "E2EHand" in content
 
-    def test_mentions_github_token(self, content: str) -> None:
-        assert "token" in content.lower()
+    def test_has_documentation_section(self, content: str) -> None:
+        assert "## Documentation" in content
 
 
 # ---------------------------------------------------------------------------

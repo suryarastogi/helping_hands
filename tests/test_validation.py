@@ -17,6 +17,8 @@ import pytest
 from helping_hands.lib.validation import (
     __all__ as validation_all,
     format_type_error,
+    has_cli_flag,
+    install_hint,
     parse_comma_list,
     require_non_empty_string,
     require_positive_float,
@@ -41,6 +43,57 @@ class TestModuleAll:
             "require_positive_float",
             "require_positive_int",
         }
+
+
+# ---------------------------------------------------------------------------
+# has_cli_flag
+# ---------------------------------------------------------------------------
+
+
+class TestHasCliFlag:
+    """Tests for has_cli_flag()."""
+
+    def test_exact_match(self) -> None:
+        assert has_cli_flag(["--model", "gpt-5.2"], "model") is True
+
+    def test_prefix_match_with_equals(self) -> None:
+        assert has_cli_flag(["--model=gpt-5.2"], "model") is True
+
+    def test_no_match(self) -> None:
+        assert has_cli_flag(["--backend", "codexcli"], "model") is False
+
+    def test_empty_tokens(self) -> None:
+        assert has_cli_flag([], "model") is False
+
+    def test_partial_name_no_false_positive(self) -> None:
+        """--models should not match flag 'model'."""
+        assert has_cli_flag(["--models"], "model") is False
+
+    def test_flag_among_many(self) -> None:
+        tokens = ["--backend", "codexcli", "--model", "gpt-5.2", "--no-pr"]
+        assert has_cli_flag(tokens, "model") is True
+        assert has_cli_flag(tokens, "no-pr") is True
+        assert has_cli_flag(tokens, "backend") is True
+        assert has_cli_flag(tokens, "verbose") is False
+
+
+# ---------------------------------------------------------------------------
+# install_hint
+# ---------------------------------------------------------------------------
+
+
+class TestInstallHint:
+    """Tests for install_hint()."""
+
+    def test_server_extra(self) -> None:
+        assert install_hint("server") == "Install with: uv sync --extra server"
+
+    def test_langchain_extra(self) -> None:
+        result = install_hint("langchain")
+        assert "uv sync --extra langchain" in result
+
+    def test_contains_extra_name(self) -> None:
+        assert "atomic" in install_hint("atomic")
 
 
 # ---------------------------------------------------------------------------
