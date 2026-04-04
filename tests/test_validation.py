@@ -17,6 +17,8 @@ import pytest
 from helping_hands.lib.validation import (
     __all__ as validation_all,
     format_type_error,
+    has_cli_flag,
+    install_hint,
     parse_comma_list,
     require_non_empty_string,
     require_positive_float,
@@ -41,6 +43,72 @@ class TestModuleAll:
             "require_positive_float",
             "require_positive_int",
         }
+
+
+# ---------------------------------------------------------------------------
+# has_cli_flag
+# ---------------------------------------------------------------------------
+
+
+class TestHasCliFlag:
+    """Tests for has_cli_flag()."""
+
+    def test_bare_flag_present(self) -> None:
+        assert has_cli_flag(["--model", "gpt-4"], "model") is True
+
+    def test_flag_with_equals(self) -> None:
+        assert has_cli_flag(["--model=gpt-4"], "model") is True
+
+    def test_flag_missing(self) -> None:
+        assert has_cli_flag(["--verbose", "--output=x"], "model") is False
+
+    def test_empty_token_list(self) -> None:
+        assert has_cli_flag([], "model") is False
+
+    def test_partial_name_no_match(self) -> None:
+        """--mod should not match flag 'model'."""
+        assert has_cli_flag(["--mod"], "model") is False
+
+    def test_prefix_overlap_no_false_positive(self) -> None:
+        """--model-name should not match flag 'model'."""
+        assert has_cli_flag(["--model-name=x"], "model") is False
+
+    def test_multiple_flags(self) -> None:
+        tokens = ["--verbose", "--model=gpt-4", "--output", "file"]
+        assert has_cli_flag(tokens, "model") is True
+        assert has_cli_flag(tokens, "verbose") is True
+        assert has_cli_flag(tokens, "output") is True
+
+    def test_flag_not_confused_with_value(self) -> None:
+        """A value that looks like a flag should not match."""
+        assert has_cli_flag(["--output", "--model"], "model") is True
+
+    def test_single_char_flag(self) -> None:
+        assert has_cli_flag(["--v"], "v") is True
+
+    def test_flag_with_empty_equals_value(self) -> None:
+        assert has_cli_flag(["--model="], "model") is True
+
+
+# ---------------------------------------------------------------------------
+# install_hint
+# ---------------------------------------------------------------------------
+
+
+class TestInstallHint:
+    """Tests for install_hint()."""
+
+    def test_server_extra(self) -> None:
+        assert install_hint("server") == "Install with: uv sync --extra server"
+
+    def test_langchain_extra(self) -> None:
+        assert install_hint("langchain") == "Install with: uv sync --extra langchain"
+
+    def test_result_starts_with_install(self) -> None:
+        assert install_hint("atomic").startswith("Install with:")
+
+    def test_extra_name_appears_in_output(self) -> None:
+        assert "mcp" in install_hint("mcp")
 
 
 # ---------------------------------------------------------------------------

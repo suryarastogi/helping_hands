@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-04 v347 — Validation Coverage & Week-14 Consolidation](exec-plans/completed/2026/v347-validation-coverage-and-week14-consolidation.md) —
+  Close last two untested `validation.py` functions (`has_cli_flag`,
+  `install_hint`); 14 tests added; Week-14 weekly consolidation created
+
 - [2026-03-30 v346 — Quick Start Enhancement & First-Run Banner](exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md) —
   Rewrite README Quick Start as three numbered steps (install, set keys, run);
   implement first-run welcome banner with `~/.helping_hands/.first_run_done`

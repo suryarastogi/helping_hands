@@ -8,6 +8,15 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Validation Coverage & Week-14 Consolidation (2026-04-04) — Completed
+
+Closed last two untested functions in `validation.py`: `has_cli_flag` (10 tests
+covering bare flags, `--flag=value`, missing flags, partial matches, prefix
+overlaps) and `install_hint` (4 tests verifying output format for various
+extras). `validation.py` now at 100% function coverage. Created Week-14 weekly
+consolidation covering Mar 30 – Apr 5. See
+[v347 plan](docs/exec-plans/completed/2026/v347-validation-coverage-and-week14-consolidation.md).
+
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
 Rewrote README Quick Start as three numbered steps (install → set API keys →
