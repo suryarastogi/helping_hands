@@ -4,7 +4,14 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-*(none — awaiting next task)*
+### Test Coverage Gaps & Docs Structure Fix (2026-04-04) — In Progress
+
+Fix 4 broken docs structure tests caused by README slimming (c7601f0). Close
+coverage gaps in `task_result.py` (0% → 100%), `grill.py` Redis helpers
+(`_set_state`, `_get_state`, `_push_ai_msg`, `_pop_user_msg`), and update
+`docs/index.md` to reference `backends.md`, `app-mode.md`, and
+`development.md`. 28 new tests added. See
+[v347 plan](docs/exec-plans/active/v347-test-coverage-and-docs-fix.md).
 
 ## Recently Completed
 

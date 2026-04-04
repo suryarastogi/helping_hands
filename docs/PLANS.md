@@ -4,7 +4,9 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [2026-04-04 v347 — Test Coverage Gaps & Docs Structure Fix](exec-plans/active/v347-test-coverage-and-docs-fix.md) —
+  Fix broken docs structure tests after README slimming, close coverage gaps in
+  task_result.py, grill.py Redis helpers, and app.py utility functions
 
 ## Completed plans
 
