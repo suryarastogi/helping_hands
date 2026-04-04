@@ -32,8 +32,6 @@ from helping_hands.lib.hands.v1.hand.base import (
     _META_CI_FIX_STATUS,
     _META_CONFLICT_FIX_ERROR,
     _META_CONFLICT_FIX_STATUS,
-    _META_MASTER_REBASE_ERROR,
-    _META_MASTER_REBASE_STATUS,
     _META_MODEL,
     _META_PR_BRANCH,
     _META_PR_COMMIT,
@@ -2100,129 +2098,158 @@ class _TwoPhaseCLIHand(Hand):
         await emit(self._label_msg("Conflicts resolved and rebase completed.\n"))
         return ConflictFixStatus.SUCCESS
 
-    async def _fix_conflicts_loop(
+    async def _ai_resolve_push_conflicts(
         self,
         *,
         metadata: dict[str, str],
         emit: Any,
     ) -> dict[str, str]:
-        """Rebase the current branch against its remote tracking branch.
+        """AI-resolve conflicts left by a failed push rebase, then push.
 
-        When ``fix_conflicts`` is enabled and there is a PR branch, this
-        fetches the remote branch and rebases onto it so that local changes
-        can be pushed without conflicts.  Any rebase conflicts are resolved
-        by the AI backend.
-
-        This runs *before* finalization push so the push will not be rejected.
+        Called after ``_finalize_repo_pr`` when ``conflict_fix_status`` is
+        ``"needs_ai"`` — meaning a ``git rebase`` onto the remote PR branch
+        is in progress with unresolved conflicts.
         """
-        if not self.fix_conflicts:
+        if metadata.get(_META_CONFLICT_FIX_STATUS) != "needs_ai":
+            return metadata
+
+        branch = metadata.pop("_conflict_branch", "")
+        metadata.pop("_conflict_repo", None)
+        if not branch:
             return metadata
 
         repo_dir = self.repo_index.root.resolve()
+        conflicted_files = self._get_conflicted_files(repo_dir)
 
-        # Determine the current branch
-        try:
-            current_branch = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        if not conflicted_files:
+            # No conflicts — abort stale rebase state.
+            subprocess.run(
+                ["git", "rebase", "--abort"],
                 cwd=repo_dir,
                 capture_output=True,
                 text=True,
-                check=True,
-                timeout=_GIT_READ_TIMEOUT_S,
-            ).stdout.strip()
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                check=False,
+                timeout=30,
+            )
+            metadata[_META_CONFLICT_FIX_STATUS] = ConflictFixStatus.ERROR
             return metadata
 
-        if not current_branch or current_branch == "HEAD":
-            return metadata
+        await emit(
+            "\n"
+            + self._label_msg(
+                f"Push to PR branch {branch} was rejected. "
+                f"Resolving {len(conflicted_files)} conflicted file(s) "
+                f"with AI...\n"
+            )
+        )
 
+        # Get git output for context.
+        diff_result = subprocess.run(
+            ["git", "diff"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        conflict_output = diff_result.stdout or ""
+
+        fix_prompt = self._build_conflict_fix_prompt(conflict_output, conflicted_files)
         try:
-            await emit(
-                "\n"
-                + self._label_msg(
-                    f"AI Fix Conflicts: rebasing {current_branch} against remote...\n"
-                )
+            await self._invoke_backend(fix_prompt, emit=emit)
+        except Exception as exc:
+            logger.debug("AI conflict resolution failed", exc_info=True)
+            subprocess.run(
+                ["git", "rebase", "--abort"],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
             )
-
-            status = await self._attempt_rebase_with_conflict_fix(
-                repo_dir=repo_dir,
-                target_branch=current_branch,
-                emit=emit,
-            )
-            metadata[_META_CONFLICT_FIX_STATUS] = status
-
-        except (
-            GithubException,
-            subprocess.CalledProcessError,
-            subprocess.TimeoutExpired,
-            OSError,
-        ) as exc:
-            logger.debug("_fix_conflicts_loop error", exc_info=True)
             metadata[_META_CONFLICT_FIX_STATUS] = ConflictFixStatus.ERROR
             metadata[_META_CONFLICT_FIX_ERROR] = str(exc)
-            await emit(self._label_msg(f"Conflict fix error: {exc}\n"))
-
-        return metadata
-
-    async def _master_rebase_loop(
-        self,
-        *,
-        metadata: dict[str, str],
-        emit: Any,
-    ) -> dict[str, str]:
-        """Rebase the current branch on master/main and resolve conflicts with AI.
-
-        Called before finalization push when ``master_rebase`` is enabled.
-        """
-        if not self.master_rebase:
+            await emit(self._label_msg(f"AI conflict fix error: {exc}\n"))
             return metadata
 
-        repo_dir = self.repo_index.root.resolve()
-        base_branch = os.environ.get("HELPING_HANDS_BASE_BRANCH", "main")
+        # Check if AI resolved all conflicts.
+        remaining = self._get_conflicted_files(repo_dir)
+        if remaining:
+            await emit(
+                self._label_msg(
+                    f"AI could not resolve all conflicts "
+                    f"({len(remaining)} remaining). Aborting rebase.\n"
+                )
+            )
+            subprocess.run(
+                ["git", "rebase", "--abort"],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            metadata[_META_CONFLICT_FIX_STATUS] = ConflictFixStatus.FAILED
+            return metadata
 
+        # Stage resolved files and continue rebase.
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        continue_result = subprocess.run(
+            ["git", "rebase", "--continue"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+            env={**os.environ, "GIT_EDITOR": "true"},
+        )
+        if continue_result.returncode != 0:
+            await emit(
+                self._label_msg(
+                    f"Rebase --continue failed: "
+                    f"{continue_result.stderr.strip()[:200]}\n"
+                )
+            )
+            subprocess.run(
+                ["git", "rebase", "--abort"],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            metadata[_META_CONFLICT_FIX_STATUS] = ConflictFixStatus.FAILED
+            return metadata
+
+        # Push the rebased branch.
         try:
             from helping_hands.lib.github import GitHubClient
 
-            with GitHubClient(token=self.config.github_token):
-                await emit(
-                    "\n" + self._label_msg(f"Rebasing branch onto {base_branch}...\n")
-                )
+            with GitHubClient(token=self.config.github_token) as gh:
+                self._push_noninteractive(gh, repo_dir, branch)
+        except (RuntimeError, OSError) as exc:
+            await emit(
+                self._label_msg(f"Push after conflict resolution failed: {exc}\n")
+            )
+            metadata[_META_CONFLICT_FIX_STATUS] = ConflictFixStatus.ERROR
+            metadata[_META_CONFLICT_FIX_ERROR] = str(exc)
+            return metadata
 
-                status = await self._attempt_rebase_with_conflict_fix(
-                    repo_dir=repo_dir,
-                    target_branch=base_branch,
-                    emit=emit,
-                )
-                metadata[_META_MASTER_REBASE_STATUS] = status
-
-                if status in (
-                    ConflictFixStatus.SUCCESS,
-                    ConflictFixStatus.NO_CONFLICTS,
-                ):
-                    await emit(
-                        self._label_msg(
-                            f"Branch is now up-to-date with {base_branch}.\n"
-                        )
-                    )
-                else:
-                    await emit(
-                        self._label_msg(
-                            f"Master rebase {status}. "
-                            f"Continuing with original branch state.\n"
-                        )
-                    )
-
-        except (
-            GithubException,
-            subprocess.CalledProcessError,
-            subprocess.TimeoutExpired,
-            OSError,
-        ) as exc:
-            logger.debug("_master_rebase_loop error", exc_info=True)
-            metadata[_META_MASTER_REBASE_STATUS] = ConflictFixStatus.ERROR
-            metadata[_META_MASTER_REBASE_ERROR] = str(exc)
-            await emit(self._label_msg(f"Master rebase error: {exc}\n"))
-
+        new_sha = self._run_git_read(repo_dir, "rev-parse", "--short", "HEAD")
+        metadata[_META_PR_COMMIT] = new_sha
+        metadata[_META_CONFLICT_FIX_STATUS] = ConflictFixStatus.SUCCESS
+        await emit(
+            self._label_msg(
+                f"Conflicts resolved. Pushed to {branch} (commit {new_sha}).\n"
+            )
+        )
         return metadata
 
     # ------------------------------------------------------------------
@@ -2345,32 +2372,20 @@ class _TwoPhaseCLIHand(Hand):
         """
         require_non_empty_string(prompt, "prompt")
         message = asyncio.run(self._collect_run_output(prompt))
+        pr_metadata = self._finalize_after_run(prompt=prompt, message=message)
 
-        # Pre-finalization: rebase/conflict resolution before push
-        pr_metadata: dict[str, str] = {}
-        if self.fix_conflicts or self.master_rebase:
+        # AI conflict resolution: if push was rejected and rebase has conflicts
+        if pr_metadata.get(_META_CONFLICT_FIX_STATUS) == "needs_ai":
 
-            async def _run_pre_finalize() -> dict[str, str]:
+            async def _run_ai_resolve() -> dict[str, str]:
                 async def _noop_emit(chunk: str) -> None:
                     pass
 
-                meta: dict[str, str] = {}
-                # Fix conflicts: rebase against remote tracking branch
-                if self.fix_conflicts:
-                    meta = await self._fix_conflicts_loop(
-                        metadata=meta, emit=_noop_emit
-                    )
-                # Master rebase: rebase onto master/main
-                if self.master_rebase:
-                    meta = await self._master_rebase_loop(
-                        metadata=meta, emit=_noop_emit
-                    )
-                return meta
+                return await self._ai_resolve_push_conflicts(
+                    metadata=pr_metadata, emit=_noop_emit
+                )
 
-            pr_metadata = asyncio.run(_run_pre_finalize())
-
-        finalize_metadata = self._finalize_after_run(prompt=prompt, message=message)
-        pr_metadata.update(finalize_metadata)
+            pr_metadata = asyncio.run(_run_ai_resolve())
 
         if self.fix_ci and pr_metadata.get(_META_PR_STATUS) in _PR_STATUSES_WITH_URL:
 
@@ -2427,20 +2442,13 @@ class _TwoPhaseCLIHand(Hand):
             finally:
                 if error is None:
                     message = "".join(collected)
-
-                    # Pre-finalization: rebase/conflict resolution before push
-                    pre_meta: dict[str, str] = {}
-                    if self.fix_conflicts:
-                        pre_meta = await self._fix_conflicts_loop(
-                            metadata=pre_meta, emit=_emit
-                        )
-                    if self.master_rebase:
-                        pre_meta = await self._master_rebase_loop(
-                            metadata=pre_meta, emit=_emit
-                        )
-
                     metadata = self._finalize_after_run(prompt=prompt, message=message)
-                    metadata.update(pre_meta)
+
+                    # AI conflict resolution after push rejection
+                    if metadata.get(_META_CONFLICT_FIX_STATUS) == "needs_ai":
+                        metadata = await self._ai_resolve_push_conflicts(
+                            metadata=metadata, emit=_emit
+                        )
 
                     pr_status_message = self._format_pr_status_message(metadata)
                     if pr_status_message:

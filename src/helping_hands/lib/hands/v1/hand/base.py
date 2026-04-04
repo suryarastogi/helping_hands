@@ -822,6 +822,80 @@ class Hand(abc.ABC):
             else:
                 os.environ[_ENV_GCM_INTERACTIVE] = prior_gcm_interactive
 
+    @staticmethod
+    def _try_rebase_for_push(
+        gh: Any,
+        repo_dir: Path,
+        branch: str,
+    ) -> bool:
+        """Fetch remote branch and rebase local commits onto it.
+
+        Returns ``True`` if the rebase completed cleanly (no conflicts).
+        Returns ``False`` if conflicts were encountered (rebase left in
+        progress for AI resolution) or if the fetch/rebase failed for
+        another reason (rebase is aborted in that case).
+        """
+        # Fetch the latest remote state for the branch.
+        try:
+            subprocess.run(
+                ["git", "fetch", "origin", branch],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=60,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            logger.warning("Failed to fetch origin/%s: %s", branch, exc)
+            return False
+
+        # Attempt rebase onto the fetched remote branch.
+        result = subprocess.run(
+            ["git", "rebase", f"origin/{branch}"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            return True
+
+        # Check if there are actual merge conflicts.
+        diff_result = subprocess.run(
+            ["git", "diff", "--name-only", "--diff-filter=U"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_GIT_READ_TIMEOUT_S,
+        )
+        has_conflicts = bool(diff_result.stdout.strip())
+
+        if has_conflicts:
+            # Leave rebase in progress for AI resolution.
+            logger.info(
+                "Rebase onto origin/%s has conflicts — leaving for AI resolution.",
+                branch,
+            )
+            return False
+
+        # Rebase failed for non-conflict reason — abort.
+        subprocess.run(
+            ["git", "rebase", "--abort"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        logger.warning(
+            "Rebase onto origin/%s failed (non-conflict): %s",
+            branch,
+            result.stderr.strip()[:200],
+        )
+        return False
+
     def _push_to_existing_pr(
         self,
         *,
@@ -870,29 +944,105 @@ class Hand(abc.ABC):
                 commit_msg,
             )
 
+        # Master rebase: rebase onto base branch before pushing.
+        if self.master_rebase:
+            base = os.environ.get("HELPING_HANDS_BASE_BRANCH", _DEFAULT_BASE_BRANCH)
+            logger.info(
+                "master_rebase=True, rebasing %s onto %s before push.",
+                branch,
+                base,
+            )
+            rebase_ok = self._try_rebase_for_push(gh, repo_dir, base)
+            if rebase_ok:
+                commit_sha = self._run_git_read(
+                    repo_dir, "rev-parse", "--short", "HEAD"
+                )
+            else:
+                logger.warning(
+                    "Master rebase onto %s had conflicts or failed. "
+                    "Continuing without rebase.",
+                    base,
+                )
+                # Abort stale rebase state if any.
+                subprocess.run(
+                    ["git", "rebase", "--abort"],
+                    cwd=repo_dir,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
+
         try:
             self._push_noninteractive(gh, repo_dir, branch)
         except RuntimeError as push_exc:
-            # Branch diverged or push rejected — create a PR targeting the
-            # original PR branch instead.
-            logger.warning(
-                "Push to PR #%s branch %r failed: %s. "
-                "Falling back to diverged-branch PR.",
-                self.pr_number,
-                branch,
-                push_exc,
-            )
-            return self._create_pr_for_diverged_branch(
-                gh=gh,
-                repo=repo,
-                repo_dir=repo_dir,
-                backend=backend,
-                prompt=prompt,
-                summary=summary,
-                metadata=metadata,
-                pr_branch=branch,
-                commit_sha=commit_sha,
-            )
+            if self.fix_conflicts:
+                # Attempt to rebase onto the remote PR branch and retry push.
+                logger.info(
+                    "Push to PR #%s branch %r failed: %s. "
+                    "fix_conflicts=True, attempting rebase.",
+                    self.pr_number,
+                    branch,
+                    push_exc,
+                )
+                rebase_ok = self._try_rebase_for_push(gh, repo_dir, branch)
+                if rebase_ok:
+                    commit_sha = self._run_git_read(
+                        repo_dir, "rev-parse", "--short", "HEAD"
+                    )
+                    try:
+                        self._push_noninteractive(gh, repo_dir, branch)
+                    except RuntimeError:
+                        logger.warning(
+                            "Push still failed after rebase. "
+                            "Falling back to diverged-branch PR."
+                        )
+                        return self._create_pr_for_diverged_branch(
+                            gh=gh,
+                            repo=repo,
+                            repo_dir=repo_dir,
+                            backend=backend,
+                            prompt=prompt,
+                            summary=summary,
+                            metadata=metadata,
+                            pr_branch=branch,
+                            commit_sha=commit_sha,
+                        )
+                else:
+                    # Rebase had conflicts — store state for CLI AI resolution.
+                    metadata[_META_CONFLICT_FIX_STATUS] = "needs_ai"
+                    metadata["_conflict_branch"] = branch
+                    metadata["_conflict_repo"] = repo
+                    self.last_pr_metadata = metadata
+                    return self._pr_result_metadata(
+                        metadata,
+                        status=PRStatus.UPDATED,
+                        pr_url=str(pr_info["url"]),
+                        pr_number=str(self.pr_number),
+                        pr_branch=branch,
+                        pr_commit=commit_sha,
+                    )
+            else:
+                # Branch diverged or push rejected — create a PR targeting the
+                # original PR branch instead.
+                logger.warning(
+                    "Push to PR #%s branch %r failed: %s. "
+                    "Falling back to diverged-branch PR.",
+                    self.pr_number,
+                    branch,
+                    push_exc,
+                )
+                return self._create_pr_for_diverged_branch(
+                    gh=gh,
+                    repo=repo,
+                    repo_dir=repo_dir,
+                    backend=backend,
+                    prompt=prompt,
+                    summary=summary,
+                    metadata=metadata,
+                    pr_branch=branch,
+                    commit_sha=commit_sha,
+                )
 
         # Push succeeded — update PR description if the PR was created by us.
         pr_creator = str(pr_info.get("user", ""))
