@@ -654,6 +654,8 @@ class ScheduleManager:
                 "use_native_cli_auth": task.use_native_cli_auth,
                 "tools": task.tools,
                 "fix_ci": task.fix_ci,
+                "fix_conflicts": task.fix_conflicts,
+                "master_rebase": task.master_rebase,
                 "ci_check_wait_minutes": task.ci_check_wait_minutes,
                 "reference_repos": task.reference_repos,
                 "schedule_id": task.schedule_id,

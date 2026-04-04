@@ -110,6 +110,8 @@ An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan be
 - Git push uses token-authenticated (`GITHUB_TOKEN`) non-interactive remotes
 - `owner/repo` CLI inputs are auto-cloned to temp workspaces
 - `AGENT.md` is a living document that AI agents update as they learn repo conventions
+- **Adding new task parameters** (checkboxes, inputs) requires updating ~15 files across frontend, API, Celery, hand, and schedules. Follow the checklist in `docs/design-docs/adding-task-parameters.md` — grep for `fix_ci` as the reference pattern.
+
 ## CI
 
 GitHub Actions runs on Python 3.12/3.13/3.14: ruff lint + format check, pytest with coverage, Codecov upload. Frontend CI runs lint, typecheck, and Vitest with coverage separately.
