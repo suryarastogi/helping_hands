@@ -172,6 +172,89 @@ class TestBuildOpenCodeFailureMessageExtraTokens:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# _describe_auth
+# ---------------------------------------------------------------------------
+
+
+class TestDescribeAuth:
+    def test_provider_model_with_known_provider_key_set(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="anthropic/claude-sonnet-4-6")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-key")
+        msg = hand._describe_auth()
+        assert "provider=anthropic" in msg
+        assert "ANTHROPIC_API_KEY" in msg
+        assert "set" in msg
+
+    def test_provider_model_with_known_provider_key_unset(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="openai/gpt-5.2")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        msg = hand._describe_auth()
+        assert "provider=openai" in msg
+        assert "OPENAI_API_KEY" in msg
+        assert "not set" in msg
+
+    def test_provider_model_with_unknown_provider(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="custom-provider/some-model")
+        msg = hand._describe_auth()
+        assert "provider=custom-provider" in msg
+        # Unknown provider has no env var — format is simpler
+        assert msg == "auth=provider=custom-provider"
+
+    def test_bare_model_no_slash_returns_empty(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="claude-sonnet-4-5")
+        msg = hand._describe_auth()
+        assert msg == ""
+
+    def test_empty_model_returns_empty(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="")
+        msg = hand._describe_auth()
+        assert msg == ""
+
+    def test_default_model_returns_empty(self, make_cli_hand) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="default")
+        msg = hand._describe_auth()
+        assert msg == ""
+
+    def test_google_provider_key_set(self, make_cli_hand, monkeypatch) -> None:
+        hand = make_cli_hand(OpenCodeCLIHand, model="google/gemini-2.5-pro")
+        monkeypatch.setenv("GOOGLE_API_KEY", "AIza-test")
+        msg = hand._describe_auth()
+        assert "provider=google" in msg
+        assert "GOOGLE_API_KEY" in msg
+        assert "set" in msg
+
+
+# ---------------------------------------------------------------------------
+# _pr_description_cmd
+# ---------------------------------------------------------------------------
+
+
+class TestPrDescriptionCmd:
+    def test_returns_cmd_when_opencode_on_path(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/opencode")
+        result = opencode_hand._pr_description_cmd()
+        assert result == ["opencode", "run"]
+
+    def test_returns_none_when_opencode_not_on_path(
+        self, opencode_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: None)
+        result = opencode_hand._pr_description_cmd()
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _invoke_opencode / _invoke_backend — async delegation
+# ---------------------------------------------------------------------------
+
+
 class TestInvokeOpenCodeDelegation:
     def test_invoke_opencode_delegates_to_invoke_cli(
         self, opencode_hand, monkeypatch

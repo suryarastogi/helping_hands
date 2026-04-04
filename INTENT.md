@@ -4,16 +4,23 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Core Utility Module Test Coverage (2026-04-04) — Complete
+### CLI Hand Test Coverage: OpenCode + Devin (2026-04-04)
+
+Closing coverage gaps in `opencode.py` (`_describe_auth` all branches,
+`_pr_description_cmd` both branches) and `devin.py` (`_pr_description_cmd`,
+`_pr_description_prompt_as_arg`, `_resolve_cli_model` env var edge cases).
+See [v352 plan](docs/exec-plans/active/v352-cli-hand-opencode-devin-coverage.md).
+
+## Recently Completed
+
+### Core Utility Module Test Coverage (2026-04-04) — Completed
 
 Added test coverage for three 0%-covered pure utility modules: `validation.py`
 (10 new tests for `has_cli_flag` + `install_hint`), `github_url.py` (15 new
 tests for `invalid_repo_msg` + `resolve_github_token` + `repo_tmp_dir`), and
 `factory.py` (24 new tests for `create_hand` dispatch + `get_enabled_backends`).
 All three modules now at 100% coverage. See
-[v351 plan](docs/exec-plans/active/v351-core-utility-test-coverage.md).
-
-## Recently Completed
+[v351 plan](docs/exec-plans/completed/2026/v351-core-utility-test-coverage.md).
 
 ### Grill Module Testability & Coverage (2026-04-04) — Completed
 

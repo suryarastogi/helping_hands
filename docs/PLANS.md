@@ -4,11 +4,16 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v351 — Core Utility Module Test Coverage](exec-plans/active/v351-core-utility-test-coverage.md) —
-  Add test coverage for `validation.py`, `github_url.py`, and `factory.py`;
-  all three modules 0% → 100% coverage; 46 new tests added
+- [v352 — CLI Hand Test Coverage: OpenCode + Devin](exec-plans/active/v352-cli-hand-opencode-devin-coverage.md) —
+  Close coverage gaps in `opencode.py` (`_describe_auth`, `_pr_description_cmd`)
+  and `devin.py` (`_pr_description_cmd`, `_pr_description_prompt_as_arg`,
+  `_resolve_cli_model` env var edge cases)
 
 ## Completed plans
+
+- [2026-04-04 v351 — Core Utility Module Test Coverage](exec-plans/completed/2026/v351-core-utility-test-coverage.md) —
+  Add test coverage for `validation.py`, `github_url.py`, and `factory.py`;
+  all three modules 0% → 100% coverage; 49 tests added
 
 - [2026-04-04 v350 — Grill Module Testability & Coverage](exec-plans/completed/2026/v350-grill-module-testability-and-coverage.md) —
   Fix 13 broken grill tests (celery import), restructure grill.py for

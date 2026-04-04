@@ -107,3 +107,20 @@ See [2026-03-30 daily consolidation](2026-03-30.md) for full details.
 - Fixed `TestGrillEnabled` tests: added per-test `pytest.importorskip("fastapi")`
 
 **grill.py coverage: 4% → 99% (pure helpers). 13 test failures → 0.**
+
+---
+
+## Apr 4 — Core Utility Module Test Coverage (v351)
+
+**Three 0%-covered utility modules brought to 100%:**
+- `validation.py` — 10 new tests for `has_cli_flag` (bare flag, equals form,
+  absent, empty tokens, partial match rejection, single-dash rejection) and
+  `install_hint` output
+- `github_url.py` — 15 new tests for `resolve_github_token` (explicit, env,
+  fallback, priority, whitespace), `repo_tmp_dir` (unset, set, nested, whitespace),
+  and `invalid_repo_msg` format
+- `factory.py` — 24 new tests for `create_hand` (all 11 backend dispatch branches
+  + unknown backend error + max_iterations) and `get_enabled_backends` (all-enabled
+  default, sorted, single, truthy values, falsy exclusion, multiple)
+
+**49 new tests. All three modules at 100% coverage. 149 tests pass.**
