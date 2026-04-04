@@ -129,7 +129,10 @@ class TestClaudeCodeHandAllExport:
 
         private = sorted(name for name in __all__ if name.startswith("_"))
         assert private == [
+            "_DEFAULT_BUDGET_TOKENS",
             "_OUTPUT_FORMAT_STREAM_JSON",
+            "_PERMISSION_PROMPT_TOOL_MAX_LENGTH",
+            "_PROMPT_STDIN_LENGTH_THRESHOLD",
             "_SKIP_PERMISSIONS_FLAG",
             "_TOOL_SUMMARY_KEY_MAP",
             "_TOOL_SUMMARY_STATIC",
@@ -144,7 +147,7 @@ class TestClaudeCodeHandAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.claude import __all__
 
-        assert len(__all__) == 5
+        assert len(__all__) == 8
 
 
 # ---------------------------------------------------------------------------

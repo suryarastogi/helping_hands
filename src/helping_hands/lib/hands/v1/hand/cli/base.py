@@ -1197,6 +1197,7 @@ class _TwoPhaseCLIHand(Hand):
         cmd: list[str],
         *,
         emit: _Emitter,
+        stdin_data: str | None = None,
     ) -> str:
         """Execute a CLI subprocess and stream its output.
 
@@ -1204,6 +1205,10 @@ class _TwoPhaseCLIHand(Hand):
             cmd: Command and arguments to execute.  Must contain at least
                 one non-empty element.
             emit: Async callback that receives incremental output chunks.
+            stdin_data: Optional text to pipe into the subprocess's stdin.
+                When provided, stdin is set to PIPE and the data is written
+                after process creation. Useful for delivering long prompts
+                that would exceed OS argument length limits.
 
         Returns:
             Concatenated stdout/stderr output from the subprocess.
@@ -1221,12 +1226,17 @@ class _TwoPhaseCLIHand(Hand):
         if self.config.verbose:
             await emit(self._label_msg(f"cmd: {shlex.join(cmd)}\n"))
             await emit(self._label_msg(f"cwd: {cwd}\n"))
+        use_stdin_pipe = stdin_data is not None
         start_time = time.monotonic()
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=cwd,
-                stdin=asyncio.subprocess.DEVNULL,
+                stdin=(
+                    asyncio.subprocess.PIPE
+                    if use_stdin_pipe
+                    else asyncio.subprocess.DEVNULL
+                ),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 env=env,
@@ -1246,10 +1256,23 @@ class _TwoPhaseCLIHand(Hand):
                             "first run while the package is downloaded.\n"
                         )
                     )
-                return await self._invoke_cli_with_cmd(fallback, emit=emit)
+                return await self._invoke_cli_with_cmd(
+                    fallback, emit=emit, stdin_data=stdin_data
+                )
             raise RuntimeError(self._command_not_found_message(cmd[0])) from exc
 
         self._active_process = process
+
+        # Write stdin data and close the pipe so the process can proceed.
+        if use_stdin_pipe and process.stdin is not None:
+            try:
+                process.stdin.write(stdin_data.encode("utf-8"))
+                await process.stdin.drain()
+            except (BrokenPipeError, ConnectionResetError):
+                logger.debug("stdin pipe broken before write completed")
+            finally:
+                process.stdin.close()
+
         chunks: list[str] = []
         stdout = process.stdout
         if stdout is None:
