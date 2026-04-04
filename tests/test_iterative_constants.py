@@ -85,4 +85,3 @@ class TestBackendNameConstants:
         """Backend names follow the hyphenated convention used in CLI --backend."""
         assert "-" in BasicLangGraphHand._BACKEND_NAME
         assert "-" in BasicAtomicHand._BACKEND_NAME
-

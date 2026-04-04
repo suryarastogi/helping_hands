@@ -441,4 +441,7 @@ class TestValidateRepoValue:
         assert validate_repo_value("./my-repo") == "./my-repo"
 
     def test_deep_path_accepted(self) -> None:
-        assert validate_repo_value("/home/user/repos/my-repo") == "/home/user/repos/my-repo"
+        assert (
+            validate_repo_value("/home/user/repos/my-repo")
+            == "/home/user/repos/my-repo"
+        )

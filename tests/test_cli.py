@@ -1281,3 +1281,44 @@ class TestReadPromptFromStdin:
     def test_has_docstring(self) -> None:
         assert read_prompt_from_stdin.__doc__ is not None
         assert "Returns:" in read_prompt_from_stdin.__doc__
+
+
+# ---------------------------------------------------------------------------
+# --version flag
+# ---------------------------------------------------------------------------
+
+
+class TestVersionFlag:
+    """Tests for the ``--version`` / ``-V`` CLI flag."""
+
+    def test_version_long_flag(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """``--version`` prints version and returns without parsing args."""
+        main(["--version"])
+        out = capsys.readouterr().out
+        assert "helping-hands" in out
+        # Should contain a semver-like version string.
+        import re as _re
+
+        assert _re.search(r"\d+\.\d+\.\d+", out), f"no version found in: {out!r}"
+
+    def test_version_short_flag(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """``-V`` prints version and returns without parsing args."""
+        main(["-V"])
+        out = capsys.readouterr().out
+        assert "helping-hands" in out
+
+    def test_version_flag_does_not_require_repo(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--version`` works even without a positional 'repo' argument."""
+        # If --version weren't intercepted early, argparse would error
+        # about the missing required 'repo' argument.
+        main(["--version"])
+        assert "helping-hands" in capsys.readouterr().out
+
+    def test_version_matches_package(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Printed version matches ``helping_hands.__version__``."""
+        from helping_hands import __version__
+
+        main(["--version"])
+        assert __version__ in capsys.readouterr().out

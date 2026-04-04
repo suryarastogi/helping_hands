@@ -14,6 +14,7 @@ from pathlib import Path
 from tempfile import mkdtemp
 from typing import Any, cast
 
+from helping_hands import __version__
 from helping_hands.lib.config import Config, ConfigValue
 from helping_hands.lib.github_url import (
     REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
@@ -368,11 +369,14 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     _maybe_show_first_run_banner()
 
-    # Handle 'doctor' subcommand before full arg parsing, since the main
-    # parser requires a positional 'repo' argument.
+    # Handle subcommands and flags that must be checked before full arg
+    # parsing, since the main parser requires a positional 'repo' argument.
     effective_argv = argv if argv is not None else sys.argv[1:]
     if effective_argv and effective_argv[0] == "doctor":
         doctor(effective_argv[1:])
+        return
+    if "--version" in effective_argv or "-V" in effective_argv:
+        print(f"helping-hands {__version__}")
         return
 
     parser = build_parser()

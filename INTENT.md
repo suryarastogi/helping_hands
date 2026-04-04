@@ -8,6 +8,14 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### CLI `--version` Flag & Doctor Version Display (2026-04-04) — Completed
+
+Added `--version` / `-V` flag to the CLI entry point — intercepted before
+argparse so it works without a positional `repo` argument. Doctor output
+header now includes the version string (`helping-hands doctor v0.1.0`).
+5 new tests. Coverage 76.15% → 76.17%.
+See [v365 plan](docs/exec-plans/completed/2026/v365-cli-version-and-doctor-version.md).
+
 ### Config Validation & Finalization Error Hardening (2026-04-04) — Completed
 
 Hardened two critical paths: (1) Added `validate_repo_value()` to reject path

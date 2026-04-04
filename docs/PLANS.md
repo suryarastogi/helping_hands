@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-04 v365 — CLI `--version` Flag & Doctor Version Display](exec-plans/completed/2026/v365-cli-version-and-doctor-version.md) — Add `--version`/`-V` flag to CLI and version in doctor header; 5 tests added
+
 - [2026-04-04 v364 — Config Validation & Finalization Error Hardening](exec-plans/completed/2026/v364-config-validation-and-finalization-hardening.md) — Validate repo format in Config.from_env, catch-all exception handling in _finalize_repo_pr; 24 tests added
 
 - [2026-04-04 v363 — Server Pure Helper Coverage](exec-plans/completed/2026/v363-server-pure-helper-coverage.md) — Unit-test pure helpers in app.py, celery_app.py, schedules.py; 111 tests, coverage 98.71%

@@ -279,3 +279,13 @@ Hardened config validation and finalization error handling:
 - Push error handling broadened to include OSError alongside RuntimeError
 
 **24 new tests, 4 updated. 6854 total tests. 76.15% coverage.**
+
+---
+
+## Apr 4 — CLI `--version` Flag & Doctor Version Display (v365)
+
+Added `--version` / `-V` flag to the CLI entry point, intercepted in `main()`
+before `parse_args()` so it works without a positional `repo` argument. Doctor
+output header now includes the version string (e.g. `helping-hands doctor v0.1.0`).
+
+**5 new tests. 6859 total tests. 76.17% coverage.**

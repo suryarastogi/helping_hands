@@ -347,6 +347,14 @@ class TestFormatResults:
         output = format_results(results)
         assert "helping-hands doctor" in output
 
+    def test_header_includes_version(self) -> None:
+        """The doctor header includes the package version string."""
+        from helping_hands import __version__
+
+        results = [CheckResult("test", "ok", "all good")]
+        output = format_results(results)
+        assert f"v{__version__}" in output
+
     def test_ok_symbol(self) -> None:
         results = [CheckResult("test", "ok", "all good")]
         output = format_results(results)

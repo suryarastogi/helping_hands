@@ -127,4 +127,3 @@ class TestCLIMainConstants:
         from helping_hands.cli.main import _TEMP_CLONE_PREFIX
 
         assert _TEMP_CLONE_PREFIX == "helping_hands_repo_"
-

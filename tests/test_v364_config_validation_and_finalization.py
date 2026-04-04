@@ -12,10 +12,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from github import GithubException
 
 from helping_hands.lib.hands.v1.hand.base import Hand, HandResponse, PRStatus
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -128,9 +126,7 @@ class TestPushOSErrorFallback:
             patch.object(Hand, "_run_git_read", side_effect=_fake_git_read),
             patch.object(Hand, "_github_repo_from_origin", return_value="owner/repo"),
             patch("helping_hands.lib.github.GitHubClient") as mock_gh_cls,
-            patch.object(
-                Hand, "_configure_authenticated_push_remote"
-            ),
+            patch.object(Hand, "_configure_authenticated_push_remote"),
             patch.object(Hand, "_push_noninteractive", side_effect=OSError("no git")),
             patch.object(Hand, "_create_pr_for_diverged_branch") as mock_diverged,
         ):

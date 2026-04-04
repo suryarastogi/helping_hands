@@ -322,7 +322,9 @@ def format_results(results: list[CheckResult]) -> str:
     Returns:
         Multi-line string with one line per check.
     """
-    lines: list[str] = ["helping-hands doctor", ""]
+    from helping_hands import __version__
+
+    lines: list[str] = [f"helping-hands doctor v{__version__}", ""]
     for r in results:
         symbol = _STATUS_SYMBOLS.get(r.status, "?")
         lines.append(f"  [{symbol}] {r.message}")
