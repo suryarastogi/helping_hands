@@ -228,4 +228,4 @@ class TestNormalizeArgsSourceConsistency:
 
     def test_has_isinstance_list_tuple_check(self) -> None:
         src = inspect.getsource(_normalize_args)
-        assert "isinstance(args, (list, tuple))" in src
+        assert "isinstance(args, list | tuple)" in src

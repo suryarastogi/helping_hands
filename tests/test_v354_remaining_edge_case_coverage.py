@@ -45,15 +45,14 @@ def client() -> GitHubClient:
 def _patch_notset():
     """Context manager that injects a sentinel ``NotSet`` into the github module.
 
-    PyGithub's ``NotSet`` may not be importable as ``from github import NotSet``
-    in all versions.  We inject a sentinel so ``update_pr``'s deferred import
-    resolves without hitting an ``ImportError``.
+    ``update_pr`` uses ``from github.GithubObject import NotSet`` (deferred),
+    so we must patch ``github.GithubObject.NotSet`` to intercept it.
     """
-    import github as gh_mod
+    import github.GithubObject as GithubObject
 
     sentinel = object()
-    orig = getattr(gh_mod, "NotSet", None)
-    gh_mod.NotSet = sentinel  # type: ignore[attr-defined]
+    orig = getattr(GithubObject, "NotSet", None)
+    GithubObject.NotSet = sentinel  # type: ignore[attr-defined]
 
     class _Ctx:
         notset = sentinel
@@ -63,9 +62,9 @@ def _patch_notset():
 
         def __exit__(self, *_exc):
             if orig is None:
-                delattr(gh_mod, "NotSet")
+                delattr(GithubObject, "NotSet")
             else:
-                gh_mod.NotSet = orig  # type: ignore[attr-defined]
+                GithubObject.NotSet = orig  # type: ignore[attr-defined]
 
     return _Ctx()
 

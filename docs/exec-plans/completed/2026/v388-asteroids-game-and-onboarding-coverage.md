@@ -1,7 +1,7 @@
 # v388 — AsteroidsGame Test Suite & OnboardingOverlay Coverage Improvement
 
 **Date**: 2026-04-05
-**Status**: Completed
+**Status:** Completed
 
 ## Goal
 
