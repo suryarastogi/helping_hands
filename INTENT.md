@@ -4,6 +4,18 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Frontend Component Test Coverage & Backend Docstring Polish (2026-04-05) — Completed
+
+Added test suites for three previously-untested frontend components: DiffView
+(0.56% → 100%), FileExplorer (18.5% → 98.45%), and useOnboarding hook
+(73.82% → 97.31%). 66 new frontend tests covering loading/error/empty states,
+diff line parsing, file tree rendering, directory toggling, file content
+viewer, filter/changes-only toggle, idle detection, step navigation,
+dismiss/restart, and localStorage persistence. Expanded `Config.from_env()`
+docstring with Args/Returns/Raises sections per Google-style conventions.
+753 total frontend tests pass. 7069 backend tests pass. Backend coverage: 99.94%.
+See [v385 plan](docs/exec-plans/completed/2026/v385-frontend-coverage-and-docstring-polish.md).
+
 ### Provider API Key Map Consistency (2026-04-05) — Completed
 
 Add missing `litellm` entry to `PROVIDER_API_KEY_ENV` in `model_provider.py`.

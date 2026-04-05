@@ -584,3 +584,18 @@ consistency tests ensuring `PROVIDER_API_KEY_ENV` keys stay in sync with the
 `PROVIDERS` registry — prevents future drift when new providers are added.
 
 **4 new tests. 7069 total tests. 99.94% coverage.**
+
+---
+
+## Apr 5 — Frontend Component Test Coverage & Backend Docstring Polish (v385)
+
+Added test suites for three previously-untested/under-tested frontend
+components: `DiffView.tsx` (0.56% → 100%), `FileExplorer.tsx` (18.5% →
+98.45%), and `useOnboarding.ts` hook (73.82% → 97.31%). Tests cover
+loading/error/empty states, diff line parsing, file tree rendering,
+directory toggling, file content viewer (with mocked fetch), filter and
+changes-only toggle, idle detection, step navigation, dismiss/restart,
+and localStorage persistence. Expanded `Config.from_env()` docstring
+with Args/Returns/Raises sections per Google-style conventions.
+
+**66 new frontend tests. 753 total frontend tests. 7069 backend tests. 99.94% backend coverage.**

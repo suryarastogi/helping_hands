@@ -128,7 +128,27 @@ class Config:
     def from_env(cls, overrides: dict[str, ConfigValue] | None = None) -> Config:
         """Build config from environment variables, then apply overrides.
 
-        Priority: overrides (CLI flags) > env vars > defaults.
+        Reads ``HELPING_HANDS_*`` environment variables, merges them with
+        explicit *overrides* (typically from CLI flags), normalises
+        ``enabled_tools`` and ``reference_repos``, and validates the repo
+        value.
+
+        Priority: overrides (CLI flags) > env vars > dataclass defaults.
+
+        Args:
+            overrides: Key/value pairs that take precedence over environment
+                variables.  Typically sourced from CLI ``--flags``.  Keys
+                should match :class:`Config` field names.  ``None`` values
+                are ignored so callers can pass through optional CLI args
+                without filtering.
+
+        Returns:
+            A frozen :class:`Config` instance ready for hand execution.
+
+        Raises:
+            ValueError: If the repo value contains path-traversal sequences,
+                null bytes, or newline characters (via
+                :func:`~helping_hands.lib.validation.validate_repo_value`).
         """
         repo_override = overrides.get("repo") if overrides else None
         _load_env_files(str(repo_override) if isinstance(repo_override, str) else None)

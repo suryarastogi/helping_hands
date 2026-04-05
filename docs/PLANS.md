@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v385 — Frontend Component Test Coverage & Backend Docstring Polish](exec-plans/completed/2026/v385-frontend-coverage-and-docstring-polish.md) — DiffView, FileExplorer, useOnboarding test suites + Config.from_env() docstring; 66 frontend tests
+
 - [2026-04-05 v384 — Provider API Key Map Consistency](exec-plans/completed/2026/v384-provider-api-key-map-consistency.md) — Add missing litellm entry to PROVIDER_API_KEY_ENV, structural consistency tests; 4 tests
 
 - [2026-04-05 v383 — Docstring Completion & CLI Introspection Design Doc](exec-plans/completed/2026/v383-docstring-completion-and-cli-introspection-design-doc.md) — Add missing docstrings, create cli-introspection.md design doc; 17 tests
