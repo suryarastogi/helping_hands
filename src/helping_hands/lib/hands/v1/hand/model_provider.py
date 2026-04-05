@@ -52,8 +52,13 @@ PROVIDER_API_KEY_ENV: dict[str, str] = {
     _PROVIDER_ANTHROPIC: "ANTHROPIC_API_KEY",
     _PROVIDER_GOOGLE: "GOOGLE_API_KEY",
     _PROVIDER_OLLAMA: "OLLAMA_HOST",
+    _PROVIDER_LITELLM: "LITELLM_API_KEY",
 }
-"""Maps provider name to the environment variable holding its API key."""
+"""Maps provider name to the environment variable indicating its configuration.
+
+Most providers map to their API key variable.  Ollama maps to ``OLLAMA_HOST``
+because the local server does not require an API key — a set host indicates
+the provider is configured."""
 
 _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 """Default base URL for the Ollama OpenAI-compatible API endpoint."""

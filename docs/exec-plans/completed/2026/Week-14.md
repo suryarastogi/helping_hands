@@ -16,7 +16,7 @@ model provider & config validation hardening,
 MCP bash script validation tests with plan hygiene,
 ARCHITECTURE.md refresh with exec-plan index,
 registry coverage completion, boundary input validation hardening,
-and CLI heartbeat branch coverage.
+CLI heartbeat branch coverage, and provider API key map consistency.
 
 ---
 
@@ -570,3 +570,17 @@ all CLI self-service features (`--version`, `--list-backends`, `--list-tools`,
 and docs/index.md parenthetical.
 
 **17 new tests. 7066 total tests. 99.94% coverage.**
+
+---
+
+## Apr 5 — Provider API Key Map Consistency (v384)
+
+Added missing `litellm` entry to `PROVIDER_API_KEY_ENV` in `model_provider.py`.
+CLI hands (goose, opencode) that check auth status via
+`PROVIDER_API_KEY_ENV.get(provider)` previously returned `None` for litellm
+models, silently skipping the auth status report. Updated docstring to clarify
+Ollama maps to `OLLAMA_HOST` (host indicator, not API key). Added structural
+consistency tests ensuring `PROVIDER_API_KEY_ENV` keys stay in sync with the
+`PROVIDERS` registry — prevents future drift when new providers are added.
+
+**4 new tests. 7069 total tests. 99.94% coverage.**

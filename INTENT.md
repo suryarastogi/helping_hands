@@ -4,6 +4,17 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Provider API Key Map Consistency (2026-04-05) — Completed
+
+Add missing `litellm` entry to `PROVIDER_API_KEY_ENV` in `model_provider.py`.
+Previously, CLI hands (goose, opencode) that checked auth status via
+`PROVIDER_API_KEY_ENV.get(provider)` returned `None` for litellm models,
+silently skipping the auth status report. Updated docstring to clarify the
+Ollama entry maps to `OLLAMA_HOST` (host indicator, not API key). Added
+structural consistency tests ensuring `PROVIDER_API_KEY_ENV` keys stay in sync
+with the `PROVIDERS` registry. 4 new tests. 7069 total tests pass. Coverage: 99.94%.
+See [v384 plan](docs/exec-plans/completed/2026/v384-provider-api-key-map-consistency.md).
+
 ### Docstring Completion & CLI Introspection Design Doc (2026-04-05) — Completed
 
 Added Google-style docstrings to 4 public items: `BasicLangGraphHand.__init__()`,
