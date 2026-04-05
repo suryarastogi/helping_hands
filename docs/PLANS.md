@@ -4,7 +4,7 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+- [v379 — ARCHITECTURE.md Refresh & Exec-Plan Index](exec-plans/active/v379-architecture-refresh-and-exec-plan-index.md) — Update stale ARCHITECTURE.md, add accuracy tests, create exec-plans index
 
 ## Completed plans
 

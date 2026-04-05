@@ -4,6 +4,14 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### ARCHITECTURE.md Refresh & Exec-Plan Index (2026-04-05) — In Progress
+
+Update stale ARCHITECTURE.md (last updated 2026-03-07) to reflect ~30 days of
+new modules and features. Add structural accuracy tests verifying all listed
+file paths exist and all source modules are mentioned. Create
+`docs/exec-plans/index.md` for navigation. 7 new tests.
+See [v379 plan](docs/exec-plans/active/v379-architecture-refresh-and-exec-plan-index.md).
+
 ### MCP Bash Script Validation Tests & Plan Hygiene (2026-04-05) — Completed
 
 Closed last 2 uncovered lines in `server/mcp_server.py` (`run_bash_script`

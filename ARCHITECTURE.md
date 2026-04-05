@@ -49,16 +49,29 @@ High-level architecture of helping_hands. For detailed design notes see
 
 Three runtime surfaces share the same core library:
 
-- **CLI** (`cli/main.py`) — Interactive terminal usage
+- **CLI** (`cli/main.py`) — Interactive terminal usage. Includes `--version`,
+  `--list-backends`, `--list-tools` introspection flags (intercepted before
+  argparse, no positional `repo` required).
+- **CLI doctor** (`cli/doctor.py`) — `helping-hands doctor` environment
+  prerequisite checker (Python version, tools, API keys, optional extras,
+  Docker, Node.js, Redis, Docker Compose).
 - **Server** (`server/app.py`) — FastAPI + Celery for async/scheduled runs
 - **MCP** (`server/mcp_server.py`) — Tool server for IDE integrations
 
 ### 2. Core library (`lib/`)
 
 - **config** — `Config.from_env()` loads `.env`, env vars, CLI overrides
-- **repo** — `RepoIndex` builds file maps from local repos
+- **repo** (`repo.py`) — `RepoIndex` builds file maps from local repos (`file_count`, `has_file()`)
 - **github** — `GitHubClient` for clone/branch/commit/push/PR/issue operations
-- **ai_providers/** — Provider wrappers (OpenAI, Anthropic, Google, LiteLLM, Ollama) with common interface
+- **github_url** — Shared GitHub URL helpers (`build_clone_url`, `validate_repo_spec`,
+  `redact_credentials`, `noninteractive_env`); extracted from duplicated
+  implementations across CLI and server modules
+- **validation** — Input validation utilities (`validate_repo_value()` rejects
+  path traversal, null bytes, newlines)
+- **default_prompts** — Shared prompt constants (`DEFAULT_SMOKE_TEST_PROMPT`)
+- **ai_providers/** — Provider wrappers (`openai.py`, `anthropic.py`, `google.py`,
+  `litellm.py`, `ollama.py`) with common `AIProvider` interface defined in
+  `types.py`
 - **hands/v1/hand/** — Execution backends (see below)
 - **meta/tools/** — Filesystem, command, web, and registry tools
 
@@ -82,11 +95,15 @@ All hands extend `Hand` base class (`base.py`) and implement `run()`/`stream()`:
 ### 4. Hand factory
 
 `factory.py` provides backend name constants (`BACKEND_*`), a
-`SUPPORTED_BACKENDS` frozenset, and a `create_hand()` factory function
-that maps a backend name string to the correct Hand subclass. Both
-`cli/main.py` and `celery_app.py` use this single dispatch point
-instead of duplicating if/elif chains. Server modules (`app.py`,
-`mcp_server.py`) also import `BACKEND_*` constants from the factory.
+`SUPPORTED_BACKENDS` frozenset, `BACKEND_DESCRIPTIONS` dict, and a
+`create_hand()` factory function that maps a backend name string to the
+correct Hand subclass. Both `cli/main.py` and `celery_app.py` use this
+single dispatch point instead of duplicating if/elif chains. Server
+modules (`app.py`, `mcp_server.py`) also import `BACKEND_*` constants
+from the factory. Public helpers: `get_backend_description()`,
+`get_enabled_backends()`, `is_backend_enabled()`. Module-level
+consistency assertions verify `SUPPORTED_BACKENDS`, `_BACKEND_ENABLED_ENV_VARS`,
+and `BACKEND_DESCRIPTIONS` stay in sync.
 
 ### 5. Model resolution
 
@@ -239,6 +256,19 @@ All three stages fail independently with descriptive error dicts,
 so a Keychain issue never prevents the task from reporting, and a DB
 outage still surfaces the utilization percentages in the task result.
 
+### 9. Server support modules
+
+- **`token_helpers.py`** — Pure token/credential helpers (`redact_token`,
+  `read_claude_credentials_file`, `get_claude_oauth_token`) extracted from
+  `app.py` for testability without server extras.
+- **`constants.py`** — Shared server constants (field validation bounds,
+  build/schedule defaults, Anthropic usage API URLs, Keychain keys).
+- **`grill.py`** — Interactive planning (Grill Me): long-running Celery task
+  that uses Claude Code CLI in read-only mode for multi-turn user↔AI
+  planning conversations, with Redis message queuing.
+- **`multiplayer_yjs.py`** — Multiplayer Yjs WebSocket server for
+  collaborative editing sessions.
+
 ## Design principles
 
 - **Plain data between layers** — Dicts/dataclasses, not tight coupling
@@ -259,20 +289,27 @@ outage still surfaces the utilization percentages in the task result.
 | PR description gen | `src/helping_hands/lib/hands/v1/hand/pr_description.py` |
 | CLI shim (legacy) | `src/helping_hands/lib/hands/v1/hand/placeholders.py` |
 | Config | `src/helping_hands/lib/config.py` |
+| Validation | `src/helping_hands/lib/validation.py` |
 | Default prompts | `src/helping_hands/lib/default_prompts.py` |
 | GitHub integration | `src/helping_hands/lib/github.py` |
+| GitHub URL helpers | `src/helping_hands/lib/github_url.py` |
 | Filesystem tools | `src/helping_hands/lib/meta/tools/filesystem.py` |
 | Command tools | `src/helping_hands/lib/meta/tools/command.py` |
 | Web tools | `src/helping_hands/lib/meta/tools/web.py` |
 | Tool registry | `src/helping_hands/lib/meta/tools/registry.py` |
 | CLI entry | `src/helping_hands/cli/main.py` |
+| CLI doctor | `src/helping_hands/cli/doctor.py` |
 | Server entry | `src/helping_hands/server/app.py` |
 | Celery workers | `src/helping_hands/server/celery_app.py` |
 | MCP server | `src/helping_hands/server/mcp_server.py` |
 | Schedules | `src/helping_hands/server/schedules.py` |
 | Task result helper | `src/helping_hands/server/task_result.py` |
+| Token helpers | `src/helping_hands/server/token_helpers.py` |
+| Server constants | `src/helping_hands/server/constants.py` |
+| Grill Me (planning) | `src/helping_hands/server/grill.py` |
+| Multiplayer YJS | `src/helping_hands/server/multiplayer_yjs.py` |
 | Docker sandbox hand | `src/helping_hands/lib/hands/v1/hand/cli/docker_sandbox_claude.py` |
 
 ---
 
-*Last updated: 2026-03-07*
+*Last updated: 2026-04-05*

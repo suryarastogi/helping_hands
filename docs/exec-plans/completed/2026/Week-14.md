@@ -13,7 +13,8 @@ consolidation cleanup, `--list-backends` enabled status enrichment,
 backend descriptions enrichment for `--list-backends`,
 coverage accuracy improvement (dynamic server omit & pragma cleanup),
 model provider & config validation hardening,
-and MCP bash script validation tests with plan hygiene.
+MCP bash script validation tests with plan hygiene,
+and ARCHITECTURE.md refresh with exec-plan index.
 
 ---
 
@@ -501,3 +502,19 @@ provided, and both provided simultaneously). Plan housekeeping: moved completed
 v377 from active to completed, updated PLANS.md, INTENT.md, and Week-14.
 
 **2 new tests. 7018 total tests. MCP server: 100% line coverage.**
+
+---
+
+## Apr 5 — ARCHITECTURE.md Refresh & Exec-Plan Index (v379)
+
+Updated stale ARCHITECTURE.md (last updated 2026-03-07) to reflect ~30 days
+of new modules and features: `cli/doctor.py`, `lib/validation.py`,
+`lib/github_url.py`, `server/token_helpers.py`, `server/constants.py`,
+`server/grill.py`, `server/multiplayer_yjs.py`, CLI introspection flags
+(`--version`, `--list-backends`, `--list-tools`), factory public API
+(`get_backend_description`, `get_enabled_backends`, `is_backend_enabled`),
+and expanded AI provider module listing. Added 7 structural accuracy tests
+verifying all listed file paths exist on disk and all source modules are
+mentioned. Created `docs/exec-plans/index.md` for plan navigation.
+
+**7 new tests.**
