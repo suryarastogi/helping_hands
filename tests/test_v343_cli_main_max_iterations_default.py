@@ -40,7 +40,7 @@ class TestMaxIterationsNoneSkipsValidation:
         (tmp_path / "hello.py").write_text("")
         # Without --backend, main() enters the basic interactive path and
         # prints "Ready …" — this exercises the False branch at line 336.
-        main([str(tmp_path)])
+        main([str(tmp_path), "--prompt", "test"])
 
     def test_explicit_max_iterations_still_validates(self) -> None:
         """Positive --max-iterations passes validation (True branch)."""

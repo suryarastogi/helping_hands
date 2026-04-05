@@ -83,7 +83,7 @@ known-first-party = ["helping_hands"]
 combine-as-imports = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=src/helping_hands --cov-report=term-missing"
+addopts = "--cov=src/helping_hands --cov-report=term-missing --cov-config=.coveragerc-no-server"
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
@@ -98,6 +98,11 @@ source = ["src/helping_hands"]
 show_missing = true
 skip_covered = true
 fail_under = 75
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+]
 
 [dependency-groups]
 dev = [

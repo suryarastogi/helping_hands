@@ -91,12 +91,6 @@ class TestPrStatusLine:
             staticmethod,
         )
 
-    def test_has_docstring(self) -> None:
-        doc = _BasicIterativeHand._pr_status_line.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-        assert "Returns:" in doc
-
 
 # ---------------------------------------------------------------------------
 # Source-level checks: bare key patterns should not appear in stream()

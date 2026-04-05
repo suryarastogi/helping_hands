@@ -21,6 +21,7 @@ __all__ = [
     "BACKEND_BASIC_LANGGRAPH",
     "BACKEND_CLAUDECODECLI",
     "BACKEND_CODEXCLI",
+    "BACKEND_DESCRIPTIONS",
     "BACKEND_DEVINCLI",
     "BACKEND_DOCKER_SANDBOX_CLAUDE",
     "BACKEND_E2E",
@@ -29,7 +30,9 @@ __all__ = [
     "BACKEND_OPENCODECLI",
     "SUPPORTED_BACKENDS",
     "create_hand",
+    "get_backend_description",
     "get_enabled_backends",
+    "is_backend_enabled",
 ]
 
 # --- Backend name constants ---------------------------------------------------
@@ -102,6 +105,92 @@ _BACKEND_ENABLED_ENV_VARS: dict[str, str] = {
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
+def _validate_backend_env_consistency(
+    backends: frozenset[str],
+    env_vars: dict[str, str],
+) -> None:
+    """Verify every backend has an env-var entry and vice-versa.
+
+    Args:
+        backends: Set of supported backend name strings.
+        env_vars: Mapping of backend name to its ``*_ENABLED`` env var.
+
+    Raises:
+        RuntimeError: If the two sets of keys diverge.
+    """
+    missing_env = backends - env_vars.keys()
+    extra_env = env_vars.keys() - backends
+    if missing_env or extra_env:
+        parts: list[str] = []
+        if missing_env:
+            parts.append(f"backends without env vars: {sorted(missing_env)}")
+        if extra_env:
+            parts.append(f"env vars without backends: {sorted(extra_env)}")
+        raise RuntimeError(
+            "SUPPORTED_BACKENDS / _BACKEND_ENABLED_ENV_VARS mismatch: "
+            + "; ".join(parts)
+        )
+
+
+_validate_backend_env_consistency(SUPPORTED_BACKENDS, _BACKEND_ENABLED_ENV_VARS)
+
+BACKEND_DESCRIPTIONS: dict[str, str] = {
+    BACKEND_E2E: "End-to-end integration test flow (clone/edit/commit/push/PR)",
+    BACKEND_BASIC_LANGGRAPH: "LangGraph agent loop (requires langchain extra)",
+    BACKEND_BASIC_ATOMIC: "Atomic Agents loop (requires atomic extra)",
+    BACKEND_BASIC_AGENT: "Atomic Agents loop (alias for basic-atomic)",
+    BACKEND_CODEXCLI: "OpenAI Codex CLI subprocess",
+    BACKEND_CLAUDECODECLI: "Claude Code CLI subprocess",
+    BACKEND_DOCKER_SANDBOX_CLAUDE: "Claude Code inside Docker Desktop microVM sandbox",
+    BACKEND_GOOSE: "Goose CLI subprocess",
+    BACKEND_GEMINICLI: "Gemini CLI subprocess",
+    BACKEND_OPENCODECLI: "OpenCode CLI subprocess",
+    BACKEND_DEVINCLI: "Devin CLI subprocess",
+}
+"""Human-readable description for each backend."""
+
+
+def _validate_backend_descriptions_consistency(
+    backends: frozenset[str],
+    descriptions: dict[str, str],
+) -> None:
+    """Verify every backend has a description and vice-versa.
+
+    Args:
+        backends: Set of supported backend name strings.
+        descriptions: Mapping of backend name to its description.
+
+    Raises:
+        RuntimeError: If the two sets of keys diverge.
+    """
+    missing = backends - descriptions.keys()
+    extra = descriptions.keys() - backends
+    if missing or extra:
+        parts: list[str] = []
+        if missing:
+            parts.append(f"backends without descriptions: {sorted(missing)}")
+        if extra:
+            parts.append(f"descriptions without backends: {sorted(extra)}")
+        raise RuntimeError(
+            "SUPPORTED_BACKENDS / BACKEND_DESCRIPTIONS mismatch: " + "; ".join(parts)
+        )
+
+
+_validate_backend_descriptions_consistency(SUPPORTED_BACKENDS, BACKEND_DESCRIPTIONS)
+
+
+def get_backend_description(backend: str) -> str:
+    """Return the human-readable description for *backend*.
+
+    Args:
+        backend: Backend name string.
+
+    Returns:
+        Description string, or ``"unknown backend"`` if not found.
+    """
+    return BACKEND_DESCRIPTIONS.get(backend, "unknown backend")
+
+
 def get_enabled_backends() -> list[str]:
     """Return the list of backends that are explicitly enabled via env vars.
 
@@ -123,6 +212,37 @@ def get_enabled_backends() -> list[str]:
     if not has_any:
         return sorted(SUPPORTED_BACKENDS)
     return sorted(enabled)
+
+
+def is_backend_enabled(backend: str) -> tuple[bool, str]:
+    """Check whether *backend* is enabled via its environment variable.
+
+    When no ``*_ENABLED`` env var is set for *any* backend, all backends are
+    considered enabled (backwards-compatible default).  Otherwise, only
+    backends whose env var resolves to a truthy value are enabled.
+
+    Args:
+        backend: Backend name string.
+
+    Returns:
+        A ``(enabled, detail)`` tuple where *detail* is a human-readable
+        status string including the env var name when relevant.
+    """
+    env_var = _BACKEND_ENABLED_ENV_VARS.get(backend)
+    if env_var is None:
+        return True, "enabled (no env var)"
+
+    # Check whether *any* backend has an env var set.
+    any_set = any(
+        os.environ.get(v, "").strip() for v in _BACKEND_ENABLED_ENV_VARS.values()
+    )
+    if not any_set:
+        return True, "enabled (default)"
+
+    raw = os.environ.get(env_var, "").strip().lower()
+    if raw in _TRUTHY:
+        return True, f"enabled ({env_var})"
+    return False, f"disabled ({env_var})"
 
 
 def create_hand(

@@ -31,20 +31,12 @@ class TestRootPackage:
         assert len(parts) >= 2
         assert all(p.isdigit() for p in parts)
 
-    def test_docstring_present(self) -> None:
-        assert helping_hands.__doc__
-        assert "repo builder" in helping_hands.__doc__.lower()
-
 
 class TestLibPackage:
     """Tests for helping_hands.lib package."""
 
     def test_importable(self) -> None:
         assert helping_hands.lib is not None
-
-    def test_docstring_present(self) -> None:
-        assert helping_hands.lib.__doc__
-        assert "library" in helping_hands.lib.__doc__.lower()
 
     def test_submodules_accessible(self) -> None:
         from helping_hands.lib import config, repo
@@ -59,10 +51,6 @@ class TestCLIPackage:
     def test_importable(self) -> None:
         assert helping_hands.cli is not None
 
-    def test_docstring_present(self) -> None:
-        assert helping_hands.cli.__doc__
-        assert "cli" in helping_hands.cli.__doc__.lower()
-
 
 class TestServerPackage:
     """Tests for helping_hands.server package."""
@@ -70,20 +58,12 @@ class TestServerPackage:
     def test_importable(self) -> None:
         assert helping_hands.server is not None
 
-    def test_docstring_present(self) -> None:
-        assert helping_hands.server.__doc__
-        assert "server" in helping_hands.server.__doc__.lower()
-
 
 class TestHandsPackage:
     """Tests for helping_hands.lib.hands package."""
 
     def test_importable(self) -> None:
         assert helping_hands.lib.hands is not None
-
-    def test_docstring_present(self) -> None:
-        assert helping_hands.lib.hands.__doc__
-        assert "hands" in helping_hands.lib.hands.__doc__.lower()
 
 
 class TestMockGitHubClientFixture:

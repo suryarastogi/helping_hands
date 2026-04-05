@@ -1,0 +1,27 @@
+# Coverage configuration for local development WITHOUT the [server] extra.
+#
+# Three server modules (app.py, celery_app.py, schedules.py) require FastAPI,
+# Celery, and other server dependencies that are only available with
+# `uv sync --extra server`.  Without them these modules contribute ~1,700
+# untestable lines, dragging the reported coverage from ~99% to ~76%.
+#
+# This file is auto-selected by `tests/conftest.py::pytest_configure` when
+# the server extras are NOT installed.  CI always installs all extras and
+# uses the pyproject.toml [tool.coverage.*] sections instead.
+
+[run]
+branch = true
+source = src/helping_hands
+omit =
+    */server/app.py
+    */server/celery_app.py
+    */server/schedules.py
+
+[report]
+show_missing = true
+skip_covered = true
+fail_under = 95
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.
+    if TYPE_CHECKING:

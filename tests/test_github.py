@@ -1081,12 +1081,25 @@ class TestRemoveIssueLabel:
     def test_silently_handles_missing_label(self, client: GitHubClient) -> None:
         mock_repo = MagicMock()
         issue = MagicMock()
-        issue.remove_from_labels.side_effect = Exception("Not Found")
+        from github import GithubException
+
+        issue.remove_from_labels.side_effect = GithubException(404, "Not Found", None)
         mock_repo.get_issue.return_value = issue
         client._gh.get_repo.return_value = mock_repo
 
         # Should not raise
         client.remove_issue_label("owner/repo", 42, label="nonexistent")
+
+    def test_propagates_non_github_exceptions(self, client: GitHubClient) -> None:
+        """Non-GithubException errors (e.g. network) are not silenced."""
+        mock_repo = MagicMock()
+        issue = MagicMock()
+        issue.remove_from_labels.side_effect = OSError("network failure")
+        mock_repo.get_issue.return_value = issue
+        client._gh.get_repo.return_value = mock_repo
+
+        with pytest.raises(OSError, match="network failure"):
+            client.remove_issue_label("owner/repo", 42, label="some-label")
 
     def test_rejects_empty_label(self, client: GitHubClient) -> None:
         with pytest.raises(ValueError):

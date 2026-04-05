@@ -16,10 +16,6 @@ import pytest
 
 import helping_hands.lib.hands.v1.hand.cli.base as cli_base_module
 
-# ---------------------------------------------------------------------------
-# langgraph.py __all__
-# ---------------------------------------------------------------------------
-
 langgraph = pytest.importorskip(
     "helping_hands.lib.hands.v1.hand.langgraph",
     reason="langchain extra not installed",
@@ -47,10 +43,6 @@ class TestLangGraphModuleAll:
         for name in langgraph.__all__:
             assert hasattr(langgraph, name), f"{name!r} not found in module"
 
-
-# ---------------------------------------------------------------------------
-# atomic.py __all__
-# ---------------------------------------------------------------------------
 
 atomic = pytest.importorskip(
     "helping_hands.lib.hands.v1.hand.atomic",
@@ -104,79 +96,3 @@ class TestCLIBaseModuleAll:
     def test_all_symbols_are_importable(self) -> None:
         for name in cli_base_module.__all__:
             assert hasattr(cli_base_module, name), f"{name!r} not found in module"
-
-
-# ---------------------------------------------------------------------------
-# LangGraphHand.stream docstring
-# ---------------------------------------------------------------------------
-
-
-class TestLangGraphStreamDocstring:
-    def test_stream_has_docstring(self) -> None:
-        assert langgraph.LangGraphHand.stream.__doc__ is not None
-
-    def test_stream_docstring_mentions_args(self) -> None:
-        assert "Args:" in langgraph.LangGraphHand.stream.__doc__
-
-    def test_stream_docstring_mentions_yields(self) -> None:
-        assert "Yields:" in langgraph.LangGraphHand.stream.__doc__
-
-    def test_stream_docstring_not_trivial(self) -> None:
-        assert len(langgraph.LangGraphHand.stream.__doc__) > 50
-
-
-# ---------------------------------------------------------------------------
-# AtomicHand.__init__ docstring
-# ---------------------------------------------------------------------------
-
-
-class TestAtomicInitDocstring:
-    def test_init_has_docstring(self) -> None:
-        assert atomic.AtomicHand.__init__.__doc__ is not None
-
-    def test_init_docstring_mentions_args(self) -> None:
-        assert "Args:" in atomic.AtomicHand.__init__.__doc__
-
-    def test_init_docstring_mentions_config(self) -> None:
-        assert "config" in atomic.AtomicHand.__init__.__doc__
-
-    def test_init_docstring_not_trivial(self) -> None:
-        assert len(atomic.AtomicHand.__init__.__doc__) > 50
-
-
-# ---------------------------------------------------------------------------
-# AtomicHand.run docstring
-# ---------------------------------------------------------------------------
-
-
-class TestAtomicRunDocstring:
-    def test_run_has_docstring(self) -> None:
-        assert atomic.AtomicHand.run.__doc__ is not None
-
-    def test_run_docstring_mentions_args(self) -> None:
-        assert "Args:" in atomic.AtomicHand.run.__doc__
-
-    def test_run_docstring_mentions_returns(self) -> None:
-        assert "Returns:" in atomic.AtomicHand.run.__doc__
-
-    def test_run_docstring_not_trivial(self) -> None:
-        assert len(atomic.AtomicHand.run.__doc__) > 50
-
-
-# ---------------------------------------------------------------------------
-# AtomicHand.stream docstring
-# ---------------------------------------------------------------------------
-
-
-class TestAtomicStreamDocstring:
-    def test_stream_has_docstring(self) -> None:
-        assert atomic.AtomicHand.stream.__doc__ is not None
-
-    def test_stream_docstring_mentions_args(self) -> None:
-        assert "Args:" in atomic.AtomicHand.stream.__doc__
-
-    def test_stream_docstring_mentions_yields(self) -> None:
-        assert "Yields:" in atomic.AtomicHand.stream.__doc__
-
-    def test_stream_docstring_not_trivial(self) -> None:
-        assert len(atomic.AtomicHand.stream.__doc__) > 50

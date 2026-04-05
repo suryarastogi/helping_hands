@@ -125,26 +125,33 @@ class TestBaseUpdatePrHandler:
 
 
 class TestBaseFinalizeReprCatchAll:
-    """Verify _finalize_repo_pr catch-all is narrowed."""
+    """Verify _finalize_repo_pr has both narrowed and catch-all handlers.
 
-    def test_no_bare_exception_in_finalize(self) -> None:
-        """The finalize catch-all should not catch bare Exception."""
+    The finalization uses a layered strategy:
+    - ``_GITHUB_ERRORS`` handler for expected GitHub/OS errors (logged at DEBUG)
+    - ``except Exception`` catch-all for truly unexpected errors (logged at ERROR)
+
+    The catch-all is intentional (v364): it prevents unexpected exceptions from
+    crashing the entire run while logging prominently at ERROR level.
+    """
+
+    def test_github_errors_handler_exists(self) -> None:
+        """The narrowed _GITHUB_ERRORS handler should still exist."""
         handlers = _find_handlers_near_keyword(
-            _hand_root() / "base.py", "_finalize_repo_pr unexpected"
+            _hand_root() / "base.py", "_finalize_repo_pr GitHub/OS"
         )
-        for handler in handlers:
-            assert not _handler_catches_bare_exception(handler), (
-                "_finalize_repo_pr catch-all still catches bare Exception"
-            )
+        assert handlers, "No _GITHUB_ERRORS handler found for _finalize_repo_pr"
+        names = _handler_type_names(handlers[0])
+        assert "_GITHUB_ERRORS" in names
 
-    def test_catches_github_errors_constant(self) -> None:
-        """Handler should reference ``_GITHUB_ERRORS`` constant."""
+    def test_catch_all_handler_exists(self) -> None:
+        """The catch-all Exception handler should exist (v364 safety net)."""
         handlers = _find_handlers_near_keyword(
             _hand_root() / "base.py", "_finalize_repo_pr unexpected"
         )
         assert handlers, "No catch-all handler found for _finalize_repo_pr"
-        names = _handler_type_names(handlers[0])
-        assert "_GITHUB_ERRORS" in names
+        # Verify it catches Exception (intentional catch-all, logged at ERROR)
+        assert any(_handler_catches_bare_exception(h) for h in handlers)
 
 
 # ---------------------------------------------------------------------------

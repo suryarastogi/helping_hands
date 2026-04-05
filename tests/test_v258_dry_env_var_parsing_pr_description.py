@@ -30,10 +30,6 @@ from helping_hands.lib.hands.v1.hand.pr_description import (
     _timeout_seconds,
 )
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 _SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "helping_hands"
 _PR_DESCRIPTION_PATH = _SRC_ROOT / "lib" / "hands" / "v1" / "hand" / "pr_description.py"
 
@@ -94,10 +90,6 @@ class TestParsePositiveEnvVar:
             result = _parse_positive_env_var("TEST_PARSE_VAR", 42, int)
         assert result == 42
         assert "non-positive" in caplog.text
-
-    def test_has_docstring(self) -> None:
-        assert _parse_positive_env_var.__doc__ is not None
-        assert "positive" in _parse_positive_env_var.__doc__.lower()
 
     def test_preserves_int_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TEST_PARSE_VAR", "7")

@@ -514,25 +514,3 @@ class TestUpsertPrCommentBehavior:
         )
         assert result == 8
         none_comment.edit.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# _collect_tool_feedback docstring presence
-# ---------------------------------------------------------------------------
-
-
-class TestDryHelperDocstrings:
-    def test_collect_tool_feedback_has_docstring(self) -> None:
-        from helping_hands.lib.hands.v1.hand.iterative import _BasicIterativeHand
-
-        doc = _BasicIterativeHand._collect_tool_feedback.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-        assert "Returns:" in doc
-
-    def test_append_iteration_transcript_has_docstring(self) -> None:
-        from helping_hands.lib.hands.v1.hand.iterative import _BasicIterativeHand
-
-        doc = _BasicIterativeHand._append_iteration_transcript.__doc__
-        assert doc is not None
-        assert "Args:" in doc

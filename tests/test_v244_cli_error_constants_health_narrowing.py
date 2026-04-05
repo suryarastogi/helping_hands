@@ -176,9 +176,11 @@ class TestCliErrorExitBackends:
         expected = {
             "codexcli",
             "claudecodecli",
+            "devincli",
             "docker-sandbox-claude",
-            "goose",
             "geminicli",
+            "goose",
+            "opencodecli",
         }
         assert expected == _CLI_ERROR_EXIT_BACKENDS
 
@@ -247,10 +249,6 @@ class TestResolveWorkerCapacityExceptionNarrowingAST:
         assert "OSError" in names
         assert "TimeoutError" in names
 
-
-# ---------------------------------------------------------------------------
-# Runtime server tests (require fastapi)
-# ---------------------------------------------------------------------------
 
 try:
     import fastapi as _fastapi  # noqa: F401

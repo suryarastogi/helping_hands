@@ -65,14 +65,6 @@ class TestEnvVarStatus:
             staticmethod,
         )
 
-    def test_has_docstring(self) -> None:
-        assert _TwoPhaseCLIHand._env_var_status.__doc__
-        assert "set" in _TwoPhaseCLIHand._env_var_status.__doc__
-
-
-# ---------------------------------------------------------------------------
-# AST source consistency: _describe_auth must NOT use os.environ.get inline
-# ---------------------------------------------------------------------------
 
 _CLI_HAND_MODULES = (
     "helping_hands.lib.hands.v1.hand.cli.claude",
@@ -96,7 +88,7 @@ class TestDescribeAuthConsistency:
         tree = ast.parse(src)
 
         for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             if node.name != "_describe_auth":
                 continue

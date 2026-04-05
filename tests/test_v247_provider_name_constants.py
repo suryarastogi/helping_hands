@@ -28,10 +28,6 @@ from helping_hands.lib.hands.v1.hand.model_provider import (
     resolve_hand_model,
 )
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 _MODEL_PROVIDER_PATH = (
     Path(__file__).resolve().parent.parent
     / "src"

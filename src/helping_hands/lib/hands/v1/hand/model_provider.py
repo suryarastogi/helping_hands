@@ -6,6 +6,7 @@ backend-specific runtime objects used by hand implementations.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -13,8 +14,12 @@ from typing import Any
 from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
 from helping_hands.lib.validation import require_non_empty_string
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "PROVIDER_API_KEY_ENV",
+    "_OLLAMA_MODEL_PREFIXES",
+    "_OPENAI_MODEL_PREFIXES",
     "_PROVIDER_ANTHROPIC",
     "_PROVIDER_GOOGLE",
     "_PROVIDER_LITELLM",
@@ -47,8 +52,13 @@ PROVIDER_API_KEY_ENV: dict[str, str] = {
     _PROVIDER_ANTHROPIC: "ANTHROPIC_API_KEY",
     _PROVIDER_GOOGLE: "GOOGLE_API_KEY",
     _PROVIDER_OLLAMA: "OLLAMA_HOST",
+    _PROVIDER_LITELLM: "LITELLM_API_KEY",
 }
-"""Maps provider name to the environment variable holding its API key."""
+"""Maps provider name to the environment variable indicating its configuration.
+
+Most providers map to their API key variable.  Ollama maps to ``OLLAMA_HOST``
+because the local server does not require an API key — a set host indicates
+the provider is configured."""
 
 _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 """Default base URL for the Ollama OpenAI-compatible API endpoint."""
@@ -114,7 +124,11 @@ def resolve_hand_model(model: str | None) -> HandModel:
     raw = (model or "").strip() or "default"
 
     if raw == "default":
-        provider = PROVIDERS[_PROVIDER_OLLAMA]
+        provider = PROVIDERS.get(_PROVIDER_OLLAMA)
+        if provider is None:
+            raise RuntimeError(
+                f"default provider {_PROVIDER_OLLAMA!r} is not registered"
+            )
         return HandModel(provider=provider, model=provider.default_model, raw=raw)
 
     direct_provider = PROVIDERS.get(raw)
@@ -127,30 +141,66 @@ def resolve_hand_model(model: str | None) -> HandModel:
 
     if "/" in raw:
         maybe_provider, maybe_model = raw.split("/", 1)
-        provider = PROVIDERS.get(maybe_provider)
+        provider = PROVIDERS.get(maybe_provider.strip())
         if provider is not None:
             resolved_model = maybe_model.strip() or provider.default_model
             return HandModel(provider=provider, model=resolved_model, raw=raw)
+        logger.warning(
+            "Unknown provider %r in model string %r; falling back to inference.",
+            maybe_provider.strip(),
+            raw,
+        )
 
     inferred = _infer_provider_name(raw)
-    provider = PROVIDERS[inferred]
+    provider = PROVIDERS.get(inferred)
+    if provider is None:
+        raise RuntimeError(
+            f"inferred provider {inferred!r} for model {raw!r} is not registered"
+        )
     return HandModel(provider=provider, model=raw, raw=raw)
 
 
+_OLLAMA_MODEL_PREFIXES = (
+    "llama",
+    "mistral",
+    "mixtral",
+    "phi",
+    "codellama",
+    "deepseek",
+    "qwen",
+    "starcoder",
+    "vicuna",
+    "yi",
+)
+"""Model-name prefixes that indicate an Ollama-hosted open-source model."""
+
+_OPENAI_MODEL_PREFIXES = ("gpt", "o1", "o3", "o4")
+"""Model-name prefixes that indicate an OpenAI model."""
+
+
 def _infer_provider_name(model: str) -> str:
+    """Infer AI provider from a bare model name using prefix heuristics.
+
+    Resolution order: Anthropic (``claude*``), Google (``gemini*``),
+    Ollama (common open-source families), explicit OpenAI (``gpt*``,
+    ``o1*``, ``o3*``, ``o4*``), then OpenAI as default fallback.
+    """
     lowered = model.lower()
     if lowered.startswith("claude"):
         return _PROVIDER_ANTHROPIC
     if lowered.startswith("gemini"):
         return _PROVIDER_GOOGLE
-    if lowered.startswith("llama"):
+    if any(lowered.startswith(p) for p in _OLLAMA_MODEL_PREFIXES):
         return _PROVIDER_OLLAMA
+    if any(lowered.startswith(p) for p in _OPENAI_MODEL_PREFIXES):
+        return _PROVIDER_OPENAI
     return _PROVIDER_OPENAI
 
 
 def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any:
     """Build a LangChain chat model from a resolved hand model."""
     require_non_empty_string(hand_model.model, "hand_model.model")
+    require_non_empty_string(hand_model.provider.name, "hand_model.provider.name")
     provider = hand_model.provider.name
     if provider == _PROVIDER_OPENAI:
         from langchain_openai import ChatOpenAI
@@ -196,6 +246,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
 def build_atomic_client(hand_model: HandModel) -> Any:
     """Build an atomic-agents instructor client from a resolved hand model."""
     require_non_empty_string(hand_model.model, "hand_model.model")
+    require_non_empty_string(hand_model.provider.name, "hand_model.provider.name")
     import instructor
 
     provider = hand_model.provider.name

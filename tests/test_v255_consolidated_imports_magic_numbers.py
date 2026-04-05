@@ -18,10 +18,6 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 _SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "helping_hands"
 
 

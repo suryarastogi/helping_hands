@@ -468,3 +468,63 @@ class TestConfigReferenceRepos:
         config = Config(reference_repos=("a/b",))
         with pytest.raises(FrozenInstanceError):
             config.reference_repos = ("changed",)  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Repo validation in from_env
+# ---------------------------------------------------------------------------
+
+
+class TestRepoValidation:
+    """Config.from_env rejects invalid repo values."""
+
+    def test_empty_repo_accepted_as_default(self) -> None:
+        """Empty repo is the default — no error (validation only rejects non-empty bad values)."""
+        config = Config.from_env(overrides={"repo": ""})
+        assert config.repo == ""
+
+    def test_valid_path_accepted(self) -> None:
+        config = Config.from_env(overrides={"repo": "/tmp/my-repo"})
+        assert config.repo == "/tmp/my-repo"
+
+    def test_valid_owner_repo_accepted(self) -> None:
+        config = Config.from_env(overrides={"repo": "owner/repo"})
+        assert config.repo == "owner/repo"
+
+    def test_traversal_rejected(self) -> None:
+        with pytest.raises(ValueError, match="path traversal"):
+            Config.from_env(overrides={"repo": "../../etc/passwd"})
+
+    def test_null_byte_rejected(self) -> None:
+        with pytest.raises(ValueError, match="null bytes"):
+            Config.from_env(overrides={"repo": "repo\x00"})
+
+    def test_newline_rejected(self) -> None:
+        with pytest.raises(ValueError, match="newlines"):
+            Config.from_env(overrides={"repo": "repo\nmalicious"})
+
+
+# ---------------------------------------------------------------------------
+# Model default warning
+# ---------------------------------------------------------------------------
+
+
+class TestModelDefaultWarning:
+    """Config.from_env logs a debug message when model is 'default'."""
+
+    def test_default_model_logs_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        with caplog.at_level(logging.DEBUG, logger="helping_hands.lib.config"):
+            Config.from_env()
+        assert any("default" in r.message.lower() for r in caplog.records)
+
+    def test_explicit_model_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        with caplog.at_level(logging.DEBUG, logger="helping_hands.lib.config"):
+            Config.from_env(overrides={"model": "gpt-5.2"})
+        config_records = [
+            r for r in caplog.records if r.name == "helping_hands.lib.config"
+        ]
+        assert not any("default" in r.message.lower() for r in config_records)

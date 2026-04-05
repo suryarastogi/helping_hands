@@ -904,3 +904,1306 @@ class TestIterWorkerTaskEntriesNonStringKey:
         payload = {1: [{"id": "t1"}], 2: [{"id": "t2"}]}
         entries = _iter_worker_task_entries(payload)
         assert entries == []
+
+
+# ---------------------------------------------------------------------------
+# Arcade endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestArcadeEndpoints:
+    def test_get_high_scores(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        client = TestClient(app)
+        resp = client.get("/arcade/high-scores")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+    def test_submit_high_score(self) -> None:
+        from fastapi.testclient import TestClient
+
+        import helping_hands.server.app as app_mod
+        from helping_hands.server.app import app
+
+        client = TestClient(app)
+        original = list(app_mod._arcade_high_scores)
+        try:
+            resp = client.post(
+                "/arcade/high-scores",
+                json={"name": "TestPlayer", "score": 1000, "wave": 5},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert isinstance(data, list)
+            assert any(e["name"] == "TestPlayer" for e in data)
+        finally:
+            app_mod._arcade_high_scores = original
+
+
+# ---------------------------------------------------------------------------
+# Multiplayer health endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestMultiplayerHealthEndpoints:
+    def test_health_multiplayer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_multiplayer_stats",
+            lambda: {"rooms": 0, "connections": 0},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer")
+        assert resp.status_code == 200
+        assert resp.json()["rooms"] == 0
+
+    def test_health_multiplayer_players(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_connected_players",
+            lambda: {"players": []},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer/players")
+        assert resp.status_code == 200
+
+    def test_health_multiplayer_activity(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_player_activity_summary",
+            lambda: {"summary": {}},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer/activity")
+        assert resp.status_code == 200
+
+    def test_health_multiplayer_decorations(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setattr(
+            "helping_hands.server.app.get_decoration_state",
+            lambda: {"decorations": []},
+        )
+        client = TestClient(app)
+        resp = client.get("/health/multiplayer/decorations")
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# _resolve_task_workspace
+# ---------------------------------------------------------------------------
+
+
+class TestResolveTaskWorkspace:
+    def test_workspace_from_result(self, monkeypatch: pytest.MonkeyPatch, tmp_path):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        ws = tmp_path / "ws"
+        ws.mkdir()
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(ws)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, ready, error = _resolve_task_workspace("tid-1")
+        assert path == ws
+        assert error is None
+        assert ready is True
+
+    def test_workspace_from_repo_path_fallback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {"repo_path": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-2")
+        assert path == tmp_path
+        assert error is None
+
+    def test_workspace_not_available(self, monkeypatch: pytest.MonkeyPatch):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-3")
+        assert path is None
+        assert "not available" in error
+
+    def test_workspace_cleaned_up(self, monkeypatch: pytest.MonkeyPatch):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": "/nonexistent/path"}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-4")
+        assert path is None
+        assert "cleaned up" in error
+
+    def test_workspace_not_found_pending(self, monkeypatch: pytest.MonkeyPatch):
+        from helping_hands.server.app import _resolve_task_workspace
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {"workspace": "/nonexistent/path"}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        path, _ws_str, _ready, error = _resolve_task_workspace("tid-5")
+        assert path is None
+        assert "not found" in error
+
+
+# ---------------------------------------------------------------------------
+# _build_task_diff via endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestTaskDiffEndpoint:
+    def test_diff_workspace_not_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task-1/diff")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is not None
+        assert data["task_id"] == "test-task-1"
+
+    def test_diff_with_workspace(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        import subprocess
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        # Set up a git repo
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "file.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "file.txt").write_text("changed")
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task-2/diff")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is None
+        assert len(data["files"]) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Task tree endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestTaskTreeEndpoint:
+    def test_tree_workspace_not_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/tree")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is not None
+
+    def test_tree_with_workspace(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        import subprocess
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "main.py").write_text("print('hi')")
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-tree/tree")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["error"] is None
+        assert len(data["tree"]) >= 2  # src dir + main.py
+
+
+# ---------------------------------------------------------------------------
+# Task file content endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestTaskFileEndpoint:
+    def test_file_workspace_not_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = False
+        mock_result.info = {}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/file/main.py")
+        assert resp.status_code == 200
+        assert resp.json()["error"] is not None
+
+    def test_file_not_found(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/file/nonexistent.py")
+        assert resp.status_code == 200
+        assert "not found" in resp.json()["error"].lower()
+
+    def test_file_success(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        import subprocess
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "test.txt").write_text("hello world")
+
+        mock_result = MagicMock()
+        mock_result.ready.return_value = True
+        mock_result.result = {"workspace": str(tmp_path)}
+        monkeypatch.setattr(
+            "helping_hands.server.app.build_feature.AsyncResult",
+            lambda tid: mock_result,
+        )
+        client = TestClient(app)
+        resp = client.get("/tasks/test-task/file/test.txt")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["content"] == "hello world"
+
+
+# ---------------------------------------------------------------------------
+# _schedule_to_response
+# ---------------------------------------------------------------------------
+
+
+class TestScheduleToResponse:
+    def test_cron_schedule(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _schedule_to_response
+
+        task = MagicMock()
+        task.schedule_id = "sched_test"
+        task.name = "Test"
+        task.schedule_type = "cron"
+        task.cron_expression = "0 0 * * *"
+        task.interval_seconds = None
+        task.repo_path = "/repo"
+        task.prompt = "fix"
+        task.backend = "claudecodecli"
+        task.model = None
+        task.max_iterations = 6
+        task.pr_number = None
+        task.no_pr = False
+        task.enable_execution = False
+        task.enable_web = False
+        task.use_native_cli_auth = False
+        task.fix_ci = False
+        task.ci_check_wait_minutes = 3.0
+        task.github_token = None
+        task.reference_repos = []
+        task.tools = []
+        task.enabled = True
+        task.created_at = "2026-01-01T00:00:00"
+        task.last_run_at = None
+        task.last_run_task_id = None
+        task.run_count = 0
+
+        resp = _schedule_to_response(task)
+        assert resp.schedule_id == "sched_test"
+        assert resp.next_run_at is not None
+
+    def test_interval_schedule(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from helping_hands.server.app import _schedule_to_response
+
+        task = MagicMock()
+        task.schedule_id = "sched_int"
+        task.name = "Interval"
+        task.schedule_type = "interval"
+        task.cron_expression = ""
+        task.interval_seconds = 3600
+        task.repo_path = "/repo"
+        task.prompt = "fix"
+        task.backend = "claudecodecli"
+        task.model = None
+        task.max_iterations = 6
+        task.pr_number = None
+        task.no_pr = False
+        task.enable_execution = False
+        task.enable_web = False
+        task.use_native_cli_auth = False
+        task.fix_ci = False
+        task.ci_check_wait_minutes = 3.0
+        task.github_token = "ghp_secret123456789"
+        task.reference_repos = []
+        task.tools = []
+        task.enabled = True
+        task.created_at = "2026-01-01T00:00:00"
+        task.last_run_at = "2026-04-01T12:00:00+00:00"
+        task.last_run_task_id = None
+        task.run_count = 1
+
+        resp = _schedule_to_response(task)
+        assert resp.schedule_id == "sched_int"
+        assert resp.next_run_at is not None
+        # Token should be redacted
+        assert resp.github_token != "ghp_secret123456789"
+
+    def test_disabled_schedule_no_next_run(self) -> None:
+        from helping_hands.server.app import _schedule_to_response
+
+        task = MagicMock()
+        task.schedule_id = "sched_off"
+        task.name = "Off"
+        task.schedule_type = "cron"
+        task.cron_expression = "0 0 * * *"
+        task.interval_seconds = None
+        task.repo_path = "/repo"
+        task.prompt = "fix"
+        task.backend = "claudecodecli"
+        task.model = None
+        task.max_iterations = 6
+        task.pr_number = None
+        task.no_pr = False
+        task.enable_execution = False
+        task.enable_web = False
+        task.use_native_cli_auth = False
+        task.fix_ci = False
+        task.ci_check_wait_minutes = 3.0
+        task.github_token = None
+        task.reference_repos = []
+        task.tools = []
+        task.enabled = False
+        task.created_at = "2026-01-01T00:00:00"
+        task.last_run_at = None
+        task.last_run_task_id = None
+        task.run_count = 0
+
+        resp = _schedule_to_response(task)
+        assert resp.next_run_at is None
+
+
+# ---------------------------------------------------------------------------
+# Grill endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestGrillEndpoints:
+    def test_start_grill_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post(
+            "/grill",
+            json={
+                "repo_path": "/tmp/repo",
+                "prompt": "test",
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_send_grill_message_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post(
+            "/grill/session-1/message",
+            json={"content": "hello", "type": "text"},
+        )
+        assert resp.status_code == 404
+
+    def test_poll_grill_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/grill/session-1")
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# v356 — Task diff edge cases
+# ---------------------------------------------------------------------------
+
+
+def _init_git_repo(tmp_path):
+    """Helper to initialise a git repo in tmp_path with an initial commit."""
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    (tmp_path / "init.txt").write_text("init")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
+    )
+
+
+def _mock_workspace(monkeypatch, tmp_path):
+    """Monkey-patch build_feature.AsyncResult so it points at tmp_path."""
+    mock_result = MagicMock()
+    mock_result.ready.return_value = True
+    mock_result.result = {"workspace": str(tmp_path)}
+    monkeypatch.setattr(
+        "helping_hands.server.app.build_feature.AsyncResult",
+        lambda tid: mock_result,
+    )
+
+
+class TestTaskDiffEdgeCases:
+    """Cover branches in _build_task_diff not reached by existing tests."""
+
+    def test_diff_head_failure_falls_back_to_plain_diff(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """When 'git diff HEAD' fails (e.g. no commits), fallback 'git diff'."""
+        import subprocess
+
+        from helping_hands.server.app import _build_task_diff
+
+        # Create repo with no commits — so git diff HEAD will fail
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "staged.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-fallback")
+        assert result.error is None
+
+    def test_diff_multiple_files_with_status_detection(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Multi-file diff with added, deleted, and renamed statuses."""
+        import subprocess
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+
+        # Create multiple files, commit, then make changes
+        (tmp_path / "keep.txt").write_text("original")
+        (tmp_path / "to_delete.txt").write_text("remove me")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add files"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Modify, delete, and add new
+        (tmp_path / "keep.txt").write_text("modified")
+        (tmp_path / "to_delete.txt").unlink()
+        subprocess.run(
+            ["git", "add", "to_delete.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "new_file.txt").write_text("brand new")
+        subprocess.run(
+            ["git", "add", "new_file.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-multi")
+        assert result.error is None
+        filenames = {f.filename for f in result.files}
+        statuses = {f.status for f in result.files}
+        assert "keep.txt" in filenames
+        # Deleted file should appear
+        assert "to_delete.txt" in filenames
+        assert "deleted" in statuses or "added" in statuses
+
+    def test_diff_untracked_files_appear_as_added(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Untracked files should appear as 'added' with synthetic diff."""
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "untracked.txt").write_text("new content\nsecond line")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-untracked")
+        assert result.error is None
+        untracked_files = [f for f in result.files if f.filename == "untracked.txt"]
+        assert len(untracked_files) == 1
+        assert untracked_files[0].status == "added"
+        assert "+new content" in untracked_files[0].diff
+
+    def test_diff_git_timeout_returns_error(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """When git commands timeout, diff returns an error."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _timeout_run(cmd, **kwargs):
+            if "diff" in cmd:
+                raise _sp.TimeoutExpired(cmd, 15)
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _timeout_run)
+        result = _build_task_diff("task-timeout")
+        assert result.error is not None
+        assert "Git command failed" in result.error
+
+
+# ---------------------------------------------------------------------------
+# v356 — File tree edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestTaskTreeEdgeCases:
+    """Cover uncovered branches in _build_task_tree."""
+
+    def test_tree_git_status_rename_and_delete(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Git status with renames and deletes populates status correctly."""
+        import subprocess
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "original.txt").write_text("content")
+        (tmp_path / "to_remove.txt").write_text("bye")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "files"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Rename via git mv and delete
+        subprocess.run(
+            ["git", "mv", "original.txt", "renamed.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "rm", "to_remove.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_tree("task-rename")
+        assert result.error is None
+        file_entries = {e.path: e.status for e in result.tree if e.type == "file"}
+        # renamed.txt should appear; to_remove.txt is deleted
+        assert "renamed.txt" in file_entries
+
+    def test_tree_parent_dir_insertion(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Deeply nested files trigger parent directory insertion."""
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        deep = tmp_path / "a" / "b" / "c"
+        deep.mkdir(parents=True)
+        (deep / "deep.txt").write_text("deep")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_tree("task-deep")
+        assert result.error is None
+        paths = [e.path for e in result.tree]
+        assert "a" in paths
+        assert "a/b" in paths or "a\\b" in paths
+        assert any("deep.txt" in p for p in paths)
+
+    def test_tree_permission_error_handled(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """PermissionError during rglob is caught gracefully."""
+        from pathlib import Path
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        def _raise_permission(self_path, pattern):
+            # Yield one file then raise
+            yield tmp_path / "init.txt"
+            raise PermissionError("access denied")
+
+        monkeypatch.setattr(Path, "rglob", _raise_permission)
+        result = _build_task_tree("task-perm")
+        # Should not error — PermissionError is caught
+        assert result.error is None
+
+    def test_tree_short_status_lines_skipped(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Git status lines shorter than 4 chars are skipped."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _fake_status(cmd, **kwargs):
+            if "status" in cmd and any("porcelain" in c for c in cmd):
+                result = MagicMock()
+                result.returncode = 0
+                # Short line should be skipped, valid line should parse
+                result.stdout = "??\nM  init.txt\n D to_remove.txt\n"
+                return result
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _fake_status)
+        result = _build_task_tree("task-short")
+        assert result.error is None
+
+
+# ---------------------------------------------------------------------------
+# v356 — File content edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestTaskFileEdgeCases:
+    """Cover uncovered branches in _read_task_file."""
+
+    def test_path_traversal_rejected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Paths that escape the workspace are rejected."""
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        _mock_workspace(monkeypatch, tmp_path)
+
+        result = _read_task_file("task-traversal", "../../etc/passwd")
+        assert result.error is not None
+        assert "traversal" in result.error.lower()
+
+    def test_large_file_rejected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Files exceeding _FILE_CONTENT_MAX_BYTES are rejected."""
+        from helping_hands.server.app import _FILE_CONTENT_MAX_BYTES, _read_task_file
+
+        _init_git_repo(tmp_path)
+        big_file = tmp_path / "big.bin"
+        big_file.write_bytes(b"x" * (_FILE_CONTENT_MAX_BYTES + 1))
+        _mock_workspace(monkeypatch, tmp_path)
+
+        result = _read_task_file("task-big", "big.bin")
+        assert result.error is not None
+        assert "too large" in result.error.lower()
+
+    def test_os_error_reading_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """OSError when reading file content is handled gracefully."""
+        from pathlib import Path
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        target = tmp_path / "broken.txt"
+        target.write_text("hello")
+        _mock_workspace(monkeypatch, tmp_path)
+
+        original_read_text = Path.read_text
+
+        def _raise_os_error(self_path, **kwargs):
+            if "broken.txt" in str(self_path):
+                raise OSError("disk error")
+            return original_read_text(self_path, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", _raise_os_error)
+        result = _read_task_file("task-oserror", "broken.txt")
+        assert result.error is not None
+        assert "Cannot read" in result.error
+
+    def test_diff_detects_new_file_status(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Diff status detection picks up 'new file' header."""
+        import subprocess
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "fresh.txt").write_text("new content")
+        subprocess.run(["git", "add", "fresh.txt"], cwd=tmp_path, capture_output=True)
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _read_task_file("task-newfile", "fresh.txt")
+        assert result.error is None
+        assert result.content == "new content"
+        assert result.status == "added"
+        assert result.diff is not None
+        assert "new file" in result.diff
+
+    def test_diff_detects_deleted_file_status(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Diff status detection picks up 'deleted file' header."""
+        import subprocess
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "doomed.txt").write_text("content")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add doomed"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "rm", "doomed.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        # The file is deleted but git knows about it; write it back for reading
+        (tmp_path / "doomed.txt").write_text("content")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _read_task_file("task-deleted", "doomed.txt")
+        assert result.error is None
+
+    def test_untracked_file_detected_as_added(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """An untracked file should be detected as 'added' via ls-files."""
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "brand_new.txt").write_text("untracked content")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _read_task_file("task-untracked-file", "brand_new.txt")
+        assert result.error is None
+        assert result.content == "untracked content"
+        assert result.status == "added"
+        assert result.diff is not None
+
+    def test_git_diff_timeout_in_file_read(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Timeout in git diff during file read is caught."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _read_task_file
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "test.txt").write_text("content")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "add test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        (tmp_path / "test.txt").write_text("changed")
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _timeout_diff(cmd, **kwargs):
+            if "diff" in cmd:
+                raise _sp.TimeoutExpired(cmd, 10)
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _timeout_diff)
+        result = _read_task_file("task-diff-timeout", "test.txt")
+        # Should still return content, just no diff
+        assert result.error is None
+        assert result.content == "changed"
+        assert result.diff is None
+
+
+# ---------------------------------------------------------------------------
+# v356 — _extract_task_kwargs request.kwargs-as-string branch
+# ---------------------------------------------------------------------------
+
+
+class TestExtractTaskKwargsRequestString:
+    """Cover the request.kwargs-as-string path in _extract_task_kwargs."""
+
+    def test_request_kwargs_as_string(self) -> None:
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": '{"repo_path": "/tmp/repo", "prompt": "test"}'}}
+        result = _extract_task_kwargs(entry)
+        assert result == {"repo_path": "/tmp/repo", "prompt": "test"}
+
+    def test_request_kwargs_string_invalid_json(self) -> None:
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": "not-json"}}
+        result = _extract_task_kwargs(entry)
+        assert result == {}
+
+    def test_request_kwargs_as_dict(self) -> None:
+        from helping_hands.server.app import _extract_task_kwargs
+
+        entry = {"request": {"kwargs": {"repo_path": "/tmp/repo"}}}
+        result = _extract_task_kwargs(entry)
+        assert result == {"repo_path": "/tmp/repo"}
+
+
+# ---------------------------------------------------------------------------
+# v356 — Additional edge cases for higher coverage
+# ---------------------------------------------------------------------------
+
+
+class TestTaskDiffRenameAndUntrackedEdges:
+    """Cover rename status in diff and untracked file edge cases."""
+
+    def test_diff_rename_status_detected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Renamed files via git mv produce 'renamed' status in diff."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "old_name.txt").write_text("content")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "add old_name"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        _sp.run(
+            ["git", "mv", "old_name.txt", "new_name.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-rename-diff")
+        assert result.error is None
+        statuses = {f.status for f in result.files}
+        # Git may report rename as "renamed" via "rename from" header
+        assert "renamed" in statuses or len(result.files) >= 1
+
+    def test_diff_untracked_oserror_skipped(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """OSError reading an untracked file is silently skipped."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        # Create a file that will be untracked
+        broken = tmp_path / "broken_untracked.txt"
+        broken.write_text("hello")
+
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _mock_ls_files(cmd, **kwargs):
+            result = orig_run(cmd, **kwargs)
+            # For ls-files, inject a non-existent path too
+            if "ls-files" in cmd:
+                result = MagicMock()
+                result.stdout = "broken_untracked.txt\nnonexistent_dir/ghost.txt\n\n"
+                return result
+            return result
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _mock_ls_files)
+        result = _build_task_diff("task-untracked-oserror")
+        # Should not error — OSError for ghost.txt is caught,
+        # empty line is skipped, broken_untracked.txt succeeds
+        assert result.error is None
+
+    def test_diff_delete_status_via_staged(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Staged deletion with --cached diff shows 'deleted' in diff output."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_diff
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "doomed.txt").write_text("bye")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "add doomed"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        _sp.run(
+            ["git", "rm", "doomed.txt"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_diff("task-delete-diff")
+        assert result.error is None
+        deleted_files = [f for f in result.files if f.status == "deleted"]
+        assert len(deleted_files) >= 1
+
+
+class TestTaskTreeStatusParsing:
+    """Cover deleted/renamed status parsing in _build_task_tree."""
+
+    def test_tree_deleted_file_status(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Deleted files in git status get 'deleted' status in tree."""
+        import subprocess as _sp
+
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        (tmp_path / "alive.txt").write_text("content")
+        _sp.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        _sp.run(
+            ["git", "commit", "-m", "files"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        _mock_workspace(monkeypatch, tmp_path)
+
+        orig_run = _sp.run
+
+        def _fake_status(cmd, **kwargs):
+            if "status" in cmd and any("porcelain" in c for c in cmd):
+                result = MagicMock()
+                result.returncode = 0
+                # D = deleted, R = renamed (with -> separator)
+                result.stdout = " D alive.txt\nR  old.txt -> new.txt\n"
+                return result
+            return orig_run(cmd, **kwargs)
+
+        monkeypatch.setattr("helping_hands.server.app.subprocess.run", _fake_status)
+        result = _build_task_tree("task-tree-status")
+        assert result.error is None
+        status_map = {e.path: e.status for e in result.tree if e.type == "file"}
+        # alive.txt should have "deleted" status from the " D" prefix
+        assert status_map.get("alive.txt") == "deleted"
+
+    def test_tree_nested_files_add_parent_dirs(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Files in nested dirs trigger parent directory insertion."""
+        from helping_hands.server.app import _build_task_tree
+
+        _init_git_repo(tmp_path)
+        # Create nested structure: only the file, not explicit dirs
+        nested = tmp_path / "x" / "y"
+        nested.mkdir(parents=True)
+        (nested / "leaf.txt").write_text("leaf")
+
+        _mock_workspace(monkeypatch, tmp_path)
+        result = _build_task_tree("task-nested-parents")
+        assert result.error is None
+        dir_paths = {e.path for e in result.tree if e.type == "dir"}
+        assert "x" in dir_paths
+
+
+# ---------------------------------------------------------------------------
+# v366 — Grill enabled-path endpoint coverage
+# ---------------------------------------------------------------------------
+
+
+class TestGrillEnabledEndpoints:
+    """Cover the grill endpoints when GRILL_ME_ENABLED=1 (happy paths)."""
+
+    def test_start_grill_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        fake_result = MagicMock()
+        fake_result.id = "celery-task-abc"
+        with patch("helping_hands.server.grill.grill_session") as mock_grill:
+            mock_grill.delay.return_value = fake_result
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.post(
+                "/grill",
+                json={
+                    "repo_path": "/tmp/repo",
+                    "prompt": "test prompt",
+                },
+            )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["session_id"] == "celery-task-abc"
+        assert data["status"] == "starting"
+
+    def test_send_grill_message_enabled_session_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        monkeypatch.setenv("REDIS_URL", "redis://fake:6379")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = '{"status": "active"}'
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.post(
+                "/grill/test-session-123/message",
+                json={"content": "hello", "type": "text"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "sent"}
+        mock_redis.rpush.assert_called_once()
+        mock_redis.expire.assert_called_once()
+
+    def test_send_grill_message_enabled_session_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.post(
+                "/grill/nonexistent/message",
+                json={"content": "hello", "type": "text"},
+            )
+
+        assert resp.status_code == 404
+
+    def test_poll_grill_enabled_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.get("/grill/nonexistent")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "not_found"
+        assert data["messages"] == []
+
+    def test_poll_grill_enabled_with_messages(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import json as _json
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = _json.dumps({"status": "active"})
+        msg1 = _json.dumps(
+            {
+                "id": "m1",
+                "role": "assistant",
+                "content": "Hello",
+                "type": "text",
+                "timestamp": 1000.0,
+            }
+        )
+        # lpop returns one message then None
+        mock_redis.lpop.side_effect = [msg1, None]
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.get("/grill/sess-abc")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "active"
+        assert len(data["messages"]) == 1
+        assert data["messages"][0]["content"] == "Hello"
+
+
+# ---------------------------------------------------------------------------
+# v366 — App lifespan coverage
+# ---------------------------------------------------------------------------
+
+
+class TestAppLifespan:
+    """Cover the _lifespan async context manager."""
+
+    @pytest.mark.anyio
+    async def test_lifespan_starts_and_stops_yjs(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from helping_hands.server.app import _lifespan
+
+        mock_start = AsyncMock()
+        mock_stop = AsyncMock()
+        with (
+            patch("helping_hands.server.app.start_yjs_server", mock_start),
+            patch("helping_hands.server.app.stop_yjs_server", mock_stop),
+        ):
+            async with _lifespan(None):
+                mock_start.assert_awaited_once()
+                mock_stop.assert_not_awaited()
+            mock_stop.assert_awaited_once()

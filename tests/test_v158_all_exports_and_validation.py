@@ -14,8 +14,6 @@ helpers like _walk_repo must not be importable without an underscore import.
 
 from __future__ import annotations
 
-import inspect
-
 import pytest
 
 
@@ -175,13 +173,6 @@ class TestDuckDuckGoApiUrlConstant:
         from helping_hands.lib.meta.tools.web import _DUCKDUCKGO_API_URL
 
         assert _DUCKDUCKGO_API_URL.startswith("https://")
-
-    def test_constant_used_in_search_web(self) -> None:
-        """Verify _DUCKDUCKGO_API_URL is actually referenced in search_web source."""
-        from helping_hands.lib.meta.tools import web
-
-        source = inspect.getsource(web.search_web)
-        assert "_DUCKDUCKGO_API_URL" in source
 
 
 # ---------------------------------------------------------------------------

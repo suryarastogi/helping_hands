@@ -25,10 +25,6 @@ from helping_hands.server.app import (
     _resolve_worker_capacity,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 _ENV_VARS_TO_CLEAR = list(_WORKER_CAPACITY_ENV_VARS)
 
 

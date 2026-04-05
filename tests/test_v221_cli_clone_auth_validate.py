@@ -96,9 +96,6 @@ class TestRunGitClone:
     def test_is_function(self) -> None:
         assert callable(_run_git_clone)
 
-    def test_has_docstring(self) -> None:
-        assert _run_git_clone.__doc__
-
 
 # ---------------------------------------------------------------------------
 # _validate_or_exit — behaviour
@@ -142,9 +139,6 @@ class TestValidateOrExit:
 
     def test_is_function(self) -> None:
         assert callable(_validate_or_exit)
-
-    def test_has_docstring(self) -> None:
-        assert _validate_or_exit.__doc__
 
 
 # ---------------------------------------------------------------------------
@@ -244,13 +238,6 @@ class TestAuthStatusLine:
         assert hasattr(_BasicIterativeHand, "_auth_status_line")
         assert callable(_BasicIterativeHand._auth_status_line)
 
-    def test_has_docstring(self) -> None:
-        assert _BasicIterativeHand._auth_status_line.__doc__
-
-
-# ---------------------------------------------------------------------------
-# Source consistency — stream methods use _auth_status_line
-# ---------------------------------------------------------------------------
 
 _ITERATIVE_SRC = Path(inspect.getfile(_BasicIterativeHand)).read_text()
 

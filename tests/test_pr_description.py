@@ -1594,24 +1594,6 @@ class TestCommitMsgConstants:
     def test_commit_msg_timeout_value(self) -> None:
         assert _COMMIT_MSG_TIMEOUT == 30.0
 
-    def test_commit_msg_diff_limit_has_docstring(self) -> None:
-        """Verify the constant has a module-level docstring annotation."""
-        import inspect
-
-        import helping_hands.lib.hands.v1.hand.pr_description as mod
-
-        src = inspect.getsource(mod)
-        assert '_COMMIT_MSG_DIFF_LIMIT = 8_000\n"""' in src
-
-    def test_commit_msg_timeout_has_docstring(self) -> None:
-        """Verify the constant has a module-level docstring annotation."""
-        import inspect
-
-        import helping_hands.lib.hands.v1.hand.pr_description as mod
-
-        src = inspect.getsource(mod)
-        assert '_COMMIT_MSG_TIMEOUT = 30.0\n"""' in src
-
 
 # ---------------------------------------------------------------------------
 # cli_label dead code removal (v147)
@@ -1774,35 +1756,6 @@ class TestCommitTypePrefixRe:
     def test_no_match_plain_text(self) -> None:
         assert _COMMIT_TYPE_PREFIX_RE.match("plain text") is None
 
-    def test_is_trivial_uses_constant(self) -> None:
-        """_is_trivial_message uses _COMMIT_TYPE_PREFIX_RE to strip prefix."""
-        import inspect
-
-        import helping_hands.lib.hands.v1.hand.pr_description as mod
-
-        src = inspect.getsource(mod._is_trivial_message)
-        assert "_COMMIT_TYPE_PREFIX_RE" in src
-
-    def test_commit_message_from_prompt_uses_constant(self) -> None:
-        """_commit_message_from_prompt uses _COMMIT_TYPE_PREFIX_RE."""
-        import inspect
-
-        import helping_hands.lib.hands.v1.hand.pr_description as mod
-
-        src = inspect.getsource(mod._commit_message_from_prompt)
-        assert "_COMMIT_TYPE_PREFIX_RE" in src
-
-    def test_marker_constants_have_docstrings(self) -> None:
-        """All new constants have module-level docstring annotations."""
-        import inspect
-
-        import helping_hands.lib.hands.v1.hand.pr_description as mod
-
-        src = inspect.getsource(mod)
-        assert '_PR_TITLE_MARKER = "PR_TITLE:"\n"""' in src
-        assert '_PR_BODY_MARKER = "PR_BODY:"\n"""' in src
-        assert '_COMMIT_MSG_MARKER = "COMMIT_MSG:"\n"""' in src
-
 
 # ---------------------------------------------------------------------------
 # v189 — generate_pr_description input validation
@@ -1944,15 +1897,6 @@ class TestBracketBannerRe:
     def test_no_match_bracket_no_space(self) -> None:
         assert _BRACKET_BANNER_RE.match("[label]nospace") is None
 
-    def test_boilerplate_uses_constant(self) -> None:
-        """_is_boilerplate_line uses _BRACKET_BANNER_RE."""
-        import inspect
-
-        import helping_hands.lib.hands.v1.hand.pr_description as mod
-
-        src = inspect.getsource(mod._is_boilerplate_line)
-        assert "_BRACKET_BANNER_RE" in src
-
 
 class TestNumberedListRe:
     """Tests for the pre-compiled _NUMBERED_LIST_RE constant."""
@@ -1973,15 +1917,6 @@ class TestNumberedListRe:
 
     def test_no_match_no_space(self) -> None:
         assert _NUMBERED_LIST_RE.match("1.nospace") is None
-
-    def test_boilerplate_uses_constant(self) -> None:
-        """_is_boilerplate_line uses _NUMBERED_LIST_RE."""
-        import inspect
-
-        import helping_hands.lib.hands.v1.hand.pr_description as mod
-
-        src = inspect.getsource(mod._is_boilerplate_line)
-        assert "_NUMBERED_LIST_RE" in src
 
 
 class TestModuleLevelReImport:

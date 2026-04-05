@@ -257,6 +257,8 @@ class TestModelProviderAllExport:
         from helping_hands.lib.hands.v1.hand.model_provider import __all__
 
         allowed_private = {
+            "_OLLAMA_MODEL_PREFIXES",
+            "_OPENAI_MODEL_PREFIXES",
             "_PROVIDER_OPENAI",
             "_PROVIDER_ANTHROPIC",
             "_PROVIDER_GOOGLE",
@@ -280,7 +282,7 @@ class TestModelProviderAllExport:
     def test_all_count(self) -> None:
         from helping_hands.lib.hands.v1.hand.model_provider import __all__
 
-        assert len(__all__) == 11
+        assert len(__all__) == 13
 
 
 # ---------------------------------------------------------------------------

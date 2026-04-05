@@ -12,8 +12,6 @@ ensure the public APIs remain stable as new helpers are added.
 
 from __future__ import annotations
 
-import inspect
-
 from helping_hands.lib import (
     github_url as github_url_module,
     validation as validation_module,
@@ -59,11 +57,6 @@ class TestGitHookFailureMarkers:
     def test_not_empty(self) -> None:
         assert len(hand_base_module._GIT_HOOK_FAILURE_MARKERS) > 0
 
-    def test_is_git_hook_failure_uses_constant(self) -> None:
-        """Verify _is_git_hook_failure references the module-level constant."""
-        source = inspect.getsource(hand_base_module.Hand._is_git_hook_failure)
-        assert "_GIT_HOOK_FAILURE_MARKERS" in source
-
     def test_each_marker_triggers_detection(self) -> None:
         """Each marker in the constant should trigger hook failure detection."""
         for marker in hand_base_module._GIT_HOOK_FAILURE_MARKERS:
@@ -93,14 +86,12 @@ class TestValidationModuleContract:
             "require_non_empty_string",
             "require_positive_float",
             "require_positive_int",
+            "validate_repo_value",
         }
 
     def test_all_exports_are_callable(self) -> None:
         for name in validation_module.__all__:
             assert callable(getattr(validation_module, name))
-
-    def test_has_docstring(self) -> None:
-        assert validation_module.__doc__
 
 
 # ---------------------------------------------------------------------------
@@ -126,18 +117,10 @@ class TestGithubUrlModuleContract:
             "redact_credentials",
             "repo_tmp_dir",
             "resolve_github_token",
+            "run_git_clone",
             "validate_repo_spec",
         }
 
     def test_all_exports_resolve(self) -> None:
         for name in github_url_module.__all__:
             assert hasattr(github_url_module, name)
-
-    def test_has_docstring(self) -> None:
-        assert github_url_module.__doc__
-
-    def test_functions_have_docstrings(self) -> None:
-        for name in github_url_module.__all__:
-            obj = getattr(github_url_module, name)
-            if callable(obj):
-                assert obj.__doc__, f"{name} missing docstring"

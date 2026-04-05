@@ -44,11 +44,6 @@ class TestCloseCoroutineExtraction:
 
         assert callable(_close_coroutine)
 
-    def test_has_docstring(self) -> None:
-        from tests.test_cli import _close_coroutine
-
-        assert _close_coroutine.__doc__ is not None
-
     def test_no_inline_definitions(self) -> None:
         """No class or method should define _close_coroutine locally."""
         import tests.test_cli as mod
@@ -57,7 +52,7 @@ class TestCloseCoroutineExtraction:
         tree = ast.parse(source)
         inline_defs = []
         for node in ast.walk(tree):
-            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
                 for child in ast.walk(node):
                     if (
                         isinstance(child, ast.FunctionDef)
@@ -248,27 +243,6 @@ class TestTaskResultJsonSafe:
 
 class TestSourceConsistency:
     """Verify structural invariants in modified modules."""
-
-    def test_model_provider_imports_validation(self) -> None:
-        """model_provider.py should import require_non_empty_string."""
-        import helping_hands.lib.hands.v1.hand.model_provider as mod
-
-        source = inspect.getsource(mod)
-        assert "require_non_empty_string" in source
-
-    def test_task_result_imports_validation(self) -> None:
-        """task_result.py should import require_non_empty_string."""
-        import helping_hands.server.task_result as mod
-
-        source = inspect.getsource(mod)
-        assert "require_non_empty_string" in source
-
-    def test_task_result_uses_json_dumps(self) -> None:
-        """task_result.py should try json.dumps before str() fallback."""
-        import helping_hands.server.task_result as mod
-
-        source = inspect.getsource(mod)
-        assert "json.dumps" in source
 
     def test_test_cli_no_duplicate_close_coroutine(self) -> None:
         """test_cli.py should have exactly one _close_coroutine definition."""

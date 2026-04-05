@@ -136,11 +136,6 @@ class TestBuildFailureMessage:
 
 
 # ---------------------------------------------------------------------------
-# _invoke_devin / _invoke_backend — async delegation
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
 # _inject_prompt_argument
 # ---------------------------------------------------------------------------
 
@@ -264,6 +259,74 @@ class TestApplyBackendDefaults:
         monkeypatch.setenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", "auto")
         result = devin_hand._apply_backend_defaults(["devin", "-p"])
         assert result == ["devin", "--permission-mode", "auto", "-p"]
+
+
+# ---------------------------------------------------------------------------
+# _pr_description_cmd
+# ---------------------------------------------------------------------------
+
+
+class TestPrDescriptionCmd:
+    def test_returns_cmd_when_devin_on_path(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/devin")
+        result = devin_hand._pr_description_cmd()
+        assert result == ["devin", "-p", "--"]
+
+    def test_returns_none_when_devin_not_on_path(self, devin_hand, monkeypatch) -> None:
+        monkeypatch.setattr("shutil.which", lambda cmd: None)
+        result = devin_hand._pr_description_cmd()
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _pr_description_prompt_as_arg
+# ---------------------------------------------------------------------------
+
+
+class TestPrDescriptionPromptAsArg:
+    def test_returns_true(self, devin_hand) -> None:
+        assert devin_hand._pr_description_prompt_as_arg() is True
+
+
+# ---------------------------------------------------------------------------
+# _resolve_cli_model — env var edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestResolveCliModelEnvEdge:
+    def test_env_var_default_marker_falls_through(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        """Env var set to 'default' is treated as empty marker."""
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_MODEL", "default")
+        hand = make_cli_hand(DevinCLIHand, model="anthropic/claude-sonnet-4-6")
+        assert hand._resolve_cli_model() == "anthropic/claude-sonnet-4-6"
+
+    def test_env_var_none_marker_falls_through(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        """Env var set to 'None' is treated as empty marker."""
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_MODEL", "None")
+        hand = make_cli_hand(DevinCLIHand, model="anthropic/claude-sonnet-4-6")
+        assert hand._resolve_cli_model() == "anthropic/claude-sonnet-4-6"
+
+    def test_env_var_whitespace_falls_through(self, make_cli_hand, monkeypatch) -> None:
+        """Whitespace-only env var defers to config model."""
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_MODEL", "   ")
+        hand = make_cli_hand(DevinCLIHand, model="claude-sonnet-4-6")
+        assert hand._resolve_cli_model() == "claude-sonnet-4-6"
+
+    def test_env_var_unset_uses_config(self, make_cli_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_DEVIN_MODEL", raising=False)
+        hand = make_cli_hand(DevinCLIHand, model="openai/gpt-5.2")
+        assert hand._resolve_cli_model() == "openai/gpt-5.2"
+
+    def test_env_var_and_config_both_empty_returns_default(
+        self, make_cli_hand, monkeypatch
+    ) -> None:
+        monkeypatch.setenv("HELPING_HANDS_DEVIN_MODEL", "")
+        hand = make_cli_hand(DevinCLIHand, model="")
+        assert hand._resolve_cli_model() == "claude-opus-4-6"
 
 
 # ---------------------------------------------------------------------------

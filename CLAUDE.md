@@ -115,3 +115,8 @@ An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan be
 ## CI
 
 GitHub Actions runs on Python 3.12/3.13/3.14: ruff lint + format check, pytest with coverage, Codecov upload. Frontend CI runs lint, typecheck, and Vitest with coverage separately.
+
+## Test guidelines
+- Don't write tests that assert exact markdown formatting, punctuation, or doc prose style
+- Don't use `inspect.getsource()` to check syntax choices — test behavior instead
+- Doc structure tests should verify files exist and are indexed, not enforce cosmetic rules

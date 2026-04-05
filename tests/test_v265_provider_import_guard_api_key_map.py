@@ -23,6 +23,7 @@ from unittest.mock import patch
 
 import pytest
 
+from helping_hands.lib.ai_providers import PROVIDERS
 from helping_hands.lib.ai_providers.anthropic import AnthropicProvider
 from helping_hands.lib.ai_providers.google import GoogleProvider
 from helping_hands.lib.ai_providers.litellm import LiteLLMProvider
@@ -33,6 +34,7 @@ from helping_hands.lib.hands.v1.hand.cli.opencode import _PROVIDER_ENV_MAP
 from helping_hands.lib.hands.v1.hand.model_provider import (
     _PROVIDER_ANTHROPIC,
     _PROVIDER_GOOGLE,
+    _PROVIDER_LITELLM,
     _PROVIDER_OLLAMA,
     _PROVIDER_OPENAI,
     PROVIDER_API_KEY_ENV,
@@ -187,11 +189,13 @@ class TestProvidersUseRequireSdk:
 class TestProviderApiKeyEnv:
     """Tests for the shared PROVIDER_API_KEY_ENV mapping."""
 
-    def test_has_all_four_providers(self) -> None:
+    def test_has_all_providers(self) -> None:
+        """Every provider in the PROVIDERS registry must have an entry."""
         assert _PROVIDER_OPENAI in PROVIDER_API_KEY_ENV
         assert _PROVIDER_ANTHROPIC in PROVIDER_API_KEY_ENV
         assert _PROVIDER_GOOGLE in PROVIDER_API_KEY_ENV
         assert _PROVIDER_OLLAMA in PROVIDER_API_KEY_ENV
+        assert _PROVIDER_LITELLM in PROVIDER_API_KEY_ENV
 
     def test_maps_openai_to_correct_env(self) -> None:
         assert PROVIDER_API_KEY_ENV[_PROVIDER_OPENAI] == "OPENAI_API_KEY"
@@ -205,6 +209,9 @@ class TestProviderApiKeyEnv:
     def test_maps_ollama_to_correct_env(self) -> None:
         assert PROVIDER_API_KEY_ENV[_PROVIDER_OLLAMA] == "OLLAMA_HOST"
 
+    def test_maps_litellm_to_correct_env(self) -> None:
+        assert PROVIDER_API_KEY_ENV[_PROVIDER_LITELLM] == "LITELLM_API_KEY"
+
     def test_values_are_strings(self) -> None:
         for key, value in PROVIDER_API_KEY_ENV.items():
             assert isinstance(key, str)
@@ -213,3 +220,18 @@ class TestProviderApiKeyEnv:
     def test_opencode_reexport_is_same_object(self) -> None:
         """_PROVIDER_ENV_MAP in opencode.py is the same dict."""
         assert _PROVIDER_ENV_MAP is PROVIDER_API_KEY_ENV
+
+    def test_covers_all_registered_providers(self) -> None:
+        """Structural: every provider in PROVIDERS must be in PROVIDER_API_KEY_ENV."""
+        missing = set(PROVIDERS.keys()) - set(PROVIDER_API_KEY_ENV.keys())
+        assert not missing, (
+            f"PROVIDER_API_KEY_ENV is missing entries for: {sorted(missing)}. "
+            "Add them to model_provider.py so CLI hands can report auth status."
+        )
+
+    def test_no_extra_keys_beyond_providers(self) -> None:
+        """PROVIDER_API_KEY_ENV should not contain keys absent from PROVIDERS."""
+        extra = set(PROVIDER_API_KEY_ENV.keys()) - set(PROVIDERS.keys())
+        assert not extra, (
+            f"PROVIDER_API_KEY_ENV has keys not in PROVIDERS: {sorted(extra)}"
+        )

@@ -930,6 +930,13 @@ class BasicLangGraphHand(_BasicIterativeHand):
         *,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
+        """Initialise the LangGraph hand.
+
+        Args:
+            config: Application configuration.
+            repo_index: Index of the target repository.
+            max_iterations: Maximum agent loop iterations.
+        """
         super().__init__(config, repo_index, max_iterations=max_iterations)
         self._hand_model = resolve_hand_model(self.config.model)
         self._agent = self._build_agent()
@@ -1121,6 +1128,13 @@ class BasicAtomicHand(_BasicIterativeHand):
         *,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
+        """Initialise the Atomic Agents hand.
+
+        Args:
+            config: Application configuration.
+            repo_index: Index of the target repository.
+            max_iterations: Maximum agent loop iterations.
+        """
         super().__init__(config, repo_index, max_iterations=max_iterations)
         self._input_schema: type[Any] | None = None
         self._hand_model = resolve_hand_model(self.config.model)

@@ -17,10 +17,13 @@ import pytest
 from helping_hands.lib.validation import (
     __all__ as validation_all,
     format_type_error,
+    has_cli_flag,
+    install_hint,
     parse_comma_list,
     require_non_empty_string,
     require_positive_float,
     require_positive_int,
+    validate_repo_value,
 )
 
 # ---------------------------------------------------------------------------
@@ -40,7 +43,59 @@ class TestModuleAll:
             "require_non_empty_string",
             "require_positive_float",
             "require_positive_int",
+            "validate_repo_value",
         }
+
+
+# ---------------------------------------------------------------------------
+# has_cli_flag
+# ---------------------------------------------------------------------------
+
+
+class TestHasCliFlag:
+    """Tests for has_cli_flag()."""
+
+    def test_bare_flag_present(self) -> None:
+        assert has_cli_flag(["--model", "gpt-4"], "model") is True
+
+    def test_flag_with_equals(self) -> None:
+        assert has_cli_flag(["--model=gpt-4"], "model") is True
+
+    def test_flag_absent(self) -> None:
+        assert has_cli_flag(["--verbose", "--dry-run"], "model") is False
+
+    def test_empty_tokens(self) -> None:
+        assert has_cli_flag([], "model") is False
+
+    def test_partial_match_not_matched(self) -> None:
+        assert has_cli_flag(["--model-name=foo"], "model") is False
+
+    def test_single_dash_not_matched(self) -> None:
+        assert has_cli_flag(["-model"], "model") is False
+
+    def test_flag_among_many(self) -> None:
+        tokens = ["--verbose", "--backend=langgraph", "--model", "gpt-4"]
+        assert has_cli_flag(tokens, "backend") is True
+
+
+# ---------------------------------------------------------------------------
+# install_hint
+# ---------------------------------------------------------------------------
+
+
+class TestInstallHint:
+    """Tests for install_hint()."""
+
+    def test_server_extra(self) -> None:
+        assert install_hint("server") == "Install with: uv sync --extra server"
+
+    def test_langchain_extra(self) -> None:
+        assert install_hint("langchain") == "Install with: uv sync --extra langchain"
+
+    def test_contains_extra_name(self) -> None:
+        result = install_hint("atomic")
+        assert "atomic" in result
+        assert "uv sync" in result
 
 
 # ---------------------------------------------------------------------------
@@ -330,3 +385,81 @@ class TestParseCommaList:
             "owner/repo1",
             "owner/repo2",
         )
+
+
+# ---------------------------------------------------------------------------
+# validate_repo_value
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRepoValue:
+    """Tests for validate_repo_value()."""
+
+    def test_valid_local_path(self) -> None:
+        assert validate_repo_value("/tmp/my-repo") == "/tmp/my-repo"
+
+    def test_valid_owner_repo(self) -> None:
+        assert validate_repo_value("owner/repo") == "owner/repo"
+
+    def test_strips_whitespace(self) -> None:
+        assert validate_repo_value("  owner/repo  ") == "owner/repo"
+
+    def test_empty_string_rejected(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            validate_repo_value("")
+
+    def test_whitespace_only_rejected(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            validate_repo_value("   ")
+
+    def test_null_byte_rejected(self) -> None:
+        with pytest.raises(ValueError, match="null bytes"):
+            validate_repo_value("owner/repo\x00")
+
+    def test_newline_rejected(self) -> None:
+        with pytest.raises(ValueError, match="newlines"):
+            validate_repo_value("owner/repo\nmalicious")
+
+    def test_carriage_return_rejected(self) -> None:
+        with pytest.raises(ValueError, match="newlines"):
+            validate_repo_value("owner/repo\rmalicious")
+
+    def test_path_traversal_rejected(self) -> None:
+        with pytest.raises(ValueError, match="path traversal"):
+            validate_repo_value("../../etc/passwd")
+
+    def test_path_traversal_middle_rejected(self) -> None:
+        with pytest.raises(ValueError, match="path traversal"):
+            validate_repo_value("/tmp/../etc/passwd")
+
+    def test_backslash_traversal_rejected(self) -> None:
+        with pytest.raises(ValueError, match="path traversal"):
+            validate_repo_value("..\\..\\etc\\passwd")
+
+    def test_relative_path_accepted(self) -> None:
+        """Single dots (current dir) are fine."""
+        assert validate_repo_value("./my-repo") == "./my-repo"
+
+    def test_deep_path_accepted(self) -> None:
+        assert (
+            validate_repo_value("/home/user/repos/my-repo")
+            == "/home/user/repos/my-repo"
+        )
+
+    # --- Type guard (v368) ---
+
+    def test_non_string_int_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got int"):
+            validate_repo_value(42)  # type: ignore[arg-type]
+
+    def test_non_string_none_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got NoneType"):
+            validate_repo_value(None)  # type: ignore[arg-type]
+
+    def test_non_string_list_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got list"):
+            validate_repo_value(["owner/repo"])  # type: ignore[arg-type]
+
+    def test_non_string_bool_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got bool"):
+            validate_repo_value(True)  # type: ignore[arg-type]

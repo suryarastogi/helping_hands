@@ -12,8 +12,6 @@ code that does `from helping_hands.lib.validation import require_non_empty_strin
 
 from __future__ import annotations
 
-import inspect
-
 import pytest
 
 from helping_hands.lib.validation import require_non_empty_string, require_positive_int
@@ -59,10 +57,6 @@ class TestRequireNonEmptyString:
     def test_single_char(self) -> None:
         assert require_non_empty_string("a", "x") == "a"
 
-    def test_has_docstring(self) -> None:
-        assert require_non_empty_string.__doc__ is not None
-        assert len(require_non_empty_string.__doc__) > 20
-
     def test_module_all(self) -> None:
         from helping_hands.lib import validation
 
@@ -95,91 +89,10 @@ class TestRequirePositiveInt:
         with pytest.raises(ValueError, match=r"timeout.*-1"):
             require_positive_int(-1, "timeout")
 
-    def test_has_docstring(self) -> None:
-        assert require_positive_int.__doc__ is not None
-        assert len(require_positive_int.__doc__) > 20
-
     def test_module_all(self) -> None:
         from helping_hands.lib import validation
 
         assert "require_positive_int" in validation.__all__
-
-
-# ---------------------------------------------------------------------------
-# Delegation verification — confirm refactored sites import the helpers
-# ---------------------------------------------------------------------------
-
-
-class TestDelegationGithub:
-    """Verify github.py delegates to shared validators."""
-
-    def test_validate_full_name_uses_helper(self) -> None:
-        from helping_hands.lib.github import _validate_full_name
-
-        source = inspect.getsource(_validate_full_name)
-        assert "require_non_empty_string" in source
-
-    def test_validate_branch_name_uses_helper(self) -> None:
-        from helping_hands.lib.github import _validate_branch_name
-
-        source = inspect.getsource(_validate_branch_name)
-        assert "require_non_empty_string" in source
-
-
-class TestDelegationMcpServer:
-    """Verify mcp_server.py delegates to shared validators."""
-
-    def test_build_feature_uses_helper(self) -> None:
-        from helping_hands.server.mcp_server import build_feature
-
-        source = inspect.getsource(build_feature)
-        assert "require_non_empty_string" in source
-
-    def test_get_task_status_uses_helper(self) -> None:
-        from helping_hands.server.mcp_server import get_task_status
-
-        source = inspect.getsource(get_task_status)
-        assert "require_non_empty_string" in source
-
-
-class TestDelegationBase:
-    """Verify base.py Hand delegates to shared validators."""
-
-    def test_build_generic_pr_body_uses_helper(self) -> None:
-        from helping_hands.lib.hands.v1.hand.base import Hand
-
-        source = inspect.getsource(Hand._build_generic_pr_body)
-        assert "require_non_empty_string" in source
-
-    def test_configure_push_remote_uses_helper(self) -> None:
-        from helping_hands.lib.hands.v1.hand.base import Hand
-
-        source = inspect.getsource(Hand._configure_authenticated_push_remote)
-        assert "require_non_empty_string" in source
-
-
-class TestDelegationPrDescription:
-    """Verify pr_description.py delegates to shared validators."""
-
-    def test_truncate_text_uses_helper(self) -> None:
-        from helping_hands.lib.hands.v1.hand.pr_description import _truncate_text
-
-        source = inspect.getsource(_truncate_text)
-        assert "require_positive_int" in source
-
-    def test_truncate_diff_uses_helper(self) -> None:
-        from helping_hands.lib.hands.v1.hand.pr_description import _truncate_diff
-
-        source = inspect.getsource(_truncate_diff)
-        assert "require_positive_int" in source
-
-    def test_generate_pr_description_uses_helper(self) -> None:
-        from helping_hands.lib.hands.v1.hand.pr_description import (
-            generate_pr_description,
-        )
-
-        source = inspect.getsource(generate_pr_description)
-        assert "require_non_empty_string" in source
 
 
 _has_fastapi = True
@@ -194,12 +107,6 @@ _skip_no_fastapi = pytest.mark.skipif(not _has_fastapi, reason="fastapi not inst
 @_skip_no_fastapi
 class TestDelegationAppValidatePathParam:
     """Verify app.py _validate_path_param delegates to shared validator."""
-
-    def test_delegates_to_require_non_empty_string(self) -> None:
-        from helping_hands.server.app import _validate_path_param
-
-        source = inspect.getsource(_validate_path_param)
-        assert "require_non_empty_string" in source
 
     def test_returns_stripped(self) -> None:
         from helping_hands.server.app import _validate_path_param
@@ -217,49 +124,3 @@ class TestDelegationAppValidatePathParam:
 
         with pytest.raises(ValueError):
             _validate_path_param("   ", "schedule_id")
-
-
-class TestDelegationFilesystem:
-    """Verify filesystem.py delegates to shared validators."""
-
-    def test_read_text_file_uses_helper(self) -> None:
-        from helping_hands.lib.meta.tools.filesystem import read_text_file
-
-        source = inspect.getsource(read_text_file)
-        assert "require_positive_int" in source
-
-
-class TestDelegationWeb:
-    """Verify web.py delegates to shared validators."""
-
-    def test_search_web_uses_helper(self) -> None:
-        from helping_hands.lib.meta.tools.web import search_web
-
-        source = inspect.getsource(search_web)
-        assert "require_positive_int" in source
-
-    def test_browse_url_uses_helper(self) -> None:
-        from helping_hands.lib.meta.tools.web import browse_url
-
-        source = inspect.getsource(browse_url)
-        assert "require_positive_int" in source
-
-
-class TestDelegationCommand:
-    """Verify command.py delegates to shared validators."""
-
-    def test_run_command_uses_helper(self) -> None:
-        from helping_hands.lib.meta.tools.command import _run_command
-
-        source = inspect.getsource(_run_command)
-        assert "require_positive_int" in source
-
-
-class TestDelegationGithubUrl:
-    """Verify github_url.py delegates to shared validators."""
-
-    def test_validate_repo_spec_uses_helper(self) -> None:
-        from helping_hands.lib.github_url import validate_repo_spec
-
-        source = inspect.getsource(validate_repo_spec)
-        assert "require_non_empty_string" in source

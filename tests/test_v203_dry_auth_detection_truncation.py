@@ -12,10 +12,6 @@ subclass-delegation tests ensure no hand reverts to manual tail/lower_tail slici
 
 from __future__ import annotations
 
-import inspect
-
-import pytest
-
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _AUTH_ERROR_TOKENS,
     _FAILURE_OUTPUT_TAIL_LENGTH,
@@ -133,108 +129,12 @@ class TestDetectAuthFailure:
 
 
 # ---------------------------------------------------------------------------
-# Subclass refactoring: no manual tail/lower_tail pattern
-# ---------------------------------------------------------------------------
-
-
-class TestSubclassesUseDetectAuthFailure:
-    """Verify subclasses use _detect_auth_failure instead of inline patterns."""
-
-    @pytest.mark.parametrize(
-        "module_path,class_name",
-        [
-            ("helping_hands.lib.hands.v1.hand.cli.claude", "ClaudeCodeHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.codex", "CodexCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.gemini", "GeminiCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.opencode", "OpenCodeCLIHand"),
-        ],
-    )
-    def test_no_manual_tail_extraction(self, module_path: str, class_name: str) -> None:
-        """Failure message methods should not contain manual tail extraction."""
-        mod = __import__(module_path, fromlist=[class_name])
-        src = inspect.getsource(mod)
-        # Should not have the old 3-line manual pattern
-        assert "lower_tail = tail.lower()" not in src
-
-    def test_gemini_imports_detect_auth_failure(self) -> None:
-        """Gemini still uses _detect_auth_failure directly."""
-        mod = __import__(
-            "helping_hands.lib.hands.v1.hand.cli.gemini", fromlist=["GeminiCLIHand"]
-        )
-        src = inspect.getsource(mod)
-        assert "_detect_auth_failure" in src
-
-    @pytest.mark.parametrize(
-        "module_path,class_name",
-        [
-            ("helping_hands.lib.hands.v1.hand.cli.claude", "ClaudeCodeHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.codex", "CodexCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.opencode", "OpenCodeCLIHand"),
-        ],
-    )
-    def test_imports_format_cli_failure(
-        self, module_path: str, class_name: str
-    ) -> None:
-        """Since v271, these modules delegate to _format_cli_failure."""
-        mod = __import__(module_path, fromlist=[class_name])
-        src = inspect.getsource(mod)
-        assert "_format_cli_failure" in src
-
-    @pytest.mark.parametrize(
-        "module_path,class_name",
-        [
-            ("helping_hands.lib.hands.v1.hand.cli.claude", "ClaudeCodeHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.codex", "CodexCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.gemini", "GeminiCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.opencode", "OpenCodeCLIHand"),
-        ],
-    )
-    def test_no_direct_auth_error_tokens_import(
-        self, module_path: str, class_name: str
-    ) -> None:
-        """Subclasses should no longer directly import _AUTH_ERROR_TOKENS."""
-        mod = __import__(module_path, fromlist=[class_name])
-        src = inspect.getsource(mod)
-        assert "_AUTH_ERROR_TOKENS" not in src
-
-    @pytest.mark.parametrize(
-        "module_path,class_name",
-        [
-            ("helping_hands.lib.hands.v1.hand.cli.claude", "ClaudeCodeHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.codex", "CodexCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.gemini", "GeminiCLIHand"),
-            ("helping_hands.lib.hands.v1.hand.cli.opencode", "OpenCodeCLIHand"),
-        ],
-    )
-    def test_no_failure_output_tail_length_import(
-        self, module_path: str, class_name: str
-    ) -> None:
-        """Subclasses should no longer directly import _FAILURE_OUTPUT_TAIL_LENGTH."""
-        mod = __import__(module_path, fromlist=[class_name])
-        src = inspect.getsource(mod)
-        assert "_FAILURE_OUTPUT_TAIL_LENGTH" not in src
-
-
-# ---------------------------------------------------------------------------
 # Claude _StreamJsonEmitter uses _truncate_with_ellipsis
 # ---------------------------------------------------------------------------
 
 
 class TestClaudeEmitterUsesTruncateHelper:
     """Verify _StreamJsonEmitter uses _truncate_with_ellipsis."""
-
-    def test_no_inline_slicing_pattern(self) -> None:
-        """The old `text[:limit - 3] + '...'` pattern should be gone."""
-        from helping_hands.lib.hands.v1.hand.cli import claude
-
-        src = inspect.getsource(claude._StreamJsonEmitter)
-        assert '- 3] + "..."' not in src
-
-    def test_imports_truncate_helper(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli import claude
-
-        src = inspect.getsource(claude)
-        assert "_truncate_with_ellipsis" in src
 
     def test_summarize_tool_bash_truncates(self) -> None:
         """Bash commands exceeding limit are truncated with ellipsis."""

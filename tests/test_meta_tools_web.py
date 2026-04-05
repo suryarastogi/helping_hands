@@ -159,15 +159,3 @@ class TestHtmlStripRegexConstants:
     def test_blank_lines_re_collapses(self) -> None:
         result = web_tools._BLANK_LINES_RE.sub("\n\n", "a\n\n\n\nb")
         assert result == "a\n\nb"
-
-    def test_strip_html_uses_compiled_constants(self) -> None:
-        """_strip_html uses pre-compiled regex constants, not inline patterns."""
-        import inspect
-
-        src = inspect.getsource(web_tools._strip_html)
-        assert "_SCRIPT_STYLE_RE" in src
-        assert "_HTML_TAG_RE" in src
-        assert "_HORIZONTAL_WHITESPACE_RE" in src
-        assert "_BLANK_LINES_RE" in src
-        # Should NOT contain inline re.sub with raw string patterns
-        assert "re.sub(" not in src

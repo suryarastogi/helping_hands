@@ -22,10 +22,6 @@ import pytest
 
 from helping_hands.lib.config import Config
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 _HAND_DIR = (
     Path(__file__).resolve().parent.parent
     / "src"

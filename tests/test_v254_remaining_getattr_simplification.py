@@ -17,10 +17,6 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 _SRC = Path(__file__).resolve().parent.parent / "src" / "helping_hands"
 _WEB_PY = _SRC / "lib" / "meta" / "tools" / "web.py"
 _BASE_PY = _SRC / "lib" / "hands" / "v1" / "hand" / "base.py"
@@ -40,7 +36,7 @@ def _find_getattr_calls_in_function(
     tree = ast.parse(source_path.read_text())
     results: list[tuple[int, str]] = []
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         if node.name != function_name:
             continue

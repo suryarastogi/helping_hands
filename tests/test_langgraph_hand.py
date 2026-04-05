@@ -330,11 +330,6 @@ class TestStream:
         assert not any("PR created" in c for c in chunks)
 
 
-# ---------------------------------------------------------------------------
-# Async helper
-# ---------------------------------------------------------------------------
-
-
 async def _collect_stream(hand, prompt: str) -> list[str]:
     chunks: list[str] = []
     async for chunk in hand.stream(prompt):

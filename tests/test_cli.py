@@ -21,21 +21,31 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.cli.main import (
+    _BACKEND_CLI_TOOL,
+    _BACKEND_PYTHON_EXTRA,
+    _check_backend_available,
     _error_exit,
-    _git_noninteractive_env,
     _github_clone_url,
     _make_temp_clone_dir,
-    _redact_sensitive,
-    _repo_tmp_dir,
-    _resolve_repo_path,
     _stream_hand,
-    _validate_repo_spec,
     build_parser,
+    list_backends,
+    list_tools,
     main,
+    read_prompt_from_stdin,
 )
 from helping_hands.lib.config import Config
-from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
+from helping_hands.lib.github_url import (
+    noninteractive_env as _git_noninteractive_env,
+    redact_credentials as _redact_sensitive,
+    repo_tmp_dir as _repo_tmp_dir,
+    validate_repo_spec as _validate_repo_spec,
+)
 from helping_hands.lib.hands.v1.hand import HandResponse
+from helping_hands.lib.hands.v1.hand.factory import (
+    _BACKEND_ENABLED_ENV_VARS,
+    is_backend_enabled,
+)
 
 # Suppress coroutine warnings from coverage.py tracer holding frame references
 # after mocked asyncio.run closes the coroutine.
@@ -57,10 +67,10 @@ def _close_coroutine(coro: object) -> None:
 
 
 class TestCli:
-    def test_cli_uses_smoke_test_default_prompt(self) -> None:
+    def test_cli_prompt_defaults_to_none(self) -> None:
         parser = build_parser()
         args = parser.parse_args(["/tmp/repo"])
-        assert args.prompt == DEFAULT_SMOKE_TEST_PROMPT
+        assert args.prompt is None
 
     def test_cli_parser_supports_tool_enable_flags(self) -> None:
         parser = build_parser()
@@ -80,13 +90,13 @@ class TestCli:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         (tmp_path / "hello.py").write_text("")
-        main([str(tmp_path)])
+        main([str(tmp_path), "--prompt", "test"])
         captured = capsys.readouterr()
         assert "Ready" in captured.out
 
     def test_cli_exits_on_missing_dir(self, tmp_path: Path) -> None:
         with pytest.raises(SystemExit):
-            main([str(tmp_path / "nope")])
+            main([str(tmp_path / "nope"), "--prompt", "test"])
 
     @patch("helping_hands.cli.main.subprocess.run")
     @patch("helping_hands.cli.main.RepoIndex.from_path")
@@ -113,7 +123,7 @@ class TestCli:
             files=["main.py"],
         )
 
-        main(["suryarastogi/helping_hands"])
+        main(["suryarastogi/helping_hands", "--prompt", "test"])
         captured = capsys.readouterr()
         assert "Cloned suryarastogi/helping_hands" in captured.out
         assert "Ready. Indexed" in captured.out
@@ -142,7 +152,7 @@ class TestCli:
             stderr="fatal: repository not found",
         )
         with pytest.raises(SystemExit):
-            main(["owner/missing"])
+            main(["owner/missing", "--prompt", "test"])
         captured = capsys.readouterr()
         assert "failed to clone owner/missing" in captured.err
 
@@ -941,7 +951,16 @@ class TestGitHubTokenArg:
             )
             mock_hand_cls.return_value = mock_hand
 
-            main(["owner/repo", "--e2e", "--github-token", "ghp_custom"])
+            main(
+                [
+                    "owner/repo",
+                    "--e2e",
+                    "--github-token",
+                    "ghp_custom",
+                    "--prompt",
+                    "test",
+                ]
+            )
             assert len(overrides_seen) > 0
             assert overrides_seen[0].get("github_token") == "ghp_custom"
 
@@ -974,6 +993,8 @@ class TestGitHubTokenArg:
                     "claudecodecli",
                     "--github-token",
                     "ghp_task",
+                    "--prompt",
+                    "test",
                 ]
             )
             assert len(overrides_seen) > 0
@@ -1030,6 +1051,8 @@ class TestReferenceReposArg:
                     "claudecodecli",
                     "--reference-repos",
                     "acme/lib",
+                    "--prompt",
+                    "test",
                 ]
             )
             assert len(overrides_seen) > 0
@@ -1091,46 +1114,6 @@ class TestGithubCloneUrlValidation:
 # ---------------------------------------------------------------------------
 
 
-class TestCliMainDocstrings:
-    """Verify Google-style docstrings on 4 newly-documented private methods."""
-
-    def test_stream_hand_has_docstring(self) -> None:
-        doc = _stream_hand.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-
-    def test_github_clone_url_has_docstring(self) -> None:
-        doc = _github_clone_url.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-
-    def test_github_clone_url_has_returns(self) -> None:
-        doc = _github_clone_url.__doc__
-        assert "Returns:" in doc
-
-    def test_github_clone_url_has_raises(self) -> None:
-        doc = _github_clone_url.__doc__
-        assert "Raises:" in doc
-
-    def test_git_noninteractive_env_has_docstring(self) -> None:
-        doc = _git_noninteractive_env.__doc__
-        assert doc is not None
-        assert "Returns:" in doc
-
-    def test_resolve_repo_path_has_docstring(self) -> None:
-        doc = _resolve_repo_path.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-
-    def test_resolve_repo_path_has_returns(self) -> None:
-        doc = _resolve_repo_path.__doc__
-        assert "Returns:" in doc
-
-    def test_resolve_repo_path_has_raises(self) -> None:
-        doc = _resolve_repo_path.__doc__
-        assert "Raises:" in doc
-
-
 class TestErrorExit:
     """v268: _error_exit prints to stderr and exits with code 1."""
 
@@ -1150,10 +1133,6 @@ class TestErrorExit:
         with pytest.raises(SystemExit):
             _error_exit("")
         assert "Error: " in capsys.readouterr().err
-
-    def test_has_docstring(self) -> None:
-        assert _error_exit.__doc__ is not None
-        assert "Args:" in _error_exit.__doc__
 
 
 class TestMakeTempCloneDir:
@@ -1192,6 +1171,433 @@ class TestMakeTempCloneDir:
                 shutil.rmtree, result.parent, True
             )
 
-    def test_has_docstring(self) -> None:
-        assert _make_temp_clone_dir.__doc__ is not None
-        assert "Args:" in _make_temp_clone_dir.__doc__
+
+# ---------------------------------------------------------------------------
+# read_prompt_from_stdin — interactive mode
+# ---------------------------------------------------------------------------
+
+
+class TestReadPromptFromStdin:
+    """Tests for interactive/piped prompt reading via stdin."""
+
+    def test_reads_from_pipe(self) -> None:
+        """Non-TTY stdin reads silently."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = False
+        mock_stdin.read.return_value = "fix the bug\n"
+        with patch("helping_hands.cli.main.sys.stdin", mock_stdin):
+            result = read_prompt_from_stdin()
+        assert result == "fix the bug"
+
+    def test_tty_prints_prompt_message(self) -> None:
+        """TTY stdin prints an interactive prompt to stderr."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = True
+        mock_stdin.read.return_value = "add feature\n"
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            patch("helping_hands.cli.main.print") as mock_print,
+        ):
+            result = read_prompt_from_stdin()
+        assert result == "add feature"
+        mock_print.assert_called_once()
+        call_args = mock_print.call_args
+        assert "task description" in call_args.args[0].lower()
+
+    def test_empty_input_exits(self) -> None:
+        """Empty stdin causes SystemExit."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = False
+        mock_stdin.read.return_value = ""
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            pytest.raises(SystemExit),
+        ):
+            read_prompt_from_stdin()
+
+    def test_whitespace_only_exits(self) -> None:
+        """Whitespace-only stdin causes SystemExit."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = False
+        mock_stdin.read.return_value = "   \n\n  "
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            pytest.raises(SystemExit),
+        ):
+            read_prompt_from_stdin()
+
+    def test_keyboard_interrupt_exits(self) -> None:
+        """Ctrl+C during input causes SystemExit."""
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = True
+        mock_stdin.read.side_effect = KeyboardInterrupt
+        with (
+            patch("helping_hands.cli.main.sys.stdin", mock_stdin),
+            patch("helping_hands.cli.main.print"),
+            pytest.raises(SystemExit),
+        ):
+            read_prompt_from_stdin()
+
+
+# ---------------------------------------------------------------------------
+# --version flag
+# ---------------------------------------------------------------------------
+
+
+class TestVersionFlag:
+    """Tests for the ``--version`` / ``-V`` CLI flag."""
+
+    def test_version_long_flag(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """``--version`` prints version and returns without parsing args."""
+        main(["--version"])
+        out = capsys.readouterr().out
+        assert "helping-hands" in out
+        # Should contain a semver-like version string.
+        import re as _re
+
+        assert _re.search(r"\d+\.\d+\.\d+", out), f"no version found in: {out!r}"
+
+    def test_version_short_flag(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """``-V`` prints version and returns without parsing args."""
+        main(["-V"])
+        out = capsys.readouterr().out
+        assert "helping-hands" in out
+
+    def test_version_flag_does_not_require_repo(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--version`` works even without a positional 'repo' argument."""
+        # If --version weren't intercepted early, argparse would error
+        # about the missing required 'repo' argument.
+        main(["--version"])
+        assert "helping-hands" in capsys.readouterr().out
+
+    def test_version_matches_package(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Printed version matches ``helping_hands.__version__``."""
+        from helping_hands import __version__
+
+        main(["--version"])
+        assert __version__ in capsys.readouterr().out
+
+
+class TestListBackends:
+    """Tests for ``--list-backends`` flag and ``list_backends()``."""
+
+    def test_list_backends_flag_prints_output(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-backends`` prints backend table and returns."""
+        main(["--list-backends"])
+        out = capsys.readouterr().out
+        assert "helping-hands backends" in out
+
+    def test_list_backends_does_not_require_repo(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-backends`` works without a positional 'repo' argument."""
+        main(["--list-backends"])
+        assert "backends" in capsys.readouterr().out
+
+    def test_list_backends_contains_all_backends(self) -> None:
+        """Output includes every backend from SUPPORTED_BACKENDS."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        output = list_backends()
+        for backend in SUPPORTED_BACKENDS:
+            assert backend in output, f"missing backend: {backend}"
+
+    def test_list_backends_shows_version(self) -> None:
+        """Header line includes the package version."""
+        from helping_hands import __version__
+
+        output = list_backends()
+        assert __version__ in output
+
+    def test_list_backends_shows_availability_symbols(self) -> None:
+        """Each line has a [+] or [-] availability marker."""
+        output = list_backends()
+        lines = [ln for ln in output.splitlines() if ln.strip().startswith("[")]
+        assert len(lines) > 0
+        for line in lines:
+            assert "[+]" in line or "[-]" in line
+
+    def test_check_backend_available_e2e(self) -> None:
+        """E2E backend is always available."""
+        available, detail = _check_backend_available("e2e")
+        assert available is True
+        assert "always" in detail
+
+    def test_check_backend_available_cli_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CLI backend reports available when tool is on PATH."""
+        monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
+        available, detail = _check_backend_available("claudecodecli")
+        assert available is True
+        assert "claude found" in detail
+
+    def test_check_backend_available_cli_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CLI backend reports unavailable when tool is not on PATH."""
+        monkeypatch.setattr("shutil.which", lambda name: None)
+        available, detail = _check_backend_available("claudecodecli")
+        assert available is False
+        assert "not found" in detail
+
+    def test_check_backend_available_extra_installed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Library backend reports available when Python extra is importable."""
+        monkeypatch.setattr(
+            "builtins.__import__",
+            lambda name, *a, **kw: (
+                __import__(name, *a, **kw)
+                if name != "langchain_core"
+                else type("mod", (), {})
+            ),
+        )
+        available, detail = _check_backend_available("basic-langgraph")
+        assert available is True
+        assert "installed" in detail
+
+    def test_check_backend_available_extra_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Library backend reports unavailable when Python extra is not importable."""
+        original_import = (
+            __builtins__["__import__"]
+            if isinstance(__builtins__, dict)
+            else __builtins__.__import__
+        )
+
+        def fake_import(name, *a, **kw):
+            if name == "langchain_core":
+                raise ImportError("no langchain")
+            return original_import(name, *a, **kw)
+
+        monkeypatch.setattr("builtins.__import__", fake_import)
+        available, detail = _check_backend_available("basic-langgraph")
+        assert available is False
+        assert "not installed" in detail
+
+    def test_backend_cli_tool_covers_all_cli_backends(self) -> None:
+        """Every CLI-backed backend in SUPPORTED_BACKENDS has a tool mapping."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        # Backends not in _BACKEND_CLI_TOOL and not in _BACKEND_PYTHON_EXTRA
+        # should only be "e2e".
+        unmapped = {
+            b
+            for b in SUPPORTED_BACKENDS
+            if b not in _BACKEND_CLI_TOOL
+            and b not in _BACKEND_PYTHON_EXTRA
+            and b != "e2e"
+        }
+        assert unmapped == set(), f"backends without availability check: {unmapped}"
+
+    def test_list_backends_registered_count(self) -> None:
+        """Footer shows the total backend count."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        output = list_backends()
+        assert str(len(SUPPORTED_BACKENDS)) in output
+
+    def test_list_backends_includes_descriptions(self) -> None:
+        """Output includes a description for every backend."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            BACKEND_DESCRIPTIONS,
+            SUPPORTED_BACKENDS,
+        )
+
+        output = list_backends()
+        for backend in SUPPORTED_BACKENDS:
+            desc = BACKEND_DESCRIPTIONS[backend]
+            assert desc in output, f"missing description for {backend}"
+
+    def test_list_backends_description_on_name_line(self) -> None:
+        """Description appears on the same line as the backend name."""
+        output = list_backends()
+        for line in output.splitlines():
+            if "claudecodecli" in line and line.strip().startswith("["):
+                assert "Claude Code CLI subprocess" in line
+                break
+        else:
+            pytest.fail("claudecodecli line not found in output")
+
+
+class TestIsBackendEnabled:
+    """Tests for ``is_backend_enabled()`` from factory module."""
+
+    def test_all_enabled_by_default(self) -> None:
+        """All backends enabled when no *_ENABLED env vars are set."""
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is True
+        assert "default" in detail
+
+    def test_enabled_when_env_var_set_truthy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Backend is enabled when its env var is set to a truthy value."""
+        monkeypatch.setenv("HELPING_HANDS_E2E_ENABLED", "1")
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is True
+        assert "HELPING_HANDS_E2E_ENABLED" in detail
+
+    def test_disabled_when_env_var_set_falsy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Backend is disabled when another backend's env var is set but not this one."""
+        # Set a different backend's env var to activate selective mode.
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        # Ensure e2e's env var is NOT set.
+        monkeypatch.delenv("HELPING_HANDS_E2E_ENABLED", raising=False)
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is False
+        assert "disabled" in detail
+
+    def test_disabled_when_own_env_var_is_falsy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Backend is disabled when its own env var is set to a non-truthy value."""
+        monkeypatch.setenv("HELPING_HANDS_E2E_ENABLED", "0")
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is False
+        assert "disabled" in detail
+
+    def test_unknown_backend_returns_enabled(self) -> None:
+        """Backend not in _BACKEND_ENABLED_ENV_VARS returns enabled."""
+        enabled, detail = is_backend_enabled("nonexistent-backend-xyz")
+        assert enabled is True
+        assert "no env var" in detail
+
+    def test_env_var_names_in_detail(self) -> None:
+        """Enabled detail includes the actual env var name for all known backends."""
+        for backend in _BACKEND_ENABLED_ENV_VARS:
+            enabled, detail = is_backend_enabled(backend)
+            # In default mode, detail says "enabled (default)" — that's fine.
+            # We just verify it returns a tuple.
+            assert isinstance(enabled, bool)
+            assert isinstance(detail, str)
+
+
+class TestListBackendsEnabledStatus:
+    """Tests for enriched ``list_backends()`` output with enabled/disabled status."""
+
+    def test_disabled_backend_shows_in_output(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Disabled backends appear with [-] and include env var name."""
+        # Enable only codexcli, which disables all others.
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        for backend, env_var in _BACKEND_ENABLED_ENV_VARS.items():
+            if backend != "codexcli":
+                monkeypatch.delenv(env_var, raising=False)
+        output = list_backends()
+        # e2e should show [-] because it's disabled (not in enabled list).
+        # The output has two lines per backend: name+description, then details.
+        lines = output.splitlines()
+        e2e_idx = next(
+            i
+            for i, ln in enumerate(lines)
+            if "e2e" in ln and ln.strip().startswith("[")
+        )
+        e2e_block = lines[e2e_idx] + " " + lines[e2e_idx + 1]
+        assert "[-]" in e2e_block
+        assert "disabled" in e2e_block
+
+    def test_enabled_backend_shows_plus(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Enabled and available backends show [+]."""
+        # Default mode: all enabled.
+        output = list_backends()
+        e2e_line = next(
+            ln
+            for ln in output.splitlines()
+            if "e2e" in ln and ln.strip().startswith("[")
+        )
+        assert "[+]" in e2e_line
+
+    def test_enabled_count_with_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Footer shows X of Y when env vars selectively enable backends."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        for backend, env_var in _BACKEND_ENABLED_ENV_VARS.items():
+            if backend != "codexcli":
+                monkeypatch.delenv(env_var, raising=False)
+        output = list_backends()
+        assert f"1 of {len(SUPPORTED_BACKENDS)}" in output
+
+
+class TestCheckBackendAvailableWarning:
+    """Tests for the unmapped-backend warning in ``_check_backend_available()``."""
+
+    def test_unmapped_backend_logs_warning(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Unknown backend triggers a logger warning."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="helping_hands.cli.main"):
+            available, detail = _check_backend_available("nonexistent-backend-xyz")
+        assert available is True
+        assert detail == "available"
+        assert "nonexistent-backend-xyz" in caplog.text
+        assert "not mapped" in caplog.text
+
+
+class TestListTools:
+    """Tests for ``--list-tools`` flag and ``list_tools()``."""
+
+    def test_list_tools_flag_prints_output(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-tools`` prints tool category table and returns."""
+        main(["--list-tools"])
+        out = capsys.readouterr().out
+        assert "tool categories" in out
+
+    def test_list_tools_does_not_require_repo(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-tools`` works without a positional 'repo' argument."""
+        main(["--list-tools"])
+        assert "tool categories" in capsys.readouterr().out
+
+    def test_list_tools_contains_all_categories(self) -> None:
+        """Output includes every category from available_tool_category_names()."""
+        from helping_hands.lib.meta.tools.registry import available_tool_category_names
+
+        output = list_tools()
+        for name in available_tool_category_names():
+            assert name in output, f"missing category: {name}"
+
+    def test_list_tools_shows_version(self) -> None:
+        """Header line includes the package version."""
+        from helping_hands import __version__
+
+        output = list_tools()
+        assert __version__ in output
+
+    def test_list_tools_shows_tool_names(self) -> None:
+        """Output includes individual tool spec names."""
+        output = list_tools()
+        assert "python.run_code" in output
+        assert "web.search" in output
+
+    def test_list_tools_shows_enable_hint(self) -> None:
+        """Footer includes usage hint for --tools flag."""
+        output = list_tools()
+        assert "--tools" in output
+
+    def test_list_tools_shows_category_titles(self) -> None:
+        """Output includes the human-readable title for each category."""
+        from helping_hands.lib.meta.tools.registry import (
+            available_tool_category_names,
+            resolve_tool_categories,
+        )
+
+        categories = resolve_tool_categories(available_tool_category_names())
+        output = list_tools()
+        for cat in categories:
+            assert cat.title in output

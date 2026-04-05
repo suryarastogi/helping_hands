@@ -165,9 +165,3 @@ class TestAuthPresenceLabels:
         assert (
             iterative_module._AUTH_PRESENT_LABEL != iterative_module._AUTH_ABSENT_LABEL
         )
-
-    def test_source_uses_constants_not_inline(self) -> None:
-        """Stream methods must reference the constants, not inline strings."""
-        source = inspect.getsource(iterative_module)
-        assert "_AUTH_PRESENT_LABEL" in source
-        assert "_AUTH_ABSENT_LABEL" in source

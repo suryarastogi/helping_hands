@@ -80,10 +80,6 @@ class TestCloneErrorMsgUsedInCelery:
                 pytest.fail(f"celery_app.py still contains bare {node.value!r} string")
 
 
-# ---------------------------------------------------------------------------
-# _ProgressEmitter
-# ---------------------------------------------------------------------------
-
 pytest.importorskip("celery")
 
 from helping_hands.server.celery_app import (  # noqa: E402
@@ -242,14 +238,6 @@ class TestProgressEmitter:
             emitter.emit("running")
             assert mock_update.call_args.kwargs["max_iterations"] == 6
 
-    def test_has_docstring(self) -> None:
-        assert _ProgressEmitter.__doc__
-        assert "progress" in _ProgressEmitter.__doc__.lower()
-
-    def test_emit_has_docstring(self) -> None:
-        assert _ProgressEmitter.emit.__doc__
-        assert "stage" in _ProgressEmitter.emit.__doc__.lower()
-
 
 # ---------------------------------------------------------------------------
 # _collect_stream accepts emitter
@@ -292,9 +280,3 @@ class TestCollectStreamEmitter:
             assert old_param not in sig.parameters, (
                 f"_collect_stream still has old parameter {old_param!r}"
             )
-
-    def test_collect_stream_has_docstring(self) -> None:
-        from helping_hands.server.celery_app import _collect_stream
-
-        assert _collect_stream.__doc__
-        assert "emitter" in _collect_stream.__doc__.lower()

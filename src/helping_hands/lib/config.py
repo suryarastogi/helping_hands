@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from helping_hands.lib.meta.tools import registry as meta_tools
-from helping_hands.lib.validation import parse_comma_list
+from helping_hands.lib.validation import parse_comma_list, validate_repo_value
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["Config"]
 
@@ -125,7 +128,27 @@ class Config:
     def from_env(cls, overrides: dict[str, ConfigValue] | None = None) -> Config:
         """Build config from environment variables, then apply overrides.
 
-        Priority: overrides (CLI flags) > env vars > defaults.
+        Reads ``HELPING_HANDS_*`` environment variables, merges them with
+        explicit *overrides* (typically from CLI flags), normalises
+        ``enabled_tools`` and ``reference_repos``, and validates the repo
+        value.
+
+        Priority: overrides (CLI flags) > env vars > dataclass defaults.
+
+        Args:
+            overrides: Key/value pairs that take precedence over environment
+                variables.  Typically sourced from CLI ``--flags``.  Keys
+                should match :class:`Config` field names.  ``None`` values
+                are ignored so callers can pass through optional CLI args
+                without filtering.
+
+        Returns:
+            A frozen :class:`Config` instance ready for hand execution.
+
+        Raises:
+            ValueError: If the repo value contains path-traversal sequences,
+                null bytes, or newline characters (via
+                :func:`~helping_hands.lib.validation.validate_repo_value`).
         """
         repo_override = overrides.get("repo") if overrides else None
         _load_env_files(str(repo_override) if isinstance(repo_override, str) else None)
@@ -148,8 +171,14 @@ class Config:
         raw_tool_selection = merged.get("enabled_tools", cls.enabled_tools)
         if isinstance(raw_tool_selection, bool):
             normalized_tools_input: str | tuple[str, ...] | None = ()
-        else:
+        elif isinstance(raw_tool_selection, str | tuple | list | None):
             normalized_tools_input = raw_tool_selection
+        else:
+            logger.warning(
+                "Unexpected type for enabled_tools: %s; defaulting to empty.",
+                type(raw_tool_selection).__name__,
+            )
+            normalized_tools_input = ()
 
         raw_ref_repos = merged.get("reference_repos", cls.reference_repos)
         if isinstance(raw_ref_repos, str):
@@ -159,9 +188,21 @@ class Config:
         else:
             ref_repos = ()
 
+        raw_repo = str(merged.get("repo", cls.repo)).strip()
+        if raw_repo:
+            raw_repo = validate_repo_value(raw_repo)
+
+        raw_model = str(merged.get("model", cls.model)).strip()
+        if raw_model == "default":
+            logger.debug(
+                "Model is set to 'default' — ensure a concrete model is "
+                "configured via --model or %s before execution.",
+                _ENV_MODEL,
+            )
+
         return cls(
-            repo=str(merged.get("repo", cls.repo)).strip(),
-            model=str(merged.get("model", cls.model)).strip(),
+            repo=raw_repo,
+            model=raw_model,
             verbose=bool(merged.get("verbose", cls.verbose)),
             enable_execution=bool(merged.get("enable_execution", cls.enable_execution)),
             enable_web=bool(merged.get("enable_web", cls.enable_web)),

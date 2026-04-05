@@ -16,6 +16,7 @@ import pytest
 from helping_hands.lib.meta.tools.registry import (
     _parse_optional_str,
     _parse_positive_int,
+    _parse_required_str,
     _parse_str_list,
 )
 
@@ -75,6 +76,45 @@ class TestParsePositiveInt:
     def test_rejects_string(self) -> None:
         with pytest.raises(ValueError, match="must be an integer"):
             _parse_positive_int({"n": "5"}, key="n", default=1)
+
+
+class TestParseRequiredStr:
+    """Dedicated tests for _parse_required_str — used by all runner wrappers."""
+
+    def test_valid_string(self) -> None:
+        assert _parse_required_str({"code": "print(1)"}, key="code") == "print(1)"
+
+    def test_preserves_internal_whitespace(self) -> None:
+        result = _parse_required_str({"code": "  hello world  "}, key="code")
+        assert result == "  hello world  "
+
+    def test_rejects_missing_key(self) -> None:
+        with pytest.raises(ValueError, match="non-empty string"):
+            _parse_required_str({}, key="code")
+
+    def test_rejects_none(self) -> None:
+        with pytest.raises(ValueError, match="non-empty string"):
+            _parse_required_str({"code": None}, key="code")
+
+    def test_rejects_empty_string(self) -> None:
+        with pytest.raises(ValueError, match="non-empty string"):
+            _parse_required_str({"code": ""}, key="code")
+
+    def test_rejects_whitespace_only(self) -> None:
+        with pytest.raises(ValueError, match="non-empty string"):
+            _parse_required_str({"code": "   "}, key="code")
+
+    def test_rejects_integer(self) -> None:
+        with pytest.raises(ValueError, match="non-empty string"):
+            _parse_required_str({"code": 42}, key="code")
+
+    def test_rejects_bool(self) -> None:
+        with pytest.raises(ValueError, match="non-empty string"):
+            _parse_required_str({"code": True}, key="code")
+
+    def test_rejects_list(self) -> None:
+        with pytest.raises(ValueError, match="non-empty string"):
+            _parse_required_str({"code": ["a"]}, key="code")
 
 
 class TestParseOptionalStr:

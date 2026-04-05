@@ -7,11 +7,17 @@ resolution from environment variables, and the Markdown formatting of PR bodies
 and status comments.  If these regress, E2EHand will silently produce malformed
 paths or PR content with missing fields, breaking downstream CI consumers that
 parse that content.
+
+Also tests ``_draft_pr_enabled`` env-var gating and the ``stream()``
+async wrapper to ensure they delegate correctly.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from helping_hands.lib.hands.v1.hand.e2e import E2EHand
 
@@ -119,3 +125,91 @@ class TestBuildE2ePrBody:
             commit_sha="abc123",
         )
         assert "commit: `abc123`" in result
+
+
+# ---------------------------------------------------------------------------
+# _draft_pr_enabled
+# ---------------------------------------------------------------------------
+
+
+class TestDraftPrEnabled:
+    """Tests for E2EHand._draft_pr_enabled env-var gating."""
+
+    def test_default_is_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When HELPING_HANDS_E2E_DRAFT_PR is unset, default is 'true'."""
+        monkeypatch.delenv("HELPING_HANDS_E2E_DRAFT_PR", raising=False)
+        assert E2EHand._draft_pr_enabled() is True
+
+    def test_explicit_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "true")
+        assert E2EHand._draft_pr_enabled() is True
+
+    def test_explicit_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "1")
+        assert E2EHand._draft_pr_enabled() is True
+
+    def test_explicit_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "false")
+        assert E2EHand._draft_pr_enabled() is False
+
+    def test_explicit_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "0")
+        assert E2EHand._draft_pr_enabled() is False
+
+    def test_empty_string(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "")
+        assert E2EHand._draft_pr_enabled() is False
+
+    def test_yes_is_truthy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "yes")
+        assert E2EHand._draft_pr_enabled() is True
+
+    def test_whitespace_stripped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_E2E_DRAFT_PR", "  true  ")
+        assert E2EHand._draft_pr_enabled() is True
+
+
+# ---------------------------------------------------------------------------
+# stream() — async wrapper
+# ---------------------------------------------------------------------------
+
+
+class TestStream:
+    """Tests for E2EHand.stream() async generator."""
+
+    @pytest.mark.asyncio
+    async def test_stream_yields_run_message(self) -> None:
+        """stream() should delegate to run() and yield its message."""
+        mock_config = MagicMock()
+        mock_config.repo = "owner/repo"
+        mock_index = MagicMock()
+
+        hand = E2EHand.__new__(E2EHand)
+        hand.config = mock_config
+        hand.repo_index = mock_index
+
+        sentinel_msg = "E2EHand complete. PR: https://example.com/pr/1"
+        mock_response = MagicMock()
+        mock_response.message = sentinel_msg
+
+        with patch.object(E2EHand, "run", return_value=mock_response) as mock_run:
+            messages = [msg async for msg in hand.stream("test prompt")]
+            mock_run.assert_called_once_with("test prompt")
+
+        assert messages == [sentinel_msg]
+
+    @pytest.mark.asyncio
+    async def test_stream_yields_exactly_one_message(self) -> None:
+        """stream() should yield exactly one message."""
+        hand = E2EHand.__new__(E2EHand)
+        hand.config = MagicMock()
+        hand.repo_index = MagicMock()
+
+        mock_response = MagicMock()
+        mock_response.message = "done"
+
+        with patch.object(E2EHand, "run", return_value=mock_response):
+            count = 0
+            async for _ in hand.stream("p"):
+                count += 1
+        assert count == 1

@@ -999,7 +999,7 @@ class Hand(abc.ABC):
 
         try:
             self._push_noninteractive(gh, repo_dir, branch)
-        except RuntimeError as push_exc:
+        except (RuntimeError, OSError) as push_exc:
             if self.fix_conflicts:
                 # Attempt to rebase onto the remote PR branch and retry push.
                 logger.info(
@@ -1016,7 +1016,7 @@ class Hand(abc.ABC):
                     )
                     try:
                         self._push_noninteractive(gh, repo_dir, branch)
-                    except RuntimeError:
+                    except (RuntimeError, OSError):
                         logger.warning(
                             "Push still failed after rebase. "
                             "Falling back to diverged-branch PR."
@@ -1047,8 +1047,8 @@ class Hand(abc.ABC):
                         pr_commit=commit_sha,
                     )
             else:
-                # Branch diverged or push rejected — create a PR targeting the
-                # original PR branch instead.
+                # Branch diverged, push rejected, or git binary missing —
+                # create a PR targeting the original PR branch instead.
                 logger.warning(
                     "Push to PR #%s branch %r failed: %s. "
                     "Falling back to diverged-branch PR.",
@@ -1531,8 +1531,14 @@ class Hand(abc.ABC):
             self.last_pr_metadata = metadata
             return metadata
         except _GITHUB_ERRORS as exc:
-            logger.debug("_finalize_repo_pr unexpected error", exc_info=True)
+            logger.debug("_finalize_repo_pr GitHub/OS error", exc_info=True)
             metadata[_META_PR_STATUS] = PRStatus.ERROR
             metadata[_META_PR_ERROR] = str(exc)
+            self.last_pr_metadata = metadata
+            return metadata
+        except Exception as exc:
+            logger.error("_finalize_repo_pr unexpected error: %s", exc, exc_info=True)
+            metadata[_META_PR_STATUS] = PRStatus.ERROR
+            metadata[_META_PR_ERROR] = f"unexpected error: {exc}"
             self.last_pr_metadata = metadata
             return metadata

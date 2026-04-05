@@ -28,7 +28,9 @@ from helping_hands.server.app import (
     ClaudeUsageResponse,
     _fetch_claude_usage,
     _get_claude_oauth_token,
-    _read_claude_credentials_file,
+)
+from helping_hands.server.token_helpers import (
+    read_claude_credentials_file as _read_claude_credentials_file,
 )
 
 # --- _read_claude_credentials_file ---
@@ -100,7 +102,7 @@ class TestGetClaudeOauthTokenCredentialsFilePath:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "helping_hands.server.app._read_claude_credentials_file",
+            "helping_hands.server.token_helpers.read_claude_credentials_file",
             lambda: "sk-ant-creds-file-token",
         )
         # subprocess.run should NOT be called; if it were, this would fail
@@ -121,7 +123,8 @@ class TestGetClaudeOauthToken:
     def _skip_credentials_file(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Bypass the credentials-file reader so the Keychain path is tested."""
         monkeypatch.setattr(
-            "helping_hands.server.app._read_claude_credentials_file", lambda: None
+            "helping_hands.server.token_helpers.read_claude_credentials_file",
+            lambda: None,
         )
 
     def test_returns_access_token_from_json(

@@ -17,7 +17,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from github import Auth, Github
+from github import Auth, Github, GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
@@ -807,7 +807,7 @@ class GitHubClient:
         issue = repo.get_issue(number=number)
         try:
             issue.remove_from_labels(label)
-        except Exception:
+        except GithubException:
             # Label may not be on the issue — silently ignore.
             logger.debug(
                 "Could not remove label %r from %s#%d",

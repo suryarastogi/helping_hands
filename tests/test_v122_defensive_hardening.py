@@ -24,54 +24,6 @@ import pytest
 from github import GithubException
 
 # ---------------------------------------------------------------------------
-# command.py: assert→RuntimeError guards
-# ---------------------------------------------------------------------------
-
-
-class TestCommandAssertGuards:
-    """Verify that command.py uses explicit RuntimeError instead of assert."""
-
-    def test_run_bash_script_script_path_guard_is_runtime_error(self) -> None:
-        """The guard at line 205 should be RuntimeError, not AssertionError."""
-        import inspect
-
-        from helping_hands.lib.meta.tools.command import run_bash_script
-
-        source = inspect.getsource(run_bash_script)
-        assert "assert script_path is not None" not in source
-        assert "RuntimeError" in source
-
-    def test_run_bash_script_inline_script_guard_is_runtime_error(self) -> None:
-        """The guard at line 217 should be RuntimeError, not AssertionError."""
-        import inspect
-
-        from helping_hands.lib.meta.tools.command import run_bash_script
-
-        source = inspect.getsource(run_bash_script)
-        assert "assert inline_script is not None" not in source
-        assert "RuntimeError" in source
-
-
-# ---------------------------------------------------------------------------
-# e2e.py: assert→RuntimeError guard
-# ---------------------------------------------------------------------------
-
-
-class TestE2EAssertGuard:
-    """Verify that e2e.py uses explicit RuntimeError for pr_number."""
-
-    def test_final_pr_number_guard_is_runtime_error(self) -> None:
-        import inspect
-
-        from helping_hands.lib.hands.v1.hand.e2e import E2EHand
-
-        source = inspect.getsource(E2EHand.run)
-        assert "assert final_pr_number is not None" not in source
-        assert "RuntimeError" in source
-        assert "final_pr_number is unexpectedly None" in source
-
-
-# ---------------------------------------------------------------------------
 # claude.py: geteuid exception logging
 # ---------------------------------------------------------------------------
 

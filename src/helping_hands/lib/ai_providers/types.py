@@ -14,6 +14,8 @@ from collections.abc import Mapping, Sequence
 from types import ModuleType
 from typing import Any
 
+from helping_hands.lib.validation import require_non_empty_string
+
 __all__ = ["AIProvider", "PromptInput", "normalize_messages"]
 
 PromptInput = str | Sequence[Mapping[str, str]]
@@ -125,10 +127,12 @@ class AIProvider(abc.ABC):
         """Run a completion call using the provider-specific implementation."""
         messages = normalize_messages(prompt_or_messages)
         resolved_model = model or self.default_model
-        if not resolved_model or not resolved_model.strip():
+        try:
+            require_non_empty_string(resolved_model, "model")
+        except (TypeError, ValueError) as exc:
             raise ValueError(
                 "No model specified and no default_model configured on the provider."
-            )
+            ) from exc
         if not any(m.get("content") for m in messages):
             raise ValueError(
                 "all messages have empty content; cannot send empty request"

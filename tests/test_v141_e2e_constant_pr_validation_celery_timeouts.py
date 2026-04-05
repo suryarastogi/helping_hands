@@ -42,15 +42,6 @@ class TestE2EMarkerFileConstant:
 
         assert _E2E_MARKER_FILE.endswith(".md")
 
-    def test_used_in_run(self) -> None:
-        """Verify run() uses the constant rather than a hardcoded string."""
-        import inspect
-
-        from helping_hands.lib.hands.v1.hand.e2e import E2EHand
-
-        source = inspect.getsource(E2EHand.run)
-        assert "_E2E_MARKER_FILE" in source
-
 
 # ---------------------------------------------------------------------------
 # 2. CLI --pr-number positive validation
@@ -64,21 +55,21 @@ class TestCLIPrNumberValidation:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit) as exc_info:
-            main(["owner/repo", "--e2e", "--pr-number", "0"])
+            main(["owner/repo", "--e2e", "--pr-number", "0", "--prompt", "t"])
         assert exc_info.value.code == 1
 
     def test_negative_pr_number_exits(self) -> None:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit) as exc_info:
-            main(["owner/repo", "--e2e", "--pr-number", "-1"])
+            main(["owner/repo", "--e2e", "--pr-number", "-1", "--prompt", "t"])
         assert exc_info.value.code == 1
 
     def test_negative_pr_number_error_message(self, capsys) -> None:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit):
-            main(["owner/repo", "--e2e", "--pr-number", "-5"])
+            main(["owner/repo", "--e2e", "--pr-number", "-5", "--prompt", "t"])
         captured = capsys.readouterr()
         assert "--pr-number" in captured.err
         assert "positive" in captured.err.lower()
@@ -104,7 +95,7 @@ class TestCLIPrNumberValidation:
         mock_e2e_cls.return_value = mock_hand
 
         # Should not raise SystemExit
-        main(["owner/repo", "--e2e", "--pr-number", "42"])
+        main(["owner/repo", "--e2e", "--pr-number", "42", "--prompt", "t"])
         mock_hand.run.assert_called_once()
         call_kwargs = mock_hand.run.call_args
         assert call_kwargs[1]["pr_number"] == 42
@@ -154,13 +145,15 @@ class TestCeleryTimeoutConstants:
 
         assert _DB_CONNECT_TIMEOUT_S > 0
 
-    def test_keychain_timeout_matches_app_module(self) -> None:
-        """Ensure celery_app.py and app.py keychain timeouts are in sync."""
+    def test_keychain_timeout_matches_constants_module(self) -> None:
+        """Ensure celery_app.py keychain timeout matches constants.py."""
         pytest.importorskip("celery")
-        pytest.importorskip("fastapi")
-        from helping_hands.server import app as app_mod, celery_app as celery_mod
+        from helping_hands.server import (
+            celery_app as celery_mod,
+            constants as const_mod,
+        )
 
-        assert app_mod._KEYCHAIN_TIMEOUT_S == celery_mod._KEYCHAIN_TIMEOUT_S
+        assert const_mod.KEYCHAIN_TIMEOUT_S == celery_mod._KEYCHAIN_TIMEOUT_S
 
 
 # ---------------------------------------------------------------------------
@@ -175,33 +168,52 @@ class TestCLIMaxIterationsValidation:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit) as exc_info:
-            main([".", "--backend", "basic-langgraph", "--max-iterations", "0"])
+            main(
+                [
+                    ".",
+                    "--backend",
+                    "basic-langgraph",
+                    "--max-iterations",
+                    "0",
+                    "--prompt",
+                    "t",
+                ]
+            )
         assert exc_info.value.code == 1
 
     def test_negative_max_iterations_exits(self) -> None:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit) as exc_info:
-            main([".", "--backend", "basic-langgraph", "--max-iterations", "-3"])
+            main(
+                [
+                    ".",
+                    "--backend",
+                    "basic-langgraph",
+                    "--max-iterations",
+                    "-3",
+                    "--prompt",
+                    "t",
+                ]
+            )
         assert exc_info.value.code == 1
 
     def test_negative_max_iterations_error_message(self, capsys) -> None:
         from helping_hands.cli.main import main
 
         with pytest.raises(SystemExit):
-            main([".", "--backend", "basic-langgraph", "--max-iterations", "-5"])
+            main(
+                [
+                    ".",
+                    "--backend",
+                    "basic-langgraph",
+                    "--max-iterations",
+                    "-5",
+                    "--prompt",
+                    "t",
+                ]
+            )
         captured = capsys.readouterr()
         assert "--max-iterations" in captured.err
         assert "positive" in captured.err.lower()
         assert "-5" in captured.err
-
-    def test_positive_max_iterations_passes_validation(self) -> None:
-        """Positive --max-iterations should not trigger the validation error."""
-        import inspect
-
-        from helping_hands.cli import main as main_mod
-
-        # Verify the validation code references max_iterations
-        src = inspect.getsource(main_mod.main)
-        assert "max_iterations" in src
-        assert "require_positive_int" in src

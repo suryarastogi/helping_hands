@@ -77,15 +77,6 @@ class TestBaseCommandNotFoundMessage:
     def test_method_exists_on_base(self) -> None:
         assert hasattr(_TwoPhaseCLIHand, "_command_not_found_message")
 
-    def test_base_source_references_docker_rebuild_template(self) -> None:
-        src = inspect.getsource(_TwoPhaseCLIHand._command_not_found_message)
-        assert "_DOCKER_REBUILD_HINT_TEMPLATE" in src
-
-    def test_base_source_uses_command_param_for_hint(self) -> None:
-        """The Docker hint is formatted with the ``command`` parameter."""
-        src = inspect.getsource(_TwoPhaseCLIHand._command_not_found_message)
-        assert "_DOCKER_REBUILD_HINT_TEMPLATE.format(command)" in src
-
     def test_message_contains_display_name(self) -> None:
         """Message starts with the CLI display name."""
         msg = _TwoPhaseCLIHand._command_not_found_message(
@@ -111,11 +102,6 @@ class TestBaseCommandNotFoundMessage:
         )
         expected = _DOCKER_REBUILD_HINT_TEMPLATE.format("testbin")
         assert expected in msg
-
-
-# ---------------------------------------------------------------------------
-# Subclasses inherit base _command_not_found_message (no override)
-# ---------------------------------------------------------------------------
 
 
 _SUBCLASS_MODULES = [

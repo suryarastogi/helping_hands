@@ -15,6 +15,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.lib.hands.v1.hand.model_provider import (
+    _OLLAMA_MODEL_PREFIXES,
+    _OPENAI_MODEL_PREFIXES,
     HandModel,
     _infer_provider_name,
     _require_langchain_class,
@@ -56,6 +58,70 @@ class TestInferProviderName:
 
     def test_numeric_prefix_returns_openai(self) -> None:
         assert _infer_provider_name("4o-mini") == "openai"
+
+    # -- Ollama open-source model families (v362) --
+
+    def test_mistral_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("mistral-7b") == "ollama"
+
+    def test_mistral_case_insensitive(self) -> None:
+        assert _infer_provider_name("Mistral-Large") == "ollama"
+
+    def test_mixtral_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("mixtral-8x7b") == "ollama"
+
+    def test_phi_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("phi-3") == "ollama"
+
+    def test_codellama_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("codellama:13b") == "ollama"
+
+    def test_deepseek_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("deepseek-coder-v2") == "ollama"
+
+    def test_qwen_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("qwen2.5:72b") == "ollama"
+
+    def test_starcoder_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("starcoder2:15b") == "ollama"
+
+    def test_vicuna_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("vicuna:13b") == "ollama"
+
+    def test_yi_prefix_returns_ollama(self) -> None:
+        assert _infer_provider_name("yi:34b") == "ollama"
+
+    # -- OpenAI reasoning model prefixes (v362) --
+
+    def test_o1_prefix_returns_openai(self) -> None:
+        assert _infer_provider_name("o1-preview") == "openai"
+
+    def test_o3_prefix_returns_openai(self) -> None:
+        assert _infer_provider_name("o3-mini") == "openai"
+
+    def test_o4_prefix_returns_openai(self) -> None:
+        assert _infer_provider_name("o4-mini") == "openai"
+
+    def test_gpt_prefix_returns_openai(self) -> None:
+        assert _infer_provider_name("gpt-4o") == "openai"
+
+
+class TestModelPrefixConstants:
+    """Verify the prefix tuple constants are well-formed."""
+
+    def test_ollama_prefixes_are_lowercase(self) -> None:
+        for prefix in _OLLAMA_MODEL_PREFIXES:
+            assert prefix == prefix.lower(), f"{prefix!r} should be lowercase"
+
+    def test_openai_prefixes_are_lowercase(self) -> None:
+        for prefix in _OPENAI_MODEL_PREFIXES:
+            assert prefix == prefix.lower(), f"{prefix!r} should be lowercase"
+
+    def test_ollama_prefixes_non_empty(self) -> None:
+        assert len(_OLLAMA_MODEL_PREFIXES) >= 5
+
+    def test_openai_prefixes_non_empty(self) -> None:
+        assert len(_OPENAI_MODEL_PREFIXES) >= 2
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +202,24 @@ def test_resolve_hand_model_unrecognized_provider_slash_falls_through() -> None:
     assert hand_model.provider.name == "openai"
     assert hand_model.model == "customllm/my-model"
     assert hand_model.raw == "customllm/my-model"
+
+
+def test_resolve_hand_model_infers_ollama_from_mistral() -> None:
+    hand_model = resolve_hand_model("mistral-7b")
+    assert hand_model.provider.name == "ollama"
+    assert hand_model.model == "mistral-7b"
+
+
+def test_resolve_hand_model_infers_ollama_from_deepseek() -> None:
+    hand_model = resolve_hand_model("deepseek-coder-v2")
+    assert hand_model.provider.name == "ollama"
+    assert hand_model.model == "deepseek-coder-v2"
+
+
+def test_resolve_hand_model_infers_openai_from_o1() -> None:
+    hand_model = resolve_hand_model("o1-preview")
+    assert hand_model.provider.name == "openai"
+    assert hand_model.model == "o1-preview"
 
 
 def test_resolve_hand_model_none_uses_default() -> None:
@@ -471,8 +555,44 @@ class TestResolveHandModelProviderSlashEmpty:
 
 
 # ---------------------------------------------------------------------------
-# build_langchain_chat_model / build_atomic_client — empty model validation
+# resolve_hand_model — defensive provider lookup (v381)
 # ---------------------------------------------------------------------------
+
+
+class TestResolveHandModelMissingProvider:
+    """v381: PROVIDERS.get() + RuntimeError instead of bare dict access."""
+
+    def test_default_missing_ollama_raises_runtime_error(self) -> None:
+        """When PROVIDERS lacks ollama, 'default' input raises RuntimeError."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"ollama.*not registered"),
+        ):
+            resolve_hand_model("default")
+
+    def test_default_missing_ollama_with_none_input(self) -> None:
+        """None input normalises to 'default', still requires ollama."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"ollama.*not registered"),
+        ):
+            resolve_hand_model(None)
+
+    def test_inferred_provider_missing_raises_runtime_error(self) -> None:
+        """When inferred provider is absent from PROVIDERS, RuntimeError."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"openai.*not registered"),
+        ):
+            resolve_hand_model("unknown-model-xyz")
+
+    def test_inferred_anthropic_missing_raises_runtime_error(self) -> None:
+        """Claude model with missing anthropic provider raises RuntimeError."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"anthropic.*not registered"),
+        ):
+            resolve_hand_model("claude-sonnet-4-5")
 
 
 class TestBuildEmptyModelValidation:

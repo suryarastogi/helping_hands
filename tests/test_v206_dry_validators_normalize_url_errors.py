@@ -13,7 +13,6 @@ network errors produce consistent, contextual error messages for users.
 
 from __future__ import annotations
 
-import inspect
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
@@ -113,22 +112,10 @@ class TestNormalizeAndDeduplicate:
         with pytest.raises(TypeError, match="tools must be"):
             _normalize_and_deduplicate(42, label="tools")  # type: ignore[arg-type]
 
-    def test_tool_selection_uses_shared_helper(self) -> None:
-        from helping_hands.lib.meta.tools.registry import normalize_tool_selection
-
-        source = inspect.getsource(normalize_tool_selection)
-        assert "_normalize_and_deduplicate" in source
-
     def test_in_registry_all(self) -> None:
         from helping_hands.lib.meta.tools.registry import __all__
 
         assert "_normalize_and_deduplicate" in __all__
-
-    def test_has_docstring(self) -> None:
-        doc = inspect.getdoc(_normalize_and_deduplicate)
-        assert doc
-        for section in ("Args:", "Returns:", "Raises:"):
-            assert section in doc, f"Missing '{section}' in docstring"
 
 
 # ---------------------------------------------------------------------------
@@ -218,9 +205,3 @@ class TestRaiseUrlError:
             _raise_url_error(exc, operation="browse")
         mock_logger.debug.assert_called_once()
         assert "browse" in mock_logger.debug.call_args[0][1]
-
-    def test_has_docstring(self) -> None:
-        doc = inspect.getdoc(_raise_url_error)
-        assert doc
-        for section in ("Args:", "Raises:"):
-            assert section in doc, f"Missing '{section}' in docstring"

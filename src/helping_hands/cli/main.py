@@ -5,27 +5,24 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
+import logging
 import re
 import shutil
 import subprocess
 import sys
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from subprocess import TimeoutExpired
 from tempfile import mkdtemp
 from typing import Any, cast
 
+from helping_hands import __version__
 from helping_hands.lib.config import Config, ConfigValue
-from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.github_url import (
-    DEFAULT_CLONE_ERROR_MSG as _DEFAULT_CLONE_ERROR_MSG,
-    GIT_CLONE_TIMEOUT_S as _GIT_CLONE_TIMEOUT_S,
     REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
     build_clone_url as _build_clone_url,
     invalid_repo_msg as _invalid_repo_msg,
-    noninteractive_env as _git_noninteractive_env,
-    redact_credentials as _redact_sensitive,
     repo_tmp_dir as _repo_tmp_dir,
+    run_git_clone as _run_git_clone_shared,
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.hands.v1.hand import E2EHand, Hand
@@ -35,18 +32,32 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_BASIC_LANGGRAPH,
     BACKEND_CLAUDECODECLI,
     BACKEND_CODEXCLI,
+    BACKEND_DEVINCLI,
     BACKEND_DOCKER_SANDBOX_CLAUDE,
     BACKEND_E2E,
     BACKEND_GEMINICLI,
     BACKEND_GOOSE,
+    BACKEND_OPENCODECLI,
     SUPPORTED_BACKENDS,
     create_hand,
+    get_backend_description,
+    get_enabled_backends,
+    is_backend_enabled,
 )
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import install_hint, require_positive_int
 
-__all__ = ["build_parser", "doctor", "main"]
+__all__ = [
+    "build_parser",
+    "doctor",
+    "list_backends",
+    "list_tools",
+    "main",
+    "read_prompt_from_stdin",
+]
+
+_logger = logging.getLogger(__name__)
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -66,11 +77,11 @@ Quick start:
 """
 """One-time welcome message shown on first CLI invocation."""
 
-_DEFAULT_CLONE_DEPTH = 1
-"""Shallow clone depth used when cloning ``owner/repo`` inputs."""
-
 _TEMP_CLONE_PREFIX = "helping_hands_repo_"
 """Prefix for temporary directories created for cloned repositories."""
+
+_INTERACTIVE_PROMPT_MSG = "Enter task description (Ctrl+D to submit):\n"
+"""Prompt shown when reading a task interactively from a TTY."""
 
 _MODEL_NOT_FOUND_MARKERS: tuple[str, ...] = ("model_not_found", "does not exist")
 """Substrings in exception messages that indicate a model-not-found error."""
@@ -82,13 +93,110 @@ _MODEL_NOT_AVAILABLE_MSG = (
 )
 """User-facing message template when the requested model is not found."""
 
+_BACKEND_CLI_TOOL: dict[str, str] = {
+    BACKEND_CODEXCLI: "codex",
+    BACKEND_CLAUDECODECLI: "claude",
+    BACKEND_DEVINCLI: "devin",
+    BACKEND_DOCKER_SANDBOX_CLAUDE: "docker",
+    BACKEND_GOOSE: "goose",
+    BACKEND_GEMINICLI: "gemini",
+    BACKEND_OPENCODECLI: "opencode",
+}
+"""Maps CLI-backed backends to the binary name checked on PATH."""
+
+_BACKEND_PYTHON_EXTRA: dict[str, tuple[str, str]] = {
+    BACKEND_BASIC_LANGGRAPH: ("langchain_core", "langchain"),
+    BACKEND_BASIC_ATOMIC: ("atomic_agents", "atomic"),
+    BACKEND_BASIC_AGENT: ("atomic_agents", "atomic"),
+}
+"""Maps library backends to (import_name, extra_name)."""
+
+
+def _check_backend_available(backend: str) -> tuple[bool, str]:
+    """Check whether *backend* is available in the current environment.
+
+    Returns:
+        A ``(available, detail)`` tuple where *detail* is a short status
+        string like ``"claude found"`` or ``"langchain extra not installed"``.
+    """
+    if backend == BACKEND_E2E:
+        return True, "always available"
+    cli_tool = _BACKEND_CLI_TOOL.get(backend)
+    if cli_tool is not None:
+        if shutil.which(cli_tool):
+            return True, f"{cli_tool} found"
+        return False, f"{cli_tool} not found"
+    extra_info = _BACKEND_PYTHON_EXTRA.get(backend)
+    if extra_info is not None:
+        import_name, extra_name = extra_info
+        try:
+            __import__(import_name)
+            return True, f"{extra_name} extra installed"
+        except ImportError:
+            return False, f"{extra_name} extra not installed"
+    _logger.warning(
+        "backend %r not mapped in _BACKEND_CLI_TOOL or _BACKEND_PYTHON_EXTRA", backend
+    )
+    return True, "available"
+
+
+def list_backends() -> str:
+    """Format a table of all supported backends with availability and enabled status.
+
+    Returns:
+        Multi-line string suitable for printing to stdout.
+    """
+    lines: list[str] = [f"helping-hands backends (v{__version__})", ""]
+    for backend in sorted(SUPPORTED_BACKENDS):
+        available, avail_detail = _check_backend_available(backend)
+        enabled, enabled_detail = is_backend_enabled(backend)
+        description = get_backend_description(backend)
+        symbol = "+" if available and enabled else "-"
+        parts = [avail_detail]
+        if not enabled:
+            parts.append(enabled_detail)
+        lines.append(
+            f"  [{symbol}] {backend:<25s} {description}\n"
+            f"       {' ' * 25} {', '.join(parts)}"
+        )
+    lines.append("")
+    enabled_list = get_enabled_backends()
+    if len(enabled_list) < len(SUPPORTED_BACKENDS):
+        lines.append(
+            f"{len(enabled_list)} of {len(SUPPORTED_BACKENDS)} backends enabled via env vars."
+        )
+    else:
+        lines.append(f"{len(SUPPORTED_BACKENDS)} backends registered.")
+    return "\n".join(lines)
+
+
+def list_tools() -> str:
+    """Format a table of all tool categories with their tool specs.
+
+    Returns:
+        Multi-line string suitable for printing to stdout.
+    """
+    category_names = meta_tools.available_tool_category_names()
+    categories = meta_tools.resolve_tool_categories(category_names)
+    lines: list[str] = [f"helping-hands tool categories (v{__version__})", ""]
+    for cat in categories:
+        lines.append(f"  [{cat.name}] {cat.title}")
+        for tool in cat.tools:
+            lines.append(f"    - {tool.name}")
+    lines.append("")
+    lines.append(f"Enable via: --tools {','.join(category_names)}")
+    return "\n".join(lines)
+
+
 _CLI_ERROR_EXIT_BACKENDS: frozenset[str] = frozenset(
     {
         BACKEND_CODEXCLI,
         BACKEND_CLAUDECODECLI,
+        BACKEND_DEVINCLI,
         BACKEND_DOCKER_SANDBOX_CLAUDE,
-        BACKEND_GOOSE,
         BACKEND_GEMINICLI,
+        BACKEND_GOOSE,
+        BACKEND_OPENCODECLI,
     }
 )
 """Backends that print the error and ``sys.exit(1)`` instead of re-raising."""
@@ -153,6 +261,8 @@ def _run_git_clone(
 ) -> subprocess.CompletedProcess[str]:
     """Run ``git clone --depth …`` and return the completed process.
 
+    Delegates to :func:`helping_hands.lib.github_url.run_git_clone`.
+
     Args:
         url: The HTTPS clone URL.
         dest: Destination directory for the clone.
@@ -164,23 +274,7 @@ def _run_git_clone(
     Raises:
         ValueError: If cloning times out or exits with a non-zero code.
     """
-    try:
-        result = subprocess.run(
-            ["git", "clone", "--depth", str(_DEFAULT_CLONE_DEPTH), url, str(dest)],
-            capture_output=True,
-            text=True,
-            check=False,
-            env=_git_noninteractive_env(),
-            timeout=_GIT_CLONE_TIMEOUT_S,
-        )
-    except TimeoutExpired as exc:
-        raise ValueError(
-            f"git clone timed out after {_GIT_CLONE_TIMEOUT_S}s for {label}"
-        ) from exc
-    if result.returncode != 0:
-        stderr = _redact_sensitive(result.stderr.strip() or _DEFAULT_CLONE_ERROR_MSG)
-        raise ValueError(f"failed to clone {label}: {stderr}")
-    return result
+    return _run_git_clone_shared(url, dest, label=label)
 
 
 def _build_config_overrides(
@@ -237,6 +331,31 @@ def _make_temp_clone_dir(prefix: str) -> Path:
     return dest_root / "repo"
 
 
+def read_prompt_from_stdin() -> str:
+    """Read a task prompt from standard input.
+
+    When stdin is a TTY (interactive terminal), prints a prompt message
+    before reading.  When stdin is a pipe or redirect, reads silently.
+
+    Returns:
+        The stripped text read from stdin.
+
+    Raises:
+        SystemExit: If the input is empty or stdin is at EOF immediately.
+    """
+    if sys.stdin.isatty():
+        print(_INTERACTIVE_PROMPT_MSG, end="", file=sys.stderr)
+    try:
+        text = sys.stdin.read().strip()
+    except KeyboardInterrupt:
+        _error_exit("interrupted — no prompt provided")
+        return ""  # pragma: no cover — unreachable, keeps type checker happy
+    if not text:
+        _error_exit("no prompt provided — pass --prompt or pipe text to stdin")
+        return ""  # pragma: no cover — unreachable
+    return text
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for CLI mode."""
     parser = argparse.ArgumentParser(
@@ -252,8 +371,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--prompt",
-        default=DEFAULT_SMOKE_TEST_PROMPT,
-        help="Prompt to pass to the selected hand.",
+        default=None,
+        help=(
+            "Prompt to pass to the selected hand. "
+            "If omitted, reads from stdin (interactive or piped)."
+        ),
     )
     parser.add_argument(
         "--pr-number",
@@ -359,11 +481,20 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the CLI."""
     _maybe_show_first_run_banner()
 
-    # Handle 'doctor' subcommand before full arg parsing, since the main
-    # parser requires a positional 'repo' argument.
+    # Handle subcommands and flags that must be checked before full arg
+    # parsing, since the main parser requires a positional 'repo' argument.
     effective_argv = argv if argv is not None else sys.argv[1:]
     if effective_argv and effective_argv[0] == "doctor":
         doctor(effective_argv[1:])
+        return
+    if "--version" in effective_argv or "-V" in effective_argv:
+        print(f"helping-hands {__version__}")
+        return
+    if "--list-backends" in effective_argv:
+        print(list_backends())
+        return
+    if "--list-tools" in effective_argv:
+        print(list_tools())
         return
 
     parser = build_parser()
@@ -373,6 +504,9 @@ def main(argv: list[str] | None = None) -> None:
         _validate_or_exit(meta_tools.normalize_tool_selection, args.tools),
     )
     _validate_or_exit(meta_tools.validate_tool_category_names, selected_tools)
+
+    # Resolve prompt: explicit --prompt wins, then stdin.
+    prompt = read_prompt_from_stdin() if args.prompt is None else args.prompt
 
     if args.pr_number is not None:
         _validate_or_exit(require_positive_int, args.pr_number, "--pr-number")
@@ -389,7 +523,7 @@ def main(argv: list[str] | None = None) -> None:
         )
         repo_index = RepoIndex(root=Path(config.repo or "."), files=[])
         response = E2EHand(config, repo_index).run(
-            args.prompt,
+            prompt,
             pr_number=args.pr_number,
             dry_run=args.no_pr,
         )
@@ -451,7 +585,7 @@ def main(argv: list[str] | None = None) -> None:
                 f"{install_hint(extra)}"
             )
         try:
-            asyncio.run(_stream_hand(hand, args.prompt))
+            asyncio.run(_stream_hand(hand, prompt))
         except KeyboardInterrupt:
             hand.interrupt()
             print("\nInterrupted by user.")
@@ -562,5 +696,5 @@ def _clone_reference_repos(
         print(f"Cloned reference repo {spec} to {resolved}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

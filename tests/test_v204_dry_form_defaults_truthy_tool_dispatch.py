@@ -22,55 +22,12 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
-class TestFormDefaultAlignment:
-    """enqueue_build_form defaults must match server constants."""
-
-    @classmethod
-    def setup_class(cls) -> None:
-        pytest.importorskip("fastapi")
-
-    def test_form_backend_default_matches_constant(self) -> None:
-        """Form backend default is _DEFAULT_BACKEND, not a hardcoded string."""
-
-        # Read source to confirm Form() default references the constant
-        from helping_hands.server import app as app_mod
-
-        src = inspect.getsource(app_mod.enqueue_build_form)
-        assert "codexcli" not in src, (
-            "Form backend default should use _DEFAULT_BACKEND constant"
-        )
-        assert "_DEFAULT_BACKEND" in src
-
-    def test_form_max_iterations_default_matches_constant(self) -> None:
-        from helping_hands.server import app as app_mod
-
-        src = inspect.getsource(app_mod.enqueue_build_form)
-        assert "_DEFAULT_MAX_ITERATIONS" in src
-
-    def test_form_ci_wait_default_matches_constant(self) -> None:
-        from helping_hands.server import app as app_mod
-
-        src = inspect.getsource(app_mod.enqueue_build_form)
-        assert "_DEFAULT_CI_WAIT_MINUTES" in src
-        # No hardcoded 3.0 in Form() default
-        assert "Form(3.0)" not in src
-
-
 class TestBuildFormRedirectQuery:
     """_build_form_redirect_query uses constant for CI wait comparison."""
 
     @classmethod
     def setup_class(cls) -> None:
         pytest.importorskip("fastapi")
-
-    def test_no_hardcoded_ci_wait_literal(self) -> None:
-        from helping_hands.server import app as app_mod
-
-        src = inspect.getsource(app_mod._build_form_redirect_query)
-        assert "!= 3.0" not in src, (
-            "Should use _DEFAULT_CI_WAIT_MINUTES instead of hardcoded 3.0"
-        )
-        assert "_DEFAULT_CI_WAIT_MINUTES" in src
 
     def test_default_ci_wait_omitted_from_query(self) -> None:
         from helping_hands.server.app import _build_form_redirect_query
@@ -112,17 +69,6 @@ class TestIsRunningInDockerTruthy:
     def setup_class(cls) -> None:
         pytest.importorskip("fastapi")
 
-    def test_source_references_truthy_values(self) -> None:
-        from helping_hands.server import app as app_mod
-
-        src = inspect.getsource(app_mod._is_running_in_docker)
-        assert "_is_truthy_env" in src or "_TRUTHY_VALUES" in src, (
-            "Should delegate to _is_truthy_env or use _TRUTHY_VALUES"
-            " instead of inline set"
-        )
-        # No inline set literal
-        assert '{"1", "true", "yes"}' not in src
-
     def test_truthy_env_detected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from helping_hands.server.app import _is_running_in_docker
 
@@ -157,14 +103,6 @@ class TestTopLevelTimeImport:
     @classmethod
     def setup_class(cls) -> None:
         pytest.importorskip("fastapi")
-
-    def test_no_inline_time_import(self) -> None:
-        from helping_hands.server import app as app_mod
-
-        src = inspect.getsource(app_mod._fetch_claude_usage)
-        assert "import time" not in src, (
-            "time should be imported at module level, not inside function"
-        )
 
     def test_module_has_time_import(self) -> None:
         """Verify time is available as a top-level module attribute."""

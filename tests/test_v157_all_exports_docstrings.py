@@ -17,7 +17,6 @@ import helping_hands.lib.ai_providers.types as types_module
 import helping_hands.lib.github as github_module
 import helping_hands.lib.meta.tools.command as command_module
 import helping_hands.lib.meta.tools.filesystem as filesystem_module
-from helping_hands.lib.ai_providers.types import normalize_messages
 
 # ---------------------------------------------------------------------------
 # types.py __all__
@@ -122,22 +121,3 @@ class TestCommandModuleAll:
     def test_all_symbols_are_importable(self) -> None:
         for name in command_module.__all__:
             assert hasattr(command_module, name), f"{name!r} not found in module"
-
-
-# ---------------------------------------------------------------------------
-# normalize_messages docstring
-# ---------------------------------------------------------------------------
-
-
-class TestNormalizeMessagesDocstring:
-    def test_has_docstring(self) -> None:
-        assert normalize_messages.__doc__ is not None
-
-    def test_docstring_has_args_section(self) -> None:
-        assert "Args:" in normalize_messages.__doc__
-
-    def test_docstring_has_returns_section(self) -> None:
-        assert "Returns:" in normalize_messages.__doc__
-
-    def test_docstring_has_raises_section(self) -> None:
-        assert "Raises:" in normalize_messages.__doc__

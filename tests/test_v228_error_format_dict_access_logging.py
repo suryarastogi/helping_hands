@@ -84,23 +84,6 @@ class TestFormatErrorResult:
         attr = inspect.getattr_static(_BasicIterativeHand, "_format_error_result")
         assert isinstance(attr, staticmethod)
 
-    def test_has_docstring(self) -> None:
-        doc = _BasicIterativeHand._format_error_result.__doc__
-        assert doc is not None and "error" in doc.lower()
-
-    def test_used_in_execute_read_requests(self) -> None:
-        """Verify _execute_read_requests uses _format_error_result, not inline."""
-        source = inspect.getsource(_BasicIterativeHand._execute_read_requests)
-        assert "_format_error_result" in source
-        # Should not have raw f-string error formatting
-        assert "@@READ_RESULT: {rel_path}\\nERROR" not in source
-
-    def test_used_in_execute_tool_requests(self) -> None:
-        """Verify _execute_tool_requests uses _format_error_result, not inline."""
-        source = inspect.getsource(_BasicIterativeHand._execute_tool_requests)
-        assert "_format_error_result" in source
-        assert "@@TOOL_RESULT: {tool_name}\\nERROR" not in source
-
 
 # ---------------------------------------------------------------------------
 # _pr_status_line — consistent .get() access
@@ -193,9 +176,3 @@ class TestBuildTreeSnapshotLogging:
 
         skip_logs = [r for r in caplog.records if "skipping invalid path" in r.message]
         assert len(skip_logs) == 0
-
-    def test_source_has_logger_debug(self) -> None:
-        """The method source should contain a logger.debug call for skipped paths."""
-        source = inspect.getsource(_BasicIterativeHand._build_tree_snapshot)
-        assert "logger.debug" in source
-        assert "skipping invalid path" in source

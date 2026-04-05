@@ -18,7 +18,6 @@ conversation history.
 from __future__ import annotations
 
 import ast
-import inspect
 from pathlib import Path
 
 import pytest
@@ -110,41 +109,6 @@ class TestBackendNameConstants:
 
 
 # ---------------------------------------------------------------------------
-# Source-level: no hardcoded backend strings in langgraph.py / atomic.py
-# ---------------------------------------------------------------------------
-
-
-class TestNoHardcodedBackendStrings:
-    """Verify that langgraph.py and atomic.py use _BACKEND_NAME, not literals."""
-
-    def test_langgraph_run_uses_backend_name(self) -> None:
-        source = inspect.getsource(LangGraphHand.run)
-        assert "self._BACKEND_NAME" in source
-        assert 'backend="langgraph"' not in source
-        assert '"backend": "langgraph"' not in source
-
-    def test_langgraph_stream_uses_backend_name(self) -> None:
-        source = inspect.getsource(LangGraphHand.stream)
-        assert "self._BACKEND_NAME" in source
-        assert 'backend="langgraph"' not in source
-
-    def test_atomic_run_uses_backend_name(self) -> None:
-        from helping_hands.lib.hands.v1.hand.atomic import AtomicHand
-
-        source = inspect.getsource(AtomicHand.run)
-        assert "self._BACKEND_NAME" in source
-        assert 'backend="atomic"' not in source
-        assert '"backend": "atomic"' not in source
-
-    def test_atomic_stream_uses_backend_name(self) -> None:
-        from helping_hands.lib.hands.v1.hand.atomic import AtomicHand
-
-        source = inspect.getsource(AtomicHand.stream)
-        assert "self._BACKEND_NAME" in source
-        assert 'backend="atomic"' not in source
-
-
-# ---------------------------------------------------------------------------
 # Source-level: langchain_user_message used in iterative.py
 # ---------------------------------------------------------------------------
 
@@ -158,18 +122,6 @@ class TestLangchainUserMessageUsedInIterative:
         assert "langchain_user_message" in source
         # Should NOT have inline message dict construction
         assert '{"messages": [{"role": "user"' not in source
-
-    def test_langgraph_module_no_inline_message_dicts(self) -> None:
-        # The helper function itself has the dict, but the class methods
-        # should use langchain_user_message()
-        run_source = inspect.getsource(LangGraphHand.run)
-        assert "langchain_user_message(" in run_source
-        assert '{"messages":' not in run_source
-
-    def test_langgraph_stream_uses_helper(self) -> None:
-        stream_source = inspect.getsource(LangGraphHand.stream)
-        assert "langchain_user_message(" in stream_source
-        assert '{"messages":' not in stream_source
 
 
 # ---------------------------------------------------------------------------

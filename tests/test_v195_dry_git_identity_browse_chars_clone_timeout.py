@@ -121,20 +121,22 @@ class TestDryCloneTimeout:
 
         assert "GIT_CLONE_TIMEOUT_S" in __all__
 
-    def test_cli_main_imports_from_github_url(self) -> None:
-        from helping_hands.cli.main import _GIT_CLONE_TIMEOUT_S
-        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
+    def test_cli_main_delegates_to_github_url(self) -> None:
+        """CLI main._run_git_clone delegates to github_url.run_git_clone."""
+        from helping_hands.cli.main import _run_git_clone_shared
+        from helping_hands.lib.github_url import run_git_clone
 
-        assert _GIT_CLONE_TIMEOUT_S == GIT_CLONE_TIMEOUT_S
+        assert _run_git_clone_shared is run_git_clone
 
-    def test_celery_imports_from_github_url(self) -> None:
-        from helping_hands.lib.github_url import GIT_CLONE_TIMEOUT_S
-
+    def test_celery_imports_run_git_clone(self) -> None:
+        """Celery app imports run_git_clone from github_url."""
         try:
-            from helping_hands.server.celery_app import _GIT_CLONE_TIMEOUT_S
-
-            assert _GIT_CLONE_TIMEOUT_S == GIT_CLONE_TIMEOUT_S
+            from helping_hands.server.celery_app import _run_git_clone
         except ImportError:
             import pytest
 
             pytest.skip("celery not installed")
+
+        from helping_hands.lib.github_url import run_git_clone
+
+        assert _run_git_clone is run_git_clone
