@@ -1,7 +1,7 @@
 # v381 — Boundary Input Validation Hardening
 
 **Created:** 2026-04-05
-**Status:** Active
+**Status:** Completed
 
 ## Goal
 

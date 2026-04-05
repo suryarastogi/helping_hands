@@ -4,13 +4,21 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Boundary Input Validation Hardening (2026-04-05) — In Progress
+### CLI Heartbeat-Without-Timeout Branch Coverage (2026-04-05) — Completed
+
+Cover the False branch of the heartbeat check (line 1284→1293) in
+`cli/base.py` IO loop via mocked `asyncio.get_running_loop().time()`. When
+the heartbeat interval hasn't elapsed, the loop skips the heartbeat message
+and continues. Resolves tech debt item. 1 new test. Coverage: 99.93% → 99.94%.
+See [v382 plan](docs/exec-plans/completed/2026/v382-cli-heartbeat-branch-coverage.md).
+
+### Boundary Input Validation Hardening (2026-04-05) — Completed
 
 Harden input validation at three module boundaries: defensive `.get()` +
 `RuntimeError` in `resolve_hand_model()` (was bare `PROVIDERS[key]`),
 `require_positive_int` depth validation in `run_git_clone()`, and `isinstance`
 type guard in `RepoIndex.from_path()`. 10 new tests.
-See [v381 plan](docs/exec-plans/active/v381-boundary-input-validation-hardening.md).
+See [v381 plan](docs/exec-plans/completed/2026/v381-boundary-input-validation-hardening.md).
 
 ### Registry Coverage Completion & Runner Test Hardening (2026-04-05) — Completed
 

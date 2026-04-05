@@ -665,3 +665,64 @@ class TestInvokeCmdProcessExitedDuringTimeout:
 
         # Should return empty string (no output collected) without error
         assert result == ""
+
+
+# ===================================================================
+# _invoke_cli_with_cmd — heartbeat fires without idle timeout
+# ===================================================================
+
+
+class TestInvokeCmdHeartbeatSkippedOnShortIdle:
+    def test_no_heartbeat_when_interval_not_elapsed(self) -> None:
+        """When a TimeoutError occurs but the heartbeat interval has NOT
+        elapsed (now - last_heartbeat_ts < heartbeat_seconds), the loop
+        skips the heartbeat message and continues to the idle-timeout check.
+        Covers the False branch of line 1284 → 1293."""
+        stub = _Stub()
+        emit, chunks = _collecting_emit()
+
+        # Time sequence (controlled via mock):
+        # t=0.0 — loop init: last_output_ts=0, last_heartbeat_ts=0
+        # t=1.0 — first TimeoutError; only 1s since last heartbeat, well
+        #         below the 20s default heartbeat_seconds → skip heartbeat;
+        #         idle_seconds=1 < idle_timeout=900 → continue
+        # t=1.0 — next read returns empty → loop breaks normally
+        time_values = iter([0.0, 1.0, 1.0])
+
+        mock_loop = MagicMock()
+        mock_loop.time = lambda: next(time_values)
+
+        mock_stdout = MagicMock()
+        read_call = 0
+
+        async def _read(n):
+            nonlocal read_call
+            read_call += 1
+            if read_call == 1:
+                raise TimeoutError()
+            # Second read: EOF
+            return b""
+
+        mock_stdout.read = _read
+        proc = MagicMock()
+        proc.stdout = mock_stdout
+        proc.returncode = None
+
+        async def _wait():
+            proc.returncode = 0
+            return 0
+
+        proc.wait = _wait
+
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+            patch("asyncio.get_running_loop", return_value=mock_loop),
+            patch.object(stub, "_terminate_active_process", new=AsyncMock()),
+        ):
+            result = _run(stub._invoke_cli_with_cmd(["some-cli"], emit=emit))
+
+        # No heartbeat message should have been emitted
+        heartbeat_msgs = [c for c in chunks if "still running" in c]
+        assert len(heartbeat_msgs) == 0
+        # Process finished normally
+        assert result == ""

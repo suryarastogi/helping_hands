@@ -14,7 +14,9 @@ backend descriptions enrichment for `--list-backends`,
 coverage accuracy improvement (dynamic server omit & pragma cleanup),
 model provider & config validation hardening,
 MCP bash script validation tests with plan hygiene,
-and ARCHITECTURE.md refresh with exec-plan index.
+ARCHITECTURE.md refresh with exec-plan index,
+registry coverage completion, boundary input validation hardening,
+and CLI heartbeat branch coverage.
 
 ---
 
@@ -542,3 +544,15 @@ validation in `run_git_clone()`, and `isinstance` type guard in
 `RepoIndex.from_path()`.
 
 **10 new tests. 7277+ total tests.**
+
+---
+
+## Apr 5 — CLI Heartbeat-Without-Timeout Branch Coverage (v382)
+
+Covered the False branch of the heartbeat check (line 1284→1293) in
+`cli/base.py` IO loop. When a `TimeoutError` fires but the heartbeat
+interval hasn't elapsed, the loop skips the heartbeat message and continues
+to the idle-timeout check. Used mocked `asyncio.get_running_loop().time()`
+to control time progression. Resolved tech debt tracker item.
+
+**1 new test. Coverage: 99.93% → 99.94%.**

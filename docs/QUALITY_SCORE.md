@@ -150,7 +150,7 @@ in v104 (2026-03-10).
 | Module | Line(s) | Reason |
 |---|---|---|
 | `cli/main.py` | 367 | `if __name__` guard |
-| `cli/base.py` | 552->559 | Heartbeat-without-timeout timing |
+| `cli/base.py` | 354->exit | Protocol `_Emitter.__call__` type stub (no runtime code) |
 | `web.py` | 66 | Defensive fallback (`pragma: no cover`; latin-1 accepts all bytes) |
 | `mcp_server.py` | 393 | `if __name__` guard |
 

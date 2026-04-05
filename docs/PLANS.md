@@ -4,9 +4,13 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v381 — Boundary Input Validation Hardening](exec-plans/active/v381-boundary-input-validation-hardening.md) — Defensive dict access in model_provider, depth validation in git clone, RepoIndex type guard; 10 tests
+*(none)*
 
 ## Completed plans
+
+- [2026-04-05 v382 — CLI Heartbeat-Without-Timeout Branch Coverage](exec-plans/completed/2026/v382-cli-heartbeat-branch-coverage.md) — Cover False branch of heartbeat check in IO loop (1284→1293); resolve tech debt item; 1 tests
+
+- [2026-04-05 v381 — Boundary Input Validation Hardening](exec-plans/completed/2026/v381-boundary-input-validation-hardening.md) — Defensive dict access in model_provider, depth validation in git clone, RepoIndex type guard; 10 tests
 
 - [2026-04-05 v380 — Registry Coverage Completion & Runner Test Hardening](exec-plans/completed/2026/v380-registry-coverage-completion.md) — Close last registry branch partial, add _parse_required_str tests, runner custom-params tests; 13 tests
 
