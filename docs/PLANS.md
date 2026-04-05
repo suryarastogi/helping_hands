@@ -4,9 +4,11 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v366 — Remaining Server Coverage Gaps](exec-plans/active/v366-remaining-server-coverage-gaps.md) — Close last coverage gaps in server modules; grill endpoints, interval chain, redis client, lifespan
+- [v367 — Registry Public API Test Coverage](exec-plans/active/v367-registry-public-api-coverage.md) — Dedicated tests for registry selection, validation, resolution, merging, and formatting functions; 52 tests
 
 ## Completed plans
+
+- [2026-04-05 v366 — Remaining Server Coverage Gaps](exec-plans/completed/2026/v366-remaining-server-coverage-gaps.md) — Close last coverage gaps in server modules; grill endpoints, interval chain, redis client, lifespan; 10 tests, 99.44% coverage
 
 - [2026-04-04 v365 — CLI `--version` Flag & Doctor Version Display](exec-plans/completed/2026/v365-cli-version-and-doctor-version.md) — Add `--version`/`-V` flag to CLI and version in doctor header; 5 tests added
 

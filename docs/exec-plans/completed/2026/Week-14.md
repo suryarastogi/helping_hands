@@ -310,3 +310,34 @@ enabled paths:
   `start_yjs_server`/`stop_yjs_server`
 
 **10 new tests. 8139 total tests (with server extras). 99.44% coverage.**
+
+---
+
+## Apr 5 — Registry Public API Test Coverage (v367)
+
+Added dedicated tests for the registry module's public API functions, which
+had no coverage beyond runner wrappers and validator helpers:
+
+- **`available_tool_category_names`** (3 tests): Returns tuple, contains
+  execution/web, no empty names
+- **`normalize_tool_selection`** (11 tests): Comma strings, lists, tuples,
+  None, dedup preserving order, case normalization, underscore-to-hyphen,
+  whitespace stripping, empty inputs
+- **`_normalize_and_deduplicate`** (5 tests): Type errors (int, dict),
+  non-string list items, label in error messages, comma-within-element splitting
+- **`validate_tool_category_names`** (5 tests): Valid names pass, empty tuple
+  passes, unknown raises ValueError, mixed valid/invalid, error lists available
+- **`resolve_tool_categories`** (5 tests): Single/multiple resolution,
+  empty input, unknown raises, categories contain ToolSpec objects
+- **`merge_with_legacy_tool_flags`** (5 tests): No-flag passthrough,
+  execution prepends, web appends, both-flags dedup, empty-with-flags
+- **`build_tool_runner_map`** (4 tests): Empty, execution tools callable,
+  web tools present, all-category count
+- **`category_name_for_tool`** (4 tests): Known execution/web tools,
+  unknown returns None, empty string returns None
+- **`format_tool_instructions`** (6 tests): Empty returns sentinel, execution
+  has @@TOOL blocks, web has @@TOOL blocks, guidance text variants, mixed
+- **`format_tool_instructions_for_cli`** (4 tests): Empty returns "",
+  execution/web guidance without @@TOOL blocks, category header present
+
+**52 new tests. 97 total registry tests. Registry coverage: 66%.**

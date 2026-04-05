@@ -1,7 +1,7 @@
 # v366 — Remaining Server Coverage Gaps
 
 **Created:** 2026-04-05
-**Status:** Active
+**Status:** Completed
 **Theme:** Close last coverage gaps in server modules to push toward 99%+ with extras
 
 ## Context

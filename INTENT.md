@@ -8,6 +8,17 @@ User intents and desires for the helping-hands project.
 
 ## Recently Completed
 
+### Registry Public API Test Coverage (2026-04-05) — Completed
+
+Added 52 dedicated tests for registry.py public API functions: tool category
+enumeration, selection normalization (comma strings, lists, tuples, dedup,
+case folding), validation (unknown names, error messages), resolution to
+ToolCategory specs, legacy boolean flag merging, runner map building,
+category-for-tool lookup, and prompt instruction formatting (iterative
+`@@TOOL` blocks and CLI natural-language guidance). Registry coverage: 66%.
+97 total registry tests pass.
+See [v367 plan](docs/exec-plans/active/v367-registry-public-api-coverage.md).
+
 ### Remaining Server Coverage Gaps (2026-04-05) — Completed
 
 Closed last coverage gaps in server modules. Added 10 new tests covering
@@ -15,7 +26,7 @@ grill enabled-path endpoints (POST /grill, POST /grill/{id}/message,
 GET /grill/{id}), `_launch_interval_chain` Celery chain dispatch,
 `_get_redis_client` Redis URL resolution, and app lifespan async context
 manager. Coverage with server extras: 98.71% → 99.44%. 8139 tests pass.
-See [v366 plan](docs/exec-plans/active/v366-remaining-server-coverage-gaps.md).
+See [v366 plan](docs/exec-plans/completed/2026/v366-remaining-server-coverage-gaps.md).
 
 ### CLI `--version` Flag & Doctor Version Display (2026-04-04) — Completed
 
