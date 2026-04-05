@@ -1,7 +1,7 @@
 # v370 — `--list-backends` CLI Flag
 
 **Created:** 2026-04-05
-**Status:** Active
+**Status:** Completed
 **Theme:** CLI discoverability — let users see available backends and their status
 
 ## Context

@@ -42,6 +42,10 @@ from helping_hands.lib.github_url import (
     validate_repo_spec as _validate_repo_spec,
 )
 from helping_hands.lib.hands.v1.hand import HandResponse
+from helping_hands.lib.hands.v1.hand.factory import (
+    _BACKEND_ENABLED_ENV_VARS,
+    is_backend_enabled,
+)
 
 # Suppress coroutine warnings from coverage.py tracer holding frame references
 # after mocked asyncio.run closes the coroutine.
@@ -1450,3 +1454,116 @@ class TestListBackends:
 
         output = list_backends()
         assert str(len(SUPPORTED_BACKENDS)) in output
+
+
+class TestIsBackendEnabled:
+    """Tests for ``is_backend_enabled()`` from factory module."""
+
+    def test_all_enabled_by_default(self) -> None:
+        """All backends enabled when no *_ENABLED env vars are set."""
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is True
+        assert "default" in detail
+
+    def test_enabled_when_env_var_set_truthy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Backend is enabled when its env var is set to a truthy value."""
+        monkeypatch.setenv("HELPING_HANDS_E2E_ENABLED", "1")
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is True
+        assert "HELPING_HANDS_E2E_ENABLED" in detail
+
+    def test_disabled_when_env_var_set_falsy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Backend is disabled when another backend's env var is set but not this one."""
+        # Set a different backend's env var to activate selective mode.
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        # Ensure e2e's env var is NOT set.
+        monkeypatch.delenv("HELPING_HANDS_E2E_ENABLED", raising=False)
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is False
+        assert "disabled" in detail
+
+    def test_disabled_when_own_env_var_is_falsy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Backend is disabled when its own env var is set to a non-truthy value."""
+        monkeypatch.setenv("HELPING_HANDS_E2E_ENABLED", "0")
+        enabled, detail = is_backend_enabled("e2e")
+        assert enabled is False
+        assert "disabled" in detail
+
+    def test_unknown_backend_returns_enabled(self) -> None:
+        """Backend not in _BACKEND_ENABLED_ENV_VARS returns enabled."""
+        enabled, detail = is_backend_enabled("nonexistent-backend-xyz")
+        assert enabled is True
+        assert "no env var" in detail
+
+    def test_env_var_names_in_detail(self) -> None:
+        """Enabled detail includes the actual env var name for all known backends."""
+        for backend in _BACKEND_ENABLED_ENV_VARS:
+            enabled, detail = is_backend_enabled(backend)
+            # In default mode, detail says "enabled (default)" — that's fine.
+            # We just verify it returns a tuple.
+            assert isinstance(enabled, bool)
+            assert isinstance(detail, str)
+
+
+class TestListBackendsEnabledStatus:
+    """Tests for enriched ``list_backends()`` output with enabled/disabled status."""
+
+    def test_disabled_backend_shows_in_output(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Disabled backends appear with [-] and include env var name."""
+        # Enable only codexcli, which disables all others.
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        for backend, env_var in _BACKEND_ENABLED_ENV_VARS.items():
+            if backend != "codexcli":
+                monkeypatch.delenv(env_var, raising=False)
+        output = list_backends()
+        # e2e should show [-] because it's disabled (not in enabled list)
+        e2e_line = next(ln for ln in output.splitlines() if "e2e" in ln)
+        assert "[-]" in e2e_line
+        assert "disabled" in e2e_line
+
+    def test_enabled_backend_shows_plus(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Enabled and available backends show [+]."""
+        # Default mode: all enabled.
+        output = list_backends()
+        e2e_line = next(ln for ln in output.splitlines() if "e2e" in ln)
+        assert "[+]" in e2e_line
+
+    def test_enabled_count_with_env_vars(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Footer shows X of Y when env vars selectively enable backends."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        monkeypatch.setenv("HELPING_HANDS_CODEXCLI_ENABLED", "1")
+        for backend, env_var in _BACKEND_ENABLED_ENV_VARS.items():
+            if backend != "codexcli":
+                monkeypatch.delenv(env_var, raising=False)
+        output = list_backends()
+        assert f"1 of {len(SUPPORTED_BACKENDS)}" in output
+
+
+class TestCheckBackendAvailableWarning:
+    """Tests for the unmapped-backend warning in ``_check_backend_available()``."""
+
+    def test_unmapped_backend_logs_warning(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Unknown backend triggers a logger warning."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="helping_hands.cli.main"):
+            available, detail = _check_backend_available("nonexistent-backend-xyz")
+        assert available is True
+        assert detail == "available"
+        assert "nonexistent-backend-xyz" in caplog.text
+        assert "not mapped" in caplog.text

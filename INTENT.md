@@ -4,15 +4,24 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### `--list-backends` CLI Flag (2026-04-05) — In Progress
+### Enrich `--list-backends` with Enabled Status (2026-04-05) — Completed
+
+Enriched `--list-backends` output to show both availability (binary found /
+extra installed) AND enabled/disabled status per backend via `*_ENABLED` env
+vars. Added `is_backend_enabled()` public API to factory module. Disabled
+backends now show `[-]` with the env var name. Unmapped backends trigger a
+logger warning. 10 new tests.
+See [v371 plan](docs/exec-plans/completed/2026/v371-list-backends-enabled-status.md).
+
+## Recently Completed
+
+### `--list-backends` CLI Flag (2026-04-05) — Completed
 
 Add `--list-backends` flag to the CLI that prints a table of all supported
 backends with their availability status (CLI tool found / Python extra
 installed). Intercepted before argparse like `--version` so it works without
 a positional `repo` argument. 12 new tests.
-See [v370 plan](docs/exec-plans/active/v370-list-backends-cli-flag.md).
-
-## Recently Completed
+See [v370 plan](docs/exec-plans/completed/2026/v370-list-backends-cli-flag.md).
 
 ### Filesystem & Web Type Guards (2026-04-05) — Completed
 

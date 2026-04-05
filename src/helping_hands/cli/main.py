@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
+import logging
 import re
 import shutil
 import subprocess
@@ -40,12 +41,21 @@ from helping_hands.lib.hands.v1.hand.factory import (
     SUPPORTED_BACKENDS,
     create_hand,
     get_enabled_backends,
+    is_backend_enabled,
 )
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import install_hint, require_positive_int
 
-__all__ = ["build_parser", "doctor", "list_backends", "main", "read_prompt_from_stdin"]
+__all__ = [
+    "build_parser",
+    "doctor",
+    "list_backends",
+    "main",
+    "read_prompt_from_stdin",
+]
+
+_logger = logging.getLogger(__name__)
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -122,25 +132,32 @@ def _check_backend_available(backend: str) -> tuple[bool, str]:
             return True, f"{extra_name} extra installed"
         except ImportError:
             return False, f"{extra_name} extra not installed"
+    _logger.warning(
+        "backend %r not mapped in _BACKEND_CLI_TOOL or _BACKEND_PYTHON_EXTRA", backend
+    )
     return True, "available"
 
 
 def list_backends() -> str:
-    """Format a table of all supported backends with availability status.
+    """Format a table of all supported backends with availability and enabled status.
 
     Returns:
         Multi-line string suitable for printing to stdout.
     """
     lines: list[str] = [f"helping-hands backends (v{__version__})", ""]
     for backend in sorted(SUPPORTED_BACKENDS):
-        available, detail = _check_backend_available(backend)
-        symbol = "+" if available else "-"
-        lines.append(f"  [{symbol}] {backend:<25s} {detail}")
+        available, avail_detail = _check_backend_available(backend)
+        enabled, enabled_detail = is_backend_enabled(backend)
+        symbol = "+" if available and enabled else "-"
+        parts = [avail_detail]
+        if not enabled:
+            parts.append(enabled_detail)
+        lines.append(f"  [{symbol}] {backend:<25s} {', '.join(parts)}")
     lines.append("")
-    enabled = get_enabled_backends()
-    if len(enabled) < len(SUPPORTED_BACKENDS):
+    enabled_list = get_enabled_backends()
+    if len(enabled_list) < len(SUPPORTED_BACKENDS):
         lines.append(
-            f"{len(enabled)} of {len(SUPPORTED_BACKENDS)} backends enabled via env vars."
+            f"{len(enabled_list)} of {len(SUPPORTED_BACKENDS)} backends enabled via env vars."
         )
     else:
         lines.append(f"{len(SUPPORTED_BACKENDS)} backends registered.")

@@ -30,6 +30,7 @@ __all__ = [
     "SUPPORTED_BACKENDS",
     "create_hand",
     "get_enabled_backends",
+    "is_backend_enabled",
 ]
 
 # --- Backend name constants ---------------------------------------------------
@@ -137,6 +138,37 @@ def get_enabled_backends() -> list[str]:
     if not has_any:
         return sorted(SUPPORTED_BACKENDS)
     return sorted(enabled)
+
+
+def is_backend_enabled(backend: str) -> tuple[bool, str]:
+    """Check whether *backend* is enabled via its environment variable.
+
+    When no ``*_ENABLED`` env var is set for *any* backend, all backends are
+    considered enabled (backwards-compatible default).  Otherwise, only
+    backends whose env var resolves to a truthy value are enabled.
+
+    Args:
+        backend: Backend name string.
+
+    Returns:
+        A ``(enabled, detail)`` tuple where *detail* is a human-readable
+        status string including the env var name when relevant.
+    """
+    env_var = _BACKEND_ENABLED_ENV_VARS.get(backend)
+    if env_var is None:
+        return True, "enabled (no env var)"
+
+    # Check whether *any* backend has an env var set.
+    any_set = any(
+        os.environ.get(v, "").strip() for v in _BACKEND_ENABLED_ENV_VARS.values()
+    )
+    if not any_set:
+        return True, "enabled (default)"
+
+    raw = os.environ.get(env_var, "").strip().lower()
+    if raw in _TRUTHY:
+        return True, f"enabled ({env_var})"
+    return False, f"disabled ({env_var})"
 
 
 def create_hand(

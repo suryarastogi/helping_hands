@@ -7,8 +7,8 @@ onboarding, Quick Start enhancement with first-run welcome banner,
 doctor/RepoIndex enhancements, interactive CLI mode, grill module
 testability, core utility coverage, CLI hand coverage, server coverage gaps,
 remaining edge cases, troubleshooting guide, server endpoint coverage,
-shared git clone utility extraction, token helper extraction, and test
-consolidation cleanup.
+shared git clone utility extraction, token helper extraction, test
+consolidation cleanup, and `--list-backends` enabled status enrichment.
 
 ---
 
@@ -401,3 +401,14 @@ Added `--list-backends` flag to the CLI for backend discoverability:
   `--version`) so it works without a positional `repo` argument.
 
 **12 new tests. 6936 total tests. 76.21% coverage.**
+
+---
+
+## Apr 5 — Enrich `--list-backends` with Enabled Status (v371)
+
+Enriched `--list-backends` output to show both availability AND enabled/disabled
+status per backend via `*_ENABLED` env vars. Added `is_backend_enabled()` public
+API to `factory.py`. Disabled backends now show `[-]` with the env var name.
+Unmapped backends trigger a logger warning.
+
+**10 new tests. 6946 total tests. 76.32% coverage.**

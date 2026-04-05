@@ -55,6 +55,7 @@ class TestModuleAll:
             "SUPPORTED_BACKENDS",
             "create_hand",
             "get_enabled_backends",
+            "is_backend_enabled",
         }
 
 
