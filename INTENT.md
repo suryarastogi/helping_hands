@@ -15,7 +15,6 @@ to `except GithubException`; added `test_propagates_non_github_exceptions`
 verifying `OSError` propagates. Fixed v388 plan `**Status:**` format and
 PLANS.md v385 entry test count format. 1 new test. 7071 total tests pass.
 Coverage: 97.31%.
-See [v389 plan](docs/exec-plans/completed/2026/v389-fix-test-failures-and-code-quality.md).
 
 ### AsteroidsGame Test Suite & OnboardingOverlay Coverage (2026-04-05) — Completed
 
@@ -28,7 +27,6 @@ submission guard, and leaderboard display. OnboardingOverlay positioning tests
 (9) cover bottom/right/default placement paths, missing target, zero-size
 target, spotlight ring, resize handler, event cleanup, and SVG mask cutout.
 39 new frontend tests. 923 total frontend tests pass. No production code changes.
-See [v388 plan](docs/exec-plans/completed/2026/v388-asteroids-game-and-onboarding-coverage.md).
 
 ### GrillMeOverlay & useGrillSession Test Suites (2026-04-05) — Completed
 
@@ -44,7 +42,6 @@ sendMessage (optimistic messages, errors), requestPlan (end type, errors),
 polling (deduplication, plan detection, terminal states, thinking/active
 status, error resilience), reset, and unmount cleanup. 70 new frontend tests.
 884 total frontend tests pass. No production code changes.
-See [v387 plan](docs/exec-plans/completed/2026/v387-grillme-overlay-and-usegrillsession-tests.md).
 
 ### ChatPanel & OnboardingOverlay Test Suites (2026-04-05) — Completed
 
@@ -57,7 +54,6 @@ submission (trim, empty rejection, cooldown blocking). OnboardingOverlay tests
 cover step badge, title/body, navigation (Back/Next/Got it!), dismiss, step
 dots (active/completed), and initial opacity. 67 new frontend tests. 814 total
 frontend tests pass. No production code changes.
-See [v386 plan](docs/exec-plans/completed/2026/v386-chatpanel-onboarding-overlay-tests.md).
 
 ### Frontend Component Test Coverage & Backend Docstring Polish (2026-04-05) — Completed
 
@@ -69,7 +65,6 @@ viewer, filter/changes-only toggle, idle detection, step navigation,
 dismiss/restart, and localStorage persistence. Expanded `Config.from_env()`
 docstring with Args/Returns/Raises sections per Google-style conventions.
 753 total frontend tests pass. 7069 backend tests pass. Backend coverage: 99.94%.
-See [v385 plan](docs/exec-plans/completed/2026/v385-frontend-coverage-and-docstring-polish.md).
 
 ### Provider API Key Map Consistency (2026-04-05) — Completed
 
@@ -80,7 +75,6 @@ silently skipping the auth status report. Updated docstring to clarify the
 Ollama entry maps to `OLLAMA_HOST` (host indicator, not API key). Added
 structural consistency tests ensuring `PROVIDER_API_KEY_ENV` keys stay in sync
 with the `PROVIDERS` registry. 4 new tests. 7069 total tests pass. Coverage: 99.94%.
-See [v384 plan](docs/exec-plans/completed/2026/v384-provider-api-key-map-consistency.md).
 
 ### Docstring Completion & CLI Introspection Design Doc (2026-04-05) — Completed
 
@@ -89,7 +83,6 @@ Added Google-style docstrings to 4 public items: `BasicLangGraphHand.__init__()`
 `docs/design-docs/cli-introspection.md` consolidating design decisions for
 `--version`, `--list-backends`, `--list-tools`, `doctor`, and interactive mode.
 17 new tests. 7066 total tests pass. Coverage: 99.94%.
-See [v383 plan](docs/exec-plans/completed/2026/v383-docstring-completion-and-cli-introspection-design-doc.md).
 
 ### CLI Heartbeat-Without-Timeout Branch Coverage (2026-04-05) — Completed
 
@@ -97,7 +90,6 @@ Cover the False branch of the heartbeat check (line 1284→1293) in
 `cli/base.py` IO loop via mocked `asyncio.get_running_loop().time()`. When
 the heartbeat interval hasn't elapsed, the loop skips the heartbeat message
 and continues. Resolves tech debt item. 1 new test. Coverage: 99.93% → 99.94%.
-See [v382 plan](docs/exec-plans/completed/2026/v382-cli-heartbeat-branch-coverage.md).
 
 ### Boundary Input Validation Hardening (2026-04-05) — Completed
 
@@ -105,7 +97,6 @@ Harden input validation at three module boundaries: defensive `.get()` +
 `RuntimeError` in `resolve_hand_model()` (was bare `PROVIDERS[key]`),
 `require_positive_int` depth validation in `run_git_clone()`, and `isinstance`
 type guard in `RepoIndex.from_path()`. 10 new tests.
-See [v381 plan](docs/exec-plans/completed/2026/v381-boundary-input-validation-hardening.md).
 
 ### Registry Coverage Completion & Runner Test Hardening (2026-04-05) — Completed
 
@@ -114,7 +105,6 @@ Close the last registry branch partial (line 560→558 in
 validator tests (9 tests). Add custom-params forwarding tests for
 `_run_python_script` and `_run_bash_script` runners (3 tests). Registry
 coverage: 99% → 100%. 13 new tests.
-See [v380 plan](docs/exec-plans/completed/2026/v380-registry-coverage-completion.md).
 
 ### ARCHITECTURE.md Refresh & Exec-Plan Index (2026-04-05) — Completed
 
@@ -122,7 +112,6 @@ Update stale ARCHITECTURE.md (last updated 2026-03-07) to reflect ~30 days of
 new modules and features. Add structural accuracy tests verifying all listed
 file paths exist and all source modules are mentioned. Create
 `docs/exec-plans/index.md` for navigation. 7 new tests.
-See [v379 plan](docs/exec-plans/completed/2026/v379-architecture-refresh-and-exec-plan-index.md).
 
 ### MCP Bash Script Validation Tests & Plan Hygiene (2026-04-05) — Completed
 
@@ -131,7 +120,6 @@ neither/both validation branches at lines 370, 372). Plan housekeeping:
 moved completed v377, updated PLANS.md, INTENT.md, and Week-14 consolidation.
 Fixed v377 missing `## Tasks` section. 2 new tests. 7018 total tests pass.
 Coverage: 99.93%.
-See [v378 plan](docs/exec-plans/completed/2026/v378-mcp-bash-validation-and-plan-hygiene.md).
 
 ### Model Provider & Config Validation Hardening (2026-04-05) — Completed
 
@@ -141,7 +129,6 @@ warning on unknown explicit provider, unified `require_non_empty_string`
 in `AIProvider.complete()`, type guards on `provider.name` in build
 functions, and `Config.from_env()` enabled_tools type coercion hardening.
 19 new tests. 7016 total tests pass. Coverage: 99.93%.
-See [v377 plan](docs/exec-plans/completed/2026/v377-model-provider-and-config-hardening.md).
 
 ### Coverage Accuracy: Dynamic Server Omit & Pragma Cleanup (2026-04-05) — Completed
 
@@ -153,7 +140,6 @@ overrides with `--cov-config=pyproject.toml` to cover everything. Marked 6
 unreachable / optional-dep lines with `pragma: no cover`. Added
 `exclude_lines` patterns to coverage config. Updated fixture-usage test to
 skip pytest hooks. 18 new tests. 6997 total tests pass. Coverage: 99.93%.
-See [v376 plan](docs/exec-plans/completed/2026/v376-coverage-accuracy-and-pragma-cleanup.md).
 
 ### Backend Descriptions & `--list-backends` Enrichment (2026-04-05) — Completed
 
@@ -164,7 +150,6 @@ module-level check (mirrors the env-var sync check). Exported
 `cli/main.py` to show the description alongside each backend's availability
 and enabled status. 10 new tests (8 factory + 2 CLI). 6979 total tests pass.
 Coverage: 76.55%.
-See [v375 plan](docs/exec-plans/completed/2026/v375-backend-descriptions-and-list-enrichment.md).
 
 ### CLI Error Exit Backends Consistency (2026-04-05) — Completed
 
@@ -174,7 +159,6 @@ traces instead of clean error messages. Added structural consistency test that
 verifies all CLI-tool-backed backends are in the set (prevents future
 regressions). 9 new tests (5 consistency + 4 error-exit paths). 6969 total
 tests pass.
-See [v374 plan](docs/exec-plans/completed/2026/v374-cli-error-exit-backends-consistency.md).
 
 ### Factory Error Branch Coverage & Doc Consolidation (2026-04-05) — Completed
 
@@ -183,7 +167,6 @@ Extracted `_validate_backend_env_consistency()` from module-level code in
 sync pass, missing-only, extra-only, both-divergence, and empty inputs. Fixed
 two stale active-plan references in INTENT.md (v367, v336). Updated Week-14
 consolidation with v372 entry. factory.py coverage: 92% → 100%.
-See [v373 plan](docs/exec-plans/completed/2026/v373-factory-error-branches-and-consolidation.md).
 
 ### `--list-tools` CLI Flag & Registry Coverage (2026-04-05) — Completed
 
@@ -192,7 +175,6 @@ Added `--list-tools` CLI flag for tool category discoverability, complementing
 Intercepted before argparse so it works without a positional `repo` argument.
 Also closed the last registry coverage gap (`_run_bash_script` both/neither
 error branch). 9 new tests (7 list-tools + 2 registry). Registry coverage: 100%.
-See [v372 plan](docs/exec-plans/completed/2026/v372-list-tools-cli-flag.md).
 
 ## Recently Completed
 
@@ -203,7 +185,6 @@ extra installed) AND enabled/disabled status per backend via `*_ENABLED` env
 vars. Added `is_backend_enabled()` public API to factory module. Disabled
 backends now show `[-]` with the env var name. Unmapped backends trigger a
 logger warning. 10 new tests.
-See [v371 plan](docs/exec-plans/completed/2026/v371-list-backends-enabled-status.md).
 
 ### `--list-backends` CLI Flag (2026-04-05) — Completed
 
@@ -211,21 +192,18 @@ Add `--list-backends` flag to the CLI that prints a table of all supported
 backends with their availability status (CLI tool found / Python extra
 installed). Intercepted before argparse like `--version` so it works without
 a positional `repo` argument. 12 new tests.
-See [v370 plan](docs/exec-plans/completed/2026/v370-list-backends-cli-flag.md).
 
 ### Filesystem & Web Type Guards (2026-04-05) — Completed
 
 Added `isinstance` type guards to security-boundary functions: `resolve_repo_target()`
 for `repo_root` parameter and `_decode_bytes()` for `payload` parameter. Both now
 raise clear `TypeError` instead of confusing `AttributeError`. 6 new tests.
-See [v369 plan](docs/exec-plans/completed/2026/v369-filesystem-web-type-guards.md).
 
 ### Validation & Factory Hardening (2026-04-05) — Completed
 
 Add missing boundary validation to `validate_repo_value()` (type guard) and
 module-level consistency check in `factory.py` (SUPPORTED_BACKENDS must match
 `_BACKEND_ENABLED_ENV_VARS` keys). 7 new tests.
-See [v368 plan](docs/exec-plans/completed/2026/v368-validation-and-factory-hardening.md).
 
 ### Registry Public API Test Coverage (2026-04-05) — Completed
 
@@ -236,7 +214,6 @@ ToolCategory specs, legacy boolean flag merging, runner map building,
 category-for-tool lookup, and prompt instruction formatting (iterative
 `@@TOOL` blocks and CLI natural-language guidance). Registry coverage: 66%.
 97 total registry tests pass.
-See [v367 plan](docs/exec-plans/completed/2026/v367-registry-public-api-coverage.md).
 
 ### Remaining Server Coverage Gaps (2026-04-05) — Completed
 
@@ -245,7 +222,6 @@ grill enabled-path endpoints (POST /grill, POST /grill/{id}/message,
 GET /grill/{id}), `_launch_interval_chain` Celery chain dispatch,
 `_get_redis_client` Redis URL resolution, and app lifespan async context
 manager. Coverage with server extras: 98.71% → 99.44%. 8139 tests pass.
-See [v366 plan](docs/exec-plans/completed/2026/v366-remaining-server-coverage-gaps.md).
 
 ### CLI `--version` Flag & Doctor Version Display (2026-04-04) — Completed
 
@@ -253,7 +229,6 @@ Added `--version` / `-V` flag to the CLI entry point — intercepted before
 argparse so it works without a positional `repo` argument. Doctor output
 header now includes the version string (`helping-hands doctor v0.1.0`).
 5 new tests. Coverage 76.15% → 76.17%.
-See [v365 plan](docs/exec-plans/completed/2026/v365-cli-version-and-doctor-version.md).
 
 ### Config Validation & Finalization Error Hardening (2026-04-04) — Completed
 
@@ -262,7 +237,6 @@ traversal, null bytes, and newlines in repo config inputs. Called from
 `Config.from_env()` with debug warning when model remains at default.
 (2) Added catch-all `except Exception` in `_finalize_repo_pr()` logged at ERROR
 level, broadened push error handling to include OSError. 24 new tests, 4 updated.
-Coverage 76.05% → 76.15%. See [v364 plan](docs/exec-plans/completed/2026/v364-config-validation-and-finalization-hardening.md).
 
 ### Server Pure Helper Coverage (2026-04-04) — Completed
 
@@ -272,7 +246,6 @@ merging, Flower env config, kwargs parsing, usage-level extraction, backend
 validation, runtime formatting, repo-path resolution, cron/interval scheduling.
 111 new tests across 3 files. With server extras: app.py 1%→94%,
 celery_app.py 3%→99%, schedules.py 2%→95%, total 98.71%.
-See [v363 plan](docs/exec-plans/completed/2026/v363-server-pure-helper-coverage.md).
 
 ### Expand Model Inference Prefixes (2026-04-04) — Completed
 
@@ -282,7 +255,6 @@ for correct Ollama routing. Added explicit OpenAI reasoning model prefixes
 (gpt, o1, o3, o4). Previously, bare model names like `mistral-7b` or
 `deepseek-coder-v2` were incorrectly routed to OpenAI. Refactored to use
 `_OLLAMA_MODEL_PREFIXES` / `_OPENAI_MODEL_PREFIXES` tuples. 21 new tests.
-See [v362 plan](docs/exec-plans/completed/2026/v362-expand-model-inference-prefixes.md).
 
 ### Fix Stale Test Imports & Coverage Recovery (2026-04-04) — Completed
 
@@ -292,7 +264,6 @@ extraction. Tests were importing symbols (`_git_noninteractive_env`,
 old locations in `server/app.py` and `server/celery_app.py`. Without server extras
 the breakage was masked by silent skips; with extras, 3 collection errors + 16 test
 failures. Recovery: 6779 → 7968 tests passing, 76.03% → 98.71% coverage.
-See [v361 plan](docs/exec-plans/completed/2026/v361-fix-stale-test-imports-and-coverage-recovery.md).
 
 ### Test Consolidation & Cleanup Candidate Resolution (2026-04-04) — Completed
 
@@ -300,46 +271,39 @@ Resolved all 6 `# TODO: CLEANUP CANDIDATE` markers in test files. Removed 42
 redundant tests (isinstance/positive/type-only assertions that duplicated
 value-equality tests, plus fully-duplicate `test_provider_build_inner.py`).
 All behavioral tests preserved, coverage unchanged at 76.03%.
-See [v360 plan](docs/exec-plans/completed/2026/v360-test-consolidation-cleanup.md).
 
 ### Dead Code Cleanup & Tech Debt Resolution (2026-04-04) — Completed
 
 Remove unreachable `if not candidate:` guard in `_commit_message_from_prompt`,
 resolve tech debt item, consolidate v358 completion.
-See [v359 plan](docs/exec-plans/completed/2026/v359-dead-code-cleanup-and-tech-debt.md).
 
 ### E2E Coverage & Exports Cleanup (2026-04-04) — Completed
 
 Close test gaps in `e2e.py` (`_draft_pr_enabled`, `stream`), add missing
 `__all__` to `multiplayer_yjs.py`, consolidate v357 completion.
-See [v358 plan](docs/exec-plans/completed/2026/v358-e2e-coverage-and-exports-cleanup.md).
 
 
 ### Extract Shared Git Clone Utility (2026-04-04) — Completed
 
 Eliminate duplicated `git clone` subprocess logic between `cli/main.py` and
 `server/celery_app.py` by extracting `run_git_clone()` into `lib/github_url.py`.
-13 new tests, 6 test files updated. See [v357 plan](docs/exec-plans/completed/2026/v357-extract-shared-git-clone.md).
 
 ### Extract Token Helpers & Add Tests (2026-04-04) — Completed
 
 Extract pure token/credential helpers (`redact_token`,
 `read_claude_credentials_file`, `get_claude_oauth_token`) from `server/app.py`
 into `server/token_helpers.py` — testable without server extras. 22 new tests.
-See [v357 plan](docs/exec-plans/completed/2026/v357-extract-token-helpers-and-tests.md).
 
 ### Server App Endpoint Coverage Hardening (2026-04-04) — Completed
 
 Close coverage gaps in `server/app.py` (90% → 95%+) by testing uncovered
 branches in task diff parsing, file tree building, file content reading, and
-helper functions. See [v356 plan](docs/exec-plans/completed/2026/v356-server-app-endpoint-coverage.md).
 
 ### Troubleshooting Guide & Docs Refresh (2026-04-04) — Completed
 
 Create user-facing `docs/TROUBLESHOOTING.md` covering common setup issues
 surfaced by `helping-hands doctor`, backend-specific problems, and runtime
 errors. Refresh stale AGENTS.md metadata. 12 doc structure tests added.
-See [v355 plan](docs/exec-plans/completed/2026/v355-troubleshooting-guide-and-docs-refresh.md).
 
 ### Remaining Edge Case Coverage (2026-04-04) — Completed
 
@@ -347,14 +311,13 @@ Closing last <2% coverage gaps in high-use modules: `github.py` (`update_pr`
 validation/edit paths), `cli/base.py` (`_LinePrefixEmitter` line buffering
 and flush), `cli/claude.py` (`_summarize_tool` Skill branch), and
 `cli/goose.py` (`_pr_description_cmd` Google/Gemini path). 17 targeted tests.
-See [v354 plan](docs/exec-plans/completed/2026/v354-remaining-edge-case-coverage.md).
 
 ### Server Module Coverage Gaps (2026-04-04) — Completed
 
 Closed remaining coverage gaps in `server/app.py` (77% → 90%+) and
 `server/schedules.py` (77% → 90%+) via TestClient and mocked Redis.
 51 new tests, 7919 total pass, 97.60% coverage. See
-[v353 plan](docs/exec-plans/completed/2026/v353-server-coverage-gaps.md).
+the detailed plan.
 
 ### CLI Hand Test Coverage: OpenCode + Devin (2026-04-04) — Completed
 
@@ -362,7 +325,7 @@ Closed coverage gaps in `opencode.py` (`_describe_auth` all branches,
 `_pr_description_cmd` both branches) and `devin.py` (`_pr_description_cmd`,
 `_pr_description_prompt_as_arg`, `_resolve_cli_model` env var edge cases).
 17 new tests, 6744 total pass. See
-[v352 plan](docs/exec-plans/completed/2026/v352-cli-hand-opencode-devin-coverage.md).
+the detailed plan.
 
 ### Core Utility Module Test Coverage (2026-04-04) — Completed
 
@@ -371,14 +334,14 @@ Added test coverage for three 0%-covered pure utility modules: `validation.py`
 tests for `invalid_repo_msg` + `resolve_github_token` + `repo_tmp_dir`), and
 `factory.py` (24 new tests for `create_hand` dispatch + `get_enabled_backends`).
 All three modules now at 100% coverage. See
-[v351 plan](docs/exec-plans/completed/2026/v351-core-utility-test-coverage.md).
+the detailed plan.
 
 ### Grill Module Testability & Coverage (2026-04-04) — Completed
 
 Restructured `grill.py` to defer celery imports so pure helper functions are
 testable without celery/redis. Fixed 13 broken tests, added 37 new tests,
 grill.py helper coverage 4% → 99%. See
-[v350 plan](docs/exec-plans/completed/2026/v350-grill-module-testability-and-coverage.md).
+the detailed plan.
 
 ### Interactive CLI Mode & AI Provider Types Coverage (2026-04-04) — Completed
 
@@ -394,7 +357,7 @@ lazy inner loading, `_require_sdk()`, `complete()` validation, and
 `acomplete()` async delegation. 23 new tests covering all branches.
 
 Updated product spec to mark nice-to-have #4 as implemented. See
-[v349 plan](docs/exec-plans/completed/2026/v349-interactive-mode-and-provider-types-coverage.md).
+the detailed plan.
 
 
 ### Doctor Server-Mode Prerequisite Checks (2026-04-04) — Completed
@@ -407,7 +370,7 @@ graceful error handling. Also fixed docs index completeness (added app-mode.md,
 backends.md, development.md references) and README (added Configuration and
 Development sections). Expanded `__all__` to export `collect_checks` and
 `format_results`. 8 new tests. See
-[v348 plan](docs/exec-plans/completed/2026/v348-doctor-server-prereqs.md).
+the detailed plan.
 
 ### Doctor & RepoIndex Enhancements (2026-04-04) — Completed
 
@@ -417,7 +380,7 @@ Enhanced `helping-hands doctor` with Docker and Node.js availability checks:
 handling of missing binary, version parse failure, and timeout. Added
 `file_count` property and `has_file()` O(log n) binary search to `RepoIndex`.
 16 new tests. Created Week-14 consolidation. See
-[v347 plan](docs/exec-plans/completed/2026/v347-doctor-and-repo-index-enhancements.md).
+the detailed plan.
 
 ### Quick Start Enhancement & First-Run Banner (2026-03-30) — Completed
 
@@ -427,7 +390,7 @@ run first task) with references to `helping-hands doctor` and
 `_maybe_show_first_run_banner()` in `cli/main.py` — prints a one-time welcome
 on first invocation, tracked by `~/.helping_hands/.first_run_done` marker.
 5 new tests. Product spec must-have #1 and nice-to-have #5 now complete. See
-[v346 plan](docs/exec-plans/completed/2026/v346-quickstart-and-first-run-banner.md).
+the detailed plan.
 
 ### Examples Directory & Doctor Early-Return Test (2026-03-30) — Completed
 
@@ -438,7 +401,7 @@ correct behavior, and a `run.sh` script for local evaluation with `--no-pr`.
 Also covered `cli/main.py` line 340 (doctor early-return path) and added 5
 examples directory structure tests. 6 new tests, `cli/main.py` 99% → 99%
 (only `__name__` guard remaining). See
-[v345 plan](docs/exec-plans/completed/2026/v345-examples-directory.md).
+the detailed plan.
 
 ### Doctor Command (2026-03-30) — Completed
 
@@ -448,7 +411,7 @@ GitHub token, optional CLI backends (claude, codex, goose, gemini), and
 optional Python extras (langchain, atomic, server). Returns exit 0 when all
 required checks pass, exit 1 on failures. 28 new tests at 100% coverage on
 `doctor.py`. 6627 tests passed, 76.40% overall coverage. See
-[v344 plan](docs/exec-plans/completed/2026/v344-doctor-command.md).
+the detailed plan.
 
 ### CLI Main Coverage & Daily Consolidation (2026-03-30) — Completed
 
@@ -458,7 +421,7 @@ Closed last testable non-server coverage gap in `cli/main.py`: changed
 Updated tech debt tracker line number for `cli/main.py` `__name__` guard.
 Updated 2026-03-30 daily consolidation to include v342 and v343. 4 new tests,
 6599 tests passed, 76.02% coverage. See
-[v343 plan](docs/exec-plans/completed/2026/v343-cli-main-coverage-and-consolidation.md).
+the detailed plan.
 
 ### Server Helper Coverage & Weekly Consolidation (2026-03-30) — Completed
 
@@ -467,7 +430,7 @@ Closed remaining untested pure/helper functions in server modules:
 `_validate_path_param` wrapper (3 tests), `_is_running_in_docker` container
 detection (3 tests). 12 new tests, 7738 tests passed, 96.62% coverage (with
 server extras installed). See
-[v342 plan](docs/exec-plans/completed/2026/v342-server-helper-coverage-and-consolidation.md).
+the detailed plan.
 
 ### Remaining Branch Coverage Gaps (2026-03-30) — Completed
 
@@ -476,7 +439,6 @@ without-variables path (`github.py` 99% → 100%), E2E `dry_run=True` with
 `pr_number` set (`e2e.py` 99% → 100%), `_poll_ci_checks` deadline break and
 `_ci_fix_loop` loop timeout (`cli/base.py` 4 miss → 0 miss, 1 remaining
 branch partial tracked in tech debt). 5 new tests, 6595 tests passed, 76.02%
-coverage. See [v341 plan](docs/exec-plans/completed/2026/v341-remaining-branch-coverage.md).
 
 ### Hand Base & GitHub Coverage Hardening (2026-03-30) — Completed
 
@@ -485,7 +447,6 @@ Closed remaining testable coverage gaps in `hand/base.py` (99% → 100%) and
 paths, `_push_to_existing_pr` clean-tree rev-parse path, `add_to_project_v2`
 project-resolution-failure RuntimeError for org/user/missing-key scenarios. 10 new
 tests, 6590 tests passed, 75.93% coverage. `base.py` now at 100% statement coverage.
-See [v340 plan](docs/exec-plans/completed/2026/v340-hand-base-and-github-coverage.md).
 
 ### Meta Tools Coverage Hardening (2026-03-30) — Completed
 
@@ -496,7 +457,6 @@ Closed testable coverage gaps in `meta/tools/web.py` (81% → 98%) and
 `search_web` error handling and deduplication, `browse_url` non-HTML content,
 `normalize_relative_path` type check, `read_text_file` large file rejection,
 `mkdir_path` OSError wrapping. 42 new tests, 6580 tests passed, 75.84% coverage.
-See [v339 plan](docs/exec-plans/completed/2026/v339-meta-tools-coverage-hardening.md).
 
 ### Server App & Celery Pure Function Coverage (2026-03-29) — Completed
 
@@ -505,19 +465,18 @@ pure helper functions: `_is_recently_terminal` all branches, `_upsert_current_ta
 edge cases, `_update_progress` issue_number branch, `_sync_issue_status`
 failed-without-error branch, `ensure_usage_schedule` OSError catch. 16 new tests,
 7656 tests passed, 96.45% coverage. See
-[v338 plan](docs/exec-plans/completed/2026/v338-server-app-celery-pure-function-coverage.md).
+the detailed plan.
 
 ### Multiplayer YJS & Claude Stream Emitter Coverage (2026-03-29) — Completed
 
 Close remaining testable coverage gaps in `multiplayer_yjs.py` (95% → 99%) and
 `cli/claude.py` (98% → 99%): decoration state reading branches, activity summary
 edge cases, and stream emitter non-dict event/block handling. See
-[v337 plan](docs/exec-plans/completed/2026/v337-multiplayer-and-claude-emitter-coverage.md).
+the detailed plan.
 
 ### Hand Base & CLI Hand Coverage Hardening (2026-03-29) — Completed
 
 Close remaining coverage gaps in `Hand` base class and `_TwoPhaseCLIHand`.
-See [v336 plan](docs/exec-plans/completed/2026/v336-hand-base-cli-coverage.md).
 
 **Implemented (v336):**
 - 7 new tests: 4 `_working_tree_is_clean`, 1 `_push_to_existing_pr` clean tree,
@@ -531,7 +490,6 @@ Fixed 16 broken `_get_claude_oauth_token` tests across 3 test files — the
 addition of `_read_claude_credentials_file()` as a first-try path caused tests
 that only mock `subprocess.run` to find a real token before the mock was reached.
 Added 6 new tests (5 `_read_claude_credentials_file` + 1 credentials-file-first
-path). See [v336 plan](docs/exec-plans/completed/2026/v336-oauth-token-test-fix-and-credentials-coverage.md).
 
 
 ### ModelProvider Coverage Hardening (2026-03-29) — Completed
@@ -539,12 +497,11 @@ path). See [v336 plan](docs/exec-plans/completed/2026/v336-oauth-token-test-fix-
 Close remaining coverage gaps in `model_provider.py`: `_require_langchain_class`
 direct tests, provider-name resolution branches, empty model validation. Also
 fixed pre-existing `test_env_var_forwarding` env leak. See
-[v335 plan](docs/exec-plans/completed/2026/v335-model-provider-coverage-hardening.md).
+the detailed plan.
 
 ### GooseCLIHand & CLIHandBase Coverage Hardening (2026-03-29) — Completed
 
 Close testable coverage gaps in `GooseCLIHand` (88% → 99%) and `CLIHandBase`
-(98% → 99%). See [v334 plan](docs/exec-plans/completed/2026/v334-goose-cli-base-coverage.md).
 
 ### Stream Emitter & Multiplayer Coverage + Test Fix (2026-03-29) — Completed
 

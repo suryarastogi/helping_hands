@@ -15,8 +15,6 @@ organized by:
   given day, rolled up into a single summary.
 - **Weekly consolidations** (`Week-N.md`) — weekly summaries aggregating
   daily consolidations.
-- **Individual plans** (`vNNN-slug.md`) — detailed plan documents with
-  goals, tasks, and file change lists.
 
 ## Tracking
 
@@ -39,10 +37,10 @@ organized by:
 
 ## Conventions
 
-- Plan numbers are monotonically increasing (`v380`, `v381`, ...).
 - Active plans move to `completed/` when all tasks are done.
 - Daily consolidations capture same-day plan completions.
 - Weekly consolidations roll up daily files at week boundaries.
+- Individual vN plan details are captured in daily/weekly logs (no separate files).
 
 ---
 
