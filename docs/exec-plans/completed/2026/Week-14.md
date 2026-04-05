@@ -381,3 +381,23 @@ Two `isinstance` type guards added to security-boundary functions:
   (3 tests: str, int, None)
 
 **6 new tests.**
+
+---
+
+## Apr 5 — `--list-backends` CLI Flag (v370)
+
+Added `--list-backends` flag to the CLI for backend discoverability:
+
+- **`list_backends()`**: Formats a table of all supported backends with
+  `[+]`/`[-]` availability markers. CLI-backed hands check `shutil.which()`
+  for their binary; library hands check `__import__()` for their Python extra.
+  E2E backend is always available. Footer shows registered/enabled count.
+- **`_check_backend_available(backend)`**: Returns `(available, detail)` tuple
+  for a single backend — delegates to `shutil.which` or `__import__` depending
+  on backend type.
+- **`_BACKEND_CLI_TOOL`** / **`_BACKEND_PYTHON_EXTRA`**: Lookup dicts mapping
+  backend names to their CLI binary or Python import+extra names.
+- **`--list-backends` flag**: Intercepted in `main()` before argparse (like
+  `--version`) so it works without a positional `repo` argument.
+
+**12 new tests. 6936 total tests. 76.21% coverage.**

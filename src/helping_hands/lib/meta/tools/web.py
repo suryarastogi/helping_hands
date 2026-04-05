@@ -167,9 +167,7 @@ def _decode_bytes(payload: bytes) -> str:
         TypeError: If *payload* is not :class:`bytes`.
     """
     if not isinstance(payload, bytes):
-        raise TypeError(
-            f"payload must be bytes, got {type(payload).__name__}"
-        )
+        raise TypeError(f"payload must be bytes, got {type(payload).__name__}")
     for encoding in _ENCODING_FALLBACK_CHAIN:
         try:
             return payload.decode(encoding)

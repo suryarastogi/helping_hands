@@ -42,9 +42,7 @@ def resolve_repo_target(repo_root: Path, rel_path: str) -> Path:
             is empty, absolute, or escapes the repository root.
     """
     if not isinstance(repo_root, Path):
-        raise TypeError(
-            f"repo_root must be a Path, got {type(repo_root).__name__}"
-        )
+        raise TypeError(f"repo_root must be a Path, got {type(repo_root).__name__}")
     root = repo_root.resolve()
     if not root.is_dir():
         raise ValueError("repo_root must be an existing directory")

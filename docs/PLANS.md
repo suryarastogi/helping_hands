@@ -4,9 +4,11 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v369 — Filesystem & Web Type Guards](exec-plans/active/v369-filesystem-web-type-guards.md) — Add `isinstance` type guards to `resolve_repo_target()` and `_decode_bytes()` for clear error messages on invalid input
+- [v370 — `--list-backends` CLI Flag](exec-plans/active/v370-list-backends-cli-flag.md) — CLI discoverability: show all backends with availability status
 
 ## Completed plans
+
+- [2026-04-05 v369 — Filesystem & Web Type Guards](exec-plans/completed/2026/v369-filesystem-web-type-guards.md) — Add `isinstance` type guards to `resolve_repo_target()` and `_decode_bytes()` for clear error messages on invalid input; 6 tests
 
 - [2026-04-05 v368 — Validation & Factory Hardening](exec-plans/completed/2026/v368-validation-and-factory-hardening.md) — Add type guard to `validate_repo_value()`, factory backend/env-var consistency assertion; 7 tests
 

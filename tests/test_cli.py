@@ -21,12 +21,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from helping_hands.cli.main import (
+    _BACKEND_CLI_TOOL,
+    _BACKEND_PYTHON_EXTRA,
+    _check_backend_available,
     _error_exit,
     _github_clone_url,
     _make_temp_clone_dir,
     _resolve_repo_path,
     _stream_hand,
     build_parser,
+    list_backends,
     main,
     read_prompt_from_stdin,
 )
@@ -1322,3 +1326,127 @@ class TestVersionFlag:
 
         main(["--version"])
         assert __version__ in capsys.readouterr().out
+
+
+class TestListBackends:
+    """Tests for ``--list-backends`` flag and ``list_backends()``."""
+
+    def test_list_backends_flag_prints_output(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-backends`` prints backend table and returns."""
+        main(["--list-backends"])
+        out = capsys.readouterr().out
+        assert "helping-hands backends" in out
+
+    def test_list_backends_does_not_require_repo(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-backends`` works without a positional 'repo' argument."""
+        main(["--list-backends"])
+        assert "backends" in capsys.readouterr().out
+
+    def test_list_backends_contains_all_backends(self) -> None:
+        """Output includes every backend from SUPPORTED_BACKENDS."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        output = list_backends()
+        for backend in SUPPORTED_BACKENDS:
+            assert backend in output, f"missing backend: {backend}"
+
+    def test_list_backends_shows_version(self) -> None:
+        """Header line includes the package version."""
+        from helping_hands import __version__
+
+        output = list_backends()
+        assert __version__ in output
+
+    def test_list_backends_shows_availability_symbols(self) -> None:
+        """Each line has a [+] or [-] availability marker."""
+        output = list_backends()
+        lines = [ln for ln in output.splitlines() if ln.strip().startswith("[")]
+        assert len(lines) > 0
+        for line in lines:
+            assert "[+]" in line or "[-]" in line
+
+    def test_check_backend_available_e2e(self) -> None:
+        """E2E backend is always available."""
+        available, detail = _check_backend_available("e2e")
+        assert available is True
+        assert "always" in detail
+
+    def test_check_backend_available_cli_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CLI backend reports available when tool is on PATH."""
+        monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
+        available, detail = _check_backend_available("claudecodecli")
+        assert available is True
+        assert "claude found" in detail
+
+    def test_check_backend_available_cli_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CLI backend reports unavailable when tool is not on PATH."""
+        monkeypatch.setattr("shutil.which", lambda name: None)
+        available, detail = _check_backend_available("claudecodecli")
+        assert available is False
+        assert "not found" in detail
+
+    def test_check_backend_available_extra_installed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Library backend reports available when Python extra is importable."""
+        monkeypatch.setattr(
+            "builtins.__import__",
+            lambda name, *a, **kw: (
+                __import__(name, *a, **kw)
+                if name != "langchain_core"
+                else type("mod", (), {})
+            ),
+        )
+        available, detail = _check_backend_available("basic-langgraph")
+        assert available is True
+        assert "installed" in detail
+
+    def test_check_backend_available_extra_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Library backend reports unavailable when Python extra is not importable."""
+        original_import = (
+            __builtins__["__import__"]
+            if isinstance(__builtins__, dict)
+            else __builtins__.__import__
+        )
+
+        def fake_import(name, *a, **kw):
+            if name == "langchain_core":
+                raise ImportError("no langchain")
+            return original_import(name, *a, **kw)
+
+        monkeypatch.setattr("builtins.__import__", fake_import)
+        available, detail = _check_backend_available("basic-langgraph")
+        assert available is False
+        assert "not installed" in detail
+
+    def test_backend_cli_tool_covers_all_cli_backends(self) -> None:
+        """Every CLI-backed backend in SUPPORTED_BACKENDS has a tool mapping."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        # Backends not in _BACKEND_CLI_TOOL and not in _BACKEND_PYTHON_EXTRA
+        # should only be "e2e".
+        unmapped = {
+            b
+            for b in SUPPORTED_BACKENDS
+            if b not in _BACKEND_CLI_TOOL
+            and b not in _BACKEND_PYTHON_EXTRA
+            and b != "e2e"
+        }
+        assert unmapped == set(), f"backends without availability check: {unmapped}"
+
+    def test_list_backends_registered_count(self) -> None:
+        """Footer shows the total backend count."""
+        from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
+
+        output = list_backends()
+        assert str(len(SUPPORTED_BACKENDS)) in output

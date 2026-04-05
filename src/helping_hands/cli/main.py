@@ -31,18 +31,21 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_BASIC_LANGGRAPH,
     BACKEND_CLAUDECODECLI,
     BACKEND_CODEXCLI,
+    BACKEND_DEVINCLI,
     BACKEND_DOCKER_SANDBOX_CLAUDE,
     BACKEND_E2E,
     BACKEND_GEMINICLI,
     BACKEND_GOOSE,
+    BACKEND_OPENCODECLI,
     SUPPORTED_BACKENDS,
     create_hand,
+    get_enabled_backends,
 )
 from helping_hands.lib.meta.tools import registry as meta_tools
 from helping_hands.lib.repo import RepoIndex
 from helping_hands.lib.validation import install_hint, require_positive_int
 
-__all__ = ["build_parser", "doctor", "main", "read_prompt_from_stdin"]
+__all__ = ["build_parser", "doctor", "list_backends", "main", "read_prompt_from_stdin"]
 
 # --- Module-level constants ---------------------------------------------------
 
@@ -77,6 +80,72 @@ _MODEL_NOT_AVAILABLE_MSG = (
     "for example: --model gpt-5.2"
 )
 """User-facing message template when the requested model is not found."""
+
+_BACKEND_CLI_TOOL: dict[str, str] = {
+    BACKEND_CODEXCLI: "codex",
+    BACKEND_CLAUDECODECLI: "claude",
+    BACKEND_DEVINCLI: "devin",
+    BACKEND_DOCKER_SANDBOX_CLAUDE: "docker",
+    BACKEND_GOOSE: "goose",
+    BACKEND_GEMINICLI: "gemini",
+    BACKEND_OPENCODECLI: "opencode",
+}
+"""Maps CLI-backed backends to the binary name checked on PATH."""
+
+_BACKEND_PYTHON_EXTRA: dict[str, tuple[str, str]] = {
+    BACKEND_BASIC_LANGGRAPH: ("langchain_core", "langchain"),
+    BACKEND_BASIC_ATOMIC: ("atomic_agents", "atomic"),
+    BACKEND_BASIC_AGENT: ("atomic_agents", "atomic"),
+}
+"""Maps library backends to (import_name, extra_name)."""
+
+
+def _check_backend_available(backend: str) -> tuple[bool, str]:
+    """Check whether *backend* is available in the current environment.
+
+    Returns:
+        A ``(available, detail)`` tuple where *detail* is a short status
+        string like ``"claude found"`` or ``"langchain extra not installed"``.
+    """
+    if backend == BACKEND_E2E:
+        return True, "always available"
+    cli_tool = _BACKEND_CLI_TOOL.get(backend)
+    if cli_tool is not None:
+        if shutil.which(cli_tool):
+            return True, f"{cli_tool} found"
+        return False, f"{cli_tool} not found"
+    extra_info = _BACKEND_PYTHON_EXTRA.get(backend)
+    if extra_info is not None:
+        import_name, extra_name = extra_info
+        try:
+            __import__(import_name)
+            return True, f"{extra_name} extra installed"
+        except ImportError:
+            return False, f"{extra_name} extra not installed"
+    return True, "available"
+
+
+def list_backends() -> str:
+    """Format a table of all supported backends with availability status.
+
+    Returns:
+        Multi-line string suitable for printing to stdout.
+    """
+    lines: list[str] = [f"helping-hands backends (v{__version__})", ""]
+    for backend in sorted(SUPPORTED_BACKENDS):
+        available, detail = _check_backend_available(backend)
+        symbol = "+" if available else "-"
+        lines.append(f"  [{symbol}] {backend:<25s} {detail}")
+    lines.append("")
+    enabled = get_enabled_backends()
+    if len(enabled) < len(SUPPORTED_BACKENDS):
+        lines.append(
+            f"{len(enabled)} of {len(SUPPORTED_BACKENDS)} backends enabled via env vars."
+        )
+    else:
+        lines.append(f"{len(SUPPORTED_BACKENDS)} backends registered.")
+    return "\n".join(lines)
+
 
 _CLI_ERROR_EXIT_BACKENDS: frozenset[str] = frozenset(
     {
@@ -377,6 +446,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if "--version" in effective_argv or "-V" in effective_argv:
         print(f"helping-hands {__version__}")
+        return
+    if "--list-backends" in effective_argv:
+        print(list_backends())
         return
 
     parser = build_parser()
