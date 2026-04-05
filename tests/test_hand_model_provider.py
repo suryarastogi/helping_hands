@@ -559,6 +559,47 @@ class TestResolveHandModelProviderSlashEmpty:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# resolve_hand_model — defensive provider lookup (v381)
+# ---------------------------------------------------------------------------
+
+
+class TestResolveHandModelMissingProvider:
+    """v381: PROVIDERS.get() + RuntimeError instead of bare dict access."""
+
+    def test_default_missing_ollama_raises_runtime_error(self) -> None:
+        """When PROVIDERS lacks ollama, 'default' input raises RuntimeError."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"ollama.*not registered"),
+        ):
+            resolve_hand_model("default")
+
+    def test_default_missing_ollama_with_none_input(self) -> None:
+        """None input normalises to 'default', still requires ollama."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"ollama.*not registered"),
+        ):
+            resolve_hand_model(None)
+
+    def test_inferred_provider_missing_raises_runtime_error(self) -> None:
+        """When inferred provider is absent from PROVIDERS, RuntimeError."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"openai.*not registered"),
+        ):
+            resolve_hand_model("unknown-model-xyz")
+
+    def test_inferred_anthropic_missing_raises_runtime_error(self) -> None:
+        """Claude model with missing anthropic provider raises RuntimeError."""
+        with (
+            patch("helping_hands.lib.hands.v1.hand.model_provider.PROVIDERS", {}),
+            pytest.raises(RuntimeError, match=r"anthropic.*not registered"),
+        ):
+            resolve_hand_model("claude-sonnet-4-5")
+
+
 class TestBuildEmptyModelValidation:
     """Both build functions call require_non_empty_string on the model name."""
 

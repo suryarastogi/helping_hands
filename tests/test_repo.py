@@ -167,3 +167,26 @@ class TestRepoIndexHasFile:
         idx = RepoIndex.from_path(tmp_path)
         assert idx.has_file("file_050.py") is True
         assert idx.has_file("file_999.py") is False
+
+
+# ---------------------------------------------------------------------------
+# RepoIndex.from_path type guard (v381)
+# ---------------------------------------------------------------------------
+
+
+class TestRepoIndexFromPathTypeGuard:
+    """v381: from_path rejects non-Path input with TypeError."""
+
+    def test_string_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="path must be a Path instance, got str"):
+            RepoIndex.from_path("/tmp")  # type: ignore[arg-type]
+
+    def test_none_raises_type_error(self) -> None:
+        with pytest.raises(
+            TypeError, match="path must be a Path instance, got NoneType"
+        ):
+            RepoIndex.from_path(None)  # type: ignore[arg-type]
+
+    def test_int_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="path must be a Path instance, got int"):
+            RepoIndex.from_path(42)  # type: ignore[arg-type]

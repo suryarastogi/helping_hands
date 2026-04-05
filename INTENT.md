@@ -4,14 +4,22 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Registry Coverage Completion & Runner Test Hardening (2026-04-05) — In Progress
+### Boundary Input Validation Hardening (2026-04-05) — In Progress
+
+Harden input validation at three module boundaries: defensive `.get()` +
+`RuntimeError` in `resolve_hand_model()` (was bare `PROVIDERS[key]`),
+`require_positive_int` depth validation in `run_git_clone()`, and `isinstance`
+type guard in `RepoIndex.from_path()`. 10 new tests.
+See [v381 plan](docs/exec-plans/active/v381-boundary-input-validation-hardening.md).
+
+### Registry Coverage Completion & Runner Test Hardening (2026-04-05) — Completed
 
 Close the last registry branch partial (line 560→558 in
 `format_tool_instructions_for_cli`). Add dedicated `TestParseRequiredStr`
 validator tests (9 tests). Add custom-params forwarding tests for
 `_run_python_script` and `_run_bash_script` runners (3 tests). Registry
 coverage: 99% → 100%. 13 new tests.
-See [v380 plan](docs/exec-plans/active/v380-registry-coverage-completion.md).
+See [v380 plan](docs/exec-plans/completed/2026/v380-registry-coverage-completion.md).
 
 ### ARCHITECTURE.md Refresh & Exec-Plan Index (2026-04-05) — Completed
 

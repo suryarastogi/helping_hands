@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 from subprocess import TimeoutExpired
 
-from helping_hands.lib.validation import require_non_empty_string
+from helping_hands.lib.validation import require_non_empty_string, require_positive_int
 
 __all__ = [
     "DEFAULT_CLONE_ERROR_MSG",
@@ -212,6 +212,7 @@ def run_git_clone(
     Raises:
         ValueError: If cloning times out or exits with a non-zero code.
     """
+    require_positive_int(depth, "depth")
     cmd: list[str] = ["git", "clone", "--depth", str(depth)]
     if no_single_branch:
         cmd.append("--no-single-branch")

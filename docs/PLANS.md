@@ -4,9 +4,11 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v380 — Registry Coverage Completion & Runner Test Hardening](exec-plans/active/v380-registry-coverage-completion.md) — Close last registry branch partial, add _parse_required_str tests, runner custom-params tests
+- [v381 — Boundary Input Validation Hardening](exec-plans/active/v381-boundary-input-validation-hardening.md) — Defensive dict access in model_provider, depth validation in git clone, RepoIndex type guard; 10 tests
 
 ## Completed plans
+
+- [2026-04-05 v380 — Registry Coverage Completion & Runner Test Hardening](exec-plans/completed/2026/v380-registry-coverage-completion.md) — Close last registry branch partial, add _parse_required_str tests, runner custom-params tests; 13 tests
 
 - [2026-04-05 v379 — ARCHITECTURE.md Refresh & Exec-Plan Index](exec-plans/completed/2026/v379-architecture-refresh-and-exec-plan-index.md) — Update stale ARCHITECTURE.md, add accuracy tests, create exec-plans index; 7 tests
 

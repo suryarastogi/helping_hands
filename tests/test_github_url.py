@@ -575,3 +575,35 @@ class TestRunGitClone:
         assert "Args:" in run_git_clone.__doc__
         assert "Returns:" in run_git_clone.__doc__
         assert "Raises:" in run_git_clone.__doc__
+
+    # -- v381: depth validation --
+
+    def test_zero_depth_raises_value_error(self, tmp_path: Path) -> None:
+        """depth=0 is rejected before subprocess is called."""
+        with pytest.raises(ValueError, match="depth must be positive"):
+            run_git_clone(
+                "https://github.com/o/r.git",
+                tmp_path / "d",
+                label="o/r",
+                depth=0,
+            )
+
+    def test_negative_depth_raises_value_error(self, tmp_path: Path) -> None:
+        """Negative depth is rejected."""
+        with pytest.raises(ValueError, match="depth must be positive"):
+            run_git_clone(
+                "https://github.com/o/r.git",
+                tmp_path / "d",
+                label="o/r",
+                depth=-3,
+            )
+
+    def test_bool_depth_raises_type_error(self, tmp_path: Path) -> None:
+        """Bool is not a valid depth (despite being a subclass of int)."""
+        with pytest.raises(TypeError, match="depth must be an int"):
+            run_git_clone(
+                "https://github.com/o/r.git",
+                tmp_path / "d",
+                label="o/r",
+                depth=True,  # type: ignore[arg-type]
+            )

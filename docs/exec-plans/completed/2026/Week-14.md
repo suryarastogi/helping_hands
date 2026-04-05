@@ -531,3 +531,14 @@ Added custom-params forwarding tests for `_run_python_script` (1 test) and
 `_run_bash_script` (2 tests: script_path and inline_script variants).
 
 **13 new tests. 7038 total tests. 99.93% coverage. Registry: 100%.**
+
+---
+
+## Apr 5 — Boundary Input Validation Hardening (v381)
+
+Hardened input validation at three module boundaries: defensive `.get()` +
+`RuntimeError` in `resolve_hand_model()`, `require_positive_int` depth
+validation in `run_git_clone()`, and `isinstance` type guard in
+`RepoIndex.from_path()`.
+
+**10 new tests. 7277+ total tests.**

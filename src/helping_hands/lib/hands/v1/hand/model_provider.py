@@ -119,7 +119,11 @@ def resolve_hand_model(model: str | None) -> HandModel:
     raw = (model or "").strip() or "default"
 
     if raw == "default":
-        provider = PROVIDERS[_PROVIDER_OLLAMA]
+        provider = PROVIDERS.get(_PROVIDER_OLLAMA)
+        if provider is None:
+            raise RuntimeError(
+                f"default provider {_PROVIDER_OLLAMA!r} is not registered"
+            )
         return HandModel(provider=provider, model=provider.default_model, raw=raw)
 
     direct_provider = PROVIDERS.get(raw)
@@ -143,7 +147,11 @@ def resolve_hand_model(model: str | None) -> HandModel:
         )
 
     inferred = _infer_provider_name(raw)
-    provider = PROVIDERS[inferred]
+    provider = PROVIDERS.get(inferred)
+    if provider is None:
+        raise RuntimeError(
+            f"inferred provider {inferred!r} for model {raw!r} is not registered"
+        )
     return HandModel(provider=provider, model=raw, raw=raw)
 
 

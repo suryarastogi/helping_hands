@@ -50,6 +50,8 @@ class RepoIndex:
     @classmethod
     def from_path(cls, path: Path) -> RepoIndex:
         """Walk a local repo and build an index of its files."""
+        if not isinstance(path, Path):
+            raise TypeError(f"path must be a Path instance, got {type(path).__name__}")
         if not path.is_dir():
             msg = f"Not a directory: {path}"
             raise FileNotFoundError(msg)
