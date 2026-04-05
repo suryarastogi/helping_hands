@@ -31,6 +31,7 @@ from helping_hands.cli.main import (
     _stream_hand,
     build_parser,
     list_backends,
+    list_tools,
     main,
     read_prompt_from_stdin,
 )
@@ -1529,18 +1530,14 @@ class TestListBackendsEnabledStatus:
         assert "[-]" in e2e_line
         assert "disabled" in e2e_line
 
-    def test_enabled_backend_shows_plus(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_enabled_backend_shows_plus(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Enabled and available backends show [+]."""
         # Default mode: all enabled.
         output = list_backends()
         e2e_line = next(ln for ln in output.splitlines() if "e2e" in ln)
         assert "[+]" in e2e_line
 
-    def test_enabled_count_with_env_vars(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_enabled_count_with_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Footer shows X of Y when env vars selectively enable backends."""
         from helping_hands.lib.hands.v1.hand.factory import SUPPORTED_BACKENDS
 
@@ -1567,3 +1564,60 @@ class TestCheckBackendAvailableWarning:
         assert detail == "available"
         assert "nonexistent-backend-xyz" in caplog.text
         assert "not mapped" in caplog.text
+
+
+class TestListTools:
+    """Tests for ``--list-tools`` flag and ``list_tools()``."""
+
+    def test_list_tools_flag_prints_output(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-tools`` prints tool category table and returns."""
+        main(["--list-tools"])
+        out = capsys.readouterr().out
+        assert "tool categories" in out
+
+    def test_list_tools_does_not_require_repo(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--list-tools`` works without a positional 'repo' argument."""
+        main(["--list-tools"])
+        assert "tool categories" in capsys.readouterr().out
+
+    def test_list_tools_contains_all_categories(self) -> None:
+        """Output includes every category from available_tool_category_names()."""
+        from helping_hands.lib.meta.tools.registry import available_tool_category_names
+
+        output = list_tools()
+        for name in available_tool_category_names():
+            assert name in output, f"missing category: {name}"
+
+    def test_list_tools_shows_version(self) -> None:
+        """Header line includes the package version."""
+        from helping_hands import __version__
+
+        output = list_tools()
+        assert __version__ in output
+
+    def test_list_tools_shows_tool_names(self) -> None:
+        """Output includes individual tool spec names."""
+        output = list_tools()
+        assert "python.run_code" in output
+        assert "web.search" in output
+
+    def test_list_tools_shows_enable_hint(self) -> None:
+        """Footer includes usage hint for --tools flag."""
+        output = list_tools()
+        assert "--tools" in output
+
+    def test_list_tools_shows_category_titles(self) -> None:
+        """Output includes the human-readable title for each category."""
+        from helping_hands.lib.meta.tools.registry import (
+            available_tool_category_names,
+            resolve_tool_categories,
+        )
+
+        categories = resolve_tool_categories(available_tool_category_names())
+        output = list_tools()
+        for cat in categories:
+            assert cat.title in output

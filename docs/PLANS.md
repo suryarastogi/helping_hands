@@ -8,6 +8,9 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v372 — `--list-tools` CLI Flag & Registry Coverage](exec-plans/completed/2026/v372-list-tools-cli-flag.md) — Add `--list-tools` for tool category discoverability; close last registry coverage gap; 9 tests
+
+
 - [2026-04-05 v371 — Enrich `--list-backends` with Enabled Status](exec-plans/completed/2026/v371-list-backends-enabled-status.md) — Show both availability and enabled/disabled status per backend; 10 tests
 
 - [2026-04-05 v370 — `--list-backends` CLI Flag](exec-plans/completed/2026/v370-list-backends-cli-flag.md) — CLI discoverability: show all backends with availability status; 12 tests

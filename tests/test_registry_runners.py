@@ -169,6 +169,18 @@ class TestRunBashScript:
             cwd=None,
         )
 
+    def test_rejects_neither_provided(self, tmp_path: Path) -> None:
+        """Empty payload (neither script_path nor inline_script) raises ValueError."""
+        with pytest.raises(ValueError, match="exactly one"):
+            _run_bash_script(tmp_path, {})
+
+    def test_rejects_both_provided(self, tmp_path: Path) -> None:
+        """Both script_path and inline_script raises ValueError."""
+        with pytest.raises(ValueError, match="exactly one"):
+            _run_bash_script(
+                tmp_path, {"script_path": "run.sh", "inline_script": "echo hi"}
+            )
+
 
 # ---------------------------------------------------------------------------
 # _run_web_search

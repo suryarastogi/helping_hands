@@ -4,6 +4,17 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### `--list-tools` CLI Flag & Registry Coverage (2026-04-05) — Completed
+
+Added `--list-tools` CLI flag for tool category discoverability, complementing
+`--list-backends`. Formats a table of all tool categories with their tool specs.
+Intercepted before argparse so it works without a positional `repo` argument.
+Also closed the last registry coverage gap (`_run_bash_script` both/neither
+error branch). 9 new tests (7 list-tools + 2 registry). Registry coverage: 100%.
+See [v372 plan](docs/exec-plans/completed/2026/v372-list-tools-cli-flag.md).
+
+## Recently Completed
+
 ### Enrich `--list-backends` with Enabled Status (2026-04-05) — Completed
 
 Enriched `--list-backends` output to show both availability (binary found /
@@ -12,8 +23,6 @@ vars. Added `is_backend_enabled()` public API to factory module. Disabled
 backends now show `[-]` with the env var name. Unmapped backends trigger a
 logger warning. 10 new tests.
 See [v371 plan](docs/exec-plans/completed/2026/v371-list-backends-enabled-status.md).
-
-## Recently Completed
 
 ### `--list-backends` CLI Flag (2026-04-05) — Completed
 

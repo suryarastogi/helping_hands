@@ -51,6 +51,7 @@ __all__ = [
     "build_parser",
     "doctor",
     "list_backends",
+    "list_tools",
     "main",
     "read_prompt_from_stdin",
 ]
@@ -161,6 +162,24 @@ def list_backends() -> str:
         )
     else:
         lines.append(f"{len(SUPPORTED_BACKENDS)} backends registered.")
+    return "\n".join(lines)
+
+
+def list_tools() -> str:
+    """Format a table of all tool categories with their tool specs.
+
+    Returns:
+        Multi-line string suitable for printing to stdout.
+    """
+    category_names = meta_tools.available_tool_category_names()
+    categories = meta_tools.resolve_tool_categories(category_names)
+    lines: list[str] = [f"helping-hands tool categories (v{__version__})", ""]
+    for cat in categories:
+        lines.append(f"  [{cat.name}] {cat.title}")
+        for tool in cat.tools:
+            lines.append(f"    - {tool.name}")
+    lines.append("")
+    lines.append(f"Enable via: --tools {','.join(category_names)}")
     return "\n".join(lines)
 
 
@@ -466,6 +485,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if "--list-backends" in effective_argv:
         print(list_backends())
+        return
+    if "--list-tools" in effective_argv:
+        print(list_tools())
         return
 
     parser = build_parser()

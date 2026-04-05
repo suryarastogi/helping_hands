@@ -458,4 +458,4 @@ class TestCliMainAllExport:
     def test_all_count(self) -> None:
         from helping_hands.cli.main import __all__
 
-        assert len(__all__) == 5
+        assert len(__all__) == 6
