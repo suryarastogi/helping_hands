@@ -3497,7 +3497,7 @@ def _fetch_flower_current_tasks() -> list[dict[str, Any]]:
     if not base_url:
         return []
 
-    url = f"{base_url}/api/tasks"
+    url = f"{base_url}/api/tasks?state=STARTED,RECEIVED,PENDING,PROGRESS,RETRY"
     request = urllib_request.Request(url, headers={"Accept": "application/json"})
     try:
         with urllib_request.urlopen(

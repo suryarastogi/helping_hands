@@ -42,6 +42,8 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
 export const TASK_HISTORY_LIMIT = 60;
+/** Non-terminal tasks older than this are pruned on load (2 hours). */
+export const TASK_STALE_MS = 2 * 60 * 60 * 1000;
 
 export const BACKEND_OPTIONS: Backend[] = [
   "e2e",
@@ -850,13 +852,32 @@ export function loadTaskHistory(): TaskHistoryItem[] {
       const createdAtRaw = Number(candidate.createdAt);
       const lastUpdatedRaw = Number(candidate.lastUpdatedAt);
 
+      const status = String(candidate.status ?? "unknown");
+      const createdAt = Number.isFinite(createdAtRaw) ? createdAtRaw : now;
+      const lastUpdatedAt = Number.isFinite(lastUpdatedRaw) ? lastUpdatedRaw : now;
+
+      // Prune non-terminal tasks that haven't been updated recently —
+      // these are ghosts from dead workers or orphaned tasks.
+      const age = now - lastUpdatedAt;
+      if (!isTerminalTaskStatus(status) && age > TASK_STALE_MS) {
+        items.push({
+          taskId,
+          status: "FAILURE",
+          backend: String(candidate.backend ?? "unknown"),
+          repoPath: String(candidate.repoPath ?? ""),
+          createdAt,
+          lastUpdatedAt: now,
+        });
+        continue;
+      }
+
       items.push({
         taskId,
-        status: String(candidate.status ?? "unknown"),
+        status,
         backend: String(candidate.backend ?? "unknown"),
         repoPath: String(candidate.repoPath ?? ""),
-        createdAt: Number.isFinite(createdAtRaw) ? createdAtRaw : now,
-        lastUpdatedAt: Number.isFinite(lastUpdatedRaw) ? lastUpdatedRaw : now,
+        createdAt,
+        lastUpdatedAt,
       });
     }
 
