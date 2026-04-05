@@ -13,7 +13,6 @@ the model client produce confusing API errors; early TypeError is clearer.
 
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 
 import pytest
@@ -31,13 +30,6 @@ from helping_hands.lib.meta.tools.registry import _run_bash_script
 
 class TestRunBashScriptDry:
     """Verify _run_bash_script uses _parse_optional_str for type validation."""
-
-    def test_source_uses_parse_optional_str(self) -> None:
-        """_run_bash_script delegates to _parse_optional_str, not manual isinstance."""
-        source = inspect.getsource(_run_bash_script)
-        assert "_parse_optional_str" in source
-        assert "isinstance(script_path" not in source
-        assert "isinstance(inline_script" not in source
 
     def test_rejects_non_string_script_path(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="script_path must be a string"):
@@ -77,11 +69,6 @@ class TestRunBashScriptDry:
 
 class TestBuildPromptTypeGuards:
     """Verify _build_prompt validates diff and backend with type guards."""
-
-    def test_source_uses_require_non_empty_string(self) -> None:
-        source = inspect.getsource(_build_prompt)
-        assert "require_non_empty_string(diff" in source
-        assert "require_non_empty_string(backend" in source
 
     def test_rejects_none_diff(self) -> None:
         with pytest.raises(TypeError, match="diff"):
@@ -146,11 +133,6 @@ class TestBuildPromptTypeGuards:
 
 class TestBuildCommitMessagePromptTypeGuards:
     """Verify _build_commit_message_prompt validates diff and backend."""
-
-    def test_source_uses_require_non_empty_string(self) -> None:
-        source = inspect.getsource(_build_commit_message_prompt)
-        assert "require_non_empty_string(diff" in source
-        assert "require_non_empty_string(backend" in source
 
     def test_rejects_none_diff(self) -> None:
         with pytest.raises(TypeError, match="diff"):

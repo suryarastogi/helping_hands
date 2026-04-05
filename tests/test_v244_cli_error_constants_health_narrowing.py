@@ -250,10 +250,6 @@ class TestResolveWorkerCapacityExceptionNarrowingAST:
         assert "TimeoutError" in names
 
 
-# ---------------------------------------------------------------------------
-# Runtime server tests (require fastapi)
-# ---------------------------------------------------------------------------
-
 try:
     import fastapi as _fastapi  # noqa: F401
 

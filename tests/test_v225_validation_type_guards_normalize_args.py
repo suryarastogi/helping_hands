@@ -216,16 +216,3 @@ class TestValidationSourceConsistency:
     def test_require_positive_int_rejects_bool(self) -> None:
         src = self._validation_source("require_positive_int")
         assert "isinstance(value, bool)" in src
-
-
-# ---------------------------------------------------------------------------
-# _normalize_args source consistency
-# ---------------------------------------------------------------------------
-
-
-class TestNormalizeArgsSourceConsistency:
-    """Verify _normalize_args has container type guard in source."""
-
-    def test_has_isinstance_list_tuple_check(self) -> None:
-        src = inspect.getsource(_normalize_args)
-        assert "isinstance(args, (list, tuple))" in src

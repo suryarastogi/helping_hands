@@ -100,11 +100,6 @@ class TestMetadataKeyUniqueness:
         assert len(all_keys) == len(set(all_keys))
 
 
-# ---------------------------------------------------------------------------
-# Source-level consistency checks
-# ---------------------------------------------------------------------------
-
-
 _HAND_DIR = Path(
     inspect.getfile(
         __import__(

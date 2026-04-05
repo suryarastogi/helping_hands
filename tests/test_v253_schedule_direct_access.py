@@ -17,10 +17,6 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 _SRC = Path(__file__).resolve().parent.parent / "src" / "helping_hands"
 _CELERY_APP = _SRC / "server" / "celery_app.py"
 _APP = _SRC / "server" / "app.py"

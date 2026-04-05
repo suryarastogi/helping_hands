@@ -144,10 +144,6 @@ class TestDocstrings:
         assert "_ENV_GCM_INTERACTIVE" in source
 
 
-# ---------------------------------------------------------------------------
-# Source-level consistency checks
-# ---------------------------------------------------------------------------
-
 _HAND_DIR = Path(
     inspect.getfile(
         __import__(

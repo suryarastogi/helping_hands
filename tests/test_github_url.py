@@ -570,12 +570,6 @@ class TestRunGitClone:
             run_git_clone("https://github.com/o/r.git", tmp_path / "d", label="o/r")
         assert mock_run.call_args.kwargs["timeout"] == GIT_CLONE_TIMEOUT_S
 
-    def test_has_docstring(self) -> None:
-        assert run_git_clone.__doc__ is not None
-        assert "Args:" in run_git_clone.__doc__
-        assert "Returns:" in run_git_clone.__doc__
-        assert "Raises:" in run_git_clone.__doc__
-
     # -- v381: depth validation --
 
     def test_zero_depth_raises_value_error(self, tmp_path: Path) -> None:

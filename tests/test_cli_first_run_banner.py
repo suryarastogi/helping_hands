@@ -1,7 +1,12 @@
 """Tests for the first-run welcome banner in helping_hands.cli.main.
 
-Covers ``_maybe_show_first_run_banner()``: banner shown on first run,
-suppressed on subsequent runs, and graceful handling of filesystem errors.
+Protects the ``_maybe_show_first_run_banner()`` state machine that gates the
+welcome message on a ``~/.helping_hands/.first_run_done`` marker file.  If the
+marker-check regresses, users either see the banner on every invocation (noisy
+CI logs, broken shell pipelines that parse stdout) or never see it at all
+(missing onboarding context).  The filesystem-error tests ensure the CLI
+degrades gracefully on read-only HOME directories (containers, CI runners)
+rather than crashing before argument parsing even begins.
 """
 
 from __future__ import annotations

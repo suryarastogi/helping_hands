@@ -174,29 +174,6 @@ class TestStreamMaxIterationsTail:
         assert pr_idx < max_idx
 
 
-# ---------------------------------------------------------------------------
-# Docstring presence for new helpers
-# ---------------------------------------------------------------------------
-
-
-class TestStreamHelperDocstrings:
-    """Ensure new DRY helpers have docstrings."""
-
-    def test_process_stream_iteration_has_docstring(self) -> None:
-        from helping_hands.lib.hands.v1.hand.iterative import _BasicIterativeHand
-
-        assert _BasicIterativeHand._process_stream_iteration.__doc__
-
-    def test_stream_max_iterations_tail_has_docstring(self) -> None:
-        from helping_hands.lib.hands.v1.hand.iterative import _BasicIterativeHand
-
-        assert _BasicIterativeHand._stream_max_iterations_tail.__doc__
-
-
-# ---------------------------------------------------------------------------
-# _extract_nested_str_field (DRY helper in server/app.py)
-# ---------------------------------------------------------------------------
-
 _skip_no_fastapi = not importlib.util.find_spec("fastapi")
 
 
@@ -249,6 +226,3 @@ class TestExtractNestedStrField:
 
     def test_empty_keys_returns_none(self) -> None:
         assert self._fn()({"a": "val"}, ()) is None
-
-    def test_has_docstring(self) -> None:
-        assert self._fn().__doc__

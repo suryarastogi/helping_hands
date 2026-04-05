@@ -17,10 +17,6 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 _SRC = Path(__file__).resolve().parent.parent / "src" / "helping_hands"
 _WEB_PY = _SRC / "lib" / "meta" / "tools" / "web.py"
 _BASE_PY = _SRC / "lib" / "hands" / "v1" / "hand" / "base.py"

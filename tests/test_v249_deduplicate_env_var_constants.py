@@ -28,10 +28,6 @@ from helping_hands.lib.hands.v1.hand.base import (
     _ENV_GIT_TERMINAL_PROMPT,
 )
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 _BASE_PY = Path(
     inspect.getfile(
         __import__(

@@ -1,8 +1,16 @@
-"""Tests for the Grill Me interactive session module.
+"""Tests for the Grill Me interactive planning session (server/grill.py).
 
-Pure helper functions (_build_system_prompt, _clone_repo, _summarize_tool_use,
-_invoke_claude_turn) are testable without the celery extra installed.
-The GrillEnabled tests require the server extra (fastapi + celery).
+Protects the helpers that power the multi-turn AI interview: _build_system_prompt
+must inject the repo tree so the AI can ground its questions in actual code;
+_clone_repo must handle both owner/repo specs and local paths, failing cleanly
+on bad remotes rather than leaving orphan temp dirs; _summarize_tool_use must
+produce one-liners the frontend displays in the chat panel; _invoke_claude_turn
+must pass --session-id on the first call and --resume on subsequent calls so
+the Claude CLI maintains conversation context.  The Redis state helpers
+(_get_state, _set_state, _pop_user_msg, _push_ai_msg) are the message-queue
+contract between the Celery worker and the GrillMeOverlay frontend component
+— if key names or JSON shapes drift, the chat panel shows stale or missing
+messages.
 """
 
 from __future__ import annotations

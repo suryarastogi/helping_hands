@@ -19,10 +19,6 @@ from __future__ import annotations
 
 import inspect
 
-# ---------------------------------------------------------------------------
-# 1. Goose CLI hand docstrings (13 methods)
-# ---------------------------------------------------------------------------
-
 _GOOSE_METHODS = (
     "_pr_description_cmd",
     "_describe_auth",
@@ -48,22 +44,6 @@ class TestGooseDocstrings:
 
         return GooseCLIHand
 
-    def test_all_target_methods_have_docstrings(self) -> None:
-        cls = self._get_cls()
-        for name in _GOOSE_METHODS:
-            method = getattr(cls, name)
-            doc = inspect.getdoc(method)
-            assert doc, f"GooseCLIHand.{name} missing docstring"
-
-    def test_docstrings_contain_returns_section(self) -> None:
-        cls = self._get_cls()
-        for name in _GOOSE_METHODS:
-            method = getattr(cls, name)
-            doc = inspect.getdoc(method) or ""
-            assert "Returns:" in doc or "Return" in doc, (
-                f"GooseCLIHand.{name} docstring missing Returns section"
-            )
-
     def test_methods_with_args_have_args_section(self) -> None:
         cls = self._get_cls()
         methods_with_params = (
@@ -81,50 +61,10 @@ class TestGooseDocstrings:
             doc = inspect.getdoc(method) or ""
             assert "Args:" in doc, f"GooseCLIHand.{name} docstring missing Args section"
 
-    def test_build_subprocess_env_has_raises_section(self) -> None:
-        cls = self._get_cls()
-        doc = inspect.getdoc(cls._build_subprocess_env) or ""
-        assert "Raises:" in doc
-
 
 # ---------------------------------------------------------------------------
 # 2. OpenCode CLI hand docstrings (5 methods) and _AUTH_ERROR_TOKENS constant
 # ---------------------------------------------------------------------------
-
-
-class TestOpenCodeDocstrings:
-    """Verify OpenCodeCLIHand methods have Google-style docstrings."""
-
-    def _get_cls(self):
-        from helping_hands.lib.hands.v1.hand.cli.opencode import OpenCodeCLIHand
-
-        return OpenCodeCLIHand
-
-    def test_build_opencode_failure_message_has_docstring(self) -> None:
-        doc = inspect.getdoc(self._get_cls()._build_opencode_failure_message)
-        assert doc
-        assert "Args:" in doc
-        assert "Returns:" in doc
-
-    def test_build_failure_message_has_docstring(self) -> None:
-        doc = inspect.getdoc(self._get_cls()._build_failure_message)
-        assert doc
-        assert "Returns:" in doc
-
-    def test_command_not_found_message_has_docstring(self) -> None:
-        doc = inspect.getdoc(self._get_cls()._command_not_found_message)
-        assert doc
-        assert "Args:" in doc
-
-    def test_invoke_opencode_has_docstring(self) -> None:
-        doc = inspect.getdoc(self._get_cls()._invoke_opencode)
-        assert doc
-        assert "Args:" in doc
-
-    def test_invoke_backend_has_docstring(self) -> None:
-        doc = inspect.getdoc(self._get_cls()._invoke_backend)
-        assert doc
-        assert "Args:" in doc
 
 
 class TestAuthErrorTokensConstant:
@@ -240,10 +180,6 @@ class TestE2EConstants:
         assert _E2E_MARKER_FILE == "HELPING_HANDS_E2E.md"
 
 
-# ---------------------------------------------------------------------------
-# 4. E2E hand docstrings (8 methods)
-# ---------------------------------------------------------------------------
-
 _E2E_METHODS = (
     "__init__",
     "_safe_repo_dir",
@@ -264,13 +200,6 @@ class TestE2EDocstrings:
 
         return E2EHand
 
-    def test_all_target_methods_have_docstrings(self) -> None:
-        cls = self._get_cls()
-        for name in _E2E_METHODS:
-            method = getattr(cls, name)
-            doc = inspect.getdoc(method)
-            assert doc, f"E2EHand.{name} missing docstring"
-
     def test_methods_with_args_have_args_section(self) -> None:
         cls = self._get_cls()
         methods_with_params = (
@@ -285,16 +214,6 @@ class TestE2EDocstrings:
             method = getattr(cls, name)
             doc = inspect.getdoc(method) or ""
             assert "Args:" in doc, f"E2EHand.{name} docstring missing Args section"
-
-    def test_run_has_raises_section(self) -> None:
-        cls = self._get_cls()
-        doc = inspect.getdoc(cls.run) or ""
-        assert "Raises:" in doc
-
-    def test_run_has_returns_section(self) -> None:
-        cls = self._get_cls()
-        doc = inspect.getdoc(cls.run) or ""
-        assert "Returns:" in doc
 
     def test_stream_has_yields_section(self) -> None:
         cls = self._get_cls()

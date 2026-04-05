@@ -1,9 +1,13 @@
 """Tests for v374: CLI error exit backends consistency.
 
-Verifies that `_CLI_ERROR_EXIT_BACKENDS` stays in sync with
-`_BACKEND_CLI_TOOL` (all CLI-tool-backed backends should get clean error
-messages instead of full tracebacks), and that the opencode/devin error
-exit paths work correctly.
+Protects the mapping between CLI-tool-backed backends and the clean error-exit
+path in cli/main.py.  If a new CLI backend (e.g. opencodecli, devincli) is
+added to _BACKEND_CLI_TOOL but not to _CLI_ERROR_EXIT_BACKENDS, RuntimeError
+and OSError from that backend propagate as raw tracebacks instead of the
+user-friendly ``sys.exit(1)`` message — confusing users who expect a one-liner
+error, not a stack trace.  The inverse check prevents non-CLI backends (e2e,
+langgraph) from being added to the set, which would swallow errors that should
+propagate to the caller.
 """
 
 from __future__ import annotations

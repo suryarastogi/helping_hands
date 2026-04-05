@@ -136,11 +136,6 @@ class TestBuildFailureMessage:
 
 
 # ---------------------------------------------------------------------------
-# _invoke_devin / _invoke_backend — async delegation
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
 # _inject_prompt_argument
 # ---------------------------------------------------------------------------
 
@@ -264,11 +259,6 @@ class TestApplyBackendDefaults:
         monkeypatch.setenv("HELPING_HANDS_DEVIN_PERMISSION_MODE", "auto")
         result = devin_hand._apply_backend_defaults(["devin", "-p"])
         assert result == ["devin", "--permission-mode", "auto", "-p"]
-
-
-# ---------------------------------------------------------------------------
-# _invoke_devin / _invoke_backend — async delegation
-# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------

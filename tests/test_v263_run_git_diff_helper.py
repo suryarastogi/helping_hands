@@ -31,10 +31,6 @@ from helping_hands.lib.hands.v1.hand.pr_description import (
     _run_git_diff,
 )
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 _SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "helping_hands"
 _PR_DESCRIPTION_PATH = _SRC_ROOT / "lib" / "hands" / "v1" / "hand" / "pr_description.py"
 

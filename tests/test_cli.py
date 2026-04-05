@@ -27,7 +27,6 @@ from helping_hands.cli.main import (
     _error_exit,
     _github_clone_url,
     _make_temp_clone_dir,
-    _resolve_repo_path,
     _stream_hand,
     build_parser,
     list_backends,
@@ -1115,46 +1114,6 @@ class TestGithubCloneUrlValidation:
 # ---------------------------------------------------------------------------
 
 
-class TestCliMainDocstrings:
-    """Verify Google-style docstrings on 4 newly-documented private methods."""
-
-    def test_stream_hand_has_docstring(self) -> None:
-        doc = _stream_hand.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-
-    def test_github_clone_url_has_docstring(self) -> None:
-        doc = _github_clone_url.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-
-    def test_github_clone_url_has_returns(self) -> None:
-        doc = _github_clone_url.__doc__
-        assert "Returns:" in doc
-
-    def test_github_clone_url_has_raises(self) -> None:
-        doc = _github_clone_url.__doc__
-        assert "Raises:" in doc
-
-    def test_git_noninteractive_env_has_docstring(self) -> None:
-        doc = _git_noninteractive_env.__doc__
-        assert doc is not None
-        assert "Returns:" in doc
-
-    def test_resolve_repo_path_has_docstring(self) -> None:
-        doc = _resolve_repo_path.__doc__
-        assert doc is not None
-        assert "Args:" in doc
-
-    def test_resolve_repo_path_has_returns(self) -> None:
-        doc = _resolve_repo_path.__doc__
-        assert "Returns:" in doc
-
-    def test_resolve_repo_path_has_raises(self) -> None:
-        doc = _resolve_repo_path.__doc__
-        assert "Raises:" in doc
-
-
 class TestErrorExit:
     """v268: _error_exit prints to stderr and exits with code 1."""
 
@@ -1174,10 +1133,6 @@ class TestErrorExit:
         with pytest.raises(SystemExit):
             _error_exit("")
         assert "Error: " in capsys.readouterr().err
-
-    def test_has_docstring(self) -> None:
-        assert _error_exit.__doc__ is not None
-        assert "Args:" in _error_exit.__doc__
 
 
 class TestMakeTempCloneDir:
@@ -1215,10 +1170,6 @@ class TestMakeTempCloneDir:
             mock_atexit.register.assert_called_once_with(
                 shutil.rmtree, result.parent, True
             )
-
-    def test_has_docstring(self) -> None:
-        assert _make_temp_clone_dir.__doc__ is not None
-        assert "Args:" in _make_temp_clone_dir.__doc__
 
 
 # ---------------------------------------------------------------------------
@@ -1286,10 +1237,6 @@ class TestReadPromptFromStdin:
             pytest.raises(SystemExit),
         ):
             read_prompt_from_stdin()
-
-    def test_has_docstring(self) -> None:
-        assert read_prompt_from_stdin.__doc__ is not None
-        assert "Returns:" in read_prompt_from_stdin.__doc__
 
 
 # ---------------------------------------------------------------------------

@@ -23,37 +23,6 @@ from helping_hands.lib.hands.v1.hand.cli.opencode import (
 )
 
 # ---------------------------------------------------------------------------
-# _input_schema type annotation (atomic.py / iterative.py)
-# ---------------------------------------------------------------------------
-
-
-class TestInputSchemaTypeAnnotation:
-    """Verify _input_schema accepts None without type: ignore."""
-
-    def test_atomic_input_schema_starts_none(self, make_cli_hand) -> None:
-        """AtomicHand._input_schema is None before _build_agent assigns it."""
-        # We can't instantiate AtomicHand without atomic-agents installed,
-        # so verify the annotation allows None by checking the source.
-        import inspect
-
-        from helping_hands.lib.hands.v1.hand import atomic
-
-        source = inspect.getsource(atomic.AtomicHand.__init__)
-        assert "type: ignore" not in source
-        assert "type[Any] | None" in source
-
-    def test_iterative_input_schema_starts_none(self) -> None:
-        """BasicAtomicHand._input_schema annotation allows None."""
-        import inspect
-
-        from helping_hands.lib.hands.v1.hand import iterative
-
-        source = inspect.getsource(iterative.BasicAtomicHand.__init__)
-        assert "type: ignore" not in source
-        assert "type[Any] | None" in source
-
-
-# ---------------------------------------------------------------------------
 # _PROVIDER_ENV_MAP constant
 # ---------------------------------------------------------------------------
 

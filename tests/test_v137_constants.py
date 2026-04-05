@@ -14,10 +14,6 @@ from __future__ import annotations
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# server/app.py constants
-# ---------------------------------------------------------------------------
-
 pytest.importorskip("fastapi")
 
 

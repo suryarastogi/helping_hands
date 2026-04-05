@@ -266,10 +266,6 @@ class TestCeleryExceptionNarrowing:
         assert "OSError" in flat
 
 
-# ---------------------------------------------------------------------------
-# Runtime — ImportError paths in health checks
-# ---------------------------------------------------------------------------
-
 _skip_no_server = pytest.mark.skipif(
     not _server_available(),
     reason="server extras not installed",

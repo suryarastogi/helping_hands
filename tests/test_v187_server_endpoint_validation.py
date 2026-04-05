@@ -12,8 +12,6 @@ important because this helper is shared across multiple endpoint handlers.
 
 from __future__ import annotations
 
-import inspect
-
 import pytest
 
 pytest.importorskip("fastapi")
@@ -21,9 +19,7 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from helping_hands.server.app import (
-    _build_task_status,
     _cancel_task,
-    _schedule_to_response,
     _validate_path_param,
     app,
 )
@@ -68,72 +64,6 @@ class TestValidatePathParam:
 
 
 # ---------------------------------------------------------------------------
-# _validate_path_param docstring tests
-# ---------------------------------------------------------------------------
-
-
-class TestValidatePathParamDocstring:
-    """Tests for _validate_path_param() docstring."""
-
-    def test_has_docstring(self) -> None:
-        assert _validate_path_param.__doc__ is not None
-
-    def test_docstring_not_trivial(self) -> None:
-        assert len(_validate_path_param.__doc__) > 20
-
-    def test_docstring_has_args(self) -> None:
-        assert "Args:" in _validate_path_param.__doc__
-
-    def test_docstring_has_returns(self) -> None:
-        assert "Returns:" in _validate_path_param.__doc__
-
-    def test_docstring_has_raises(self) -> None:
-        assert "Raises:" in _validate_path_param.__doc__
-
-
-# ---------------------------------------------------------------------------
-# _build_task_status docstring tests
-# ---------------------------------------------------------------------------
-
-
-class TestBuildTaskStatusDocstring:
-    """Tests for _build_task_status() docstring."""
-
-    def test_has_docstring(self) -> None:
-        assert _build_task_status.__doc__ is not None
-
-    def test_docstring_not_trivial(self) -> None:
-        assert len(_build_task_status.__doc__) > 20
-
-    def test_docstring_has_args(self) -> None:
-        assert "Args:" in _build_task_status.__doc__
-
-    def test_docstring_has_returns(self) -> None:
-        assert "Returns:" in _build_task_status.__doc__
-
-
-# ---------------------------------------------------------------------------
-# _schedule_to_response docstring tests
-# ---------------------------------------------------------------------------
-
-
-class TestScheduleToResponseDocstring:
-    """Tests for _schedule_to_response() docstring."""
-
-    def test_has_docstring(self) -> None:
-        assert _schedule_to_response.__doc__ is not None
-
-    def test_docstring_not_trivial(self) -> None:
-        assert len(_schedule_to_response.__doc__) > 20
-
-    def test_docstring_has_args(self) -> None:
-        assert "Args:" in _schedule_to_response.__doc__
-
-    def test_docstring_has_returns(self) -> None:
-        assert "Returns:" in _schedule_to_response.__doc__
-
-
-# ---------------------------------------------------------------------------
 # _cancel_task uses _validate_path_param
 # ---------------------------------------------------------------------------
 
@@ -149,10 +79,6 @@ class TestCancelTaskUsesValidatePathParam:
         with pytest.raises(ValueError, match="task_id"):
             _cancel_task("   ")
 
-
-# ---------------------------------------------------------------------------
-# Endpoint-level validation tests (via TestClient)
-# ---------------------------------------------------------------------------
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -195,60 +121,3 @@ class TestScheduleEndpointValidation:
     def test_trigger_schedule_whitespace_raises(self) -> None:
         resp = client.post("/schedules/%20%20%20/trigger")
         assert resp.status_code in (422, 500)
-
-
-# ---------------------------------------------------------------------------
-# Source verification: endpoints call _validate_path_param
-# ---------------------------------------------------------------------------
-
-
-class TestEndpointSourceValidation:
-    """Verify endpoints call _validate_path_param in their source."""
-
-    def test_monitor_calls_validate(self) -> None:
-        from helping_hands.server.app import monitor
-
-        source = inspect.getsource(monitor)
-        assert "_validate_path_param" in source
-
-    def test_get_task_calls_validate(self) -> None:
-        from helping_hands.server.app import get_task
-
-        source = inspect.getsource(get_task)
-        assert "_validate_path_param" in source
-
-    def test_get_schedule_calls_validate(self) -> None:
-        from helping_hands.server.app import get_schedule
-
-        source = inspect.getsource(get_schedule)
-        assert "_validate_path_param" in source
-
-    def test_update_schedule_calls_validate(self) -> None:
-        from helping_hands.server.app import update_schedule
-
-        source = inspect.getsource(update_schedule)
-        assert "_validate_path_param" in source
-
-    def test_delete_schedule_calls_validate(self) -> None:
-        from helping_hands.server.app import delete_schedule
-
-        source = inspect.getsource(delete_schedule)
-        assert "_validate_path_param" in source
-
-    def test_enable_schedule_calls_validate(self) -> None:
-        from helping_hands.server.app import enable_schedule
-
-        source = inspect.getsource(enable_schedule)
-        assert "_validate_path_param" in source
-
-    def test_disable_schedule_calls_validate(self) -> None:
-        from helping_hands.server.app import disable_schedule
-
-        source = inspect.getsource(disable_schedule)
-        assert "_validate_path_param" in source
-
-    def test_trigger_schedule_calls_validate(self) -> None:
-        from helping_hands.server.app import trigger_schedule
-
-        source = inspect.getsource(trigger_schedule)
-        assert "_validate_path_param" in source

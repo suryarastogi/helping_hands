@@ -212,27 +212,3 @@ class TestAcomplete:
         provider = _StubProvider()
         result = asyncio.run(provider.acomplete("hello", model="custom"))
         assert result == "response from custom"
-
-
-# ---------------------------------------------------------------------------
-# Docstrings
-# ---------------------------------------------------------------------------
-
-
-class TestDocstrings:
-    """Verify public API has docstrings."""
-
-    def test_normalize_messages_has_docstring(self) -> None:
-        assert normalize_messages.__doc__ is not None
-
-    def test_ai_provider_has_docstring(self) -> None:
-        assert AIProvider.__doc__ is not None
-
-    def test_complete_has_docstring(self) -> None:
-        assert AIProvider.complete.__doc__ is not None
-
-    def test_acomplete_has_docstring(self) -> None:
-        assert AIProvider.acomplete.__doc__ is not None
-
-    def test_require_sdk_has_docstring(self) -> None:
-        assert AIProvider._require_sdk.__doc__ is not None

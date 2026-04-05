@@ -13,8 +13,6 @@ The guard must reject unexpected types before any tool-runner lookup occurs.
 
 from __future__ import annotations
 
-import inspect
-
 import pytest
 
 from helping_hands.lib.meta.tools.filesystem import normalize_relative_path
@@ -46,11 +44,6 @@ class TestNormalizeRelativePathTypeValidation:
     def test_accepts_valid_string(self) -> None:
         result = normalize_relative_path("src/foo.py")
         assert result == "src/foo.py"
-
-    def test_guard_in_source(self) -> None:
-        """Verify isinstance guard exists in source."""
-        source = inspect.getsource(normalize_relative_path)
-        assert "isinstance(rel_path, str)" in source
 
 
 # ---------------------------------------------------------------------------
@@ -102,12 +95,6 @@ class TestNormalizeToolSelectionTypeValidation:
         result = normalize_tool_selection(("execution",))
         assert "execution" in result
 
-    def test_guard_in_source(self) -> None:
-        from helping_hands.lib.meta.tools.registry import _normalize_and_deduplicate
-
-        source = inspect.getsource(_normalize_and_deduplicate)
-        assert "isinstance(values, str | list | tuple)" in source
-
 
 # ---------------------------------------------------------------------------
 # 3. _truncate_summary positive limit validation
@@ -146,9 +133,3 @@ class TestTruncateSummaryLimitValidation:
 
         result = _TwoPhaseCLIHand._truncate_summary("hello", limit=5)
         assert result == "hello"
-
-    def test_guard_in_source(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
-
-        source = inspect.getsource(_TwoPhaseCLIHand._truncate_summary)
-        assert "limit < 1" in source

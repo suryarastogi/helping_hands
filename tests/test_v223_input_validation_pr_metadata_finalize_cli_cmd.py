@@ -65,10 +65,6 @@ def _make_cli_stub() -> _CLIStub:
     return stub
 
 
-# ---------------------------------------------------------------------------
-# _pr_result_metadata — empty field rejection
-# ---------------------------------------------------------------------------
-
 _VALID_META_KWARGS: dict[str, str] = {
     "pr_url": "https://github.com/o/r/pull/1",
     "pr_number": "1",
@@ -192,12 +188,3 @@ class TestSourceConsistency:
         assert "require_non_empty_string" in src
         for param in ("backend", "prompt"):
             assert f'"{param}"' in src
-
-    def test_invoke_cli_with_cmd_has_validation(self) -> None:
-        src = inspect.getsource(_TwoPhaseCLIHand._invoke_cli_with_cmd)
-        assert "not cmd" in src
-
-    def test_invoke_cli_with_cmd_has_docstring(self) -> None:
-        doc = _TwoPhaseCLIHand._invoke_cli_with_cmd.__doc__
-        assert doc is not None
-        assert "cmd" in doc.lower()

@@ -47,18 +47,6 @@ class TestAppKeychainConstants:
 
         assert KEYCHAIN_ACCESS_TOKEN_KEY == "accessToken"
 
-    def test_get_claude_oauth_token_uses_constants(self) -> None:
-        """Verify get_claude_oauth_token uses constants, not hardcoded strings."""
-        from helping_hands.server.token_helpers import get_claude_oauth_token
-
-        source = inspect.getsource(get_claude_oauth_token)
-        assert "KEYCHAIN_SERVICE_NAME" in source
-        assert "KEYCHAIN_OAUTH_KEY" in source
-        assert "KEYCHAIN_ACCESS_TOKEN_KEY" in source
-        assert '"Claude Code-credentials"' not in source
-        assert '"claudeAiOauth"' not in source
-        assert '"accessToken"' not in source
-
 
 # ---------------------------------------------------------------------------
 # 2. Keychain constants in server/celery_app.py

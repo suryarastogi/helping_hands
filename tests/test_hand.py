@@ -3301,11 +3301,6 @@ class TestOpenCodeCLIHand:
         assert "opencode" in msg
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 async def _collect_stream(hand: Hand, prompt: str) -> list[str]:
     return [chunk async for chunk in hand.stream(prompt)]
 

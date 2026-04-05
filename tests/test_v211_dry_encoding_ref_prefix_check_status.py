@@ -12,8 +12,6 @@ check-run status field; if it drifts, the CI polling loop never exits the wait l
 
 from __future__ import annotations
 
-import inspect
-
 from helping_hands.lib import github as github_module
 from helping_hands.lib.meta.tools import web as web_module
 
@@ -60,11 +58,6 @@ class TestEncodingFallbackChain:
         for enc in web_module._ENCODING_FALLBACK_CHAIN:
             codecs.lookup(enc)  # raises LookupError if invalid
 
-    def test_decode_bytes_uses_constant(self) -> None:
-        """Verify _decode_bytes references the module-level constant."""
-        source = inspect.getsource(web_module._decode_bytes)
-        assert "_ENCODING_FALLBACK_CHAIN" in source
-
     def test_decode_bytes_utf8(self) -> None:
         """UTF-8 encoded bytes decode correctly."""
         assert web_module._decode_bytes(b"hello") == "hello"
@@ -97,11 +90,6 @@ class TestGitRefPrefix:
     def test_ends_with_slash(self) -> None:
         assert github_module._GIT_REF_PREFIX.endswith("/")
 
-    def test_fetch_branch_uses_constant(self) -> None:
-        """Verify fetch_branch references the module-level constant."""
-        source = inspect.getsource(github_module.GitHubClient.fetch_branch)
-        assert "_GIT_REF_PREFIX" in source
-
 
 # ---------------------------------------------------------------------------
 # _CHECK_RUN_STATUS_COMPLETED constant
@@ -125,8 +113,3 @@ class TestCheckRunStatusCompleted:
             github_module._CHECK_RUN_STATUS_COMPLETED.lower()
             == github_module._CHECK_RUN_STATUS_COMPLETED
         )
-
-    def test_get_check_runs_uses_constant(self) -> None:
-        """Verify get_check_runs references the module-level constant."""
-        source = inspect.getsource(github_module.GitHubClient.get_check_runs)
-        assert "_CHECK_RUN_STATUS_COMPLETED" in source

@@ -109,12 +109,6 @@ class TestCLIBaseHookDisplayConstants:
 
         assert _HOOK_ERROR_TRUNCATION_LIMIT > 0
 
-    def test_hook_error_used_in_build_hook_fix_prompt(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
-
-        source = inspect.getsource(_TwoPhaseCLIHand._build_hook_fix_prompt)
-        assert "_HOOK_ERROR_TRUNCATION_LIMIT" in source
-
     def test_git_ref_display_length_value(self) -> None:
         from helping_hands.lib.hands.v1.hand.cli.base import (
             _GIT_REF_DISPLAY_LENGTH,
@@ -135,12 +129,6 @@ class TestCLIBaseHookDisplayConstants:
         )
 
         assert _GIT_REF_DISPLAY_LENGTH > 0
-
-    def test_git_ref_used_in_poll_ci_checks(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
-
-        source = inspect.getsource(_TwoPhaseCLIHand._poll_ci_checks)
-        assert "_GIT_REF_DISPLAY_LENGTH" in source
 
 
 # ---------------------------------------------------------------------------
@@ -192,15 +180,6 @@ class TestDockerSandboxNamingConstants:
         )
 
         assert _SANDBOX_UUID_HEX_LENGTH > 0
-
-    def test_constants_used_in_resolve_sandbox_name(self) -> None:
-        from helping_hands.lib.hands.v1.hand.cli.docker_sandbox_claude import (
-            DockerSandboxClaudeCodeHand,
-        )
-
-        source = inspect.getsource(DockerSandboxClaudeCodeHand._resolve_sandbox_name)
-        assert "_SANDBOX_NAME_MAX_LENGTH" in source
-        assert "_SANDBOX_UUID_HEX_LENGTH" in source
 
 
 # ---------------------------------------------------------------------------

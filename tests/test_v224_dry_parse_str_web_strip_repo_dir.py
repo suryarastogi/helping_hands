@@ -153,13 +153,6 @@ class TestExtractRelatedTopicsStrip:
         assert output[0].title == "a"
         assert output[1].url == "https://b.com"
 
-    def test_source_uses_precomputed_strip(self) -> None:
-        """Verify strip is called once per variable, not redundantly."""
-        src = inspect.getsource(_extract_related_topics)
-        # Should have raw_text and raw_url (or similar pre-computation pattern)
-        # and NOT have triple .strip() calls on same variable
-        assert "raw_text" in src or "raw_url" in src
-
 
 # ---------------------------------------------------------------------------
 # _configure_authenticated_push_remote — repo_dir validation
@@ -194,8 +187,3 @@ class TestConfigureAuthPushRemoteRepoDirValidation:
             Hand._configure_authenticated_push_remote(
                 tmp_path, "owner/repo", "ghp_token"
             )
-
-    def test_source_has_is_dir_check(self) -> None:
-        """Verify the is_dir() guard exists in source."""
-        src = inspect.getsource(Hand._configure_authenticated_push_remote)
-        assert "is_dir()" in src

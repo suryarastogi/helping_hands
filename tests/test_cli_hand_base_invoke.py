@@ -18,9 +18,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Stub subclass
-# ---------------------------------------------------------------------------
 # Import after stdlib/third-party
 from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 

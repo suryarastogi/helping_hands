@@ -316,11 +316,6 @@ class TestMakeInput:
         mock_input_schema.assert_called_once_with(chat_message="hello")
 
 
-# ---------------------------------------------------------------------------
-# Async helper
-# ---------------------------------------------------------------------------
-
-
 async def _collect_stream(hand, prompt: str) -> list[str]:
     chunks: list[str] = []
     async for chunk in hand.stream(prompt):

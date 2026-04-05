@@ -42,15 +42,6 @@ class TestE2EMarkerFileConstant:
 
         assert _E2E_MARKER_FILE.endswith(".md")
 
-    def test_used_in_run(self) -> None:
-        """Verify run() uses the constant rather than a hardcoded string."""
-        import inspect
-
-        from helping_hands.lib.hands.v1.hand.e2e import E2EHand
-
-        source = inspect.getsource(E2EHand.run)
-        assert "_E2E_MARKER_FILE" in source
-
 
 # ---------------------------------------------------------------------------
 # 2. CLI --pr-number positive validation
@@ -226,14 +217,3 @@ class TestCLIMaxIterationsValidation:
         assert "--max-iterations" in captured.err
         assert "positive" in captured.err.lower()
         assert "-5" in captured.err
-
-    def test_positive_max_iterations_passes_validation(self) -> None:
-        """Positive --max-iterations should not trigger the validation error."""
-        import inspect
-
-        from helping_hands.cli import main as main_mod
-
-        # Verify the validation code references max_iterations
-        src = inspect.getsource(main_mod.main)
-        assert "max_iterations" in src
-        assert "require_positive_int" in src

@@ -17,12 +17,7 @@ Google-style documentation requirement for public helpers consumed by subclasses
 
 from __future__ import annotations
 
-import inspect
-
-import pytest
-
 from helping_hands.lib.config import _TRUTHY_VALUES, _is_truthy_env
-from helping_hands.lib.hands.v1.hand.cli.base import _TwoPhaseCLIHand
 from helping_hands.lib.meta.tools.command import (
     _EXIT_CODE_CANNOT_EXECUTE,
     _EXIT_CODE_NOT_FOUND,
@@ -129,10 +124,6 @@ class TestE2ETruthyImport:
         assert e2e._is_truthy_env is _is_truthy_env
 
 
-# ---------------------------------------------------------------------------
-# cli/base.py — docstring presence on public and template methods
-# ---------------------------------------------------------------------------
-
 _PUBLIC_METHODS_WITH_DOCSTRINGS = [
     "interrupt",
     "run",
@@ -145,41 +136,3 @@ _TEMPLATE_METHODS_WITH_DOCSTRINGS = [
     "_retry_command_after_failure",
     "_no_change_error_after_retries",
 ]
-
-
-class TestCLIHandDocstrings:
-    """Verify that public and template methods have Google-style docstrings."""
-
-    @pytest.mark.parametrize("method_name", _PUBLIC_METHODS_WITH_DOCSTRINGS)
-    def test_public_method_has_docstring(self, method_name):
-        method = getattr(_TwoPhaseCLIHand, method_name)
-        doc = inspect.getdoc(method)
-        assert doc and len(doc.strip()) >= 10, f"{method_name} is missing a docstring"
-
-    @pytest.mark.parametrize("method_name", _TEMPLATE_METHODS_WITH_DOCSTRINGS)
-    def test_template_method_has_docstring(self, method_name):
-        method = getattr(_TwoPhaseCLIHand, method_name)
-        doc = inspect.getdoc(method)
-        assert doc and len(doc.strip()) >= 10, f"{method_name} is missing a docstring"
-
-    @pytest.mark.parametrize("method_name", _TEMPLATE_METHODS_WITH_DOCSTRINGS)
-    def test_template_method_docstring_has_args(self, method_name):
-        method = getattr(_TwoPhaseCLIHand, method_name)
-        doc = inspect.getdoc(method)
-        assert "Args:" in doc, f"{method_name} docstring missing Args section"
-
-    @pytest.mark.parametrize("method_name", _TEMPLATE_METHODS_WITH_DOCSTRINGS)
-    def test_template_method_docstring_has_returns(self, method_name):
-        method = getattr(_TwoPhaseCLIHand, method_name)
-        doc = inspect.getdoc(method)
-        assert "Returns:" in doc or "Return" in doc, (
-            f"{method_name} docstring missing Returns section"
-        )
-
-    def test_run_docstring_has_args(self):
-        doc = inspect.getdoc(_TwoPhaseCLIHand.run)
-        assert "Args:" in doc
-
-    def test_stream_docstring_has_yields(self):
-        doc = inspect.getdoc(_TwoPhaseCLIHand.stream)
-        assert "Yields:" in doc

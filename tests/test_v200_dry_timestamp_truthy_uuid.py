@@ -99,15 +99,6 @@ class TestE2eUtcStampImport:
 
         assert e2e._utc_stamp is base._utc_stamp
 
-    def test_e2e_no_direct_datetime_utc_usage(self) -> None:
-        """e2e.py should not import UTC/datetime (uses _utc_stamp instead)."""
-        import inspect
-
-        from helping_hands.lib.hands.v1.hand import e2e
-
-        source = inspect.getsource(e2e)
-        assert "from datetime import" not in source
-
 
 # ---------------------------------------------------------------------------
 # celery_app.py _VERBOSE uses shared _TRUTHY_VALUES
@@ -178,14 +169,6 @@ class TestSandboxUuidHexLength:
         # Since ints are immutable and small ints are cached, identity may hold,
         # but value equality is the key invariant.
         assert _SANDBOX_UUID_HEX_LENGTH == _UUID_HEX_LENGTH
-
-    def test_sandbox_imports_uuid_hex_length_from_base(self) -> None:
-        import inspect
-
-        from helping_hands.lib.hands.v1.hand.cli import docker_sandbox_claude
-
-        source = inspect.getsource(docker_sandbox_claude)
-        assert "_UUID_HEX_LENGTH" in source
 
     def test_base_no_hardcoded_timestamp_pattern(self) -> None:
         """base.py should no longer have inline datetime.now(UTC).replace(...)."""

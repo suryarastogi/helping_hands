@@ -17,10 +17,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# _maybe_persist_pr_to_schedule (celery_app.py)
-# ---------------------------------------------------------------------------
-
 pytest.importorskip("celery")
 
 from helping_hands.server.celery_app import _maybe_persist_pr_to_schedule
@@ -65,10 +61,6 @@ class TestMaybePersistPrToSchedule:
         # Should not raise.
         _maybe_persist_pr_to_schedule("sched_abc123", None, "42")
 
-
-# ---------------------------------------------------------------------------
-# _validate_path_param (app.py)
-# ---------------------------------------------------------------------------
 
 pytest.importorskip("fastapi")
 

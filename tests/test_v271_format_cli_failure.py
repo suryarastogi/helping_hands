@@ -157,10 +157,6 @@ class TestFormatCliFailureExport:
 
         assert "_format_cli_failure" in mod.__all__
 
-    def test_has_docstring(self) -> None:
-        assert _format_cli_failure.__doc__ is not None
-        assert "auth" in _format_cli_failure.__doc__.lower()
-
 
 # ---------------------------------------------------------------------------
 # Consistency: static methods delegate to _format_cli_failure

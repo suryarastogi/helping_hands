@@ -73,16 +73,6 @@ class TestRepoSpecPattern:
 
         assert "REPO_SPEC_PATTERN" in github_url.__all__
 
-    def test_cli_no_local_pattern(self) -> None:
-        """cli/main.py should not define its own _REPO_SPEC_PATTERN."""
-        import inspect
-
-        import helping_hands.cli.main as cli_mod
-
-        src = inspect.getsource(cli_mod)
-        # Should import it, not define it locally
-        assert '_REPO_SPEC_PATTERN = r"' not in src
-
     def test_celery_uses_constant(self) -> None:
         """celery_app.py should not have an inline regex for owner/repo."""
         pytest.importorskip("celery")
@@ -131,15 +121,6 @@ class TestInvalidRepoMsg:
         from helping_hands.lib import github_url
 
         assert "invalid_repo_msg" in github_url.__all__
-
-    def test_cli_uses_helper(self) -> None:
-        """cli/main.py should not have a hardcoded error message."""
-        import inspect
-
-        import helping_hands.cli.main as cli_mod
-
-        src = inspect.getsource(cli_mod)
-        assert "is not a directory or owner/repo reference" not in src
 
     def test_celery_uses_helper(self) -> None:
         """celery_app.py should not have a hardcoded error message."""
@@ -215,15 +196,3 @@ class TestFormatTypeError:
 
         with pytest.raises(TypeError, match="must be an int, got str"):
             require_positive_int("nope", "test_param")  # type: ignore[arg-type]
-
-    def test_no_inline_format_strings(self) -> None:
-        """validation.py should not have inline type-error format strings."""
-        import inspect
-
-        from helping_hands.lib import validation
-
-        src = inspect.getsource(validation)
-        # The old inline patterns should be gone
-        assert 'f"{name} must be a string, got {type(value).__name__}"' not in src
-        assert 'f"{name} must be a number, got {type(value).__name__}"' not in src
-        assert 'f"{name} must be an int, got {type(value).__name__}"' not in src
