@@ -1355,7 +1355,8 @@ class TestConftestFixturesUsed:
         all_test_content = "\n".join(test_file_contents.values())
         for fixture_name in conftest_fixture_names:
             # Skip private factory helpers (the outer function is the fixture)
-            if fixture_name.startswith("_"):
+            # and pytest hooks (pytest_configure, pytest_collection_modifyitems, etc.)
+            if fixture_name.startswith("_") or fixture_name.startswith("pytest_"):
                 continue
             assert fixture_name in all_test_content, (
                 f"conftest fixture '{fixture_name}' is not referenced in any test file"

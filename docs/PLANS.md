@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v376 — Coverage Accuracy: Dynamic Server Omit & Pragma Cleanup](exec-plans/completed/2026/v376-coverage-accuracy-and-pragma-cleanup.md) — Dynamic coverage omit for untestable server modules, pragma cleanup; 18 tests, 99.93% coverage
+
 - [2026-04-05 v375 — Backend Descriptions & `--list-backends` Enrichment](exec-plans/completed/2026/v375-backend-descriptions-and-list-enrichment.md) — Add BACKEND_DESCRIPTIONS to factory.py, enrich `--list-backends` with descriptions; 10 tests
 
 - [2026-04-05 v374 — CLI Error Exit Backends Consistency](exec-plans/completed/2026/v374-cli-error-exit-backends-consistency.md) — Add missing opencodecli/devincli to `_CLI_ERROR_EXIT_BACKENDS`; consistency tests; 9 tests

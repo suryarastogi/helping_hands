@@ -349,10 +349,10 @@ def read_prompt_from_stdin() -> str:
         text = sys.stdin.read().strip()
     except KeyboardInterrupt:
         _error_exit("interrupted — no prompt provided")
-        return ""  # unreachable, keeps type checker happy
+        return ""  # pragma: no cover — unreachable, keeps type checker happy
     if not text:
         _error_exit("no prompt provided — pass --prompt or pipe text to stdin")
-        return ""  # unreachable
+        return ""  # pragma: no cover — unreachable
     return text
 
 
@@ -696,5 +696,5 @@ def _clone_reference_repos(
         print(f"Cloned reference repo {spec} to {resolved}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

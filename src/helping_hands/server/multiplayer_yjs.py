@@ -38,7 +38,7 @@ try:
         WebsocketServer,
     )
 
-    _HAS_PYCRDT = True
+    _HAS_PYCRDT = True  # pragma: no cover — requires server extra
 except ImportError:
     try:
         from pycrdt_websocket import (  # type: ignore[import-untyped]
@@ -46,8 +46,8 @@ except ImportError:
             WebsocketServer,
         )
 
-        _HAS_PYCRDT = True
-    except ImportError:  # pragma: no cover
+        _HAS_PYCRDT = True  # pragma: no cover — requires server extra
+    except ImportError:
         _HAS_PYCRDT = False
 
 # ---------------------------------------------------------------------------

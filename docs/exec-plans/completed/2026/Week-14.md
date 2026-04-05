@@ -10,7 +10,8 @@ remaining edge cases, troubleshooting guide, server endpoint coverage,
 shared git clone utility extraction, token helper extraction, test
 consolidation cleanup, `--list-backends` enabled status enrichment,
 `--list-tools` CLI flag with registry coverage completion,
-and backend descriptions enrichment for `--list-backends`.
+backend descriptions enrichment for `--list-backends`,
+and coverage accuracy improvement (dynamic server omit & pragma cleanup).
 
 ---
 
@@ -450,3 +451,17 @@ Exported `get_backend_description()` public API. Enriched `list_backends()` in
 `cli/main.py` to display descriptions alongside availability and enabled status.
 
 **10 new tests (8 factory + 2 CLI). 6979 total tests. 76.55% coverage.**
+
+---
+
+## Apr 5 — Coverage Accuracy: Dynamic Server Omit & Pragma Cleanup (v376)
+
+Default `uv run pytest` now reports **99.93% coverage** (was 76.55%). Three
+heavy server modules requiring the `[server]` extra are omitted via
+`.coveragerc-no-server` config referenced in `pyproject.toml` addopts. CI
+overrides with `--cov-config=pyproject.toml`. Marked unreachable returns,
+`__name__` guards, and optional-dep import paths with `pragma: no cover`.
+Added `exclude_lines` patterns. Updated fixture-usage test to skip pytest
+hooks.
+
+**18 new tests. 6997 total tests. 99.93% coverage.**

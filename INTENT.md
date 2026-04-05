@@ -4,6 +4,18 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Coverage Accuracy: Dynamic Server Omit & Pragma Cleanup (2026-04-05) — Completed
+
+Default `uv run pytest` now reports **99.93% coverage** (was 76.55%). Three
+heavy server modules (`app.py`, `celery_app.py`, `schedules.py`) that require
+the `[server]` extra are now omitted from coverage when that extra is absent,
+via `.coveragerc-no-server` referenced in `pyproject.toml` addopts. CI
+overrides with `--cov-config=pyproject.toml` to cover everything. Marked 6
+unreachable / optional-dep lines with `pragma: no cover`. Added
+`exclude_lines` patterns to coverage config. Updated fixture-usage test to
+skip pytest hooks. 18 new tests. 6997 total tests pass. Coverage: 99.93%.
+See [v376 plan](docs/exec-plans/completed/2026/v376-coverage-accuracy-and-pragma-cleanup.md).
+
 ### Backend Descriptions & `--list-backends` Enrichment (2026-04-05) — Completed
 
 Added `BACKEND_DESCRIPTIONS` dict to `factory.py` with a human-readable

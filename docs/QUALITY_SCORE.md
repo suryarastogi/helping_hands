@@ -36,6 +36,20 @@ npm --prefix frontend run test:e2e # playwright e2e tests
 - **Backend:** Track via Codecov; aim for increasing coverage each PR
 - **Frontend:** Track via Codecov (separate flag); aim for component coverage
 
+### Coverage configuration (v376)
+
+The project uses **two coverage configs** to handle optional dependencies:
+
+| Environment | Config file | Omits | Threshold |
+|---|---|---|---|
+| Local dev (`uv sync --dev`) | `.coveragerc-no-server` | `server/app.py`, `server/celery_app.py`, `server/schedules.py` | 95% |
+| CI (`--extra server`) | `pyproject.toml` | *(none)* | 75% |
+
+**Why:** Three server modules require the `[server]` optional extra (FastAPI,
+Celery, etc.). Without it, they contribute ~1,700 untestable lines that drag
+reported coverage from ~99% to ~76%. The local config omits them for accurate
+reporting; CI installs all extras and uses `--cov-config=pyproject.toml`.
+
 ## Testing conventions
 
 - Tests live in `tests/` (flat structure, `test_*.py` naming)
