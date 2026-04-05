@@ -8,6 +8,15 @@
 Harden input validation in model provider resolution, AI provider completion,
 and config loading to prevent silent failures from malformed inputs.
 
+## Tasks
+
+- [x] Add `.strip()` on provider name in `resolve_hand_model()`
+- [x] Emit warning on unknown explicit provider
+- [x] Use `require_non_empty_string` in `AIProvider.complete()`
+- [x] Add type guards on `provider.name` in build functions
+- [x] Harden `Config.from_env()` enabled_tools type coercion
+- [x] Add 19 tests covering all changes
+
 ## Changes
 
 ### 1. Provider name `strip()` in `resolve_hand_model()` (`model_provider.py`)

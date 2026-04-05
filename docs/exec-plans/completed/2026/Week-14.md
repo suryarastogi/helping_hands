@@ -12,7 +12,8 @@ consolidation cleanup, `--list-backends` enabled status enrichment,
 `--list-tools` CLI flag with registry coverage completion,
 backend descriptions enrichment for `--list-backends`,
 coverage accuracy improvement (dynamic server omit & pragma cleanup),
-and model provider & config validation hardening.
+model provider & config validation hardening,
+and MCP bash script validation tests with plan hygiene.
 
 ---
 
@@ -489,3 +490,14 @@ and config loading:
   `int`, `dict`) instead of passing them through.
 
 **19 new tests. 7016 total tests. 99.93% coverage.**
+
+---
+
+## Apr 5 — MCP Bash Script Validation Tests & Plan Hygiene (v378)
+
+Closed the last 2 uncovered lines in `server/mcp_server.py`: the `run_bash_script`
+mutual-exclusion validation branches (neither `script_path` nor `inline_script`
+provided, and both provided simultaneously). Plan housekeeping: moved completed
+v377 from active to completed, updated PLANS.md, INTENT.md, and Week-14.
+
+**2 new tests. 7018 total tests. MCP server: 100% line coverage.**

@@ -4,6 +4,15 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### MCP Bash Script Validation Tests & Plan Hygiene (2026-04-05) — Completed
+
+Closed last 2 uncovered lines in `server/mcp_server.py` (`run_bash_script`
+neither/both validation branches at lines 370, 372). Plan housekeeping:
+moved completed v377, updated PLANS.md, INTENT.md, and Week-14 consolidation.
+Fixed v377 missing `## Tasks` section. 2 new tests. 7018 total tests pass.
+Coverage: 99.93%.
+See [v378 plan](docs/exec-plans/completed/2026/v378-mcp-bash-validation-and-plan-hygiene.md).
+
 ### Model Provider & Config Validation Hardening (2026-04-05) — Completed
 
 Hardened input validation across model resolution, AI provider completion,
@@ -12,7 +21,7 @@ warning on unknown explicit provider, unified `require_non_empty_string`
 in `AIProvider.complete()`, type guards on `provider.name` in build
 functions, and `Config.from_env()` enabled_tools type coercion hardening.
 19 new tests. 7016 total tests pass. Coverage: 99.93%.
-See [v377 plan](docs/exec-plans/active/v377-model-provider-and-config-hardening.md).
+See [v377 plan](docs/exec-plans/completed/2026/v377-model-provider-and-config-hardening.md).
 
 ### Coverage Accuracy: Dynamic Server Omit & Pragma Cleanup (2026-04-05) — Completed
 

@@ -8,6 +8,10 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v378 — MCP Bash Script Validation Tests & Plan Hygiene](exec-plans/completed/2026/v378-mcp-bash-validation-and-plan-hygiene.md) — Close last 2 uncovered MCP server lines, plan housekeeping; 2 tests, 7018 total
+
+- [2026-04-05 v377 — Model Provider & Config Validation Hardening](exec-plans/completed/2026/v377-model-provider-and-config-hardening.md) — Harden model provider resolution, config validation; 19 tests, 99.93% coverage
+
 - [2026-04-05 v376 — Coverage Accuracy: Dynamic Server Omit & Pragma Cleanup](exec-plans/completed/2026/v376-coverage-accuracy-and-pragma-cleanup.md) — Dynamic coverage omit for untestable server modules, pragma cleanup; 18 tests, 99.93% coverage
 
 - [2026-04-05 v375 — Backend Descriptions & `--list-backends` Enrichment](exec-plans/completed/2026/v375-backend-descriptions-and-list-enrichment.md) — Add BACKEND_DESCRIPTIONS to factory.py, enrich `--list-backends` with descriptions; 10 tests
