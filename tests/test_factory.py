@@ -473,3 +473,72 @@ class TestBackendEnvVarConsistency:
         for backend, env_var in _BACKEND_ENABLED_ENV_VARS.items():
             assert isinstance(env_var, str), f"{backend} env var is not a string"
             assert env_var, f"{backend} has empty env var name"
+
+
+# ---------------------------------------------------------------------------
+# Mismatch error branch coverage (v373)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateBackendEnvConsistency:
+    """Cover _validate_backend_env_consistency error branches.
+
+    The function is called at module level to catch mismatches between
+    SUPPORTED_BACKENDS and _BACKEND_ENABLED_ENV_VARS.  Extracted to a
+    function in v373 so error branches are directly testable.
+    """
+
+    def test_no_error_when_in_sync(self) -> None:
+        """No exception when backends and env-var keys match."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_env_consistency,
+        )
+
+        backends = frozenset({"a", "b"})
+        env_vars = {"a": "A_ENABLED", "b": "B_ENABLED"}
+        _validate_backend_env_consistency(backends, env_vars)  # should not raise
+
+    def test_missing_env_var_for_backend(self) -> None:
+        """RuntimeError when a backend has no env-var entry."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_env_consistency,
+        )
+
+        backends = frozenset({"a", "b", "c"})
+        env_vars = {"a": "A_ENABLED", "b": "B_ENABLED"}
+        with pytest.raises(RuntimeError, match="backends without env vars"):
+            _validate_backend_env_consistency(backends, env_vars)
+
+    def test_extra_env_var_without_backend(self) -> None:
+        """RuntimeError when an env-var has no matching backend."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_env_consistency,
+        )
+
+        backends = frozenset({"a"})
+        env_vars = {"a": "A_ENABLED", "fake": "FAKE_ENABLED"}
+        with pytest.raises(RuntimeError, match="env vars without backends"):
+            _validate_backend_env_consistency(backends, env_vars)
+
+    def test_both_missing_and_extra(self) -> None:
+        """RuntimeError mentions both issues when both divergences exist."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_env_consistency,
+        )
+
+        backends = frozenset({"a", "missing"})
+        env_vars = {"a": "A_ENABLED", "extra": "EXTRA_ENABLED"}
+        with pytest.raises(RuntimeError, match="mismatch") as exc_info:
+            _validate_backend_env_consistency(backends, env_vars)
+
+        msg = str(exc_info.value)
+        assert "backends without env vars" in msg
+        assert "env vars without backends" in msg
+
+    def test_empty_both_passes(self) -> None:
+        """Empty sets match — no error."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_env_consistency,
+        )
+
+        _validate_backend_env_consistency(frozenset(), {})

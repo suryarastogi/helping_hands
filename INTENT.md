@@ -4,6 +4,15 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Factory Error Branch Coverage & Doc Consolidation (2026-04-05) — Completed
+
+Extracted `_validate_backend_env_consistency()` from module-level code in
+`factory.py` to make error branches directly testable. Added 5 tests covering
+sync pass, missing-only, extra-only, both-divergence, and empty inputs. Fixed
+two stale active-plan references in INTENT.md (v367, v336). Updated Week-14
+consolidation with v372 entry. factory.py coverage: 92% → 100%.
+See [v373 plan](docs/exec-plans/completed/2026/v373-factory-error-branches-and-consolidation.md).
+
 ### `--list-tools` CLI Flag & Registry Coverage (2026-04-05) — Completed
 
 Added `--list-tools` CLI flag for tool category discoverability, complementing
@@ -55,7 +64,7 @@ ToolCategory specs, legacy boolean flag merging, runner map building,
 category-for-tool lookup, and prompt instruction formatting (iterative
 `@@TOOL` blocks and CLI natural-language guidance). Registry coverage: 66%.
 97 total registry tests pass.
-See [v367 plan](docs/exec-plans/active/v367-registry-public-api-coverage.md).
+See [v367 plan](docs/exec-plans/completed/2026/v367-registry-public-api-coverage.md).
 
 ### Remaining Server Coverage Gaps (2026-04-05) — Completed
 
@@ -336,7 +345,7 @@ edge cases, and stream emitter non-dict event/block handling. See
 ### Hand Base & CLI Hand Coverage Hardening (2026-03-29) — Completed
 
 Close remaining coverage gaps in `Hand` base class and `_TwoPhaseCLIHand`.
-See [v336 plan](docs/exec-plans/active/v336-hand-base-cli-coverage.md).
+See [v336 plan](docs/exec-plans/completed/2026/v336-hand-base-cli-coverage.md).
 
 **Implemented (v336):**
 - 7 new tests: 4 `_working_tree_is_clean`, 1 `_push_to_existing_pr` clean tree,

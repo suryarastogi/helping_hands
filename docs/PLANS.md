@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v373 — Factory Error Branch Coverage & Doc Consolidation](exec-plans/completed/2026/v373-factory-error-branches-and-consolidation.md) — Extract `_validate_backend_env_consistency()`, test error branches, fix stale refs, update Week-14; 5 tests
+
 - [2026-04-05 v372 — `--list-tools` CLI Flag & Registry Coverage](exec-plans/completed/2026/v372-list-tools-cli-flag.md) — Add `--list-tools` for tool category discoverability; close last registry coverage gap; 9 tests
 
 

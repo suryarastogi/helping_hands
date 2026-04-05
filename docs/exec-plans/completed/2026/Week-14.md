@@ -8,7 +8,8 @@ doctor/RepoIndex enhancements, interactive CLI mode, grill module
 testability, core utility coverage, CLI hand coverage, server coverage gaps,
 remaining edge cases, troubleshooting guide, server endpoint coverage,
 shared git clone utility extraction, token helper extraction, test
-consolidation cleanup, and `--list-backends` enabled status enrichment.
+consolidation cleanup, `--list-backends` enabled status enrichment,
+and `--list-tools` CLI flag with registry coverage completion.
 
 ---
 
@@ -412,3 +413,15 @@ API to `factory.py`. Disabled backends now show `[-]` with the env var name.
 Unmapped backends trigger a logger warning.
 
 **10 new tests. 6946 total tests. 76.32% coverage.**
+
+---
+
+## Apr 5 — `--list-tools` CLI Flag & Registry Coverage (v372)
+
+Added `--list-tools` CLI flag for tool category discoverability, complementing
+`--list-backends`. `list_tools()` formats a table of all tool categories with
+their tool spec names. Intercepted before argparse so it works without a
+positional `repo` argument. Also closed the last registry coverage gap
+(`_run_bash_script` both/neither error branch, line 255).
+
+**9 new tests (7 list-tools + 2 registry). 6955 total tests. 76.37% coverage. Registry: 100%.**
