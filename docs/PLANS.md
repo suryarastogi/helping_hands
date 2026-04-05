@@ -10,15 +10,15 @@ Index of execution plans for helping_hands development.
 
 ### Weekly Summaries — 2026
 
-| Week | Dates | Description |
-|------|-------|-------------|
-| [Week 14](exec-plans/completed/2026/Week-14.md) | Mar 30 – Apr 5 | Coverage hardening, CLI discoverability, frontend test suites, boundary validation |
-| [Week 13](exec-plans/completed/2026/Week-13.md) | Mar 23–29 | GitHub integration, multiplayer hardening, coverage push, design doc refresh |
-| [Week 12](exec-plans/completed/2026/Week-12.md) | Mar 16–22 | Multiplayer cursor sharing, coverage foundations, hook extraction |
-| [Week 11](exec-plans/completed/2026/Week-11.md) | Mar 9–15 | Multiplayer features, factory extraction, polling hooks |
-| [Week 10](exec-plans/completed/2026/Week-10.md) | Mar 2–8 | Multiplayer MVP, emote picker, schedule/PR auto-persist |
-| [Week 9](exec-plans/completed/2026/Week-9.md) | Feb 23 – Mar 1 | Multiplayer smooth movement, minimap, chat cooldown |
-| [Week 8](exec-plans/completed/2026/Week-8.md) | Feb 16–22 | Initial multiplayer, hand abstraction, provider system |
+| Date | File | Description |
+|------|------|-------------|
+| 2026-03-30 Week 14 | [Week-14.md](exec-plans/completed/2026/Week-14.md) | Coverage hardening, CLI discoverability, frontend test suites, boundary validation |
+| 2026-03-23 Week 13 | [Week-13.md](exec-plans/completed/2026/Week-13.md) | GitHub integration, multiplayer hardening, coverage push, design doc refresh |
+| 2026-03-16 Week 12 | [Week-12.md](exec-plans/completed/2026/Week-12.md) | Multiplayer cursor sharing, coverage foundations, hook extraction |
+| 2026-03-09 Week 11 | [Week-11.md](exec-plans/completed/2026/Week-11.md) | Multiplayer features, factory extraction, polling hooks |
+| 2026-03-02 Week 10 | [Week-10.md](exec-plans/completed/2026/Week-10.md) | Multiplayer MVP, emote picker, schedule/PR auto-persist |
+| 2026-02-23 Week 9 | [Week-9.md](exec-plans/completed/2026/Week-9.md) | Multiplayer smooth movement, minimap, chat cooldown |
+| 2026-02-16 Week 8 | [Week-8.md](exec-plans/completed/2026/Week-8.md) | Initial multiplayer, hand abstraction, provider system |
 
 ### Daily Consolidations — 2026
 
