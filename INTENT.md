@@ -4,6 +4,17 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Backend Descriptions & `--list-backends` Enrichment (2026-04-05) — Completed
+
+Added `BACKEND_DESCRIPTIONS` dict to `factory.py` with a human-readable
+description for each backend. Added `_validate_backend_descriptions_consistency()`
+module-level check (mirrors the env-var sync check). Exported
+`get_backend_description()` public API. Enriched `list_backends()` in
+`cli/main.py` to show the description alongside each backend's availability
+and enabled status. 10 new tests (8 factory + 2 CLI). 6979 total tests pass.
+Coverage: 76.55%.
+See [v375 plan](docs/exec-plans/completed/2026/v375-backend-descriptions-and-list-enrichment.md).
+
 ### CLI Error Exit Backends Consistency (2026-04-05) — Completed
 
 Fixed `_CLI_ERROR_EXIT_BACKENDS` missing `opencodecli` and `devincli`. These

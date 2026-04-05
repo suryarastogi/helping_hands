@@ -21,6 +21,7 @@ __all__ = [
     "BACKEND_BASIC_LANGGRAPH",
     "BACKEND_CLAUDECODECLI",
     "BACKEND_CODEXCLI",
+    "BACKEND_DESCRIPTIONS",
     "BACKEND_DEVINCLI",
     "BACKEND_DOCKER_SANDBOX_CLAUDE",
     "BACKEND_E2E",
@@ -29,6 +30,7 @@ __all__ = [
     "BACKEND_OPENCODECLI",
     "SUPPORTED_BACKENDS",
     "create_hand",
+    "get_backend_description",
     "get_enabled_backends",
     "is_backend_enabled",
 ]
@@ -131,6 +133,62 @@ def _validate_backend_env_consistency(
 
 
 _validate_backend_env_consistency(SUPPORTED_BACKENDS, _BACKEND_ENABLED_ENV_VARS)
+
+BACKEND_DESCRIPTIONS: dict[str, str] = {
+    BACKEND_E2E: "End-to-end integration test flow (clone/edit/commit/push/PR)",
+    BACKEND_BASIC_LANGGRAPH: "LangGraph agent loop (requires langchain extra)",
+    BACKEND_BASIC_ATOMIC: "Atomic Agents loop (requires atomic extra)",
+    BACKEND_BASIC_AGENT: "Atomic Agents loop (alias for basic-atomic)",
+    BACKEND_CODEXCLI: "OpenAI Codex CLI subprocess",
+    BACKEND_CLAUDECODECLI: "Claude Code CLI subprocess",
+    BACKEND_DOCKER_SANDBOX_CLAUDE: "Claude Code inside Docker Desktop microVM sandbox",
+    BACKEND_GOOSE: "Goose CLI subprocess",
+    BACKEND_GEMINICLI: "Gemini CLI subprocess",
+    BACKEND_OPENCODECLI: "OpenCode CLI subprocess",
+    BACKEND_DEVINCLI: "Devin CLI subprocess",
+}
+"""Human-readable description for each backend."""
+
+
+def _validate_backend_descriptions_consistency(
+    backends: frozenset[str],
+    descriptions: dict[str, str],
+) -> None:
+    """Verify every backend has a description and vice-versa.
+
+    Args:
+        backends: Set of supported backend name strings.
+        descriptions: Mapping of backend name to its description.
+
+    Raises:
+        RuntimeError: If the two sets of keys diverge.
+    """
+    missing = backends - descriptions.keys()
+    extra = descriptions.keys() - backends
+    if missing or extra:
+        parts: list[str] = []
+        if missing:
+            parts.append(f"backends without descriptions: {sorted(missing)}")
+        if extra:
+            parts.append(f"descriptions without backends: {sorted(extra)}")
+        raise RuntimeError(
+            "SUPPORTED_BACKENDS / BACKEND_DESCRIPTIONS mismatch: " + "; ".join(parts)
+        )
+
+
+_validate_backend_descriptions_consistency(SUPPORTED_BACKENDS, BACKEND_DESCRIPTIONS)
+
+
+def get_backend_description(backend: str) -> str:
+    """Return the human-readable description for *backend*.
+
+    Args:
+        backend: Backend name string.
+
+    Returns:
+        Description string, or ``"unknown backend"`` if not found.
+    """
+    return BACKEND_DESCRIPTIONS.get(backend, "unknown backend")
 
 
 def get_enabled_backends() -> list[str]:

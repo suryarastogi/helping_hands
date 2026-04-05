@@ -40,6 +40,7 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_OPENCODECLI,
     SUPPORTED_BACKENDS,
     create_hand,
+    get_backend_description,
     get_enabled_backends,
     is_backend_enabled,
 )
@@ -149,11 +150,15 @@ def list_backends() -> str:
     for backend in sorted(SUPPORTED_BACKENDS):
         available, avail_detail = _check_backend_available(backend)
         enabled, enabled_detail = is_backend_enabled(backend)
+        description = get_backend_description(backend)
         symbol = "+" if available and enabled else "-"
         parts = [avail_detail]
         if not enabled:
             parts.append(enabled_detail)
-        lines.append(f"  [{symbol}] {backend:<25s} {', '.join(parts)}")
+        lines.append(
+            f"  [{symbol}] {backend:<25s} {description}\n"
+            f"       {' ' * 25} {', '.join(parts)}"
+        )
     lines.append("")
     enabled_list = get_enabled_backends()
     if len(enabled_list) < len(SUPPORTED_BACKENDS):

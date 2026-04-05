@@ -9,7 +9,8 @@ testability, core utility coverage, CLI hand coverage, server coverage gaps,
 remaining edge cases, troubleshooting guide, server endpoint coverage,
 shared git clone utility extraction, token helper extraction, test
 consolidation cleanup, `--list-backends` enabled status enrichment,
-and `--list-tools` CLI flag with registry coverage completion.
+`--list-tools` CLI flag with registry coverage completion,
+and backend descriptions enrichment for `--list-backends`.
 
 ---
 
@@ -437,3 +438,15 @@ test verifying all CLI-tool-backed backends are in the set (prevents future
 regressions when new CLI backends are added).
 
 **9 new tests (5 consistency + 4 error-exit paths). 6969 total tests. 76.49% coverage.**
+
+---
+
+## Apr 5 — Backend Descriptions & `--list-backends` Enrichment (v375)
+
+Added `BACKEND_DESCRIPTIONS` dict to `factory.py` with a human-readable
+description for each backend. Added `_validate_backend_descriptions_consistency()`
+module-level check ensuring descriptions stay in sync with `SUPPORTED_BACKENDS`.
+Exported `get_backend_description()` public API. Enriched `list_backends()` in
+`cli/main.py` to display descriptions alongside availability and enabled status.
+
+**10 new tests (8 factory + 2 CLI). 6979 total tests. 76.55% coverage.**

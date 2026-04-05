@@ -46,6 +46,7 @@ class TestModuleAll:
             "BACKEND_BASIC_LANGGRAPH",
             "BACKEND_CLAUDECODECLI",
             "BACKEND_CODEXCLI",
+            "BACKEND_DESCRIPTIONS",
             "BACKEND_DEVINCLI",
             "BACKEND_DOCKER_SANDBOX_CLAUDE",
             "BACKEND_E2E",
@@ -54,6 +55,7 @@ class TestModuleAll:
             "BACKEND_OPENCODECLI",
             "SUPPORTED_BACKENDS",
             "create_hand",
+            "get_backend_description",
             "get_enabled_backends",
             "is_backend_enabled",
         }
@@ -542,3 +544,84 @@ class TestValidateBackendEnvConsistency:
         )
 
         _validate_backend_env_consistency(frozenset(), {})
+
+
+# ---------------------------------------------------------------------------
+# BACKEND_DESCRIPTIONS
+# ---------------------------------------------------------------------------
+
+
+class TestBackendDescriptions:
+    """Tests for BACKEND_DESCRIPTIONS and get_backend_description()."""
+
+    def test_descriptions_sync_with_supported_backends(self) -> None:
+        """Every backend has a description and vice-versa."""
+        from helping_hands.lib.hands.v1.hand.factory import BACKEND_DESCRIPTIONS
+
+        assert set(BACKEND_DESCRIPTIONS.keys()) == set(SUPPORTED_BACKENDS)
+
+    def test_descriptions_are_non_empty_strings(self) -> None:
+        """Each description is a non-empty string."""
+        from helping_hands.lib.hands.v1.hand.factory import BACKEND_DESCRIPTIONS
+
+        for backend, desc in BACKEND_DESCRIPTIONS.items():
+            assert isinstance(desc, str), f"{backend}: not a string"
+            assert desc.strip(), f"{backend}: empty description"
+
+    def test_get_backend_description_known(self) -> None:
+        """get_backend_description returns the description for a known backend."""
+        from helping_hands.lib.hands.v1.hand.factory import get_backend_description
+
+        desc = get_backend_description(BACKEND_E2E)
+        assert "end-to-end" in desc.lower() or "e2e" in desc.lower()
+
+    def test_get_backend_description_unknown(self) -> None:
+        """get_backend_description returns fallback for unknown backend."""
+        from helping_hands.lib.hands.v1.hand.factory import get_backend_description
+
+        assert get_backend_description("nonexistent") == "unknown backend"
+
+    def test_validate_descriptions_consistency_missing(self) -> None:
+        """RuntimeError when a backend has no description."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_descriptions_consistency,
+        )
+
+        backends = frozenset({"a", "b"})
+        descriptions = {"a": "desc a"}
+        with pytest.raises(RuntimeError, match="backends without descriptions"):
+            _validate_backend_descriptions_consistency(backends, descriptions)
+
+    def test_validate_descriptions_consistency_extra(self) -> None:
+        """RuntimeError when a description has no matching backend."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_descriptions_consistency,
+        )
+
+        backends = frozenset({"a"})
+        descriptions = {"a": "desc a", "extra": "desc extra"}
+        with pytest.raises(RuntimeError, match="descriptions without backends"):
+            _validate_backend_descriptions_consistency(backends, descriptions)
+
+    def test_validate_descriptions_consistency_both(self) -> None:
+        """RuntimeError mentions both issues when both divergences exist."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_descriptions_consistency,
+        )
+
+        backends = frozenset({"a", "missing"})
+        descriptions = {"a": "desc a", "extra": "desc extra"}
+        with pytest.raises(RuntimeError, match="mismatch") as exc_info:
+            _validate_backend_descriptions_consistency(backends, descriptions)
+
+        msg = str(exc_info.value)
+        assert "backends without descriptions" in msg
+        assert "descriptions without backends" in msg
+
+    def test_validate_descriptions_consistency_ok(self) -> None:
+        """No error when sets match."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _validate_backend_descriptions_consistency,
+        )
+
+        _validate_backend_descriptions_consistency(frozenset({"a"}), {"a": "desc a"})

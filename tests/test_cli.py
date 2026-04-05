@@ -1456,6 +1456,28 @@ class TestListBackends:
         output = list_backends()
         assert str(len(SUPPORTED_BACKENDS)) in output
 
+    def test_list_backends_includes_descriptions(self) -> None:
+        """Output includes a description for every backend."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            BACKEND_DESCRIPTIONS,
+            SUPPORTED_BACKENDS,
+        )
+
+        output = list_backends()
+        for backend in SUPPORTED_BACKENDS:
+            desc = BACKEND_DESCRIPTIONS[backend]
+            assert desc in output, f"missing description for {backend}"
+
+    def test_list_backends_description_on_name_line(self) -> None:
+        """Description appears on the same line as the backend name."""
+        output = list_backends()
+        for line in output.splitlines():
+            if "claudecodecli" in line and line.strip().startswith("["):
+                assert "Claude Code CLI subprocess" in line
+                break
+        else:
+            pytest.fail("claudecodecli line not found in output")
+
 
 class TestIsBackendEnabled:
     """Tests for ``is_backend_enabled()`` from factory module."""
@@ -1525,16 +1547,27 @@ class TestListBackendsEnabledStatus:
             if backend != "codexcli":
                 monkeypatch.delenv(env_var, raising=False)
         output = list_backends()
-        # e2e should show [-] because it's disabled (not in enabled list)
-        e2e_line = next(ln for ln in output.splitlines() if "e2e" in ln)
-        assert "[-]" in e2e_line
-        assert "disabled" in e2e_line
+        # e2e should show [-] because it's disabled (not in enabled list).
+        # The output has two lines per backend: name+description, then details.
+        lines = output.splitlines()
+        e2e_idx = next(
+            i
+            for i, ln in enumerate(lines)
+            if "e2e" in ln and ln.strip().startswith("[")
+        )
+        e2e_block = lines[e2e_idx] + " " + lines[e2e_idx + 1]
+        assert "[-]" in e2e_block
+        assert "disabled" in e2e_block
 
     def test_enabled_backend_shows_plus(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Enabled and available backends show [+]."""
         # Default mode: all enabled.
         output = list_backends()
-        e2e_line = next(ln for ln in output.splitlines() if "e2e" in ln)
+        e2e_line = next(
+            ln
+            for ln in output.splitlines()
+            if "e2e" in ln and ln.strip().startswith("[")
+        )
         assert "[+]" in e2e_line
 
     def test_enabled_count_with_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:

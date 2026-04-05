@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v375 — Backend Descriptions & `--list-backends` Enrichment](exec-plans/completed/2026/v375-backend-descriptions-and-list-enrichment.md) — Add BACKEND_DESCRIPTIONS to factory.py, enrich `--list-backends` with descriptions; 10 tests
+
 - [2026-04-05 v374 — CLI Error Exit Backends Consistency](exec-plans/completed/2026/v374-cli-error-exit-backends-consistency.md) — Add missing opencodecli/devincli to `_CLI_ERROR_EXIT_BACKENDS`; consistency tests; 9 tests
 
 - [2026-04-05 v373 — Factory Error Branch Coverage & Doc Consolidation](exec-plans/completed/2026/v373-factory-error-branches-and-consolidation.md) — Extract `_validate_backend_env_consistency()`, test error branches, fix stale refs, update Week-14; 5 tests
