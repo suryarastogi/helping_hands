@@ -176,9 +176,11 @@ class TestCliErrorExitBackends:
         expected = {
             "codexcli",
             "claudecodecli",
+            "devincli",
             "docker-sandbox-claude",
-            "goose",
             "geminicli",
+            "goose",
+            "opencodecli",
         }
         assert expected == _CLI_ERROR_EXIT_BACKENDS
 

@@ -425,3 +425,15 @@ positional `repo` argument. Also closed the last registry coverage gap
 (`_run_bash_script` both/neither error branch, line 255).
 
 **9 new tests (7 list-tools + 2 registry). 6955 total tests. 76.37% coverage. Registry: 100%.**
+
+---
+
+## Apr 5 — CLI Error Exit Backends Consistency (v374)
+
+Fixed `_CLI_ERROR_EXIT_BACKENDS` missing `opencodecli` and `devincli`. These
+CLI backends were not in the error exit set, so failures produced full stack
+traces instead of clean `_error_exit()` messages. Added structural consistency
+test verifying all CLI-tool-backed backends are in the set (prevents future
+regressions when new CLI backends are added).
+
+**9 new tests (5 consistency + 4 error-exit paths). 6969 total tests. 76.49% coverage.**

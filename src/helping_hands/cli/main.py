@@ -187,9 +187,11 @@ _CLI_ERROR_EXIT_BACKENDS: frozenset[str] = frozenset(
     {
         BACKEND_CODEXCLI,
         BACKEND_CLAUDECODECLI,
+        BACKEND_DEVINCLI,
         BACKEND_DOCKER_SANDBOX_CLAUDE,
-        BACKEND_GOOSE,
         BACKEND_GEMINICLI,
+        BACKEND_GOOSE,
+        BACKEND_OPENCODECLI,
     }
 )
 """Backends that print the error and ``sys.exit(1)`` instead of re-raising."""

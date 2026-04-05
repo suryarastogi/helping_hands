@@ -4,6 +4,16 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### CLI Error Exit Backends Consistency (2026-04-05) — Completed
+
+Fixed `_CLI_ERROR_EXIT_BACKENDS` missing `opencodecli` and `devincli`. These
+CLI backends were not in the error exit set, so failures produced full stack
+traces instead of clean error messages. Added structural consistency test that
+verifies all CLI-tool-backed backends are in the set (prevents future
+regressions). 9 new tests (5 consistency + 4 error-exit paths). 6969 total
+tests pass.
+See [v374 plan](docs/exec-plans/completed/2026/v374-cli-error-exit-backends-consistency.md).
+
 ### Factory Error Branch Coverage & Doc Consolidation (2026-04-05) — Completed
 
 Extracted `_validate_backend_env_consistency()` from module-level code in
