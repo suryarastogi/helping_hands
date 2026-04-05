@@ -85,7 +85,7 @@ def _normalize_args(args: list[str] | tuple[str, ...] | None) -> list[str]:
     """
     if args is None:
         return []
-    if not isinstance(args, list | tuple):
+    if not isinstance(args, (list, tuple)):
         msg = f"args must be a list or tuple, got {type(args).__name__}"
         raise TypeError(msg)
     normalized: list[str] = []

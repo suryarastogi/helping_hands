@@ -4,6 +4,19 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Fix Test Failures & Code Quality Improvements (2026-04-05) — Completed
+
+Fixed 5 failing tests and improved code quality. `_normalize_args` in
+`command.py` updated to use `isinstance(args, (list, tuple))` form for
+consistency with source-inspection tests. `_patch_notset` test helper fixed to
+patch `github.GithubObject.NotSet` (matching the deferred import in
+`update_pr`). Narrowed broad `except Exception` in `github.py` label removal
+to `except GithubException`; added `test_propagates_non_github_exceptions`
+verifying `OSError` propagates. Fixed v388 plan `**Status:**` format and
+PLANS.md v385 entry test count format. 1 new test. 7071 total tests pass.
+Coverage: 97.31%.
+See [v389 plan](docs/exec-plans/completed/2026/v389-fix-test-failures-and-code-quality.md).
+
 ### AsteroidsGame Test Suite & OnboardingOverlay Coverage (2026-04-05) — Completed
 
 Added test suite for the only untested frontend component (`AsteroidsGame.tsx`,

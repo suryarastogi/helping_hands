@@ -43,10 +43,10 @@ def client() -> GitHubClient:
 
 
 def _patch_notset():
-    """Context manager that injects a sentinel ``NotSet`` into the github module.
+    """Context manager that injects a sentinel ``NotSet`` into ``github.GithubObject``.
 
-    ``update_pr`` uses ``from github.GithubObject import NotSet`` (deferred),
-    so we must patch ``github.GithubObject.NotSet`` to intercept it.
+    ``update_pr`` does ``from github.GithubObject import NotSet``, so we must
+    patch the attribute on the ``GithubObject`` sub-module (not ``github.NotSet``).
     """
     import github.GithubObject as GithubObject
 

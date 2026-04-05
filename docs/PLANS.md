@@ -8,13 +8,16 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v389 — Fix Test Failures & Code Quality Improvements](exec-plans/completed/2026/v389-fix-test-failures-and-code-quality.md) — Fix 5 failing tests, narrow exception catch in github.py, add propagation test; 1 tests new, 7071 total
+
+
 - [2026-04-05 v388 — AsteroidsGame Test Suite & OnboardingOverlay Coverage](exec-plans/completed/2026/v388-asteroids-game-and-onboarding-coverage.md) — AsteroidsGame (30 tests) and OnboardingOverlay positioning (9 tests); 39 frontend tests, 923 total
 
 - [2026-04-05 v387 — GrillMeOverlay & useGrillSession Test Suites](exec-plans/completed/2026/v387-grillme-overlay-and-usegrillsession-tests.md) — GrillMeOverlay (43 tests) and useGrillSession (27 tests) frontend test suites; 70 frontend tests, 884 total
 
 - [2026-04-05 v386 — ChatPanel & OnboardingOverlay Test Suites](exec-plans/completed/2026/v386-chatpanel-onboarding-overlay-tests.md) — ChatPanel (47 tests) and OnboardingOverlay (20 tests) frontend component test suites; 67 frontend tests, 814 total
 
-- [2026-04-05 v385 — Frontend Component Test Coverage & Backend Docstring Polish](exec-plans/completed/2026/v385-frontend-coverage-and-docstring-polish.md) — DiffView, FileExplorer, useOnboarding test suites + Config.from_env() docstring; 66 tests, 747 total
+- [2026-04-05 v385 — Frontend Component Test Coverage & Backend Docstring Polish](exec-plans/completed/2026/v385-frontend-coverage-and-docstring-polish.md) — DiffView, FileExplorer, useOnboarding test suites + Config.from_env() docstring; 66 tests (frontend), 753 total
 
 - [2026-04-05 v384 — Provider API Key Map Consistency](exec-plans/completed/2026/v384-provider-api-key-map-consistency.md) — Add missing litellm entry to PROVIDER_API_KEY_ENV, structural consistency tests; 4 tests
 
