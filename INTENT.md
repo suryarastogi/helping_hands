@@ -4,6 +4,19 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### ChatPanel & OnboardingOverlay Test Suites (2026-04-05) — Completed
+
+Added test suites for two previously-untested frontend components: ChatPanel
+(47 tests) and OnboardingOverlay (20 tests). ChatPanel tests cover
+collapsed/expanded state, player name/color customization, presence panel,
+chat history (empty/messages/system), chat input (connected/disconnected,
+cooldown, typing indicators), emote picker toggle/selection, and form
+submission (trim, empty rejection, cooldown blocking). OnboardingOverlay tests
+cover step badge, title/body, navigation (Back/Next/Got it!), dismiss, step
+dots (active/completed), and initial opacity. 67 new frontend tests. 814 total
+frontend tests pass. No production code changes.
+See [v386 plan](docs/exec-plans/completed/2026/v386-chatpanel-onboarding-overlay-tests.md).
+
 ### Frontend Component Test Coverage & Backend Docstring Polish (2026-04-05) — Completed
 
 Added test suites for three previously-untested frontend components: DiffView

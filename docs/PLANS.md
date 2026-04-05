@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v386 — ChatPanel & OnboardingOverlay Test Suites](exec-plans/completed/2026/v386-chatpanel-onboarding-overlay-tests.md) — ChatPanel (47 tests) and OnboardingOverlay (20 tests) frontend component test suites; 67 frontend tests, 814 total
+
 - [2026-04-05 v385 — Frontend Component Test Coverage & Backend Docstring Polish](exec-plans/completed/2026/v385-frontend-coverage-and-docstring-polish.md) — DiffView, FileExplorer, useOnboarding test suites + Config.from_env() docstring; 66 frontend tests
 
 - [2026-04-05 v384 — Provider API Key Map Consistency](exec-plans/completed/2026/v384-provider-api-key-map-consistency.md) — Add missing litellm entry to PROVIDER_API_KEY_ENV, structural consistency tests; 4 tests

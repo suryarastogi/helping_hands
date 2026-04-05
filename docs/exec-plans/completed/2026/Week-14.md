@@ -16,7 +16,9 @@ model provider & config validation hardening,
 MCP bash script validation tests with plan hygiene,
 ARCHITECTURE.md refresh with exec-plan index,
 registry coverage completion, boundary input validation hardening,
-CLI heartbeat branch coverage, and provider API key map consistency.
+CLI heartbeat branch coverage, provider API key map consistency,
+frontend component test coverage (DiffView, FileExplorer, useOnboarding),
+and ChatPanel/OnboardingOverlay test suites.
 
 ---
 
@@ -599,3 +601,16 @@ and localStorage persistence. Expanded `Config.from_env()` docstring
 with Args/Returns/Raises sections per Google-style conventions.
 
 **66 new frontend tests. 753 total frontend tests. 7069 backend tests. 99.94% backend coverage.**
+
+---
+
+## Apr 5 — ChatPanel & OnboardingOverlay Test Suites (v386)
+
+Added test suites for two previously-untested frontend components:
+`ChatPanel.tsx` (47 tests covering collapsed/expanded state, player name/color
+customization, presence panel, chat history, chat input with typing indicators
+and cooldown, emote picker toggle/selection, and form submission) and
+`OnboardingOverlay.tsx` (20 tests covering step badge, title/body, navigation
+buttons, dismiss, step dots, and initial opacity). No production code changes.
+
+**67 new frontend tests. 814 total frontend tests.**
