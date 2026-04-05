@@ -133,6 +133,22 @@ class TestRequireHttpUrl:
 # ---------------------------------------------------------------------------
 
 
+class TestDecodeBytesTypeGuard:
+    """Non-bytes payload raises TypeError."""
+
+    def test_string_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match=r"must be bytes.*got str"):
+            _decode_bytes("hello")  # type: ignore[arg-type]
+
+    def test_int_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match=r"must be bytes.*got int"):
+            _decode_bytes(42)  # type: ignore[arg-type]
+
+    def test_none_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match=r"must be bytes.*got NoneType"):
+            _decode_bytes(None)  # type: ignore[arg-type]
+
+
 class TestDecodeBytes:
     def test_utf8(self) -> None:
         assert _decode_bytes(b"hello") == "hello"

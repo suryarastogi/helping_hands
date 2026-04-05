@@ -161,7 +161,15 @@ def _require_http_url(url: str) -> str:
 
 
 def _decode_bytes(payload: bytes) -> str:
-    """Decode bytes trying UTF-8, UTF-16, then latin-1 (which accepts all byte values)."""
+    """Decode bytes trying UTF-8, UTF-16, then latin-1 (which accepts all byte values).
+
+    Raises:
+        TypeError: If *payload* is not :class:`bytes`.
+    """
+    if not isinstance(payload, bytes):
+        raise TypeError(
+            f"payload must be bytes, got {type(payload).__name__}"
+        )
     for encoding in _ENCODING_FALLBACK_CHAIN:
         try:
             return payload.decode(encoding)

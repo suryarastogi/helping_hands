@@ -4,14 +4,21 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Validation & Factory Hardening (2026-04-05) — In Progress
+### Filesystem & Web Type Guards (2026-04-05) — Completed
+
+Added `isinstance` type guards to security-boundary functions: `resolve_repo_target()`
+for `repo_root` parameter and `_decode_bytes()` for `payload` parameter. Both now
+raise clear `TypeError` instead of confusing `AttributeError`. 6 new tests.
+See [v369 plan](docs/exec-plans/active/v369-filesystem-web-type-guards.md).
+
+## Recently Completed
+
+### Validation & Factory Hardening (2026-04-05) — Completed
 
 Add missing boundary validation to `validate_repo_value()` (type guard) and
 module-level consistency check in `factory.py` (SUPPORTED_BACKENDS must match
 `_BACKEND_ENABLED_ENV_VARS` keys). 7 new tests.
-See [v368 plan](docs/exec-plans/active/v368-validation-and-factory-hardening.md).
-
-## Recently Completed
+See [v368 plan](docs/exec-plans/completed/2026/v368-validation-and-factory-hardening.md).
 
 ### Registry Public API Test Coverage (2026-04-05) — Completed
 

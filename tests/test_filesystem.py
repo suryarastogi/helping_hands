@@ -266,6 +266,22 @@ class TestResolveRepoTargetErrorMessages:
             resolve_repo_target(tmp_path, "./")
 
 
+class TestResolveRepoTargetTypeGuard:
+    """Non-Path repo_root input raises TypeError."""
+
+    def test_string_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match=r"must be a Path.*got str"):
+            resolve_repo_target("/tmp", "file.txt")  # type: ignore[arg-type]
+
+    def test_int_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match=r"must be a Path.*got int"):
+            resolve_repo_target(42, "file.txt")  # type: ignore[arg-type]
+
+    def test_none_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match=r"must be a Path.*got NoneType"):
+            resolve_repo_target(None, "file.txt")  # type: ignore[arg-type]
+
+
 class TestResolveRepoTargetRootValidation:
     """Verify that resolve_repo_target rejects non-directory repo_root."""
 

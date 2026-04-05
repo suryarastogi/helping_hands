@@ -4,9 +4,11 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v368 — Validation & Factory Hardening](exec-plans/active/v368-validation-and-factory-hardening.md) — Add type guard to `validate_repo_value()`, factory backend/env-var consistency assertion; 7 tests
+- [v369 — Filesystem & Web Type Guards](exec-plans/active/v369-filesystem-web-type-guards.md) — Add `isinstance` type guards to `resolve_repo_target()` and `_decode_bytes()` for clear error messages on invalid input
 
 ## Completed plans
+
+- [2026-04-05 v368 — Validation & Factory Hardening](exec-plans/completed/2026/v368-validation-and-factory-hardening.md) — Add type guard to `validate_repo_value()`, factory backend/env-var consistency assertion; 7 tests
 
 - [2026-04-05 v367 — Registry Public API Test Coverage](exec-plans/completed/2026/v367-registry-public-api-coverage.md) — Dedicated tests for registry selection, validation, resolution, merging, and formatting functions; 52 tests
 

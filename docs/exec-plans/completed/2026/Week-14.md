@@ -361,3 +361,23 @@ Two defensive hardening changes:
   (3 tests: import succeeds, sets match, env-var values non-empty)
 
 **7 new tests.**
+
+---
+
+## Apr 5 — Filesystem & Web Type Guards (v369)
+
+Two `isinstance` type guards added to security-boundary functions:
+
+- **`resolve_repo_target()` in `filesystem.py`**: Added type guard raising
+  `TypeError` when `repo_root` is not a `Path`. Previously, passing a string,
+  int, or None raised `AttributeError` on `.resolve()` instead of a clear error.
+  The companion parameter `rel_path` already had a type guard via
+  `normalize_relative_path()`.
+  (3 tests: str, int, None)
+
+- **`_decode_bytes()` in `web.py`**: Added type guard raising `TypeError` when
+  `payload` is not `bytes`. Previously, passing a string or None raised
+  `AttributeError` on `.decode()` instead of a clear error.
+  (3 tests: str, int, None)
+
+**6 new tests.**
