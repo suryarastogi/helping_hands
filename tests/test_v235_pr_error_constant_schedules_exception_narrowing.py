@@ -129,7 +129,7 @@ def _get_except_handler_types(source: str, func_name: str) -> list[list[str]]:
     results: list[list[str]] = []
 
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             if node.name != func_name:
                 continue
             for child in ast.walk(node):

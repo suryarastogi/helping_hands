@@ -160,7 +160,7 @@ def _find_function_handlers(
     handlers: list[ast.ExceptHandler] = []
     for node in ast.walk(tree):
         if (
-            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
             and node.name == func_name
         ):
             for child in ast.walk(node):

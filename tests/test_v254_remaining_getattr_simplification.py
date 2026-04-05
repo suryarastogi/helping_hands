@@ -40,7 +40,7 @@ def _find_getattr_calls_in_function(
     tree = ast.parse(source_path.read_text())
     results: list[tuple[int, str]] = []
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         if node.name != function_name:
             continue

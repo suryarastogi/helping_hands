@@ -96,7 +96,7 @@ class TestDescribeAuthConsistency:
         tree = ast.parse(src)
 
         for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             if node.name != "_describe_auth":
                 continue

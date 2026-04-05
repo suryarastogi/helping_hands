@@ -120,7 +120,7 @@ def _find_bare_max_iterations_defaults(filepath: Path) -> list[str]:
     tree = ast.parse(source)
     violations: list[str] = []
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             for arg, default in zip(
                 reversed(node.args.args + node.args.kwonlyargs),
                 reversed(node.args.defaults + node.args.kw_defaults),

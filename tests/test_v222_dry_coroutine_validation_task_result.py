@@ -57,7 +57,7 @@ class TestCloseCoroutineExtraction:
         tree = ast.parse(source)
         inline_defs = []
         for node in ast.walk(tree):
-            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
                 for child in ast.walk(node):
                     if (
                         isinstance(child, ast.FunctionDef)

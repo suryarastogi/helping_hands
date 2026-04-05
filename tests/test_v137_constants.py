@@ -72,7 +72,7 @@ class TestAppHealthCheckTimeoutConstants:
             ("_CELERY_HEALTH_TIMEOUT_S", _CELERY_HEALTH_TIMEOUT_S),
             ("_CELERY_INSPECT_TIMEOUT_S", _CELERY_INSPECT_TIMEOUT_S),
         ]:
-            assert isinstance(val, (int, float)), f"{name} should be numeric"
+            assert isinstance(val, int | float), f"{name} should be numeric"
             assert val > 0, f"{name} should be positive"
 
 

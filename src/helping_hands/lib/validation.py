@@ -118,7 +118,7 @@ def require_positive_float(value: float | int, name: str) -> float:
         TypeError: If *value* is not a number or is a ``bool``.
         ValueError: If *value* is <= 0, ``NaN``, or infinite.
     """
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise TypeError(format_type_error(name, "a number", value))
     fval = float(value)
     if not math.isfinite(fval):
