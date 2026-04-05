@@ -3836,6 +3836,26 @@ def _render_monitor_page(task_status: TaskStatus) -> str:
 """
 
 
+@app.get("/repos/{owner}/{repo}/issues")
+def list_repo_issues(
+    owner: str,
+    repo: str,
+    state: str = "open",
+    per_page: int = 30,
+    github_token: str | None = None,
+) -> list[dict[str, Any]]:
+    """List open issues for a GitHub repository."""
+    from helping_hands.lib.github import GitHubClient
+
+    token = github_token or os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="No GitHub token available")
+    client = GitHubClient(token=token)
+    return client.list_issues(f"{owner}/{repo}", state=state, per_page=per_page)
+
+
 @app.post("/build", response_model=BuildResponse)
 def enqueue_build(req: BuildRequest) -> BuildResponse:
     """Enqueue a hand task and return the task ID.

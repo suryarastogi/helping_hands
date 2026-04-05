@@ -9,6 +9,7 @@ import HandWorldScene from "./components/HandWorldScene";
 import MonitorCard from "./components/MonitorCard";
 import ScheduleCard from "./components/ScheduleCard";
 import SubmissionForm from "./components/SubmissionForm";
+import SubmitIssueOverlay from "./components/SubmitIssueOverlay";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
 import { useGrillSession } from "./hooks/useGrillSession";
@@ -117,6 +118,7 @@ export default function App() {
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
   const [showGrillOverlay, setShowGrillOverlay] = useState(false);
+  const [showSubmitIssueOverlay, setShowSubmitIssueOverlay] = useState(false);
   const grillSession = useGrillSession();
 
   const {
@@ -335,6 +337,21 @@ export default function App() {
     });
   };
 
+  const handleSubmitIssue = (repo: string, issue: { number: number; title: string; body: string }, githubToken: string) => {
+    setShowSubmitIssueOverlay(false);
+    const prompt = issue.body
+      ? `${issue.title}\n\n${issue.body}`
+      : issue.title;
+    setForm((current) => ({
+      ...current,
+      repo_path: repo,
+      prompt,
+      issue_number: String(issue.number),
+      ...(githubToken.trim() ? { github_token: githubToken.trim() } : {}),
+    }));
+    setShowSubmissionOverlay(true);
+  };
+
   const grillInitialForm = useMemo(() => ({
     repo_path: form.repo_path,
     prompt: form.prompt,
@@ -344,7 +361,7 @@ export default function App() {
   }), [form.repo_path, form.prompt, form.model, form.github_token, form.reference_repos]);
 
   const submissionCard = (
-    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} onGrillMe={grillEnabled ? handleOpenGrill : undefined} backends={enabledBackends} recentRepos={recentRepos} serverHasGithubToken={serverHasGithubToken} />
+    <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} serverHasGithubToken={serverHasGithubToken} />
   );
 
   const monitorCard = (
@@ -406,6 +423,7 @@ export default function App() {
         showSubmissionOverlay={showSubmissionOverlay}
         onNewSubmission={openSubmissionView}
         onGrillMe={grillEnabled ? handleOpenGrill : undefined}
+        onSubmitIssue={() => setShowSubmitIssueOverlay(true)}
         onToggleSchedules={() => setMainView(v => v === "schedules" ? "submission" : "schedules")}
         onStartTutorial={onboarding.restart}
         taskHistory={taskHistory}
@@ -504,6 +522,15 @@ export default function App() {
           grillSession.reset();
         }}
         onSubmitPlan={handleGrillSubmitPlan}
+      />
+    )}
+    {showSubmitIssueOverlay && (
+      <SubmitIssueOverlay
+        recentRepos={recentRepos}
+        serverHasGithubToken={serverHasGithubToken}
+        defaultRepo={form.repo_path}
+        onSubmitIssue={handleSubmitIssue}
+        onClose={() => setShowSubmitIssueOverlay(false)}
       />
     )}
     <AppOverlays

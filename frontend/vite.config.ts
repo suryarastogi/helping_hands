@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
     "/schedules": { target, changeOrigin: true },
     "/grill": { target, changeOrigin: true },
     "/arcade": { target, changeOrigin: true },
+    "/repos": { target, changeOrigin: true },
   } as Record<string, object>;
 
   // Skip WS proxy in CI — no backend is running; e2e tests mock all routes.

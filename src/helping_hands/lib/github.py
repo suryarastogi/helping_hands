@@ -646,6 +646,43 @@ class GitHubClient:
     # Issue helpers
     # ------------------------------------------------------------------
 
+    def list_issues(
+        self,
+        full_name: str,
+        *,
+        state: str = "open",
+        per_page: int = 30,
+    ) -> list[dict[str, Any]]:
+        """List issues for a repository.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            state: Filter by state (``open``, ``closed``, ``all``).
+            per_page: Maximum number of issues to return.
+
+        Returns:
+            A list of dicts with keys ``number``, ``title``, ``body``,
+            ``url``, ``state``, ``labels``, and ``user``.
+        """
+        repo = self.get_repo(full_name)
+        issues = repo.get_issues(state=state, sort="updated", direction="desc")
+        results: list[dict[str, Any]] = []
+        for issue in issues[:per_page]:
+            if issue.pull_request is not None:
+                continue
+            results.append(
+                {
+                    "number": issue.number,
+                    "title": issue.title,
+                    "body": issue.body or "",
+                    "url": issue.html_url,
+                    "state": issue.state,
+                    "labels": [label.name for label in issue.labels],
+                    "user": issue.user.login if issue.user else "",
+                }
+            )
+        return results
+
     def get_issue(self, full_name: str, number: int) -> dict[str, Any]:
         """Get details of a single issue.
 

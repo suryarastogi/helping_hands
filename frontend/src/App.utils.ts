@@ -71,8 +71,10 @@ export function filterEnabledBackends(
 export const DEFAULT_PROMPT =
   "Update README.md with results of your smoke test. Keep changes minimal and safe.";
 
+const DEFAULT_REPO = "suryarastogi/helping_hands";
+
 export const INITIAL_FORM: FormState = {
-  repo_path: "suryarastogi/helping_hands",
+  repo_path: DEFAULT_REPO,
   prompt: DEFAULT_PROMPT,
   backend: "claudecodecli",
   model: "claude-opus-4-6",
@@ -86,9 +88,9 @@ export const INITIAL_FORM: FormState = {
   enable_execution: false,
   enable_web: false,
   use_native_cli_auth: false,
-  fix_ci: false,
-  fix_conflicts: false,
-  master_rebase: false,
+  fix_ci: true,
+  fix_conflicts: true,
+  master_rebase: true,
   ci_check_wait_minutes: 3,
   github_token: "",
   reference_repos: "",
@@ -129,7 +131,7 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   schedule_type: "cron",
   cron_expression: "",
   interval_seconds: 300,
-  repo_path: "suryarastogi/helping_hands",
+  repo_path: DEFAULT_REPO,
   prompt: "",
   backend: "claudecodecli",
   model: "",

@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo } from "react";
+import { type FormEvent, useRef, useState, useEffect, useMemo } from "react";
 
 import type { Backend, FormState } from "../types";
 import { backendDisplayName, defaultModelForBackend } from "../App.utils";
@@ -9,7 +9,6 @@ export interface SubmissionFormProps {
   form: FormState;
   onFieldChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   onSubmit: (event: FormEvent) => void;
-  onGrillMe?: () => void;
   backends: Backend[];
   recentRepos?: string[];
   /** Whether the server has GITHUB_TOKEN set. When false, the token field becomes required. */
@@ -20,11 +19,30 @@ export default function SubmissionForm({
   form,
   onFieldChange,
   onSubmit,
-  onGrillMe,
   backends,
   recentRepos = [],
   serverHasGithubToken = true,
 }: SubmissionFormProps) {
+  const [expanded, setExpanded] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-expand when prompt contains newlines (e.g. pre-populated from issue)
+  useEffect(() => {
+    if (!expanded && form.prompt.includes("\n")) {
+      setExpanded(true);
+    }
+  }, [form.prompt, expanded]);
+
+  // Focus the newly-visible input after toggle
+  useEffect(() => {
+    if (expanded) {
+      textareaRef.current?.focus();
+    } else {
+      inputRef.current?.focus();
+    }
+  }, [expanded]);
+
   const tokenRequired = !serverHasGithubToken;
   const referenceChips = useMemo(
     () =>
@@ -52,20 +70,42 @@ export default function SubmissionForm({
             placeholder="owner/repo"
             ariaLabel="Repository path"
           />
-          <input
-            className="prompt-input"
+          {!expanded && (
+            <input
+              ref={inputRef}
+              className="prompt-input"
+              value={form.prompt}
+              onChange={(event) => onFieldChange("prompt", event.target.value)}
+              required
+              placeholder="Prompt"
+              aria-label="Task prompt"
+            />
+          )}
+          <button
+            type="button"
+            className={`prompt-toggle-btn${expanded ? " expanded" : ""}`}
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? "Switch to inline prompt" : "Switch to multiline prompt"}
+            title={expanded ? "Collapse" : "Expand"}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4,6 8,10 12,6" />
+            </svg>
+          </button>
+          <button type="submit" className="submit-inline">Run</button>
+        </div>
+        <div className={`prompt-expanded-row${expanded ? " open" : ""}`} aria-hidden={!expanded}>
+          <textarea
+            ref={textareaRef}
+            className="prompt-input prompt-multiline"
             value={form.prompt}
             onChange={(event) => onFieldChange("prompt", event.target.value)}
-            required
-            placeholder="Prompt"
+            required={expanded}
+            placeholder="Prompt (multiline)"
             aria-label="Task prompt"
+            rows={6}
+            tabIndex={expanded ? 0 : -1}
           />
-          <button type="submit" className="submit-inline">Run</button>
-          {onGrillMe && (
-            <button type="button" className="grill-me-btn" onClick={onGrillMe}>
-              Grill Me
-            </button>
-          )}
         </div>
 
         <details className="compact-advanced">
@@ -106,25 +146,8 @@ export default function SubmissionForm({
                   }
                 />
               </label>
-              <label>
-                PR number
-                <input
-                  type="number"
-                  min={1}
-                  value={form.pr_number}
-                  onChange={(event) => onFieldChange("pr_number", event.target.value)}
-                />
-              </label>
             </div>
             <div className="row check-grid">
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.no_pr}
-                  onChange={(event) => onFieldChange("no_pr", event.target.checked)}
-                />
-                No PR
-              </label>
               <label className="check-row compact-check">
                 <input
                   type="checkbox"
@@ -141,30 +164,6 @@ export default function SubmissionForm({
                 />
                 Web
               </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.fix_ci}
-                  onChange={(event) => onFieldChange("fix_ci", event.target.checked)}
-                />
-                Fix CI
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.fix_conflicts}
-                  onChange={(event) => onFieldChange("fix_conflicts", event.target.checked)}
-                />
-                AI Fix Conflicts
-              </label>
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.master_rebase}
-                  onChange={(event) => onFieldChange("master_rebase", event.target.checked)}
-                />
-                AI Master Rebase
-              </label>
             </div>
             <div className="row">
               <label>
@@ -180,7 +179,7 @@ export default function SubmissionForm({
               </label>
             </div>
             <details className="compact-advanced">
-              <summary>GitHub Project</summary>
+              <summary>Advanced Github</summary>
               <div className="compact-advanced-body">
                 <div className="row two-col">
                   <label>
@@ -193,23 +192,50 @@ export default function SubmissionForm({
                       placeholder="Link to GitHub issue"
                     />
                   </label>
-                  <label className="checkbox">
+                  <label>
+                    PR number
                     <input
-                      type="checkbox"
-                      checked={form.create_issue}
-                      onChange={(event) => onFieldChange("create_issue", event.target.checked)}
+                      type="number"
+                      min={1}
+                      value={form.pr_number}
+                      onChange={(event) => onFieldChange("pr_number", event.target.value)}
                     />
-                    Create issue
                   </label>
                 </div>
-                <label>
-                  Project URL
-                  <input
-                    value={form.project_url}
-                    onChange={(event) => onFieldChange("project_url", event.target.value)}
-                    placeholder="https://github.com/orgs/myorg/projects/1"
-                  />
-                </label>
+                <div className="row check-grid">
+                  <label className="check-row compact-check">
+                    <input
+                      type="checkbox"
+                      checked={form.no_pr}
+                      onChange={(event) => onFieldChange("no_pr", event.target.checked)}
+                    />
+                    No PR
+                  </label>
+                  <label className="check-row compact-check">
+                    <input
+                      type="checkbox"
+                      checked={form.fix_ci}
+                      onChange={(event) => onFieldChange("fix_ci", event.target.checked)}
+                    />
+                    Fix CI
+                  </label>
+                  <label className="check-row compact-check">
+                    <input
+                      type="checkbox"
+                      checked={form.fix_conflicts}
+                      onChange={(event) => onFieldChange("fix_conflicts", event.target.checked)}
+                    />
+                    AI Fix Conflicts
+                  </label>
+                  <label className="check-row compact-check">
+                    <input
+                      type="checkbox"
+                      checked={form.master_rebase}
+                      onChange={(event) => onFieldChange("master_rebase", event.target.checked)}
+                    />
+                    AI Master Rebase
+                  </label>
+                </div>
               </div>
             </details>
             <div className="row">

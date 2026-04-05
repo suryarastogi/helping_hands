@@ -330,6 +330,31 @@ body {
   background: var(--primary-hover);
 }
 
+.sidebar-nav-button {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.sidebar-nav-button:hover {
+  color: var(--foreground);
+  border-color: var(--ring);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-nav-button.active {
+  color: var(--foreground);
+  border-color: var(--ring);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .grill-me-sidebar-btn {
   flex-shrink: 0;
   padding: 8px 12px;
@@ -350,6 +375,7 @@ body {
 
 .tutorial-button {
   width: 100%;
+  margin-top: 8px;
   margin-bottom: 10px;
   padding: 6px 12px;
   font-size: 0.78rem;
@@ -530,6 +556,62 @@ body {
   font-size: 0.84rem;
   padding: 8px 10px;
   border-radius: 8px;
+}
+
+.prompt-toggle-btn {
+  flex-shrink: 0;
+  width: 24px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.prompt-toggle-btn svg {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.prompt-toggle-btn.expanded svg {
+  transform: rotate(180deg);
+}
+
+.prompt-toggle-btn:hover {
+  color: var(--foreground);
+}
+
+/* Expandable multiline prompt row */
+.prompt-expanded-row {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s ease;
+}
+
+.prompt-expanded-row.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.prompt-expanded-row > .prompt-multiline {
+  overflow: hidden;
+  min-height: 0;
+  font-size: 0.84rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.prompt-expanded-row.open > .prompt-multiline {
+  min-height: 90px;
 }
 
 button.submit-inline {
@@ -6147,4 +6229,64 @@ button.worker-sprite:disabled .worker-caption {
 .grill-continue-btn:hover {
   color: var(--foreground);
   border-color: var(--ring);
+}
+
+/* ── Submit Issue overlay ──────────────────────────────────── */
+
+.issue-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.issue-row {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #0b1326;
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.issue-row:hover {
+  border-color: var(--ring);
+  background: #101a31;
+}
+
+.issue-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.issue-row-top code {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: #93c5fd;
+  flex-shrink: 0;
+}
+
+.issue-title {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-row-meta {
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

@@ -6,6 +6,7 @@ export type TaskListSidebarProps = {
   showSubmissionOverlay: boolean;
   onNewSubmission: () => void;
   onGrillMe?: () => void;
+  onSubmitIssue: () => void;
   onToggleSchedules: () => void;
   onStartTutorial: () => void;
   taskHistory: TaskHistoryItem[];
@@ -21,6 +22,7 @@ export default function TaskListSidebar({
   showSubmissionOverlay,
   onNewSubmission,
   onGrillMe,
+  onSubmitIssue,
   onToggleSchedules,
   onStartTutorial,
   taskHistory,
@@ -75,10 +77,17 @@ export default function TaskListSidebar({
           )}
           <button
             type="button"
-            className={`new-submission-button${
+            className="new-submission-button"
+            style={{ marginTop: 0 }}
+            onClick={onSubmitIssue}
+          >
+            Submit Issue
+          </button>
+          <button
+            type="button"
+            className={`sidebar-nav-button${
               mainView === "schedules" ? " active" : ""
             }`}
-            style={{ marginTop: 0 }}
             onClick={onToggleSchedules}
           >
             Scheduled tasks
