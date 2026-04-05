@@ -6,12 +6,15 @@ backend-specific runtime objects used by hand implementations.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any
 
 from helping_hands.lib.ai_providers import PROVIDERS, AIProvider
 from helping_hands.lib.validation import require_non_empty_string
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "PROVIDER_API_KEY_ENV",
@@ -129,10 +132,15 @@ def resolve_hand_model(model: str | None) -> HandModel:
 
     if "/" in raw:
         maybe_provider, maybe_model = raw.split("/", 1)
-        provider = PROVIDERS.get(maybe_provider)
+        provider = PROVIDERS.get(maybe_provider.strip())
         if provider is not None:
             resolved_model = maybe_model.strip() or provider.default_model
             return HandModel(provider=provider, model=resolved_model, raw=raw)
+        logger.warning(
+            "Unknown provider %r in model string %r; falling back to inference.",
+            maybe_provider.strip(),
+            raw,
+        )
 
     inferred = _infer_provider_name(raw)
     provider = PROVIDERS[inferred]
@@ -179,6 +187,7 @@ def _infer_provider_name(model: str) -> str:
 def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any:
     """Build a LangChain chat model from a resolved hand model."""
     require_non_empty_string(hand_model.model, "hand_model.model")
+    require_non_empty_string(hand_model.provider.name, "hand_model.provider.name")
     provider = hand_model.provider.name
     if provider == _PROVIDER_OPENAI:
         from langchain_openai import ChatOpenAI
@@ -224,6 +233,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
 def build_atomic_client(hand_model: HandModel) -> Any:
     """Build an atomic-agents instructor client from a resolved hand model."""
     require_non_empty_string(hand_model.model, "hand_model.model")
+    require_non_empty_string(hand_model.provider.name, "hand_model.provider.name")
     import instructor
 
     provider = hand_model.provider.name

@@ -151,8 +151,14 @@ class Config:
         raw_tool_selection = merged.get("enabled_tools", cls.enabled_tools)
         if isinstance(raw_tool_selection, bool):
             normalized_tools_input: str | tuple[str, ...] | None = ()
-        else:
+        elif isinstance(raw_tool_selection, str | tuple | list | None):
             normalized_tools_input = raw_tool_selection
+        else:
+            logger.warning(
+                "Unexpected type for enabled_tools: %s; defaulting to empty.",
+                type(raw_tool_selection).__name__,
+            )
+            normalized_tools_input = ()
 
         raw_ref_repos = merged.get("reference_repos", cls.reference_repos)
         if isinstance(raw_ref_repos, str):

@@ -11,7 +11,8 @@ shared git clone utility extraction, token helper extraction, test
 consolidation cleanup, `--list-backends` enabled status enrichment,
 `--list-tools` CLI flag with registry coverage completion,
 backend descriptions enrichment for `--list-backends`,
-and coverage accuracy improvement (dynamic server omit & pragma cleanup).
+coverage accuracy improvement (dynamic server omit & pragma cleanup),
+and model provider & config validation hardening.
 
 ---
 
@@ -465,3 +466,26 @@ Added `exclude_lines` patterns. Updated fixture-usage test to skip pytest
 hooks.
 
 **18 new tests. 6997 total tests. 99.93% coverage.**
+
+---
+
+## Apr 5 — Model Provider & Config Validation Hardening (v377)
+
+Hardened input validation across model resolution, AI provider completion,
+and config loading:
+
+- **Provider name `strip()`**: `resolve_hand_model()` now strips whitespace
+  from the provider portion of `provider/model` strings before dict lookup.
+- **Unknown provider warning**: When an explicit `provider/model` format
+  specifies an unrecognized provider, a `logger.warning()` is emitted
+  before falling back to inference (was completely silent).
+- **Unified `require_non_empty_string`**: `AIProvider.complete()` now uses
+  the shared validation helper instead of inline checks, matching the
+  pattern in `build_langchain_chat_model()` and `build_atomic_client()`.
+- **Type guards on `provider.name`**: Both build functions now validate
+  `hand_model.provider.name` is a non-empty string at entry.
+- **Config `enabled_tools` hardening**: `Config.from_env()` now explicitly
+  checks for expected types and logs a warning for unexpected types (e.g.
+  `int`, `dict`) instead of passing them through.
+
+**19 new tests. 7016 total tests. 99.93% coverage.**

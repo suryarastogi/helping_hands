@@ -4,6 +4,16 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Model Provider & Config Validation Hardening (2026-04-05) — Completed
+
+Hardened input validation across model resolution, AI provider completion,
+and config loading. Provider name `strip()` in `resolve_hand_model()`,
+warning on unknown explicit provider, unified `require_non_empty_string`
+in `AIProvider.complete()`, type guards on `provider.name` in build
+functions, and `Config.from_env()` enabled_tools type coercion hardening.
+19 new tests. 7016 total tests pass. Coverage: 99.93%.
+See [v377 plan](docs/exec-plans/active/v377-model-provider-and-config-hardening.md).
+
 ### Coverage Accuracy: Dynamic Server Omit & Pragma Cleanup (2026-04-05) — Completed
 
 Default `uv run pytest` now reports **99.93% coverage** (was 76.55%). Three
