@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v383 — Docstring Completion & CLI Introspection Design Doc](exec-plans/completed/2026/v383-docstring-completion-and-cli-introspection-design-doc.md) — Add missing docstrings, create cli-introspection.md design doc; 17 tests
+
 - [2026-04-05 v382 — CLI Heartbeat-Without-Timeout Branch Coverage](exec-plans/completed/2026/v382-cli-heartbeat-branch-coverage.md) — Cover False branch of heartbeat check in IO loop (1284→1293); resolve tech debt item; 1 tests
 
 - [2026-04-05 v381 — Boundary Input Validation Hardening](exec-plans/completed/2026/v381-boundary-input-validation-hardening.md) — Defensive dict access in model_provider, depth validation in git clone, RepoIndex type guard; 10 tests

@@ -556,3 +556,17 @@ to the idle-timeout check. Used mocked `asyncio.get_running_loop().time()`
 to control time progression. Resolved tech debt tracker item.
 
 **1 new test. Coverage: 99.93% → 99.94%.**
+
+---
+
+## Apr 5 — Docstring Completion & CLI Introspection Design Doc (v383)
+
+Added Google-style docstrings to 4 public items missing them:
+`BasicLangGraphHand.__init__()`, `BasicAtomicHand.__init__()`,
+`ArcadeScoreEntry`, and `ArcadeScoreSubmit`. Created
+`docs/design-docs/cli-introspection.md` consolidating design decisions for
+all CLI self-service features (`--version`, `--list-backends`, `--list-tools`,
+`doctor`, interactive mode, first-run banner). Added to design-docs index
+and docs/index.md parenthetical.
+
+**17 new tests. 7066 total tests. 99.94% coverage.**

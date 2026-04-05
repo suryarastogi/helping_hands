@@ -2911,6 +2911,8 @@ _MAX_HIGH_SCORES = 10
 
 
 class ArcadeScoreEntry(BaseModel):
+    """A single entry on the arcade high-score leaderboard."""
+
     name: str = Field(..., max_length=24)
     score: int = Field(..., ge=0)
     wave: int = Field(..., ge=1)
@@ -2918,6 +2920,8 @@ class ArcadeScoreEntry(BaseModel):
 
 
 class ArcadeScoreSubmit(BaseModel):
+    """Request body for submitting an arcade score."""
+
     name: str = Field(..., max_length=24)
     score: int = Field(..., ge=0)
     wave: int = Field(..., ge=1)

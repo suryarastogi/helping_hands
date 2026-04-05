@@ -4,6 +4,15 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Docstring Completion & CLI Introspection Design Doc (2026-04-05) — Completed
+
+Added Google-style docstrings to 4 public items: `BasicLangGraphHand.__init__()`,
+`BasicAtomicHand.__init__()`, `ArcadeScoreEntry`, `ArcadeScoreSubmit`. Created
+`docs/design-docs/cli-introspection.md` consolidating design decisions for
+`--version`, `--list-backends`, `--list-tools`, `doctor`, and interactive mode.
+17 new tests. 7066 total tests pass. Coverage: 99.94%.
+See [v383 plan](docs/exec-plans/completed/2026/v383-docstring-completion-and-cli-introspection-design-doc.md).
+
 ### CLI Heartbeat-Without-Timeout Branch Coverage (2026-04-05) — Completed
 
 Cover the False branch of the heartbeat check (line 1284→1293) in
