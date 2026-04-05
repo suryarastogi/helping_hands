@@ -336,3 +336,19 @@ class TestFormatToolInstructionsForCli:
         cats = resolve_tool_categories(("execution",))
         result = format_tool_instructions_for_cli(cats)
         assert "Tool category enabled: execution" in result
+
+    def test_unknown_tool_skips_guidance(self) -> None:
+        """Tool with no _CLI_TOOL_GUIDANCE entry is silently skipped."""
+        unknown_tool = ToolSpec(
+            name="custom.unknown_tool",
+            payload_example={},
+            runner=lambda root, payload: None,
+        )
+        cat = ToolCategory(
+            name="custom",
+            title="Custom tools",
+            tools=(unknown_tool,),
+        )
+        result = format_tool_instructions_for_cli((cat,))
+        assert "Tool category enabled: custom" in result
+        assert "custom.unknown_tool" not in result

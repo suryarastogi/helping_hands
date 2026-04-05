@@ -518,3 +518,16 @@ verifying all listed file paths exist on disk and all source modules are
 mentioned. Created `docs/exec-plans/index.md` for plan navigation.
 
 **7 new tests.**
+
+---
+
+## Apr 5 — Registry Coverage Completion & Runner Test Hardening (v380)
+
+Closed the last registry branch partial (line 560→558 in
+`format_tool_instructions_for_cli` — tool with no `_CLI_TOOL_GUIDANCE` entry).
+Added dedicated `TestParseRequiredStr` class with 9 tests covering valid input,
+missing key, None, empty string, whitespace, int, bool, and list rejection.
+Added custom-params forwarding tests for `_run_python_script` (1 test) and
+`_run_bash_script` (2 tests: script_path and inline_script variants).
+
+**13 new tests. 7038 total tests. 99.93% coverage. Registry: 100%.**

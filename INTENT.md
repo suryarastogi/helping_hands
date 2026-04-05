@@ -4,13 +4,22 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### ARCHITECTURE.md Refresh & Exec-Plan Index (2026-04-05) — In Progress
+### Registry Coverage Completion & Runner Test Hardening (2026-04-05) — In Progress
+
+Close the last registry branch partial (line 560→558 in
+`format_tool_instructions_for_cli`). Add dedicated `TestParseRequiredStr`
+validator tests (9 tests). Add custom-params forwarding tests for
+`_run_python_script` and `_run_bash_script` runners (3 tests). Registry
+coverage: 99% → 100%. 13 new tests.
+See [v380 plan](docs/exec-plans/active/v380-registry-coverage-completion.md).
+
+### ARCHITECTURE.md Refresh & Exec-Plan Index (2026-04-05) — Completed
 
 Update stale ARCHITECTURE.md (last updated 2026-03-07) to reflect ~30 days of
 new modules and features. Add structural accuracy tests verifying all listed
 file paths exist and all source modules are mentioned. Create
 `docs/exec-plans/index.md` for navigation. 7 new tests.
-See [v379 plan](docs/exec-plans/active/v379-architecture-refresh-and-exec-plan-index.md).
+See [v379 plan](docs/exec-plans/completed/2026/v379-architecture-refresh-and-exec-plan-index.md).
 
 ### MCP Bash Script Validation Tests & Plan Hygiene (2026-04-05) — Completed
 

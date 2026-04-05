@@ -120,6 +120,30 @@ class TestRunPythonScript:
             cwd=None,
         )
 
+    @patch("helping_hands.lib.meta.tools.registry.command_tools.run_python_script")
+    def test_custom_params(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        mock_run.return_value = MagicMock()
+
+        _run_python_script(
+            tmp_path,
+            {
+                "script_path": "tasks/build.py",
+                "python_version": "3.12",
+                "args": ["--verbose", "--dry-run"],
+                "timeout_s": 120,
+                "cwd": "workspace",
+            },
+        )
+
+        mock_run.assert_called_once_with(
+            tmp_path,
+            script_path="tasks/build.py",
+            python_version="3.12",
+            args=["--verbose", "--dry-run"],
+            timeout_s=120,
+            cwd="workspace",
+        )
+
 
 # ---------------------------------------------------------------------------
 # _run_bash_script
@@ -180,6 +204,56 @@ class TestRunBashScript:
             _run_bash_script(
                 tmp_path, {"script_path": "run.sh", "inline_script": "echo hi"}
             )
+
+    @patch("helping_hands.lib.meta.tools.registry.command_tools.run_bash_script")
+    def test_custom_params_script_path(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.return_value = MagicMock()
+
+        _run_bash_script(
+            tmp_path,
+            {
+                "script_path": "deploy.sh",
+                "args": ["--env", "prod"],
+                "timeout_s": 300,
+                "cwd": "infra",
+            },
+        )
+
+        mock_run.assert_called_once_with(
+            tmp_path,
+            script_path="deploy.sh",
+            inline_script=None,
+            args=["--env", "prod"],
+            timeout_s=300,
+            cwd="infra",
+        )
+
+    @patch("helping_hands.lib.meta.tools.registry.command_tools.run_bash_script")
+    def test_custom_params_inline_script(
+        self, mock_run: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_run.return_value = MagicMock()
+
+        _run_bash_script(
+            tmp_path,
+            {
+                "inline_script": "set -e && make build",
+                "args": ["target"],
+                "timeout_s": 90,
+                "cwd": "src",
+            },
+        )
+
+        mock_run.assert_called_once_with(
+            tmp_path,
+            script_path=None,
+            inline_script="set -e && make build",
+            args=["target"],
+            timeout_s=90,
+            cwd="src",
+        )
 
 
 # ---------------------------------------------------------------------------

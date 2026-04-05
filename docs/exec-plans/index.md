@@ -39,7 +39,7 @@ organized by:
 
 ## Conventions
 
-- Plan numbers are monotonically increasing (`v379`, `v380`, ...).
+- Plan numbers are monotonically increasing (`v380`, `v381`, ...).
 - Active plans move to `completed/` when all tasks are done.
 - Daily consolidations capture same-day plan completions.
 - Weekly consolidations roll up daily files at week boundaries.

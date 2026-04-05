@@ -4,9 +4,11 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v379 — ARCHITECTURE.md Refresh & Exec-Plan Index](exec-plans/active/v379-architecture-refresh-and-exec-plan-index.md) — Update stale ARCHITECTURE.md, add accuracy tests, create exec-plans index
+- [v380 — Registry Coverage Completion & Runner Test Hardening](exec-plans/active/v380-registry-coverage-completion.md) — Close last registry branch partial, add _parse_required_str tests, runner custom-params tests
 
 ## Completed plans
+
+- [2026-04-05 v379 — ARCHITECTURE.md Refresh & Exec-Plan Index](exec-plans/completed/2026/v379-architecture-refresh-and-exec-plan-index.md) — Update stale ARCHITECTURE.md, add accuracy tests, create exec-plans index; 7 tests
 
 - [2026-04-05 v378 — MCP Bash Script Validation Tests & Plan Hygiene](exec-plans/completed/2026/v378-mcp-bash-validation-and-plan-hygiene.md) — Close last 2 uncovered MCP server lines, plan housekeeping; 2 tests, 7018 total
 
