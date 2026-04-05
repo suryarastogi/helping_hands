@@ -101,6 +101,20 @@ _BACKEND_ENABLED_ENV_VARS: dict[str, str] = {
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
+# Verify every supported backend has an env-var entry and vice-versa.
+_missing_env = SUPPORTED_BACKENDS - _BACKEND_ENABLED_ENV_VARS.keys()
+_extra_env = _BACKEND_ENABLED_ENV_VARS.keys() - SUPPORTED_BACKENDS
+if _missing_env or _extra_env:
+    _parts: list[str] = []
+    if _missing_env:
+        _parts.append(f"backends without env vars: {sorted(_missing_env)}")
+    if _extra_env:
+        _parts.append(f"env vars without backends: {sorted(_extra_env)}")
+    raise RuntimeError(
+        "SUPPORTED_BACKENDS / _BACKEND_ENABLED_ENV_VARS mismatch: " + "; ".join(_parts)
+    )
+del _missing_env, _extra_env
+
 
 def get_enabled_backends() -> list[str]:
     """Return the list of backends that are explicitly enabled via env vars.

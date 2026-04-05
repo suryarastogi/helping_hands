@@ -341,3 +341,23 @@ had no coverage beyond runner wrappers and validator helpers:
   execution/web guidance without @@TOOL blocks, category header present
 
 **52 new tests. 97 total registry tests. Registry coverage: 66%.**
+
+---
+
+## Apr 5 — Validation & Factory Hardening (v368)
+
+Two defensive hardening changes:
+
+- **`validate_repo_value()` type guard**: Added `isinstance` check raising
+  `TypeError` for non-string input. Previously, passing `None`, `int`, or
+  `list` raised `AttributeError` on `.strip()` instead of a clear error.
+  Aligns with every other validation function in the module.
+  (4 tests: int, None, list, bool)
+
+- **Factory backend/env-var consistency**: Added module-level assertion that
+  `SUPPORTED_BACKENDS` keys match `_BACKEND_ENABLED_ENV_VARS` keys. Catches
+  future mismatches at import time rather than silently returning wrong results
+  from `get_enabled_backends()`.
+  (3 tests: import succeeds, sets match, env-var values non-empty)
+
+**7 new tests.**

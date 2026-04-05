@@ -4,7 +4,12 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-*(none)*
+### Validation & Factory Hardening (2026-04-05) — In Progress
+
+Add missing boundary validation to `validate_repo_value()` (type guard) and
+module-level consistency check in `factory.py` (SUPPORTED_BACKENDS must match
+`_BACKEND_ENABLED_ENV_VARS` keys). 7 new tests.
+See [v368 plan](docs/exec-plans/active/v368-validation-and-factory-hardening.md).
 
 ## Recently Completed
 

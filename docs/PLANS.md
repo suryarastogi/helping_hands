@@ -4,9 +4,11 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v367 — Registry Public API Test Coverage](exec-plans/active/v367-registry-public-api-coverage.md) — Dedicated tests for registry selection, validation, resolution, merging, and formatting functions; 52 tests
+- [v368 — Validation & Factory Hardening](exec-plans/active/v368-validation-and-factory-hardening.md) — Add type guard to `validate_repo_value()`, factory backend/env-var consistency assertion; 7 tests
 
 ## Completed plans
+
+- [2026-04-05 v367 — Registry Public API Test Coverage](exec-plans/completed/2026/v367-registry-public-api-coverage.md) — Dedicated tests for registry selection, validation, resolution, merging, and formatting functions; 52 tests
 
 - [2026-04-05 v366 — Remaining Server Coverage Gaps](exec-plans/completed/2026/v366-remaining-server-coverage-gaps.md) — Close last coverage gaps in server modules; grill endpoints, interval chain, redis client, lifespan; 10 tests, 99.44% coverage
 

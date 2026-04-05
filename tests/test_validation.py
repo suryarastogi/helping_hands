@@ -445,3 +445,21 @@ class TestValidateRepoValue:
             validate_repo_value("/home/user/repos/my-repo")
             == "/home/user/repos/my-repo"
         )
+
+    # --- Type guard (v368) ---
+
+    def test_non_string_int_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got int"):
+            validate_repo_value(42)  # type: ignore[arg-type]
+
+    def test_non_string_none_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got NoneType"):
+            validate_repo_value(None)  # type: ignore[arg-type]
+
+    def test_non_string_list_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got list"):
+            validate_repo_value(["owner/repo"])  # type: ignore[arg-type]
+
+    def test_non_string_bool_raises_type_error(self) -> None:
+        with pytest.raises(TypeError, match="repo must be a string, got bool"):
+            validate_repo_value(True)  # type: ignore[arg-type]

@@ -1,7 +1,7 @@
 # v367 — Registry Public API Test Coverage
 
 **Created:** 2026-04-05
-**Status:** Active
+**Status:** Completed
 **Theme:** Close test gaps in registry.py public API functions that lack dedicated coverage
 
 ## Context

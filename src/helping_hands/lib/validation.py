@@ -147,8 +147,11 @@ def validate_repo_value(value: str) -> str:
         The stripped value.
 
     Raises:
+        TypeError: If *value* is not a string.
         ValueError: If the value fails validation.
     """
+    if not isinstance(value, str):
+        raise TypeError(format_type_error("repo", "a string", value))
     stripped = value.strip()
     if not stripped:
         raise ValueError("repo must not be empty")

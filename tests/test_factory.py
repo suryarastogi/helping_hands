@@ -440,3 +440,35 @@ class TestCreateHand:
                 max_iterations=5,
             )
         mock_cls.assert_called_once_with(fake_config, repo_index, max_iterations=5)
+
+
+# ---------------------------------------------------------------------------
+# Backend/env-var consistency (v368)
+# ---------------------------------------------------------------------------
+
+
+class TestBackendEnvVarConsistency:
+    """Verify module-level consistency check between SUPPORTED_BACKENDS and env vars."""
+
+    def test_import_succeeds(self) -> None:
+        """Module imports without RuntimeError, meaning sets are in sync."""
+        from helping_hands.lib.hands.v1.hand import factory  # noqa: F401
+
+    def test_every_backend_has_env_var(self) -> None:
+        """Every SUPPORTED_BACKENDS entry must have a _BACKEND_ENABLED_ENV_VARS key."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _BACKEND_ENABLED_ENV_VARS,
+            SUPPORTED_BACKENDS,
+        )
+
+        assert _BACKEND_ENABLED_ENV_VARS.keys() == SUPPORTED_BACKENDS
+
+    def test_env_var_values_are_nonempty_strings(self) -> None:
+        """Every env-var value should be a non-empty string."""
+        from helping_hands.lib.hands.v1.hand.factory import (
+            _BACKEND_ENABLED_ENV_VARS,
+        )
+
+        for backend, env_var in _BACKEND_ENABLED_ENV_VARS.items():
+            assert isinstance(env_var, str), f"{backend} env var is not a string"
+            assert env_var, f"{backend} has empty env var name"
