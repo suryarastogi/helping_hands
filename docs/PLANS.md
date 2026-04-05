@@ -8,6 +8,8 @@ Index of execution plans for helping_hands development.
 
 ## Completed plans
 
+- [2026-04-05 v387 — GrillMeOverlay & useGrillSession Test Suites](exec-plans/completed/2026/v387-grillme-overlay-and-usegrillsession-tests.md) — GrillMeOverlay (43 tests) and useGrillSession (27 tests) frontend test suites; 70 frontend tests, 884 total
+
 - [2026-04-05 v386 — ChatPanel & OnboardingOverlay Test Suites](exec-plans/completed/2026/v386-chatpanel-onboarding-overlay-tests.md) — ChatPanel (47 tests) and OnboardingOverlay (20 tests) frontend component test suites; 67 frontend tests, 814 total
 
 - [2026-04-05 v385 — Frontend Component Test Coverage & Backend Docstring Polish](exec-plans/completed/2026/v385-frontend-coverage-and-docstring-polish.md) — DiffView, FileExplorer, useOnboarding test suites + Config.from_env() docstring; 66 frontend tests

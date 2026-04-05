@@ -4,6 +4,22 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### GrillMeOverlay & useGrillSession Test Suites (2026-04-05) — Completed
+
+Added test suites for the two remaining untested Grill Me frontend modules:
+GrillMeOverlay (43 tests) and useGrillSession (27 tests). GrillMeOverlay tests
+cover overlay structure (close, backdrop), phase titles, form phase (fields,
+submit, loading, error, token star), chat phase (messages, system grouping,
+thinking indicator, input mechanics, Enter/Shift+Enter, Wrap Up), plan phase
+(content, submit/continue actions), and markdown rendering (code blocks, bold,
+italic, headers, lists, inline code, HTML escaping). useGrillSession tests
+cover initial state, startSession (success, errors, null model, empty refs),
+sendMessage (optimistic messages, errors), requestPlan (end type, errors),
+polling (deduplication, plan detection, terminal states, thinking/active
+status, error resilience), reset, and unmount cleanup. 70 new frontend tests.
+884 total frontend tests pass. No production code changes.
+See [v387 plan](docs/exec-plans/completed/2026/v387-grillme-overlay-and-usegrillsession-tests.md).
+
 ### ChatPanel & OnboardingOverlay Test Suites (2026-04-05) — Completed
 
 Added test suites for two previously-untested frontend components: ChatPanel
