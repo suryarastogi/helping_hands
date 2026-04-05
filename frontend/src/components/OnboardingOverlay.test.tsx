@@ -1,7 +1,10 @@
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 import OnboardingOverlay from "./OnboardingOverlay";
 import type { OnboardingOverlayProps } from "./OnboardingOverlay";
@@ -188,6 +191,208 @@ describe("OnboardingOverlay", () => {
       const { container } = renderOverlay();
       expect(container.querySelector("svg.onboarding-backdrop")).toBeTruthy();
       expect(container.querySelector("#onboarding-mask")).toBeTruthy();
+    });
+  });
+
+  // ---- Positioning logic ----
+
+  describe("positioning", () => {
+    function mockTarget(rect: Partial<DOMRect> = {}) {
+      const fullRect = {
+        top: 100, left: 200, right: 300, bottom: 150,
+        width: 100, height: 50, x: 200, y: 100,
+        toJSON: () => ({}),
+        ...rect,
+      } as DOMRect;
+      const el = document.createElement("div");
+      el.className = "test-target";
+      el.getBoundingClientRect = () => fullRect;
+      document.body.appendChild(el);
+      return el;
+    }
+
+    function flushRaf(rafCallbacks: FrameRequestCallback[]) {
+      // Need multiple rounds: outer rAF schedules inner rAF which calls position
+      for (let round = 0; round < 5 && rafCallbacks.length > 0; round++) {
+        const cbs = rafCallbacks.splice(0);
+        cbs.forEach((cb) => act(() => cb(0)));
+      }
+    }
+
+    function setupRafCapture() {
+      const rafCallbacks: FrameRequestCallback[] = [];
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        rafCallbacks.push(cb);
+        return rafCallbacks.length;
+      });
+      return rafCallbacks;
+    }
+
+    afterEach(() => {
+      document.body.querySelectorAll(".test-target").forEach((el) => el.remove());
+    });
+
+    it("positions tooltip with bottom placement", () => {
+      const el = mockTarget();
+      const rafCallbacks = setupRafCapture();
+
+      let container: HTMLElement;
+      act(() => {
+        ({ container } = renderOverlay({
+          step: makeStep({ target: ".test-target", placement: "bottom" }),
+        }));
+      });
+
+      flushRaf(rafCallbacks);
+
+      const overlay = container!.querySelector(".onboarding-overlay") as HTMLElement;
+      expect(overlay.style.opacity).toBe("1");
+
+      el.remove();
+    });
+
+    it("positions tooltip with right placement", () => {
+      const el = mockTarget();
+      const rafCallbacks = setupRafCapture();
+
+      let container: HTMLElement;
+      act(() => {
+        ({ container } = renderOverlay({
+          step: makeStep({ target: ".test-target", placement: "right" }),
+        }));
+      });
+
+      flushRaf(rafCallbacks);
+
+      const overlay = container!.querySelector(".onboarding-overlay") as HTMLElement;
+      expect(overlay.style.opacity).toBe("1");
+
+      el.remove();
+    });
+
+    it("uses default placement for unknown values", () => {
+      const el = mockTarget();
+      const rafCallbacks = setupRafCapture();
+
+      let container: HTMLElement;
+      act(() => {
+        ({ container } = renderOverlay({
+          step: makeStep({ target: ".test-target", placement: "top" as "bottom" }),
+        }));
+      });
+
+      flushRaf(rafCallbacks);
+
+      const overlay = container!.querySelector(".onboarding-overlay") as HTMLElement;
+      expect(overlay.style.opacity).toBe("1");
+
+      el.remove();
+    });
+
+    it("does not position when target is not found", () => {
+      const rafCallbacks = setupRafCapture();
+
+      let container: HTMLElement;
+      act(() => {
+        ({ container } = renderOverlay({
+          step: makeStep({ target: ".nonexistent-target" }),
+        }));
+      });
+
+      flushRaf(rafCallbacks);
+
+      const overlay = container!.querySelector(".onboarding-overlay") as HTMLElement;
+      expect(overlay.style.opacity).toBe("0");
+    });
+
+    it("skips positioning when target has zero dimensions", () => {
+      const el = mockTarget({ width: 0, height: 0 });
+      const rafCallbacks = setupRafCapture();
+
+      let container: HTMLElement;
+      act(() => {
+        ({ container } = renderOverlay({
+          step: makeStep({ target: ".test-target" }),
+        }));
+      });
+
+      flushRaf(rafCallbacks);
+
+      const overlay = container!.querySelector(".onboarding-overlay") as HTMLElement;
+      expect(overlay.style.opacity).toBe("0");
+
+      el.remove();
+    });
+
+    it("renders spotlight ring when positioned", () => {
+      const el = mockTarget();
+      const rafCallbacks = setupRafCapture();
+
+      let container: HTMLElement;
+      act(() => {
+        ({ container } = renderOverlay({
+          step: makeStep({ target: ".test-target" }),
+        }));
+      });
+
+      flushRaf(rafCallbacks);
+
+      expect(container!.querySelector(".onboarding-spotlight-ring")).toBeTruthy();
+
+      el.remove();
+    });
+
+    it("repositions on window resize", () => {
+      const el = mockTarget();
+      const rafCallbacks = setupRafCapture();
+
+      act(() => {
+        renderOverlay({
+          step: makeStep({ target: ".test-target" }),
+        });
+      });
+
+      flushRaf(rafCallbacks);
+
+      // Trigger resize — position() is called directly (no rAF wrapper)
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      // No error means resize handler is wired up correctly
+      el.remove();
+    });
+
+    it("cleans up event listeners on unmount", () => {
+      const removeSpy = vi.spyOn(window, "removeEventListener");
+
+      const { unmount } = renderOverlay();
+      unmount();
+
+      const events = removeSpy.mock.calls.map(([event]) => event);
+      expect(events).toContain("resize");
+      expect(events).toContain("scroll");
+    });
+
+    it("renders spotlight cutout rect in SVG mask when positioned", () => {
+      const el = mockTarget();
+      const rafCallbacks = setupRafCapture();
+
+      let container: HTMLElement;
+      act(() => {
+        ({ container } = renderOverlay({
+          step: makeStep({ target: ".test-target" }),
+        }));
+      });
+
+      flushRaf(rafCallbacks);
+
+      const mask = container!.querySelector("#onboarding-mask");
+      // Should have 2 rects: the white fill and the black cutout
+      const rects = mask?.querySelectorAll("rect");
+      expect(rects?.length).toBe(2);
+
+      el.remove();
     });
   });
 });

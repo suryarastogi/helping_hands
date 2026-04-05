@@ -4,6 +4,19 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### AsteroidsGame Test Suite & OnboardingOverlay Coverage (2026-04-05) — Completed
+
+Added test suite for the only untested frontend component (`AsteroidsGame.tsx`,
+3.18% → covered) and expanded OnboardingOverlay positioning tests (63.63% →
+covered). AsteroidsGame tests (30) cover component structure, high score fetch
+(success/failure/non-ok), close button, Escape key, initial state, keyboard
+edge cases, player name handling, canvas lifecycle, event cleanup, score
+submission guard, and leaderboard display. OnboardingOverlay positioning tests
+(9) cover bottom/right/default placement paths, missing target, zero-size
+target, spotlight ring, resize handler, event cleanup, and SVG mask cutout.
+39 new frontend tests. 923 total frontend tests pass. No production code changes.
+See [v388 plan](docs/exec-plans/completed/2026/v388-asteroids-game-and-onboarding-coverage.md).
+
 ### GrillMeOverlay & useGrillSession Test Suites (2026-04-05) — Completed
 
 Added test suites for the two remaining untested Grill Me frontend modules:

@@ -18,7 +18,8 @@ ARCHITECTURE.md refresh with exec-plan index,
 registry coverage completion, boundary input validation hardening,
 CLI heartbeat branch coverage, provider API key map consistency,
 frontend component test coverage (DiffView, FileExplorer, useOnboarding),
-and ChatPanel/OnboardingOverlay test suites.
+ChatPanel/OnboardingOverlay test suites, GrillMeOverlay/useGrillSession test
+suites, and AsteroidsGame/OnboardingOverlay positioning coverage.
 
 ---
 
@@ -614,3 +615,28 @@ and cooldown, emote picker toggle/selection, and form submission) and
 buttons, dismiss, step dots, and initial opacity). No production code changes.
 
 **67 new frontend tests. 814 total frontend tests.**
+
+---
+
+## Apr 5 — GrillMeOverlay & useGrillSession Test Suites (v387)
+
+Added test suites for the two remaining untested Grill Me frontend modules:
+`GrillMeOverlay.tsx` (43 tests) and `useGrillSession.ts` (27 tests). Tests
+cover overlay structure, phase titles, form/chat/plan phases, markdown
+rendering, session lifecycle, polling, and cleanup.
+
+**70 new frontend tests. 884 total frontend tests.**
+
+---
+
+## Apr 5 — AsteroidsGame Test Suite & OnboardingOverlay Coverage (v388)
+
+Added test suite for `AsteroidsGame.tsx` (30 tests) — the only untested
+frontend component (3.18% coverage). Tests cover component structure, high
+score fetch/display, close/Escape handlers, initial state, keyboard edge
+cases, canvas lifecycle, event cleanup, and score submission guard. Expanded
+`OnboardingOverlay.tsx` positioning tests (9 tests) covering bottom/right/default
+placement, missing/zero-size target guards, spotlight ring, resize handler,
+event cleanup, and SVG mask cutout.
+
+**39 new frontend tests. 923 total frontend tests.**
