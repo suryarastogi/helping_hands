@@ -20,7 +20,7 @@ test("advanced settings expand on click", async ({ page }) => {
   // Initially collapsed — backend select not visible
   await expect(details.locator("select")).not.toBeVisible();
   // Expand
-  await details.locator("summary").click();
+  await details.locator("summary").first().click();
   await expect(details.locator("select").first()).toBeVisible();
 });
 
