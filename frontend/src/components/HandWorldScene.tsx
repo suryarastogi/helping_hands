@@ -205,10 +205,53 @@ export default function HandWorldScene({
 
         {/* Sky & mountains backdrop */}
         <div className="zen-sky" aria-hidden="true">
+          <div className="zen-aurora" />
+          <div className="zen-stars">
+            <span className="star star-1" />
+            <span className="star star-2" />
+            <span className="star star-3" />
+            <span className="star star-4" />
+            <span className="star star-5" />
+            <span className="star star-6" />
+            <span className="star star-7" />
+            <span className="star star-8" />
+            <span className="star star-9" />
+            <span className="star star-10" />
+            <span className="star star-11" />
+            <span className="star star-12" />
+          </div>
           <div className="zen-mountain zen-mountain-1" />
           <div className="zen-mountain zen-mountain-2" />
           <div className="zen-mountain zen-mountain-3" />
-          <div className="zen-moon" />
+          <div className="zen-moon">
+            <span className="moon-halo" />
+            <span className="moon-crater moon-crater-1" />
+            <span className="moon-crater moon-crater-2" />
+          </div>
+          <div className="zen-shooting-star" />
+          <div className="zen-cloud zen-cloud-1" />
+          <div className="zen-cloud zen-cloud-2" />
+          <div className="zen-cloud zen-cloud-3" />
+        </div>
+
+        {/* Atmospheric particles */}
+        <div className="zen-fireflies" aria-hidden="true">
+          <span className="firefly firefly-1" />
+          <span className="firefly firefly-2" />
+          <span className="firefly firefly-3" />
+          <span className="firefly firefly-4" />
+          <span className="firefly firefly-5" />
+          <span className="firefly firefly-6" />
+        </div>
+        <div className="zen-petals" aria-hidden="true">
+          <span className="petal petal-1" />
+          <span className="petal petal-2" />
+          <span className="petal petal-3" />
+          <span className="petal petal-4" />
+          <span className="petal petal-5" />
+          <span className="petal petal-6" />
+          <span className="petal petal-7" />
+          <span className="petal petal-8" />
         </div>
 
         {/* Garden decorations */}
@@ -233,6 +276,12 @@ export default function HandWorldScene({
         </div>
         <div className="zen-rock zen-rock-lg" aria-hidden="true" />
         <div className="zen-rock zen-rock-sm" aria-hidden="true" />
+        <div className="zen-pond" aria-hidden="true">
+          <span className="pond-water" />
+          <span className="pond-ripple pond-ripple-1" />
+          <span className="pond-ripple pond-ripple-2" />
+          <span className="pond-shimmer" />
+        </div>
 
         {/* Arcade machine (top-right) */}
         <div className={`hh-arcade${nearArcade ? " arcade-active" : ""}`} aria-hidden="true">
