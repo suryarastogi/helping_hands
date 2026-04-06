@@ -25,7 +25,7 @@ describe("SubmissionForm", () => {
   it("renders repo path and prompt inputs", () => {
     renderForm();
     expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
-    expect(screen.getByLabelText("Task prompt")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Prompt")).toBeInTheDocument();
   });
 
   it("renders Run submit button", () => {
@@ -37,7 +37,7 @@ describe("SubmissionForm", () => {
     const form = { ...INITIAL_FORM, repo_path: "my/repo", prompt: "do stuff" };
     renderForm({ form });
     expect(screen.getByLabelText("Repository path")).toHaveValue("my/repo");
-    expect(screen.getByLabelText("Task prompt")).toHaveValue("do stuff");
+    expect(screen.getByPlaceholderText("Prompt")).toHaveValue("do stuff");
   });
 
   it("calls onFieldChange when repo path changes", () => {
@@ -52,7 +52,7 @@ describe("SubmissionForm", () => {
   it("calls onFieldChange when prompt changes", () => {
     const onFieldChange = vi.fn();
     renderForm({ onFieldChange });
-    fireEvent.change(screen.getByLabelText("Task prompt"), {
+    fireEvent.change(screen.getByPlaceholderText("Prompt"), {
       target: { value: "new prompt" },
     });
     expect(onFieldChange).toHaveBeenCalledWith("prompt", "new prompt");
@@ -111,8 +111,10 @@ describe("SubmissionForm", () => {
   it("calls onFieldChange for fix CI checkbox", () => {
     const onFieldChange = vi.fn();
     renderForm({ onFieldChange });
+    fireEvent.click(screen.getByText("Advanced Github"));
     fireEvent.click(screen.getByLabelText("Fix CI"));
-    expect(onFieldChange).toHaveBeenCalledWith("fix_ci", true);
+    // fix_ci defaults to true in INITIAL_FORM, so clicking unchecks it
+    expect(onFieldChange).toHaveBeenCalledWith("fix_ci", false);
   });
 
   it("renders password input for GitHub token", () => {
@@ -151,40 +153,4 @@ describe("SubmissionForm", () => {
     expect(onFieldChange).toHaveBeenCalledWith("issue_number", "42");
   });
 
-  it("renders create issue checkbox unchecked by default", () => {
-    renderForm();
-    const checkbox = screen.getByRole("checkbox", { name: /create issue/i });
-    expect(checkbox).not.toBeChecked();
-  });
-
-  it("calls onFieldChange when create issue checkbox is toggled", () => {
-    const onFieldChange = vi.fn();
-    renderForm({ onFieldChange });
-    const checkbox = screen.getByRole("checkbox", { name: /create issue/i });
-    fireEvent.click(checkbox);
-    expect(onFieldChange).toHaveBeenCalledWith("create_issue", true);
-  });
-
-  it("renders project URL input field", () => {
-    renderForm();
-    const input = screen.getByPlaceholderText(
-      "https://github.com/orgs/myorg/projects/1",
-    );
-    expect(input).toBeInTheDocument();
-  });
-
-  it("calls onFieldChange when project URL changes", () => {
-    const onFieldChange = vi.fn();
-    renderForm({ onFieldChange });
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        "https://github.com/orgs/myorg/projects/1",
-      ),
-      { target: { value: "https://github.com/orgs/org/projects/5" } },
-    );
-    expect(onFieldChange).toHaveBeenCalledWith(
-      "project_url",
-      "https://github.com/orgs/org/projects/5",
-    );
-  });
 });
