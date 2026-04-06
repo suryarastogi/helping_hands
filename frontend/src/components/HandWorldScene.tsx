@@ -229,9 +229,12 @@ export default function HandWorldScene({
             <span className="moon-crater moon-crater-2" />
           </div>
           <div className="zen-shooting-star" />
+          <div className="zen-cloud zen-cloud-1" />
+          <div className="zen-cloud zen-cloud-2" />
+          <div className="zen-cloud zen-cloud-3" />
         </div>
 
-        {/* Ambient particles */}
+        {/* Atmospheric particles */}
         <div className="zen-fireflies" aria-hidden="true">
           <span className="firefly firefly-1" />
           <span className="firefly firefly-2" />
@@ -246,6 +249,9 @@ export default function HandWorldScene({
           <span className="petal petal-3" />
           <span className="petal petal-4" />
           <span className="petal petal-5" />
+          <span className="petal petal-6" />
+          <span className="petal petal-7" />
+          <span className="petal petal-8" />
         </div>
 
         {/* Garden decorations */}

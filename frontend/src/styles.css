@@ -2563,6 +2563,17 @@ h2 {
 .hand-world-card .header h1 {
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  background: linear-gradient(90deg, #e2e8f0, #fef9c3, #e2e8f0);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: title-shimmer 4s ease-in-out infinite;
+}
+
+@keyframes title-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .player-count-badge {
@@ -2612,6 +2623,16 @@ h2 {
   border: 4px solid #1e293b;
   box-shadow: inset 0 0 0 2px #334155;
   z-index: 0;
+}
+
+/* Subtle vignette overlay for depth */
+.zen-border::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0, 0, 0, 0.25) 100%);
+  pointer-events: none;
+  z-index: 99;
 }
 
 .zen-sand-floor {
@@ -2817,6 +2838,121 @@ h2 {
   0%, 90% { opacity: 0; transform: translate(0, 0); }
   92% { opacity: 1; }
   100% { opacity: 0; transform: translate(200px, 30px); }
+}
+
+/* ── Drifting Clouds ── */
+.zen-cloud {
+  position: absolute;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.zen-cloud-1 {
+  top: 25%;
+  left: -10%;
+  width: 40px;
+  height: 10px;
+  border-radius: 10px;
+  animation: cloud-drift 25s linear infinite;
+}
+
+.zen-cloud-2 {
+  top: 50%;
+  left: -15%;
+  width: 30px;
+  height: 8px;
+  border-radius: 8px;
+  opacity: 0.7;
+  animation: cloud-drift 35s linear infinite;
+  animation-delay: 8s;
+}
+
+.zen-cloud-3 {
+  top: 15%;
+  left: -8%;
+  width: 24px;
+  height: 6px;
+  border-radius: 6px;
+  opacity: 0.5;
+  animation: cloud-drift 30s linear infinite;
+  animation-delay: 15s;
+}
+
+@keyframes cloud-drift {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(100% + 400px)); }
+}
+
+/* ── Fireflies ── */
+.zen-fireflies {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.firefly {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: #fde68a;
+  border-radius: 50%;
+  box-shadow: 0 0 6px 2px rgba(253, 230, 138, 0.5);
+  animation: firefly-drift 6s ease-in-out infinite alternate;
+}
+
+.firefly-1 { left: 20%; top: 35%; animation-delay: 0s; animation-duration: 7s; }
+.firefly-2 { left: 55%; top: 65%; animation-delay: 1.5s; animation-duration: 5s; }
+.firefly-3 { left: 35%; top: 80%; animation-delay: 3s; animation-duration: 8s; }
+.firefly-4 { left: 70%; top: 40%; animation-delay: 2s; animation-duration: 6s; width: 2px; height: 2px; }
+.firefly-5 { left: 15%; top: 70%; animation-delay: 4s; animation-duration: 9s; width: 2px; height: 2px; }
+.firefly-6 { left: 80%; top: 75%; animation-delay: 0.8s; animation-duration: 7s; }
+
+@keyframes firefly-drift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: 0.8; }
+  50% { transform: translate(15px, -10px); opacity: 0.4; }
+  85% { opacity: 0.9; }
+  100% { transform: translate(-10px, 8px); opacity: 0; }
+}
+
+/* ── Falling Cherry Blossom Petals ── */
+.zen-petals {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.petal {
+  position: absolute;
+  top: -8px;
+  width: 5px;
+  height: 5px;
+  background: radial-gradient(ellipse, #fda4af, #fb7185);
+  border-radius: 50% 0 50% 0;
+  opacity: 0;
+  animation: petal-fall linear infinite;
+}
+
+.petal-1 { left: 12%; animation-duration: 10s; animation-delay: 0s; }
+.petal-2 { left: 28%; animation-duration: 12s; animation-delay: 3s; width: 4px; height: 4px; }
+.petal-3 { left: 52%; animation-duration: 11s; animation-delay: 6s; }
+.petal-4 { left: 72%; animation-duration: 13s; animation-delay: 2s; width: 3px; height: 3px; }
+.petal-5 { left: 88%; animation-duration: 9s; animation-delay: 5s; width: 4px; height: 4px; }
+.petal-6 { left: 40%; animation-duration: 14s; animation-delay: 1s; width: 4px; height: 4px; }
+.petal-7 { left: 65%; animation-duration: 11s; animation-delay: 7s; }
+.petal-8 { left: 8%; animation-duration: 15s; animation-delay: 4s; width: 3px; height: 3px; }
+
+@keyframes petal-fall {
+  0% { transform: translateY(0) rotate(0deg) translateX(0); opacity: 0; }
+  5% { opacity: 0.7; }
+  50% { transform: translateY(180px) rotate(180deg) translateX(20px); opacity: 0.5; }
+  95% { opacity: 0.3; }
+  100% { transform: translateY(380px) rotate(360deg) translateX(-10px); opacity: 0; }
 }
 
 /* ── Factory Floor Path ── */
