@@ -102,7 +102,7 @@ export default function SubmissionForm({
             onChange={(event) => onFieldChange("prompt", event.target.value)}
             required={expanded}
             placeholder="Prompt (multiline)"
-            aria-label="Task prompt"
+            aria-label="Task prompt (multiline)"
             rows={6}
             tabIndex={expanded ? 0 : -1}
           />

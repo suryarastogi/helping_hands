@@ -325,9 +325,10 @@ describe("Form submission", () => {
     expect(webCheckbox.checked).toBe(true);
 
     const fixCiCheckbox = screen.getByLabelText("Fix CI") as HTMLInputElement;
-    expect(fixCiCheckbox.checked).toBe(false);
-    fireEvent.click(fixCiCheckbox);
+    // fix_ci defaults to true
     expect(fixCiCheckbox.checked).toBe(true);
+    fireEvent.click(fixCiCheckbox);
+    expect(fixCiCheckbox.checked).toBe(false);
   });
 
   it("changes max iterations in advanced settings", () => {
@@ -373,11 +374,9 @@ describe("Form validation", () => {
     render(<App />);
     fireEvent.click(screen.getByText("New Task"));
 
-    // Clear the prompt textarea by finding it via its default value
-    const promptTextarea = screen.getByDisplayValue(
-      "Update README.md with results of your smoke test. Keep changes minimal and safe."
-    ) as HTMLTextAreaElement;
-    fireEvent.change(promptTextarea, { target: { value: "" } });
+    // Clear the prompt input by finding it via its aria-label
+    const promptInput = screen.getByLabelText("Task prompt") as HTMLInputElement;
+    fireEvent.change(promptInput, { target: { value: "" } });
 
     await act(async () => {
       fireEvent.click(screen.getByText("Run"));
