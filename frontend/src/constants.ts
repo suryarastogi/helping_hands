@@ -64,20 +64,14 @@ export const PLAYER_MOVE_STEP = 1.2;
 /** Player bounding-box size (% of scene). */
 export const PLAYER_SIZE = { width: 3.5, height: 4 };
 
-/** Desk bounding-box size (% of scene). */
-export const DESK_SIZE = { width: 8, height: 7 };
+/** Garden plot bounding-box size (% of scene). */
+export const PLOT_SIZE = { width: 8, height: 7 };
 
-/** Factory entrance position (% of scene). */
-export const FACTORY_POS = { left: 8, top: 52 };
+/** Torii gate entrance position (% of scene). */
+export const TORII_POS = { left: 8, top: 52 };
 
-/** Incinerator exit position (% of scene). */
-export const INCINERATOR_POS = { left: 92, top: 52 };
-
-/** Factory collision box (% of scene). */
-export const FACTORY_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
-
-/** Incinerator collision box (% of scene). */
-export const INCINERATOR_COLLISION = { left: 84, top: 42, width: 14, height: 20 };
+/** Torii gate collision box (% of scene). */
+export const TORII_COLLISION = { left: 2, top: 42, width: 14, height: 20 };
 
 /** Arcade machine position & collision (% of scene). */
 export const ARCADE_POSITION = { left: 85, top: 8 };

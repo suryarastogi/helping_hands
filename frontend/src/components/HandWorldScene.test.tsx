@@ -15,9 +15,9 @@ const BOT_STYLE = {
   variant: "bot-alpha" as const,
 };
 
-const SCENE_DESK_SLOTS = [
-  { id: "desk-0", left: 30, top: 30 },
-  { id: "desk-1", left: 60, top: 30 },
+const SCENE_PLOT_SLOTS = [
+  { id: "plot-0", left: 30, top: 30 },
+  { id: "plot-1", left: 60, top: 30 },
 ];
 
 const SCENE_WORKER_ENTRY: SceneWorkerEntry = {
@@ -26,7 +26,7 @@ const SCENE_WORKER_ENTRY: SceneWorkerEntry = {
   phase: "active",
   phaseChangedAt: Date.now(),
   task: { backend: "codexcli", repoPath: "owner/repo", status: "STARTED" },
-  desk: SCENE_DESK_SLOTS[0],
+  plot: SCENE_PLOT_SLOTS[0],
   isActive: true,
   provider: "openai",
   style: BOT_STYLE,
@@ -38,7 +38,7 @@ const BASE_SCENE_PROPS = {
   sceneRef: { current: null } as React.RefObject<HTMLDivElement | null>,
   sceneStyle: { minHeight: "380px" },
   maxWorkers: 8,
-  deskSlots: SCENE_DESK_SLOTS,
+  plotSlots: SCENE_PLOT_SLOTS,
   workerEntries: [] as SceneWorkerEntry[],
   selectedTaskId: null as string | null,
   onSelectTask: vi.fn(),
@@ -83,22 +83,20 @@ describe("HandWorldScene component", () => {
     expect(container.querySelector(".zen-rock.zen-rock-lg")).toBeTruthy();
   });
 
-  it("renders factory and incinerator", () => {
+  it("renders torii gate entrance", () => {
     const { container } = render(<HandWorldScene {...BASE_SCENE_PROPS} />);
-    expect(container.querySelector(".hh-factory")).toBeTruthy();
-    expect(container.querySelector(".factory-label")?.textContent).toBe("FACTORY");
-    expect(container.querySelector(".hh-incinerator")).toBeTruthy();
-    expect(container.querySelector(".incinerator-label")?.textContent).toBe("INCINERATOR");
+    expect(container.querySelector(".hh-torii")).toBeTruthy();
+    expect(container.querySelector(".torii-label")?.textContent).toBe("ENTER");
   });
 
-  it("renders desk slots at correct positions", () => {
+  it("renders plot slots at correct positions", () => {
     const { container } = render(<HandWorldScene {...BASE_SCENE_PROPS} />);
-    const desks = container.querySelectorAll(".work-desk");
-    expect(desks.length).toBe(2);
-    expect((desks[0] as HTMLElement).style.left).toBe("30%");
-    expect((desks[0] as HTMLElement).style.top).toBe("30%");
-    expect((desks[1] as HTMLElement).style.left).toBe("60%");
-    expect((desks[1] as HTMLElement).style.top).toBe("30%");
+    const plots = container.querySelectorAll(".garden-plot");
+    expect(plots.length).toBe(2);
+    expect((plots[0] as HTMLElement).style.left).toBe("30%");
+    expect((plots[0] as HTMLElement).style.top).toBe("30%");
+    expect((plots[1] as HTMLElement).style.left).toBe("60%");
+    expect((plots[1] as HTMLElement).style.top).toBe("30%");
   });
 
   it("renders local player avatar", () => {
@@ -134,8 +132,8 @@ describe("HandWorldScene component", () => {
     const { container } = render(<HandWorldScene {...BASE_SCENE_PROPS} />);
     const summary = container.querySelector(".zen-status-summary");
     expect(summary).toBeTruthy();
-    expect(summary?.textContent).toContain("8 Stations");
-    expect(summary?.textContent).toContain("0 Active");
+    expect(summary?.textContent).toContain("8 Plots");
+    expect(summary?.textContent).toContain("0 Gardening");
   });
 
   it("shows connection status hint for connected state", () => {
@@ -167,13 +165,13 @@ describe("HandWorldScene component", () => {
     expect(container.querySelector(".usage-meter-label")?.textContent).toBe("Tier 1");
   });
 
-  it("shows desk monitor when occupant is active", () => {
+  it("shows plot monitor when occupant is active", () => {
     const props = {
       ...BASE_SCENE_PROPS,
       workerEntries: [SCENE_WORKER_ENTRY],
     };
     const { container } = render(<HandWorldScene {...props} />);
-    expect(container.querySelector(".desk-monitor.monitor-on")).toBeTruthy();
+    expect(container.querySelector(".plot-bonsai.bonsai-growing")).toBeTruthy();
   });
 
   it("passes localChat to local player avatar", () => {
@@ -253,16 +251,16 @@ describe("HandWorldScene component", () => {
     expect(hint?.textContent).toContain("Connecting");
   });
 
-  it("renders desk monitor for walking-to-desk phase", () => {
+  it("renders plot monitor for walking-to-plot phase", () => {
     const walkingEntry: SceneWorkerEntry = {
       ...SCENE_WORKER_ENTRY,
-      phase: "walking-to-desk",
+      phase: "walking-to-plot",
     };
     const { container } = render(
       <HandWorldScene {...BASE_SCENE_PROPS} workerEntries={[walkingEntry]} />
     );
-    expect(container.querySelector(".desk-monitor")).toBeTruthy();
-    expect(container.querySelector(".desk-monitor.monitor-on")).toBeNull();
+    expect(container.querySelector(".plot-bonsai")).toBeTruthy();
+    expect(container.querySelector(".plot-bonsai.bonsai-growing")).toBeNull();
   });
 
   it("passes isLocalIdle to local player avatar", () => {

@@ -1,7 +1,7 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  buildDeskSlots,
+  buildPlotSlots,
   DEFAULT_CHARACTER_STYLE,
   DEFAULT_WORLD_MAX_WORKERS,
   PHASE_DURATION,
@@ -9,7 +9,7 @@ import {
   PROVIDER_CHARACTER_DEFAULTS,
 } from "../App.utils";
 import type {
-  DeskSlot,
+  PlotSlot,
   SceneWorker,
   SceneWorkerPhase,
   ScheduleItem,
@@ -17,10 +17,10 @@ import type {
   WorkerVariant,
 } from "../types";
 
-/** Enriched worker entry with task, desk, and style metadata for rendering. */
+/** Enriched worker entry with task, plot, and style metadata for rendering. */
 export type SceneWorkerEntry = SceneWorker & {
   task: TaskHistoryItem;
-  desk: DeskSlot;
+  plot: PlotSlot;
   isActive: boolean;
   provider: string;
   style: (typeof PROVIDER_CHARACTER_DEFAULTS)[string];
@@ -52,7 +52,7 @@ export function useSceneWorkers({
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
   const slotByTaskRef = useRef<Record<string, number>>({});
 
-  const deskSlots = useMemo(() => buildDeskSlots(maxOfficeWorkers), [maxOfficeWorkers]);
+  const plotSlots = useMemo(() => buildPlotSlots(maxOfficeWorkers), [maxOfficeWorkers]);
 
   const scheduleByTaskId = useMemo(() => {
     const map = new Map<string, ScheduleItem>();
@@ -95,8 +95,8 @@ export function useSceneWorkers({
   const sceneWorkerEntries = useMemo<SceneWorkerEntry[]>(() => {
     return sceneWorkers.flatMap((worker) => {
       const task = taskById.get(worker.taskId);
-      const desk = deskSlots[worker.slot];
-      if (!task || !desk) return [];
+      const plot = plotSlots[worker.slot];
+      if (!task || !plot) return [];
 
       const provider = providerFromBackend(task.backend);
       const style =
@@ -108,7 +108,7 @@ export function useSceneWorkers({
         {
           ...worker,
           task,
-          desk,
+          plot,
           isActive: activeTaskIds.has(worker.taskId),
           provider,
           style,
@@ -117,17 +117,17 @@ export function useSceneWorkers({
         },
       ];
     });
-  }, [activeTaskIds, deskSlots, scheduleByTaskId, sceneWorkers, taskById]);
+  }, [activeTaskIds, plotSlots, scheduleByTaskId, sceneWorkers, taskById]);
 
-  const officeDeskRows = useMemo(
+  const gardenPlotRows = useMemo(
     () => Math.max(1, Math.ceil(maxOfficeWorkers / 2)),
     [maxOfficeWorkers],
   );
 
   const worldSceneStyle = useMemo<CSSProperties>(() => {
-    const extraRows = Math.max(0, officeDeskRows - 4);
+    const extraRows = Math.max(0, gardenPlotRows - 4);
     return { minHeight: `${380 + extraRows * 92}px` };
-  }, [officeDeskRows]);
+  }, [gardenPlotRows]);
 
   // -- Capacity → max workers -----------------------------------------------
   useEffect(() => {
@@ -154,11 +154,11 @@ export function useSceneWorkers({
         const existing = existingByTaskId.get(task.taskId);
         const slot = claimSlotForTask(task.taskId, occupiedSlots);
         if (!existing) {
-          next.push({ taskId: task.taskId, slot, phase: "at-factory", phaseChangedAt: now });
+          next.push({ taskId: task.taskId, slot, phase: "at-gate", phaseChangedAt: now });
           continue;
         }
-        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
-          next.push({ ...existing, slot, phase: "at-factory", phaseChangedAt: now });
+        if (existing.phase === "meditating" || existing.phase === "fading") {
+          next.push({ ...existing, slot, phase: "at-gate", phaseChangedAt: now });
           continue;
         }
         if (existing.slot !== slot) {
@@ -170,11 +170,11 @@ export function useSceneWorkers({
 
       for (const existing of current) {
         if (activeIds.has(existing.taskId)) continue;
-        if (existing.phase === "walking-to-exit" || existing.phase === "at-exit") {
+        if (existing.phase === "meditating" || existing.phase === "fading") {
           next.push(existing);
           continue;
         }
-        next.push({ ...existing, phase: "walking-to-exit", phaseChangedAt: now });
+        next.push({ ...existing, phase: "meditating", phaseChangedAt: now });
       }
 
       return next.sort((a, b) => a.slot - b.slot);
@@ -186,10 +186,10 @@ export function useSceneWorkers({
     if (sceneWorkers.length === 0) return;
 
     const NEXT_PHASE: Partial<Record<SceneWorkerPhase, SceneWorkerPhase | null>> = {
-      "at-factory": "walking-to-desk",
-      "walking-to-desk": "active",
-      "walking-to-exit": "at-exit",
-      "at-exit": null,
+      "at-gate": "walking-to-plot",
+      "walking-to-plot": "active",
+      "meditating": "fading",
+      "fading": null,
     };
 
     const handle = window.setInterval(() => {
@@ -225,7 +225,7 @@ export function useSceneWorkers({
   return {
     sceneWorkers,
     maxOfficeWorkers,
-    deskSlots,
+    plotSlots,
     sceneWorkerEntries,
     worldSceneStyle,
   };

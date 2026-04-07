@@ -123,7 +123,7 @@ export default function App() {
 
   const {
     maxOfficeWorkers,
-    deskSlots,
+    plotSlots,
     sceneWorkerEntries,
     worldSceneStyle,
   } = useSceneWorkers({
@@ -138,7 +138,7 @@ export default function App() {
     playerPosition,
     playerDirection,
     isPlayerWalking,
-  } = useMovement({ active: !arcadeOpen, deskSlots });
+  } = useMovement({ active: !arcadeOpen, plotSlots });
 
   const {
     remotePlayers,
@@ -443,7 +443,7 @@ export default function App() {
           sceneRef={sceneRef}
           sceneStyle={worldSceneStyle}
           maxWorkers={maxOfficeWorkers}
-          deskSlots={deskSlots}
+          plotSlots={plotSlots}
           workerEntries={sceneWorkerEntries}
           selectedTaskId={taskId}
           onSelectTask={selectTask}

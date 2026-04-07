@@ -3,7 +3,7 @@
 ## Context
 
 Hand World is the visualization view where users can walk around a zen garden /
-factory scene using arrow keys or WASD. Previously, this was a single-player
+zen garden scene using arrow keys or WASD. Previously, this was a single-player
 experience — only the local user's avatar was visible.
 
 ## Decision
@@ -92,7 +92,7 @@ and emote handling.
 
 Additional features:
 - **Player name customization** — players can set a custom name via an input
-  field in the Factory Floor panel. Names persist in `localStorage` and are
+  field in the Zen Garden panel. Names persist in `localStorage` and are
   broadcast via the awareness protocol without reconnecting.
 - **Presence panel** — when other players are connected, a sidebar panel shows
   their names and colour indicators.
@@ -106,7 +106,7 @@ avatars. Chat is broadcast via the Yjs awareness `chat` field — no new backend
 endpoints are required.
 
 **Frontend flow:**
-1. A chat input appears in the Factory Floor panel when connected
+1. A chat input appears in the Zen Garden panel when connected
 2. Player types a message and presses Enter to send
 3. `sendChat(text)` sets the awareness `chat` field
 4. After `CHAT_DISPLAY_MS` (4 seconds), the `chat` field is cleared to `null`

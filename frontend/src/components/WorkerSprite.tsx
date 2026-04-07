@@ -6,7 +6,7 @@
  * is built from positioned `<span>` elements with inline colour styles
  * derived from the backend's CharacterStyle.
  */
-import { FACTORY_POS, INCINERATOR_POS } from "../constants";
+import { TORII_POS } from "../constants";
 import type {
   CharacterStyle,
   FloatingNumber,
@@ -23,8 +23,8 @@ export type WorkerSpriteProps = {
   isActive: boolean;
   isSelected: boolean;
   provider: string;
-  deskLeft: number;
-  deskTop: number;
+  plotLeft: number;
+  plotTop: number;
   task: {
     backend?: string | null;
     repoPath?: string | null;
@@ -48,25 +48,17 @@ export default function WorkerSprite({
   isActive,
   isSelected,
   provider,
-  deskLeft,
-  deskTop,
+  plotLeft,
+  plotTop,
   task,
   schedule,
   floatingNumbers,
   onSelect,
 }: WorkerSpriteProps) {
-  const isAtFactory = phase === "at-factory";
-  const isAtExit = phase === "walking-to-exit" || phase === "at-exit";
-  const posLeft = isAtFactory
-    ? FACTORY_POS.left
-    : isAtExit
-      ? INCINERATOR_POS.left
-      : deskLeft;
-  const posTop = isAtFactory
-    ? FACTORY_POS.top
-    : isAtExit
-      ? INCINERATOR_POS.top
-      : deskTop;
+  const isAtGate = phase === "at-gate";
+  // Meditating/fading bots stay at their plot (no walking to exit).
+  const posLeft = isAtGate ? TORII_POS.left : plotLeft;
+  const posTop = isAtGate ? TORII_POS.top : plotTop;
 
   return (
     <button

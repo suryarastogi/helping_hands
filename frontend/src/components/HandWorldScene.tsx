@@ -1,9 +1,9 @@
 /**
- * HandWorldScene — the full zen-garden / factory scene for Hand World.
+ * HandWorldScene — the full zen-garden scene for Hand World.
  *
- * Renders the background decorations, factory entrance, incinerator exit,
- * work desks, player avatars (local + remote), worker sprites, and the
- * HUD overlay panels (FactoryFloorPanel + Claude usage).
+ * Renders the background decorations, torii gate entrance, garden plots,
+ * player avatars (local + remote), worker sprites, and the HUD overlay
+ * panels (GardenPanel + Claude usage).
  */
 import { type CSSProperties, type Ref, useMemo, useState } from "react";
 
@@ -16,13 +16,13 @@ import type { SceneWorkerEntry } from "../hooks/useSceneWorkers";
 import type {
   ClaudeUsageResponse,
   CursorPosition,
-  DeskSlot,
+  PlotSlot,
   FloatingNumber,
   PlayerDirection,
   PlayerPosition,
   WorldDecoration,
 } from "../types";
-import FactoryFloorPanel from "./FactoryFloorPanel";
+import GardenPanel from "./GardenPanel";
 import Minimap from "./Minimap";
 import type { MinimapWorker } from "./Minimap";
 import PlayerAvatar from "./PlayerAvatar";
@@ -40,10 +40,10 @@ export type HandWorldSceneProps = {
   sceneRef: Ref<HTMLDivElement>;
   /** Inline style applied to the scene container (dynamic min-height). */
   sceneStyle: CSSProperties;
-  /** Maximum desk/station count. */
+  /** Maximum garden plot count. */
   maxWorkers: number;
-  /** Pre-computed desk slot positions. */
-  deskSlots: DeskSlot[];
+  /** Pre-computed garden plot positions. */
+  plotSlots: PlotSlot[];
   /** Enriched scene worker entries (task + desk + style). */
   workerEntries: SceneWorkerEntry[];
   /** Currently selected task ID (highlights the worker). */
@@ -102,7 +102,7 @@ export default function HandWorldScene({
   sceneRef,
   sceneStyle,
   maxWorkers,
-  deskSlots,
+  plotSlots,
   workerEntries,
   selectedTaskId,
   onSelectTask,
@@ -146,8 +146,8 @@ export default function HandWorldScene({
 
   // Build minimap worker positions from desk slot centers.
   const minimapWorkers: MinimapWorker[] = workerEntries
-    .filter((w) => w.phase === "active" || w.phase === "walking-to-desk")
-    .map((w) => ({ taskId: w.taskId, x: w.desk.left + 4, y: w.desk.top + 3.5 }));
+    .filter((w) => w.phase === "active" || w.phase === "walking-to-plot")
+    .map((w) => ({ taskId: w.taskId, x: w.plot.left + 4, y: w.plot.top + 3.5 }));
 
   const handleSceneDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!selectedDecoEmoji || connectionStatus !== "connected") return;
@@ -185,7 +185,7 @@ export default function HandWorldScene({
             </span>
           )}
         </h1>
-        <p>{maxWorkers} stations &middot; click a worker to stream its output</p>
+        <p>{maxWorkers} garden plots &middot; click a gardener to stream its output</p>
       </header>
 
       <div className="hand-world-layout">
@@ -193,7 +193,7 @@ export default function HandWorldScene({
         ref={sceneRef}
         className={`world-scene office-scene${selectedDecoEmoji ? " deco-placing" : ""}`}
         role="list"
-        aria-label="Current factory workers"
+        aria-label="Zen garden workers"
         style={sceneStyle}
         tabIndex={0}
         onDoubleClick={handleSceneDoubleClick}
@@ -276,11 +276,32 @@ export default function HandWorldScene({
         </div>
         <div className="zen-rock zen-rock-lg" aria-hidden="true" />
         <div className="zen-rock zen-rock-sm" aria-hidden="true" />
-        <div className="zen-pond" aria-hidden="true">
+        <div className="zen-pond zen-pond-1" aria-hidden="true">
           <span className="pond-water" />
+          <span className="pond-algae pond-algae-1" />
+          <span className="pond-algae pond-algae-2" />
           <span className="pond-ripple pond-ripple-1" />
           <span className="pond-ripple pond-ripple-2" />
           <span className="pond-shimmer" />
+        </div>
+        <div className="zen-pond zen-pond-2" aria-hidden="true">
+          <span className="pond-water" />
+          <span className="pond-algae pond-algae-1" />
+          <span className="pond-ripple pond-ripple-1" />
+          <span className="pond-shimmer" />
+        </div>
+        <div className="zen-pond zen-pond-3" aria-hidden="true">
+          <span className="pond-water" />
+          <span className="pond-algae pond-algae-1" />
+          <span className="pond-algae pond-algae-2" />
+          <span className="pond-ripple pond-ripple-1" />
+          <span className="pond-ripple pond-ripple-2" />
+          <span className="pond-shimmer" />
+        </div>
+        <div className="zen-pond zen-pond-4" aria-hidden="true">
+          <span className="pond-water" />
+          <span className="pond-algae pond-algae-1" />
+          <span className="pond-ripple pond-ripple-1" />
         </div>
 
         {/* Arcade machine (top-right) */}
@@ -305,59 +326,32 @@ export default function HandWorldScene({
           )}
         </div>
 
-        {/* Factory entrance (middle-left) */}
-        <div className="hh-factory" aria-hidden="true">
-          <span className="factory-building" />
-          <span className="factory-roof" />
-          <span className="factory-chimney" />
-          <span className="factory-smoke factory-smoke-1" />
-          <span className="factory-smoke factory-smoke-2" />
-          <span className="factory-smoke factory-smoke-3" />
-          <span className="factory-door" />
-          <span className="factory-window factory-window-1" />
-          <span className="factory-window factory-window-2" />
-          <span className="factory-conveyor" />
-          <span className="factory-conveyor-line factory-conveyor-line-1" />
-          <span className="factory-conveyor-line factory-conveyor-line-2" />
-          <span className="factory-conveyor-line factory-conveyor-line-3" />
-          <span className="factory-light" />
-          <div className="factory-label">FACTORY</div>
+        {/* Torii gate entrance (middle-left) */}
+        <div className="hh-torii" aria-hidden="true">
+          <span className="torii-pillar torii-pillar-left" />
+          <span className="torii-pillar torii-pillar-right" />
+          <span className="torii-kasagi" />
+          <span className="torii-nuki" />
+          <span className="torii-glow" />
+          <div className="torii-label">ENTER</div>
         </div>
 
-        {/* Incinerator exit (middle-right) */}
-        <div className="hh-incinerator" aria-hidden="true">
-          <span className="incinerator-body" />
-          <span className="incinerator-top" />
-          <span className="incinerator-mouth" />
-          <span className="incinerator-grate" />
-          <span className="incinerator-flame incinerator-flame-1" />
-          <span className="incinerator-flame incinerator-flame-2" />
-          <span className="incinerator-flame incinerator-flame-3" />
-          <span className="incinerator-ember incinerator-ember-1" />
-          <span className="incinerator-ember incinerator-ember-2" />
-          <span className="incinerator-heat-glow" />
-          <span className="incinerator-chimney" />
-          <span className="incinerator-exhaust incinerator-exhaust-1" />
-          <span className="incinerator-exhaust incinerator-exhaust-2" />
-          <div className="incinerator-label">INCINERATOR</div>
-        </div>
-
-        {deskSlots.map((slot, slotIdx) => {
+        {plotSlots.map((slot, slotIdx) => {
           const occupant = workerEntries.find((w) => w.slot === slotIdx);
-          const showMonitor = occupant && (occupant.phase === "walking-to-desk" || occupant.phase === "active");
+          const showBonsai = occupant && (occupant.phase === "walking-to-plot" || occupant.phase === "active" || occupant.phase === "meditating" || occupant.phase === "fading");
           return (
             <div
               key={slot.id}
-              className="work-desk"
+              className="garden-plot"
               style={{ left: `${slot.left}%`, top: `${slot.top}%` }}
               aria-hidden="true"
             >
-              {showMonitor && (
-                <span className={`desk-monitor${occupant.phase === "active" ? " monitor-on" : ""}`}>
-                  <span className="monitor-screen" />
-                  <span className="monitor-stand" />
-                  <span className="monitor-base" />
-                  <span className="monitor-glow" />
+              {showBonsai && (
+                <span className={`plot-bonsai${occupant.phase === "active" ? " bonsai-growing" : ""}`}>
+                  <span className="bonsai-pot" />
+                  <span className="bonsai-trunk" />
+                  <span className="bonsai-canopy bonsai-canopy-1" />
+                  <span className="bonsai-canopy bonsai-canopy-2" />
                 </span>
               )}
             </div>
@@ -456,8 +450,8 @@ export default function HandWorldScene({
             isActive={worker.isActive}
             isSelected={selectedTaskId === worker.taskId}
             provider={worker.provider}
-            deskLeft={worker.desk.left}
-            deskTop={worker.desk.top}
+            plotLeft={worker.plot.left}
+            plotTop={worker.plot.top}
             task={{
               backend: worker.task?.backend,
               repoPath: worker.task?.repoPath,
@@ -473,7 +467,7 @@ export default function HandWorldScene({
       </div>
 
       <div className={`hand-world-side-panel${sidePanelOpen ? " open" : ""}`}>
-        <FactoryFloorPanel
+        <GardenPanel
           maxWorkers={maxWorkers}
           activeWorkerCount={workerEntries.length}
           connectionStatus={connectionStatus}

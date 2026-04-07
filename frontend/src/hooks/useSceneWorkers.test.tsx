@@ -76,13 +76,13 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("useSceneWorkers", () => {
-  it("returns default desk slots and empty workers when no tasks active", () => {
+  it("returns default plot slots and empty workers when no tasks active", () => {
     // Options must be stable across renders to avoid infinite re-render loops.
     const opts = makeOptions();
     const { result } = renderHook(() => useSceneWorkers(opts));
 
     expect(result.current.maxOfficeWorkers).toBe(DEFAULT_WORLD_MAX_WORKERS);
-    expect(result.current.deskSlots).toHaveLength(DEFAULT_WORLD_MAX_WORKERS);
+    expect(result.current.plotSlots).toHaveLength(DEFAULT_WORLD_MAX_WORKERS);
     expect(result.current.sceneWorkerEntries).toEqual([]);
     expect(result.current.worldSceneStyle).toEqual({ minHeight: "380px" });
   });
@@ -94,7 +94,7 @@ describe("useSceneWorkers", () => {
     expect(window.setInterval).not.toHaveBeenCalled();
   });
 
-  it("creates a scene worker in at-factory phase when a task becomes active", () => {
+  it("creates a scene worker in at-gate phase when a task becomes active", () => {
     const task = makeTask("task-1");
     const opts = makeOptions({
       activeTasks: [task],
@@ -106,7 +106,7 @@ describe("useSceneWorkers", () => {
 
     expect(result.current.sceneWorkerEntries).toHaveLength(1);
     expect(result.current.sceneWorkerEntries[0].taskId).toBe("task-1");
-    expect(result.current.sceneWorkerEntries[0].phase).toBe("at-factory");
+    expect(result.current.sceneWorkerEntries[0].phase).toBe("at-gate");
     expect(result.current.sceneWorkerEntries[0].isActive).toBe(true);
   });
 
@@ -123,7 +123,7 @@ describe("useSceneWorkers", () => {
     expect(window.setInterval).toHaveBeenCalledWith(expect.any(Function), 100);
   });
 
-  it("assigns unique desk slots to multiple workers", () => {
+  it("assigns unique plot slots to multiple workers", () => {
     const task1 = makeTask("task-1");
     const task2 = makeTask("task-2");
     const opts = makeOptions({
@@ -153,7 +153,7 @@ describe("useSceneWorkers", () => {
     rerender(opts2);
 
     expect(result.current.maxOfficeWorkers).toBe(20);
-    expect(result.current.deskSlots).toHaveLength(20);
+    expect(result.current.plotSlots).toHaveLength(20);
   });
 
   it("enriches worker entries with goose provider and sprite variant", () => {
@@ -222,7 +222,7 @@ describe("useSceneWorkers", () => {
     expect(result.current.worldSceneStyle).toEqual({ minHeight: "932px" });
   });
 
-  it("moves worker to walking-to-exit when task is removed", () => {
+  it("moves worker to meditating when task is removed", () => {
     const task = makeTask("task-1");
     const taskById = new Map([["task-1", task]]);
 
@@ -238,14 +238,14 @@ describe("useSceneWorkers", () => {
       { initialProps: activeOpts },
     );
 
-    expect(result.current.sceneWorkerEntries[0].phase).toBe("at-factory");
+    expect(result.current.sceneWorkerEntries[0].phase).toBe("at-gate");
 
     rerender(emptyOpts);
 
-    expect(result.current.sceneWorkerEntries[0].phase).toBe("walking-to-exit");
+    expect(result.current.sceneWorkerEntries[0].phase).toBe("meditating");
   });
 
-  it("re-activates worker to at-factory when removed task reappears", () => {
+  it("re-activates worker to at-gate when removed task reappears", () => {
     const task = makeTask("task-1");
     const taskById = new Map([["task-1", task]]);
 
@@ -262,10 +262,10 @@ describe("useSceneWorkers", () => {
     );
 
     rerender(emptyOpts);
-    expect(result.current.sceneWorkerEntries[0].phase).toBe("walking-to-exit");
+    expect(result.current.sceneWorkerEntries[0].phase).toBe("meditating");
 
     rerender(activeOpts);
-    expect(result.current.sceneWorkerEntries[0].phase).toBe("at-factory");
+    expect(result.current.sceneWorkerEntries[0].phase).toBe("at-gate");
   });
 
   it("scales maxOfficeWorkers based on active task count exceeding default", () => {
@@ -282,7 +282,7 @@ describe("useSceneWorkers", () => {
     expect(result.current.sceneWorkerEntries).toHaveLength(12);
   });
 
-  it("includes desk position data in worker entries", () => {
+  it("includes plot position data in worker entries", () => {
     const task = makeTask("task-1");
     const opts = makeOptions({
       activeTasks: [task],
@@ -293,10 +293,10 @@ describe("useSceneWorkers", () => {
     const { result } = renderHook(() => useSceneWorkers(opts));
 
     const entry = result.current.sceneWorkerEntries[0];
-    expect(entry.desk).toBeDefined();
-    expect(typeof entry.desk.left).toBe("number");
-    expect(typeof entry.desk.top).toBe("number");
-    expect(entry.desk.id).toBeDefined();
+    expect(entry.plot).toBeDefined();
+    expect(typeof entry.plot.left).toBe("number");
+    expect(typeof entry.plot.top).toBe("number");
+    expect(entry.plot.id).toBeDefined();
   });
 
   it("clears phase timer on unmount", () => {

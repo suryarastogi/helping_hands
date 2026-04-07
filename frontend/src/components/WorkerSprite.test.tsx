@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 
 import WorkerSprite from "./WorkerSprite";
-import { FACTORY_POS, INCINERATOR_POS } from "../constants";
+import { TORII_POS } from "../constants";
 
 const BOT_STYLE = {
   bodyColor: "#10a37f",
@@ -28,8 +28,8 @@ const BASE_WORKER_PROPS = {
   isActive: true,
   isSelected: false,
   provider: "openai",
-  deskLeft: 40,
-  deskTop: 50,
+  plotLeft: 40,
+  plotTop: 50,
   task: { backend: "codexcli", repoPath: "owner/repo", status: "STARTED" },
   schedule: null,
   floatingNumbers: [],
@@ -131,27 +131,36 @@ describe("WorkerSprite component", () => {
     expect(btn.disabled).toBe(true);
   });
 
-  it("positions at factory when phase is at-factory", () => {
+  it("positions at torii gate when phase is at-gate", () => {
     const { container } = render(
-      <WorkerSprite {...BASE_WORKER_PROPS} phase="at-factory" />
+      <WorkerSprite {...BASE_WORKER_PROPS} phase="at-gate" />
     );
     const btn = container.querySelector(".worker-sprite") as HTMLElement;
-    expect(btn.style.left).toBe(`${FACTORY_POS.left}%`);
-    expect(btn.style.top).toBe(`${FACTORY_POS.top}%`);
+    expect(btn.style.left).toBe(`${TORII_POS.left}%`);
+    expect(btn.style.top).toBe(`${TORII_POS.top}%`);
   });
 
-  it("positions at incinerator when phase is at-exit", () => {
+  it("positions at plot when phase is meditating", () => {
     const { container } = render(
-      <WorkerSprite {...BASE_WORKER_PROPS} phase="at-exit" />
+      <WorkerSprite {...BASE_WORKER_PROPS} phase="meditating" plotLeft={40} plotTop={50} />
     );
     const btn = container.querySelector(".worker-sprite") as HTMLElement;
-    expect(btn.style.left).toBe(`${INCINERATOR_POS.left}%`);
-    expect(btn.style.top).toBe(`${INCINERATOR_POS.top}%`);
+    expect(btn.style.left).toBe("40%");
+    expect(btn.style.top).toBe("50%");
   });
 
-  it("positions at desk when phase is active", () => {
+  it("positions at plot when phase is fading", () => {
     const { container } = render(
-      <WorkerSprite {...BASE_WORKER_PROPS} phase="active" deskLeft={60} deskTop={70} />
+      <WorkerSprite {...BASE_WORKER_PROPS} phase="fading" plotLeft={40} plotTop={50} />
+    );
+    const btn = container.querySelector(".worker-sprite") as HTMLElement;
+    expect(btn.style.left).toBe("40%");
+    expect(btn.style.top).toBe("50%");
+  });
+
+  it("positions at plot when phase is active", () => {
+    const { container } = render(
+      <WorkerSprite {...BASE_WORKER_PROPS} phase="active" plotLeft={60} plotTop={70} />
     );
     const btn = container.querySelector(".worker-sprite") as HTMLElement;
     expect(btn.style.left).toBe("60%");

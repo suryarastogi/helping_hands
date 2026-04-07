@@ -4,15 +4,13 @@ import {
   CHAT_DISPLAY_MS,
   CHAT_HISTORY_MAX,
   CHAT_MAX_LENGTH,
-  DESK_SIZE,
+  PLOT_SIZE,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   EMOTE_MAP,
-  FACTORY_COLLISION,
-  FACTORY_POS,
+  TORII_COLLISION,
+  TORII_POS,
   IDLE_TIMEOUT_MS,
-  INCINERATOR_COLLISION,
-  INCINERATOR_POS,
   OFFICE_BOUNDS,
   PLAYER_COLORS,
   PLAYER_MOVE_STEP,
@@ -72,14 +70,11 @@ describe("constants module", () => {
     expect(PLAYER_MOVE_STEP).toBeGreaterThan(0);
     expect(PLAYER_SIZE).toHaveProperty("width");
     expect(PLAYER_SIZE).toHaveProperty("height");
-    expect(DESK_SIZE).toHaveProperty("width");
-    expect(DESK_SIZE).toHaveProperty("height");
-    expect(FACTORY_POS).toHaveProperty("left");
-    expect(FACTORY_POS).toHaveProperty("top");
-    expect(INCINERATOR_POS).toHaveProperty("left");
-    expect(INCINERATOR_POS).toHaveProperty("top");
-    expect(FACTORY_COLLISION).toHaveProperty("width");
-    expect(INCINERATOR_COLLISION).toHaveProperty("width");
+    expect(PLOT_SIZE).toHaveProperty("width");
+    expect(PLOT_SIZE).toHaveProperty("height");
+    expect(TORII_POS).toHaveProperty("left");
+    expect(TORII_POS).toHaveProperty("top");
+    expect(TORII_COLLISION).toHaveProperty("width");
     expect(OFFICE_BOUNDS).toHaveProperty("minX");
     expect(OFFICE_BOUNDS).toHaveProperty("maxX");
   });

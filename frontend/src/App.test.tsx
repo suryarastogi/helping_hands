@@ -1292,7 +1292,7 @@ describe("New Task button resets state", () => {
   });
 });
 
-describe("Hand World factory and incinerator", () => {
+describe("Hand World zen garden", () => {
   function switchToHandWorld() {
     render(<App />);
   }
@@ -1302,110 +1302,45 @@ describe("Hand World factory and incinerator", () => {
     expect(screen.getByText("Hand World")).toBeInTheDocument();
   });
 
-  it("renders factory entrance with FACTORY label", () => {
+  it("renders torii gate entrance with ENTER label", () => {
     switchToHandWorld();
-    expect(screen.getByText("FACTORY")).toBeInTheDocument();
+    expect(screen.getByText("ENTER")).toBeInTheDocument();
   });
 
-  it("renders incinerator exit with INCINERATOR label", () => {
+  it("renders torii gate DOM elements (pillars, kasagi, nuki)", () => {
     switchToHandWorld();
-    expect(screen.getByText("INCINERATOR")).toBeInTheDocument();
+    const torii = document.querySelector(".hh-torii");
+    expect(torii).not.toBeNull();
+    expect(torii!.querySelector(".torii-pillar-left")).not.toBeNull();
+    expect(torii!.querySelector(".torii-pillar-right")).not.toBeNull();
+    expect(torii!.querySelector(".torii-kasagi")).not.toBeNull();
+    expect(torii!.querySelector(".torii-nuki")).not.toBeNull();
   });
 
-  it("renders factory DOM elements (building, chimney, conveyor)", () => {
+  it("renders garden plots", () => {
     switchToHandWorld();
-    const factory = document.querySelector(".hh-factory");
-    expect(factory).not.toBeNull();
-    expect(factory!.querySelector(".factory-building")).not.toBeNull();
-    expect(factory!.querySelector(".factory-chimney")).not.toBeNull();
-    expect(factory!.querySelector(".factory-conveyor")).not.toBeNull();
-    expect(factory!.querySelector(".factory-door")).not.toBeNull();
-    expect(factory!.querySelector(".factory-roof")).not.toBeNull();
+    expect(document.querySelector(".garden-plot")).not.toBeNull();
   });
 
-  it("renders factory windows and status light", () => {
+  it("renders Zen Garden status summary", () => {
     switchToHandWorld();
-    const factory = document.querySelector(".hh-factory");
-    expect(factory!.querySelector(".factory-window-1")).not.toBeNull();
-    expect(factory!.querySelector(".factory-window-2")).not.toBeNull();
-    expect(factory!.querySelector(".factory-light")).not.toBeNull();
+    expect(screen.getByText("Zen Garden")).toBeInTheDocument();
   });
 
-  it("renders factory smoke particles", () => {
+  it("renders Plots count in status summary", () => {
     switchToHandWorld();
-    const factory = document.querySelector(".hh-factory");
-    expect(factory!.querySelector(".factory-smoke-1")).not.toBeNull();
-    expect(factory!.querySelector(".factory-smoke-2")).not.toBeNull();
-    expect(factory!.querySelector(".factory-smoke-3")).not.toBeNull();
+    expect(screen.getByText(/Plots/)).toBeInTheDocument();
   });
 
-  it("renders factory conveyor belt lines", () => {
+  it("renders zen garden workers aria label on scene", () => {
     switchToHandWorld();
-    const factory = document.querySelector(".hh-factory");
-    expect(factory!.querySelector(".factory-conveyor-line-1")).not.toBeNull();
-    expect(factory!.querySelector(".factory-conveyor-line-2")).not.toBeNull();
-    expect(factory!.querySelector(".factory-conveyor-line-3")).not.toBeNull();
+    expect(screen.getByLabelText("Zen garden workers")).toBeInTheDocument();
   });
 
-  it("renders incinerator DOM elements (body, mouth, flames)", () => {
+  it("does not render old factory or incinerator elements", () => {
     switchToHandWorld();
-    const incinerator = document.querySelector(".hh-incinerator");
-    expect(incinerator).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-body")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-mouth")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-top")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-grate")).not.toBeNull();
-  });
-
-  it("renders incinerator flames", () => {
-    switchToHandWorld();
-    const incinerator = document.querySelector(".hh-incinerator");
-    expect(incinerator!.querySelector(".incinerator-flame-1")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-flame-2")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-flame-3")).not.toBeNull();
-  });
-
-  it("renders incinerator embers and heat glow", () => {
-    switchToHandWorld();
-    const incinerator = document.querySelector(".hh-incinerator");
-    expect(incinerator!.querySelector(".incinerator-ember-1")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-ember-2")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-heat-glow")).not.toBeNull();
-  });
-
-  it("renders incinerator chimney and exhaust", () => {
-    switchToHandWorld();
-    const incinerator = document.querySelector(".hh-incinerator");
-    expect(incinerator!.querySelector(".incinerator-chimney")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-exhaust-1")).not.toBeNull();
-    expect(incinerator!.querySelector(".incinerator-exhaust-2")).not.toBeNull();
-  });
-
-  it("renders work desks instead of zen plots", () => {
-    switchToHandWorld();
-    expect(document.querySelector(".work-desk")).not.toBeNull();
-    expect(document.querySelector(".zen-plot")).toBeNull();
-  });
-
-  it("renders Factory Floor status summary", () => {
-    switchToHandWorld();
-    expect(screen.getByText("Factory Floor")).toBeInTheDocument();
-  });
-
-  it("renders Stations count in status summary", () => {
-    switchToHandWorld();
-    expect(screen.getByText(/Stations/)).toBeInTheDocument();
-  });
-
-  it("renders factory workers aria label on scene", () => {
-    switchToHandWorld();
-    expect(screen.getByLabelText("Current factory workers")).toBeInTheDocument();
-  });
-
-  it("does not render old zen-torii or zen-shrine elements", () => {
-    switchToHandWorld();
-    expect(document.querySelector(".zen-torii")).toBeNull();
-    expect(document.querySelector(".zen-shrine")).toBeNull();
+    expect(document.querySelector(".hh-factory")).toBeNull();
+    expect(document.querySelector(".hh-incinerator")).toBeNull();
   });
 });
 

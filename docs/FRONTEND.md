@@ -12,7 +12,7 @@ Features:
 - JS-based polling monitor via `/tasks/{task_id}`
 - No-JS fallback via `/monitor/{task_id}` (server-rendered auto-refresh)
 - "Classic" and "Hand world" dashboard views
-- Industrial factory/incinerator visualization in world view
+- Zen garden visualization with torii gate entrance in world view
 - Keyboard navigation (arrows/WASD) in world view
 
 ## 2. React frontend (`frontend/`)
@@ -42,9 +42,9 @@ frontend/src/
 ├── styles.css            # Global styles
 ├── vite-env.d.ts         # Vite type declarations
 ├── components/
-│   ├── FactoryFloorPanel.tsx   # Left HUD panel (name, color, presence, chat, emotes, decorations)
-│   ├── FactoryFloorPanel.test.tsx # FactoryFloorPanel render + interaction tests
-│   ├── HandWorldScene.tsx      # Full zen-garden scene (factory, desks, players, workers, HUD)
+│   ├── GardenPanel.tsx         # Left HUD panel (name, color, presence, chat, emotes, decorations)
+│   ├── GardenPanel.test.tsx   # GardenPanel render + interaction tests
+│   ├── HandWorldScene.tsx      # Full zen-garden scene (torii gate, garden plots, players, workers, HUD)
 │   ├── HandWorldScene.test.tsx # HandWorldScene render tests
 │   ├── Minimap.tsx             # Bird's-eye minimap overlay (player/worker dots)
 │   ├── Minimap.test.tsx       # Minimap render tests
@@ -73,7 +73,7 @@ frontend/src/
 │   ├── useMovement.test.tsx    # Movement, collision, keyboard binding, spawn tests
 │   ├── useMultiplayer.ts       # Yjs awareness multiplayer hook (join/leave notifications)
 │   ├── useMultiplayer.test.tsx # Hook lifecycle, player name, join/leave notification tests
-│   ├── useSceneWorkers.ts     # Scene worker lifecycle, desk slot allocation, phase timer
+│   ├── useSceneWorkers.ts     # Scene worker lifecycle, garden plot allocation, phase timer
 │   ├── useSceneWorkers.test.tsx # Worker creation, phase transitions, slot assignment, style enrichment
 │   ├── useSchedules.ts        # Schedule CRUD state + operations hook
 │   ├── useSchedules.test.tsx  # Schedule hook tests (load, save, delete, toggle, trigger)
@@ -96,7 +96,7 @@ State is managed via React's built-in `useState` hooks, organized into custom ho
 - **`useTaskManager`** — Task submission, polling (primary 3s + background 10s),
   task history (localStorage persistence), form state, output tabs, floating
   numbers, toasts, worker capacity, and all derived task state
-- **`useSceneWorkers`** — Scene worker lifecycle (task→worker mapping, desk slot
+- **`useSceneWorkers`** — Scene worker lifecycle (task→worker mapping, garden plot
   allocation, phase transitions, provider style enrichment, schedule annotation)
 - **`useSchedules`** — Schedule CRUD state and operations
 - **`useMovement`** — Keyboard-driven player movement, collision detection
@@ -223,7 +223,7 @@ the Y.Doc itself remains empty.
 - Derives player colour and name client-side from `Y.Doc.clientID`
 - Maps remote awareness states to `remotePlayers` array for rendering
 - Disconnected peers automatically cleaned up by Yjs awareness timeout (~30s)
-- Player color customization: click a color swatch in the Factory Floor panel to pick your avatar color (persisted in localStorage)
+- Player color customization: click a color swatch in the Zen Garden panel to pick your avatar color (persisted in localStorage)
 - Emote system: press 1–4 to trigger emotes (wave, celebrate, thumbsup, sparkle)
 - Emote picker panel: click the smiley button in the HUD to see all emotes with names and key bindings
 - Emote bubbles float up and fade out over 2 seconds above the avatar

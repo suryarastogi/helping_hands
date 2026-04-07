@@ -33,11 +33,11 @@ export type CharacterStyle = {
 };
 
 export type SceneWorkerPhase =
-  | "at-factory"
-  | "walking-to-desk"
+  | "at-gate"
+  | "walking-to-plot"
   | "active"
-  | "walking-to-exit"
-  | "at-exit";
+  | "meditating"
+  | "fading";
 
 export type FloatingNumber = {
   id: number;
@@ -249,7 +249,7 @@ export type InputItem = {
   value: string;
 };
 
-export type DeskSlot = {
+export type PlotSlot = {
   id: string;
   left: number;
   top: number;

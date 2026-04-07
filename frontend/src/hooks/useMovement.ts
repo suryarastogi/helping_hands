@@ -7,8 +7,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { OFFICE_BOUNDS, PLAYER_MOVE_STEP, SPAWN_PADDING } from "../constants";
-import type { DeskSlot, PlayerDirection, PlayerPosition } from "../types";
-import { checkDeskCollision } from "../App.utils";
+import type { PlotSlot, PlayerDirection, PlayerPosition } from "../types";
+import { checkPlotCollision } from "../App.utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,8 +17,8 @@ import { checkDeskCollision } from "../App.utils";
 export type UseMovementOptions = {
   /** Whether the world view is active — hook only binds keys when true. */
   active: boolean;
-  /** Pre-computed desk slot positions used for collision detection. */
-  deskSlots: DeskSlot[];
+  /** Pre-computed garden plot positions used for collision detection. */
+  plotSlots: PlotSlot[];
 };
 
 export type UseMovementReturn = {
@@ -44,7 +44,7 @@ export function randomSpawnPosition(): PlayerPosition {
 }
 
 export function useMovement(options: UseMovementOptions): UseMovementReturn {
-  const { active, deskSlots } = options;
+  const { active, plotSlots } = options;
 
   // Compute a stable random spawn position once per mount.
   const spawnRef = useRef<PlayerPosition>(randomSpawnPosition());
@@ -103,7 +103,7 @@ export function useMovement(options: UseMovementOptions): UseMovementReturn {
         newX = Math.max(OFFICE_BOUNDS.minX, Math.min(OFFICE_BOUNDS.maxX, newX));
         newY = Math.max(OFFICE_BOUNDS.minY, Math.min(OFFICE_BOUNDS.maxY, newY));
 
-        if (checkDeskCollision(newX, newY, deskSlots)) {
+        if (checkPlotCollision(newX, newY, plotSlots)) {
           return current;
         }
 
@@ -157,7 +157,7 @@ export function useMovement(options: UseMovementOptions): UseMovementReturn {
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [active, deskSlots]);
+  }, [active, plotSlots]);
 
   return {
     playerPosition,

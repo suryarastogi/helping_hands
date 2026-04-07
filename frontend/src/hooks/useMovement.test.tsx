@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
 import { OFFICE_BOUNDS, PLAYER_MOVE_STEP, SPAWN_PADDING } from "../constants";
-import type { DeskSlot } from "../types";
+import type { PlotSlot } from "../types";
 import { randomSpawnPosition, useMovement } from "./useMovement";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const emptyDesks: DeskSlot[] = [];
+const emptyPlots: PlotSlot[] = [];
 
 /** Simulates keydown + requestAnimationFrame tick. */
 function pressKey(key: string) {
@@ -44,7 +44,7 @@ describe("randomSpawnPosition", () => {
 
 describe("useMovement hook", () => {
   // Mock Math.random to return 0.5, placing the spawn at (50, 49) — safely
-  // away from all fixed collision boxes (factory, incinerator, arcade).
+  // away from all fixed collision boxes (torii gate, arcade).
   let randomSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe("useMovement hook", () => {
 
   it("returns a random position and default direction when inactive", () => {
     const { result } = renderHook(() =>
-      useMovement({ active: false, deskSlots: emptyDesks }),
+      useMovement({ active: false, plotSlots: emptyPlots }),
     );
     // Position is randomized, so just check it's within bounds
     expect(result.current.playerPosition.x).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minX);
@@ -79,7 +79,7 @@ describe("useMovement hook", () => {
     });
 
     const { result } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     const initialY = result.current.playerPosition.y;
@@ -101,7 +101,7 @@ describe("useMovement hook", () => {
     });
 
     const { result } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     const initialX = result.current.playerPosition.x;
@@ -120,7 +120,7 @@ describe("useMovement hook", () => {
 
     // Start near the top boundary
     const { result } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     // Press ArrowUp many times to try to go above bounds
@@ -133,23 +133,23 @@ describe("useMovement hook", () => {
 
   });
 
-  it("detects desk collision and blocks movement", () => {
+  it("detects plot collision and blocks movement", () => {
     vi.useFakeTimers();
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
       setTimeout(cb, 16);
       return 1;
     });
 
-    // Place a desk right below the player's starting position
-    const blockingDesks: DeskSlot[] = [
-      { id: "desk-0", left: 50, top: 50 + PLAYER_MOVE_STEP * 2 },
+    // Place a plot right below the player's starting position
+    const blockingPlots: PlotSlot[] = [
+      { id: "plot-0", left: 50, top: 50 + PLAYER_MOVE_STEP * 2 },
     ];
 
     const { result } = renderHook(() =>
-      useMovement({ active: true, deskSlots: blockingDesks }),
+      useMovement({ active: true, plotSlots: blockingPlots }),
     );
 
-    // Try to move down into the desk
+    // Try to move down into the plot
     pressKey("ArrowDown");
     releaseKey("ArrowDown");
 
@@ -167,7 +167,7 @@ describe("useMovement hook", () => {
     });
 
     const { result } = renderHook(() =>
-      useMovement({ active: false, deskSlots: emptyDesks }),
+      useMovement({ active: false, plotSlots: emptyPlots }),
     );
 
     pressKey("ArrowRight");
@@ -190,7 +190,7 @@ describe("useMovement hook", () => {
     });
 
     const { result } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     // Simulate keydown with target being an input element
@@ -220,7 +220,7 @@ describe("useMovement hook", () => {
     });
 
     const { result } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     const initialX = result.current.playerPosition.x;
@@ -239,7 +239,7 @@ describe("useMovement hook", () => {
     });
 
     const { result } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     const initialX = result.current.playerPosition.x;
@@ -260,7 +260,7 @@ describe("useMovement hook", () => {
     });
 
     const { unmount } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     // Start movement so an animation frame is pending
@@ -284,7 +284,7 @@ describe("useMovement hook", () => {
     const removeSpy = vi.spyOn(window, "removeEventListener");
 
     const { unmount } = renderHook(() =>
-      useMovement({ active: true, deskSlots: emptyDesks }),
+      useMovement({ active: true, plotSlots: emptyPlots }),
     );
 
     unmount();

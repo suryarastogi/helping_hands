@@ -1,14 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  DESK_SIZE,
+  PLOT_SIZE,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   EMOTE_MAP,
-  FACTORY_COLLISION,
-  FACTORY_POS,
-  INCINERATOR_COLLISION,
-  INCINERATOR_POS,
+  TORII_COLLISION,
+  TORII_POS,
   OFFICE_BOUNDS,
   PLAYER_COLORS,
   PLAYER_MOVE_STEP,
@@ -19,8 +17,8 @@ import {
   apiUrl,
   asRecord,
   backendDisplayName,
-  buildDeskSlots,
-  checkDeskCollision,
+  buildPlotSlots,
+  checkPlotCollision,
   cronFrequency,
   extractUpdates,
   formatProviderName,
@@ -428,21 +426,21 @@ describe("cronFrequency", () => {
   });
 });
 
-describe("buildDeskSlots", () => {
+describe("buildPlotSlots", () => {
   it("generates the correct number of slots", () => {
-    expect(buildDeskSlots(1)).toHaveLength(1);
-    expect(buildDeskSlots(4)).toHaveLength(4);
-    expect(buildDeskSlots(8)).toHaveLength(8);
+    expect(buildPlotSlots(1)).toHaveLength(1);
+    expect(buildPlotSlots(4)).toHaveLength(4);
+    expect(buildPlotSlots(8)).toHaveLength(8);
   });
 
   it("assigns unique IDs to each slot", () => {
-    const slots = buildDeskSlots(4);
+    const slots = buildPlotSlots(4);
     const ids = slots.map((s) => s.id);
     expect(new Set(ids).size).toBe(4);
   });
 
   it("places slots in a grid layout", () => {
-    const slots = buildDeskSlots(8);
+    const slots = buildPlotSlots(8);
     // First row: indices 0-3 should have the same top
     expect(slots[0].top).toBe(slots[1].top);
     expect(slots[0].top).toBe(slots[2].top);
@@ -452,20 +450,20 @@ describe("buildDeskSlots", () => {
   });
 });
 
-describe("checkDeskCollision", () => {
-  it("returns false when player is far from desks", () => {
-    const desks = buildDeskSlots(1);
-    expect(checkDeskCollision(50, 50, desks)).toBe(false);
+describe("checkPlotCollision", () => {
+  it("returns false when player is far from plots", () => {
+    const plots = buildPlotSlots(1);
+    expect(checkPlotCollision(50, 50, plots)).toBe(false);
   });
 
-  it("returns true when player overlaps a desk", () => {
-    const desks = buildDeskSlots(1);
-    // Place player right on top of the first desk
-    expect(checkDeskCollision(desks[0].left, desks[0].top + 2, desks)).toBe(true);
+  it("returns true when player overlaps a plot", () => {
+    const plots = buildPlotSlots(1);
+    // Place player right on top of the first plot
+    expect(checkPlotCollision(plots[0].left, plots[0].top + 2, plots)).toBe(true);
   });
 
-  it("returns false with empty desk array", () => {
-    expect(checkDeskCollision(50, 50, [])).toBe(false);
+  it("returns false with empty plot array", () => {
+    expect(checkPlotCollision(50, 50, [])).toBe(false);
   });
 });
 
@@ -872,21 +870,16 @@ describe("scene layout constants", () => {
     expect(OFFICE_BOUNDS.minY).toBeLessThan(OFFICE_BOUNDS.maxY);
   });
 
-  it("FACTORY_POS is inside office bounds", () => {
-    expect(FACTORY_POS.left).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minX);
-    expect(FACTORY_POS.top).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minY);
+  it("TORII_POS is inside office bounds", () => {
+    expect(TORII_POS.left).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minX);
+    expect(TORII_POS.top).toBeGreaterThanOrEqual(OFFICE_BOUNDS.minY);
   });
 
-  it("INCINERATOR_POS is inside office bounds", () => {
-    expect(INCINERATOR_POS.left).toBeLessThanOrEqual(OFFICE_BOUNDS.maxX);
-    expect(INCINERATOR_POS.top).toBeLessThanOrEqual(OFFICE_BOUNDS.maxY);
-  });
-
-  it("PLAYER_SIZE and DESK_SIZE are positive", () => {
+  it("PLAYER_SIZE and PLOT_SIZE are positive", () => {
     expect(PLAYER_SIZE.width).toBeGreaterThan(0);
     expect(PLAYER_SIZE.height).toBeGreaterThan(0);
-    expect(DESK_SIZE.width).toBeGreaterThan(0);
-    expect(DESK_SIZE.height).toBeGreaterThan(0);
+    expect(PLOT_SIZE.width).toBeGreaterThan(0);
+    expect(PLOT_SIZE.height).toBeGreaterThan(0);
   });
 
   it("PLAYER_MOVE_STEP is positive and reasonable", () => {
@@ -895,27 +888,21 @@ describe("scene layout constants", () => {
   });
 });
 
-describe("checkDeskCollision with factory/incinerator", () => {
-  it("detects collision with factory entrance", () => {
-    // Place player inside the factory collision box
-    const cx = FACTORY_COLLISION.left + FACTORY_COLLISION.width / 2;
-    const cy = FACTORY_COLLISION.top + FACTORY_COLLISION.height / 2;
-    expect(checkDeskCollision(cx, cy, [])).toBe(true);
-  });
-
-  it("detects collision with incinerator exit", () => {
-    const cx = INCINERATOR_COLLISION.left + INCINERATOR_COLLISION.width / 2;
-    const cy = INCINERATOR_COLLISION.top + INCINERATOR_COLLISION.height / 2;
-    expect(checkDeskCollision(cx, cy, [])).toBe(true);
+describe("checkPlotCollision with torii gate", () => {
+  it("detects collision with torii gate entrance", () => {
+    // Place player inside the torii gate collision box
+    const cx = TORII_COLLISION.left + TORII_COLLISION.width / 2;
+    const cy = TORII_COLLISION.top + TORII_COLLISION.height / 2;
+    expect(checkPlotCollision(cx, cy, [])).toBe(true);
   });
 
   it("returns false at scene centre (no obstacles)", () => {
-    expect(checkDeskCollision(50, 50, [])).toBe(false);
+    expect(checkPlotCollision(50, 50, [])).toBe(false);
   });
 
-  it("returns false just outside factory collision boundary", () => {
-    // Player centre just right of the factory collision right edge + half player width
-    const justOutside = FACTORY_COLLISION.left + FACTORY_COLLISION.width + PLAYER_SIZE.width;
-    expect(checkDeskCollision(justOutside, FACTORY_COLLISION.top + 10, [])).toBe(false);
+  it("returns false just outside torii gate collision boundary", () => {
+    // Player centre just right of the torii gate collision right edge + half player width
+    const justOutside = TORII_COLLISION.left + TORII_COLLISION.width + PLAYER_SIZE.width;
+    expect(checkPlotCollision(justOutside, TORII_COLLISION.top + 10, [])).toBe(false);
   });
 });

@@ -2724,25 +2724,26 @@ h2 {
   width: 96%;
   height: 94%;
   background:
-    radial-gradient(ellipse at 82% 18%, rgba(245, 158, 11, 0.04) 0%, transparent 40%),
-    radial-gradient(ellipse at 15% 75%, rgba(56, 189, 248, 0.03) 0%, transparent 35%),
+    radial-gradient(ellipse at 82% 18%, rgba(245, 178, 50, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse at 15% 75%, rgba(210, 180, 100, 0.05) 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 50%, rgba(194, 178, 128, 0.1) 0%, transparent 50%),
     repeating-linear-gradient(
       90deg,
       transparent 0,
       transparent 31px,
-      rgba(100, 116, 139, 0.1) 31px,
-      rgba(100, 116, 139, 0.1) 32px
+      rgba(194, 178, 128, 0.08) 31px,
+      rgba(194, 178, 128, 0.08) 32px
     ),
     repeating-linear-gradient(
       0deg,
       transparent 0,
       transparent 31px,
-      rgba(100, 116, 139, 0.1) 31px,
-      rgba(100, 116, 139, 0.1) 32px
+      rgba(194, 178, 128, 0.08) 31px,
+      rgba(194, 178, 128, 0.08) 32px
     ),
-    linear-gradient(180deg, #3d4f63 0%, #2d3d51 50%, #263347 100%);
-  border: 3px solid #1e293b;
-  box-shadow: inset 0 0 0 2px rgba(71, 85, 105, 0.4);
+    linear-gradient(180deg, #2e2a1e 0%, #252117 40%, #1f1c13 70%, #1a170f 100%);
+  border: 3px solid #1f1c13;
+  box-shadow: inset 0 0 0 2px rgba(60, 50, 30, 0.4);
   z-index: 1;
 }
 
@@ -3037,7 +3038,7 @@ h2 {
   100% { transform: translateY(380px) rotate(360deg) translateX(-10px); opacity: 0; }
 }
 
-/* ── Factory Floor Path ── */
+/* ── Zen Gravel Path ── */
 .zen-gravel-path {
   position: absolute;
   left: 12%;
@@ -3231,31 +3232,51 @@ h2 {
 }
 
 /* ── Zen Pond ── */
+/* ── Bioluminescent Zen Ponds (scattered) ── */
 .zen-pond {
   position: absolute;
-  left: 46%;
-  top: 78%;
-  width: 48px;
-  height: 24px;
   z-index: 3;
 }
+
+.zen-pond-1 { left: 46%; top: 78%; width: 48px; height: 24px; }
+.zen-pond-2 { left: 82%; top: 68%; width: 36px; height: 18px; }
+.zen-pond-3 { left: 18%; top: 85%; width: 42px; height: 20px; }
+.zen-pond-4 { left: 68%; top: 88%; width: 30px; height: 14px; }
 
 .pond-water {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse, #1e3a5f 0%, #0f2744 60%, #0a1929 100%);
+  background: radial-gradient(ellipse, #0a2a1a 0%, #0d3322 40%, #081f14 70%, #051510 100%);
   border-radius: 50%;
-  border: 2px solid #1e293b;
+  border: 2px solid #0a2a1a;
   box-shadow:
-    inset 0 2px 4px rgba(56, 189, 248, 0.1),
-    0 0 8px 2px rgba(56, 189, 248, 0.05);
+    inset 0 2px 6px rgba(34, 197, 94, 0.15),
+    0 0 12px 4px rgba(34, 197, 94, 0.08),
+    0 0 24px 8px rgba(52, 211, 153, 0.04);
+}
+
+.pond-algae {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.3) 0%, rgba(34, 197, 94, 0.15) 50%, transparent 80%);
+  animation: algae-pulse 3s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.pond-algae-1 { left: 20%; top: 30%; width: 40%; height: 50%; animation-delay: 0s; }
+.pond-algae-2 { left: 50%; top: 20%; width: 35%; height: 45%; animation-delay: 1.5s; }
+
+@keyframes algae-pulse {
+  0% { opacity: 0.3; filter: brightness(0.8); }
+  50% { opacity: 0.8; filter: brightness(1.3); }
+  100% { opacity: 0.4; filter: brightness(1); }
 }
 
 .pond-ripple {
   position: absolute;
   left: 50%;
   top: 50%;
-  border: 1px solid rgba(147, 197, 253, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.25);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   animation: pond-ripple-expand 4s ease-out infinite;
@@ -3276,14 +3297,15 @@ h2 {
   top: 25%;
   width: 6px;
   height: 3px;
-  background: rgba(186, 230, 253, 0.3);
+  background: rgba(52, 211, 153, 0.4);
   border-radius: 50%;
+  box-shadow: 0 0 4px 1px rgba(52, 211, 153, 0.3);
   animation: pond-shimmer-float 3s ease-in-out infinite alternate;
 }
 
 @keyframes pond-shimmer-float {
   0% { transform: translateX(0); opacity: 0.2; }
-  100% { transform: translateX(8px); opacity: 0.5; }
+  100% { transform: translateX(8px); opacity: 0.6; }
 }
 
 /* ── Fireflies ── */
@@ -3354,7 +3376,8 @@ h2 {
 }
 
 /* ── Factory Entrance (middle-left) ── */
-.hh-factory {
+/* ── Torii Gate Entrance (middle-left) ── */
+.hh-torii {
   position: absolute;
   left: 2%;
   top: 50%;
@@ -3364,168 +3387,60 @@ h2 {
   z-index: 5;
 }
 
-.factory-building {
+.torii-pillar {
+  position: absolute;
+  bottom: 0;
+  width: 8px;
+  height: 56px;
+  background: linear-gradient(180deg, #dc2626, #991b1b);
+  border: 2px solid #7f1d1d;
+  border-radius: 2px;
+}
+
+.torii-pillar-left { left: 14px; }
+.torii-pillar-right { right: 14px; }
+
+.torii-kasagi {
   position: absolute;
   left: 4px;
-  top: 16px;
-  width: 64px;
-  height: 44px;
-  background: linear-gradient(180deg, #475569, #334155);
-  border: 2px solid #1e293b;
-  border-radius: 2px;
-  box-shadow: inset 0 -2px 0 #1e293b;
-}
-
-.factory-roof {
-  position: absolute;
-  left: 0;
-  top: 12px;
+  top: 10px;
   width: 72px;
   height: 8px;
-  background: linear-gradient(180deg, #64748b, #475569);
-  border: 2px solid #1e293b;
-  border-radius: 2px 2px 0 0;
-}
-
-.factory-chimney {
-  position: absolute;
-  left: 52px;
-  top: 0;
-  width: 10px;
-  height: 16px;
-  background: linear-gradient(180deg, #64748b, #475569);
-  border: 2px solid #1e293b;
-  border-bottom: none;
-  border-radius: 2px 2px 0 0;
-}
-
-.factory-smoke {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: rgba(148, 163, 184, 0.5);
-  border-radius: 50%;
-  animation: factory-smoke-rise 2s ease-out infinite;
-}
-
-.factory-smoke-1 {
-  left: 54px;
-  top: -2px;
-}
-
-.factory-smoke-2 {
-  left: 56px;
-  top: -4px;
-  animation-delay: 0.7s;
-  width: 5px;
-  height: 5px;
-}
-
-.factory-smoke-3 {
-  left: 52px;
-  top: -3px;
-  animation-delay: 1.4s;
-  width: 4px;
-  height: 4px;
-}
-
-@keyframes factory-smoke-rise {
-  0% { transform: translateY(0) scale(1); opacity: 0.5; }
-  50% { transform: translateY(-12px) scale(1.5); opacity: 0.3; }
-  100% { transform: translateY(-24px) scale(2); opacity: 0; }
-}
-
-.factory-door {
-  position: absolute;
-  left: 50%;
-  top: 36px;
-  width: 18px;
-  height: 24px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #0f172a, #020617);
-  border: 2px solid #334155;
-  border-bottom: none;
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  border: 2px solid #7f1d1d;
   border-radius: 3px 3px 0 0;
+  box-shadow: 0 -2px 0 #b91c1c;
 }
 
-.factory-window {
+.torii-nuki {
   position: absolute;
-  width: 10px;
-  height: 8px;
-  background: #fef3c7;
-  border: 1px solid #1e293b;
-  border-radius: 1px;
-  box-shadow: 0 0 4px 1px rgba(254, 243, 199, 0.3);
-  animation: factory-window-flicker 4s ease-in-out infinite alternate;
-}
-
-.factory-window-1 {
   left: 12px;
-  top: 24px;
-}
-
-.factory-window-2 {
-  right: 16px;
-  top: 24px;
-}
-
-@keyframes factory-window-flicker {
-  0%, 80% { box-shadow: 0 0 4px 1px rgba(254, 243, 199, 0.3); }
-  90% { box-shadow: 0 0 2px 0px rgba(254, 243, 199, 0.1); }
-  100% { box-shadow: 0 0 4px 1px rgba(254, 243, 199, 0.3); }
-}
-
-.factory-conveyor {
-  position: absolute;
-  left: 0;
-  bottom: -2px;
-  width: 80px;
-  height: 6px;
-  background: #334155;
-  border: 1px solid #1e293b;
-  border-radius: 3px;
-}
-
-.factory-conveyor-line {
-  position: absolute;
-  bottom: -1px;
-  height: 4px;
-  width: 8px;
-  background: #475569;
-  border: 1px solid #1e293b;
+  top: 26px;
+  width: 56px;
+  height: 5px;
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  border: 1px solid #7f1d1d;
   border-radius: 1px;
-  animation: conveyor-scroll 1.2s linear infinite;
 }
 
-.factory-conveyor-line-1 { left: 8px; }
-.factory-conveyor-line-2 { left: 32px; animation-delay: 0.4s; }
-.factory-conveyor-line-3 { left: 56px; animation-delay: 0.8s; }
-
-@keyframes conveyor-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(16px); opacity: 0; }
-}
-
-.factory-light {
+.torii-glow {
   position: absolute;
   left: 50%;
-  top: 14px;
-  width: 6px;
-  height: 6px;
-  transform: translateX(-50%);
-  background: #22c55e;
-  border-radius: 50%;
-  border: 1px solid #166534;
-  box-shadow: 0 0 4px 2px rgba(34, 197, 94, 0.4);
-  animation: factory-blink 2s steps(1) infinite;
+  top: 50%;
+  width: 60px;
+  height: 50px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(239, 68, 68, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+  animation: torii-pulse 3s ease-in-out infinite alternate;
 }
 
-@keyframes factory-blink {
-  0%, 70% { background: #22c55e; box-shadow: 0 0 4px 2px rgba(34, 197, 94, 0.4); }
-  70.1%, 100% { background: #16a34a; box-shadow: 0 0 2px 1px rgba(34, 197, 94, 0.2); }
+@keyframes torii-pulse {
+  0% { opacity: 0.4; }
+  100% { opacity: 0.8; }
 }
 
-.factory-label {
+.torii-label {
   position: absolute;
   bottom: -12px;
   left: 0;
@@ -3533,317 +3448,104 @@ h2 {
   text-align: center;
   font-family: "Press Start 2P", var(--mono);
   font-size: 0.32rem;
-  color: #94a3b8;
+  color: #fca5a5;
   letter-spacing: 0.06em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Incinerator Exit (middle-right) ── */
-.hh-incinerator {
-  position: absolute;
-  right: 2%;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 80px;
-  height: 78px;
-  z-index: 5;
-}
-
-.incinerator-body {
-  position: absolute;
-  left: 8px;
-  top: 18px;
-  width: 56px;
-  height: 40px;
-  background: linear-gradient(180deg, #78350f, #451a03);
-  border: 2px solid #292524;
-  border-radius: 3px;
-  box-shadow: inset 0 -2px 0 #292524;
-}
-
-.incinerator-top {
-  position: absolute;
-  left: 4px;
-  top: 14px;
-  width: 64px;
-  height: 8px;
-  background: linear-gradient(180deg, #92400e, #78350f);
-  border: 2px solid #292524;
-  border-radius: 2px 2px 0 0;
-}
-
-.incinerator-mouth {
-  position: absolute;
-  left: 50%;
-  top: 34px;
-  width: 22px;
-  height: 24px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #1c1917, #0c0a09);
-  border: 2px solid #44403c;
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-}
-
-.incinerator-grate {
-  position: absolute;
-  left: 50%;
-  bottom: 2px;
-  width: 22px;
-  height: 4px;
-  transform: translateX(-50%);
-  background: repeating-linear-gradient(
-    90deg,
-    #44403c 0,
-    #44403c 2px,
-    transparent 2px,
-    transparent 4px
-  );
-  border: 1px solid #292524;
-}
-
-.incinerator-flame {
-  position: absolute;
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  animation: flame-dance 0.4s ease-in-out infinite alternate;
-}
-
-.incinerator-flame-1 {
-  left: 50%;
-  top: 36px;
-  width: 10px;
-  height: 14px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #fbbf24, #f97316, #ef4444);
-  box-shadow: 0 0 6px 2px rgba(249, 115, 22, 0.5);
-}
-
-.incinerator-flame-2 {
-  left: 42%;
-  top: 40px;
-  width: 7px;
-  height: 10px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #fde68a, #fbbf24, #f97316);
-  animation-delay: 0.15s;
-}
-
-.incinerator-flame-3 {
-  left: 58%;
-  top: 42px;
-  width: 6px;
-  height: 8px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #fef3c7, #fbbf24, #f97316);
-  animation-delay: 0.3s;
-}
-
-@keyframes flame-dance {
-  0% { transform: translateX(-50%) scaleY(1) scaleX(1); }
-  25% { transform: translateX(-50%) scaleY(1.15) scaleX(0.9); }
-  50% { transform: translateX(-50%) scaleY(0.9) scaleX(1.1); }
-  75% { transform: translateX(-50%) scaleY(1.1) scaleX(0.95); }
-  100% { transform: translateX(-50%) scaleY(0.95) scaleX(1.05); }
-}
-
-.incinerator-ember {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  background: #fbbf24;
-  border-radius: 50%;
-  animation: ember-float 1.5s ease-out infinite;
-}
-
-.incinerator-ember-1 {
-  left: 50%;
-  top: 32px;
-}
-
-.incinerator-ember-2 {
-  left: 45%;
-  top: 34px;
-  animation-delay: 0.6s;
-  width: 2px;
-  height: 2px;
-  background: #f97316;
-}
-
-@keyframes ember-float {
-  0% { transform: translateY(0); opacity: 1; }
-  100% { transform: translateY(-16px) translateX(4px); opacity: 0; }
-}
-
-.incinerator-heat-glow {
-  position: absolute;
-  left: 50%;
-  top: 30px;
-  width: 40px;
-  height: 30px;
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse, rgba(249, 115, 22, 0.25) 0%, transparent 70%);
-  pointer-events: none;
-  animation: heat-pulse 1.5s ease-in-out infinite alternate;
-}
-
-@keyframes heat-pulse {
-  0% { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-.incinerator-chimney {
-  position: absolute;
-  right: 14px;
-  top: 2px;
-  width: 8px;
-  height: 14px;
-  background: linear-gradient(180deg, #57534e, #44403c);
-  border: 2px solid #292524;
-  border-bottom: none;
-  border-radius: 2px 2px 0 0;
-}
-
-.incinerator-exhaust {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  background: rgba(120, 113, 108, 0.4);
-  border-radius: 50%;
-  animation: factory-smoke-rise 2.5s ease-out infinite;
-}
-
-.incinerator-exhaust-1 {
-  right: 16px;
-  top: 0;
-}
-
-.incinerator-exhaust-2 {
-  right: 14px;
-  top: -2px;
-  animation-delay: 1s;
-  width: 4px;
-  height: 4px;
-}
-
-.incinerator-label {
-  position: absolute;
-  bottom: -12px;
-  left: 0;
-  width: 100%;
-  text-align: center;
-  font-family: "Press Start 2P", var(--mono);
-  font-size: 0.28rem;
-  color: #f97316;
-  letter-spacing: 0.06em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-/* ── Work Desk (workstation) ── */
-.work-desk {
+/* ── Garden Plot (bonsai workstation) ── */
+.garden-plot {
   position: absolute;
   width: 15%;
   min-width: 72px;
   max-width: 100px;
   height: 48px;
   transform: translate(-50%, -50%);
-  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
-  border: 2px solid #0f172a;
-  border-radius: 3px;
+  background: radial-gradient(ellipse at 50% 80%, #4a3f28 0%, #3a3220 40%, transparent 70%);
+  border: 2px solid rgba(74, 63, 40, 0.5);
+  border-radius: 50%;
   box-shadow:
-    inset 0 1px 0 rgba(100, 116, 139, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+    inset 0 1px 0 rgba(140, 120, 80, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.2);
   z-index: 3;
 }
 
-/* ── Monitor (appears when worker is at desk) ── */
-.desk-monitor {
+/* ── Bonsai (appears when worker is at garden plot) ── */
+.plot-bonsai {
   position: absolute;
   bottom: 50%;
   left: 50%;
   transform: translateX(-50%) scale(0.5);
   width: 32px;
-  height: 30px;
+  height: 36px;
   pointer-events: none;
   z-index: 5;
   opacity: 0;
-  animation: monitor-boot 0.6s ease-out forwards;
+  animation: bonsai-sprout 0.6s ease-out forwards;
 }
 
-.desk-monitor.monitor-on {
+.plot-bonsai.bonsai-growing {
   transform: translateX(-50%) scale(1);
   opacity: 1;
-  animation: none;
+  animation: bonsai-sway 4s ease-in-out infinite alternate;
 }
 
-@keyframes monitor-boot {
-  0% { transform: translateX(-50%) scale(0.3); opacity: 0; }
-  60% { transform: translateX(-50%) scale(1.05); opacity: 1; }
+@keyframes bonsai-sprout {
+  0% { transform: translateX(-50%) scale(0.2); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.08); opacity: 1; }
   100% { transform: translateX(-50%) scale(1); opacity: 1; }
 }
 
-.monitor-screen {
-  position: absolute;
-  left: 2px;
-  top: 0;
-  width: 28px;
-  height: 20px;
-  background: #0f172a;
-  border: 2px solid #334155;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px #1e293b;
+@keyframes bonsai-sway {
+  0% { transform: translateX(-50%) rotate(-1deg); }
+  100% { transform: translateX(-50%) rotate(1deg); }
 }
 
-.desk-monitor.monitor-on .monitor-screen {
-  background: linear-gradient(180deg, #1e3a5f 0%, #0c1929 100%);
-  box-shadow:
-    inset 0 0 0 1px #1e293b,
-    0 0 3px 1px rgba(59, 130, 246, 0.2);
-  animation: screen-flicker 3s steps(1) infinite;
-}
-
-@keyframes screen-flicker {
-  0%, 95% { opacity: 1; }
-  96% { opacity: 0.85; }
-  97%, 100% { opacity: 1; }
-}
-
-.monitor-stand {
+.bonsai-pot {
   position: absolute;
   left: 50%;
-  top: 20px;
+  bottom: 0;
+  width: 18px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #92400e, #78350f);
+  border: 2px solid #451a03;
+  border-radius: 0 0 4px 4px;
+}
+
+.bonsai-trunk {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
   width: 4px;
-  height: 6px;
+  height: 14px;
   transform: translateX(-50%);
-  background: #475569;
-  border: 1px solid #334155;
+  background: linear-gradient(180deg, #78350f, #6b3410);
+  border-radius: 2px;
 }
 
-.monitor-base {
+.bonsai-canopy {
   position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 40% 30%, #22c55e, #15803d);
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.bonsai-canopy-1 {
   left: 50%;
-  top: 25px;
+  bottom: 18px;
+  width: 22px;
+  height: 16px;
+  transform: translateX(-50%);
+}
+
+.bonsai-canopy-2 {
+  left: 30%;
+  bottom: 22px;
   width: 14px;
-  height: 3px;
+  height: 10px;
   transform: translateX(-50%);
-  background: #475569;
-  border: 1px solid #334155;
-  border-radius: 0 0 2px 2px;
-}
-
-.monitor-glow {
-  position: absolute;
-  left: 50%;
-  top: 6px;
-  width: 20px;
-  height: 12px;
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
-  pointer-events: none;
-  opacity: 0;
-}
-
-.desk-monitor.monitor-on .monitor-glow {
-  opacity: 1;
+  background: radial-gradient(ellipse at 40% 30%, #4ade80, #22c55e);
 }
 
 .zen-status-summary {
@@ -4752,13 +4454,12 @@ button.worker-sprite:hover {
   background: transparent;
 }
 
-button.worker-sprite.at-factory {
+button.worker-sprite.at-gate {
   opacity: 0;
-  animation: factory-spawn 0.08s steps(1) forwards;
+  animation: gate-spawn 0.08s steps(1) forwards;
 }
 
-button.worker-sprite.walking-to-desk,
-button.worker-sprite.walking-to-exit {
+button.worker-sprite.walking-to-plot {
   transition: left 1.4s linear, top 1.4s linear;
   transform: translate(-50%, 28px);
 }
@@ -4767,67 +4468,58 @@ button.worker-sprite.active {
   animation: worker-bob 1.05s steps(2, end) infinite;
 }
 
-button.worker-sprite.walking-to-exit {
+button.worker-sprite.meditating {
+  animation: meditation-sit 1.2s ease-out forwards;
   pointer-events: none;
 }
 
-button.worker-sprite.at-exit {
-  animation: incinerator-despawn 0.4s ease-in forwards;
+button.worker-sprite.fading {
+  animation: meditation-fade 0.8s ease-in forwards;
   pointer-events: none;
 }
 
 /* Walking leg animations for bots */
-button.worker-sprite.walking-to-desk .bot-leg-left,
-button.worker-sprite.walking-to-exit .bot-leg-left {
+button.worker-sprite.walking-to-plot .bot-leg-left {
   animation: bot-walk-leg-l 0.3s steps(2, end) infinite;
 }
 
-button.worker-sprite.walking-to-desk .bot-leg-right,
-button.worker-sprite.walking-to-exit .bot-leg-right {
+button.worker-sprite.walking-to-plot .bot-leg-right {
   animation: bot-walk-leg-r 0.3s steps(2, end) infinite;
 }
 
 /* Walking foot animations for bots (follow legs) */
-button.worker-sprite.walking-to-desk .bot-foot-left,
-button.worker-sprite.walking-to-exit .bot-foot-left {
+button.worker-sprite.walking-to-plot .bot-foot-left {
   animation: bot-walk-leg-l 0.3s steps(2, end) infinite;
 }
 
-button.worker-sprite.walking-to-desk .bot-foot-right,
-button.worker-sprite.walking-to-exit .bot-foot-right {
+button.worker-sprite.walking-to-plot .bot-foot-right {
   animation: bot-walk-leg-r 0.3s steps(2, end) infinite;
 }
 
 /* Walking arm swing for bots */
-button.worker-sprite.walking-to-desk .bot-arm-left,
-button.worker-sprite.walking-to-exit .bot-arm-left {
+button.worker-sprite.walking-to-plot .bot-arm-left {
   animation: arm-walk-left 0.3s steps(2, end) infinite;
 }
 
-button.worker-sprite.walking-to-desk .bot-arm-right,
-button.worker-sprite.walking-to-exit .bot-arm-right {
+button.worker-sprite.walking-to-plot .bot-arm-right {
   animation: arm-walk-right 0.3s steps(2, end) infinite;
 }
 
 /* Walking leg animations for geese */
-button.worker-sprite.walking-to-desk .goose-leg-left,
-button.worker-sprite.walking-to-exit .goose-leg-left {
+button.worker-sprite.walking-to-plot .goose-leg-left {
   animation: bot-walk-leg-l 0.25s steps(2, end) infinite;
 }
 
-button.worker-sprite.walking-to-desk .goose-leg-right,
-button.worker-sprite.walking-to-exit .goose-leg-right {
+button.worker-sprite.walking-to-plot .goose-leg-right {
   animation: bot-walk-leg-r 0.25s steps(2, end) infinite;
 }
 
 /* Walking foot animations for geese */
-button.worker-sprite.walking-to-desk .goose-foot-left,
-button.worker-sprite.walking-to-exit .goose-foot-left {
+button.worker-sprite.walking-to-plot .goose-foot-left {
   animation: bot-walk-leg-l 0.25s steps(2, end) infinite;
 }
 
-button.worker-sprite.walking-to-desk .goose-foot-right,
-button.worker-sprite.walking-to-exit .goose-foot-right {
+button.worker-sprite.walking-to-plot .goose-foot-right {
   animation: bot-walk-leg-r 0.25s steps(2, end) infinite;
 }
 
@@ -5322,7 +5014,7 @@ button.worker-sprite:disabled .worker-caption {
   }
 }
 
-@keyframes factory-spawn {
+@keyframes gate-spawn {
   0% {
     opacity: 0;
     transform: translate(-50%, 28px) scale(0.3);
@@ -5333,21 +5025,32 @@ button.worker-sprite:disabled .worker-caption {
   }
 }
 
-@keyframes incinerator-despawn {
+/* Meditation exit: bot sits down, legs tuck, arms cross */
+@keyframes meditation-sit {
+  0% {
+    transform: translate(-50%, 28px) scale(1);
+  }
+  100% {
+    transform: translate(-50%, 34px) scale(0.85);
+  }
+}
+
+/* Meditation fade: bot dissolves with a soft glow */
+@keyframes meditation-fade {
   0% {
     opacity: 1;
-    transform: translate(-50%, 28px) scale(1);
+    transform: translate(-50%, 34px) scale(0.85);
     filter: brightness(1);
   }
-  50% {
-    opacity: 0.8;
-    transform: translate(-50%, 24px) scale(0.9);
-    filter: brightness(2) saturate(0.5);
+  40% {
+    opacity: 0.7;
+    transform: translate(-50%, 34px) scale(0.82);
+    filter: brightness(1.3) saturate(0.7);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, 20px) scale(0.2);
-    filter: brightness(3) saturate(0);
+    transform: translate(-50%, 34px) scale(0.75);
+    filter: brightness(1.8) saturate(0.3);
   }
 }
 

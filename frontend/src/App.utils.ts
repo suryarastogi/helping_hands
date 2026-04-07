@@ -7,9 +7,8 @@
 
 import {
   ARCADE_COLLISION,
-  DESK_SIZE,
-  FACTORY_COLLISION,
-  INCINERATOR_COLLISION,
+  PLOT_SIZE,
+  TORII_COLLISION,
   PLAYER_SIZE,
 } from "./constants";
 import type {
@@ -17,7 +16,7 @@ import type {
   Backend,
   CharacterStyle,
   ClaudeUsageResponse,
-  DeskSlot,
+  PlotSlot,
   FormState,
   PrefixFilterMode,
   ScheduleFormState,
@@ -152,11 +151,11 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
 };
 
 export const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
-  "at-factory": 80,
-  "walking-to-desk": 1500,
+  "at-gate": 80,
+  "walking-to-plot": 1500,
   "active": Infinity,
-  "walking-to-exit": 1500,
-  "at-exit": 400,
+  "meditating": 1200,
+  "fading": 800,
 };
 
 export const DEFAULT_WORLD_MAX_WORKERS = 8;
@@ -538,10 +537,10 @@ export async function fetchServerConfig(): Promise<ServerConfig | null> {
 // Scene geometry helpers
 // ---------------------------------------------------------------------------
 
-export function buildDeskSlots(capacity: number): DeskSlot[] {
+export function buildPlotSlots(capacity: number): PlotSlot[] {
   const columns = 4;
   const rows = Math.max(1, Math.ceil(capacity / columns));
-  const slots: DeskSlot[] = [];
+  const slots: PlotSlot[] = [];
   const leftStart = 14;
   const leftStep = 22;
   const topStart = 24;
@@ -552,7 +551,7 @@ export function buildDeskSlots(capacity: number): DeskSlot[] {
     const row = Math.floor(index / columns);
     const col = index % columns;
     slots.push({
-      id: `desk-${index}`,
+      id: `plot-${index}`,
       left: leftStart + col * leftStep,
       top: Number((topStart + row * rowStep).toFixed(2)),
     });
@@ -561,34 +560,34 @@ export function buildDeskSlots(capacity: number): DeskSlot[] {
   return slots;
 }
 
-export function checkDeskCollision(
+export function checkPlotCollision(
   playerX: number,
   playerY: number,
-  deskSlots: DeskSlot[]
+  plotSlots: PlotSlot[]
 ): boolean {
   const playerLeft = playerX - PLAYER_SIZE.width / 2;
   const playerRight = playerX + PLAYER_SIZE.width / 2;
   const playerTop = playerY - PLAYER_SIZE.height / 2;
   const playerBottom = playerY + PLAYER_SIZE.height / 2;
 
-  for (const desk of deskSlots) {
-    const deskLeft = desk.left - DESK_SIZE.width / 2;
-    const deskRight = desk.left + DESK_SIZE.width / 2;
-    // Only use the bottom portion of the desk for collision so sprites can
-    // walk "behind" the desk from above without stopping mid-way.
-    const collisionTop = desk.top + DESK_SIZE.height * 0.1;
-    const deskBottom = desk.top + DESK_SIZE.height / 2;
+  for (const plot of plotSlots) {
+    const plotLeft = plot.left - PLOT_SIZE.width / 2;
+    const plotRight = plot.left + PLOT_SIZE.width / 2;
+    // Only use the bottom portion of the plot for collision so sprites can
+    // walk "behind" the plot from above without stopping mid-way.
+    const collisionTop = plot.top + PLOT_SIZE.height * 0.1;
+    const plotBottom = plot.top + PLOT_SIZE.height / 2;
 
-    const overlapsX = playerRight > deskLeft && playerLeft < deskRight;
-    const overlapsY = playerBottom > collisionTop && playerTop < deskBottom;
+    const overlapsX = playerRight > plotLeft && playerLeft < plotRight;
+    const overlapsY = playerBottom > collisionTop && playerTop < plotBottom;
 
     if (overlapsX && overlapsY) {
       return true;
     }
   }
 
-  // Check factory, incinerator, and arcade collisions
-  for (const box of [FACTORY_COLLISION, INCINERATOR_COLLISION, ARCADE_COLLISION]) {
+  // Check torii gate and arcade collisions
+  for (const box of [TORII_COLLISION, ARCADE_COLLISION]) {
     const bLeft = box.left;
     const bRight = box.left + box.width;
     const bTop = box.top;
