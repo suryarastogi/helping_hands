@@ -4,6 +4,17 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Conflict Resolution & Rebase Coverage (2026-04-07) — Completed
+
+Closed the largest remaining coverage gaps in `cli/base.py` (88% → 99%) and
+`hand/base.py` (92% → 100%). Added 42 tests covering `_build_conflict_fix_prompt`
+(6 tests), `_get_conflicted_files` (5 tests), `_attempt_rebase_with_conflict_fix`
+(8 tests), `_ai_resolve_push_conflicts` (10 tests), `_try_rebase_for_push`
+(5 tests), `_default_base_branch` success path (3 tests),
+`_push_to_existing_pr` master_rebase path (2 tests), and
+`_push_to_existing_pr` fix_conflicts path (3 tests). 5374 total tests pass.
+Coverage: 97.18% → 99.68%.
+
 ### Codex CLI Grill Tests (2026-04-07) — Completed
 
 Added 24 dedicated tests for the Codex CLI backend in `server/grill.py` (PR
