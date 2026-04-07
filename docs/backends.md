@@ -46,6 +46,8 @@ When `--model` is unset or `default`, all iterative backends default to **Ollama
   - container runtime (`/.dockerenv`): `--sandbox danger-full-access` (avoids landlock failures)
   - override with `HELPING_HANDS_CODEX_SANDBOX_MODE`
 - Default Codex automation mode includes `--skip-git-repo-check` (disable with `HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK=0`)
+- Default reasoning effort: `high` — injected as `-c model_reasoning_effort=high` for every `codex exec` run
+  - Override with `HELPING_HANDS_CODEX_REASONING_EFFORT=<low|medium|high|xhigh>` or set to empty to disable injection
 - Override command via `HELPING_HANDS_CODEX_CLI_CMD`
 - Optional placeholders supported in the override string:
   - `{prompt}`
