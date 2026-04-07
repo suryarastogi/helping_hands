@@ -1280,6 +1280,36 @@ class TestLaunchIntervalChain:
         assert task.last_run_task_id == "task-id-123"
         assert task.last_run_at is not None
 
+    def test_passes_github_token(self) -> None:
+        """github_token must be forwarded to build_feature so auth doesn't fail."""
+        mgr, _mock_redis, _mock_app = _build_manager()
+        task = _make_task(
+            schedule_type="interval",
+            interval_seconds=300,
+            cron_expression="",
+            github_token="ghp_test_token",
+        )
+
+        mock_result = MagicMock()
+        mock_result.id = "task-id-tok"
+        mock_build = MagicMock()
+        mock_build.apply_async.return_value = mock_result
+        mock_reschedule = MagicMock()
+
+        with (
+            patch.object(mgr, "_revoke_interval_chain"),
+            patch.object(mgr, "_save_chain_nonce"),
+            patch.object(mgr, "_save_meta"),
+            patch("helping_hands.server.celery_app.build_feature", mock_build),
+            patch(
+                "helping_hands.server.celery_app.interval_reschedule", mock_reschedule
+            ),
+        ):
+            mgr._launch_interval_chain(task, countdown=0)
+
+        dispatched_kwargs = mock_build.apply_async.call_args.kwargs["kwargs"]
+        assert dispatched_kwargs["github_token"] == "ghp_test_token"
+
     def test_import_error_returns_none(self) -> None:
         """When celery tasks can't be imported, returns None."""
         import sys

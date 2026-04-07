@@ -657,6 +657,7 @@ class ScheduleManager:
                 "fix_conflicts": task.fix_conflicts,
                 "master_rebase": task.master_rebase,
                 "ci_check_wait_minutes": task.ci_check_wait_minutes,
+                "github_token": task.github_token,
                 "reference_repos": task.reference_repos,
                 "schedule_id": task.schedule_id,
             },
