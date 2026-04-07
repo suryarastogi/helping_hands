@@ -184,18 +184,58 @@ class TestApplyCodexExecGitRepoCheckDefaults:
 
 
 # ---------------------------------------------------------------------------
-# _apply_backend_defaults (combines sandbox + git repo check)
+# _apply_codex_exec_reasoning_effort_defaults
+# ---------------------------------------------------------------------------
+
+
+class TestApplyCodexExecReasoningEffortDefaults:
+    def test_injects_reasoning_effort_by_default(self, codex_hand, monkeypatch) -> None:
+        monkeypatch.delenv("HELPING_HANDS_CODEX_REASONING_EFFORT", raising=False)
+        cmd = ["codex", "exec", "-p", "fix"]
+        result = codex_hand._apply_codex_exec_reasoning_effort_defaults(cmd)
+        assert "-c" in result
+        assert "model_reasoning_effort=high" in result
+
+    def test_respects_env_override(self, codex_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_REASONING_EFFORT", "xhigh")
+        cmd = ["codex", "exec", "-p", "fix"]
+        result = codex_hand._apply_codex_exec_reasoning_effort_defaults(cmd)
+        assert "model_reasoning_effort=xhigh" in result
+
+    def test_disabled_when_empty(self, codex_hand, monkeypatch) -> None:
+        monkeypatch.setenv("HELPING_HANDS_CODEX_REASONING_EFFORT", "")
+        cmd = ["codex", "exec", "-p", "fix"]
+        result = codex_hand._apply_codex_exec_reasoning_effort_defaults(cmd)
+        assert "model_reasoning_effort" not in " ".join(result)
+
+    def test_no_inject_when_already_present(self, codex_hand) -> None:
+        cmd = ["codex", "exec", "-c", "model_reasoning_effort=low", "-p", "fix"]
+        result = codex_hand._apply_codex_exec_reasoning_effort_defaults(cmd)
+        effort_tokens = [t for t in result if "model_reasoning_effort" in t]
+        assert len(effort_tokens) == 1
+        assert effort_tokens[0] == "model_reasoning_effort=low"
+
+    def test_non_codex_exec_passthrough(self, codex_hand) -> None:
+        cmd = ["some", "other", "cmd"]
+        result = codex_hand._apply_codex_exec_reasoning_effort_defaults(cmd)
+        assert result == cmd
+
+
+# ---------------------------------------------------------------------------
+# _apply_backend_defaults (combines sandbox + git repo check + reasoning)
 # ---------------------------------------------------------------------------
 
 
 class TestApplyBackendDefaults:
-    def test_applies_both_defaults(self, codex_hand, monkeypatch) -> None:
+    def test_applies_all_defaults(self, codex_hand, monkeypatch) -> None:
         monkeypatch.delenv("HELPING_HANDS_CODEX_SANDBOX_MODE", raising=False)
         monkeypatch.delenv("HELPING_HANDS_CODEX_SKIP_GIT_REPO_CHECK", raising=False)
+        monkeypatch.delenv("HELPING_HANDS_CODEX_REASONING_EFFORT", raising=False)
         cmd = ["codex", "exec", "-p", "fix"]
         result = codex_hand._apply_backend_defaults(cmd)
         assert "--sandbox" in result
         assert "--skip-git-repo-check" in result
+        assert "model_reasoning_effort=high" in result
 
 
 # ---------------------------------------------------------------------------

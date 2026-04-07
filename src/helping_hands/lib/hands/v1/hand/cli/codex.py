@@ -27,6 +27,8 @@ class CodexCLIHand(_TwoPhaseCLIHand):
     _DEFAULT_SANDBOX_MODE = "workspace-write"
     _DEFAULT_SANDBOX_MODE_IN_CONTAINER = "danger-full-access"
     _DEFAULT_SKIP_GIT_REPO_CHECK = "1"
+    _DEFAULT_REASONING_EFFORT = "high"
+    _REASONING_EFFORT_ENV_VAR = "HELPING_HANDS_CODEX_REASONING_EFFORT"
     _CONTAINER_ENABLED_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER"
     _CONTAINER_IMAGE_ENV_VAR = "HELPING_HANDS_CODEX_CONTAINER_IMAGE"
     _NATIVE_CLI_AUTH_ENV_VAR = "HELPING_HANDS_CODEX_USE_NATIVE_CLI_AUTH"
@@ -152,17 +154,43 @@ class CodexCLIHand(_TwoPhaseCLIHand):
             return cmd
         return [*cmd[:2], "--skip-git-repo-check", *cmd[2:]]
 
-    def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
-        """Apply Codex-specific sandbox and git-repo-check defaults.
+    def _apply_codex_exec_reasoning_effort_defaults(self, cmd: list[str]) -> list[str]:
+        """Inject ``-c model_reasoning_effort=<effort>`` into ``codex exec``.
+
+        Ensures reasoning models run at maximum effort rather than falling
+        back to a lower default.  Reads ``HELPING_HANDS_CODEX_REASONING_EFFORT``
+        (default ``"high"``).  Set to an empty string to disable injection.
 
         Args:
             cmd: Full command tokens.
 
         Returns:
-            Command tokens with sandbox and git-repo-check flags applied.
+            Command tokens with the config override inserted after ``exec``.
+        """
+        if len(cmd) < 2 or cmd[0] != "codex" or cmd[1] != "exec":
+            return cmd
+        # Don't override if the caller already provided a -c model_reasoning_effort value
+        if any("model_reasoning_effort" in token for token in cmd):
+            return cmd
+        effort = os.environ.get(
+            self._REASONING_EFFORT_ENV_VAR, self._DEFAULT_REASONING_EFFORT
+        ).strip()
+        if not effort:
+            return cmd
+        return [*cmd[:2], "-c", f"model_reasoning_effort={effort}", *cmd[2:]]
+
+    def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
+        """Apply Codex-specific sandbox, git-repo-check, and reasoning defaults.
+
+        Args:
+            cmd: Full command tokens.
+
+        Returns:
+            Command tokens with all Codex defaults applied.
         """
         cmd = self._apply_codex_exec_sandbox_defaults(cmd)
-        return self._apply_codex_exec_git_repo_check_defaults(cmd)
+        cmd = self._apply_codex_exec_git_repo_check_defaults(cmd)
+        return self._apply_codex_exec_reasoning_effort_defaults(cmd)
 
     def _build_failure_message(self, *, return_code: int, output: str) -> str:
         """Delegate to ``_build_codex_failure_message``.

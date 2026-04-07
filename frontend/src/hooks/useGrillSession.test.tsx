@@ -27,6 +27,7 @@ const FORM: GrillFormState = {
   model: "gpt-5.2",
   github_token: "ghp_abc",
   reference_repos: "ref/one, ref/two",
+  backend: "claudecodecli",
 };
 
 function makeMessage(overrides: Partial<GrillMessage> & { id: string }): GrillMessage {
