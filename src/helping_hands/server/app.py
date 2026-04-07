@@ -4878,6 +4878,7 @@ class GrillRequest(BaseModel):
     reference_repos: list[str] = Field(
         default_factory=list, max_length=_MAX_REFERENCE_REPOS
     )
+    backend: str = Field(default="claudecodecli", max_length=_MAX_MODEL_LENGTH)
 
 
 class GrillStartResponse(BaseModel):
@@ -4928,6 +4929,7 @@ def start_grill(req: GrillRequest) -> GrillStartResponse:
         model=req.model,
         github_token=req.github_token,
         reference_repos=req.reference_repos,
+        backend=req.backend,
     )
     return GrillStartResponse(session_id=task.id, status="starting")
 

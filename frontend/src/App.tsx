@@ -370,7 +370,8 @@ export default function App() {
     model: form.model,
     github_token: form.github_token,
     reference_repos: form.reference_repos,
-  }), [form.repo_path, form.prompt, form.model, form.github_token, form.reference_repos]);
+    backend: form.backend,
+  }), [form.repo_path, form.prompt, form.model, form.github_token, form.reference_repos, form.backend]);
 
   const submissionCard = (
     <SubmissionForm form={form} onFieldChange={updateField} onSubmit={submitRun} backends={enabledBackends} recentRepos={recentRepos} serverHasGithubToken={serverHasGithubToken} />

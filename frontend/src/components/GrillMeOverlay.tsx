@@ -135,11 +135,22 @@ function GrillFormPhase({
       </div>
       <div className="grill-form-row">
         <label>
+          Backend
+          <select
+            value={form.backend}
+            onChange={(e) => setForm((f) => ({ ...f, backend: e.target.value }))}
+            aria-label="AI backend"
+          >
+            <option value="claudecodecli">Claude Code CLI</option>
+            <option value="codexcli">Codex CLI</option>
+          </select>
+        </label>
+        <label>
           Model
           <input
             value={form.model}
             onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-            placeholder={defaultModelForBackend("claudecodecli") || "model"}
+            placeholder={defaultModelForBackend(form.backend || "claudecodecli") || "model"}
           />
         </label>
         <label>

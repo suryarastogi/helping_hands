@@ -67,6 +67,9 @@ _MAX_CONVERSATION_TURNS = 100
 _CLAUDE_TURN_TIMEOUT_S = 300
 """Max seconds to wait for a single Claude CLI response."""
 
+_CODEX_TURN_TIMEOUT_S = 300
+"""Max seconds to wait for a single Codex CLI response."""
+
 
 # --- Redis helpers -----------------------------------------------------------
 
@@ -415,6 +418,133 @@ def _invoke_claude_turn(
     return result_text or "\n".join(text_parts)
 
 
+# --- Codex CLI turn execution ------------------------------------------------
+
+
+def _build_codex_full_prompt(
+    system_prompt: str,
+    conversation_history: list[dict[str, str]],
+    user_message: str,
+) -> str:
+    """Build a single prompt embedding system context, history, and new message.
+
+    Codex CLI has no native session/resume capability, so every turn must
+    include the full conversation transcript.
+
+    Args:
+        system_prompt: System instructions + repo context (from
+            :func:`_build_system_prompt`).
+        conversation_history: Prior turns as ``[{"role": "assistant"|"user",
+            "content": "..."}]``.
+        user_message: The new user message for this turn.
+
+    Returns:
+        A single string suitable for passing directly to ``codex exec``.
+    """
+    if conversation_history:
+        history_parts: list[str] = []
+        for turn in conversation_history:
+            prefix = "AI" if turn["role"] == "assistant" else "User"
+            history_parts.append(f"{prefix}: {turn['content']}")
+        history_block = "\n\n".join(history_parts)
+        return (
+            f"{system_prompt}\n\n"
+            f"---\nConversation so far:\n\n{history_block}\n\n"
+            f"---\nUser: {user_message}\n\n"
+            "Respond as the AI interviewer. Output only your reply with no 'AI:' prefix."
+        )
+    return (
+        f"{system_prompt}\n\n"
+        f"User: {user_message}\n\n"
+        "Begin the interview. Output only your reply with no 'AI:' prefix."
+    )
+
+
+def _invoke_codex_turn(
+    *,
+    user_message: str,
+    cwd: str,
+    system_prompt: str,
+    conversation_history: list[dict[str, str]],
+    model: str | None = None,
+    on_status: Any | None = None,
+) -> str:
+    """Execute a single Codex CLI turn and return the response text.
+
+    Codex CLI has no native session/resume capability, so the full
+    conversation history is embedded in each invocation prompt.
+
+    Args:
+        user_message: The new user message for this turn.
+        cwd: Working directory (repo root).
+        system_prompt: System instructions + repo context.
+        conversation_history: Prior turns as ``[{"role", "content"}]``.
+        model: Model override (e.g. ``"gpt-5.2"``).
+        on_status: Optional ``(text: str) -> None`` callback for status.
+
+    Returns:
+        The assistant's response text.
+
+    Raises:
+        RuntimeError: If Codex CLI is not found, times out, or returns an error.
+    """
+    from pathlib import Path
+
+    full_prompt = _build_codex_full_prompt(
+        system_prompt, conversation_history, user_message
+    )
+
+    sandbox_mode = os.environ.get("HELPING_HANDS_CODEX_SANDBOX_MODE")
+    if sandbox_mode is None:
+        sandbox_mode = (
+            "danger-full-access" if Path("/.dockerenv").exists() else "workspace-write"
+        )
+
+    cmd = [
+        "codex",
+        "exec",
+        "--sandbox",
+        sandbox_mode,
+        "--skip-git-repo-check",
+    ]
+    if model:
+        cmd.extend(["--model", model])
+    cmd.append(full_prompt)
+
+    if on_status:
+        on_status("Thinking...")
+
+    env = os.environ.copy()
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            timeout=_CODEX_TURN_TIMEOUT_S,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "Codex CLI ('codex') is not installed or not on PATH. "
+            "Install with: npm install -g @openai/codex"
+        ) from exc
+    except TimeoutExpired as exc:
+        raise RuntimeError(
+            f"Codex CLI timed out after {_CODEX_TURN_TIMEOUT_S}s"
+        ) from exc
+
+    if on_status:
+        on_status("Turn complete")
+
+    if result.returncode != 0:
+        error_text = result.stderr.strip() or f"exit code {result.returncode}"
+        raise RuntimeError(f"Codex CLI error: {error_text[:500]}")
+
+    return result.stdout.strip()
+
+
 # --- Celery task -------------------------------------------------------------
 
 try:  # pragma: no cover — requires celery extra
@@ -428,15 +558,15 @@ try:  # pragma: no cover — requires celery extra
         model: str | None = None,
         github_token: str | None = None,
         reference_repos: list[str] | None = None,
+        backend: str = "claudecodecli",
     ) -> dict[str, Any]:
         """Long-running Celery task for interactive grill sessions.
 
         Clones the repo, builds context, then enters a message loop.
-        Each AI turn is a ``claude -p`` subprocess call using
-        ``--session-id`` / ``--resume`` for conversation continuity.
+        Supports ``claudecodecli`` (default) and ``codexcli`` backends.
         """
         return _grill_session_body(
-            self, repo_path, prompt, model, github_token, reference_repos
+            self, repo_path, prompt, model, github_token, reference_repos, backend
         )
 
 except ImportError:
@@ -450,12 +580,13 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
     model: str | None = None,
     github_token: str | None = None,
     reference_repos: list[str] | None = None,
+    backend: str = "claudecodecli",
 ) -> dict[str, Any]:
     """Long-running Celery task for interactive grill sessions.
 
     Clones the repo, builds context, then enters a message loop.
-    Each AI turn is a ``claude -p`` subprocess call using
-    ``--session-id`` / ``--resume`` for conversation continuity.
+    Supports ``claudecodecli`` (uses ``--session-id``/``--resume``) and
+    ``codexcli`` (embeds full conversation history in each prompt).
     """
     session_id = self.request.id
     r = _redis_client()
@@ -463,6 +594,9 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
     # Separate UUID for the Claude CLI session (Celery task IDs aren't
     # always valid UUIDs in the format Claude expects).
     claude_session_id = str(uuid.uuid4())
+    use_codex = backend == "codexcli"
+    # Conversation history for Codex (stateless) turns
+    codex_history: list[dict[str, str]] = []
 
     try:
         # -- Set initial state -------------------------------------------------
@@ -474,6 +608,7 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                 "repo_path": repo_path,
                 "prompt": prompt,
                 "model": model,
+                "backend": backend,
                 "turn_count": 0,
             },
         )
@@ -561,11 +696,12 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
             """Push an intermediate status message to the frontend."""
             _push_ai_msg(r, session_id, "system", text)
 
+        backend_label = "Codex CLI" if use_codex else "Claude Code CLI"
         _push_ai_msg(
             r,
             session_id,
             "system",
-            f"Starting grill session{f' with {resolved_model}' if resolved_model else ''}...",
+            f"Starting grill session{f' with {resolved_model}' if resolved_model else ''} ({backend_label})...",
         )
 
         _set_state(
@@ -576,31 +712,47 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                 "repo_path": repo_path,
                 "prompt": prompt,
                 "model": resolved_model,
+                "backend": backend,
                 "turn_count": 0,
             },
         )
 
         # -- First turn: send the plan and get the first question --------------
+        _first_turn_msg = (
+            "Begin the interview. Start with the highest-level "
+            "architectural question about this plan."
+        )
         try:
-            ai_text = _invoke_claude_turn(
-                prompt=(
-                    "Begin the interview. Start with the highest-level "
-                    "architectural question about this plan."
-                ),
-                cwd=cwd,
-                claude_session_id=claude_session_id,
-                is_first_turn=True,
-                system_prompt=system_prompt,
-                model=resolved_model or None,
-                github_token=github_token,
-                on_status=_emit_status,
-            )
+            if use_codex:
+                ai_text = _invoke_codex_turn(
+                    user_message=_first_turn_msg,
+                    cwd=cwd,
+                    system_prompt=system_prompt,
+                    conversation_history=codex_history,
+                    model=resolved_model or None,
+                    on_status=_emit_status,
+                )
+            else:
+                ai_text = _invoke_claude_turn(
+                    prompt=_first_turn_msg,
+                    cwd=cwd,
+                    claude_session_id=claude_session_id,
+                    is_first_turn=True,
+                    system_prompt=system_prompt,
+                    model=resolved_model or None,
+                    github_token=github_token,
+                    on_status=_emit_status,
+                )
         except RuntimeError as exc:
             _push_ai_msg(r, session_id, "system", str(exc), msg_type="error")
             _set_state(r, session_id, {"status": "error", "error": str(exc)})
             return {"status": "error", "error": str(exc)}
 
         turn_count = 1
+
+        # Track history for Codex stateless turns
+        if use_codex:
+            codex_history.append({"role": "assistant", "content": ai_text})
 
         is_final = "## FINAL PLAN" in ai_text
         msg_type = "plan" if is_final else "message"
@@ -615,6 +767,7 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                     "repo_path": repo_path,
                     "prompt": prompt,
                     "model": resolved_model,
+                    "backend": backend,
                     "turn_count": turn_count,
                 },
             )
@@ -628,6 +781,7 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                 "repo_path": repo_path,
                 "prompt": prompt,
                 "model": resolved_model,
+                "backend": backend,
                 "turn_count": turn_count,
             },
         )
@@ -680,22 +834,36 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                     "repo_path": repo_path,
                     "prompt": prompt,
                     "model": resolved_model,
+                    "backend": backend,
                     "turn_count": turn_count,
                 },
             )
 
             try:
-                ai_text = _invoke_claude_turn(
-                    prompt=user_text,
-                    cwd=cwd,
-                    claude_session_id=claude_session_id,
-                    is_first_turn=False,
-                    model=resolved_model or None,
-                    github_token=github_token,
-                    on_status=_emit_status,
-                )
+                if use_codex:
+                    ai_text = _invoke_codex_turn(
+                        user_message=user_text,
+                        cwd=cwd,
+                        system_prompt=system_prompt,
+                        conversation_history=codex_history,
+                        model=resolved_model or None,
+                        on_status=_emit_status,
+                    )
+                else:
+                    ai_text = _invoke_claude_turn(
+                        prompt=user_text,
+                        cwd=cwd,
+                        claude_session_id=claude_session_id,
+                        is_first_turn=False,
+                        model=resolved_model or None,
+                        github_token=github_token,
+                        on_status=_emit_status,
+                    )
             except RuntimeError as exc:
-                logger.exception("Claude CLI failed in grill session %s", session_id)
+                cli_label = "Codex" if use_codex else "Claude"
+                logger.exception(
+                    "%s CLI failed in grill session %s", cli_label, session_id
+                )
                 _push_ai_msg(r, session_id, "system", str(exc), msg_type="error")
                 # Don't end session — let user retry
                 _set_state(
@@ -706,6 +874,7 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                         "repo_path": repo_path,
                         "prompt": prompt,
                         "model": resolved_model,
+                        "backend": backend,
                         "turn_count": turn_count,
                     },
                 )
@@ -723,6 +892,11 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                 )
                 continue
 
+            # Record the exchange in Codex history
+            if use_codex:
+                codex_history.append({"role": "user", "content": user_text})
+                codex_history.append({"role": "assistant", "content": ai_text})
+
             is_final = "## FINAL PLAN" in ai_text
             msg_type_out = "plan" if is_final else "message"
             _push_ai_msg(r, session_id, "assistant", ai_text, msg_type=msg_type_out)
@@ -735,6 +909,7 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                     "repo_path": repo_path,
                     "prompt": prompt,
                     "model": resolved_model,
+                    "backend": backend,
                     "turn_count": turn_count,
                 },
             )

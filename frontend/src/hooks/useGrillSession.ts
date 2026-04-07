@@ -142,6 +142,7 @@ export function useGrillSession(): GrillSessionState {
             model: form.model || null,
             github_token: form.github_token || null,
             reference_repos: refRepos,
+            backend: form.backend || "claudecodecli",
           }),
         });
 

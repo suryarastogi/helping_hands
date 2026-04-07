@@ -292,6 +292,7 @@ export type GrillFormState = {
   model: string;
   github_token: string;
   reference_repos: string;
+  backend: string;
 };
 
 export type GrillPhase = "form" | "chatting" | "plan";

@@ -86,6 +86,7 @@ const DEFAULT_FORM: GrillFormState = {
   model: "",
   github_token: "",
   reference_repos: "",
+  backend: "claudecodecli",
 };
 
 function makeProps(overrides: Partial<GrillMeOverlayProps> = {}): GrillMeOverlayProps {
@@ -207,6 +208,7 @@ describe("GrillMeOverlay", () => {
           model: "gpt-5.2",
           github_token: "ghp_123",
           reference_repos: "",
+          backend: "claudecodecli",
         },
       });
 
