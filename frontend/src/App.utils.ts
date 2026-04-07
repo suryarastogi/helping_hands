@@ -72,11 +72,18 @@ export const DEFAULT_PROMPT =
 
 const DEFAULT_REPO = "suryarastogi/helping_hands";
 
+const DEFAULT_BACKEND: Backend = "claudecodecli";
+
+// Default model per backend family — update these when new model versions ship.
+const DEFAULT_MODEL_GPT = "gpt-5.4";
+const DEFAULT_MODEL_CLAUDE = "claude-opus-4-6";
+const DEFAULT_MODEL_GEMINI = "gemini-2.5-pro";
+
 export const INITIAL_FORM: FormState = {
   repo_path: DEFAULT_REPO,
   prompt: DEFAULT_PROMPT,
-  backend: "claudecodecli",
-  model: "claude-opus-4-6",
+  backend: DEFAULT_BACKEND,
+  model: defaultModelForBackend(DEFAULT_BACKEND),
   max_iterations: 6,
   pr_number: "",
   issue_number: "",
@@ -132,7 +139,7 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   interval_seconds: 300,
   repo_path: DEFAULT_REPO,
   prompt: "",
-  backend: "claudecodecli",
+  backend: DEFAULT_BACKEND,
   model: "",
   max_iterations: 6,
   pr_number: "",
@@ -255,9 +262,9 @@ const API_COST_RE = /api:\s*\$([0-9]+(?:\.[0-9]+)?)/;
 
 export function defaultModelForBackend(backend: string): string {
   const normalized = backend.trim().toLowerCase();
-  if (normalized.includes("codex") || normalized.includes("openai")) return "gpt-5.2";
-  if (normalized.includes("claude")) return "claude-opus-4-6";
-  if (normalized.includes("gemini")) return "gemini-2.5-pro";
+  if (normalized.includes("codex") || normalized.includes("openai")) return DEFAULT_MODEL_GPT;
+  if (normalized.includes("claude")) return DEFAULT_MODEL_CLAUDE;
+  if (normalized.includes("gemini")) return DEFAULT_MODEL_GEMINI;
   return "";
 }
 

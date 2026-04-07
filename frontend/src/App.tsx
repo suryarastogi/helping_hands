@@ -26,6 +26,7 @@ import {
   apiUrl,
   asRecord,
   BACKEND_OPTIONS,
+  defaultModelForBackend,
   fetchServerConfig,
   filterEnabledBackends,
   isTerminalTaskStatus,
@@ -285,7 +286,11 @@ export default function App() {
           setEnabledBackends(filtered);
           setForm((current) => {
             if (!filtered.includes(current.backend)) {
-              return { ...current, backend: filtered[0] };
+              return {
+                ...current,
+                backend: filtered[0],
+                model: defaultModelForBackend(filtered[0]),
+              };
             }
             return current;
           });
@@ -308,6 +313,13 @@ export default function App() {
       }
     }).catch(() => { /* server config fetch is best-effort */ });
   }, [setForm]);
+
+  // Keep schedule form backend in sync with enabled backends.
+  useEffect(() => {
+    if (enabledBackends.length > 0 && !enabledBackends.includes(scheduleForm.backend)) {
+      updateScheduleField("backend", enabledBackends[0]);
+    }
+  }, [enabledBackends, scheduleForm.backend, updateScheduleField]);
 
   const taskError = useMemo<{ error: string; errorType: string } | null>(() => {
     if (statusTone(status) !== "fail") return null;
