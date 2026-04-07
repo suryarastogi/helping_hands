@@ -35,9 +35,9 @@ test.describe("Multiplayer — independent contexts", () => {
     await expect(pageA.locator(".human-player")).toBeVisible();
     await expect(pageB.locator(".human-player")).toBeVisible();
 
-    // Both contexts should show factory floor status
-    await expect(pageA.getByText("Factory Floor")).toBeVisible();
-    await expect(pageB.getByText("Factory Floor")).toBeVisible();
+    // Both contexts should show garden status
+    await expect(pageA.getByText("Zen Garden")).toBeVisible();
+    await expect(pageB.getByText("Zen Garden")).toBeVisible();
 
     await contextA.close();
     await contextB.close();
