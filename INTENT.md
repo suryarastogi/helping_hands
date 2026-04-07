@@ -4,6 +4,16 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
+### Codex CLI Grill Tests (2026-04-07) — Completed
+
+Added 24 dedicated tests for the Codex CLI backend in `server/grill.py` (PR
+#185). Covers `_build_codex_full_prompt` (empty/with history, system prompt
+placement, AI prefix instruction), `_invoke_codex_turn` (success path, model
+flag, sandbox mode auto-detection vs env override, Docker detection,
+FileNotFoundError, TimeoutExpired, non-zero exit with stderr/fallback, stderr
+truncation, command structure), and `_CODEX_TURN_TIMEOUT_S` constant
+(value/type/positive). 24 new tests. All pass.
+
 ### Fix Test Failures & Code Quality Improvements (2026-04-05) — Completed
 
 Fixed 5 failing tests and improved code quality. `_normalize_args` in
