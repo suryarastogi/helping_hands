@@ -42,35 +42,51 @@ class _StubHand(Hand):
 class TestDefaultBaseBranchSuccess:
     @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
     def test_returns_branch_from_symbolic_ref(
-        self, mock_run: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0,
-            stdout="refs/remotes/origin/master\n", stderr="",
+            args=[],
+            returncode=0,
+            stdout="refs/remotes/origin/master\n",
+            stderr="",
         )
         result = Hand._default_base_branch(tmp_path)
         assert result == "master"
 
     @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
     def test_returns_main_from_symbolic_ref(
-        self, mock_run: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0,
-            stdout="refs/remotes/origin/main\n", stderr="",
+            args=[],
+            returncode=0,
+            stdout="refs/remotes/origin/main\n",
+            stderr="",
         )
         result = Hand._default_base_branch(tmp_path)
         assert result == "main"
 
     @patch("helping_hands.lib.hands.v1.hand.base.subprocess.run")
     def test_empty_ref_falls_back_to_default(
-        self, mock_run: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.delenv("HELPING_HANDS_BASE_BRANCH", raising=False)
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr="",
+            args=[],
+            returncode=0,
+            stdout="",
+            stderr="",
         )
         result = Hand._default_base_branch(tmp_path)
         assert result == _DEFAULT_BASE_BRANCH
@@ -93,7 +109,9 @@ class TestTryRebaseForPush:
 
     @patch(_BASE_SUB)
     def test_fetch_failure_returns_false(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = subprocess.CalledProcessError(1, "git fetch")
         gh = MagicMock()
@@ -102,7 +120,9 @@ class TestTryRebaseForPush:
 
     @patch(_BASE_SUB)
     def test_fetch_timeout_returns_false(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=60)
         gh = MagicMock()
@@ -111,7 +131,9 @@ class TestTryRebaseForPush:
 
     @patch(_BASE_SUB)
     def test_rebase_success_returns_true(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # fetch ok
@@ -125,7 +147,9 @@ class TestTryRebaseForPush:
 
     @patch(_BASE_SUB)
     def test_rebase_conflicts_left_for_ai(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # fetch ok
@@ -146,7 +170,9 @@ class TestTryRebaseForPush:
 
     @patch(_BASE_SUB)
     def test_rebase_non_conflict_aborts(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # fetch ok
@@ -189,7 +215,9 @@ class TestPushToExistingPrMasterRebase:
 
     @patch(_BASE_SUB)
     def test_master_rebase_success_updates_sha(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         hand = self._make_hand(tmp_path)
         gh = MagicMock()
@@ -210,15 +238,21 @@ class TestPushToExistingPrMasterRebase:
             patch.object(hand, "_post_issue_link_comment"),
         ):
             result = hand._push_to_existing_pr(
-                gh=gh, repo="owner/repo", repo_dir=tmp_path,
-                backend="stub", prompt="fix bug", summary="done",
+                gh=gh,
+                repo="owner/repo",
+                repo_dir=tmp_path,
+                backend="stub",
+                prompt="fix bug",
+                summary="done",
                 metadata={},
             )
         assert result.get("pr_commit") == "abc1234"
 
     @patch(_BASE_SUB)
     def test_master_rebase_fails_aborts_and_continues(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # rebase --abort subprocess call
         mock_run.return_value = subprocess.CompletedProcess(
@@ -244,8 +278,12 @@ class TestPushToExistingPrMasterRebase:
             patch.object(hand, "_post_issue_link_comment"),
         ):
             result = hand._push_to_existing_pr(
-                gh=gh, repo="owner/repo", repo_dir=tmp_path,
-                backend="stub", prompt="fix bug", summary="done",
+                gh=gh,
+                repo="owner/repo",
+                repo_dir=tmp_path,
+                backend="stub",
+                prompt="fix bug",
+                summary="done",
                 metadata={},
             )
         # Should still succeed (push continues despite rebase failure)
@@ -302,14 +340,19 @@ class TestPushToExistingPrFixConflicts:
             patch.object(hand, "_post_issue_link_comment"),
         ):
             result = hand._push_to_existing_pr(
-                gh=gh, repo="owner/repo", repo_dir=tmp_path,
-                backend="stub", prompt="fix bug", summary="done",
+                gh=gh,
+                repo="owner/repo",
+                repo_dir=tmp_path,
+                backend="stub",
+                prompt="fix bug",
+                summary="done",
                 metadata={},
             )
         assert result.get("pr_status") == "updated"
 
     def test_fix_conflicts_rebase_ok_push_still_fails_diverged(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         hand = self._make_hand(tmp_path)
         gh = MagicMock()
@@ -328,12 +371,18 @@ class TestPushToExistingPrFixConflicts:
                 hand, "_push_noninteractive", side_effect=RuntimeError("rejected")
             ),
             patch.object(
-                hand, "_create_pr_for_diverged_branch", return_value={"pr_status": "created"}
+                hand,
+                "_create_pr_for_diverged_branch",
+                return_value={"pr_status": "created"},
             ),
         ):
             result = hand._push_to_existing_pr(
-                gh=gh, repo="owner/repo", repo_dir=tmp_path,
-                backend="stub", prompt="fix bug", summary="done",
+                gh=gh,
+                repo="owner/repo",
+                repo_dir=tmp_path,
+                backend="stub",
+                prompt="fix bug",
+                summary="done",
                 metadata={},
             )
         assert result.get("pr_status") == "created"
@@ -357,8 +406,12 @@ class TestPushToExistingPrFixConflicts:
             ),
         ):
             result = hand._push_to_existing_pr(
-                gh=gh, repo="owner/repo", repo_dir=tmp_path,
-                backend="stub", prompt="fix bug", summary="done",
+                gh=gh,
+                repo="owner/repo",
+                repo_dir=tmp_path,
+                backend="stub",
+                prompt="fix bug",
+                summary="done",
                 metadata={},
             )
         assert result.get(_META_CONFLICT_FIX_STATUS) == "needs_ai"

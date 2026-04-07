@@ -157,13 +157,17 @@ class TestAttemptRebaseWithConflictFix:
         emit = AsyncMock()
         return asyncio.run(
             stub._attempt_rebase_with_conflict_fix(
-                repo_dir=repo_dir, target_branch="main", emit=emit,
+                repo_dir=repo_dir,
+                target_branch="main",
+                emit=emit,
             )
         )
 
     @patch(_CLI_SUB)
     def test_fetch_failure_returns_error(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = subprocess.CalledProcessError(1, "git fetch")
         stub = _Stub(repo_root=tmp_path)
@@ -171,7 +175,9 @@ class TestAttemptRebaseWithConflictFix:
 
     @patch(_CLI_SUB)
     def test_rebase_succeeds_no_conflicts(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # fetch succeeds, rebase succeeds
         mock_run.side_effect = [
@@ -183,7 +189,9 @@ class TestAttemptRebaseWithConflictFix:
 
     @patch(_CLI_SUB)
     def test_rebase_fails_no_conflicted_files_returns_error(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # fetch ok, rebase fails, git diff returns no files, rebase --abort
         mock_run.side_effect = [
@@ -201,7 +209,9 @@ class TestAttemptRebaseWithConflictFix:
 
     @patch(_CLI_SUB)
     def test_ai_resolution_fails_returns_error(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # fetch ok, rebase fails with conflicts, AI fails
         mock_run.side_effect = [
@@ -223,7 +233,9 @@ class TestAttemptRebaseWithConflictFix:
 
     @patch(_CLI_SUB)
     def test_ai_resolves_but_conflicts_remain_returns_failed(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # fetch ok, rebase fails, AI runs, but conflicts still there
         mock_run.side_effect = [
@@ -249,7 +261,9 @@ class TestAttemptRebaseWithConflictFix:
 
     @patch(_CLI_SUB)
     def test_rebase_continue_fails_returns_failed(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # fetch ok, rebase fails, AI resolves, git add, rebase --continue fails
         mock_run.side_effect = [
@@ -279,7 +293,9 @@ class TestAttemptRebaseWithConflictFix:
 
     @patch(_CLI_SUB)
     def test_full_success(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # fetch ok, rebase fails, AI resolves, git add, rebase --continue ok
         mock_run.side_effect = [
@@ -305,7 +321,9 @@ class TestAttemptRebaseWithConflictFix:
 
     @patch(_CLI_SUB)
     def test_fetch_timeout_returns_error(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=60)
         stub = _Stub(repo_root=tmp_path)
@@ -338,7 +356,9 @@ class TestAiResolvePushConflicts:
 
     @patch(_CLI_SUB)
     def test_no_conflicted_files_aborts_returns_error(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         # _get_conflicted_files returns empty, rebase --abort
         mock_run.side_effect = [
@@ -356,7 +376,9 @@ class TestAiResolvePushConflicts:
 
     @patch(_CLI_SUB)
     def test_ai_error_aborts_returns_error(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # _get_conflicted_files: has files
@@ -382,7 +404,9 @@ class TestAiResolvePushConflicts:
 
     @patch(_CLI_SUB)
     def test_remaining_conflicts_returns_failed(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # _get_conflicted_files: has files
@@ -409,7 +433,9 @@ class TestAiResolvePushConflicts:
 
     @patch(_CLI_SUB)
     def test_rebase_continue_fails_returns_failed(
-        self, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # _get_conflicted_files: has files
@@ -441,7 +467,10 @@ class TestAiResolvePushConflicts:
     @patch(_CLI_SUB)
     @patch("helping_hands.lib.github.GitHubClient")
     def test_full_success_without_master_rebase(
-        self, mock_gh_cls: MagicMock, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_gh_cls: MagicMock,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # _get_conflicted_files: has files
@@ -482,7 +511,10 @@ class TestAiResolvePushConflicts:
     @patch(_CLI_SUB)
     @patch("helping_hands.lib.github.GitHubClient")
     def test_push_after_resolve_fails_returns_error(
-        self, mock_gh_cls: MagicMock, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_gh_cls: MagicMock,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # _get_conflicted_files
@@ -524,7 +556,10 @@ class TestAiResolvePushConflicts:
     @patch(_CLI_SUB)
     @patch("helping_hands.lib.github.GitHubClient")
     def test_master_rebase_success_after_resolve(
-        self, mock_gh_cls: MagicMock, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_gh_cls: MagicMock,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # _get_conflicted_files
@@ -566,7 +601,10 @@ class TestAiResolvePushConflicts:
     @patch(_CLI_SUB)
     @patch("helping_hands.lib.github.GitHubClient")
     def test_master_rebase_fails_after_resolve_still_pushes(
-        self, mock_gh_cls: MagicMock, mock_run: MagicMock, tmp_path: Path,
+        self,
+        mock_gh_cls: MagicMock,
+        mock_run: MagicMock,
+        tmp_path: Path,
     ) -> None:
         mock_run.side_effect = [
             # _get_conflicted_files
