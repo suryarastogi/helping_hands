@@ -1316,6 +1316,7 @@ def scheduled_build(
         fix_conflicts=schedule.fix_conflicts,
         master_rebase=schedule.master_rebase,
         ci_check_wait_minutes=schedule.ci_check_wait_minutes,
+        github_token=schedule.github_token,
         reference_repos=schedule.reference_repos,
         schedule_id=schedule_id,
     )
