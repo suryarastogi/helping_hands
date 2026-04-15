@@ -279,9 +279,7 @@ function ScheduleFormFields({
           </div>
           <div className="row">
             <label>
-              GitHub Token{tokenRequired && <span className="required-star"> *</span>}
-              {" "}
-              <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span>
+              <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
               <input
                 className="github-token-input"
                 type="password"
