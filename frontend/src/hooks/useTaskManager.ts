@@ -17,6 +17,7 @@ import {
   apiUrl,
   asRecord,
   BACKEND_OPTIONS,
+  defaultModelForBackend,
   extractPrefixes,
   extractUpdates,
   fetchWorkerCapacity,
@@ -25,6 +26,7 @@ import {
   isTerminalTaskStatus,
   loadTaskHistory,
   parseBool,
+  saveGithubToken,
   parseError,
   parseOptimisticUpdates,
   readBoolishValue,
@@ -226,7 +228,13 @@ export function useTaskManager(): UseTaskManagerReturn {
 
   const updateField = useCallback(
     <K extends keyof FormState>(key: K, value: FormState[K]) => {
-      setForm((current) => ({ ...current, [key]: value }));
+      setForm((current) => {
+        const next = { ...current, [key]: value };
+        if (key === "backend") {
+          next.model = defaultModelForBackend(value as string);
+        }
+        return next;
+      });
     },
     []
   );
@@ -279,7 +287,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       backend: form.backend,
       max_iterations: form.max_iterations,
       no_pr: form.no_pr,
-      enable_execution: form.enable_execution,
+      enable_execution: true,
       enable_web: form.enable_web,
       use_native_cli_auth: form.use_native_cli_auth,
       fix_ci: form.fix_ci,
@@ -290,6 +298,7 @@ export function useTaskManager(): UseTaskManagerReturn {
 
     if (form.github_token.trim()) {
       body.github_token = form.github_token.trim();
+      saveGithubToken(form.github_token);
     }
     if (form.reference_repos.trim()) {
       body.reference_repos = form.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
@@ -383,7 +392,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       backend: merged.backend,
       max_iterations: merged.max_iterations,
       no_pr: merged.no_pr,
-      enable_execution: merged.enable_execution,
+      enable_execution: true,
       enable_web: merged.enable_web,
       use_native_cli_auth: merged.use_native_cli_auth,
       fix_ci: merged.fix_ci,
@@ -394,6 +403,7 @@ export function useTaskManager(): UseTaskManagerReturn {
 
     if (merged.github_token.trim()) {
       body.github_token = merged.github_token.trim();
+      saveGithubToken(merged.github_token);
     }
     if (merged.reference_repos.trim()) {
       body.reference_repos = merged.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);

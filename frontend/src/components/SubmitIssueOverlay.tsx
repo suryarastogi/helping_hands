@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
-import { apiUrl } from "../App.utils";
+import { apiUrl, loadGithubToken, saveGithubToken } from "../App.utils";
 import RepoSuggestInput from "./RepoSuggestInput";
 
 type GitHubIssue = {
@@ -32,7 +32,7 @@ export default function SubmitIssueOverlay({
 }: SubmitIssueOverlayProps) {
   const [step, setStep] = useState<Step>("repo");
   const [repo, setRepo] = useState(defaultRepo);
-  const [githubToken, setGithubToken] = useState("");
+  const [githubToken, setGithubToken] = useState(loadGithubToken);
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +130,7 @@ export default function SubmitIssueOverlay({
                 />
               </label>
               <label style={{ marginTop: 12, display: "block" }}>
-                GitHub Token{!serverHasGithubToken && <span className="required-star"> *</span>}
+                <span>GitHub Token{!serverHasGithubToken && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
                 <input
                   className="github-token-input"
                   type="password"
@@ -174,7 +174,7 @@ export default function SubmitIssueOverlay({
                       <button
                         type="button"
                         className="issue-row"
-                        onClick={() => onSubmitIssue(repo, issue, githubToken)}
+                        onClick={() => { saveGithubToken(githubToken); onSubmitIssue(repo, issue, githubToken); }}
                       >
                         <span className="issue-row-top">
                           <code>#{issue.number}</code>

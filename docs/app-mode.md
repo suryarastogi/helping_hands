@@ -48,8 +48,8 @@ The built-in UI at `http://localhost:8000/` supports:
 - max iterations
 - optional PR number
 - `no_pr` toggle
-- `enable_execution` toggle (python/bash tools; default off)
-- `enable_web` toggle (web search/browse tools; default off)
+- `enable_web` toggle (web search/browse tools; default off, shown next to Max Iterations)
+- execution tools are always enabled (no toggle)
 - `use_native_cli_auth` toggle (Codex/Claude: prefer local CLI auth over env keys)
 - default editable prompt text: smoke-test prompt that updates `README.md` and
   exercises `@@READ`, `@@FILE`, and (when enabled) `python.run_code`,

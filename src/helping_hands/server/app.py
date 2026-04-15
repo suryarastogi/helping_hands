@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib import error as urllib_error, request as urllib_request
 from urllib.parse import urlencode
 
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -4616,6 +4616,71 @@ def _get_schedule_manager() -> ScheduleManager:
     return _schedule_manager
 
 
+def _server_has_github_token() -> bool:
+    """Return whether the server has a global GITHUB_TOKEN configured."""
+    return bool(os.environ.get("GITHUB_TOKEN", "").strip())
+
+
+def _hash_token(token: str) -> str:
+    """Return a SHA-256 hex digest of a token string."""
+    import hashlib
+
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _get_request_token(request) -> str | None:
+    """Extract the GitHub token from the X-GitHub-Token header."""
+    value = request.headers.get("X-GitHub-Token", "").strip()
+    return value or None
+
+
+def _check_schedule_owner(request, task) -> None:
+    """Enforce ownership when the server has no global GITHUB_TOKEN.
+
+    Raises:
+        HTTPException: 401 if no token provided, 403 if not the owner.
+    """
+    from fastapi import HTTPException
+
+    if _server_has_github_token():
+        return
+
+    token = _get_request_token(request)
+    if not token:
+        raise HTTPException(status_code=401, detail="GitHub token required")
+
+    admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
+    if admin_token and token == admin_token:
+        return
+
+    if task.owner_token_hash and _hash_token(token) == task.owner_token_hash:
+        return
+
+    raise HTTPException(
+        status_code=403, detail="Not authorized to modify this schedule"
+    )
+
+
+def _is_schedule_visible(task, request) -> bool:
+    """Check if a schedule should be visible to the requesting user.
+
+    When the server has a global GITHUB_TOKEN, all schedules are visible.
+    Otherwise, only schedules owned by the requesting user (or admin) are shown.
+    """
+    if _server_has_github_token():
+        return True
+
+    token = _get_request_token(request)
+    if not token:
+        return False
+
+    admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
+    if admin_token and token == admin_token:
+        return True
+
+    return bool(task.owner_token_hash and _hash_token(token) == task.owner_token_hash)
+
+
 def _schedule_to_response(task) -> ScheduleResponse:
     """Convert a ScheduledTask to a ScheduleResponse.
 
@@ -4687,24 +4752,33 @@ def get_cron_presets() -> CronPresetsResponse:
 
 
 @app.get("/schedules", response_model=ScheduleListResponse)
-def list_schedules() -> ScheduleListResponse:
+def list_schedules(request: Request) -> ScheduleListResponse:
     """List all scheduled tasks."""
     manager = _get_schedule_manager()
     tasks = manager.list_schedules()
+    visible = [t for t in tasks if _is_schedule_visible(t, request)]
     return ScheduleListResponse(
-        schedules=[_schedule_to_response(t) for t in tasks],
-        total=len(tasks),
+        schedules=[_schedule_to_response(t) for t in visible],
+        total=len(visible),
     )
 
 
 @app.post("/schedules", response_model=ScheduleResponse, status_code=201)
-def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
+def create_schedule(
+    request: ScheduleRequest, http_request: Request
+) -> ScheduleResponse:
     """Create a new scheduled task."""
     from fastapi import HTTPException
 
     from helping_hands.server.schedules import ScheduledTask, generate_schedule_id
 
     manager = _get_schedule_manager()
+
+    # Determine owner token: prefer header, fall back to body field.
+    owner_token = (
+        _get_request_token(http_request) or (request.github_token or "").strip()
+    )
+    owner_hash = _hash_token(owner_token) if owner_token else None
 
     task = ScheduledTask(
         schedule_id=generate_schedule_id(),
@@ -4727,6 +4801,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
         master_rebase=request.master_rebase,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
         github_token=request.github_token,
+        owner_token_hash=owner_hash,
         reference_repos=request.reference_repos,
         tools=request.tools,
         enabled=request.enabled,
@@ -4741,7 +4816,7 @@ def create_schedule(request: ScheduleRequest) -> ScheduleResponse:
 
 
 @app.get("/schedules/{schedule_id}", response_model=ScheduleResponse)
-def get_schedule(schedule_id: str) -> ScheduleResponse:
+def get_schedule(schedule_id: str, request: Request) -> ScheduleResponse:
     """Get a scheduled task by ID."""
     from fastapi import HTTPException
 
@@ -4750,11 +4825,14 @@ def get_schedule(schedule_id: str) -> ScheduleResponse:
     task = manager.get_schedule(schedule_id)
     if task is None:
         raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
+    _check_schedule_owner(request, task)
     return _schedule_to_response(task)
 
 
 @app.put("/schedules/{schedule_id}", response_model=ScheduleResponse)
-def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleResponse:
+def update_schedule(
+    schedule_id: str, request: ScheduleRequest, http_request: Request
+) -> ScheduleResponse:
     """Update a scheduled task."""
     from fastapi import HTTPException
 
@@ -4763,11 +4841,16 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
     schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
 
+    existing = manager.get_schedule(schedule_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
+
+    _check_schedule_owner(http_request, existing)
+
     # If the token looks redacted (contains ***), preserve the existing one.
     github_token = request.github_token
     if github_token and "***" in github_token:
-        existing = manager.get_schedule(schedule_id)
-        github_token = existing.github_token if existing else None
+        github_token = existing.github_token
 
     task = ScheduledTask(
         schedule_id=schedule_id,
@@ -4790,6 +4873,7 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
         master_rebase=request.master_rebase,
         ci_check_wait_minutes=request.ci_check_wait_minutes,
         github_token=github_token,
+        owner_token_hash=existing.owner_token_hash,
         reference_repos=request.reference_repos,
         tools=request.tools,
         enabled=request.enabled,
@@ -4804,23 +4888,30 @@ def update_schedule(schedule_id: str, request: ScheduleRequest) -> ScheduleRespo
 
 
 @app.delete("/schedules/{schedule_id}", status_code=204)
-def delete_schedule(schedule_id: str) -> None:
+def delete_schedule(schedule_id: str, request: Request) -> None:
     """Delete a scheduled task."""
     from fastapi import HTTPException
 
     schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
-    if not manager.delete_schedule(schedule_id):
+    task = manager.get_schedule(schedule_id)
+    if task is None:
         raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
+    _check_schedule_owner(request, task)
+    manager.delete_schedule(schedule_id)
 
 
 @app.post("/schedules/{schedule_id}/enable", response_model=ScheduleResponse)
-def enable_schedule(schedule_id: str) -> ScheduleResponse:
+def enable_schedule(schedule_id: str, request: Request) -> ScheduleResponse:
     """Enable a scheduled task."""
     from fastapi import HTTPException
 
     schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
+    task = manager.get_schedule(schedule_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
+    _check_schedule_owner(request, task)
     task = manager.enable_schedule(schedule_id)
     if task is None:
         raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
@@ -4828,12 +4919,16 @@ def enable_schedule(schedule_id: str) -> ScheduleResponse:
 
 
 @app.post("/schedules/{schedule_id}/disable", response_model=ScheduleResponse)
-def disable_schedule(schedule_id: str) -> ScheduleResponse:
+def disable_schedule(schedule_id: str, request: Request) -> ScheduleResponse:
     """Disable a scheduled task."""
     from fastapi import HTTPException
 
     schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
+    task = manager.get_schedule(schedule_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
+    _check_schedule_owner(request, task)
     task = manager.disable_schedule(schedule_id)
     if task is None:
         raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
@@ -4841,12 +4936,16 @@ def disable_schedule(schedule_id: str) -> ScheduleResponse:
 
 
 @app.post("/schedules/{schedule_id}/trigger", response_model=ScheduleTriggerResponse)
-def trigger_schedule(schedule_id: str) -> ScheduleTriggerResponse:
+def trigger_schedule(schedule_id: str, request: Request) -> ScheduleTriggerResponse:
     """Manually trigger a scheduled task to run immediately."""
     from fastapi import HTTPException
 
     schedule_id = _validate_path_param(schedule_id, "schedule_id")
     manager = _get_schedule_manager()
+    task = manager.get_schedule(schedule_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
+    _check_schedule_owner(request, task)
     task_id = manager.trigger_now(schedule_id)
     if task_id is None:
         raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)

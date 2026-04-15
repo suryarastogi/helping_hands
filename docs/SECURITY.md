@@ -158,12 +158,42 @@ considerations differ from CLI-backed hands:
 **Mitigation**: Run iterative hands inside Docker (app mode) to add container
 isolation. In local CLI mode, avoid `--tools execution` on untrusted repos.
 
+## Schedule ownership
+
+When the server has no global `GITHUB_TOKEN`, schedule endpoints enforce
+per-user ownership using the user's GitHub token:
+
+- **Creation**: A SHA-256 hash of the creator's token is stored as
+  `owner_token_hash` on the `ScheduledTask` dataclass.
+- **Access control**: All schedule CRUD endpoints (list, get, update, delete,
+  enable, disable, trigger) check the `X-GitHub-Token` request header against
+  the stored hash. Unmatched tokens receive 403; missing tokens receive 401.
+- **List filtering**: `GET /schedules` only returns schedules owned by the
+  requesting user's token.
+- **Admin override**: Set `ADMIN_GITHUB_TOKEN` env var on the server. Requests
+  with a matching token bypass ownership checks and see all schedules.
+- **Backwards compatible**: When the server has a global `GITHUB_TOKEN` set,
+  no ownership checks are enforced (all schedules are accessible).
+
+The `owner_token_hash` is never exposed in API responses. The `github_token`
+field (used for git operations) is redacted in responses via `redact_token()`.
+
+## GitHub token scopes
+
+GitHub tokens used with helping_hands require:
+
+- **`repo`** scope — required for cloning, pushing, and PR operations.
+- **`workflow`** scope — required for the Fix CI feature (re-triggering
+  workflow runs after pushing fixes).
+
+An info icon next to the GitHub Token field in all forms explains these
+requirements.
+
 ## Recommendations for deployment
 
-1. Use read-only `GITHUB_TOKEN` scopes when possible
+1. Use `repo` + `workflow` scoped `GITHUB_TOKEN` for full functionality
 2. Rotate API keys regularly
 3. Review AI-generated code changes before merging
 4. Run in Docker for workspace isolation in production
-5. Keep `enable_execution` disabled unless explicitly needed
-6. Use `workspace-write` sandbox mode for Codex in non-containerized environments
-7. Monitor CLI hand heartbeat output to detect stalled processes
+5. Use `workspace-write` sandbox mode for Codex in non-containerized environments
+6. Monitor CLI hand heartbeat output to detect stalled processes

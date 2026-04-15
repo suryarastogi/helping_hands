@@ -6385,3 +6385,9 @@ button.worker-sprite:disabled .worker-caption {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.token-info-icon {
+  cursor: help;
+  opacity: 0.5;
+  font-size: 0.85em;
+}

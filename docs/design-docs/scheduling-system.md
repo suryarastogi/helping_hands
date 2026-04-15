@@ -113,3 +113,32 @@ This preserves run history across enable/disable cycles.
   schedule-related API endpoints fail fast rather than at trigger time.
 - Run metadata (count, last run) is eventually consistent -- a crash between
   task dispatch and `record_run` could miss a count increment.
+
+## Ownership & access control
+
+When the server has no global `GITHUB_TOKEN`, schedule endpoints enforce
+per-user ownership to prevent unauthorized modifications:
+
+### How it works
+
+1. **On creation**: `POST /schedules` hashes the creator's GitHub token
+   (SHA-256) and stores it as `owner_token_hash` on the `ScheduledTask`.
+2. **On subsequent requests**: The frontend sends the user's token via the
+   `X-GitHub-Token` HTTP header. The server hashes the header value and
+   compares it against `owner_token_hash`.
+3. **List filtering**: `GET /schedules` only returns schedules whose
+   `owner_token_hash` matches the requesting user.
+4. **Mutation guards**: GET/PUT/DELETE/enable/disable/trigger endpoints
+   return 403 if the token doesn't match, 401 if no token is provided.
+
+### Admin bypass
+
+Set `ADMIN_GITHUB_TOKEN` in the server environment. Requests whose
+`X-GitHub-Token` matches this value bypass ownership checks and can
+manage any schedule.
+
+### Backwards compatibility
+
+When the server has a `GITHUB_TOKEN` env var set, no ownership checks
+are enforced. All schedules are accessible to all users, matching the
+pre-ownership behavior.

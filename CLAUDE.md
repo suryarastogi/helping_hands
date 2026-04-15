@@ -84,12 +84,20 @@ All filesystem/command operations for hands route through `src/helping_hands/lib
 
 ### Grill Me (interactive planning)
 
-An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan before submitting a task. The frontend opens an overlay chat where the AI interviews the user about their design, exploring the codebase via Claude Code CLI in read-only mode (`--allowedTools Read,Glob,Grep --disallowedTools Edit,Write,Bash,Agent,...`).
+An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan before submitting a task. The frontend opens an overlay chat where the AI interviews the user about their design. Supports two backends: **Claude Code CLI** (default, read-only mode) and **Codex CLI** (stateless, full conversation embedded per turn).
 
-- **Backend**: `src/helping_hands/server/grill.py` — long-running Celery task using `claude -p --session-id/--resume` for multi-turn conversation, Redis queues for user↔worker message passing.
-- **Frontend**: `GrillMeOverlay` component + `useGrillSession` hook — 3-phase UI (form → chat → plan), polls `GET /grill/{id}` for messages.
+- **Backend**: `src/helping_hands/server/grill.py` — long-running Celery task. Claude uses `claude -p --session-id/--resume` for multi-turn conversation; Codex uses `codex exec` with full history embedded. Redis queues for user-worker message passing.
+- **Frontend**: `GrillMeOverlay` component + `useGrillSession` hook — 3-phase UI (form -> chat -> plan), polls `GET /grill/{id}` for messages.
 - **Endpoints**: `POST /grill`, `POST /grill/{id}/message`, `GET /grill/{id}` — all gated by `GRILL_ME_ENABLED`.
 - **Plan submission**: final plan auto-populates the submission form prompt (with `## FINAL PLAN` header stripped) and submits via `submitBuild()`.
+
+### Schedule ownership
+
+When the server has no global `GITHUB_TOKEN`, schedule endpoints enforce per-user ownership. A SHA-256 hash of the creator's token is stored as `owner_token_hash` on each `ScheduledTask`. The frontend sends the user's token via `X-GitHub-Token` header on all schedule API calls. Set `ADMIN_GITHUB_TOKEN` env var to grant admin access to all schedules.
+
+### Frontend persistence
+
+GitHub tokens are persisted in `localStorage` (key `hh_github_token`) and auto-populated across all forms (task, schedule, Grill Me, issue). Execution is always enabled (no checkbox). The model field auto-updates to the backend default when the backend selection changes.
 
 ## Code Conventions
 
