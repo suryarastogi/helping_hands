@@ -239,14 +239,6 @@ function ScheduleFormFields({
             <label className="check-row">
               <input
                 type="checkbox"
-                checked={scheduleForm.enable_execution}
-                onChange={(e) => onUpdateField("enable_execution", e.target.checked)}
-              />
-              Execution
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
                 checked={scheduleForm.enable_web}
                 onChange={(e) => onUpdateField("enable_web", e.target.checked)}
               />
@@ -288,6 +280,8 @@ function ScheduleFormFields({
           <div className="row">
             <label>
               GitHub Token{tokenRequired && <span className="required-star"> *</span>}
+              {" "}
+              <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span>
               <input
                 className="github-token-input"
                 type="password"

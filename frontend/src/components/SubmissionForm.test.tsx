@@ -94,13 +94,6 @@ describe("SubmissionForm", () => {
     expect(onFieldChange).toHaveBeenCalledWith("no_pr", true);
   });
 
-  it("calls onFieldChange for execution checkbox", () => {
-    const onFieldChange = vi.fn();
-    renderForm({ onFieldChange });
-    fireEvent.click(screen.getByLabelText("Execution"));
-    expect(onFieldChange).toHaveBeenCalledWith("enable_execution", true);
-  });
-
   it("calls onFieldChange for web checkbox", () => {
     const onFieldChange = vi.fn();
     renderForm({ onFieldChange });

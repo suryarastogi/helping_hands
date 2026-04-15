@@ -131,7 +131,7 @@ export function useSchedules(): UseSchedulesReturn {
       backend: scheduleForm.backend,
       max_iterations: scheduleForm.max_iterations,
       no_pr: scheduleForm.no_pr,
-      enable_execution: scheduleForm.enable_execution,
+      enable_execution: true,
       enable_web: scheduleForm.enable_web,
       use_native_cli_auth: scheduleForm.use_native_cli_auth,
       fix_ci: scheduleForm.fix_ci,

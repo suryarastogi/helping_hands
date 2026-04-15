@@ -314,11 +314,6 @@ describe("Form submission", () => {
     fireEvent.click(noPrCheckbox);
     expect(noPrCheckbox.checked).toBe(true);
 
-    const executionCheckbox = screen.getByLabelText("Execution") as HTMLInputElement;
-    expect(executionCheckbox.checked).toBe(false);
-    fireEvent.click(executionCheckbox);
-    expect(executionCheckbox.checked).toBe(true);
-
     const webCheckbox = screen.getByLabelText("Web") as HTMLInputElement;
     expect(webCheckbox.checked).toBe(false);
     fireEvent.click(webCheckbox);
