@@ -264,8 +264,9 @@ outage still surfaces the utilization percentages in the task result.
 - **`constants.py`** — Shared server constants (field validation bounds,
   build/schedule defaults, Anthropic usage API URLs, Keychain keys).
 - **`grill.py`** — Interactive planning (Grill Me): long-running Celery task
-  that uses Claude Code CLI in read-only mode for multi-turn user↔AI
-  planning conversations, with Redis message queuing.
+  for multi-turn user-AI planning conversations with Redis message queuing.
+  Supports Claude Code CLI (read-only mode, multi-turn via session/resume)
+  and Codex CLI (stateless, full conversation embedded per turn).
 - **`multiplayer_yjs.py`** — Multiplayer Yjs WebSocket server for
   collaborative editing sessions.
 
@@ -312,4 +313,4 @@ outage still surfaces the utilization percentages in the task result.
 
 ---
 
-*Last updated: 2026-04-05*
+*Last updated: 2026-04-15*
