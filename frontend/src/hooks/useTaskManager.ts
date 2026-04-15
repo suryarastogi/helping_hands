@@ -17,6 +17,7 @@ import {
   apiUrl,
   asRecord,
   BACKEND_OPTIONS,
+  defaultModelForBackend,
   extractPrefixes,
   extractUpdates,
   fetchWorkerCapacity,
@@ -227,7 +228,13 @@ export function useTaskManager(): UseTaskManagerReturn {
 
   const updateField = useCallback(
     <K extends keyof FormState>(key: K, value: FormState[K]) => {
-      setForm((current) => ({ ...current, [key]: value }));
+      setForm((current) => {
+        const next = { ...current, [key]: value };
+        if (key === "backend") {
+          next.model = defaultModelForBackend(value as string);
+        }
+        return next;
+      });
     },
     []
   );
