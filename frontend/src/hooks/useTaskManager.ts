@@ -25,6 +25,7 @@ import {
   isTerminalTaskStatus,
   loadTaskHistory,
   parseBool,
+  saveGithubToken,
   parseError,
   parseOptimisticUpdates,
   readBoolishValue,
@@ -290,6 +291,7 @@ export function useTaskManager(): UseTaskManagerReturn {
 
     if (form.github_token.trim()) {
       body.github_token = form.github_token.trim();
+      saveGithubToken(form.github_token);
     }
     if (form.reference_repos.trim()) {
       body.reference_repos = form.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
@@ -394,6 +396,7 @@ export function useTaskManager(): UseTaskManagerReturn {
 
     if (merged.github_token.trim()) {
       body.github_token = merged.github_token.trim();
+      saveGithubToken(merged.github_token);
     }
     if (merged.reference_repos.trim()) {
       body.reference_repos = merged.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);

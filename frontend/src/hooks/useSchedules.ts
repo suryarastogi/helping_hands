@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useState } from "react";
 
 import type { Backend, ScheduleFormState, ScheduleItem } from "../types";
-import { apiUrl, INITIAL_SCHEDULE_FORM, parseError } from "../App.utils";
+import { apiUrl, INITIAL_SCHEDULE_FORM, parseError, saveGithubToken } from "../App.utils";
 
 export interface UseSchedulesReturn {
   schedules: ScheduleItem[];
@@ -145,6 +145,7 @@ export function useSchedules(): UseSchedulesReturn {
     }
     if (scheduleForm.github_token.trim()) {
       body.github_token = scheduleForm.github_token.trim();
+      saveGithubToken(scheduleForm.github_token);
     }
     if (scheduleForm.reference_repos.trim()) {
       body.reference_repos = scheduleForm.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
