@@ -128,6 +128,8 @@ class ScheduledTask:
         master_rebase: Rebase on master/main and resolve conflicts with AI before push.
         ci_check_wait_minutes: Minutes to wait between CI check polls.
         github_token: Per-task GitHub token override, or ``None``.
+        owner_token_hash: SHA-256 hex digest of the creator's GitHub token,
+            used for ownership checks when the server has no global token.
         reference_repos: Additional repos cloned as read-only context.
         tools: Selected tool category names.
         enabled: Whether the schedule is active in RedBeat.
@@ -157,6 +159,7 @@ class ScheduledTask:
     master_rebase: bool = False
     ci_check_wait_minutes: float = _DEFAULT_CI_WAIT_MINUTES
     github_token: str | None = None
+    owner_token_hash: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
     enabled: bool = True
@@ -192,6 +195,7 @@ class ScheduledTask:
             "master_rebase": self.master_rebase,
             "ci_check_wait_minutes": self.ci_check_wait_minutes,
             "github_token": self.github_token,
+            "owner_token_hash": self.owner_token_hash,
             "reference_repos": self.reference_repos,
             "tools": self.tools,
             "enabled": self.enabled,
@@ -259,6 +263,7 @@ class ScheduledTask:
                 "ci_check_wait_minutes", _DEFAULT_CI_WAIT_MINUTES
             ),
             github_token=data.get("github_token"),
+            owner_token_hash=data.get("owner_token_hash"),
             reference_repos=data.get("reference_repos", []),
             tools=data.get("tools", []),
             enabled=data.get("enabled", True),

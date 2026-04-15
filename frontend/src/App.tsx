@@ -101,7 +101,7 @@ export default function App() {
     triggerSchedule,
     toggleSchedule,
     cancelScheduleForm,
-  } = useSchedules();
+  } = useSchedules(form.github_token);
   const { recentRepos } = useRecentRepos();
   const [serverHasGithubToken, setServerHasGithubToken] = useState(true);
   const onboarding = useOnboarding({
