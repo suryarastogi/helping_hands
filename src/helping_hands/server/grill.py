@@ -494,8 +494,8 @@ def _invoke_codex_turn(
         system_prompt, conversation_history, user_message
     )
 
-    sandbox_mode = os.environ.get("HELPING_HANDS_CODEX_SANDBOX_MODE")
-    if sandbox_mode is None:
+    sandbox_mode = (os.environ.get("HELPING_HANDS_CODEX_SANDBOX_MODE") or "").strip()
+    if not sandbox_mode:
         sandbox_mode = (
             "danger-full-access" if Path("/.dockerenv").exists() else "workspace-write"
         )
