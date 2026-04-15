@@ -146,15 +146,13 @@ export default function SubmissionForm({
                   }
                 />
               </label>
-            </div>
-            <div className="row check-grid">
-              <label className="check-row compact-check">
+              <label className="check-row compact-check" style={{ alignSelf: "end" }}>
                 <input
                   type="checkbox"
                   checked={form.enable_web}
                   onChange={(event) => onFieldChange("enable_web", event.target.checked)}
                 />
-                Web
+                Enable Web
               </label>
             </div>
             <div className="row">
