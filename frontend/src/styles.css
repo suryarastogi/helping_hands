@@ -5986,6 +5986,159 @@ button.worker-sprite:disabled .worker-caption {
   font-size: 0.82rem;
 }
 
+.grill-form-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.grill-history-btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.grill-history-btn:hover {
+  background: var(--surface-hover, var(--surface));
+  border-color: var(--text-muted, var(--border));
+}
+
+/* Grill history list + detail */
+
+.grill-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.grill-history-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-muted, #666);
+  font-size: 0.88rem;
+}
+
+.grill-history-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grill-history-entry-btn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.grill-history-entry-btn:hover {
+  background: var(--surface-hover, var(--surface));
+  border-color: var(--text-muted, var(--border));
+}
+
+.grill-history-entry-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.grill-history-entry-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted, #666);
+}
+
+.grill-history-entry-prompt {
+  font-size: 0.82rem;
+  color: var(--text-muted, #555);
+  white-space: pre-wrap;
+}
+
+.grill-history-actions {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 6px;
+}
+
+.grill-history-back-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.grill-history-back-btn:hover {
+  background: var(--surface-hover, var(--surface));
+}
+
+.grill-history-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.grill-history-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.grill-history-detail-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.grill-history-detail-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted, #666);
+}
+
+.grill-history-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grill-history-detail-h {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #666);
+}
+
+.grill-history-detail-messages {
+  max-height: 50vh;
+}
+
 /* Grill chat phase */
 
 .grill-chat {
