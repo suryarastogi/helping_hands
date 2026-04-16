@@ -4,13 +4,26 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Meta Tools Coverage Hardening (2026-03-29) — In Progress
-
-Close testable coverage gaps in `filesystem.py` (14% → ~80%) and `registry.py`
-(19% → ~80%). Covers payload validators, file-size enforcement, error wrapping,
-and normalization edge cases. See [v334 plan](docs/exec-plans/active/v334-meta-tools-coverage.md).
+_(none — most recent v335 multiplayer decoration hardening just completed)_
 
 ## Recently Completed
+
+### Decoration Placement Validation & Y.Map Read Hardening (2026-04-17) — Completed
+
+Mirror v320 backend/cursor hardening for shared world decorations. `placeDecoration()`
+now clamps x/y to [0, 100], trims/truncates emoji to `DECO_EMOJI_MAX_LENGTH` (8),
+and skips empty-emoji placements. `syncDecorations()` observer defensively
+re-clamps peer-produced state on read so invalid Y.Map entries never reach the
+scene render. 8 new frontend tests; 744 tests pass. See
+[v335 plan](docs/exec-plans/completed/2026/v335-decoration-write-clamping.md).
+
+### Meta Tools Coverage Hardening (2026-03-29) — Completed
+
+Closed testable coverage gaps in `filesystem.py` (14% → 73%) and `registry.py`
+(19% → 78%). Covers payload validators, file-size enforcement, error wrapping,
+and normalization edge cases. 50 new tests (16 filesystem, 34 registry).
+6542 backend tests pass, 75.50% coverage. See
+[v334 plan](docs/exec-plans/completed/2026/v334-meta-tools-coverage.md).
 
 ### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — Completed
 

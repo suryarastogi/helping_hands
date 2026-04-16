@@ -100,7 +100,11 @@ State is managed via React's built-in `useState` hooks, organized into custom ho
   allocation, phase transitions, provider style enrichment, schedule annotation)
 - **`useSchedules`** — Schedule CRUD state and operations
 - **`useMovement`** — Keyboard-driven player movement, collision detection
-- **`useMultiplayer`** — Yjs awareness multiplayer presence, chat, decorations
+- **`useMultiplayer`** — Yjs awareness multiplayer presence, chat, decorations.
+  Write-side validation clamps decoration x/y to `[0, 100]` and truncates the
+  `emoji` field to `DECO_EMOJI_MAX_LENGTH`. Read-side `syncDecorations`
+  observer defensively re-clamps so peer-produced out-of-range state never
+  reaches the scene render.
 - **`useServiceHealth`** — Service health polling (15-second interval)
 - **`useClaudeUsage`** — Claude Code usage polling (hourly) + manual force-refresh
 

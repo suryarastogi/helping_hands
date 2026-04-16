@@ -1,7 +1,8 @@
 # v334 — Meta Tools Coverage Hardening (filesystem + registry)
 
-**Status:** in-progress
+**Status:** completed
 **Created:** 2026-03-29
+**Completed:** 2026-03-29
 
 ## Goal
 

@@ -14,6 +14,7 @@ import {
   CHAT_HISTORY_MAX,
   CURSOR_BROADCAST_INTERVAL_MS,
   DECO_COOLDOWN_MS,
+  DECO_EMOJI_MAX_LENGTH,
   EMOTE_DISPLAY_MS,
   EMOTE_KEY_BINDINGS,
   IDLE_TIMEOUT_MS,
@@ -424,9 +425,13 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       const items: WorldDecoration[] = [];
       decoMap.forEach((value: unknown, key: string) => {
         const d = value as WorldDecoration | undefined;
-        if (d && d.emoji) {
-          items.push({ ...d, id: key });
-        }
+        if (!d) return;
+        const emoji = typeof d.emoji === "string" ? d.emoji.slice(0, DECO_EMOJI_MAX_LENGTH) : "";
+        if (!emoji) return;
+        // Clamp peer-produced coordinates to the scene range to keep rendering safe.
+        const x = typeof d.x === "number" && Number.isFinite(d.x) ? Math.max(0, Math.min(100, d.x)) : 50;
+        const y = typeof d.y === "number" && Number.isFinite(d.y) ? Math.max(0, Math.min(100, d.y)) : 50;
+        items.push({ ...d, id: key, emoji, x, y });
       });
       items.sort((a, b) => a.placedAt - b.placedAt);
       setDecorations(items);
@@ -687,6 +692,14 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       const decoMap = doc.getMap("decorations");
       if (decoMap.size >= MAX_DECORATIONS) return;
 
+      // Normalize inputs before broadcasting: trim + length-cap the emoji,
+      // clamp coords to [0, 100] so out-of-range clicks (scene padding, bad
+      // peers) never poison the shared Y.Map.
+      const trimmedEmoji = typeof emoji === "string" ? emoji.trim().slice(0, DECO_EMOJI_MAX_LENGTH) : "";
+      if (!trimmedEmoji) return;
+      const safeX = Number.isFinite(x) ? Math.max(0, Math.min(100, x)) : 50;
+      const safeY = Number.isFinite(y) ? Math.max(0, Math.min(100, y)) : 50;
+
       // Start cooldown.
       setDecoOnCooldown(true);
       if (decoCooldownTimerRef.current) clearTimeout(decoCooldownTimerRef.current);
@@ -700,9 +713,9 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       const id = `${doc.clientID}-${Date.now()}`;
       decoMap.set(id, {
         id,
-        emoji,
-        x,
-        y,
+        emoji: trimmedEmoji,
+        x: safeX,
+        y: safeY,
         placedBy: (localState?.name as string) ?? "Unknown",
         color: (localState?.color as string) ?? PLAYER_COLORS[0],
         placedAt: Date.now(),

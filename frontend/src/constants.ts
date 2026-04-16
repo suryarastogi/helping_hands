@@ -92,6 +92,9 @@ export const DECORATION_EMOJIS = ["\u{1F338}", "\u{2B50}", "\u{1F525}", "\u{1F4A
 /** Maximum number of shared decorations in the world. */
 export const MAX_DECORATIONS = 20;
 
+/** Maximum code-unit length of a decoration emoji field (ZWJ sequences included). */
+export const DECO_EMOJI_MAX_LENGTH = 8;
+
 /** Cooldown (ms) between consecutive decoration placements to prevent spam. */
 export const DECO_COOLDOWN_MS = 1500;
 

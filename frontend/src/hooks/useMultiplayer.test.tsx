@@ -83,12 +83,16 @@ let mockProviderDestroyCalled: boolean;
 let mockProviderDisconnectCalled: boolean;
 let mockDocDestroyCalled: boolean;
 let latestMockProvider: { _listeners: Record<string, Array<(arg: unknown) => void>> } | null = null;
+let latestMockDoc: { getMap: (name: string) => MockYMap } | null = null;
 const MOCK_CLIENT_ID = 42;
 
-vi.mock("yjs", () => ({
-  Doc: class MockDoc {
+vi.mock("yjs", () => {
+  class MockDoc {
     clientID = MOCK_CLIENT_ID;
     private _maps = new Map<string, MockYMap>();
+    constructor() {
+      latestMockDoc = { getMap: (name) => this.getMap(name) };
+    }
     getMap(name: string) {
       if (!this._maps.has(name)) {
         this._maps.set(name, new MockYMap());
@@ -97,8 +101,9 @@ vi.mock("yjs", () => ({
     }
     transact(fn: () => void) { fn(); }
     destroy() { mockDocDestroyCalled = true; }
-  },
-}));
+  }
+  return { Doc: MockDoc };
+});
 
 vi.mock("y-websocket", () => {
   function MockProvider() {
@@ -216,6 +221,7 @@ describe("useMultiplayer hook", () => {
     mockProviderDisconnectCalled = false;
     mockDocDestroyCalled = false;
     latestMockProvider = null;
+    latestMockDoc = null;
   });
 
   it("manages connection lifecycle and awareness state", () => {
@@ -795,6 +801,127 @@ describe("useMultiplayer hook", () => {
     expect(result.current.decorations).toHaveLength(2);
 
     vi.useRealTimers();
+  });
+
+  // --- Decoration write validation (v335) ---
+
+  it("placeDecoration clamps x below 0 to 0", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{1F338}", -25, 40));
+
+    expect(result.current.decorations).toHaveLength(1);
+    expect(result.current.decorations[0].x).toBe(0);
+    expect(result.current.decorations[0].y).toBe(40);
+  });
+
+  it("placeDecoration clamps x/y above 100 to 100", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{1F338}", 150, 250));
+
+    expect(result.current.decorations).toHaveLength(1);
+    expect(result.current.decorations[0].x).toBe(100);
+    expect(result.current.decorations[0].y).toBe(100);
+  });
+
+  it("placeDecoration skips placement when emoji is empty or whitespace only", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("   ", 30, 40));
+    expect(result.current.decorations).toHaveLength(0);
+
+    act(() => result.current.placeDecoration("", 30, 40));
+    expect(result.current.decorations).toHaveLength(0);
+  });
+
+  it("placeDecoration truncates emoji to DECO_EMOJI_MAX_LENGTH", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    const longPayload = "\u{1F338}\u{2B50}\u{1F525}\u{1F4A1}\u{1F3B5}\u{2764}\u{1F331}\u{1F48E}extra-junk";
+
+    act(() => result.current.placeDecoration(longPayload, 30, 40));
+
+    expect(result.current.decorations).toHaveLength(1);
+    expect(result.current.decorations[0].emoji.length).toBeLessThanOrEqual(8);
+  });
+
+  it("placeDecoration defaults non-finite x/y to center (50)", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+
+    act(() => result.current.placeDecoration("\u{1F338}", Number.NaN, Number.POSITIVE_INFINITY));
+
+    expect(result.current.decorations).toHaveLength(1);
+    expect(result.current.decorations[0].x).toBe(50);
+    expect(result.current.decorations[0].y).toBe(50);
+  });
+
+  it("syncDecorations clamps out-of-range coords written directly by a peer", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    const peerMap = latestMockDoc!.getMap("decorations");
+
+    act(() => {
+      peerMap.set("peer-1", {
+        id: "peer-1",
+        emoji: "\u{1F338}",
+        x: 999,
+        y: -100,
+        placedBy: "Evil",
+        color: "#000",
+        placedAt: 1000,
+      });
+    });
+
+    expect(result.current.decorations).toHaveLength(1);
+    expect(result.current.decorations[0].x).toBe(100);
+    expect(result.current.decorations[0].y).toBe(0);
+  });
+
+  it("syncDecorations truncates peer-produced overly long emoji on read", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    const peerMap = latestMockDoc!.getMap("decorations");
+    const fifty = "x".repeat(50);
+
+    act(() => {
+      peerMap.set("peer-2", {
+        id: "peer-2",
+        emoji: fifty,
+        x: 30,
+        y: 40,
+        placedBy: "Evil",
+        color: "#000",
+        placedAt: 2000,
+      });
+    });
+
+    expect(result.current.decorations).toHaveLength(1);
+    expect(result.current.decorations[0].emoji.length).toBeLessThanOrEqual(8);
+  });
+
+  it("syncDecorations drops peer entries with missing/non-string emoji", () => {
+    const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+    const peerMap = latestMockDoc!.getMap("decorations");
+
+    act(() => {
+      peerMap.set("peer-no-emoji", {
+        id: "peer-no-emoji",
+        x: 30,
+        y: 40,
+        placedBy: "Evil",
+        color: "#000",
+        placedAt: 3000,
+      });
+      peerMap.set("peer-non-string-emoji", {
+        id: "peer-non-string-emoji",
+        emoji: 12345,
+        x: 30,
+        y: 40,
+        placedBy: "Evil",
+        color: "#000",
+        placedAt: 4000,
+      });
+    });
+
+    expect(result.current.decorations).toHaveLength(0);
   });
 
   // --- Join/leave notifications ---
