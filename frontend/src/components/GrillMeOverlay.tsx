@@ -15,6 +15,64 @@ import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
 
 // ---------------------------------------------------------------------------
+// Draft persistence — keep user input across overlay close/reopen.
+// ---------------------------------------------------------------------------
+
+const FORM_DRAFT_KEY = "hh_grill_form_draft";
+const CHAT_DRAFT_KEY = "hh_grill_chat_draft";
+
+function loadFormDraft(): Partial<GrillFormState> | null {
+  try {
+    const raw = localStorage.getItem(FORM_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveFormDraft(form: GrillFormState): void {
+  try {
+    // Don't persist the github token — it's already managed separately
+    // via loadGithubToken/saveGithubToken.
+    const { github_token: _github_token, ...draft } = form;
+    void _github_token;
+    localStorage.setItem(FORM_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    /* quota exceeded or unavailable — silently ignore */
+  }
+}
+
+function clearFormDraft(): void {
+  try {
+    localStorage.removeItem(FORM_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadChatDraft(): string {
+  try {
+    return localStorage.getItem(CHAT_DRAFT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveChatDraft(text: string): void {
+  try {
+    if (text) {
+      localStorage.setItem(CHAT_DRAFT_KEY, text);
+    } else {
+      localStorage.removeItem(CHAT_DRAFT_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Simple markdown renderer (no external deps)
 // ---------------------------------------------------------------------------
 
@@ -87,8 +145,18 @@ function GrillFormPhase({
   serverHasGithubToken: boolean;
   initialForm: GrillFormState;
 }) {
-  const [form, setForm] = useState<GrillFormState>(initialForm);
+  // Hydrate from any persisted draft so de-focus/re-focus preserves user input.
+  // Token is intentionally not persisted here (managed via saveGithubToken).
+  const [form, setForm] = useState<GrillFormState>(() => {
+    const draft = loadFormDraft();
+    return draft ? { ...initialForm, ...draft, github_token: initialForm.github_token } : initialForm;
+  });
   const tokenRequired = !serverHasGithubToken;
+
+  // Persist draft on every change.
+  useEffect(() => {
+    saveFormDraft(form);
+  }, [form]);
 
   const referenceChips = useMemo(
     () =>
@@ -101,6 +169,7 @@ function GrillFormPhase({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    clearFormDraft();
     onStart(form);
   };
 
@@ -272,7 +341,8 @@ function GrillChatPhase({
   onSend: (content: string) => void;
   onRequestPlan: () => void;
 }) {
-  const [input, setInput] = useState("");
+  // Hydrate the chat input draft so close/reopen preserves the in-flight message.
+  const [input, setInput] = useState<string>(loadChatDraft);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const groups = useMemo(() => groupMessages(messages), [messages]);
@@ -281,10 +351,16 @@ function GrillChatPhase({
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // Persist every edit so the draft survives overlay close/reopen.
+  useEffect(() => {
+    saveChatDraft(input);
+  }, [input]);
+
   const handleSend = () => {
     const text = input.trim();
     if (!text || isLoading) return;
     setInput("");
+    saveChatDraft("");
     onSend(text);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
