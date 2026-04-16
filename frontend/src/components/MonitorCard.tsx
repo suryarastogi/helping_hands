@@ -46,6 +46,7 @@ export interface MonitorCardProps {
   fileTree: FileTreeEntry[];
   fileTreeError: string | null;
   fileTreeLoading: boolean;
+  diffIsCommitted: boolean;
 }
 
 export default function MonitorCard({
@@ -73,6 +74,7 @@ export default function MonitorCard({
   fileTree,
   fileTreeError,
   fileTreeLoading,
+  diffIsCommitted,
 }: MonitorCardProps) {
   const blinkerColor = statusBlinkerColor(status);
   const isBlinkerAnimated = statusTone(status) === "run";
@@ -305,7 +307,7 @@ export default function MonitorCard({
               />
             )}
             {filesTab === "diff" && (
-              <DiffView files={diffFiles} error={diffError} loading={diffLoading} />
+              <DiffView files={diffFiles} error={diffError} loading={diffLoading} isCommitted={diffIsCommitted} />
             )}
           </div>
         </details>
