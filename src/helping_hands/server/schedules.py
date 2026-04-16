@@ -26,7 +26,9 @@ from helping_hands.server.constants import (
     REDBEAT_SCHEDULE_ENTRY_PREFIX as _REDBEAT_SCHEDULE_ENTRY_PREFIX,
     SCHEDULE_TYPE_CRON as _SCHEDULE_TYPE_CRON,
     SCHEDULE_TYPE_INTERVAL as _SCHEDULE_TYPE_INTERVAL,
+    SCHEDULE_TYPE_WATCH_ISSUES as _SCHEDULE_TYPE_WATCH_ISSUES,
     TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
+    TASK_NAME_WATCH_ISSUES_POLL as _TASK_NAME_WATCH_ISSUES_POLL,
 )
 
 logger = logging.getLogger(__name__)
@@ -162,6 +164,7 @@ class ScheduledTask:
     owner_token_hash: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
+    watch_labels: list[str] = field(default_factory=list)
     enabled: bool = True
     created_at: str = ""
     last_run_at: str | None = None
@@ -198,6 +201,7 @@ class ScheduledTask:
             "owner_token_hash": self.owner_token_hash,
             "reference_repos": self.reference_repos,
             "tools": self.tools,
+            "watch_labels": self.watch_labels,
             "enabled": self.enabled,
             "created_at": self.created_at,
             "last_run_at": self.last_run_at,
@@ -235,9 +239,12 @@ class ScheduledTask:
         schedule_type = data.get("schedule_type", _SCHEDULE_TYPE_CRON)
         cron_expression = data.get("cron_expression", "")
 
-        # Cron schedules must have a cron_expression
-        if schedule_type == _SCHEDULE_TYPE_CRON and not cron_expression.strip():
-            msg = "cron_expression is required for cron schedules"
+        # Cron and watch_issues schedules must have a cron_expression
+        if (
+            schedule_type in (_SCHEDULE_TYPE_CRON, _SCHEDULE_TYPE_WATCH_ISSUES)
+            and not cron_expression.strip()
+        ):
+            msg = "cron_expression is required for cron and watch_issues schedules"
             raise ValueError(msg)
 
         return cls(
@@ -266,6 +273,7 @@ class ScheduledTask:
             owner_token_hash=data.get("owner_token_hash"),
             reference_repos=data.get("reference_repos", []),
             tools=data.get("tools", []),
+            watch_labels=data.get("watch_labels", []),
             enabled=data.get("enabled", True),
             created_at=data.get("created_at", ""),
             last_run_at=data.get("last_run_at"),
@@ -520,6 +528,8 @@ class ScheduleManager:
         # Validate based on schedule type
         if task.schedule_type == _SCHEDULE_TYPE_INTERVAL:
             task.interval_seconds = validate_interval_seconds(task.interval_seconds)
+        elif task.schedule_type == _SCHEDULE_TYPE_WATCH_ISSUES:
+            task.cron_expression = validate_cron_expression(task.cron_expression)
         else:
             task.cron_expression = validate_cron_expression(task.cron_expression)
 
@@ -533,10 +543,12 @@ class ScheduleManager:
             msg = f"Schedule with ID '{task.schedule_id}' already exists"
             raise ValueError(msg)
 
-        # Create scheduler entry (RedBeat for cron, Celery chain for interval)
+        # Create scheduler entry (RedBeat for cron/watch_issues, Celery chain for interval)
         if task.enabled:
             if task.schedule_type == _SCHEDULE_TYPE_INTERVAL:
                 self._launch_interval_chain(task, countdown=0)
+            elif task.schedule_type == _SCHEDULE_TYPE_WATCH_ISSUES:
+                self._create_watch_redbeat_entry(task)
             else:
                 self._create_redbeat_entry(task)
 
@@ -570,6 +582,40 @@ class ScheduleManager:
         entry = RedBeatSchedulerEntry(
             name=f"{_REDBEAT_SCHEDULE_ENTRY_PREFIX}{task.schedule_id}",
             task=_TASK_NAME_SCHEDULED_BUILD,
+            schedule=schedule,
+            args=[task.schedule_id],
+            app=self._app,
+        )
+        entry.save()
+
+    def _create_watch_redbeat_entry(self, task: ScheduledTask) -> None:
+        """Create a RedBeat scheduler entry for a watch_issues schedule.
+
+        Uses the same cron mechanism as regular cron schedules but points to
+        the ``watch_issues_poll`` task instead of ``scheduled_build``.
+        """
+        from celery.schedules import crontab
+
+        parts = task.cron_expression.split()
+        if len(parts) != 5:
+            msg = f"Invalid cron expression: {task.cron_expression}"
+            raise ValueError(msg)
+
+        minute, hour, day_of_month, month, day_of_week = parts
+
+        schedule = crontab(
+            minute=minute,
+            hour=hour,
+            day_of_month=day_of_month,
+            month_of_year=month,
+            day_of_week=day_of_week,
+        )
+
+        if RedBeatSchedulerEntry is None:
+            raise RuntimeError("RedBeatSchedulerEntry unavailable after _check_redbeat")
+        entry = RedBeatSchedulerEntry(
+            name=f"{_REDBEAT_SCHEDULE_ENTRY_PREFIX}{task.schedule_id}",
+            task=_TASK_NAME_WATCH_ISSUES_POLL,
             schedule=schedule,
             args=[task.schedule_id],
             app=self._app,
@@ -776,6 +822,8 @@ class ScheduleManager:
         # Validate based on schedule type
         if task.schedule_type == _SCHEDULE_TYPE_INTERVAL:
             task.interval_seconds = validate_interval_seconds(task.interval_seconds)
+        elif task.schedule_type == _SCHEDULE_TYPE_WATCH_ISSUES:
+            task.cron_expression = validate_cron_expression(task.cron_expression)
         else:
             task.cron_expression = validate_cron_expression(task.cron_expression)
 
@@ -794,6 +842,8 @@ class ScheduleManager:
         if task.enabled:
             if task.schedule_type == _SCHEDULE_TYPE_INTERVAL:
                 self._launch_interval_chain(task, countdown=0)
+            elif task.schedule_type == _SCHEDULE_TYPE_WATCH_ISSUES:
+                self._create_watch_redbeat_entry(task)
             else:
                 self._create_redbeat_entry(task)
 
@@ -839,6 +889,8 @@ class ScheduleManager:
             task.enabled = True
             if task.schedule_type == _SCHEDULE_TYPE_INTERVAL:
                 self._launch_interval_chain(task, countdown=0)
+            elif task.schedule_type == _SCHEDULE_TYPE_WATCH_ISSUES:
+                self._create_watch_redbeat_entry(task)
             else:
                 self._create_redbeat_entry(task)
             self._save_meta(task)
@@ -952,6 +1004,14 @@ class ScheduleManager:
         # active build at a time.
         if task.schedule_type == _SCHEDULE_TYPE_INTERVAL:
             return self._launch_interval_chain(task, countdown=0)
+
+        # Watch-issues: dispatch an immediate poll (doesn't affect RedBeat).
+        if task.schedule_type == _SCHEDULE_TYPE_WATCH_ISSUES:
+            from helping_hands.server.celery_app import watch_issues_poll
+
+            result = watch_issues_poll.delay(schedule_id)
+            self.record_run(schedule_id, result.id)
+            return result.id
 
         # Cron / other: dispatch a one-off build (doesn't affect RedBeat).
         from helping_hands.server.celery_app import build_feature

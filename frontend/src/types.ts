@@ -153,7 +153,7 @@ export type ServiceHealthState = {
   health: ServiceHealth | null;
 };
 
-export type ScheduleType = "cron" | "interval";
+export type ScheduleType = "cron" | "interval" | "watch_issues";
 
 export type ScheduleItem = {
   schedule_id: string;
@@ -178,6 +178,7 @@ export type ScheduleItem = {
   github_token: string | null;
   reference_repos: string[];
   tools: string[];
+  watch_labels: string[];
   enabled: boolean;
   created_at: string;
   last_run_at: string | null;
@@ -208,6 +209,7 @@ export type ScheduleFormState = {
   github_token: string;
   reference_repos: string;
   tools: string;
+  watch_labels: string;
   enabled: boolean;
 };
 

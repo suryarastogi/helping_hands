@@ -60,6 +60,7 @@ class _FakeScheduledTask:
     owner_token_hash: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
+    watch_labels: list[str] = field(default_factory=list)
     enabled: bool = True
     created_at: str = "2026-03-15T00:00:00"
     last_run_at: str | None = None

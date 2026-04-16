@@ -359,6 +359,10 @@ class ScheduleRequest(_ToolValidatorMixin):
     reference_repos: list[str] = Field(
         default_factory=list, max_length=_MAX_REFERENCE_REPOS
     )
+    watch_labels: list[str] = Field(
+        default_factory=list,
+        description="Issue label filter for watch_issues schedules.",
+    )
     enabled: bool = True
 
 
@@ -387,6 +391,7 @@ class ScheduleResponse(BaseModel):
     github_token: str | None = None
     reference_repos: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
+    watch_labels: list[str] = Field(default_factory=list)
     enabled: bool = True
     created_at: str
     last_run_at: str | None = None
@@ -4731,6 +4736,7 @@ def _schedule_to_response(task) -> ScheduleResponse:
         github_token=_redact_token(task.github_token),
         reference_repos=task.reference_repos,
         tools=task.tools,
+        watch_labels=task.watch_labels,
         enabled=task.enabled,
         created_at=task.created_at,
         last_run_at=task.last_run_at,
@@ -4804,6 +4810,7 @@ def create_schedule(
         owner_token_hash=owner_hash,
         reference_repos=request.reference_repos,
         tools=request.tools,
+        watch_labels=request.watch_labels,
         enabled=request.enabled,
     )
 
@@ -4876,6 +4883,7 @@ def update_schedule(
         owner_token_hash=existing.owner_token_hash,
         reference_repos=request.reference_repos,
         tools=request.tools,
+        watch_labels=request.watch_labels,
         enabled=request.enabled,
     )
 
