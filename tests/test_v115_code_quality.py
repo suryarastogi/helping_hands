@@ -254,6 +254,7 @@ class _FakeScheduledTask:
             "github_token": None,
             "reference_repos": [],
             "tools": [],
+            "watch_labels": [],
             "schedule_type": "cron",
             "interval_seconds": None,
             "enabled": True,
