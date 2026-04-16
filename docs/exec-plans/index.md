@@ -34,6 +34,7 @@ organized by:
 | Week 12 | Mar 16–22 | [Week-12.md](completed/2026/Week-12.md) |
 | Week 13 | Mar 23–29 | [Week-13.md](completed/2026/Week-13.md) |
 | Week 14 | Mar 30 – Apr 5 | [Week-14.md](completed/2026/Week-14.md) |
+| Week 16 | Apr 13–19 | [Week-16.md](completed/2026/Week-16.md) |
 
 ## Conventions
 
@@ -44,4 +45,4 @@ organized by:
 
 ---
 
-*Last updated: 2026-04-05*
+*Last updated: 2026-04-16*
