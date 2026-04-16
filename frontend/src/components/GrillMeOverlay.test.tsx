@@ -154,6 +154,67 @@ describe("GrillMeOverlay", () => {
       fireEvent.click(content!);
       expect(props.onClose).not.toHaveBeenCalled();
     });
+
+    it("warns and aborts close when session is active and user cancels", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { props } = renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
+      });
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it("warns and closes when session is active and user confirms", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { props } = renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
+      });
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).toHaveBeenCalledOnce();
+      confirmSpy.mockRestore();
+    });
+
+    it("warns on backdrop click when session is active", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { props, container } = renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
+      });
+
+      fireEvent.click(container.querySelector(".grill-overlay")!);
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it("warns when messages exist even without sessionId", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const messages: GrillMessage[] = [
+        makeMessage({ id: "m1", role: "user", content: "my plan" }),
+      ];
+      const { props } = renderOverlay({
+        session: makeSession({ phase: "chatting", messages }),
+      });
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it("does not warn when no session has started", () => {
+      const confirmSpy = vi.spyOn(window, "confirm");
+      const { props } = renderOverlay();
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(props.onClose).toHaveBeenCalledOnce();
+      confirmSpy.mockRestore();
+    });
   });
 
   // ---- Phase titles ----
