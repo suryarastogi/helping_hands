@@ -80,6 +80,8 @@ export default function App() {
   const [diffFiles, setDiffFiles] = useState<{ filename: string; status: string; diff: string }[]>([]);
   const [diffError, setDiffError] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
+  const [diffIsCommitted, setDiffIsCommitted] = useState(false);
+  const diffSnapshotsRef = useRef<Map<string, { filename: string; status: string; diff: string }[]>>(new Map());
   const [fileTree, setFileTree] = useState<{ path: string; name: string; type: "file" | "dir"; status: string | null }[]>([]);
   const [fileTreeError, setFileTreeError] = useState<string | null>(null);
   const [fileTreeLoading, setFileTreeLoading] = useState(false);
@@ -201,8 +203,17 @@ export default function App() {
     if (!taskId) {
       setDiffFiles([]);
       setDiffError(null);
+      setDiffIsCommitted(false);
       return;
     }
+
+    // On task switch, restore snapshot if one exists
+    const existingSnapshot = diffSnapshotsRef.current.get(taskId);
+    if (existingSnapshot) {
+      setDiffFiles(existingSnapshot);
+      setDiffIsCommitted(true);
+    }
+
     let cancelled = false;
 
     const fetchDiff = async () => {
@@ -214,7 +225,21 @@ export default function App() {
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (cancelled) return;
-        setDiffFiles(data.files ?? []);
+        const files = data.files ?? [];
+        if (files.length > 0) {
+          setDiffFiles(files);
+          diffSnapshotsRef.current.set(taskId, files);
+          setDiffIsCommitted(false);
+        } else {
+          const snapshot = diffSnapshotsRef.current.get(taskId);
+          if (snapshot) {
+            setDiffFiles(snapshot);
+            setDiffIsCommitted(true);
+          } else {
+            setDiffFiles([]);
+            setDiffIsCommitted(false);
+          }
+        }
         setDiffError(data.error ?? null);
       } catch {
         if (!cancelled) {
@@ -403,6 +428,7 @@ export default function App() {
       fileTree={fileTree}
       fileTreeError={fileTreeError}
       fileTreeLoading={fileTreeLoading}
+      diffIsCommitted={diffIsCommitted}
     />
   );
 
