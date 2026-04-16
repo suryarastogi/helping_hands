@@ -414,6 +414,21 @@ export default function GrillMeOverlay({
     session.sendMessage("Actually, I have more questions. Let's continue grilling.");
   }, [session]);
 
+  // Once a session has started on the server (or any chat history exists),
+  // closing the overlay will destroy that work — warn before discarding it.
+  const hasUserEffort =
+    session.sessionId !== null || session.messages.length > 0;
+
+  const handleClose = useCallback(() => {
+    if (hasUserEffort) {
+      const ok = window.confirm(
+        "Close Grill Me? Your grilling session will be discarded and cannot be resumed.",
+      );
+      if (!ok) return;
+    }
+    onClose();
+  }, [hasUserEffort, onClose]);
+
   const phaseTitle: Record<GrillPhase, string> = {
     form: "Grill Me",
     chatting: "Grilling in Progress",
@@ -421,14 +436,14 @@ export default function GrillMeOverlay({
   };
 
   return (
-    <div className="grill-overlay" onClick={onClose}>
+    <div className="grill-overlay" onClick={handleClose}>
       <div className="grill-overlay-content" onClick={(e) => e.stopPropagation()}>
         <div className="grill-overlay-header">
           <h2 className="grill-overlay-title">{phaseTitle[session.phase]}</h2>
           <button
             type="button"
             className="grill-overlay-close"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close"
           >
             &times;
