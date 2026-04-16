@@ -105,8 +105,15 @@ def _push_ai_msg(
     *,
     msg_type: str = "message",
 ) -> None:
-    """Push an AI message to the outbound queue."""
+    """Push an AI message to the outbound queue and the persistent history.
+
+    The ``ai_msgs`` queue is drained by the single-player poller (one
+    consumer).  The ``history`` list is a non-draining record used by the
+    multiplayer poller so multiple clients can read the same session's
+    messages without competing.
+    """
     key = f"grill:{session_id}:ai_msgs"
+    history_key = f"grill:{session_id}:history"
     msg = {
         "id": str(uuid.uuid4()),
         "role": role,
@@ -114,8 +121,11 @@ def _push_ai_msg(
         "type": msg_type,
         "timestamp": time.time(),
     }
-    r.rpush(key, json.dumps(msg))
+    payload = json.dumps(msg)
+    r.rpush(key, payload)
     r.expire(key, _SESSION_TTL_S)
+    r.rpush(history_key, payload)
+    r.expire(history_key, _SESSION_TTL_S)
 
 
 def _pop_user_msg(r: Any, session_id: str) -> dict[str, Any] | None:
@@ -758,26 +768,15 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
         msg_type = "plan" if is_final else "message"
         _push_ai_msg(r, session_id, "assistant", ai_text, msg_type=msg_type)
 
-        if is_final:
-            _set_state(
-                r,
-                session_id,
-                {
-                    "status": "completed",
-                    "repo_path": repo_path,
-                    "prompt": prompt,
-                    "model": resolved_model,
-                    "backend": backend,
-                    "turn_count": turn_count,
-                },
-            )
-            return {"status": "completed", "turn_count": turn_count}
-
+        # Whether or not a plan was produced on the first turn, keep the
+        # worker alive so the user can either submit the plan or continue
+        # grilling.  The session ends when the user calls /grill/{id}/end
+        # (status -> "ending") or when an idle/turn limit is hit.
         _set_state(
             r,
             session_id,
             {
-                "status": "active",
+                "status": "plan_ready" if is_final else "active",
                 "repo_path": repo_path,
                 "prompt": prompt,
                 "model": resolved_model,
@@ -901,11 +900,15 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
             msg_type_out = "plan" if is_final else "message"
             _push_ai_msg(r, session_id, "assistant", ai_text, msg_type=msg_type_out)
 
+            # When a plan is produced, keep the worker alive in
+            # "plan_ready" state so the user can submit the plan or
+            # continue grilling. The frontend ends the session via
+            # /grill/{id}/end which flips status to "ending".
             _set_state(
                 r,
                 session_id,
                 {
-                    "status": "completed" if is_final else "active",
+                    "status": "plan_ready" if is_final else "active",
                     "repo_path": repo_path,
                     "prompt": prompt,
                     "model": resolved_model,
@@ -913,9 +916,6 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                     "turn_count": turn_count,
                 },
             )
-
-            if is_final:
-                return {"status": "completed", "turn_count": turn_count}
 
         _push_ai_msg(
             r,

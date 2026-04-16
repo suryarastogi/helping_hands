@@ -485,9 +485,10 @@ export default function GrillMeOverlay({
   }, [session.finalPlan, onSubmitPlan]);
 
   const handleContinueGrilling = useCallback(() => {
-    // Go back to chat phase — the session is still active
-    // We need to send a message to continue
-    session.sendMessage("Actually, I have more questions. Let's continue grilling.");
+    // Reset to chat phase, clear the plan, and send a follow-up.
+    // Without this, the GrillPlanPhase stays mounted because finalPlan
+    // is still set, and the user's next message has nowhere to land.
+    void session.continueGrilling();
   }, [session]);
 
   // Once a session has started on the server (or any chat history exists),

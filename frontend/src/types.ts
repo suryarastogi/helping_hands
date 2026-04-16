@@ -298,3 +298,33 @@ export type GrillFormState = {
 };
 
 export type GrillPhase = "form" | "chatting" | "plan";
+
+// ---------------------------------------------------------------------------
+// Multiplayer Grill Me — sessions are shared across all connected players.
+// ---------------------------------------------------------------------------
+
+export type MultiplayerGrillVote = "up" | "down";
+
+/** Shared metadata for a multiplayer grill session, synced via Yjs. */
+export type MultiplayerGrillSession = {
+  /** Celery task ID for the underlying grill_session task. */
+  id: string;
+  /** Yjs clientID (as string) of the player who created the session. */
+  creatorId: string;
+  /** Display name of the creator at time of creation. */
+  creatorName: string;
+  /** Display color of the creator at time of creation. */
+  creatorColor: string;
+  repoPath: string;
+  prompt: string;
+  backend: string;
+  createdAt: number;
+  /** Last-seen status from the server polling (mirrored into Yjs). */
+  status: string;
+  /** Final plan text once produced (creator updates this from polling). */
+  finalPlan: string | null;
+  /** player_id -> vote, updated by anyone in the session. */
+  votes: Record<string, MultiplayerGrillVote>;
+  /** True once the creator has submitted the plan as a build task. */
+  submitted: boolean;
+};

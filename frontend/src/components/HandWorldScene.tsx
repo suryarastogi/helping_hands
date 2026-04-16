@@ -7,7 +7,13 @@
  */
 import { type CSSProperties, type Ref, useMemo, useState } from "react";
 
-import { ARCADE_POSITION, ARCADE_PROXIMITY, MAX_DECORATIONS } from "../constants";
+import {
+  ARCADE_POSITION,
+  ARCADE_PROXIMITY,
+  GRILL_PIT_POSITION,
+  GRILL_PIT_PROXIMITY,
+  MAX_DECORATIONS,
+} from "../constants";
 
 import type { RemoteCursor as RemoteCursorType } from "../hooks/useMultiplayer";
 import type { RemotePlayer } from "../hooks/useMultiplayer";
@@ -92,6 +98,16 @@ export type HandWorldSceneProps = {
   arcadeOpen: boolean;
   /** Called when the player clicks the glowing card to open the arcade. */
   onArcadeOpen: () => void;
+
+  // -- Multiplayer Grill Pit --
+  /** Whether the multiplayer grill overlay is currently open. */
+  multiplayerGrillOpen: boolean;
+  /** Whether multiplayer grill feature is enabled (server config). */
+  multiplayerGrillEnabled: boolean;
+  /** Called when the player clicks the glowing card to open the grill pit. */
+  onMultiplayerGrillOpen: () => void;
+  /** Number of currently active (in-progress) multiplayer grill sessions. */
+  multiplayerGrillActiveCount: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -131,6 +147,10 @@ export default function HandWorldScene({
   onCursorMove,
   arcadeOpen,
   onArcadeOpen,
+  multiplayerGrillOpen,
+  multiplayerGrillEnabled,
+  onMultiplayerGrillOpen,
+  multiplayerGrillActiveCount,
 }: HandWorldSceneProps) {
   const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -143,6 +163,30 @@ export default function HandWorldScene({
     const dy = playerPosition.y - arcadeCenterY;
     return Math.sqrt(dx * dx + dy * dy) < ARCADE_PROXIMITY;
   }, [playerPosition.x, playerPosition.y, arcadeCenterX, arcadeCenterY]);
+
+  // Proximity check: is the player near the multiplayer grill pit?
+  const grillCenterX = GRILL_PIT_POSITION.left + 4;
+  const grillCenterY = GRILL_PIT_POSITION.top + 5;
+  const nearGrillPit = useMemo(() => {
+    if (!multiplayerGrillEnabled) return false;
+    const dx = playerPosition.x - grillCenterX;
+    const dy = playerPosition.y - grillCenterY;
+    return Math.sqrt(dx * dx + dy * dy) < GRILL_PIT_PROXIMITY;
+  }, [playerPosition.x, playerPosition.y, grillCenterX, grillCenterY, multiplayerGrillEnabled]);
+
+  // Arcade takes precedence if both proximities overlap (they shouldn't,
+  // but guard so a single click never triggers two overlays).
+  const cardClickHandler =
+    nearArcade && !arcadeOpen
+      ? onArcadeOpen
+      : nearGrillPit && !multiplayerGrillOpen
+        ? onMultiplayerGrillOpen
+        : undefined;
+  const cardGlowClass = nearArcade && !arcadeOpen
+    ? " arcade-glow"
+    : nearGrillPit && !multiplayerGrillOpen
+      ? " grill-pit-glow"
+      : "";
 
   // Build minimap worker positions from desk slot centers.
   const minimapWorkers: MinimapWorker[] = workerEntries
@@ -173,8 +217,8 @@ export default function HandWorldScene({
 
   return (
     <section
-      className={`card hand-world-card${nearArcade && !arcadeOpen ? " arcade-glow" : ""}`}
-      onClick={nearArcade && !arcadeOpen ? onArcadeOpen : undefined}
+      className={`card hand-world-card${cardGlowClass}`}
+      onClick={cardClickHandler}
     >
       <header className="header">
         <h1>
@@ -325,6 +369,34 @@ export default function HandWorldScene({
             <div className="arcade-prompt">Press to play!</div>
           )}
         </div>
+
+        {/* Multiplayer Grill Pit (bottom-middle) */}
+        {multiplayerGrillEnabled && (
+          <div className={`hh-grill-pit${nearGrillPit ? " grill-pit-active" : ""}`} aria-hidden="true">
+            <span className="grill-pit-base" />
+            <span className="grill-pit-coal grill-pit-coal-1" />
+            <span className="grill-pit-coal grill-pit-coal-2" />
+            <span className="grill-pit-coal grill-pit-coal-3" />
+            <span className="grill-pit-flame grill-pit-flame-1" />
+            <span className="grill-pit-flame grill-pit-flame-2" />
+            <span className="grill-pit-flame grill-pit-flame-3" />
+            <span className="grill-pit-smoke grill-pit-smoke-1" />
+            <span className="grill-pit-smoke grill-pit-smoke-2" />
+            <span className="grill-pit-grate" />
+            <div className="grill-pit-label">GRILL PIT</div>
+            {multiplayerGrillActiveCount > 0 && (
+              <div
+                className="grill-pit-badge"
+                aria-label={`${multiplayerGrillActiveCount} active grill sessions`}
+              >
+                {multiplayerGrillActiveCount}
+              </div>
+            )}
+            {nearGrillPit && !multiplayerGrillOpen && (
+              <div className="grill-pit-prompt">Press to gather!</div>
+            )}
+          </div>
+        )}
 
         {/* Torii gate entrance (middle-left) */}
         <div className="hh-torii" aria-hidden="true">

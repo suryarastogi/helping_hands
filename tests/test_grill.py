@@ -102,19 +102,40 @@ class TestRedisHelpers:
         assert _get_state(r, "nonexistent") is None
 
     def test_push_ai_msg(self) -> None:
-        """Push constructs a well-formed message and calls rpush + expire."""
+        """Push constructs a well-formed message and calls rpush + expire on
+        BOTH the single-consumer queue and the persistent history list."""
         r = MagicMock()
         _push_ai_msg(r, "sess1", "assistant", "Hello!", msg_type="message")
-        r.rpush.assert_called_once()
-        key, raw = r.rpush.call_args[0]
-        assert key == "grill:sess1:ai_msgs"
-        msg = json.loads(raw)
+        # Two rpush calls: ai_msgs + history
+        assert r.rpush.call_count == 2
+        keys = [c.args[0] for c in r.rpush.call_args_list]
+        assert "grill:sess1:ai_msgs" in keys
+        assert "grill:sess1:history" in keys
+        # Both calls carry the exact same payload (so multiplayer history and
+        # single-player drain see identical messages).
+        payloads = [c.args[1] for c in r.rpush.call_args_list]
+        assert payloads[0] == payloads[1]
+        msg = json.loads(payloads[0])
         assert msg["role"] == "assistant"
         assert msg["content"] == "Hello!"
         assert msg["type"] == "message"
         assert "id" in msg
         assert "timestamp" in msg
-        r.expire.assert_called_once()
+        # expire is set on both keys
+        assert r.expire.call_count == 2
+
+    def test_push_ai_msg_history_for_multiplayer(self) -> None:
+        """The history list is the multiplayer fan-out channel — confirm
+        it's appended to (not replaced) so multiple clients can lrange it."""
+        r = MagicMock()
+        _push_ai_msg(r, "sess1", "assistant", "first")
+        _push_ai_msg(r, "sess1", "assistant", "second")
+        history_calls = [
+            c for c in r.rpush.call_args_list if c.args[0] == "grill:sess1:history"
+        ]
+        assert len(history_calls) == 2
+        contents = [json.loads(c.args[1])["content"] for c in history_calls]
+        assert contents == ["first", "second"]
 
     def test_push_ai_msg_custom_type(self) -> None:
         """msg_type parameter is respected."""

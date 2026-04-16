@@ -22,7 +22,14 @@ import {
   PLAYER_COLORS,
   POSITION_BROADCAST_INTERVAL_MS,
 } from "../constants";
-import type { ChatMessage, CursorPosition, PlayerDirection, WorldDecoration } from "../types";
+import type {
+  ChatMessage,
+  CursorPosition,
+  MultiplayerGrillSession,
+  MultiplayerGrillVote,
+  PlayerDirection,
+  WorldDecoration,
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -106,6 +113,29 @@ export type UseMultiplayerReturn = {
   remoteCursors: RemoteCursor[];
   /** Update the local cursor position. Pass null when the mouse leaves the scene. */
   updateCursor: (position: CursorPosition | null) => void;
+  /** Local Yjs clientID as a string — used as the "player id" for grill votes. */
+  localPlayerId: string;
+  /** Shared multiplayer grill sessions discovered via the grill pit. */
+  multiplayerGrillSessions: MultiplayerGrillSession[];
+  /** Add a new multiplayer grill session record (called after POST /grill). */
+  addMultiplayerGrillSession: (
+    session: Omit<
+      MultiplayerGrillSession,
+      "creatorId" | "creatorName" | "creatorColor" | "createdAt" | "votes" | "submitted"
+    >,
+  ) => void;
+  /** Update fields on an existing session (typically by the creator). */
+  patchMultiplayerGrillSession: (
+    id: string,
+    patch: Partial<MultiplayerGrillSession>,
+  ) => void;
+  /** Cast or clear the local player's vote on a session. */
+  voteMultiplayerGrillSession: (
+    id: string,
+    vote: MultiplayerGrillVote | null,
+  ) => void;
+  /** Remove a session record (creator only — caller enforces). */
+  removeMultiplayerGrillSession: (id: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -182,6 +212,10 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const [decoOnCooldown, setDecoOnCooldown] = useState(false);
   const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
   const [localPlayerName, setLocalPlayerName] = useState(playerName?.trim() || "Player");
+  const [multiplayerGrillSessions, setMultiplayerGrillSessions] = useState<
+    MultiplayerGrillSession[]
+  >([]);
+  const [localPlayerId, setLocalPlayerId] = useState<string>("");
 
   const yjsDocRef = useRef<Y.Doc | null>(null);
   const yjsProviderRef = useRef<WebsocketProvider | null>(null);
@@ -229,6 +263,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       setChatHistory([]);
       setDecorations([]);
       setRemoteCursors([]);
+      setMultiplayerGrillSessions([]);
+      setLocalPlayerId("");
       seenRemoteChatsRef.current.clear();
       chatSeqRef.current.clear();
       playerNamesRef.current.clear();
@@ -247,6 +283,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     const myName = playerName?.trim() || defaultName;
     setLocalPlayerName(myName);
     const myId = String(doc.clientID);
+    setLocalPlayerId(myId);
 
     const wsBase = wsUrlBuilder("/ws/yjs").replace(/\/$/, "");
     const provider = new WebsocketProvider(wsBase, "hand-world", doc);
@@ -438,7 +475,30 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     decoMap.observe(syncDecorations);
     syncDecorations();
 
+    // --- Shared multiplayer grill sessions (Y.Map of session metadata) ---
+    const grillMap = doc.getMap("grill-sessions");
+    const syncGrillSessions = () => {
+      const items: MultiplayerGrillSession[] = [];
+      grillMap.forEach((value: unknown, key: string) => {
+        const s = value as MultiplayerGrillSession | undefined;
+        if (s && s.id) {
+          items.push({
+            ...s,
+            id: key,
+            votes: s.votes ?? {},
+            submitted: s.submitted ?? false,
+            finalPlan: s.finalPlan ?? null,
+          });
+        }
+      });
+      items.sort((a, b) => b.createdAt - a.createdAt);
+      setMultiplayerGrillSessions(items);
+    };
+    grillMap.observe(syncGrillSessions);
+    syncGrillSessions();
+
     return () => {
+      grillMap.unobserve(syncGrillSessions);
       decoMap.unobserve(syncDecorations);
       provider.off("status", onStatus);
       provider.awareness.off("change", onAwarenessChange);
@@ -716,6 +776,79 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     [decoOnCooldown],
   );
 
+  // --- Multiplayer grill session callbacks ---
+  const addMultiplayerGrillSession = useCallback(
+    (
+      session: Omit<
+        MultiplayerGrillSession,
+        | "creatorId"
+        | "creatorName"
+        | "creatorColor"
+        | "createdAt"
+        | "votes"
+        | "submitted"
+      >,
+    ) => {
+      const doc = yjsDocRef.current;
+      const provider = yjsProviderRef.current;
+      if (!doc) return;
+      const grillMap = doc.getMap("grill-sessions");
+      const localState = provider?.awareness.getLocalState()?.player as
+        | Record<string, unknown>
+        | undefined;
+      const myId = String(doc.clientID);
+      const record: MultiplayerGrillSession = {
+        ...session,
+        creatorId: myId,
+        creatorName: (localState?.name as string) ?? "Unknown",
+        creatorColor: (localState?.color as string) ?? PLAYER_COLORS[0],
+        createdAt: Date.now(),
+        votes: {},
+        submitted: false,
+      };
+      grillMap.set(session.id, record);
+    },
+    [],
+  );
+
+  const patchMultiplayerGrillSession = useCallback(
+    (id: string, patch: Partial<MultiplayerGrillSession>) => {
+      const doc = yjsDocRef.current;
+      if (!doc) return;
+      const grillMap = doc.getMap("grill-sessions");
+      const current = grillMap.get(id) as MultiplayerGrillSession | undefined;
+      if (!current) return;
+      grillMap.set(id, { ...current, ...patch, id });
+    },
+    [],
+  );
+
+  const voteMultiplayerGrillSession = useCallback(
+    (id: string, vote: MultiplayerGrillVote | null) => {
+      const doc = yjsDocRef.current;
+      if (!doc) return;
+      const grillMap = doc.getMap("grill-sessions");
+      const current = grillMap.get(id) as MultiplayerGrillSession | undefined;
+      if (!current) return;
+      const myId = String(doc.clientID);
+      const votes = { ...(current.votes ?? {}) };
+      if (vote === null) {
+        delete votes[myId];
+      } else {
+        votes[myId] = vote;
+      }
+      grillMap.set(id, { ...current, id, votes });
+    },
+    [],
+  );
+
+  const removeMultiplayerGrillSession = useCallback((id: string) => {
+    const doc = yjsDocRef.current;
+    if (!doc) return;
+    const grillMap = doc.getMap("grill-sessions");
+    grillMap.delete(id);
+  }, []);
+
   // --- Clear decorations callback ---
   const clearDecorations = useCallback(() => {
     const doc = yjsDocRef.current;
@@ -817,5 +950,11 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     clearDecorations,
     remoteCursors,
     updateCursor,
+    localPlayerId,
+    multiplayerGrillSessions,
+    addMultiplayerGrillSession,
+    patchMultiplayerGrillSession,
+    voteMultiplayerGrillSession,
+    removeMultiplayerGrillSession,
   };
 }

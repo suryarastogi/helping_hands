@@ -23,6 +23,10 @@ export type GrillSessionState = {
   startSession: (form: GrillFormState) => Promise<void>;
   sendMessage: (content: string) => Promise<void>;
   requestPlan: () => Promise<void>;
+  /** Continue grilling after a plan was produced — clears the plan and sends a follow-up message. */
+  continueGrilling: (content?: string) => Promise<void>;
+  /** Tell the worker to end (e.g., when the user submits the plan). Best-effort. */
+  endSession: () => Promise<void>;
   reset: () => void;
 };
 
@@ -84,7 +88,8 @@ export function useGrillSession(): GrillSessionState {
         }
       }
 
-      // Stop polling on terminal states
+      // Stop polling on terminal states. ``plan_ready`` is non-terminal —
+      // the worker stays alive so the user can keep grilling.
       if (
         data.status === "completed" ||
         data.status === "error" ||
@@ -92,17 +97,17 @@ export function useGrillSession(): GrillSessionState {
         data.status === "max_turns" ||
         data.status === "not_found"
       ) {
-        // Keep polling briefly to drain remaining messages, then stop
         if (data.messages.length === 0) {
           stopPolling();
           setIsLoading(false);
         }
       }
 
-      // When AI is thinking, show loading
+      // When AI is thinking, show loading; ``active`` and ``plan_ready``
+      // are both interactive states.
       if (data.status === "thinking") {
         setIsLoading(true);
-      } else if (data.status === "active") {
+      } else if (data.status === "active" || data.status === "plan_ready") {
         setIsLoading(false);
       }
     } catch {
@@ -231,7 +236,58 @@ export function useGrillSession(): GrillSessionState {
     }
   }, [sessionId]);
 
+  const endSession = useCallback(async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    try {
+      await fetch(apiUrl(`/grill/${sid}/end`), { method: "POST" });
+    } catch {
+      // Best-effort — worker also exits on idle timeout.
+    }
+  }, []);
+
+  const continueGrilling = useCallback(
+    async (content?: string) => {
+      if (!sessionId) return;
+      const text =
+        content?.trim() ||
+        "Actually, I have more questions. Let's continue grilling.";
+
+      // Reset plan state and return to chat phase before sending.
+      setFinalPlan(null);
+      setPhase("chatting");
+      setIsLoading(true);
+
+      // Make sure polling is running — it may have stopped if a previous
+      // status was terminal (it shouldn't be for plan_ready, but guard).
+      startPolling();
+
+      const userMsg: GrillMessage = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: text,
+        type: "message",
+        timestamp: Date.now() / 1000,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      try {
+        await fetch(apiUrl(`/grill/${sessionId}/message`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: text, type: "message" }),
+        });
+      } catch {
+        setError("Failed to continue grilling");
+        setIsLoading(false);
+      }
+    },
+    [sessionId, startPolling],
+  );
+
   const reset = useCallback(() => {
+    // Best-effort: tell the worker to exit so we don't waste a Celery slot.
+    void endSession();
     stopPolling();
     setPhase("form");
     setSessionId(null);
@@ -240,7 +296,7 @@ export function useGrillSession(): GrillSessionState {
     setError(null);
     setIsLoading(false);
     setFinalPlan(null);
-  }, [stopPolling]);
+  }, [stopPolling, endSession]);
 
   return {
     phase,
@@ -253,6 +309,8 @@ export function useGrillSession(): GrillSessionState {
     startSession,
     sendMessage,
     requestPlan,
+    continueGrilling,
+    endSession,
     reset,
   };
 }

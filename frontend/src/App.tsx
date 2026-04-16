@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AppOverlays from "./components/AppOverlays";
 import AsteroidsGame from "./components/AsteroidsGame";
 import GrillMeOverlay from "./components/GrillMeOverlay";
+import MultiplayerGrillOverlay, {
+  createMultiplayerGrillSession,
+} from "./components/MultiplayerGrillOverlay";
 import OnboardingOverlay from "./components/OnboardingOverlay";
 import ChatPanel from "./components/ChatPanel";
 import HandWorldScene from "./components/HandWorldScene";
@@ -13,6 +16,7 @@ import SubmitIssueOverlay from "./components/SubmitIssueOverlay";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
 import { useGrillSession } from "./hooks/useGrillSession";
+import { useMultiplayerGrillChat } from "./hooks/useMultiplayerGrillChat";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
@@ -21,7 +25,11 @@ import { useSceneWorkers } from "./hooks/useSceneWorkers";
 import { useSchedules } from "./hooks/useSchedules";
 import { useServiceHealth } from "./hooks/useServiceHealth";
 import { useTaskManager } from "./hooks/useTaskManager";
-import type { Backend } from "./types";
+import type {
+  Backend,
+  GrillFormState,
+  MultiplayerGrillSession,
+} from "./types";
 import {
   apiUrl,
   asRecord,
@@ -122,7 +130,14 @@ export default function App() {
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
   const [showGrillOverlay, setShowGrillOverlay] = useState(false);
   const [showSubmitIssueOverlay, setShowSubmitIssueOverlay] = useState(false);
+  const [multiplayerGrillOpen, setMultiplayerGrillOpen] = useState(false);
+  const [selectedMultiplayerGrillId, setSelectedMultiplayerGrillId] = useState<
+    string | null
+  >(null);
   const grillSession = useGrillSession();
+  const multiplayerGrillChat = useMultiplayerGrillChat(
+    multiplayerGrillOpen ? selectedMultiplayerGrillId : null,
+  );
 
   const {
     maxOfficeWorkers,
@@ -141,7 +156,7 @@ export default function App() {
     playerPosition,
     playerDirection,
     isPlayerWalking,
-  } = useMovement({ active: !arcadeOpen, plotSlots });
+  } = useMovement({ active: !arcadeOpen && !multiplayerGrillOpen, plotSlots });
 
   const {
     remotePlayers,
@@ -165,6 +180,11 @@ export default function App() {
     remoteCursors,
     updateCursor,
     localPlayerName,
+    localPlayerId,
+    multiplayerGrillSessions,
+    addMultiplayerGrillSession,
+    patchMultiplayerGrillSession,
+    voteMultiplayerGrillSession,
   } = useMultiplayer({
     active: true,
     playerPosition,
@@ -360,6 +380,100 @@ export default function App() {
     setShowGrillOverlay(true);
   };
 
+  const handleOpenMultiplayerGrill = useCallback(() => {
+    setMultiplayerGrillOpen(true);
+  }, []);
+
+  const handleCloseMultiplayerGrill = useCallback(() => {
+    setMultiplayerGrillOpen(false);
+    setSelectedMultiplayerGrillId(null);
+  }, []);
+
+  const handleCreateMultiplayerGrill = useCallback(
+    async (formState: GrillFormState): Promise<string | null> => {
+      const result = await createMultiplayerGrillSession(formState);
+      if ("error" in result) {
+        return null;
+      }
+      addMultiplayerGrillSession({
+        id: result.sessionId,
+        repoPath: formState.repo_path,
+        prompt: formState.prompt,
+        backend: formState.backend || "claudecodecli",
+        status: result.status,
+        finalPlan: null,
+      });
+      return result.sessionId;
+    },
+    [addMultiplayerGrillSession],
+  );
+
+  const handleSubmitMultiplayerPlan = useCallback(
+    (session: MultiplayerGrillSession, plan: string) => {
+      patchMultiplayerGrillSession(session.id, { submitted: true });
+      void multiplayerGrillChat.endSession();
+      setMultiplayerGrillOpen(false);
+      setSelectedMultiplayerGrillId(null);
+      void submitBuild({
+        prompt: plan,
+        repo_path: session.repoPath,
+        github_token: form.github_token,
+        reference_repos: "",
+      });
+    },
+    [
+      patchMultiplayerGrillSession,
+      multiplayerGrillChat,
+      submitBuild,
+      form.github_token,
+    ],
+  );
+
+  // Mirror polled status & final plan into shared Yjs state so all
+  // participants see the latest server state — but only the creator writes
+  // to keep the source-of-truth single-writer.
+  useEffect(() => {
+    const sid = selectedMultiplayerGrillId;
+    if (!sid || !multiplayerGrillOpen) return;
+    const session = multiplayerGrillSessions.find((s) => s.id === sid);
+    if (!session) return;
+    if (session.creatorId !== localPlayerId) return;
+    const patch: Partial<MultiplayerGrillSession> = {};
+    if (multiplayerGrillChat.status && multiplayerGrillChat.status !== session.status) {
+      patch.status = multiplayerGrillChat.status;
+    }
+    if (
+      multiplayerGrillChat.finalPlan !== null &&
+      multiplayerGrillChat.finalPlan !== session.finalPlan
+    ) {
+      patch.finalPlan = multiplayerGrillChat.finalPlan;
+    }
+    if (Object.keys(patch).length > 0) {
+      patchMultiplayerGrillSession(sid, patch);
+    }
+  }, [
+    selectedMultiplayerGrillId,
+    multiplayerGrillOpen,
+    multiplayerGrillChat.status,
+    multiplayerGrillChat.finalPlan,
+    multiplayerGrillSessions,
+    localPlayerId,
+    patchMultiplayerGrillSession,
+  ]);
+
+  const multiplayerGrillActiveCount = useMemo(
+    () =>
+      multiplayerGrillSessions.filter(
+        (s) =>
+          !s.submitted &&
+          s.status !== "completed" &&
+          s.status !== "error" &&
+          s.status !== "timeout" &&
+          s.status !== "not_found",
+      ).length,
+    [multiplayerGrillSessions],
+  );
+
   const handleGrillSubmitPlan = (plan: string) => {
     setShowGrillOverlay(false);
     grillSession.reset();
@@ -511,6 +625,10 @@ export default function App() {
           onCursorMove={updateCursor}
           arcadeOpen={arcadeOpen}
           onArcadeOpen={() => setArcadeOpen(true)}
+          multiplayerGrillOpen={multiplayerGrillOpen}
+          multiplayerGrillEnabled={grillEnabled}
+          onMultiplayerGrillOpen={handleOpenMultiplayerGrill}
+          multiplayerGrillActiveCount={multiplayerGrillActiveCount}
         />
 
         {mainView === "monitor" && taskId && monitorCard}
@@ -561,6 +679,22 @@ export default function App() {
           grillSession.reset();
         }}
         onSubmitPlan={handleGrillSubmitPlan}
+      />
+    )}
+    {grillEnabled && multiplayerGrillOpen && (
+      <MultiplayerGrillOverlay
+        sessions={multiplayerGrillSessions}
+        selectedSessionId={selectedMultiplayerGrillId}
+        onSelectSession={setSelectedMultiplayerGrillId}
+        recentRepos={recentRepos}
+        serverHasGithubToken={serverHasGithubToken}
+        initialForm={grillInitialForm}
+        localPlayerId={localPlayerId}
+        chat={multiplayerGrillChat}
+        onClose={handleCloseMultiplayerGrill}
+        onCreateSession={handleCreateMultiplayerGrill}
+        onVote={voteMultiplayerGrillSession}
+        onSubmitPlan={handleSubmitMultiplayerPlan}
       />
     )}
     {showSubmitIssueOverlay && (

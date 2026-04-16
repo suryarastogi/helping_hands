@@ -531,6 +531,111 @@ describe("useGrillSession", () => {
     });
   });
 
+  // ---- continueGrilling / endSession ----
+
+  describe("continueGrilling", () => {
+    it("does nothing if no sessionId", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.continueGrilling();
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("clears finalPlan, returns to chatting phase, and posts a message", async () => {
+      const planMsg = makeMessage({
+        id: "plan-1",
+        type: "plan",
+        content: "## FINAL PLAN\n\nDo it",
+      });
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValueOnce(jsonResponse({
+          session_id: "sess-1",
+          status: "plan_ready",
+          messages: [planMsg],
+        }))
+        .mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      expect(result.current.phase).toBe("plan");
+      expect(result.current.finalPlan).not.toBeNull();
+
+      await act(async () => {
+        await result.current.continueGrilling("more questions");
+      });
+
+      expect(result.current.phase).toBe("chatting");
+      expect(result.current.finalPlan).toBeNull();
+      expect(result.current.messages.some((m) => m.role === "user" && m.content === "more questions")).toBe(true);
+      // The third fetch is the POST /grill/{id}/message
+      const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+      const postCall = calls.find((c) => String(c[0]).includes("/message"));
+      expect(postCall).toBeDefined();
+    });
+  });
+
+  describe("endSession", () => {
+    it("does nothing if no sessionId", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.endSession();
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("posts to /grill/{id}/end after a session has started", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValue(jsonResponse({ session_id: "sess-1", status: "active", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      await act(async () => {
+        await result.current.endSession();
+      });
+
+      const endCall = fetchSpy.mock.calls.find((c) => String(c[0]).includes("/end"));
+      expect(endCall).toBeDefined();
+      expect((endCall![1] as { method?: string }).method).toBe("POST");
+    });
+  });
+
+  describe("plan_ready non-terminal", () => {
+    it("does not stop polling when status is plan_ready", async () => {
+      const clearSpy = vi.spyOn(globalThis, "clearInterval");
+
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "plan_ready", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      // plan_ready should not trigger clearInterval (only completed/error/timeout do)
+      expect(clearSpy).not.toHaveBeenCalled();
+      expect(result.current.phase).toBe("chatting");
+    });
+  });
+
   // ---- reset ----
 
   describe("reset", () => {

@@ -5078,6 +5078,85 @@ def send_grill_message(session_id: str, req: GrillMessageRequest) -> dict[str, s
     return {"status": "sent"}
 
 
+@app.get("/grill/{session_id}/history", response_model=GrillPollResponse)
+def grill_history(session_id: str) -> GrillPollResponse:
+    """Return the full message history for a session without draining.
+
+    Used by the multiplayer overlay so multiple clients can observe the
+    same session without competing for messages on the single-consumer
+    ``ai_msgs`` queue.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    import json as _json
+
+    import redis
+
+    session_id = _validate_path_param(session_id, "session_id")
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+    r = redis.from_url(redis_url, decode_responses=True)
+
+    state_key = f"grill:{session_id}:state"
+    state_raw = r.get(state_key)
+    if state_raw is None:
+        return GrillPollResponse(session_id=session_id, status="not_found", messages=[])
+
+    state = _json.loads(state_raw)
+    status = state.get("status", "unknown")
+
+    history_key = f"grill:{session_id}:history"
+    raw_msgs = r.lrange(history_key, 0, -1)
+    messages: list[GrillMessageOut] = []
+    for raw in raw_msgs:
+        try:
+            messages.append(GrillMessageOut(**_json.loads(raw)))
+        except (ValueError, TypeError):
+            continue
+
+    return GrillPollResponse(
+        session_id=session_id,
+        status=status,
+        messages=messages,
+    )
+
+
+@app.post("/grill/{session_id}/end")
+def end_grill_session(session_id: str) -> dict[str, str]:
+    """Signal a grill session to end cleanly.
+
+    Sets the session state to ``"ending"`` so the worker exits its message
+    loop on the next tick.  Used when the user submits the final plan or
+    closes the overlay — without this, the worker would only exit on the
+    idle timeout, blocking the Celery slot.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    import json as _json
+
+    import redis
+
+    session_id = _validate_path_param(session_id, "session_id")
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+    r = redis.from_url(redis_url, decode_responses=True)
+
+    state_key = f"grill:{session_id}:state"
+    state_raw = r.get(state_key)
+    if state_raw is None:
+        raise HTTPException(status_code=404, detail="Grill session not found")
+
+    state = _json.loads(state_raw)
+    state["status"] = "ending"
+    r.set(state_key, _json.dumps(state), ex=3600)
+
+    return {"status": "ending"}
+
+
 @app.get("/grill/{session_id}", response_model=GrillPollResponse)
 def poll_grill(session_id: str) -> GrillPollResponse:
     """Poll for new AI messages and session state."""

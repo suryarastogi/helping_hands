@@ -79,6 +79,12 @@ export const ARCADE_COLLISION = { left: 83, top: 5, width: 10, height: 12 };
 /** Distance (%) within which the player "activates" the arcade glow. */
 export const ARCADE_PROXIMITY = 12;
 
+/** Multiplayer Grill Pit position & collision (% of scene). */
+export const GRILL_PIT_POSITION = { left: 60, top: 78 };
+export const GRILL_PIT_COLLISION = { left: 58, top: 75, width: 10, height: 12 };
+/** Distance (%) within which the player "activates" the grill pit glow. */
+export const GRILL_PIT_PROXIMITY = 12;
+
 /** Walkable area bounds (% of scene). */
 export const OFFICE_BOUNDS = { minX: 4, maxX: 96, minY: 6, maxY: 92 };
 

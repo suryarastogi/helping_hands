@@ -81,6 +81,8 @@ function makeSession(overrides: Partial<GrillSessionState> = {}): GrillSessionSt
     startSession: vi.fn(),
     sendMessage: vi.fn(),
     requestPlan: vi.fn(),
+    continueGrilling: vi.fn().mockResolvedValue(undefined),
+    endSession: vi.fn().mockResolvedValue(undefined),
     reset: vi.fn(),
     ...overrides,
   };
@@ -489,12 +491,12 @@ describe("GrillMeOverlay", () => {
       expect(props.onSubmitPlan).toHaveBeenCalledWith("The plan");
     });
 
-    it("calls sendMessage when Keep Grilling is clicked", () => {
+    it("calls continueGrilling when Keep Grilling is clicked", () => {
       const session = makeSession({ phase: "plan", finalPlan: "The plan" });
       renderOverlay({ session });
 
       fireEvent.click(screen.getByText("Keep Grilling"));
-      expect(session.sendMessage).toHaveBeenCalledOnce();
+      expect(session.continueGrilling).toHaveBeenCalledOnce();
     });
 
     it("does not render plan phase when finalPlan is null", () => {

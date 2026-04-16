@@ -1434,6 +1434,28 @@ class TestGrillEndpoints:
         resp = client.get("/grill/session-1")
         assert resp.status_code == 404
 
+    def test_grill_history_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The /history endpoint is gated by GRILL_ME_ENABLED."""
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/grill/session-1/history")
+        assert resp.status_code == 404
+
+    def test_grill_end_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The /end endpoint is gated by GRILL_ME_ENABLED."""
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.delenv("GRILL_ME_ENABLED", raising=False)
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/grill/session-1/end")
+        assert resp.status_code == 404
+
 
 # ---------------------------------------------------------------------------
 # v356 — Task diff edge cases
@@ -2181,6 +2203,166 @@ class TestGrillEnabledEndpoints:
         assert data["status"] == "active"
         assert len(data["messages"]) == 1
         assert data["messages"][0]["content"] == "Hello"
+
+    def test_grill_history_enabled_returns_full_list(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """/history reads the persistent history list with lrange and does
+        NOT drain it (so multiple multiplayer clients can read independently).
+        """
+        import json as _json
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+
+        msg1 = _json.dumps(
+            {
+                "id": "m1",
+                "role": "assistant",
+                "content": "first",
+                "type": "message",
+                "timestamp": 1000.0,
+            }
+        )
+        msg2 = _json.dumps(
+            {
+                "id": "m2",
+                "role": "user",
+                "content": "second",
+                "type": "message",
+                "timestamp": 1001.0,
+            }
+        )
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = _json.dumps({"status": "active"})
+        mock_redis.lrange.return_value = [msg1, msg2]
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.get("/grill/sess-mp/history")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "active"
+        assert [m["content"] for m in data["messages"]] == ["first", "second"]
+        # lrange (non-draining), NOT lpop
+        mock_redis.lrange.assert_called_once_with("grill:sess-mp:history", 0, -1)
+        mock_redis.lpop.assert_not_called()
+
+    def test_grill_history_enabled_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Missing session returns status='not_found' and empty messages
+        (matches /poll behavior — frontend treats this as a soft 'session
+        ended' signal rather than a hard error)."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.get("/grill/missing/history")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "not_found"
+        assert data["messages"] == []
+
+    def test_grill_history_skips_malformed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Malformed JSON entries in the history list are skipped, not raised."""
+        import json as _json
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        good = _json.dumps(
+            {
+                "id": "m1",
+                "role": "assistant",
+                "content": "ok",
+                "type": "message",
+                "timestamp": 1.0,
+            }
+        )
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = _json.dumps({"status": "active"})
+        mock_redis.lrange.return_value = ["not-json", good]
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.get("/grill/sess/history")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["messages"]) == 1
+        assert data["messages"][0]["content"] == "ok"
+
+    def test_grill_end_enabled_sets_state_to_ending(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """/end flips the session state's status to 'ending' so the worker
+        loop exits on the next tick (without this, the worker holds a
+        Celery slot until the idle timeout)."""
+        import json as _json
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = _json.dumps({"status": "active", "turn_count": 3})
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=True)
+            resp = client.post("/grill/sess-end/end")
+
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ending"}
+        # Verify the new state was written with status='ending' and TTL preserved.
+        mock_redis.set.assert_called_once()
+        set_args, set_kwargs = mock_redis.set.call_args
+        assert set_args[0] == "grill:sess-end:state"
+        new_state = _json.loads(set_args[1])
+        assert new_state["status"] == "ending"
+        # Other state fields are preserved.
+        assert new_state["turn_count"] == 3
+        assert set_kwargs.get("ex") == 3600
+
+    def test_grill_end_enabled_not_found(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """/end on a missing session returns 404 (unlike /history)."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi.testclient import TestClient
+
+        from helping_hands.server.app import app
+
+        monkeypatch.setenv("GRILL_ME_ENABLED", "1")
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+
+        with patch("redis.from_url", return_value=mock_redis):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.post("/grill/missing/end")
+
+        assert resp.status_code == 404
+        mock_redis.set.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
