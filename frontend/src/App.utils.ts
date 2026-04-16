@@ -176,6 +176,7 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   github_token: loadGithubToken(),
   reference_repos: "",
   tools: "",
+  watch_labels: "",
   enabled: true,
 };
 

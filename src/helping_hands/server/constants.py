@@ -46,12 +46,19 @@ __all__ = [
     "RESPONSE_STATUS_OK",
     "SCHEDULE_TYPE_CRON",
     "SCHEDULE_TYPE_INTERVAL",
+    "SCHEDULE_TYPE_WATCH_ISSUES",
     "TASK_NAME_INTERVAL_RESCHEDULE",
     "TASK_NAME_LOG_USAGE",
     "TASK_NAME_SCHEDULED_BUILD",
+    "TASK_NAME_WATCH_ISSUES_POLL",
+    "TASK_NAME_WATCH_ISSUE_COMPLETE",
     "USAGE_API_TIMEOUT_S",
     "USAGE_CACHE_TTL_S",
     "USAGE_USER_AGENT",
+    "WATCH_LABEL_DONE",
+    "WATCH_LABEL_FAILED",
+    "WATCH_LABEL_PR",
+    "WATCH_LABEL_QUEUED",
 ]
 
 # --- Anthropic usage API ---------------------------------------------------
@@ -153,6 +160,26 @@ TASK_NAME_INTERVAL_RESCHEDULE = "helping_hands.interval_reschedule"
 TASK_NAME_LOG_USAGE = "helping_hands.log_claude_usage"
 """Celery task name for the periodic Claude usage logger."""
 
+TASK_NAME_WATCH_ISSUES_POLL = "helping_hands.watch_issues_poll"
+"""Celery task name for the watch-issues cron-triggered poll."""
+
+TASK_NAME_WATCH_ISSUE_COMPLETE = "helping_hands.watch_issue_complete"
+"""Celery task name for the watch-issues completion callback."""
+
+# --- Watch issues labels -------------------------------------------------------
+
+WATCH_LABEL_QUEUED = "helping-hands:queued"
+"""Label applied to an issue when a build has been dispatched."""
+
+WATCH_LABEL_DONE = "helping-hands:done"
+"""Label applied to an issue when its build succeeds."""
+
+WATCH_LABEL_FAILED = "helping-hands:failed"
+"""Label applied to an issue when its build fails."""
+
+WATCH_LABEL_PR = "helping-hands:watched"
+"""Label applied to a PR created by the issue watcher."""
+
 # --- Schedule types -----------------------------------------------------------
 
 SCHEDULE_TYPE_CRON: Final[str] = "cron"
@@ -160,6 +187,9 @@ SCHEDULE_TYPE_CRON: Final[str] = "cron"
 
 SCHEDULE_TYPE_INTERVAL: Final[str] = "interval"
 """Schedule type for interval-based (non-concurrent, delay-after-completion) schedules."""
+
+SCHEDULE_TYPE_WATCH_ISSUES: Final[str] = "watch_issues"
+"""Schedule type for automated issue-to-PR pipeline schedules."""
 
 # --- Interval scheduling bounds -----------------------------------------------
 

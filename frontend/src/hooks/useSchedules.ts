@@ -105,6 +105,7 @@ export function useSchedules(githubToken?: string): UseSchedulesReturn {
         github_token: item.github_token ?? "",
         reference_repos: (item.reference_repos ?? []).join(", "),
         tools: (item.tools ?? []).join(", "),
+        watch_labels: (item.watch_labels ?? []).join(", "),
         enabled: item.enabled,
       });
       setEditingScheduleId(scheduleId);
@@ -121,15 +122,16 @@ export function useSchedules(githubToken?: string): UseSchedulesReturn {
     const name = scheduleForm.name.trim();
     const cronExpr = scheduleForm.cron_expression.trim();
     const schedRepoPath = scheduleForm.repo_path.trim();
-    const schedPrompt = scheduleForm.prompt.trim();
     const isInterval = scheduleForm.schedule_type === "interval";
+    const isWatchIssues = scheduleForm.schedule_type === "watch_issues";
+    const schedPrompt = isWatchIssues ? "(auto-generated from issues)" : scheduleForm.prompt.trim();
 
-    if (!name || !schedRepoPath || !schedPrompt) {
+    if (!name || !schedRepoPath || (!isWatchIssues && !schedPrompt)) {
       setScheduleError("Name, repository path, and prompt are required.");
       return;
     }
     if (!isInterval && !cronExpr) {
-      setScheduleError("Cron expression is required for cron schedules.");
+      setScheduleError("Cron expression is required for cron and watch_issues schedules.");
       return;
     }
     if (isInterval && (!scheduleForm.interval_seconds || scheduleForm.interval_seconds < 30)) {
@@ -174,6 +176,12 @@ export function useSchedules(githubToken?: string): UseSchedulesReturn {
     }
     if (scheduleForm.tools.trim()) {
       body.tools = scheduleForm.tools
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
+    if (scheduleForm.watch_labels.trim()) {
+      body.watch_labels = scheduleForm.watch_labels
         .split(",")
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
