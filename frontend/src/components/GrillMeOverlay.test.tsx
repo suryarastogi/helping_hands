@@ -57,6 +57,12 @@ vi.mock("./RepoSuggestInput", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // Reset any persisted drafts between tests.
+  try {
+    window.localStorage.clear();
+  } catch {
+    /* ignore */
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -477,6 +483,110 @@ describe("GrillMeOverlay", () => {
       expect(screen.getByText("Interviewer")).toBeInTheDocument();
       expect(screen.getByText("Done processing")).toBeInTheDocument();
       expect(screen.getByText("2 steps")).toBeInTheDocument();
+    });
+  });
+
+  // ---- Draft persistence ----
+
+  describe("draft persistence", () => {
+    it("persists form prompt draft to localStorage on change", () => {
+      renderOverlay({ session: makeSession({ phase: "form" }) });
+      const prompt = screen.getByPlaceholderText(/Describe your plan/) as HTMLTextAreaElement;
+      fireEvent.change(prompt, { target: { value: "draft prompt" } });
+
+      const raw = window.localStorage.getItem("hh_grill_form_draft");
+      expect(raw).not.toBeNull();
+      expect(JSON.parse(raw!).prompt).toBe("draft prompt");
+    });
+
+    it("hydrates form fields from persisted draft on remount", () => {
+      window.localStorage.setItem(
+        "hh_grill_form_draft",
+        JSON.stringify({
+          repo_path: "persisted/repo",
+          prompt: "persisted prompt",
+          model: "gpt-5.2",
+          reference_repos: "",
+          backend: "claudecodecli",
+        }),
+      );
+
+      renderOverlay({ session: makeSession({ phase: "form" }) });
+      const prompt = screen.getByPlaceholderText(/Describe your plan/) as HTMLTextAreaElement;
+      expect(prompt.value).toBe("persisted prompt");
+      const repo = screen.getByTestId("repo-suggest-input") as HTMLInputElement;
+      expect(repo.value).toBe("persisted/repo");
+    });
+
+    it("does not persist the github token in the form draft", () => {
+      renderOverlay({
+        session: makeSession({ phase: "form" }),
+        initialForm: {
+          repo_path: "",
+          prompt: "",
+          model: "",
+          github_token: "ghp_secret",
+          reference_repos: "",
+          backend: "claudecodecli",
+        },
+      });
+
+      // Trigger a re-persist by editing an unrelated field.
+      const prompt = screen.getByPlaceholderText(/Describe your plan/) as HTMLTextAreaElement;
+      fireEvent.change(prompt, { target: { value: "anything" } });
+
+      const raw = window.localStorage.getItem("hh_grill_form_draft");
+      expect(raw).not.toBeNull();
+      const parsed = JSON.parse(raw!);
+      expect(parsed).not.toHaveProperty("github_token");
+    });
+
+    it("clears the form draft after starting the session", () => {
+      window.localStorage.setItem(
+        "hh_grill_form_draft",
+        JSON.stringify({ prompt: "old draft" }),
+      );
+      const session = makeSession({ phase: "form" });
+      renderOverlay({
+        session,
+        initialForm: {
+          repo_path: "x/y",
+          prompt: "a prompt",
+          model: "",
+          github_token: "",
+          reference_repos: "",
+          backend: "claudecodecli",
+        },
+      });
+
+      fireEvent.submit(screen.getByText("Start Grilling").closest("form")!);
+      expect(window.localStorage.getItem("hh_grill_form_draft")).toBeNull();
+    });
+
+    it("hydrates chat input draft from localStorage", () => {
+      window.localStorage.setItem("hh_grill_chat_draft", "in-flight answer");
+      renderOverlay({ session: makeSession({ phase: "chatting" }) });
+      const textarea = document.querySelector(".grill-chat-input") as HTMLTextAreaElement;
+      expect(textarea.value).toBe("in-flight answer");
+    });
+
+    it("persists chat input draft on change", () => {
+      renderOverlay({ session: makeSession({ phase: "chatting" }) });
+      const textarea = document.querySelector(".grill-chat-input") as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: "typing..." } });
+      expect(window.localStorage.getItem("hh_grill_chat_draft")).toBe("typing...");
+    });
+
+    it("clears chat draft after send", () => {
+      window.localStorage.setItem("hh_grill_chat_draft", "will be sent");
+      const session = makeSession({ phase: "chatting" });
+      renderOverlay({ session });
+      const textarea = document.querySelector(".grill-chat-input") as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: "will be sent" } });
+      fireEvent.click(screen.getByText("Send"));
+
+      expect(session.sendMessage).toHaveBeenCalledWith("will be sent");
+      expect(window.localStorage.getItem("hh_grill_chat_draft")).toBeNull();
     });
   });
 
