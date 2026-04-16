@@ -473,6 +473,30 @@ describe("HandWorldScene component", () => {
     expect(badge).toBeNull();
   });
 
+  // --- World room badge ---
+
+  it("renders a world room badge when the room is non-default", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} worldRoom="team-alpha" />,
+    );
+    const badge = container.querySelector(".world-room-badge");
+    expect(badge).toBeTruthy();
+    expect(badge?.textContent).toBe("#team-alpha");
+    expect(badge?.getAttribute("aria-label")).toBe("World: team-alpha");
+  });
+
+  it("does not render a world room badge for the default room", () => {
+    const { container } = render(
+      <HandWorldScene {...BASE_SCENE_PROPS} worldRoom="hand-world" />,
+    );
+    expect(container.querySelector(".world-room-badge")).toBeNull();
+  });
+
+  it("does not render a world room badge when worldRoom is undefined", () => {
+    const { container } = render(<HandWorldScene {...BASE_SCENE_PROPS} />);
+    expect(container.querySelector(".world-room-badge")).toBeNull();
+  });
+
   // --- Typing indicator ---
 
   it("passes isLocalTyping to local player avatar", () => {

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import os
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -12,6 +13,35 @@ import pytest
 
 from helping_hands.lib.config import Config
 from helping_hands.lib.repo import RepoIndex
+
+# Env vars whose presence in a developer shell breaks tests that assume
+# clean defaults (e.g. ``HELPING_HANDS_CI_MAX_RETRIES=3`` overriding a
+# stub's ``ci_max_retries=2``). Scrubbed before every test.
+_SCRUBBED_ENV_VARS = (
+    "HELPING_HANDS_CI_MAX_RETRIES",
+    "HELPING_HANDS_CLI_HEARTBEAT_SECONDS",
+    "HELPING_HANDS_CLI_IO_POLL_SECONDS",
+    "HELPING_HANDS_CLI_IDLE_TIMEOUT_SECONDS",
+    "HELPING_HANDS_CLAUDE_USE_NATIVE_CLI_AUTH",
+    "HELPING_HANDS_CODEX_USE_NATIVE_CLI_AUTH",
+    "HELPING_HANDS_DEVIN_USE_NATIVE_CLI_AUTH",
+)
+
+
+@pytest.fixture(autouse=True)
+def _scrub_env_isolation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[None]:
+    """Strip env vars that interfere with deterministic test defaults.
+
+    Tests rely on class/stub defaults for things like CI retry counts,
+    heartbeat intervals, and native-CLI-auth toggles. A developer shell
+    that exports these vars would silently flip test outcomes.
+    """
+    for name in _SCRUBBED_ENV_VARS:
+        if name in os.environ:
+            monkeypatch.delenv(name, raising=False)
+    yield
 
 
 @pytest.fixture()

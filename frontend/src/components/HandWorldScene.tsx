@@ -100,6 +100,9 @@ export type HandWorldSceneProps = {
   // -- Remote cursors --
   remoteCursors: RemoteCursorType[];
   onCursorMove: (position: CursorPosition | null) => void;
+
+  /** Sanitised world/room slug. A badge is shown when non-default. */
+  worldRoom?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -146,6 +149,7 @@ export default function HandWorldScene({
   decoOnCooldown,
   remoteCursors,
   onCursorMove,
+  worldRoom,
 }: HandWorldSceneProps) {
   const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
 
@@ -184,6 +188,15 @@ export default function HandWorldScene({
           {connectionStatus === "connected" && (
             <span className="player-count-badge" aria-label={`${remotePlayers.length + 1} players online`}>
               {remotePlayers.length + 1}
+            </span>
+          )}
+          {worldRoom && worldRoom !== "hand-world" && (
+            <span
+              className="world-room-badge"
+              aria-label={`World: ${worldRoom}`}
+              title={`World: ${worldRoom}`}
+            >
+              #{worldRoom}
             </span>
           )}
         </h1>

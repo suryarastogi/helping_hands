@@ -4,12 +4,23 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-- [v334 — Meta Tools Coverage Hardening](exec-plans/active/v334-meta-tools-coverage.md) —
-  Close testable coverage gaps in `filesystem.py` (14% → ~80%) and
-  `registry.py` (19% → ~80%); payload validators, file-size enforcement,
-  error wrapping, and normalization edge cases
+_No active plans — pick up the next opportunity from the tech-debt tracker or
+from live user intents._
 
 ## Completed plans
+
+- [2026-04-17 v335 — Test Env Isolation & Multi-Room Multiplayer](exec-plans/completed/2026/v335-env-isolation-and-multi-room.md) —
+  Autouse conftest fixture scrubs 7 developer `HELPING_HANDS_*` env vars
+  that override test defaults (fixes 5 failing tests); adds `room` option
+  to `useMultiplayer` + `?world=<slug>` URL routing so small groups can
+  share a private Hand World without running a separate server; slug
+  sanitised to `[A-Za-z0-9_-]{1,40}` to prevent WebSocket path injection;
+  18 tests added, 754 frontend + 6542 backend tests green
+
+- [2026-03-29 v334 — Meta Tools Coverage Hardening](exec-plans/completed/2026/v334-meta-tools-coverage.md) —
+  Closed testable coverage gaps in `filesystem.py` (14% → 73%) and
+  `registry.py` (19% → 78%); 50 tests added, 6542 backend tests
+  passed, 75.50% coverage
 
 - [2026-03-29 v333 — DevinCLIHand & Factory Coverage Hardening](exec-plans/completed/2026/v333-devin-factory-coverage.md) —
   Close testable coverage gaps in `DevinCLIHand` (62% → ~95%) and

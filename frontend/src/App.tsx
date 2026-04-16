@@ -8,7 +8,7 @@ import SubmissionForm from "./components/SubmissionForm";
 import TaskListSidebar from "./components/TaskListSidebar";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
 import { useMovement } from "./hooks/useMovement";
-import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
+import { useMultiplayer, loadPlayerName, loadPlayerColor, sanitizeWorldRoom, DEFAULT_WORLD_ROOM } from "./hooks/useMultiplayer";
 import { useRecentRepos } from "./hooks/useRecentRepos";
 import { useSceneWorkers } from "./hooks/useSceneWorkers";
 import { useSchedules } from "./hooks/useSchedules";
@@ -98,6 +98,11 @@ export default function App() {
   const [showClaudeUsage, setShowClaudeUsage] = useState(true);
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
+  const worldRoom = useMemo(() => {
+    if (typeof window === "undefined") return DEFAULT_WORLD_ROOM;
+    const params = new URLSearchParams(window.location.search);
+    return sanitizeWorldRoom(params.get("world"));
+  }, []);
 
   const {
     maxOfficeWorkers,
@@ -147,6 +152,7 @@ export default function App() {
     wsUrlBuilder: wsUrl,
     playerName: playerNameInput,
     playerColor: playerColorInput,
+    room: worldRoom,
   });
 
   // -- Load schedules on view switch ----------------------------------------
@@ -374,6 +380,7 @@ export default function App() {
           decoOnCooldown={decoOnCooldown}
           remoteCursors={remoteCursors}
           onCursorMove={updateCursor}
+          worldRoom={worldRoom}
         />
 
         {mainView === "monitor" && taskId && monitorCard}

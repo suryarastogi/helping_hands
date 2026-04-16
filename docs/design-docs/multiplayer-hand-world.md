@@ -385,6 +385,27 @@ position broadcasts. Three tests verify the throttle behavior:
    pending trailing broadcast and sends `null` immediately, preventing stale
    cursor positions from appearing after the mouse has left.
 
+## Multi-room routing (v335)
+
+Every user previously joined the same `"hand-world"` Yjs room. v335 added
+URL-driven room routing so small groups can share a private world without
+running a separate server process.
+
+- **Frontend:** `useMultiplayer` now takes an optional `room` prop. App.tsx
+  reads `?world=<slug>` from `window.location.search` on mount and passes it
+  down; `sanitizeWorldRoom()` strips any character outside `[A-Za-z0-9_-]` and
+  caps length at 40 before it is forwarded to `y-websocket`. A missing or
+  fully-stripped slug falls back to `DEFAULT_WORLD_ROOM` (`"hand-world"`).
+- **Backend:** no changes — `pycrdt-websocket` already isolates Y.Doc and
+  awareness state per room name, so `/ws/yjs/{slug}` scoping happens for free.
+- **UX:** a lowercase `#<slug>` badge renders next to the Hand World heading
+  when the active room is non-default, with an `aria-label="World: <slug>"` for
+  screen readers. The default room renders no badge to keep the baseline UX
+  unchanged.
+- **Security note:** sanitisation happens before the slug is handed to
+  `WebsocketProvider`, so a hostile `?world=foo/bar?x=1` cannot inject
+  additional URL path/query segments into the WebSocket handshake.
+
 ## Future extensions
 
 - Player names from server auth context

@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
-import { loadPlayerColor, loadPlayerName, savePlayerColor, savePlayerName, useMultiplayer } from "./useMultiplayer";
+import {
+  DEFAULT_WORLD_ROOM,
+  loadPlayerColor,
+  loadPlayerName,
+  sanitizeWorldRoom,
+  savePlayerColor,
+  savePlayerName,
+  useMultiplayer,
+} from "./useMultiplayer";
 
 // ---------------------------------------------------------------------------
 // Yjs / y-websocket mocks
@@ -83,6 +91,7 @@ let mockProviderDestroyCalled: boolean;
 let mockProviderDisconnectCalled: boolean;
 let mockDocDestroyCalled: boolean;
 let latestMockProvider: { _listeners: Record<string, Array<(arg: unknown) => void>> } | null = null;
+let latestProviderRoom: string | null = null;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => ({
@@ -101,8 +110,9 @@ vi.mock("yjs", () => ({
 }));
 
 vi.mock("y-websocket", () => {
-  function MockProvider() {
+  function MockProvider(_wsBase: string, room: string) {
     mockAwareness = new MockAwareness();
+    latestProviderRoom = room;
     const instance = {
       awareness: mockAwareness,
       _listeners: {} as Record<string, Array<(arg: unknown) => void>>,
@@ -216,6 +226,7 @@ describe("useMultiplayer hook", () => {
     mockProviderDisconnectCalled = false;
     mockDocDestroyCalled = false;
     latestMockProvider = null;
+    latestProviderRoom = null;
   });
 
   it("manages connection lifecycle and awareness state", () => {
@@ -1432,5 +1443,77 @@ describe("useMultiplayer hook", () => {
     // Should not default to center (50, 50)
     expect(player.x).not.toBe(50);
     expect(player.y).not.toBe(50);
+  });
+
+  it("connects to the default room when no room option is provided", () => {
+    renderHook(() => useMultiplayer(defaultOpts()));
+    expect(latestProviderRoom).toBe(DEFAULT_WORLD_ROOM);
+  });
+
+  it("connects to a custom sanitized room slug", () => {
+    renderHook(() =>
+      useMultiplayer({ ...defaultOpts(), room: "team-alpha" }),
+    );
+    expect(latestProviderRoom).toBe("team-alpha");
+  });
+
+  it("strips unsafe characters from the room slug before connecting", () => {
+    renderHook(() =>
+      useMultiplayer({ ...defaultOpts(), room: "team/alpha?x=1 🚀" }),
+    );
+    // Only [A-Za-z0-9_-] survive sanitisation.
+    expect(latestProviderRoom).toBe("teamalphax1");
+  });
+
+  it("falls back to the default room when the slug is empty after sanitisation", () => {
+    renderHook(() =>
+      useMultiplayer({ ...defaultOpts(), room: "🚀🚀🚀" }),
+    );
+    expect(latestProviderRoom).toBe(DEFAULT_WORLD_ROOM);
+  });
+
+  it("reconnects the provider when the room option changes", () => {
+    const base = defaultOpts();
+    const { rerender } = renderHook(
+      (props) => useMultiplayer(props),
+      { initialProps: { ...base, room: "team-alpha" } },
+    );
+    expect(latestProviderRoom).toBe("team-alpha");
+    mockProviderDestroyCalled = false;
+
+    rerender({ ...base, room: "team-beta" });
+    expect(mockProviderDestroyCalled).toBe(true);
+    expect(latestProviderRoom).toBe("team-beta");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeWorldRoom
+// ---------------------------------------------------------------------------
+
+describe("sanitizeWorldRoom", () => {
+  it("returns the default room for null/undefined/empty", () => {
+    expect(sanitizeWorldRoom(null)).toBe(DEFAULT_WORLD_ROOM);
+    expect(sanitizeWorldRoom(undefined)).toBe(DEFAULT_WORLD_ROOM);
+    expect(sanitizeWorldRoom("")).toBe(DEFAULT_WORLD_ROOM);
+  });
+
+  it("keeps alphanumerics, underscores, and hyphens", () => {
+    expect(sanitizeWorldRoom("Team_Alpha-42")).toBe("Team_Alpha-42");
+  });
+
+  it("strips spaces, slashes, query separators, and emoji", () => {
+    expect(sanitizeWorldRoom("team/alpha?x=1 🚀")).toBe("teamalphax1");
+  });
+
+  it("truncates to 40 characters", () => {
+    const long = "a".repeat(100);
+    const result = sanitizeWorldRoom(long);
+    expect(result.length).toBe(40);
+    expect(result).toBe("a".repeat(40));
+  });
+
+  it("falls back to default when only unsafe characters are passed", () => {
+    expect(sanitizeWorldRoom("!!!@@@###")).toBe(DEFAULT_WORLD_ROOM);
   });
 });

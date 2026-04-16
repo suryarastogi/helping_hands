@@ -1506,6 +1506,22 @@ h2 {
   vertical-align: middle;
 }
 
+.world-room-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 1.4em;
+  margin-left: 0.5em;
+  padding: 0 0.55em;
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  color: var(--foreground);
+  background: var(--accent-muted, rgba(120, 120, 220, 0.2));
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
 .world-scene {
   position: relative;
   margin-top: 12px;

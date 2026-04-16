@@ -57,6 +57,8 @@ export type UseMultiplayerOptions = {
   playerName?: string;
   /** Optional player color override (persisted externally). Empty = auto from clientID. */
   playerColor?: string;
+  /** Optional world/room slug — everyone in the same slug shares state. */
+  room?: string;
 };
 
 export type RemoteCursor = {
@@ -113,6 +115,29 @@ export type UseMultiplayerReturn = {
 const PLAYER_NAME_STORAGE_KEY = "helping_hands_player_name_v1";
 const PLAYER_COLOR_STORAGE_KEY = "helping_hands_player_color_v1";
 
+/** Default Yjs room name when none is specified. */
+export const DEFAULT_WORLD_ROOM = "hand-world";
+
+/** Max length of a sanitised world slug. */
+const WORLD_ROOM_MAX_LENGTH = 40;
+
+/** Allowed characters in a world slug after sanitisation. */
+const WORLD_ROOM_ALLOWED_RE = /[^a-zA-Z0-9_-]/g;
+
+/**
+ * Sanitise an arbitrary world slug into a safe Yjs room identifier.
+ *
+ * Strips characters outside `[A-Za-z0-9_-]`, trims to 40 chars, and
+ * falls back to the default room when the result is empty. This keeps
+ * the y-websocket URL path well-formed and prevents query strings or
+ * colons from being smuggled through the room name.
+ */
+export function sanitizeWorldRoom(raw: string | null | undefined): string {
+  if (!raw) return DEFAULT_WORLD_ROOM;
+  const cleaned = raw.replace(WORLD_ROOM_ALLOWED_RE, "").slice(0, WORLD_ROOM_MAX_LENGTH);
+  return cleaned || DEFAULT_WORLD_ROOM;
+}
+
 /** Read persisted player name from localStorage. */
 export function loadPlayerName(): string {
   try {
@@ -162,7 +187,9 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     wsUrlBuilder,
     playerName,
     playerColor,
+    room,
   } = options;
+  const roomName = sanitizeWorldRoom(room);
 
   const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
   const [remoteEmotes, setRemoteEmotes] = useState<Record<string, string>>({});
@@ -245,7 +272,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     const myId = String(doc.clientID);
 
     const wsBase = wsUrlBuilder("/ws/yjs").replace(/\/$/, "");
-    const provider = new WebsocketProvider(wsBase, "hand-world", doc);
+    const provider = new WebsocketProvider(wsBase, roomName, doc);
     yjsProviderRef.current = provider;
 
     const onStatus = ({ status }: { status: string }) => {
@@ -456,7 +483,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
     // playerName is intentionally omitted — name updates are handled by the
     // separate effect below to avoid reconnecting the provider on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, wsUrlBuilder]);
+  }, [active, wsUrlBuilder, roomName]);
 
   // --- Broadcast player name changes without reconnecting ---
   useEffect(() => {

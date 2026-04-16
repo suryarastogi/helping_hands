@@ -203,8 +203,11 @@ Browser A  ──y-websocket──┐
                            │
 Browser B  ──y-websocket──▶  pycrdt-websocket ASGIServer
                            │   mounted at /ws/yjs
-Browser C  ──y-websocket──┘   room: "hand-world"
+Browser C  ──y-websocket──┘   room: "hand-world" (or custom slug)
 ```
+
+Rooms are isolated on the backend by `pycrdt-websocket`, so visiting a
+different `?world=<slug>` joins a fully separate world.
 
 Multiplayer sync uses **Yjs awareness** — the CRDT awareness protocol carries
 ephemeral player presence (position, direction, walking state, emotes) while
@@ -218,7 +221,11 @@ the Y.Doc itself remains empty.
 - Started/stopped via FastAPI lifespan context manager
 
 **Frontend** (`App.tsx`):
-- Uses `yjs` Y.Doc + `y-websocket` WebsocketProvider for room `hand-world`
+- Uses `yjs` Y.Doc + `y-websocket` WebsocketProvider for room `hand-world` by
+  default; the `room` option on `useMultiplayer` selects an alternate room
+- Room is derived from the `?world=<slug>` query string (sanitised to
+  `[A-Za-z0-9_-]{1,40}`, invalid values fall back to `hand-world`); a small
+  `#<slug>` badge appears next to the Hand World heading for non-default rooms
 - Sets local awareness state: `{ player_id, name, color, x, y, direction, walking, emote, chat }`
 - Derives player colour and name client-side from `Y.Doc.clientID`
 - Maps remote awareness states to `remotePlayers` array for rendering

@@ -4,13 +4,27 @@ User intents and desires for the helping-hands project.
 
 ## Active Intents
 
-### Meta Tools Coverage Hardening (2026-03-29) — In Progress
-
-Close testable coverage gaps in `filesystem.py` (14% → ~80%) and `registry.py`
-(19% → ~80%). Covers payload validators, file-size enforcement, error wrapping,
-and normalization edge cases. See [v334 plan](docs/exec-plans/active/v334-meta-tools-coverage.md).
+_No open active intents — tracked improvements can be pulled from
+`docs/PLANS.md` and `docs/exec-plans/tech-debt-tracker.md`._
 
 ## Recently Completed
+
+### Env Isolation & Multi-Room Hand World (2026-04-17) — Completed
+
+Fixed 5 backend tests that fail under dev-shell env leakage via an autouse
+`_scrub_env_isolation` conftest fixture, and added a self-contained multi-room
+capability to Hand World: `?world=<slug>` in the URL drives the Yjs room name,
+sanitised to `[A-Za-z0-9_-]{1,40}` with fallback to `hand-world`. A small
+`#<slug>` badge appears in the Hand World header for non-default rooms, with
+no backend changes (pycrdt-websocket isolates by room automatically).
+See [v335 plan](docs/exec-plans/completed/2026/v335-env-isolation-and-multi-room.md).
+
+### Meta Tools Coverage Hardening (2026-03-29) — Completed
+
+Closed testable coverage gaps in `filesystem.py` (14% → ~80%) and `registry.py`
+(19% → ~80%). Covers payload validators, file-size enforcement, error wrapping,
+and normalization edge cases. See [v334 plan](docs/exec-plans/completed/2026/v334-meta-tools-coverage.md).
+
 
 ### DevinCLIHand & Factory Coverage Hardening (2026-03-28) — Completed
 

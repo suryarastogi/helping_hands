@@ -1500,6 +1500,7 @@ class MockAwareness {
 /** Most-recently created mock awareness instance. */
 let mockAwareness: MockAwareness;
 let mockProviderInstance: { _listeners: Record<string, Array<(arg: unknown) => void>>; _fireStatus: (status: string) => void } | null = null;
+let lastProviderRoom: string | null = null;
 const MOCK_CLIENT_ID = 42;
 
 vi.mock("yjs", () => {
@@ -1530,9 +1531,10 @@ vi.mock("y-websocket", () => ({
   WebsocketProvider: class MockProvider {
     awareness: MockAwareness;
     _listeners: Record<string, Array<(arg: unknown) => void>> = {};
-    constructor() {
+    constructor(_wsBase: string, room: string) {
       mockAwareness = new MockAwareness();
       this.awareness = mockAwareness;
+      lastProviderRoom = room;
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       mockProviderInstance = this as unknown as typeof mockProviderInstance;
     }
@@ -1783,6 +1785,79 @@ describe("Yjs Multiplayer Awareness", () => {
     await vi.waitFor(() => expect(mockAwareness).toBeDefined());
 
     expect(screen.queryByLabelText("Connected players")).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-room (?world=<slug>) routing tests
+// ---------------------------------------------------------------------------
+
+describe("Multi-room world routing", () => {
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    lastProviderRoom = null;
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
+  });
+
+  it("uses the default hand-world room when no ?world param is set", async () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, search: "" },
+    });
+    render(<App />);
+    await vi.waitFor(() => expect(lastProviderRoom).toBeTruthy());
+    expect(lastProviderRoom).toBe("hand-world");
+  });
+
+  it("reads ?world=<slug> and passes a sanitized slug to the provider", async () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, search: "?world=team-alpha" },
+    });
+    render(<App />);
+    await vi.waitFor(() => expect(lastProviderRoom).toBeTruthy());
+    expect(lastProviderRoom).toBe("team-alpha");
+  });
+
+  it("sanitises an unsafe ?world param before handing it to the provider", async () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, search: "?world=team%2Falpha%3Fx%3D1" },
+    });
+    render(<App />);
+    await vi.waitFor(() => expect(lastProviderRoom).toBeTruthy());
+    // Slashes and query separators stripped by sanitizeWorldRoom.
+    expect(lastProviderRoom).toBe("teamalphax1");
+  });
+
+  it("renders a world badge when a non-default world is active", async () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, search: "?world=team-alpha" },
+    });
+    render(<App />);
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText("World: team-alpha")).toBeInTheDocument(),
+    );
+  });
+
+  it("does NOT render a world badge for the default room", async () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, search: "" },
+    });
+    render(<App />);
+    await vi.waitFor(() => expect(lastProviderRoom).toBe("hand-world"));
+    expect(
+      screen.queryByLabelText("World: hand-world"),
+    ).not.toBeInTheDocument();
   });
 });
 
