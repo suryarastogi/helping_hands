@@ -64,6 +64,30 @@ Hand (ABC)
    available to any subclass that needs to inject tool/skill guidance
    into prompts.
 
+### Pre-commit hook validation and AI-assisted fix
+
+Before PR finalization, `_validate_finalization_preconditions()` runs
+`uv run pre-commit run --all-files` (when `config.enable_execution` is set).
+The flow handles failures in stages:
+
+1. **Auto-fix retry.** Many hooks (ruff format, black) auto-fix files on the
+   first pass. `_run_precommit_checks_and_fixes()` runs pre-commit twice —
+   the second pass picks up auto-fixes.
+
+2. **AI-assisted fix.** If the two-pass run still fails, the base class calls
+   `_try_fix_git_hook_errors(repo_dir, error_output)`. The base implementation
+   is a no-op (returns False). CLI hands override this to invoke the AI backend
+   as a subprocess, giving it the hook error output and asking it to fix the
+   affected files.
+
+3. **Final retry.** If the AI fix applied changes, pre-commit runs one more
+   time. If this also fails, `PRStatus.PRECOMMIT_FAILED` is set and
+   finalization stops.
+
+The same `_try_fix_git_hook_errors()` hook is also used in
+`_add_and_commit_with_hook_retry()` for git commit-time hook failures
+(Husky, lint-staged, etc.).
+
 ## Alternatives considered
 
 - **Strategy pattern with a runner.** A `HandRunner` class that accepts a

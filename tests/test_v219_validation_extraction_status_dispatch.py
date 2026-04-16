@@ -115,6 +115,7 @@ class TestValidateFinalizationPreconditions:
         assert metadata[_META_PR_STATUS] == PRStatus.NO_GITHUB_ORIGIN
 
     def test_precommit_failure(self, repo_index: RepoIndex) -> None:
+        """AI fix attempted but returns False — still PRECOMMIT_FAILED."""
         config = Config(repo=str(repo_index.root), model="m")
         hand = _StubHand(config, repo_index)
         hand.auto_pr = True
@@ -128,11 +129,72 @@ class TestValidateFinalizationPreconditions:
                 "_run_precommit_checks_and_fixes",
                 side_effect=RuntimeError("hook failed"),
             ),
+            patch.object(hand, "_try_fix_git_hook_errors", return_value=False),
         ):
             result = hand._validate_finalization_preconditions(metadata)
         assert result is None
         assert metadata[_META_PR_STATUS] == PRStatus.PRECOMMIT_FAILED
         assert metadata["pr_error"] == "hook failed"
+
+    def test_precommit_failure_ai_fix_succeeds(self, repo_index: RepoIndex) -> None:
+        """AI fix applied, retry passes — finalization continues."""
+        config = Config(repo=str(repo_index.root), model="m")
+        hand = _StubHand(config, repo_index)
+        hand.auto_pr = True
+        metadata: dict[str, str] = {_META_PR_STATUS: ""}
+        # First call raises, second call (after AI fix) succeeds.
+        precommit_calls = iter([RuntimeError("hook failed"), None])
+
+        def _precommit_side_effect(_repo_dir):
+            val = next(precommit_calls)
+            if isinstance(val, Exception):
+                raise val
+
+        with (
+            # 3 calls: rev-parse, first _has_pending_changes, second after retry
+            patch.object(
+                hand,
+                "_run_git_read",
+                side_effect=["true", "M file.py", "M file.py"],
+            ),
+            patch.object(hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(hand, "_should_run_precommit_before_pr", return_value=True),
+            patch.object(
+                hand,
+                "_run_precommit_checks_and_fixes",
+                side_effect=_precommit_side_effect,
+            ),
+            patch.object(hand, "_try_fix_git_hook_errors", return_value=True),
+        ):
+            result = hand._validate_finalization_preconditions(metadata)
+        assert result is not None
+        repo_dir, repo_name = result
+        assert repo_dir == repo_index.root.resolve()
+        assert repo_name == "owner/repo"
+
+    def test_precommit_failure_ai_fix_retry_also_fails(
+        self, repo_index: RepoIndex
+    ) -> None:
+        """AI fix applied but retry still fails — PRECOMMIT_FAILED."""
+        config = Config(repo=str(repo_index.root), model="m")
+        hand = _StubHand(config, repo_index)
+        hand.auto_pr = True
+        metadata: dict[str, str] = {_META_PR_STATUS: ""}
+        with (
+            patch.object(hand, "_run_git_read", side_effect=["true", "M file.py"]),
+            patch.object(hand, "_github_repo_from_origin", return_value="owner/repo"),
+            patch.object(hand, "_should_run_precommit_before_pr", return_value=True),
+            patch.object(
+                hand,
+                "_run_precommit_checks_and_fixes",
+                side_effect=RuntimeError("still broken"),
+            ),
+            patch.object(hand, "_try_fix_git_hook_errors", return_value=True),
+        ):
+            result = hand._validate_finalization_preconditions(metadata)
+        assert result is None
+        assert metadata[_META_PR_STATUS] == PRStatus.PRECOMMIT_FAILED
+        assert metadata["pr_error"] == "still broken"
 
     def test_precommit_cleans_all_changes(self, repo_index: RepoIndex) -> None:
         config = Config(repo=str(repo_index.root), model="m")
