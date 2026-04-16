@@ -110,8 +110,11 @@ celery_app.conf.update(
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=_BROKER_URL,
     redbeat_key_prefix=_REDBEAT_KEY_PREFIX,
-    # Ensure grill session task is discovered by workers.
-    include=["helping_hands.server.grill"],
+    # Ensure grill session tasks are discovered by workers.
+    include=[
+        "helping_hands.server.grill",
+        "helping_hands.server.multiplayer_grill",
+    ],
 )
 
 

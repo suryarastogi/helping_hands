@@ -91,9 +91,36 @@ An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan be
 - **Endpoints**: `POST /grill`, `POST /grill/{id}/message`, `GET /grill/{id}` — all gated by `GRILL_ME_ENABLED`.
 - **Plan submission**: final plan auto-populates the submission form prompt (with `## FINAL PLAN` header stripped) and submits via `submitBuild()`.
 
+### Multiplayer Grill Me (collaborative planning)
+
+A parallel feature to solo Grill Me — same `GRILL_ME_ENABLED=1` flag, different code path. Activated via a campfire sprite in Hand World; opens a lobby of concurrent sessions, each discoverable and joinable by any user. Transcript, vote tally, and the pending-message batch live in a Yjs room (`mgrill-{session_id}`) and sync to all participants with sub-100ms latency; Redis holds authoritative state (status, creator, turn count) and the worker's user-message FIFO.
+
+- **Worker**: `src/helping_hands/server/multiplayer_grill.py` — Celery task that reuses solo Grill Me's Claude/Codex CLI invocation helpers. AI-produced messages are `LPUSH`ed to the shared Redis queue `mgrill:ai_outbox`.
+- **Bridge**: `src/helping_hands/server/mgrill_bridge.py` — in-process asyncio task started in FastAPI's lifespan that drains `mgrill:ai_outbox` and appends each envelope to the matching Yjs room's `messages` Y.Array. Exists because `pycrdt` 0.12 has no Python Yjs client, so the worker can't speak Yjs directly. Coordination uses a **Redis leader lock** (`mgrill:bridge:leader`, 5 s TTL, 2 s renewal) so only one bridge drains the outbox at a time — critical when multiple FastAPI processes run (eg. `--workers N`, `--reload`, or leftover zombies). Standby peers sleep without reading the outbox; a crashed leader's lock lapses within 5 s and a peer takes over.
+- **REST**: all `/mgrill/*` endpoints are async and mutate the Y.Doc in-process for pending/votes/transcript side-effects.
+- **Frontend**: `MultiplayerGrillOverlay` → lobby or room; `useMultiplayerGrill` hook connects a `WebsocketProvider` to `mgrill-{session_id}` and observes the three Y collections. REST polling (3s) covers status/creator/turn_count only.
+- **Turn model**: collaborative batched — participants append to a shared pending batch; any token-holder presses Send to AI, which bundles as `[Name]: <msg>` blocks and pushes to `mgrill:{id}:user_msgs`.
+- **Voting**: appears only at `## FINAL PLAN`, per-tab `player_id` dedup (weak — UI surfaces this explicitly), Y.Map `votes`. Submit returns 409 on any `down` vote without `?override=true`; overrides are logged server-side but never prepended to the downstream task prompt.
+- **Creator handoff**: 20s heartbeat, 60s absence threshold. Any token-holder can `POST /mgrill/{id}/claim-creator` past the threshold.
+
+Full design notes, architecture diagram, and endpoint table: `docs/design-docs/multiplayer-grill.md`.
+
 ### Schedule ownership
 
 When the server has no global `GITHUB_TOKEN`, schedule endpoints enforce per-user ownership. A SHA-256 hash of the creator's token is stored as `owner_token_hash` on each `ScheduledTask`. The frontend sends the user's token via `X-GitHub-Token` header on all schedule API calls. Set `ADMIN_GITHUB_TOKEN` env var to grant admin access to all schedules.
+
+### Multiplayer Grill auth (server-GITHUB_TOKEN behaviour)
+
+The `/mgrill/*` endpoints mirror the schedules pattern: when the server has a global `GITHUB_TOKEN` configured, identity becomes server-owned and per-user creator checks are lifted — any caller is treated as the creator and can Submit / Keep Grilling / Heartbeat. When the server has no global token, the original per-user rules apply.
+
+| Server `GITHUB_TOKEN` | Client `X-GitHub-Token` | Chat / vote / add to batch | Submit / Keep Grilling / Heartbeat |
+|-----------------------|--------------------------|----------------------------|-------------------------------------|
+| unset                 | unset                    | 401                        | 401                                 |
+| unset                 | set                      | yes                        | only the session creator (plus `ADMIN_GITHUB_TOKEN`) |
+| **set**               | **unset**                | **yes** (server token used) | **yes — anyone**                    |
+| set                   | set                      | yes                        | yes — anyone                        |
+
+Implementation hooks: `_mgrill_effective_token()` falls back to the server token, `_mgrill_require_creator()` short-circuits when `_server_has_github_token()`, and `mgrill_poll` reports `is_creator=true` for everyone in server-token mode so the frontend unlocks creator UI. `ADMIN_GITHUB_TOKEN` still satisfies the creator check on a per-user basis when the server has no global token.
 
 ### Frontend persistence
 

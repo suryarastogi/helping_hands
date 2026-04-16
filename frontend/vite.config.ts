@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
     "/config": { target, changeOrigin: true },
     "/schedules": { target, changeOrigin: true },
     "/grill": { target, changeOrigin: true },
+    "/mgrill": { target, changeOrigin: true },
     "/arcade": { target, changeOrigin: true },
     "/repos": { target, changeOrigin: true },
   } as Record<string, object>;
