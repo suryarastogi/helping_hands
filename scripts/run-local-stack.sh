@@ -177,11 +177,9 @@ start_service() {
     rm -f "${pid_file}"
   fi
 
-  (
-    cd "${REPO_ROOT}"
-    setsid nohup "$@" >"${log_file}" 2>&1 &
-    echo $! >"${pid_file}"
-  )
+  setsid bash -c "cd '${REPO_ROOT}' && exec \"\$@\" >>'${log_file}' 2>&1" -- "$@" &
+  echo $! >"${pid_file}"
+  disown $! 2>/dev/null || true
 
   new_pid="$(cat "${pid_file}")"
   sleep 0.3
