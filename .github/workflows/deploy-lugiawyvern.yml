@@ -73,9 +73,9 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: $UV sync --extra server --extra github --extra langchain --extra atomic
 
-      - name: Build frontend
+      - name: Install frontend deps
         working-directory: ${{ env.PROJECT_DIR }}/frontend
-        run: npm install && npm run build
+        run: npm install
 
       - name: Restart services
         working-directory: ${{ env.PROJECT_DIR }}
