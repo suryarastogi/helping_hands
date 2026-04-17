@@ -179,7 +179,7 @@ start_service() {
 
   (
     cd "${REPO_ROOT}"
-    nohup "$@" >"${log_file}" 2>&1 &
+    setsid nohup "$@" >"${log_file}" 2>&1 &
     echo $! >"${pid_file}"
   )
 
