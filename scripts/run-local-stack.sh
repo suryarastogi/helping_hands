@@ -324,7 +324,7 @@ start_all() {
 
   start_service \
     "frontend" \
-    npx --prefix "${REPO_ROOT}/frontend" vite --host 0.0.0.0 --port "${FRONTEND_PORT}"
+    bash -c "cd '${REPO_ROOT}/frontend' && npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
 
   echo
   echo "Logs: ${LOG_DIR}"
