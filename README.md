@@ -10,7 +10,17 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** April 17, 2026
+
+### Smoke Test Results
+
+| Check | Result |
+|---|---|
+| Ruff lint | Passed |
+| Ruff format | Passed (290 files) |
+| Pytest | 5385 passed, 11 failed, 229 skipped (25.69s) |
+
+Known failures: 4 `test_mgrill_bridge` tests (missing `pycrdt`/`redis` extras), 3 CLI hand native-auth env-stripping tests, 1 heartbeat timing default test.
 
 ## What is this?
 
