@@ -57,13 +57,14 @@ export default function MultiplayerGrillRoom({
   const isThinking = state?.status === "thinking";
   const hasFinalPlan = Boolean(live.finalPlan);
   const isCreator = Boolean(state?.is_creator);
+  const canActAsCreator = Boolean(state?.can_act_as_creator);
   const creatorAbsentS = state
     ? Math.max(0, Math.floor(nowTick / 1000 - state.creator_last_seen_ts))
     : 0;
   // When the server has a global token, creator identity is server-owned
   // and handoff is moot — every authenticated caller is already creator.
   const canClaimCreator =
-    !serverHasGithubToken && !isCreator && creatorAbsentS > 60 && hasToken;
+    !serverHasGithubToken && !canActAsCreator && creatorAbsentS > 60 && hasToken;
 
   const voteTally = useMemo(() => {
     const values = Object.values(live.votes);
@@ -220,7 +221,7 @@ export default function MultiplayerGrillRoom({
           ) : (
             <p className="mgrill-hint">Sign in with a GitHub token to vote.</p>
           )}
-          {isCreator && (
+          {canActAsCreator && (
             <div className="mgrill-creator-actions">
               {showOverrideConfirm && voteTally.down > 0 ? (
                 <div className="mgrill-override-confirm">

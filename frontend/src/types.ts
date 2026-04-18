@@ -334,6 +334,7 @@ export type MGrillPollResponse = {
   creator_player_id: string | null;
   creator_last_seen_ts: number;
   is_creator: boolean;
+  can_act_as_creator: boolean;
   repo_path: string;
   prompt: string;
   model: string | null;

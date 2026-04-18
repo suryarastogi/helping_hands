@@ -261,7 +261,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
   // Heartbeat while we are the creator.
   useEffect(() => {
     stopHeartbeat();
-    if (!sessionId || !state?.is_creator) return;
+    if (!sessionId || !state?.can_act_as_creator) return;
     const beat = async () => {
       try {
         await fetch(apiUrl(`/mgrill/${sessionId}/heartbeat`), {
@@ -279,7 +279,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     );
     void beat();
     return stopHeartbeat;
-  }, [sessionId, state?.is_creator, state?.creator_player_id, stopHeartbeat]);
+  }, [sessionId, state?.can_act_as_creator, state?.creator_player_id, stopHeartbeat]);
 
   // Cleanup on unmount.
   useEffect(() => {

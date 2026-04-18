@@ -5213,6 +5213,7 @@ class MGrillPollResponse(BaseModel):
     creator_player_id: str | None
     creator_last_seen_ts: float
     is_creator: bool
+    can_act_as_creator: bool
     repo_path: str
     prompt: str
     model: str | None
@@ -5537,23 +5538,23 @@ def mgrill_poll(session_id: str, request: Request) -> MGrillPollResponse:
     r = _mgrill_redis()
     state = _mgrill_require_state(r, session_id)
 
-    # When the server has a global GITHUB_TOKEN, identity is server-owned
-    # and any caller is treated as the creator for UI-gating purposes.
-    if _server_has_github_token():
-        is_creator = True
-    else:
-        request_token = _get_request_token(request)
-        is_creator = False
-        if request_token:
-            request_hash = _hash_token(request_token)
-            if state.get("creator_token_hash") and request_hash == state.get(
-                "creator_token_hash"
-            ):
+    # is_creator: true only when the caller actually created this session.
+    # can_act_as_creator: true when the caller may Submit/Keep Grilling
+    # (always true when the server has a global GITHUB_TOKEN).
+    request_token = _get_request_token(request)
+    is_creator = False
+    if request_token:
+        request_hash = _hash_token(request_token)
+        if state.get("creator_token_hash") and request_hash == state.get(
+            "creator_token_hash"
+        ):
+            is_creator = True
+        else:
+            admin = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
+            if admin and request_hash == _hash_token(admin):
                 is_creator = True
-            else:
-                admin = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
-                if admin and request_hash == _hash_token(admin):
-                    is_creator = True
+
+    can_act_as_creator = is_creator or _server_has_github_token()
 
     return MGrillPollResponse(
         session_id=session_id,
@@ -5563,6 +5564,7 @@ def mgrill_poll(session_id: str, request: Request) -> MGrillPollResponse:
         creator_player_id=state.get("creator_player_id"),
         creator_last_seen_ts=float(state.get("creator_last_seen_ts", 0)),
         is_creator=is_creator,
+        can_act_as_creator=can_act_as_creator,
         repo_path=state.get("repo_path", ""),
         prompt=state.get("prompt", ""),
         model=state.get("model") or None,
