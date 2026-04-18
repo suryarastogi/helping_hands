@@ -52,6 +52,7 @@ export type MGrillSessionActions = {
   addPending: (content: string, playerId: string, playerName: string) => Promise<void>;
   removePending: (pendingId: string, playerId: string) => Promise<void>;
   sendToAi: () => Promise<void>;
+  requestPlan: () => Promise<void>;
   castVote: (playerId: string, vote: "up" | "down" | "clear") => Promise<void>;
   submitPlan: (opts?: { override?: boolean }) => Promise<
     | { ok: true; task_id: string; override: boolean }
@@ -413,6 +414,24 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     }
   }, [pollState]);
 
+  const requestPlan = useCallback(async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    try {
+      const res = await fetch(apiUrl(`/mgrill/${sid}/request-plan`), {
+        method: "POST",
+        headers: tokenHeaders(),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        setError((detail as { detail?: string }).detail ?? `Request plan failed: HTTP ${res.status}`);
+      }
+      void pollState();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [pollState]);
+
   const castVote = useCallback(
     async (playerId: string, vote: "up" | "down" | "clear") => {
       const sid = sessionIdRef.current;
@@ -534,6 +553,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     addPending,
     removePending,
     sendToAi,
+    requestPlan,
     castVote,
     submitPlan,
     keepGrilling,

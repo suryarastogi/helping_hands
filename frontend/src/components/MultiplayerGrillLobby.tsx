@@ -190,9 +190,15 @@ export default function MultiplayerGrillLobby({
                 <span className="mgrill-session-age">
                   active {formatRelative(s.last_activity_ts)}
                 </span>
-                <button type="button" onClick={() => onJoin(s)}>
-                  Join
-                </button>
+                {s.status !== "completed" && s.status !== "submitted" ? (
+                  <button type="button" onClick={() => onJoin(s)}>
+                    Join
+                  </button>
+                ) : (
+                  <span className="mgrill-session-done">
+                    {s.status === "submitted" ? "Submitted" : "Completed"}
+                  </span>
+                )}
               </div>
             </li>
           ))}

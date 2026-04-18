@@ -5883,6 +5883,74 @@ async def mgrill_keep_grilling(
     return {"status": _RESPONSE_STATUS_OK}
 
 
+@app.post("/mgrill/{session_id}/request-plan")
+async def mgrill_request_plan(session_id: str, http_request: Request) -> dict[str, str]:
+    """Request the AI to produce a final plan (any token-holder).
+
+    Sends a ``type: "end"`` message to the worker queue, which instructs
+    the AI to consolidate the discussion and output ``## FINAL PLAN``.
+    Any pending batch entries are bundled and included so the AI sees the
+    latest context.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+
+    if state.get("status") == "thinking":
+        raise HTTPException(status_code=409, detail="AI is already thinking")
+    if state.get("status") == "completed":
+        raise HTTPException(status_code=409, detail="Session already has a final plan")
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+
+    # Bundle any pending messages (optional — request-plan works with or
+    # without pending entries).
+    bundled_parts: list[str] = []
+    pending = _ydoc_map(room.ydoc, "pending")
+    entries = [dict(e) for e in dict(pending).values()]
+    if entries:
+        entries.sort(key=lambda e: e.get("timestamp", 0))
+        messages = _ydoc_array(room.ydoc, "messages")
+        for e in entries:
+            messages.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "role": "user",
+                    "content": e["content"],
+                    "type": "message",
+                    "author_player_id": e.get("player_id"),
+                    "author_name": e.get("name"),
+                    "timestamp": e.get("timestamp", time.time()),
+                }
+            )
+        bundled_parts = [
+            f"[{e.get('name') or 'Anonymous'}]: {e['content']}" for e in entries
+        ]
+        for key in list(dict(pending).keys()):
+            del pending[key]
+
+    content = "\n\n".join(bundled_parts) if bundled_parts else ""
+    r.rpush(
+        f"mgrill:{session_id}:user_msgs",
+        json.dumps({"content": content, "type": "end", "timestamp": time.time()}),
+    )
+    r.expire(f"mgrill:{session_id}:user_msgs", 3600)
+
+    _ydoc_append_system_hint(
+        room.ydoc, "Final plan requested — AI is consolidating the discussion."
+    )
+    _mgrill_touch_activity(r, session_id)
+    return {"status": "requested"}
+
+
 @app.post("/mgrill/{session_id}/claim-creator")
 async def mgrill_claim_creator(
     session_id: str,

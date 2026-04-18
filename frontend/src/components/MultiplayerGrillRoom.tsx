@@ -335,6 +335,21 @@ export default function MultiplayerGrillRoom({
               Send to AI
               {pending.length > 0 ? ` (${pending.length})` : ""}
             </button>
+            {!hasFinalPlan && (
+              <button
+                type="button"
+                className="mgrill-request-plan-btn"
+                onClick={() => void actions.requestPlan()}
+                disabled={!hasToken || isThinking}
+                title={
+                  isThinking
+                    ? "AI is already thinking"
+                    : "Ask AI to produce the final consolidated plan"
+                }
+              >
+                Request Final Plan
+              </button>
+            )}
           </div>
         </div>
       </div>
