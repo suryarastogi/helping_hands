@@ -177,12 +177,15 @@ start_service() {
     rm -f "${pid_file}"
   fi
 
-  setsid bash -c "cd '${REPO_ROOT}' && exec \"\$@\" >>'${log_file}' 2>&1" -- "$@" &
-  echo $! >"${pid_file}"
+  setsid bash -c "echo \$\$ >'${pid_file}' && cd '${REPO_ROOT}' && exec \"\$@\" >>'${log_file}' 2>&1" -- "$@" &
   disown $! 2>/dev/null || true
 
+  sleep 1
+  if [[ ! -f "${pid_file}" ]]; then
+    echo "${name}: failed to start (no pid file)" >&2
+    return 1
+  fi
   new_pid="$(cat "${pid_file}")"
-  sleep 0.3
   if is_pid_running "${new_pid}"; then
     echo "${name}: started (pid ${new_pid})"
   else
