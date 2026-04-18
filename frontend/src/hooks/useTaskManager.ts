@@ -110,12 +110,45 @@ export type UseTaskManagerReturn = {
   // Worker capacity
   fetchedCapacity: number | null;
 
+  // Live output for worker bubbles
+  lastOutputByTaskId: Map<string, string>;
+
   // Actions
   submitRun: (event: FormEvent) => Promise<void>;
   submitBuild: (overrides: Partial<FormState>) => Promise<void>;
   selectTask: (selectedTaskId: string) => void;
   openSubmissionView: () => void;
 };
+
+// ---------------------------------------------------------------------------
+// Helpers — live output for worker speech bubbles
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]/g;
+
+const STATUS_ICONS: [RegExp, string][] = [
+  [/\bPASS\b/i, "\u2705 "],
+  [/\bFAIL\b/i, "\u274c "],
+  [/\berror\b/i, "\u26a0\ufe0f "],
+  [/\bcommit\b/i, "\ud83d\udcbe "],
+];
+
+function pickLastMeaningfulLine(updates: string[]): string | null {
+  for (let i = updates.length - 1; i >= 0; i--) {
+    const raw = updates[i].replace(ANSI_RE, "").trim();
+    if (!raw) continue;
+    let line = raw.length > 80 ? raw.slice(0, 77) + "\u2026" : raw;
+    for (const [re, icon] of STATUS_ICONS) {
+      if (re.test(line)) {
+        line = icon + line;
+        break;
+      }
+    }
+    return line;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -829,6 +862,9 @@ export function useTaskManager(): UseTaskManagerReturn {
     }
   }, []);
 
+  // -- Last output line per task (for worker speech bubbles) -----------------
+  const [lastOutputByTaskId, setLastOutputByTaskId] = useState<Map<string, string>>(new Map());
+
   // -- Primary task polling (3s) --------------------------------------------
   useEffect(() => {
     if (!taskId || !isPolling) return;
@@ -857,6 +893,16 @@ export function useTaskManager(): UseTaskManagerReturn {
           if (curr > prev) spawnFloatingNumber(data.task_id, curr - prev);
           updateCountsRef.current.set(data.task_id, curr);
         }
+
+        const lastLine = pickLastMeaningfulLine(freshUpdates);
+        if (lastLine) {
+          setLastOutputByTaskId((m) => {
+            const next = new Map(m);
+            next.set(data.task_id, lastLine);
+            return next;
+          });
+        }
+
         setTaskHistory((current) =>
           upsertTaskHistory(current, { taskId: data.task_id, status: data.status })
         );
@@ -926,6 +972,15 @@ export function useTaskManager(): UseTaskManagerReturn {
             if (bgUpdates.length > prev) {
               spawnFloatingNumber(data.task_id, bgUpdates.length - prev);
               updateCountsRef.current.set(data.task_id, bgUpdates.length);
+            }
+
+            const lastLine = pickLastMeaningfulLine(bgUpdates);
+            if (lastLine) {
+              setLastOutputByTaskId((m) => {
+                const next = new Map(m);
+                next.set(data.task_id, lastLine);
+                return next;
+              });
             }
 
             return {
@@ -1009,6 +1064,7 @@ export function useTaskManager(): UseTaskManagerReturn {
     toasts,
     removeToast,
     fetchedCapacity,
+    lastOutputByTaskId,
     submitRun,
     submitBuild,
     selectTask,
