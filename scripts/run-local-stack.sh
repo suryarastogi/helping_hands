@@ -327,7 +327,7 @@ start_all() {
   # would skip it, breaking Yjs multiplayer connections).
   start_service \
     "frontend" \
-    env -u CI bash -c "cd '${REPO_ROOT}/frontend' && npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
+    bash -c "unset CI; cd '${REPO_ROOT}/frontend' && exec npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
 
   echo
   echo "Logs: ${LOG_DIR}"
