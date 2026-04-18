@@ -81,7 +81,8 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           ./scripts/run-local-stack.sh stop
-          RUNNER_TRACKING_ID= ./scripts/run-local-stack.sh start
+          unset CI RUNNER_TRACKING_ID
+          ./scripts/run-local-stack.sh start
 
       - name: Health check
         run: |

@@ -323,9 +323,11 @@ start_all() {
     "flower" \
     uv run --extra server celery -A "${CELERY_APP}" flower --port="${FLOWER_PORT}"
 
+  # Unset CI so Vite enables the WebSocket proxy (CI=true from GHA runners
+  # would skip it, breaking Yjs multiplayer connections).
   start_service \
     "frontend" \
-    bash -c "cd '${REPO_ROOT}/frontend' && npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
+    env -u CI bash -c "cd '${REPO_ROOT}/frontend' && npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
 
   echo
   echo "Logs: ${LOG_DIR}"
