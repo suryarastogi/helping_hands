@@ -359,11 +359,15 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       const sid = sessionIdRef.current;
       if (!sid) return;
       try {
-        await fetch(apiUrl(`/mgrill/${sid}/pending`), {
+        const res = await fetch(apiUrl(`/mgrill/${sid}/pending`), {
           method: "POST",
           headers: tokenHeaders(),
           body: JSON.stringify({ player_id: playerId, name: playerName, content }),
         });
+        if (!res.ok) {
+          const detail = await res.json().catch(() => ({}));
+          setError((detail as { detail?: string }).detail ?? `Add pending failed: HTTP ${res.status}`);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -376,10 +380,14 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       const sid = sessionIdRef.current;
       if (!sid) return;
       try {
-        await fetch(apiUrl(`/mgrill/${sid}/pending/${pendingId}`), {
+        const res = await fetch(apiUrl(`/mgrill/${sid}/pending/${pendingId}`), {
           method: "DELETE",
           headers: tokenHeaders({ "X-MGrill-Player-Id": playerId }),
         });
+        if (!res.ok) {
+          const detail = await res.json().catch(() => ({}));
+          setError((detail as { detail?: string }).detail ?? `Remove pending failed: HTTP ${res.status}`);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -410,11 +418,15 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       const sid = sessionIdRef.current;
       if (!sid) return;
       try {
-        await fetch(apiUrl(`/mgrill/${sid}/vote`), {
+        const res = await fetch(apiUrl(`/mgrill/${sid}/vote`), {
           method: "POST",
           headers: tokenHeaders(),
           body: JSON.stringify({ player_id: playerId, vote }),
         });
+        if (!res.ok) {
+          const detail = await res.json().catch(() => ({}));
+          setError((detail as { detail?: string }).detail ?? `Vote failed: HTTP ${res.status}`);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -454,10 +466,14 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     const sid = sessionIdRef.current;
     if (!sid) return;
     try {
-      await fetch(apiUrl(`/mgrill/${sid}/keep-grilling`), {
+      const res = await fetch(apiUrl(`/mgrill/${sid}/keep-grilling`), {
         method: "POST",
         headers: tokenHeaders(),
       });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        setError((detail as { detail?: string }).detail ?? `Keep grilling failed: HTTP ${res.status}`);
+      }
       void pollState();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
