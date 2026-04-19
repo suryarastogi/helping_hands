@@ -77,6 +77,11 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}/frontend
         run: npm install
 
+      # TODO(surya): Add ACTIONS_RUNNER_KILL_ORPHANED_PROCESSES=false to
+      # ~/actions-runner/.env on lugiawyvern, then restart the runner service.
+      # That permanently prevents GHA from killing our background services
+      # after jobs complete. The CI/RUNNER_TRACKING_ID workaround below is
+      # a stopgap until that's done.
       - name: Restart services
         working-directory: ${{ env.PROJECT_DIR }}
         env:
