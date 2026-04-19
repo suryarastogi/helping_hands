@@ -79,17 +79,26 @@ jobs:
 
       - name: Restart services
         working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          CI: ""
+          RUNNER_TRACKING_ID: ""
         run: |
           ./scripts/run-local-stack.sh stop
-          unset CI RUNNER_TRACKING_ID
           ./scripts/run-local-stack.sh start
 
       - name: Health check
         run: |
+          sleep 3
           for i in 1 2 3 4 5 6; do
             if curl -sf http://localhost:8000/health; then
               echo ""
               echo "Health check passed"
+              # Verify frontend is also up
+              if curl -sf http://localhost:5173/ > /dev/null 2>&1; then
+                echo "Frontend health check passed"
+              else
+                echo "WARNING: Frontend not responding on port 5173"
+              fi
               exit 0
             fi
             echo "Attempt $i failed, waiting 10s..."
