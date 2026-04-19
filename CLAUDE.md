@@ -151,6 +151,21 @@ GitHub tokens are persisted in `localStorage` (key `hh_github_token`) and auto-p
 
 GitHub Actions runs on Python 3.12/3.13/3.14: ruff lint + format check, pytest with coverage, Codecov upload. Frontend CI runs lint, typecheck, and Vitest with coverage separately.
 
+## Deployment (LugiaWyvern)
+
+The app deploys to a self-hosted GHA runner on lugiawyvern (`192.168.10.13`) via `.github/workflows/deploy-lugiawyvern.yml`. The deploy pulls latest code, syncs deps, and runs `./scripts/run-local-stack.sh stop && start` which launches server, worker, beat, flower, and frontend as background processes.
+
+**Key pitfalls:**
+- **`CI` env var must not leak into the Vite process.** GHA sets `CI=true` on all runners. The Vite config (`frontend/vite.config.ts`) skips the `/ws` WebSocket proxy when `CI` is set, which silently breaks all Yjs multiplayer (Hand World awareness, chat, decorations, multiplayer grill). The `run-local-stack.sh` frontend command uses `unset CI` inside its `bash -c` to prevent this.
+- **GHA orphan process cleanup can kill services.** After a job completes, GHA's runner kills background processes it considers orphans. The deploy workflow sets `RUNNER_TRACKING_ID=""` in the step env block to prevent tracking. The permanent fix is `ACTIONS_RUNNER_KILL_ORPHANED_PROCESSES=false` in the runner's `.env` file (see `WAITING_ON.md`).
+- **`start_service` PID tracking requires `exec`.** The function records `$$` then `exec`s the command. Using `env -u` or other wrappers that fork a child process breaks PID tracking — the recorded PID dies immediately and the service appears as "not running".
+
+## Tracking files
+
+- `HUMAN_INTENT.md` — active user intents/desires (what the user wants, not implementation details)
+- `WAITING_ON.md` — items blocked on external input or manual action
+- Neither file should accumulate completed items — remove them once done.
+
 ## Test guidelines
 - Don't write tests that assert exact markdown formatting, punctuation, or doc prose style
 - Don't use `inspect.getsource()` to check syntax choices — test behavior instead
