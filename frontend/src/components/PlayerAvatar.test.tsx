@@ -189,7 +189,7 @@ describe("PlayerAvatar component", () => {
 
   it("hides tooltip on mouse leave for remote player", () => {
     const { container } = render(
-      <PlayerAvatar direction="down" walking={false} name="Bob" color="#2563eb" x={50} y={50} />
+      <PlayerAvatar direction="down" walking={false} name="Bob" color="#db2777" x={50} y={50} />
     );
     const el = container.querySelector(".remote-player")!;
     fireEvent.mouseEnter(el);

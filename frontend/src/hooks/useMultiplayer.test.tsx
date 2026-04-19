@@ -333,7 +333,7 @@ describe("useMultiplayer hook", () => {
     const states = new Map<number, Record<string, unknown>>();
     states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
     states.set(200, {
-      player: { player_id: "200", name: "ChatBot", color: "#2563eb", x: 60, y: 60, direction: "right", walking: false, emote: null, chat: "Hi there" },
+      player: { player_id: "200", name: "ChatBot", color: "#db2777", x: 60, y: 60, direction: "right", walking: false, emote: null, chat: "Hi there" },
     });
 
     act(() => mockAwareness._setRemoteStates(states));
@@ -825,7 +825,7 @@ describe("useMultiplayer hook", () => {
     const states = new Map<number, Record<string, unknown>>();
     states.set(MOCK_CLIENT_ID, mockAwareness.getLocalState());
     states.set(160, {
-      player: { player_id: "160", name: "Leaver", color: "#2563eb", x: 50, y: 50, direction: "down", walking: false },
+      player: { player_id: "160", name: "Leaver", color: "#db2777", x: 50, y: 50, direction: "down", walking: false },
     });
     act(() => mockAwareness._setRemoteStates(states));
 
@@ -893,10 +893,10 @@ describe("useMultiplayer hook", () => {
   it("supports custom player color and broadcasts changes without reconnecting", () => {
     const { rerender } = renderHook(
       (props) => useMultiplayer(props),
-      { initialProps: { ...defaultOpts(), playerColor: "#2563eb" } },
+      { initialProps: { ...defaultOpts(), playerColor: "#db2777" } },
     );
     let player = mockAwareness.getLocalState().player as Record<string, unknown>;
-    expect(player.color).toBe("#2563eb");
+    expect(player.color).toBe("#db2777");
 
     // Color change does NOT trigger reconnect
     mockProviderDestroyCalled = false;

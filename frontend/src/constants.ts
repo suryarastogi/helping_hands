@@ -50,7 +50,7 @@ export const EMOTE_KEY_BINDINGS: Record<string, string> = {
 
 /** Player avatar colour palette — indexed by Yjs clientID. */
 export const PLAYER_COLORS = [
-  "#e11d48", "#2563eb", "#16a34a", "#d97706", "#7c3aed",
+  "#e11d48", "#db2777", "#16a34a", "#d97706", "#7c3aed",
   "#0891b2", "#dc2626", "#4f46e5", "#059669", "#c026d3",
 ];
 

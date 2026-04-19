@@ -827,7 +827,7 @@ describe("PLAYER_COLORS", () => {
   it("matches the backend palette order", () => {
     // First three: rose, blue, green — must stay in sync with multiplayer.py
     expect(PLAYER_COLORS[0]).toBe("#e11d48");
-    expect(PLAYER_COLORS[1]).toBe("#2563eb");
+    expect(PLAYER_COLORS[1]).toBe("#db2777");
     expect(PLAYER_COLORS[2]).toBe("#16a34a");
   });
 });

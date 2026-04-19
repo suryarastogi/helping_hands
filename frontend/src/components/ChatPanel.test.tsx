@@ -165,7 +165,7 @@ describe("ChatPanel", () => {
     it("renders presence panel with player count (+1 for self)", () => {
       const players = [
         { player_id: "p1", name: "Alice", color: "#e11d48", x: 0, y: 0, direction: "right" as const, walking: false, idle: false, typing: false, emote: null, emoteExpiry: 0 },
-        { player_id: "p2", name: "Bob", color: "#2563eb", x: 0, y: 0, direction: "left" as const, walking: false, idle: true, typing: false, emote: null, emoteExpiry: 0 },
+        { player_id: "p2", name: "Bob", color: "#db2777", x: 0, y: 0, direction: "left" as const, walking: false, idle: true, typing: false, emote: null, emoteExpiry: 0 },
       ];
       renderPanel({ remotePlayers: players });
       expect(screen.getByLabelText("Connected players")).toBeInTheDocument();
@@ -192,7 +192,7 @@ describe("ChatPanel", () => {
     it("renders chat messages with player name and text", () => {
       const msgs = [
         makeMsg({ id: "m1", playerName: "Alice", text: "hello world" }),
-        makeMsg({ id: "m2", playerName: "Bob", playerColor: "#2563eb", text: "hi there" }),
+        makeMsg({ id: "m2", playerName: "Bob", playerColor: "#db2777", text: "hi there" }),
       ];
       renderPanel({ chatHistory: msgs });
       expect(screen.getByText("Alice")).toBeInTheDocument();

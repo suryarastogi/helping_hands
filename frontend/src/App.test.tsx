@@ -1479,7 +1479,7 @@ describe("Yjs Multiplayer Awareness", () => {
       player: {
         player_id: "999",
         name: "Remote Player",
-        color: "#2563eb",
+        color: "#db2777",
         x: 30,
         y: 40,
         direction: "left",
@@ -1537,7 +1537,7 @@ describe("Yjs Multiplayer Awareness", () => {
       player: { player_id: "100", name: "P2", color: "#e11d48", x: 50, y: 50, direction: "down", walking: false, emote: null },
     });
     remoteStates.set(200, {
-      player: { player_id: "200", name: "P3", color: "#2563eb", x: 30, y: 30, direction: "left", walking: false, emote: null },
+      player: { player_id: "200", name: "P3", color: "#db2777", x: 30, y: 30, direction: "left", walking: false, emote: null },
     });
 
     act(() => { mockAwareness._setRemoteStates(remoteStates); });

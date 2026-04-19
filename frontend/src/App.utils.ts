@@ -214,7 +214,7 @@ export const PROVIDER_CHARACTER_DEFAULTS: Record<string, CharacterStyle> = {
     variant: "bot-heavy",
   },
   gemini: {
-    bodyColor: "#2563eb",
+    bodyColor: "#db2777",
     accentColor: "#d5e4ff",
     skinColor: "#d7e3ff",
     outlineColor: "#14295c",

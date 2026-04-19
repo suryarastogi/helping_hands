@@ -17,12 +17,12 @@ describe("RemoteCursor component", () => {
 
   it("renders the player name label", () => {
     const { container } = render(
-      <RemoteCursor name="Bob" color="#2563eb" x={50} y={60} />
+      <RemoteCursor name="Bob" color="#db2777" x={50} y={60} />
     );
     const label = container.querySelector(".remote-cursor-label")!;
     expect(label).toBeTruthy();
     expect(label.textContent).toBe("Bob");
-    expect(label.style.backgroundColor).toBe("rgb(37, 99, 235)");
+    expect(label.style.backgroundColor).toBe("rgb(219, 39, 119)");
   });
 
   it("renders the SVG cursor arrow", () => {

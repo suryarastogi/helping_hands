@@ -285,7 +285,7 @@ describe("HandWorldScene component", () => {
   it("shows correct count with remote players", () => {
     const remotes: RemotePlayer[] = [
       { player_id: "r1", name: "Alice", color: "#e11d48", x: 30, y: 30, direction: "down", walking: false, idle: false },
-      { player_id: "r2", name: "Bob", color: "#2563eb", x: 60, y: 60, direction: "up", walking: true, idle: false },
+      { player_id: "r2", name: "Bob", color: "#db2777", x: 60, y: 60, direction: "up", walking: true, idle: false },
     ];
     const { container } = render(
       <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" remotePlayers={remotes} />
@@ -458,7 +458,7 @@ describe("HandWorldScene component", () => {
   it("shows decoration count in toolbar header", () => {
     const decos: WorldDecoration[] = [
       { id: "d1", emoji: "\u{1F338}", x: 30, y: 40, placedBy: "Alice", color: "#e11d48", placedAt: 1000 },
-      { id: "d2", emoji: "\u{2B50}", x: 50, y: 60, placedBy: "Bob", color: "#2563eb", placedAt: 2000 },
+      { id: "d2", emoji: "\u{2B50}", x: 50, y: 60, placedBy: "Bob", color: "#db2777", placedAt: 2000 },
     ];
     const { container } = render(
       <HandWorldScene {...BASE_SCENE_PROPS} connectionStatus="connected" decorations={decos} />
@@ -556,7 +556,7 @@ describe("HandWorldScene component", () => {
   it("renders remote cursors with name and color", () => {
     const cursors: RemoteCursor[] = [
       { player_id: "99", name: "Alice", color: "#e11d48", x: 30, y: 40 },
-      { player_id: "100", name: "Bob", color: "#2563eb", x: 70, y: 60 },
+      { player_id: "100", name: "Bob", color: "#db2777", x: 70, y: 60 },
     ];
     const { container } = render(
       <HandWorldScene {...BASE_SCENE_PROPS} remoteCursors={cursors} />

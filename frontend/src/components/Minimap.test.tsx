@@ -40,7 +40,7 @@ describe("Minimap", () => {
       {
         player_id: "2",
         name: "Bob",
-        color: "#2563eb",
+        color: "#db2777",
         x: 70,
         y: 60,
         direction: "right" as const,
