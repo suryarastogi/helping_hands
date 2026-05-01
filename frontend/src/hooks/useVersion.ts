@@ -14,6 +14,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { apiUrl } from "../App.utils";
+import {
+  FRONTEND_COMMIT_DATE,
+  FRONTEND_DISPLAY,
+  FRONTEND_LONG_SHA,
+} from "../version-generated";
 
 export interface VersionResponse {
   backend: string;
@@ -45,10 +50,6 @@ export interface VersionState {
   status: VersionStatus;
   reachable: boolean;
 }
-
-const FRONTEND_DISPLAY = __APP_VERSION__;
-const FRONTEND_LONG_SHA = __APP_VERSION_LONG_SHA__;
-const FRONTEND_COMMIT_DATE = __APP_VERSION_COMMIT_DATE__;
 
 function deriveStatus(
   frontend: string,
