@@ -25,6 +25,9 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from helping_hands.lib import (
+    version as _version,  # noqa: F401  -- eagerly cache at startup
+)
 from helping_hands.lib.config import _is_truthy_env
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.lib.hands.v1.hand.factory import (

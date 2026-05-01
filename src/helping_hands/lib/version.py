@@ -148,6 +148,18 @@ def get_version_info() -> VersionInfo:
     )
 
 
+# Eagerly populate the cache at module import. The backend and worker
+# import this module at process startup — before the frontend service has
+# run write-version.mjs to rewrite frontend/src/version-generated.ts —
+# so the cached "dirty" state reflects the deploy-time tree, not the
+# tree that exists once vite has booted. Without this eager call, the
+# first /version request lazily computes dirty after vite has dirtied
+# version-generated.ts (which our exclusion list covers, but other
+# install-time changes — uv.lock, package-lock.json — would still show
+# through).
+get_version_info()
+
+
 def read_sentinel_sha() -> str | None:
     """Return the SHA written by the deploy workflow, or None when absent."""
     sentinel = project_root() / SENTINEL_PATH_RELATIVE

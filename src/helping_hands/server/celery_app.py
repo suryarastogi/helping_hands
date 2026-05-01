@@ -17,6 +17,9 @@ from typing import Any
 
 from celery import Celery, Task
 
+from helping_hands.lib import (
+    version as _version,  # noqa: F401  -- eagerly cache at startup
+)
 from helping_hands.lib.config import _TRUTHY_VALUES
 from helping_hands.lib.github_url import (
     REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
