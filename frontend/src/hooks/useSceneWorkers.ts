@@ -26,6 +26,7 @@ export type SceneWorkerEntry = SceneWorker & {
   style: (typeof PROVIDER_CHARACTER_DEFAULTS)[string];
   spriteVariant: WorkerVariant;
   schedule: ScheduleItem | null;
+  lastOutputLine: string | null;
 };
 
 export interface UseSceneWorkersOptions {
@@ -39,6 +40,8 @@ export interface UseSceneWorkersOptions {
   fetchedCapacity: number | null;
   /** All schedules, used to annotate workers with their schedule. */
   schedules: ScheduleItem[];
+  /** Latest output line per task, keyed by taskId. */
+  lastOutputByTaskId: Map<string, string>;
 }
 
 export function useSceneWorkers({
@@ -47,6 +50,7 @@ export function useSceneWorkers({
   taskById,
   fetchedCapacity,
   schedules,
+  lastOutputByTaskId,
 }: UseSceneWorkersOptions) {
   const [sceneWorkers, setSceneWorkers] = useState<SceneWorker[]>([]);
   const [maxOfficeWorkers, setMaxOfficeWorkers] = useState(DEFAULT_WORLD_MAX_WORKERS);
@@ -114,10 +118,11 @@ export function useSceneWorkers({
           style,
           spriteVariant: provider === "goose" ? ("goose" as WorkerVariant) : style.variant,
           schedule: scheduleByTaskId.get(worker.taskId) ?? null,
+          lastOutputLine: lastOutputByTaskId.get(worker.taskId) ?? null,
         },
       ];
     });
-  }, [activeTaskIds, plotSlots, scheduleByTaskId, sceneWorkers, taskById]);
+  }, [activeTaskIds, lastOutputByTaskId, plotSlots, scheduleByTaskId, sceneWorkers, taskById]);
 
   const gardenPlotRows = useMemo(
     () => Math.max(1, Math.ceil(maxOfficeWorkers / 2)),

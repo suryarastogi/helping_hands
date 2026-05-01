@@ -505,6 +505,180 @@ describe("GrillMeOverlay", () => {
     });
   });
 
+  // ---- Plan history ----
+
+  describe("plan history", () => {
+    it("shows Past Plans button on form phase", () => {
+      renderOverlay();
+      expect(screen.getByText(/Past Plans/)).toBeInTheDocument();
+    });
+
+    it("shows entry count when history has entries", () => {
+      const existing = [
+        {
+          id: "plan-1",
+          submittedAt: Date.now(),
+          repoPath: "owner/repo",
+          prompt: "existing prompt",
+          finalPlan: "old plan",
+          messages: [],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(existing),
+      );
+      renderOverlay();
+      expect(screen.getByText("Past Plans (1)")).toBeInTheDocument();
+    });
+
+    it("shows empty state when no history exists", () => {
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      expect(
+        screen.getByText(/No past plans yet/),
+      ).toBeInTheDocument();
+    });
+
+    it("lists entries when history has items", () => {
+      const entries = [
+        {
+          id: "plan-1",
+          submittedAt: new Date("2026-01-01T00:00:00Z").getTime(),
+          repoPath: "owner/repo-a",
+          prompt: "the first prompt",
+          finalPlan: "Plan A content",
+          messages: [
+            {
+              id: "m1",
+              role: "assistant" as const,
+              content: "First question",
+              type: "message" as const,
+              timestamp: 1,
+            },
+          ],
+        },
+        {
+          id: "plan-2",
+          submittedAt: new Date("2026-01-02T00:00:00Z").getTime(),
+          repoPath: "owner/repo-b",
+          prompt: "the second prompt",
+          finalPlan: "Plan B content",
+          messages: [],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(entries),
+      );
+      renderOverlay();
+      fireEvent.click(screen.getByText("Past Plans (2)"));
+      expect(screen.getByText("owner/repo-a")).toBeInTheDocument();
+      expect(screen.getByText("owner/repo-b")).toBeInTheDocument();
+      expect(screen.getByText("the first prompt")).toBeInTheDocument();
+    });
+
+    it("opens entry detail in read-only form when clicked", () => {
+      const entries = [
+        {
+          id: "plan-1",
+          submittedAt: Date.now(),
+          repoPath: "owner/repo-a",
+          prompt: "my prompt",
+          finalPlan: "Final plan body",
+          messages: [
+            {
+              id: "m1",
+              role: "assistant" as const,
+              content: "A question",
+              type: "message" as const,
+              timestamp: 1,
+            },
+          ],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(entries),
+      );
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      fireEvent.click(screen.getByText("owner/repo-a"));
+      expect(screen.getByText("Past Plan")).toBeInTheDocument();
+      expect(screen.getByText("Conversation")).toBeInTheDocument();
+      expect(screen.getByText("A question")).toBeInTheDocument();
+      // No edit controls should be present in read-only view.
+      expect(screen.queryByText("Send")).not.toBeInTheDocument();
+      expect(screen.queryByText("Submit as Task")).not.toBeInTheDocument();
+    });
+
+    it("navigates back from detail to list", () => {
+      const entries = [
+        {
+          id: "plan-1",
+          submittedAt: Date.now(),
+          repoPath: "owner/repo-a",
+          prompt: "p",
+          finalPlan: "plan",
+          messages: [],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(entries),
+      );
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      fireEvent.click(screen.getByText("owner/repo-a"));
+      fireEvent.click(screen.getByText("Back to list"));
+      expect(screen.getByText("Past Plans")).toBeInTheDocument();
+    });
+
+    it("navigates back from list to form", () => {
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      fireEvent.click(screen.getByText("Back"));
+      expect(screen.getByText("Start Grilling")).toBeInTheDocument();
+    });
+
+    it("saves plan to history when Submit as Task is clicked", () => {
+      const session = makeSession({
+        phase: "plan",
+        finalPlan: "Plan body",
+        messages: [
+          {
+            id: "m1",
+            role: "assistant",
+            content: "A question",
+            type: "message",
+            timestamp: 1,
+          },
+        ],
+      });
+      const initialForm: GrillFormState = {
+        ...DEFAULT_FORM,
+        repo_path: "owner/repo-x",
+      };
+      renderOverlay({ session, initialForm });
+      fireEvent.click(screen.getByText("Submit as Task"));
+
+      const stored = JSON.parse(
+        window.localStorage.getItem("hh_grill_plan_history") ?? "[]",
+      );
+      expect(stored).toHaveLength(1);
+      expect(stored[0].finalPlan).toBe("Plan body");
+      expect(stored[0].repoPath).toBe("owner/repo-x");
+      expect(stored[0].messages).toHaveLength(1);
+    });
+
+    it("ignores corrupt history JSON", () => {
+      window.localStorage.setItem("hh_grill_plan_history", "not valid json");
+      renderOverlay();
+      // Button should still render and history count omitted.
+      expect(screen.getByText("Past Plans")).toBeInTheDocument();
+    });
+  });
+
   // ---- System message grouping ----
 
   describe("system message grouping", () => {

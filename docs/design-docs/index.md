@@ -48,7 +48,8 @@ Index of design documents for helping_hands.
 ## Frontend
 
 - [Multiplayer Hand World](multiplayer-hand-world.md) — WebSocket-based real-time avatar synchronization in Hand World
-- [Multiplayer Grill Me — Plan Voting](multiplayer-grill-me-voting.md) — Final-plan-only, advisory-with-block, revocable voting model for multiplayer Grill Me
+- [Multiplayer Grill](multiplayer-grill.md) — Collaborative AI interview sessions: pure-Yjs transport via in-process bridge, per-session creator identity, and the server-GITHUB_TOKEN auth matrix
+- [Multiplayer Grill Voting](multiplayer-grill-voting.md) — Final-plan-only, advisory-with-block, revocable voting model for multiplayer Grill Me
 - [Repo Selection UI](repo-selection-ui.md) — Chip inputs, autocomplete suggestions, and localStorage-backed recent repos
 
 ## Quality
