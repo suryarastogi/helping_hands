@@ -90,6 +90,26 @@ def _git(root: Path, *args: str) -> str | None:
         return None
 
 
+_DIRTY_EXCLUDE_SUFFIXES = ("frontend/src/version-generated.ts",)
+
+
+def _is_dirty(porcelain: str | None) -> bool:
+    """True iff porcelain output has changes other than the
+    auto-generated frontend version file (which the frontend's
+    ``write-version.mjs`` rewrites on every vite start).
+    """
+    if not porcelain:
+        return False
+    for line in porcelain.splitlines():
+        path = line[3:].strip() if len(line) >= 3 else line.strip()
+        if not path:
+            continue
+        if any(path.endswith(s) for s in _DIRTY_EXCLUDE_SUFFIXES):
+            continue
+        return True
+    return False
+
+
 @lru_cache(maxsize=1)
 def get_version_info() -> VersionInfo:
     """Compute version once per process and cache."""
@@ -123,7 +143,7 @@ def get_version_info() -> VersionInfo:
         nominal=nominal,
         short_sha=short_sha_raw,
         long_sha=long_sha,
-        dirty=bool(porcelain),
+        dirty=_is_dirty(porcelain),
         commit_date=commit_date or None,
     )
 

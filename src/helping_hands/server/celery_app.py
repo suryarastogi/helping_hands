@@ -118,43 +118,46 @@ celery_app.conf.update(
 )
 
 
-def _register_worker_version_signals() -> None:
-    """Wire up worker_ready / worker_heartbeat to publish this worker's
-    version into Redis so the FastAPI ``/version`` endpoint can surface it.
+def _worker_version_redis_client() -> object | None:
+    """Resolve a Redis client for the worker-version signal handler.
 
-    Failures (Redis down, package missing) never crash the worker — they
-    only suppress the version signal in the UI.
+    Returns ``None`` (without crashing the worker) when redis is missing
+    or the broker URL is unreachable.
     """
-    from celery.signals import heartbeat_sent, worker_ready
+    try:
+        import redis as redis_lib
+    except ImportError:
+        return None
+    try:
+        return redis_lib.Redis.from_url(_BROKER_URL)
+    except (redis_lib.RedisError, OSError):
+        return None
 
+
+def _publish_worker_version(**_kwargs: object) -> None:
+    """Register/refresh this worker's version in Redis.
+
+    Defined at module level — Celery's signal connect defaults to
+    ``weak=True``, so handlers defined inside a function scope are
+    garbage-collected the moment that function returns, silently
+    breaking the signal. Module-level keeps the strong reference alive.
+    """
     from helping_hands.lib.version import (
         get_version_info,
         register_worker_version,
     )
 
-    def _client() -> object | None:
-        try:
-            import redis as redis_lib
-        except ImportError:
-            return None
-        try:
-            return redis_lib.Redis.from_url(_BROKER_URL)
-        except (redis_lib.RedisError, OSError):
-            return None
+    client = _worker_version_redis_client()
+    if client is None:
+        return
+    register_worker_version(client, get_version_info().display)
 
-    def _publish() -> None:
-        client = _client()
-        if client is None:
-            return
-        register_worker_version(client, get_version_info().display)
 
-    @worker_ready.connect
-    def _on_worker_ready(**_kwargs: object) -> None:  # pragma: no cover
-        _publish()
+def _register_worker_version_signals() -> None:
+    from celery.signals import heartbeat_sent, worker_ready
 
-    @heartbeat_sent.connect
-    def _on_heartbeat_sent(**_kwargs: object) -> None:  # pragma: no cover
-        _publish()
+    worker_ready.connect(_publish_worker_version, weak=False)
+    heartbeat_sent.connect(_publish_worker_version, weak=False)
 
 
 _register_worker_version_signals()
