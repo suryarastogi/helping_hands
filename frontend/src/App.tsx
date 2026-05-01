@@ -90,6 +90,7 @@ export default function App() {
     toasts,
     removeToast,
     fetchedCapacity,
+    lastOutputByTaskId,
     submitRun,
     submitBuild,
     selectTask,
@@ -157,6 +158,7 @@ export default function App() {
     taskById,
     fetchedCapacity,
     schedules,
+    lastOutputByTaskId,
   });
 
   const {

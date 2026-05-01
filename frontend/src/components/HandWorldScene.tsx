@@ -518,6 +518,7 @@ export default function HandWorldScene({
               repoPath: worker.task?.repoPath,
               status: worker.task?.status,
             }}
+            lastOutputLine={worker.lastOutputLine}
             schedule={worker.schedule}
             floatingNumbers={floatingNumbers.filter(
               (f) => f.taskId === worker.taskId,
