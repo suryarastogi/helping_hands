@@ -264,10 +264,19 @@ outage still surfaces the utilization percentages in the task result.
 - **`constants.py`** — Shared server constants (field validation bounds,
   build/schedule defaults, Anthropic usage API URLs, Keychain keys).
 - **`grill.py`** — Interactive planning (Grill Me): long-running Celery task
-  that uses Claude Code CLI in read-only mode for multi-turn user↔AI
-  planning conversations, with Redis message queuing.
+  for multi-turn user-AI planning conversations with Redis message queuing.
+  Supports Claude Code CLI (read-only mode, multi-turn via session/resume)
+  and Codex CLI (stateless, full conversation embedded per turn).
 - **`multiplayer_yjs.py`** — Multiplayer Yjs WebSocket server for
   collaborative editing sessions.
+- **`multiplayer_grill.py`** — Multiplayer Grill Me: parallel feature to
+  `grill.py` that supports collaborative batched-turn AI interview
+  sessions discoverable through a lobby, with per-session creator
+  ownership, voting, and repair-tolerant creator handoff.
+- **`mgrill_bridge.py`** — In-process asyncio task that drains the shared
+  Redis outbox (`mgrill:ai_outbox`) and appends each AI-produced message
+  envelope to the matching Yjs room's `messages` Y.Array, closing the loop
+  between the Celery worker (separate process) and the Yjs server.
 
 ## Design principles
 
@@ -307,9 +316,11 @@ outage still surfaces the utilization percentages in the task result.
 | Token helpers | `src/helping_hands/server/token_helpers.py` |
 | Server constants | `src/helping_hands/server/constants.py` |
 | Grill Me (planning) | `src/helping_hands/server/grill.py` |
+| Multiplayer Grill | `src/helping_hands/server/multiplayer_grill.py` |
+| Multiplayer Grill Yjs bridge | `src/helping_hands/server/mgrill_bridge.py` |
 | Multiplayer YJS | `src/helping_hands/server/multiplayer_yjs.py` |
 | Docker sandbox hand | `src/helping_hands/lib/hands/v1/hand/cli/docker_sandbox_claude.py` |
 
 ---
 
-*Last updated: 2026-04-05*
+*Last updated: 2026-04-15*

@@ -1,8 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+/** Per-tab stable id for multiplayer grill participation (vote dedup, chat
+ *  attribution). Survives refresh but not new-tab — matches the per-tab
+ *  voting semantics locked in the FINAL PLAN. */
+function loadOrCreateMGrillPlayerId(): string {
+  try {
+    const key = "hh_mgrill_player_id_v1";
+    const existing = sessionStorage.getItem(key);
+    if (existing) return existing;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+    sessionStorage.setItem(key, id);
+    return id;
+  } catch {
+    return Math.random().toString(36).slice(2);
+  }
+}
+
 import AppOverlays from "./components/AppOverlays";
 import AsteroidsGame from "./components/AsteroidsGame";
 import GrillMeOverlay from "./components/GrillMeOverlay";
+import MultiplayerGrillOverlay from "./components/MultiplayerGrillOverlay";
 import OnboardingOverlay from "./components/OnboardingOverlay";
 import ChatPanel from "./components/ChatPanel";
 import HandWorldScene from "./components/HandWorldScene";
@@ -70,6 +90,7 @@ export default function App() {
     toasts,
     removeToast,
     fetchedCapacity,
+    lastOutputByTaskId,
     submitRun,
     submitBuild,
     selectTask,
@@ -80,6 +101,8 @@ export default function App() {
   const [diffFiles, setDiffFiles] = useState<{ filename: string; status: string; diff: string }[]>([]);
   const [diffError, setDiffError] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
+  const [diffIsCommitted, setDiffIsCommitted] = useState(false);
+  const diffSnapshotsRef = useRef<Map<string, { filename: string; status: string; diff: string }[]>>(new Map());
   const [fileTree, setFileTree] = useState<{ path: string; name: string; type: "file" | "dir"; status: string | null }[]>([]);
   const [fileTreeError, setFileTreeError] = useState<string | null>(null);
   const [fileTreeLoading, setFileTreeLoading] = useState(false);
@@ -101,7 +124,7 @@ export default function App() {
     triggerSchedule,
     toggleSchedule,
     cancelScheduleForm,
-  } = useSchedules();
+  } = useSchedules(form.github_token);
   const { recentRepos } = useRecentRepos();
   const [serverHasGithubToken, setServerHasGithubToken] = useState(true);
   const onboarding = useOnboarding({
@@ -119,7 +142,9 @@ export default function App() {
   const [playerNameInput, setPlayerNameInput] = useState(loadPlayerName);
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
   const [showGrillOverlay, setShowGrillOverlay] = useState(false);
+  const [showMGrillOverlay, setShowMGrillOverlay] = useState(false);
   const [showSubmitIssueOverlay, setShowSubmitIssueOverlay] = useState(false);
+  const [mgrillPlayerId] = useState(loadOrCreateMGrillPlayerId);
   const grillSession = useGrillSession();
 
   const {
@@ -133,6 +158,7 @@ export default function App() {
     taskById,
     fetchedCapacity,
     schedules,
+    lastOutputByTaskId,
   });
 
   const {
@@ -201,8 +227,17 @@ export default function App() {
     if (!taskId) {
       setDiffFiles([]);
       setDiffError(null);
+      setDiffIsCommitted(false);
       return;
     }
+
+    // On task switch, restore snapshot if one exists
+    const existingSnapshot = diffSnapshotsRef.current.get(taskId);
+    if (existingSnapshot) {
+      setDiffFiles(existingSnapshot);
+      setDiffIsCommitted(true);
+    }
+
     let cancelled = false;
 
     const fetchDiff = async () => {
@@ -214,7 +249,21 @@ export default function App() {
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (cancelled) return;
-        setDiffFiles(data.files ?? []);
+        const files = data.files ?? [];
+        if (files.length > 0) {
+          setDiffFiles(files);
+          diffSnapshotsRef.current.set(taskId, files);
+          setDiffIsCommitted(false);
+        } else {
+          const snapshot = diffSnapshotsRef.current.get(taskId);
+          if (snapshot) {
+            setDiffFiles(snapshot);
+            setDiffIsCommitted(true);
+          } else {
+            setDiffFiles([]);
+            setDiffIsCommitted(false);
+          }
+        }
         setDiffError(data.error ?? null);
       } catch {
         if (!cancelled) {
@@ -403,6 +452,7 @@ export default function App() {
       fileTree={fileTree}
       fileTreeError={fileTreeError}
       fileTreeLoading={fileTreeLoading}
+      diffIsCommitted={diffIsCommitted}
     />
   );
 
@@ -485,6 +535,9 @@ export default function App() {
           onCursorMove={updateCursor}
           arcadeOpen={arcadeOpen}
           onArcadeOpen={() => setArcadeOpen(true)}
+          mgrillOpen={showMGrillOverlay}
+          onMGrillOpen={() => setShowMGrillOverlay(true)}
+          mgrillEnabled={grillEnabled}
         />
 
         {mainView === "monitor" && taskId && monitorCard}
@@ -535,6 +588,27 @@ export default function App() {
           grillSession.reset();
         }}
         onSubmitPlan={handleGrillSubmitPlan}
+      />
+    )}
+    {grillEnabled && showMGrillOverlay && (
+      <MultiplayerGrillOverlay
+        onClose={() => setShowMGrillOverlay(false)}
+        onSubmitPlan={(taskId) => {
+          // Surface the submitted task in the existing task list by
+          // selecting it — matches the solo-grill plan-submit hand-off.
+          selectTask(taskId);
+          setShowMGrillOverlay(false);
+        }}
+        playerId={mgrillPlayerId}
+        playerName={localPlayerName}
+        initialCreateForm={{
+          repo_path: form.repo_path,
+          prompt: form.prompt,
+          model: form.model,
+          backend: form.backend,
+          reference_repos: form.reference_repos,
+        }}
+        serverHasGithubToken={serverHasGithubToken}
       />
     )}
     {showSubmitIssueOverlay && (

@@ -15,6 +15,104 @@ import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
 
 // ---------------------------------------------------------------------------
+// Draft persistence — keep user input across overlay close/reopen.
+// ---------------------------------------------------------------------------
+
+const FORM_DRAFT_KEY = "hh_grill_form_draft";
+const CHAT_DRAFT_KEY = "hh_grill_chat_draft";
+const PLAN_HISTORY_KEY = "hh_grill_plan_history";
+const PLAN_HISTORY_MAX = 50;
+
+export type GrillPlanHistoryEntry = {
+  id: string;
+  submittedAt: number;
+  repoPath: string;
+  prompt: string;
+  finalPlan: string;
+  messages: GrillMessage[];
+};
+
+export function loadPlanHistory(): GrillPlanHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(PLAN_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (entry): entry is GrillPlanHistoryEntry =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof entry.id === "string" &&
+        typeof entry.finalPlan === "string" &&
+        Array.isArray(entry.messages),
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function savePlanHistoryEntry(entry: GrillPlanHistoryEntry): void {
+  try {
+    const existing = loadPlanHistory();
+    const next = [entry, ...existing].slice(0, PLAN_HISTORY_MAX);
+    localStorage.setItem(PLAN_HISTORY_KEY, JSON.stringify(next));
+  } catch {
+    /* quota exceeded or unavailable — silently ignore */
+  }
+}
+
+function loadFormDraft(): Partial<GrillFormState> | null {
+  try {
+    const raw = localStorage.getItem(FORM_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveFormDraft(form: GrillFormState): void {
+  try {
+    // Don't persist the github token — it's already managed separately
+    // via loadGithubToken/saveGithubToken.
+    const { github_token: _github_token, ...draft } = form;
+    void _github_token;
+    localStorage.setItem(FORM_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    /* quota exceeded or unavailable — silently ignore */
+  }
+}
+
+function clearFormDraft(): void {
+  try {
+    localStorage.removeItem(FORM_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadChatDraft(): string {
+  try {
+    return localStorage.getItem(CHAT_DRAFT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveChatDraft(text: string): void {
+  try {
+    if (text) {
+      localStorage.setItem(CHAT_DRAFT_KEY, text);
+    } else {
+      localStorage.removeItem(CHAT_DRAFT_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Simple markdown renderer (no external deps)
 // ---------------------------------------------------------------------------
 
@@ -79,6 +177,8 @@ function GrillFormPhase({
   recentRepos,
   serverHasGithubToken,
   initialForm,
+  onViewHistory,
+  historyCount,
 }: {
   onStart: (form: GrillFormState) => void;
   isLoading: boolean;
@@ -86,9 +186,21 @@ function GrillFormPhase({
   recentRepos: string[];
   serverHasGithubToken: boolean;
   initialForm: GrillFormState;
+  onViewHistory: () => void;
+  historyCount: number;
 }) {
-  const [form, setForm] = useState<GrillFormState>(initialForm);
+  // Hydrate from any persisted draft so de-focus/re-focus preserves user input.
+  // Token is intentionally not persisted here (managed via saveGithubToken).
+  const [form, setForm] = useState<GrillFormState>(() => {
+    const draft = loadFormDraft();
+    return draft ? { ...initialForm, ...draft, github_token: initialForm.github_token } : initialForm;
+  });
   const tokenRequired = !serverHasGithubToken;
+
+  // Persist draft on every change.
+  useEffect(() => {
+    saveFormDraft(form);
+  }, [form]);
 
   const referenceChips = useMemo(
     () =>
@@ -101,6 +213,7 @@ function GrillFormPhase({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    clearFormDraft();
     onStart(form);
   };
 
@@ -154,7 +267,7 @@ function GrillFormPhase({
           />
         </label>
         <label>
-          GitHub Token{tokenRequired && <span className="required-star"> *</span>}
+          <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
           <input
             type="password"
             value={form.github_token}
@@ -177,9 +290,19 @@ function GrillFormPhase({
         </label>
       </div>
       {error && <div className="grill-error">{error}</div>}
-      <button type="submit" disabled={isLoading} className="grill-start-btn">
-        {isLoading ? "Starting..." : "Start Grilling"}
-      </button>
+      <div className="grill-form-actions">
+        <button type="submit" disabled={isLoading} className="grill-start-btn">
+          {isLoading ? "Starting..." : "Start Grilling"}
+        </button>
+        <button
+          type="button"
+          onClick={onViewHistory}
+          className="grill-history-btn"
+          title="View plans submitted from past grilling sessions"
+        >
+          Past Plans{historyCount > 0 ? ` (${historyCount})` : ""}
+        </button>
+      </div>
     </form>
   );
 }
@@ -272,7 +395,8 @@ function GrillChatPhase({
   onSend: (content: string) => void;
   onRequestPlan: () => void;
 }) {
-  const [input, setInput] = useState("");
+  // Hydrate the chat input draft so close/reopen preserves the in-flight message.
+  const [input, setInput] = useState<string>(loadChatDraft);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const groups = useMemo(() => groupMessages(messages), [messages]);
@@ -281,10 +405,16 @@ function GrillChatPhase({
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // Persist every edit so the draft survives overlay close/reopen.
+  useEffect(() => {
+    saveChatDraft(input);
+  }, [input]);
+
   const handleSend = () => {
     const text = input.trim();
     if (!text || isLoading) return;
     setInput("");
+    saveChatDraft("");
     onSend(text);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
@@ -381,6 +511,123 @@ function GrillPlanPhase({
   );
 }
 
+function formatHistoryTimestamp(ms: number): string {
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
+function GrillHistoryList({
+  entries,
+  onSelect,
+  onBack,
+}: {
+  entries: GrillPlanHistoryEntry[];
+  onSelect: (entry: GrillPlanHistoryEntry) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="grill-history-list">
+      {entries.length === 0 ? (
+        <div className="grill-history-empty">
+          No past plans yet. Submitted plans will appear here.
+        </div>
+      ) : (
+        <ul className="grill-history-entries">
+          {entries.map((entry) => (
+            <li key={entry.id} className="grill-history-entry">
+              <button
+                type="button"
+                className="grill-history-entry-btn"
+                onClick={() => onSelect(entry)}
+              >
+                <div className="grill-history-entry-title">
+                  {entry.repoPath || "(no repo)"}
+                </div>
+                <div className="grill-history-entry-meta">
+                  {formatHistoryTimestamp(entry.submittedAt)}
+                </div>
+                {entry.prompt && (
+                  <div className="grill-history-entry-prompt">
+                    {entry.prompt.length > 140
+                      ? `${entry.prompt.slice(0, 140)}…`
+                      : entry.prompt}
+                  </div>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="grill-history-actions">
+        <button
+          type="button"
+          onClick={onBack}
+          className="grill-history-back-btn"
+        >
+          Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GrillHistoryDetail({
+  entry,
+  onBack,
+}: {
+  entry: GrillPlanHistoryEntry;
+  onBack: () => void;
+}) {
+  const groups = useMemo(() => groupMessages(entry.messages), [entry.messages]);
+
+  return (
+    <div className="grill-history-detail">
+      <div className="grill-history-detail-header">
+        <div className="grill-history-detail-title">
+          {entry.repoPath || "(no repo)"}
+        </div>
+        <div className="grill-history-detail-meta">
+          {formatHistoryTimestamp(entry.submittedAt)}
+        </div>
+      </div>
+
+      <section className="grill-history-detail-section">
+        <h3 className="grill-history-detail-h">Conversation</h3>
+        <div className="grill-chat-messages grill-history-detail-messages">
+          {groups.map((group, i) =>
+            group.kind === "system" ? (
+              <GrillSystemGroup key={`sys-${i}`} messages={group.messages} />
+            ) : (
+              <GrillChatMessage key={group.message.id} message={group.message} />
+            ),
+          )}
+        </div>
+      </section>
+
+      <section className="grill-history-detail-section">
+        <h3 className="grill-history-detail-h">Final Plan</h3>
+        <div
+          className="grill-plan-content"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(entry.finalPlan) }}
+        />
+      </section>
+
+      <div className="grill-history-actions">
+        <button
+          type="button"
+          onClick={onBack}
+          className="grill-history-back-btn"
+        >
+          Back to list
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main overlay
 // ---------------------------------------------------------------------------
@@ -394,6 +641,11 @@ export interface GrillMeOverlayProps {
   onSubmitPlan: (plan: string) => void;
 }
 
+type HistoryView =
+  | { kind: "none" }
+  | { kind: "list" }
+  | { kind: "detail"; entry: GrillPlanHistoryEntry };
+
 export default function GrillMeOverlay({
   session,
   recentRepos,
@@ -402,11 +654,43 @@ export default function GrillMeOverlay({
   onClose,
   onSubmitPlan,
 }: GrillMeOverlayProps) {
+  // Snapshot of the form used to start the active session (for history entry).
+  const submittedFormRef = useRef<GrillFormState | null>(null);
+
+  // Cached history list — reloaded when we enter history view.
+  const [history, setHistory] = useState<GrillPlanHistoryEntry[]>(() =>
+    loadPlanHistory(),
+  );
+  const [historyView, setHistoryView] = useState<HistoryView>({ kind: "none" });
+
+  const handleStartSession = useCallback(
+    (form: GrillFormState) => {
+      submittedFormRef.current = form;
+      void session.startSession(form);
+    },
+    [session],
+  );
+
   const handleConfirmPlan = useCallback(() => {
-    if (session.finalPlan) {
-      onSubmitPlan(session.finalPlan);
-    }
-  }, [session.finalPlan, onSubmitPlan]);
+    if (!session.finalPlan) return;
+    const submitted = submittedFormRef.current;
+    const entry: GrillPlanHistoryEntry = {
+      id: `plan-${Date.now()}`,
+      submittedAt: Date.now(),
+      repoPath: submitted?.repo_path ?? initialForm.repo_path ?? "",
+      prompt: submitted?.prompt ?? "",
+      finalPlan: session.finalPlan,
+      messages: session.messages,
+    };
+    savePlanHistoryEntry(entry);
+    setHistory((prev) => [entry, ...prev].slice(0, PLAN_HISTORY_MAX));
+    onSubmitPlan(session.finalPlan);
+  }, [
+    session.finalPlan,
+    session.messages,
+    initialForm.repo_path,
+    onSubmitPlan,
+  ]);
 
   const handleContinueGrilling = useCallback(() => {
     // Go back to chat phase — the session is still active
@@ -414,39 +698,98 @@ export default function GrillMeOverlay({
     session.sendMessage("Actually, I have more questions. Let's continue grilling.");
   }, [session]);
 
+  const handleViewHistory = useCallback(() => {
+    setHistory(loadPlanHistory());
+    setHistoryView({ kind: "list" });
+  }, []);
+
+  const handleSelectHistoryEntry = useCallback(
+    (entry: GrillPlanHistoryEntry) => {
+      setHistoryView({ kind: "detail", entry });
+    },
+    [],
+  );
+
+  const handleHistoryBackToList = useCallback(() => {
+    setHistoryView({ kind: "list" });
+  }, []);
+
+  const handleHistoryBackToForm = useCallback(() => {
+    setHistoryView({ kind: "none" });
+  }, []);
+
+  // Once a session has started on the server (or any chat history exists),
+  // closing the overlay will destroy that work — warn before discarding it.
+  const hasUserEffort =
+    session.sessionId !== null || session.messages.length > 0;
+
+  const handleClose = useCallback(() => {
+    if (hasUserEffort) {
+      const ok = window.confirm(
+        "Close Grill Me? Your grilling session will be discarded and cannot be resumed.",
+      );
+      if (!ok) return;
+    }
+    onClose();
+  }, [hasUserEffort, onClose]);
+
   const phaseTitle: Record<GrillPhase, string> = {
     form: "Grill Me",
     chatting: "Grilling in Progress",
     plan: "Final Plan",
   };
 
+  const viewingHistory = historyView.kind !== "none";
+  const headerTitle = viewingHistory
+    ? historyView.kind === "detail"
+      ? "Past Plan"
+      : "Past Plans"
+    : phaseTitle[session.phase];
+
   return (
-    <div className="grill-overlay" onClick={onClose}>
+    <div className="grill-overlay" onClick={handleClose}>
       <div className="grill-overlay-content" onClick={(e) => e.stopPropagation()}>
         <div className="grill-overlay-header">
-          <h2 className="grill-overlay-title">{phaseTitle[session.phase]}</h2>
+          <h2 className="grill-overlay-title">{headerTitle}</h2>
           <button
             type="button"
             className="grill-overlay-close"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close"
           >
             &times;
           </button>
         </div>
 
-        {session.phase === "form" && (
+        {historyView.kind === "list" && (
+          <GrillHistoryList
+            entries={history}
+            onSelect={handleSelectHistoryEntry}
+            onBack={handleHistoryBackToForm}
+          />
+        )}
+
+        {historyView.kind === "detail" && (
+          <GrillHistoryDetail
+            entry={historyView.entry}
+            onBack={handleHistoryBackToList}
+          />
+        )}
+
+        {!viewingHistory && session.phase === "form" && (
           <GrillFormPhase
-            onStart={session.startSession}
+            onStart={handleStartSession}
             isLoading={session.isLoading}
             error={session.error}
             recentRepos={recentRepos}
             serverHasGithubToken={serverHasGithubToken}
             initialForm={initialForm}
+            onViewHistory={handleViewHistory}
+            historyCount={history.length}
           />
         )}
 
-        {session.phase === "chatting" && (
+        {!viewingHistory && session.phase === "chatting" && (
           <GrillChatPhase
             messages={session.messages}
             isLoading={session.isLoading}
@@ -456,7 +799,7 @@ export default function GrillMeOverlay({
           />
         )}
 
-        {session.phase === "plan" && session.finalPlan && (
+        {!viewingHistory && session.phase === "plan" && session.finalPlan && (
           <GrillPlanPhase
             finalPlan={session.finalPlan}
             onConfirm={handleConfirmPlan}

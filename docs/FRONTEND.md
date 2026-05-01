@@ -98,7 +98,8 @@ State is managed via React's built-in `useState` hooks, organized into custom ho
   numbers, toasts, worker capacity, and all derived task state
 - **`useSceneWorkers`** — Scene worker lifecycle (task→worker mapping, garden plot
   allocation, phase transitions, provider style enrichment, schedule annotation)
-- **`useSchedules`** — Schedule CRUD state and operations
+- **`useSchedules`** — Schedule CRUD state and operations (accepts `githubToken`
+  param; sends `X-GitHub-Token` header on all schedule API calls for ownership auth)
 - **`useMovement`** — Keyboard-driven player movement, collision detection
 - **`useMultiplayer`** — Yjs awareness multiplayer presence, chat, decorations
 - **`useServiceHealth`** — Service health polling (15-second interval)
@@ -106,6 +107,24 @@ State is managed via React's built-in `useState` hooks, organized into custom ho
 
 No external state library (Redux, Zustand, etc.) is used. State flows
 top-down from hooks through `App.tsx` via props to child components.
+
+### localStorage persistence
+
+The frontend persists several values in `localStorage`:
+
+| Key | Purpose |
+|---|---|
+| `helping_hands_task_history_v1` | Task history (up to 60 entries) |
+| `helping_hands_player_name_v1` | Multiplayer player name |
+| `helping_hands_player_color_v1` | Multiplayer player color |
+| `hh_recent_repos` | Recently used repos (up to 20) |
+| `hh_github_token` | GitHub token (auto-populated across all forms) |
+| `hh_onboarding_completed` | Onboarding completion flag |
+
+GitHub tokens are saved on successful form submission and loaded as the
+initial value for all token fields (task, schedule, Grill Me, issue forms).
+The model field auto-updates to the backend default when the backend
+selection changes. Execution is always enabled (no UI toggle).
 
 ### Key TypeScript types
 

@@ -84,12 +84,47 @@ All filesystem/command operations for hands route through `src/helping_hands/lib
 
 ### Grill Me (interactive planning)
 
-An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan before submitting a task. The frontend opens an overlay chat where the AI interviews the user about their design, exploring the codebase via Claude Code CLI in read-only mode (`--allowedTools Read,Glob,Grep --disallowedTools Edit,Write,Bash,Agent,...`).
+An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan before submitting a task. The frontend opens an overlay chat where the AI interviews the user about their design. Supports two backends: **Claude Code CLI** (default, read-only mode) and **Codex CLI** (stateless, full conversation embedded per turn).
 
-- **Backend**: `src/helping_hands/server/grill.py` — long-running Celery task using `claude -p --session-id/--resume` for multi-turn conversation, Redis queues for user↔worker message passing.
-- **Frontend**: `GrillMeOverlay` component + `useGrillSession` hook — 3-phase UI (form → chat → plan), polls `GET /grill/{id}` for messages.
+- **Backend**: `src/helping_hands/server/grill.py` — long-running Celery task. Claude uses `claude -p --session-id/--resume` for multi-turn conversation; Codex uses `codex exec` with full history embedded. Redis queues for user-worker message passing.
+- **Frontend**: `GrillMeOverlay` component + `useGrillSession` hook — 3-phase UI (form -> chat -> plan), polls `GET /grill/{id}` for messages.
 - **Endpoints**: `POST /grill`, `POST /grill/{id}/message`, `GET /grill/{id}` — all gated by `GRILL_ME_ENABLED`.
 - **Plan submission**: final plan auto-populates the submission form prompt (with `## FINAL PLAN` header stripped) and submits via `submitBuild()`.
+
+### Multiplayer Grill Me (collaborative planning)
+
+A parallel feature to solo Grill Me — same `GRILL_ME_ENABLED=1` flag, different code path. Activated via a campfire sprite in Hand World; opens a lobby of concurrent sessions, each discoverable and joinable by any user. Transcript, vote tally, and the pending-message batch live in a Yjs room (`mgrill-{session_id}`) and sync to all participants with sub-100ms latency; Redis holds authoritative state (status, creator, turn count) and the worker's user-message FIFO.
+
+- **Worker**: `src/helping_hands/server/multiplayer_grill.py` — Celery task that reuses solo Grill Me's Claude/Codex CLI invocation helpers. AI-produced messages are `LPUSH`ed to the shared Redis queue `mgrill:ai_outbox`.
+- **Bridge**: `src/helping_hands/server/mgrill_bridge.py` — in-process asyncio task started in FastAPI's lifespan that drains `mgrill:ai_outbox` and appends each envelope to the matching Yjs room's `messages` Y.Array. Exists because `pycrdt` 0.12 has no Python Yjs client, so the worker can't speak Yjs directly. Coordination uses a **Redis leader lock** (`mgrill:bridge:leader`, 5 s TTL, 2 s renewal) so only one bridge drains the outbox at a time — critical when multiple FastAPI processes run (eg. `--workers N`, `--reload`, or leftover zombies). Standby peers sleep without reading the outbox; a crashed leader's lock lapses within 5 s and a peer takes over.
+- **REST**: all `/mgrill/*` endpoints are async and mutate the Y.Doc in-process for pending/votes/transcript side-effects.
+- **Frontend**: `MultiplayerGrillOverlay` → lobby or room; `useMultiplayerGrill` hook connects a `WebsocketProvider` to `mgrill-{session_id}` and observes the three Y collections. REST polling (3s) covers status/creator/turn_count only.
+- **Turn model**: collaborative batched — participants append to a shared pending batch; any token-holder presses Send to AI, which bundles as `[Name]: <msg>` blocks and pushes to `mgrill:{id}:user_msgs`.
+- **Voting**: appears only at `## FINAL PLAN`, per-tab `player_id` dedup (weak — UI surfaces this explicitly), Y.Map `votes`. Submit returns 409 on any `down` vote without `?override=true`; overrides are logged server-side but never prepended to the downstream task prompt.
+- **Creator handoff**: 20s heartbeat, 60s absence threshold. Any token-holder can `POST /mgrill/{id}/claim-creator` past the threshold.
+
+Full design notes, architecture diagram, and endpoint table: `docs/design-docs/multiplayer-grill.md`.
+
+### Schedule ownership
+
+When the server has no global `GITHUB_TOKEN`, schedule endpoints enforce per-user ownership. A SHA-256 hash of the creator's token is stored as `owner_token_hash` on each `ScheduledTask`. The frontend sends the user's token via `X-GitHub-Token` header on all schedule API calls. Set `ADMIN_GITHUB_TOKEN` env var to grant admin access to all schedules.
+
+### Multiplayer Grill auth (server-GITHUB_TOKEN behaviour)
+
+The `/mgrill/*` endpoints mirror the schedules pattern: when the server has a global `GITHUB_TOKEN` configured, identity becomes server-owned and per-user creator checks are lifted — any caller is treated as the creator and can Submit / Keep Grilling / Heartbeat. When the server has no global token, the original per-user rules apply.
+
+| Server `GITHUB_TOKEN` | Client `X-GitHub-Token` | Chat / vote / add to batch | Submit / Keep Grilling / Heartbeat |
+|-----------------------|--------------------------|----------------------------|-------------------------------------|
+| unset                 | unset                    | 401                        | 401                                 |
+| unset                 | set                      | yes                        | only the session creator (plus `ADMIN_GITHUB_TOKEN`) |
+| **set**               | **unset**                | **yes** (server token used) | **yes — anyone**                    |
+| set                   | set                      | yes                        | yes — anyone                        |
+
+Implementation hooks: `_mgrill_effective_token()` falls back to the server token, `_mgrill_require_creator()` short-circuits when `_server_has_github_token()`, and `mgrill_poll` reports `is_creator=true` for everyone in server-token mode so the frontend unlocks creator UI. `ADMIN_GITHUB_TOKEN` still satisfies the creator check on a per-user basis when the server has no global token.
+
+### Frontend persistence
+
+GitHub tokens are persisted in `localStorage` (key `hh_github_token`) and auto-populated across all forms (task, schedule, Grill Me, issue). Execution is always enabled (no checkbox). The model field auto-updates to the backend default when the backend selection changes.
 
 ## Code Conventions
 
@@ -115,6 +150,21 @@ An optional feature (`GRILL_ME_ENABLED=1`) that lets users stress-test a plan be
 ## CI
 
 GitHub Actions runs on Python 3.12/3.13/3.14: ruff lint + format check, pytest with coverage, Codecov upload. Frontend CI runs lint, typecheck, and Vitest with coverage separately.
+
+## Deployment (LugiaWyvern)
+
+The app deploys to a self-hosted GHA runner on lugiawyvern (`192.168.10.13`) via `.github/workflows/deploy-lugiawyvern.yml`. The deploy pulls latest code, syncs deps, and runs `./scripts/run-local-stack.sh stop && start` which launches server, worker, beat, flower, and frontend as background processes.
+
+**Key pitfalls:**
+- **`CI` env var must not leak into the Vite process.** GHA sets `CI=true` on all runners. The Vite config (`frontend/vite.config.ts`) skips the `/ws` WebSocket proxy when `CI` is set, which silently breaks all Yjs multiplayer (Hand World awareness, chat, decorations, multiplayer grill). The `run-local-stack.sh` frontend command uses `unset CI` inside its `bash -c` to prevent this.
+- **GHA orphan process cleanup can kill services.** After a job completes, GHA's runner kills background processes it considers orphans. The deploy workflow sets `RUNNER_TRACKING_ID=""` in the step env block to prevent tracking. The permanent fix is `ACTIONS_RUNNER_KILL_ORPHANED_PROCESSES=false` in the runner's `.env` file (see `WAITING_ON.md`).
+- **`start_service` PID tracking requires `exec`.** The function records `$$` then `exec`s the command. Using `env -u` or other wrappers that fork a child process breaks PID tracking — the recorded PID dies immediately and the service appears as "not running".
+
+## Tracking files
+
+- `HUMAN_INTENT.md` — active user intents/desires (what the user wants, not implementation details)
+- `WAITING_ON.md` — items blocked on external input or manual action
+- Neither file should accumulate completed items — remove them once done.
 
 ## Test guidelines
 - Don't write tests that assert exact markdown formatting, punctuation, or doc prose style

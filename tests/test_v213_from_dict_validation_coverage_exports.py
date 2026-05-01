@@ -65,7 +65,8 @@ class TestFromDictEmptyFieldRejection:
     def test_empty_cron_expression_raises(self) -> None:
         data = {**self._VALID_BASE, "cron_expression": ""}
         with pytest.raises(
-            ValueError, match="cron_expression is required for cron schedules"
+            ValueError,
+            match="cron_expression is required for cron and watch_issues schedules",
         ):
             ScheduledTask.from_dict(data)
 

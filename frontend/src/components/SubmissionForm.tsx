@@ -146,28 +146,18 @@ export default function SubmissionForm({
                   }
                 />
               </label>
-            </div>
-            <div className="row check-grid">
-              <label className="check-row compact-check">
-                <input
-                  type="checkbox"
-                  checked={form.enable_execution}
-                  onChange={(event) => onFieldChange("enable_execution", event.target.checked)}
-                />
-                Execution
-              </label>
-              <label className="check-row compact-check">
+              <label className="check-row compact-check" style={{ alignSelf: "end" }}>
                 <input
                   type="checkbox"
                   checked={form.enable_web}
                   onChange={(event) => onFieldChange("enable_web", event.target.checked)}
                 />
-                Web
+                Enable Web
               </label>
             </div>
             <div className="row">
               <label>
-                GitHub Token{tokenRequired && <span className="required-star"> *</span>}
+                <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
                 <input
                   className="github-token-input"
                   type="password"

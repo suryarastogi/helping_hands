@@ -57,13 +57,21 @@ class _FakeScheduledTask:
     master_rebase: bool = False
     ci_check_wait_minutes: float = 3.0
     github_token: str | None = None
+    owner_token_hash: str | None = None
     reference_repos: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
+    watch_labels: list[str] = field(default_factory=list)
     enabled: bool = True
     created_at: str = "2026-03-15T00:00:00"
     last_run_at: str | None = None
     last_run_task_id: str | None = None
     run_count: int = 0
+
+
+@pytest.fixture(autouse=True)
+def _set_server_github_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set a server-level GITHUB_TOKEN so auth checks are bypassed."""
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test_server_token")
 
 
 @pytest.fixture()
@@ -276,7 +284,9 @@ class TestUpdateSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
+        existing = _FakeScheduledTask()
         updated = _FakeScheduledTask(name="Updated")
+        _mock_schedule_manager.get_schedule.return_value = existing
         _mock_schedule_manager.update_schedule.return_value = updated
         with patch("helping_hands.server.schedules.next_run_time") as mock_next:
             from datetime import datetime
@@ -299,7 +309,7 @@ class TestUpdateSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
-        _mock_schedule_manager.update_schedule.side_effect = ValueError("not found")
+        _mock_schedule_manager.get_schedule.return_value = None
         resp = client.put(
             "/schedules/sched-missing",
             json={
@@ -348,24 +358,17 @@ class TestUpdateSchedule:
         _mock_schedule_manager: MagicMock,
     ) -> None:
         _mock_schedule_manager.get_schedule.return_value = None
-        updated = _FakeScheduledTask(github_token=None)
-        _mock_schedule_manager.update_schedule.return_value = updated
-
-        with patch("helping_hands.server.schedules.next_run_time") as mock_next:
-            from datetime import datetime
-
-            mock_next.return_value = datetime(2026, 3, 16, 0, 0, 0)
-            resp = client.put(
-                "/schedules/sched-abc123",
-                json={
-                    "name": "Test",
-                    "cron_expression": "0 * * * *",
-                    "repo_path": "/tmp/repo",
-                    "prompt": "test",
-                    "github_token": "ghp_***_123",
-                },
-            )
-        assert resp.status_code == 200
+        resp = client.put(
+            "/schedules/sched-abc123",
+            json={
+                "name": "Test",
+                "cron_expression": "0 * * * *",
+                "repo_path": "/tmp/repo",
+                "prompt": "test",
+                "github_token": "ghp_***_123",
+            },
+        )
+        assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -379,6 +382,7 @@ class TestDeleteSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
+        _mock_schedule_manager.get_schedule.return_value = _FakeScheduledTask()
         _mock_schedule_manager.delete_schedule.return_value = True
         resp = client.delete("/schedules/sched-abc123")
         assert resp.status_code == 204
@@ -388,7 +392,7 @@ class TestDeleteSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
-        _mock_schedule_manager.delete_schedule.return_value = False
+        _mock_schedule_manager.get_schedule.return_value = None
         resp = client.delete("/schedules/nonexistent")
         assert resp.status_code == 404
 
@@ -405,6 +409,7 @@ class TestEnableDisableSchedule:
         _mock_schedule_manager: MagicMock,
     ) -> None:
         task = _FakeScheduledTask(enabled=True)
+        _mock_schedule_manager.get_schedule.return_value = task
         _mock_schedule_manager.enable_schedule.return_value = task
         with patch("helping_hands.server.schedules.next_run_time") as mock_next:
             from datetime import datetime
@@ -419,7 +424,7 @@ class TestEnableDisableSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
-        _mock_schedule_manager.enable_schedule.return_value = None
+        _mock_schedule_manager.get_schedule.return_value = None
         resp = client.post("/schedules/nonexistent/enable")
         assert resp.status_code == 404
 
@@ -429,6 +434,7 @@ class TestEnableDisableSchedule:
         _mock_schedule_manager: MagicMock,
     ) -> None:
         task = _FakeScheduledTask(enabled=False)
+        _mock_schedule_manager.get_schedule.return_value = task
         _mock_schedule_manager.disable_schedule.return_value = task
         with patch("helping_hands.server.schedules.next_run_time") as mock_next:
             from datetime import datetime
@@ -443,7 +449,7 @@ class TestEnableDisableSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
-        _mock_schedule_manager.disable_schedule.return_value = None
+        _mock_schedule_manager.get_schedule.return_value = None
         resp = client.post("/schedules/nonexistent/disable")
         assert resp.status_code == 404
 
@@ -459,6 +465,7 @@ class TestTriggerSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
+        _mock_schedule_manager.get_schedule.return_value = _FakeScheduledTask()
         _mock_schedule_manager.trigger_now.return_value = "task-id-123"
         resp = client.post("/schedules/sched-abc123/trigger")
         assert resp.status_code == 200
@@ -471,7 +478,7 @@ class TestTriggerSchedule:
         client: TestClient,
         _mock_schedule_manager: MagicMock,
     ) -> None:
-        _mock_schedule_manager.trigger_now.return_value = None
+        _mock_schedule_manager.get_schedule.return_value = None
         resp = client.post("/schedules/nonexistent/trigger")
         assert resp.status_code == 404
 

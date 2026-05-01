@@ -153,7 +153,7 @@ export type ServiceHealthState = {
   health: ServiceHealth | null;
 };
 
-export type ScheduleType = "cron" | "interval";
+export type ScheduleType = "cron" | "interval" | "watch_issues";
 
 export type ScheduleItem = {
   schedule_id: string;
@@ -178,6 +178,7 @@ export type ScheduleItem = {
   github_token: string | null;
   reference_repos: string[];
   tools: string[];
+  watch_labels: string[];
   enabled: boolean;
   created_at: string;
   last_run_at: string | null;
@@ -208,6 +209,7 @@ export type ScheduleFormState = {
   github_token: string;
   reference_repos: string;
   tools: string;
+  watch_labels: string;
   enabled: boolean;
 };
 
@@ -296,3 +298,74 @@ export type GrillFormState = {
 };
 
 export type GrillPhase = "form" | "chatting" | "plan";
+
+// ---------------------------------------------------------------------------
+// Multiplayer Grill Me
+// ---------------------------------------------------------------------------
+
+export type MGrillCreateResponse = {
+  session_id: string;
+  status: string;
+};
+
+export type MGrillMessage = {
+  id: string;
+  role: "assistant" | "system" | "user";
+  content: string;
+  type: "message" | "plan" | "error" | "timeout";
+  author_player_id: string | null;
+  author_name: string | null;
+  timestamp: number;
+};
+
+export type MGrillPendingEntry = {
+  pending_id: string;
+  player_id: string;
+  name: string;
+  content: string;
+  timestamp: number;
+};
+
+export type MGrillPollResponse = {
+  session_id: string;
+  status: string;
+  creator_name: string;
+  creator_token_hash: string | null;
+  creator_player_id: string | null;
+  creator_last_seen_ts: number;
+  is_creator: boolean;
+  can_act_as_creator: boolean;
+  repo_path: string;
+  prompt: string;
+  model: string | null;
+  backend: string;
+  turn_count: number;
+  participant_count: number;
+  submitted_task_id: string | null;
+};
+
+export type MGrillSessionSummary = {
+  session_id: string;
+  status: string;
+  creator_name: string;
+  repo_path: string;
+  prompt: string;
+  turn_count: number;
+  created_at: number;
+  last_activity_ts: number;
+  participant_count: number;
+  has_final_plan: boolean;
+};
+
+export type MGrillListResponse = {
+  sessions: MGrillSessionSummary[];
+  total: number;
+};
+
+export type MGrillCreateForm = {
+  repo_path: string;
+  prompt: string;
+  model: string;
+  backend: string;
+  reference_repos: string;
+};

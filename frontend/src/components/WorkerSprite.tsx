@@ -6,6 +6,8 @@
  * is built from positioned `<span>` elements with inline colour styles
  * derived from the backend's CharacterStyle.
  */
+import { useEffect, useState } from "react";
+
 import { TORII_POS } from "../constants";
 import type {
   CharacterStyle,
@@ -36,6 +38,7 @@ export type WorkerSpriteProps = {
     cron_expression: string;
     interval_seconds?: number | null;
   } | null;
+  lastOutputLine: string | null;
   floatingNumbers: FloatingNumber[];
   onSelect: (taskId: string) => void;
 };
@@ -51,10 +54,22 @@ export default function WorkerSprite({
   plotLeft,
   plotTop,
   task,
+  lastOutputLine,
   schedule,
   floatingNumbers,
   onSelect,
 }: WorkerSpriteProps) {
+  const [visibleLine, setVisibleLine] = useState<string | null>(null);
+  const [bubbleKey, setBubbleKey] = useState(0);
+
+  useEffect(() => {
+    if (!lastOutputLine) return;
+    setVisibleLine(lastOutputLine);
+    setBubbleKey((k) => k + 1);
+    const timer = window.setTimeout(() => setVisibleLine(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [lastOutputLine]);
+
   const isAtGate = phase === "at-gate";
   // Meditating/fading bots stay at their plot (no walking to exit).
   const posLeft = isAtGate ? TORII_POS.left : plotLeft;
@@ -78,6 +93,11 @@ export default function WorkerSprite({
           <BotBody style={workerStyle} />
         )}
       </span>
+      {visibleLine && (
+        <span key={bubbleKey} className="worker-bubble" aria-label={`Output: ${visibleLine}`}>
+          {visibleLine}
+        </span>
+      )}
       {floatingNumbers.map((f) => (
         <span key={f.id} className="floating-number" aria-hidden="true">
           +{f.value}

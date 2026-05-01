@@ -1,7 +1,7 @@
-import { type FormEvent, useCallback, useState } from "react";
+import { type FormEvent, useCallback, useRef, useState } from "react";
 
 import type { Backend, ScheduleFormState, ScheduleItem } from "../types";
-import { apiUrl, INITIAL_SCHEDULE_FORM, parseError } from "../App.utils";
+import { apiUrl, INITIAL_SCHEDULE_FORM, parseError, saveGithubToken } from "../App.utils";
 
 export interface UseSchedulesReturn {
   schedules: ScheduleItem[];
@@ -23,7 +23,16 @@ export interface UseSchedulesReturn {
   cancelScheduleForm: () => void;
 }
 
-export function useSchedules(): UseSchedulesReturn {
+/** Build common headers, injecting X-GitHub-Token when available. */
+function authHeaders(token: string | undefined): Record<string, string> {
+  const trimmed = (token ?? "").trim();
+  return trimmed ? { "X-GitHub-Token": trimmed } : {};
+}
+
+export function useSchedules(githubToken?: string): UseSchedulesReturn {
+  const tokenRef = useRef(githubToken);
+  tokenRef.current = githubToken;
+
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState>(INITIAL_SCHEDULE_FORM);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
@@ -40,7 +49,10 @@ export function useSchedules(): UseSchedulesReturn {
   const loadSchedules = useCallback(async () => {
     setScheduleError(null);
     try {
-      const response = await fetch(apiUrl("/schedules"), { cache: "no-store" });
+      const response = await fetch(apiUrl("/schedules"), {
+        cache: "no-store",
+        headers: authHeaders(tokenRef.current),
+      });
       if (!response.ok) {
         const detail = await parseError(response);
         throw new Error(detail);
@@ -62,7 +74,10 @@ export function useSchedules(): UseSchedulesReturn {
   const openEditScheduleForm = async (scheduleId: string) => {
     setScheduleError(null);
     try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}`), { cache: "no-store" });
+      const response = await fetch(apiUrl(`/schedules/${scheduleId}`), {
+        cache: "no-store",
+        headers: authHeaders(tokenRef.current),
+      });
       if (!response.ok) {
         const detail = await parseError(response);
         throw new Error(detail);
@@ -90,6 +105,7 @@ export function useSchedules(): UseSchedulesReturn {
         github_token: item.github_token ?? "",
         reference_repos: (item.reference_repos ?? []).join(", "),
         tools: (item.tools ?? []).join(", "),
+        watch_labels: (item.watch_labels ?? []).join(", "),
         enabled: item.enabled,
       });
       setEditingScheduleId(scheduleId);
@@ -106,15 +122,16 @@ export function useSchedules(): UseSchedulesReturn {
     const name = scheduleForm.name.trim();
     const cronExpr = scheduleForm.cron_expression.trim();
     const schedRepoPath = scheduleForm.repo_path.trim();
-    const schedPrompt = scheduleForm.prompt.trim();
     const isInterval = scheduleForm.schedule_type === "interval";
+    const isWatchIssues = scheduleForm.schedule_type === "watch_issues";
+    const schedPrompt = isWatchIssues ? "(auto-generated from issues)" : scheduleForm.prompt.trim();
 
-    if (!name || !schedRepoPath || !schedPrompt) {
+    if (!name || !schedRepoPath || (!isWatchIssues && !schedPrompt)) {
       setScheduleError("Name, repository path, and prompt are required.");
       return;
     }
     if (!isInterval && !cronExpr) {
-      setScheduleError("Cron expression is required for cron schedules.");
+      setScheduleError("Cron expression is required for cron and watch_issues schedules.");
       return;
     }
     if (isInterval && (!scheduleForm.interval_seconds || scheduleForm.interval_seconds < 30)) {
@@ -131,7 +148,7 @@ export function useSchedules(): UseSchedulesReturn {
       backend: scheduleForm.backend,
       max_iterations: scheduleForm.max_iterations,
       no_pr: scheduleForm.no_pr,
-      enable_execution: scheduleForm.enable_execution,
+      enable_execution: true,
       enable_web: scheduleForm.enable_web,
       use_native_cli_auth: scheduleForm.use_native_cli_auth,
       fix_ci: scheduleForm.fix_ci,
@@ -145,6 +162,7 @@ export function useSchedules(): UseSchedulesReturn {
     }
     if (scheduleForm.github_token.trim()) {
       body.github_token = scheduleForm.github_token.trim();
+      saveGithubToken(scheduleForm.github_token);
     }
     if (scheduleForm.reference_repos.trim()) {
       body.reference_repos = scheduleForm.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
@@ -162,6 +180,12 @@ export function useSchedules(): UseSchedulesReturn {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
     }
+    if (scheduleForm.watch_labels.trim()) {
+      body.watch_labels = scheduleForm.watch_labels
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
     const isEdit = editingScheduleId !== null;
     const url = isEdit ? apiUrl(`/schedules/${editingScheduleId}`) : apiUrl("/schedules");
     const method = isEdit ? "PUT" : "POST";
@@ -169,7 +193,7 @@ export function useSchedules(): UseSchedulesReturn {
     try {
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders(tokenRef.current) },
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -189,7 +213,10 @@ export function useSchedules(): UseSchedulesReturn {
     if (!window.confirm("Delete this schedule? This cannot be undone.")) return;
     setScheduleError(null);
     try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}`), { method: "DELETE" });
+      const response = await fetch(apiUrl(`/schedules/${scheduleId}`), {
+        method: "DELETE",
+        headers: authHeaders(tokenRef.current),
+      });
       if (!response.ok && response.status !== 204) {
         const detail = await parseError(response);
         throw new Error(detail);
@@ -204,7 +231,10 @@ export function useSchedules(): UseSchedulesReturn {
     if (!window.confirm("Run this schedule now?")) return;
     setScheduleError(null);
     try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}/trigger`), { method: "POST" });
+      const response = await fetch(apiUrl(`/schedules/${scheduleId}/trigger`), {
+        method: "POST",
+        headers: authHeaders(tokenRef.current),
+      });
       if (!response.ok) {
         const detail = await parseError(response);
         throw new Error(detail);
@@ -221,7 +251,10 @@ export function useSchedules(): UseSchedulesReturn {
     setScheduleError(null);
     const action = enable ? "enable" : "disable";
     try {
-      const response = await fetch(apiUrl(`/schedules/${scheduleId}/${action}`), { method: "POST" });
+      const response = await fetch(apiUrl(`/schedules/${scheduleId}/${action}`), {
+        method: "POST",
+        headers: authHeaders(tokenRef.current),
+      });
       if (!response.ok) {
         const detail = await parseError(response);
         throw new Error(detail);

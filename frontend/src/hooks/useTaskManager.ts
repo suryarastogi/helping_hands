@@ -17,6 +17,7 @@ import {
   apiUrl,
   asRecord,
   BACKEND_OPTIONS,
+  defaultModelForBackend,
   extractPrefixes,
   extractUpdates,
   fetchWorkerCapacity,
@@ -25,6 +26,7 @@ import {
   isTerminalTaskStatus,
   loadTaskHistory,
   parseBool,
+  saveGithubToken,
   parseError,
   parseOptimisticUpdates,
   readBoolishValue,
@@ -108,12 +110,45 @@ export type UseTaskManagerReturn = {
   // Worker capacity
   fetchedCapacity: number | null;
 
+  // Live output for worker bubbles
+  lastOutputByTaskId: Map<string, string>;
+
   // Actions
   submitRun: (event: FormEvent) => Promise<void>;
   submitBuild: (overrides: Partial<FormState>) => Promise<void>;
   selectTask: (selectedTaskId: string) => void;
   openSubmissionView: () => void;
 };
+
+// ---------------------------------------------------------------------------
+// Helpers — live output for worker speech bubbles
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]/g;
+
+const STATUS_ICONS: [RegExp, string][] = [
+  [/\bPASS\b/i, "\u2705 "],
+  [/\bFAIL\b/i, "\u274c "],
+  [/\berror\b/i, "\u26a0\ufe0f "],
+  [/\bcommit\b/i, "\ud83d\udcbe "],
+];
+
+function pickLastMeaningfulLine(updates: string[]): string | null {
+  for (let i = updates.length - 1; i >= 0; i--) {
+    const raw = updates[i].replace(ANSI_RE, "").trim();
+    if (!raw) continue;
+    let line = raw.length > 80 ? raw.slice(0, 77) + "\u2026" : raw;
+    for (const [re, icon] of STATUS_ICONS) {
+      if (re.test(line)) {
+        line = icon + line;
+        break;
+      }
+    }
+    return line;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -226,7 +261,13 @@ export function useTaskManager(): UseTaskManagerReturn {
 
   const updateField = useCallback(
     <K extends keyof FormState>(key: K, value: FormState[K]) => {
-      setForm((current) => ({ ...current, [key]: value }));
+      setForm((current) => {
+        const next = { ...current, [key]: value };
+        if (key === "backend") {
+          next.model = defaultModelForBackend(value as string);
+        }
+        return next;
+      });
     },
     []
   );
@@ -279,7 +320,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       backend: form.backend,
       max_iterations: form.max_iterations,
       no_pr: form.no_pr,
-      enable_execution: form.enable_execution,
+      enable_execution: true,
       enable_web: form.enable_web,
       use_native_cli_auth: form.use_native_cli_auth,
       fix_ci: form.fix_ci,
@@ -290,6 +331,7 @@ export function useTaskManager(): UseTaskManagerReturn {
 
     if (form.github_token.trim()) {
       body.github_token = form.github_token.trim();
+      saveGithubToken(form.github_token);
     }
     if (form.reference_repos.trim()) {
       body.reference_repos = form.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
@@ -383,7 +425,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       backend: merged.backend,
       max_iterations: merged.max_iterations,
       no_pr: merged.no_pr,
-      enable_execution: merged.enable_execution,
+      enable_execution: true,
       enable_web: merged.enable_web,
       use_native_cli_auth: merged.use_native_cli_auth,
       fix_ci: merged.fix_ci,
@@ -394,6 +436,7 @@ export function useTaskManager(): UseTaskManagerReturn {
 
     if (merged.github_token.trim()) {
       body.github_token = merged.github_token.trim();
+      saveGithubToken(merged.github_token);
     }
     if (merged.reference_repos.trim()) {
       body.reference_repos = merged.reference_repos.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
@@ -819,6 +862,9 @@ export function useTaskManager(): UseTaskManagerReturn {
     }
   }, []);
 
+  // -- Last output line per task (for worker speech bubbles) -----------------
+  const [lastOutputByTaskId, setLastOutputByTaskId] = useState<Map<string, string>>(new Map());
+
   // -- Primary task polling (3s) --------------------------------------------
   useEffect(() => {
     if (!taskId || !isPolling) return;
@@ -847,6 +893,16 @@ export function useTaskManager(): UseTaskManagerReturn {
           if (curr > prev) spawnFloatingNumber(data.task_id, curr - prev);
           updateCountsRef.current.set(data.task_id, curr);
         }
+
+        const lastLine = pickLastMeaningfulLine(freshUpdates);
+        if (lastLine) {
+          setLastOutputByTaskId((m) => {
+            const next = new Map(m);
+            next.set(data.task_id, lastLine);
+            return next;
+          });
+        }
+
         setTaskHistory((current) =>
           upsertTaskHistory(current, { taskId: data.task_id, status: data.status })
         );
@@ -916,6 +972,15 @@ export function useTaskManager(): UseTaskManagerReturn {
             if (bgUpdates.length > prev) {
               spawnFloatingNumber(data.task_id, bgUpdates.length - prev);
               updateCountsRef.current.set(data.task_id, bgUpdates.length);
+            }
+
+            const lastLine = pickLastMeaningfulLine(bgUpdates);
+            if (lastLine) {
+              setLastOutputByTaskId((m) => {
+                const next = new Map(m);
+                next.set(data.task_id, lastLine);
+                return next;
+              });
             }
 
             return {
@@ -999,6 +1064,7 @@ export function useTaskManager(): UseTaskManagerReturn {
     toasts,
     removeToast,
     fetchedCapacity,
+    lastOutputByTaskId,
     submitRun,
     submitBuild,
     selectTask,

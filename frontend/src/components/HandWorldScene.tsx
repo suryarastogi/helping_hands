@@ -7,7 +7,13 @@
  */
 import { type CSSProperties, type Ref, useMemo, useState } from "react";
 
-import { ARCADE_POSITION, ARCADE_PROXIMITY, MAX_DECORATIONS } from "../constants";
+import {
+  ARCADE_POSITION,
+  ARCADE_PROXIMITY,
+  MAX_DECORATIONS,
+  MGRILL_POSITION,
+  MGRILL_PROXIMITY,
+} from "../constants";
 
 import type { RemoteCursor as RemoteCursorType } from "../hooks/useMultiplayer";
 import type { RemotePlayer } from "../hooks/useMultiplayer";
@@ -92,6 +98,14 @@ export type HandWorldSceneProps = {
   arcadeOpen: boolean;
   /** Called when the player clicks the glowing card to open the arcade. */
   onArcadeOpen: () => void;
+
+  // -- Multiplayer grill campfire --
+  /** Whether the multiplayer grill overlay is currently open. */
+  mgrillOpen: boolean;
+  /** Called when the player clicks the campfire to open the grill overlay. */
+  onMGrillOpen: () => void;
+  /** Whether the multiplayer grill feature is enabled (hides sprite when false). */
+  mgrillEnabled?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -131,6 +145,9 @@ export default function HandWorldScene({
   onCursorMove,
   arcadeOpen,
   onArcadeOpen,
+  mgrillOpen,
+  onMGrillOpen,
+  mgrillEnabled = false,
 }: HandWorldSceneProps) {
   const [selectedDecoEmoji, setSelectedDecoEmoji] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -143,6 +160,22 @@ export default function HandWorldScene({
     const dy = playerPosition.y - arcadeCenterY;
     return Math.sqrt(dx * dx + dy * dy) < ARCADE_PROXIMITY;
   }, [playerPosition.x, playerPosition.y, arcadeCenterX, arcadeCenterY]);
+
+  // Proximity check: is the player near the mgrill campfire?
+  const mgrillCenterX = MGRILL_POSITION.left + 3;
+  const mgrillCenterY = MGRILL_POSITION.top + 3;
+  const nearMGrill = useMemo(() => {
+    if (!mgrillEnabled) return false;
+    const dx = playerPosition.x - mgrillCenterX;
+    const dy = playerPosition.y - mgrillCenterY;
+    return Math.sqrt(dx * dx + dy * dy) < MGRILL_PROXIMITY;
+  }, [
+    mgrillEnabled,
+    playerPosition.x,
+    playerPosition.y,
+    mgrillCenterX,
+    mgrillCenterY,
+  ]);
 
   // Build minimap worker positions from desk slot centers.
   const minimapWorkers: MinimapWorker[] = workerEntries
@@ -173,8 +206,16 @@ export default function HandWorldScene({
 
   return (
     <section
-      className={`card hand-world-card${nearArcade && !arcadeOpen ? " arcade-glow" : ""}`}
-      onClick={nearArcade && !arcadeOpen ? onArcadeOpen : undefined}
+      className={`card hand-world-card${nearArcade && !arcadeOpen ? " arcade-glow" : ""}${
+        nearMGrill && !mgrillOpen ? " mgrill-glow" : ""
+      }`}
+      onClick={
+        nearArcade && !arcadeOpen
+          ? onArcadeOpen
+          : nearMGrill && !mgrillOpen
+          ? onMGrillOpen
+          : undefined
+      }
     >
       <header className="header">
         <h1>
@@ -326,6 +367,26 @@ export default function HandWorldScene({
           )}
         </div>
 
+        {/* Multiplayer grill campfire (bottom-centre) */}
+        {mgrillEnabled && (
+          <div
+            className={`hh-mgrill-campfire${nearMGrill ? " mgrill-active" : ""}`}
+            style={{ left: `${MGRILL_POSITION.left}%`, top: `${MGRILL_POSITION.top}%` }}
+            aria-hidden="true"
+          >
+            <span className="mgrill-logs" />
+            <span className="mgrill-flame mgrill-flame-1" />
+            <span className="mgrill-flame mgrill-flame-2" />
+            <span className="mgrill-flame mgrill-flame-3" />
+            <span className="mgrill-ember mgrill-ember-1" />
+            <span className="mgrill-ember mgrill-ember-2" />
+            <div className="mgrill-label">GRILL</div>
+            {nearMGrill && !mgrillOpen && (
+              <div className="mgrill-prompt">Press to gather round!</div>
+            )}
+          </div>
+        )}
+
         {/* Torii gate entrance (middle-left) */}
         <div className="hh-torii" aria-hidden="true">
           <span className="torii-pillar torii-pillar-left" />
@@ -457,6 +518,7 @@ export default function HandWorldScene({
               repoPath: worker.task?.repoPath,
               status: worker.task?.status,
             }}
+            lastOutputLine={worker.lastOutputLine}
             schedule={worker.schedule}
             floatingNumbers={floatingNumbers.filter(
               (f) => f.taskId === worker.taskId,

@@ -48,6 +48,7 @@ Index of design documents for helping_hands.
 ## Frontend
 
 - [Multiplayer Hand World](multiplayer-hand-world.md) — WebSocket-based real-time avatar synchronization in Hand World
+- [Multiplayer Grill](multiplayer-grill.md) — Collaborative AI interview sessions: pure-Yjs transport via in-process bridge, per-session creator identity, and the server-GITHUB_TOKEN auth matrix
 - [Repo Selection UI](repo-selection-ui.md) — Chip inputs, autocomplete suggestions, and localStorage-backed recent repos
 
 ## Quality

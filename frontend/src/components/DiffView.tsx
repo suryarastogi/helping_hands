@@ -10,6 +10,7 @@ export interface DiffViewProps {
   files: DiffFile[];
   error: string | null;
   loading: boolean;
+  isCommitted?: boolean;
 }
 
 type LineType = "add" | "del" | "context" | "hunk" | "header";
@@ -161,7 +162,7 @@ function FileDiff({ file }: { file: DiffFile }) {
   );
 }
 
-export default function DiffView({ files, error, loading }: DiffViewProps) {
+export default function DiffView({ files, error, loading, isCommitted }: DiffViewProps) {
   if (loading && files.length === 0) {
     return (
       <div className="diff-view diff-loading">
@@ -213,6 +214,9 @@ export default function DiffView({ files, error, loading }: DiffViewProps) {
         )}
         {totalDels > 0 && (
           <span className="diff-stat-del">-{totalDels}</span>
+        )}
+        {isCommitted && (
+          <span className="diff-committed-badge" title="Snapshot of committed changes">(committed)</span>
         )}
         {loading && <span className="diff-spinner" title="Refreshing..." />}
       </div>

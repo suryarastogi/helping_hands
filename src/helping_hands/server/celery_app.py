@@ -56,13 +56,25 @@ from helping_hands.server.constants import (
     TASK_NAME_INTERVAL_RESCHEDULE as _TASK_NAME_INTERVAL_RESCHEDULE,
     TASK_NAME_LOG_USAGE as _TASK_NAME_LOG_USAGE,
     TASK_NAME_SCHEDULED_BUILD as _TASK_NAME_SCHEDULED_BUILD,
+    TASK_NAME_WATCH_ISSUE_COMPLETE as _TASK_NAME_WATCH_ISSUE_COMPLETE,
+    TASK_NAME_WATCH_ISSUES_POLL as _TASK_NAME_WATCH_ISSUES_POLL,
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
+    WATCH_LABEL_DONE as _WATCH_LABEL_DONE,
+    WATCH_LABEL_FAILED as _WATCH_LABEL_FAILED,
+    WATCH_LABEL_PR as _WATCH_LABEL_PR,
+    WATCH_LABEL_QUEUED as _WATCH_LABEL_QUEUED,
 )
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["build_feature", "celery_app", "interval_reschedule"]
+__all__ = [
+    "build_feature",
+    "celery_app",
+    "interval_reschedule",
+    "watch_issue_complete",
+    "watch_issues_poll",
+]
 
 
 def _resolve_celery_urls() -> tuple[str, str]:
@@ -98,8 +110,11 @@ celery_app.conf.update(
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=_BROKER_URL,
     redbeat_key_prefix=_REDBEAT_KEY_PREFIX,
-    # Ensure grill session task is discovered by workers.
-    include=["helping_hands.server.grill"],
+    # Ensure grill session tasks are discovered by workers.
+    include=[
+        "helping_hands.server.grill",
+        "helping_hands.server.multiplayer_grill",
+    ],
 )
 
 
@@ -1316,6 +1331,7 @@ def scheduled_build(
         fix_conflicts=schedule.fix_conflicts,
         master_rebase=schedule.master_rebase,
         ci_check_wait_minutes=schedule.ci_check_wait_minutes,
+        github_token=schedule.github_token,
         reference_repos=schedule.reference_repos,
         schedule_id=schedule_id,
     )
@@ -1403,6 +1419,265 @@ def interval_reschedule(
         "schedule_id": schedule_id,
         "next_build_task_id": task_id,
         "interval_seconds": schedule.interval_seconds,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Watch-issues tasks
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task(name=_TASK_NAME_WATCH_ISSUES_POLL)
+def watch_issues_poll(
+    schedule_id: str,
+) -> dict[str, Any]:  # pragma: no cover - exercised in integration
+    """Poll a repo for new issues and dispatch builds for each.
+
+    Triggered by RedBeat on the configured cron schedule.  For each open
+    issue that does not already carry a queued/done/failed label, a
+    ``build_feature`` task is dispatched with a completion callback that
+    swaps labels.  Stale PRs (labeled ``helping-hands:watched``) that
+    are behind main are rebased.
+    """
+    from helping_hands.lib.github import GitHubClient
+    from helping_hands.server.schedules import get_schedule_manager
+
+    manager = get_schedule_manager(celery_app)
+    schedule = manager.get_schedule(schedule_id)
+
+    if schedule is None:
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"Schedule {schedule_id} not found",
+            "schedule_id": schedule_id,
+        }
+
+    if not schedule.enabled:
+        return {
+            "status": "skipped",
+            "message": f"Schedule {schedule_id} is disabled",
+            "schedule_id": schedule_id,
+        }
+
+    token = schedule.github_token or os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": "No GitHub token available for watch_issues poll",
+            "schedule_id": schedule_id,
+        }
+
+    repo_path = schedule.repo_path
+    gh = GitHubClient(token=token)
+    exclude_labels = [_WATCH_LABEL_QUEUED, _WATCH_LABEL_DONE, _WATCH_LABEL_FAILED]
+    filter_labels = schedule.watch_labels if schedule.watch_labels else None
+
+    try:
+        new_issues = gh.list_issues_excluding_labels(
+            repo_path,
+            exclude_labels=exclude_labels,
+            filter_labels=filter_labels,
+        )
+    except Exception:
+        logger.exception("Failed to fetch issues for %s", repo_path)
+        return {
+            "status": _RESPONSE_STATUS_ERROR,
+            "message": f"Failed to fetch issues for {repo_path}",
+            "schedule_id": schedule_id,
+        }
+
+    dispatched: list[dict[str, Any]] = []
+    for issue in new_issues:
+        issue_number = issue["number"]
+        issue_title = issue["title"]
+        issue_body = issue.get("body", "")
+        issue_url = issue.get("url", "")
+
+        # Optimistically label the issue as queued before dispatch
+        try:
+            gh.add_issue_labels(repo_path, issue_number, labels=[_WATCH_LABEL_QUEUED])
+        except Exception:
+            logger.warning(
+                "Failed to add queued label to %s#%d, skipping",
+                repo_path,
+                issue_number,
+                exc_info=True,
+            )
+            continue
+
+        prompt = (
+            f"Fix GitHub Issue #{issue_number}: {issue_title}\n\n"
+            f"{issue_body}\n\n"
+            f"Issue URL: {issue_url}"
+        )
+
+        result = build_feature.apply_async(
+            kwargs={
+                "repo_path": repo_path,
+                "prompt": prompt,
+                "issue_number": issue_number,
+                "backend": schedule.backend,
+                "model": schedule.model,
+                "max_iterations": schedule.max_iterations,
+                "no_pr": schedule.no_pr,
+                "enable_execution": schedule.enable_execution,
+                "enable_web": schedule.enable_web,
+                "use_native_cli_auth": schedule.use_native_cli_auth,
+                "tools": schedule.tools,
+                "fix_ci": schedule.fix_ci,
+                "fix_conflicts": schedule.fix_conflicts,
+                "master_rebase": schedule.master_rebase,
+                "ci_check_wait_minutes": schedule.ci_check_wait_minutes,
+                "github_token": token,
+                "reference_repos": schedule.reference_repos,
+                "schedule_id": schedule_id,
+            },
+            link=watch_issue_complete.si(
+                schedule_id,
+                issue_number,
+                repo_path,
+                token,
+                False,
+            ),
+            link_error=watch_issue_complete.si(
+                schedule_id,
+                issue_number,
+                repo_path,
+                token,
+                True,
+            ),
+        )
+
+        dispatched.append(
+            {
+                "issue_number": issue_number,
+                "task_id": result.id,
+            }
+        )
+
+    # --- Rebase stale PRs labeled helping-hands:watched ---
+    rebased: list[int] = []
+    try:
+        watched_prs = gh.list_prs_with_label(repo_path, label=_WATCH_LABEL_PR)
+        for pr_info in watched_prs:
+            if pr_info.get("mergeable") is False:
+                rebase_prompt = (
+                    f"Rebase and resolve conflicts for PR #{pr_info['number']}"
+                )
+                build_feature.apply_async(
+                    kwargs={
+                        "repo_path": repo_path,
+                        "prompt": rebase_prompt,
+                        "pr_number": pr_info["number"],
+                        "master_rebase": True,
+                        "backend": schedule.backend,
+                        "model": schedule.model,
+                        "max_iterations": schedule.max_iterations,
+                        "no_pr": True,
+                        "enable_execution": schedule.enable_execution,
+                        "enable_web": False,
+                        "github_token": token,
+                        "reference_repos": schedule.reference_repos,
+                        "schedule_id": schedule_id,
+                    },
+                )
+                rebased.append(pr_info["number"])
+    except Exception:
+        logger.warning("Failed to check stale PRs for %s", repo_path, exc_info=True)
+
+    # Record the poll run
+    manager.record_run(schedule_id, f"poll-{schedule_id}")
+
+    return {
+        "status": "polled",
+        "schedule_id": schedule_id,
+        "issues_dispatched": len(dispatched),
+        "dispatched": dispatched,
+        "prs_rebased": rebased,
+    }
+
+
+@celery_app.task(name=_TASK_NAME_WATCH_ISSUE_COMPLETE)
+def watch_issue_complete(
+    schedule_id: str,
+    issue_number: int,
+    repo_path: str,
+    github_token: str,
+    failed: bool = False,
+) -> dict[str, Any]:  # pragma: no cover - exercised in integration
+    """Callback fired after a watch-issues build completes or fails.
+
+    Swaps labels on the issue (queued -> done/failed) and, on success,
+    labels the created PR with ``helping-hands:watched``.
+    """
+    from helping_hands.lib.github import GitHubClient
+
+    gh = GitHubClient(token=github_token)
+
+    try:
+        # Remove queued label
+        gh.remove_issue_label(repo_path, issue_number, label=_WATCH_LABEL_QUEUED)
+    except Exception:
+        logger.warning(
+            "Failed to remove queued label from %s#%d",
+            repo_path,
+            issue_number,
+            exc_info=True,
+        )
+
+    if failed:
+        try:
+            gh.add_issue_labels(repo_path, issue_number, labels=[_WATCH_LABEL_FAILED])
+        except Exception:
+            logger.warning(
+                "Failed to add failed label to %s#%d",
+                repo_path,
+                issue_number,
+                exc_info=True,
+            )
+        return {
+            "status": "failed",
+            "schedule_id": schedule_id,
+            "issue_number": issue_number,
+        }
+
+    # Success path
+    try:
+        gh.add_issue_labels(repo_path, issue_number, labels=[_WATCH_LABEL_DONE])
+    except Exception:
+        logger.warning(
+            "Failed to add done label to %s#%d",
+            repo_path,
+            issue_number,
+            exc_info=True,
+        )
+
+    # Try to find and label the PR created for this issue.
+    # Convention: PRs reference the issue number in their title or body.
+    try:
+        prs = gh.list_prs(repo_path, state="open", limit=20)
+        for pr_info in prs:
+            pr_detail = gh.get_pr(repo_path, pr_info["number"])
+            pr_body = pr_detail.get("body", "") or ""
+            pr_title = pr_detail.get("title", "") or ""
+            issue_ref = f"#{issue_number}"
+            if issue_ref in pr_title or issue_ref in pr_body:
+                gh.add_issue_labels(
+                    repo_path, pr_info["number"], labels=[_WATCH_LABEL_PR]
+                )
+                break
+    except Exception:
+        logger.warning(
+            "Failed to label PR for %s#%d",
+            repo_path,
+            issue_number,
+            exc_info=True,
+        )
+
+    return {
+        "status": "completed",
+        "schedule_id": schedule_id,
+        "issue_number": issue_number,
     }
 
 

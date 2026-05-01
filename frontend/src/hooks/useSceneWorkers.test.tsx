@@ -57,6 +57,7 @@ function makeOptions(overrides: Partial<UseSceneWorkersOptions> = {}): UseSceneW
     taskById: new Map(),
     fetchedCapacity: null,
     schedules: [],
+    lastOutputByTaskId: new Map(),
     ...overrides,
   };
 }

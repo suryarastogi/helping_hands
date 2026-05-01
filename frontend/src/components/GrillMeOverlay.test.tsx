@@ -57,6 +57,12 @@ vi.mock("./RepoSuggestInput", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // Reset any persisted drafts between tests.
+  try {
+    window.localStorage.clear();
+  } catch {
+    /* ignore */
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -147,6 +153,67 @@ describe("GrillMeOverlay", () => {
       const content = container.querySelector(".grill-overlay-content");
       fireEvent.click(content!);
       expect(props.onClose).not.toHaveBeenCalled();
+    });
+
+    it("warns and aborts close when session is active and user cancels", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { props } = renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
+      });
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it("warns and closes when session is active and user confirms", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { props } = renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
+      });
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).toHaveBeenCalledOnce();
+      confirmSpy.mockRestore();
+    });
+
+    it("warns on backdrop click when session is active", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { props, container } = renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
+      });
+
+      fireEvent.click(container.querySelector(".grill-overlay")!);
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it("warns when messages exist even without sessionId", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const messages: GrillMessage[] = [
+        makeMessage({ id: "m1", role: "user", content: "my plan" }),
+      ];
+      const { props } = renderOverlay({
+        session: makeSession({ phase: "chatting", messages }),
+      });
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(props.onClose).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it("does not warn when no session has started", () => {
+      const confirmSpy = vi.spyOn(window, "confirm");
+      const { props } = renderOverlay();
+
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(props.onClose).toHaveBeenCalledOnce();
+      confirmSpy.mockRestore();
     });
   });
 
@@ -438,6 +505,180 @@ describe("GrillMeOverlay", () => {
     });
   });
 
+  // ---- Plan history ----
+
+  describe("plan history", () => {
+    it("shows Past Plans button on form phase", () => {
+      renderOverlay();
+      expect(screen.getByText(/Past Plans/)).toBeInTheDocument();
+    });
+
+    it("shows entry count when history has entries", () => {
+      const existing = [
+        {
+          id: "plan-1",
+          submittedAt: Date.now(),
+          repoPath: "owner/repo",
+          prompt: "existing prompt",
+          finalPlan: "old plan",
+          messages: [],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(existing),
+      );
+      renderOverlay();
+      expect(screen.getByText("Past Plans (1)")).toBeInTheDocument();
+    });
+
+    it("shows empty state when no history exists", () => {
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      expect(
+        screen.getByText(/No past plans yet/),
+      ).toBeInTheDocument();
+    });
+
+    it("lists entries when history has items", () => {
+      const entries = [
+        {
+          id: "plan-1",
+          submittedAt: new Date("2026-01-01T00:00:00Z").getTime(),
+          repoPath: "owner/repo-a",
+          prompt: "the first prompt",
+          finalPlan: "Plan A content",
+          messages: [
+            {
+              id: "m1",
+              role: "assistant" as const,
+              content: "First question",
+              type: "message" as const,
+              timestamp: 1,
+            },
+          ],
+        },
+        {
+          id: "plan-2",
+          submittedAt: new Date("2026-01-02T00:00:00Z").getTime(),
+          repoPath: "owner/repo-b",
+          prompt: "the second prompt",
+          finalPlan: "Plan B content",
+          messages: [],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(entries),
+      );
+      renderOverlay();
+      fireEvent.click(screen.getByText("Past Plans (2)"));
+      expect(screen.getByText("owner/repo-a")).toBeInTheDocument();
+      expect(screen.getByText("owner/repo-b")).toBeInTheDocument();
+      expect(screen.getByText("the first prompt")).toBeInTheDocument();
+    });
+
+    it("opens entry detail in read-only form when clicked", () => {
+      const entries = [
+        {
+          id: "plan-1",
+          submittedAt: Date.now(),
+          repoPath: "owner/repo-a",
+          prompt: "my prompt",
+          finalPlan: "Final plan body",
+          messages: [
+            {
+              id: "m1",
+              role: "assistant" as const,
+              content: "A question",
+              type: "message" as const,
+              timestamp: 1,
+            },
+          ],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(entries),
+      );
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      fireEvent.click(screen.getByText("owner/repo-a"));
+      expect(screen.getByText("Past Plan")).toBeInTheDocument();
+      expect(screen.getByText("Conversation")).toBeInTheDocument();
+      expect(screen.getByText("A question")).toBeInTheDocument();
+      // No edit controls should be present in read-only view.
+      expect(screen.queryByText("Send")).not.toBeInTheDocument();
+      expect(screen.queryByText("Submit as Task")).not.toBeInTheDocument();
+    });
+
+    it("navigates back from detail to list", () => {
+      const entries = [
+        {
+          id: "plan-1",
+          submittedAt: Date.now(),
+          repoPath: "owner/repo-a",
+          prompt: "p",
+          finalPlan: "plan",
+          messages: [],
+        },
+      ];
+      window.localStorage.setItem(
+        "hh_grill_plan_history",
+        JSON.stringify(entries),
+      );
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      fireEvent.click(screen.getByText("owner/repo-a"));
+      fireEvent.click(screen.getByText("Back to list"));
+      expect(screen.getByText("Past Plans")).toBeInTheDocument();
+    });
+
+    it("navigates back from list to form", () => {
+      renderOverlay();
+      fireEvent.click(screen.getByText(/Past Plans/));
+      fireEvent.click(screen.getByText("Back"));
+      expect(screen.getByText("Start Grilling")).toBeInTheDocument();
+    });
+
+    it("saves plan to history when Submit as Task is clicked", () => {
+      const session = makeSession({
+        phase: "plan",
+        finalPlan: "Plan body",
+        messages: [
+          {
+            id: "m1",
+            role: "assistant",
+            content: "A question",
+            type: "message",
+            timestamp: 1,
+          },
+        ],
+      });
+      const initialForm: GrillFormState = {
+        ...DEFAULT_FORM,
+        repo_path: "owner/repo-x",
+      };
+      renderOverlay({ session, initialForm });
+      fireEvent.click(screen.getByText("Submit as Task"));
+
+      const stored = JSON.parse(
+        window.localStorage.getItem("hh_grill_plan_history") ?? "[]",
+      );
+      expect(stored).toHaveLength(1);
+      expect(stored[0].finalPlan).toBe("Plan body");
+      expect(stored[0].repoPath).toBe("owner/repo-x");
+      expect(stored[0].messages).toHaveLength(1);
+    });
+
+    it("ignores corrupt history JSON", () => {
+      window.localStorage.setItem("hh_grill_plan_history", "not valid json");
+      renderOverlay();
+      // Button should still render and history count omitted.
+      expect(screen.getByText("Past Plans")).toBeInTheDocument();
+    });
+  });
+
   // ---- System message grouping ----
 
   describe("system message grouping", () => {
@@ -477,6 +718,110 @@ describe("GrillMeOverlay", () => {
       expect(screen.getByText("Interviewer")).toBeInTheDocument();
       expect(screen.getByText("Done processing")).toBeInTheDocument();
       expect(screen.getByText("2 steps")).toBeInTheDocument();
+    });
+  });
+
+  // ---- Draft persistence ----
+
+  describe("draft persistence", () => {
+    it("persists form prompt draft to localStorage on change", () => {
+      renderOverlay({ session: makeSession({ phase: "form" }) });
+      const prompt = screen.getByPlaceholderText(/Describe your plan/) as HTMLTextAreaElement;
+      fireEvent.change(prompt, { target: { value: "draft prompt" } });
+
+      const raw = window.localStorage.getItem("hh_grill_form_draft");
+      expect(raw).not.toBeNull();
+      expect(JSON.parse(raw!).prompt).toBe("draft prompt");
+    });
+
+    it("hydrates form fields from persisted draft on remount", () => {
+      window.localStorage.setItem(
+        "hh_grill_form_draft",
+        JSON.stringify({
+          repo_path: "persisted/repo",
+          prompt: "persisted prompt",
+          model: "gpt-5.2",
+          reference_repos: "",
+          backend: "claudecodecli",
+        }),
+      );
+
+      renderOverlay({ session: makeSession({ phase: "form" }) });
+      const prompt = screen.getByPlaceholderText(/Describe your plan/) as HTMLTextAreaElement;
+      expect(prompt.value).toBe("persisted prompt");
+      const repo = screen.getByTestId("repo-suggest-input") as HTMLInputElement;
+      expect(repo.value).toBe("persisted/repo");
+    });
+
+    it("does not persist the github token in the form draft", () => {
+      renderOverlay({
+        session: makeSession({ phase: "form" }),
+        initialForm: {
+          repo_path: "",
+          prompt: "",
+          model: "",
+          github_token: "ghp_secret",
+          reference_repos: "",
+          backend: "claudecodecli",
+        },
+      });
+
+      // Trigger a re-persist by editing an unrelated field.
+      const prompt = screen.getByPlaceholderText(/Describe your plan/) as HTMLTextAreaElement;
+      fireEvent.change(prompt, { target: { value: "anything" } });
+
+      const raw = window.localStorage.getItem("hh_grill_form_draft");
+      expect(raw).not.toBeNull();
+      const parsed = JSON.parse(raw!);
+      expect(parsed).not.toHaveProperty("github_token");
+    });
+
+    it("clears the form draft after starting the session", () => {
+      window.localStorage.setItem(
+        "hh_grill_form_draft",
+        JSON.stringify({ prompt: "old draft" }),
+      );
+      const session = makeSession({ phase: "form" });
+      renderOverlay({
+        session,
+        initialForm: {
+          repo_path: "x/y",
+          prompt: "a prompt",
+          model: "",
+          github_token: "",
+          reference_repos: "",
+          backend: "claudecodecli",
+        },
+      });
+
+      fireEvent.submit(screen.getByText("Start Grilling").closest("form")!);
+      expect(window.localStorage.getItem("hh_grill_form_draft")).toBeNull();
+    });
+
+    it("hydrates chat input draft from localStorage", () => {
+      window.localStorage.setItem("hh_grill_chat_draft", "in-flight answer");
+      renderOverlay({ session: makeSession({ phase: "chatting" }) });
+      const textarea = document.querySelector(".grill-chat-input") as HTMLTextAreaElement;
+      expect(textarea.value).toBe("in-flight answer");
+    });
+
+    it("persists chat input draft on change", () => {
+      renderOverlay({ session: makeSession({ phase: "chatting" }) });
+      const textarea = document.querySelector(".grill-chat-input") as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: "typing..." } });
+      expect(window.localStorage.getItem("hh_grill_chat_draft")).toBe("typing...");
+    });
+
+    it("clears chat draft after send", () => {
+      window.localStorage.setItem("hh_grill_chat_draft", "will be sent");
+      const session = makeSession({ phase: "chatting" });
+      renderOverlay({ session });
+      const textarea = document.querySelector(".grill-chat-input") as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: "will be sent" } });
+      fireEvent.click(screen.getByText("Send"));
+
+      expect(session.sendMessage).toHaveBeenCalledWith("will be sent");
+      expect(window.localStorage.getItem("hh_grill_chat_draft")).toBeNull();
     });
   });
 

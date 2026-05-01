@@ -76,9 +76,10 @@ function ScheduleFormFields({
           >
             <option value="cron">Cron (fixed times)</option>
             <option value="interval">Interval (non-concurrent)</option>
+            <option value="watch_issues">Watch Issues (auto PR)</option>
           </select>
         </label>
-        {scheduleForm.schedule_type === "cron" ? (
+        {scheduleForm.schedule_type !== "interval" ? (
           <label>
             Cron preset
             <select
@@ -129,9 +130,9 @@ function ScheduleFormFields({
         )}
       </div>
 
-      {scheduleForm.schedule_type === "cron" ? (
+      {scheduleForm.schedule_type !== "interval" ? (
         <label>
-          Cron expression
+          {scheduleForm.schedule_type === "watch_issues" ? "Poll frequency (cron)" : "Cron expression"}
           <input
             value={scheduleForm.cron_expression}
             onChange={(e) => onUpdateField("cron_expression", e.target.value)}
@@ -170,16 +171,33 @@ function ScheduleFormFields({
         />
       </label>
 
-      <label>
-        Prompt
-        <textarea
-          value={scheduleForm.prompt}
-          onChange={(e) => onUpdateField("prompt", e.target.value)}
-          required
-          rows={4}
-          placeholder="Update documentation..."
-        />
-      </label>
+      {scheduleForm.schedule_type === "watch_issues" ? (
+        <>
+          <label>
+            Issue label filter (optional, comma-separated)
+            <input
+              value={scheduleForm.watch_labels}
+              onChange={(e) => onUpdateField("watch_labels", e.target.value)}
+              placeholder="bug, enhancement (leave empty for all issues)"
+            />
+          </label>
+          <p style={{ fontSize: "0.78rem", color: "var(--muted)", margin: "4px 0 8px" }}>
+            Polls for new issues and auto-creates PRs. Labels are managed automatically
+            (queued/done/failed/watched).
+          </p>
+        </>
+      ) : (
+        <label>
+          Prompt
+          <textarea
+            value={scheduleForm.prompt}
+            onChange={(e) => onUpdateField("prompt", e.target.value)}
+            required
+            rows={4}
+            placeholder="Update documentation..."
+          />
+        </label>
+      )}
 
       <details className="advanced-settings">
         <summary>Advanced settings</summary>
@@ -239,14 +257,6 @@ function ScheduleFormFields({
             <label className="check-row">
               <input
                 type="checkbox"
-                checked={scheduleForm.enable_execution}
-                onChange={(e) => onUpdateField("enable_execution", e.target.checked)}
-              />
-              Execution
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
                 checked={scheduleForm.enable_web}
                 onChange={(e) => onUpdateField("enable_web", e.target.checked)}
               />
@@ -287,7 +297,7 @@ function ScheduleFormFields({
           </div>
           <div className="row">
             <label>
-              GitHub Token{tokenRequired && <span className="required-star"> *</span>}
+              <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
               <input
                 className="github-token-input"
                 type="password"
@@ -414,7 +424,7 @@ export default function ScheduleCard({
                       {item.enabled ? "enabled" : "disabled"}
                     </span>
                     <span className="status-pill run" style={{ fontSize: "0.55rem" }}>
-                      {item.schedule_type === "interval" ? "interval" : "cron"}
+                      {item.schedule_type === "interval" ? "interval" : item.schedule_type === "watch_issues" ? "watch" : "cron"}
                     </span>
                   </div>
                   <div className="schedule-item-meta">

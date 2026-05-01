@@ -1,7 +1,29 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
-import { apiUrl } from "../App.utils";
+import { apiUrl, loadGithubToken, saveGithubToken } from "../App.utils";
 import RepoSuggestInput from "./RepoSuggestInput";
+
+const REPO_DRAFT_KEY = "hh_submit_issue_repo_draft";
+
+function loadRepoDraft(): string {
+  try {
+    return localStorage.getItem(REPO_DRAFT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveRepoDraft(value: string): void {
+  try {
+    if (value) {
+      localStorage.setItem(REPO_DRAFT_KEY, value);
+    } else {
+      localStorage.removeItem(REPO_DRAFT_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 type GitHubIssue = {
   number: number;
@@ -31,11 +53,18 @@ export default function SubmitIssueOverlay({
   onClose,
 }: SubmitIssueOverlayProps) {
   const [step, setStep] = useState<Step>("repo");
-  const [repo, setRepo] = useState(defaultRepo);
-  const [githubToken, setGithubToken] = useState("");
+  // Prefer a persisted draft so the user's in-progress input survives
+  // close/reopen; fall back to the caller-supplied defaultRepo.
+  const [repo, setRepo] = useState<string>(() => loadRepoDraft() || defaultRepo);
+  const [githubToken, setGithubToken] = useState(loadGithubToken);
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Persist the repo draft on every change.
+  useEffect(() => {
+    saveRepoDraft(repo);
+  }, [repo]);
 
   const tokenRequired = !serverHasGithubToken && !githubToken.trim();
 
@@ -130,7 +159,7 @@ export default function SubmitIssueOverlay({
                 />
               </label>
               <label style={{ marginTop: 12, display: "block" }}>
-                GitHub Token{!serverHasGithubToken && <span className="required-star"> *</span>}
+                <span>GitHub Token{!serverHasGithubToken && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
                 <input
                   className="github-token-input"
                   type="password"
@@ -174,7 +203,7 @@ export default function SubmitIssueOverlay({
                       <button
                         type="button"
                         className="issue-row"
-                        onClick={() => onSubmitIssue(repo, issue, githubToken)}
+                        onClick={() => { saveGithubToken(githubToken); saveRepoDraft(""); onSubmitIssue(repo, issue, githubToken); }}
                       >
                         <span className="issue-row-top">
                           <code>#{issue.number}</code>

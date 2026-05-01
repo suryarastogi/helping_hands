@@ -25,6 +25,23 @@ FileNotFoundError, TimeoutExpired, non-zero exit with stderr/fallback, stderr
 truncation, command structure), and `_CODEX_TURN_TIMEOUT_S` constant
 (value/type/positive). 24 new tests. All pass.
 
+### Coverage Hardening: github.py, hand/base.py, cli/base.py (2026-04-16) — Completed
+
+Raised total backend coverage from 95.88% to 98.76% by covering the three
+sub-95% modules. `github.py`: added tests for `list_issues` (field mapping,
+PR filtering, user=None, body=None), `list_issues_excluding_labels`
+(filter_labels dedup, exclude_labels, no-filter path, PR exclusion),
+`list_prs_with_label` (label-not-found, PR mapping, limit, empty label
+validation) — 85% → 100%. `hand/base.py`: added tests for
+`_default_base_branch` (successful ref parsing), `_try_rebase_for_push`
+(fetch failure, clean rebase, conflict detection, non-conflict abort,
+timeout) — 92% → 96%. `cli/base.py`: added tests for
+`_build_conflict_fix_prompt` (files, truncation, empty output),
+`_get_conflicted_files` (normal, timeout, OSError, empty),
+`_attempt_rebase_with_conflict_fix` (all 7 paths), `_ai_resolve_push_conflicts`
+(all 8 paths including success, error, failed, push rejection) — 88% → 99%.
+46 new tests. 5354 total tests pass. Coverage: 98.76%.
+
 ### Fix Test Failures & Code Quality Improvements (2026-04-05) — Completed
 
 Fixed 5 failing tests and improved code quality. `_normalize_args` in

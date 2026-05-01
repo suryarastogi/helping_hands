@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { apiUrl } from "../App.utils";
+import { apiUrl, saveGithubToken } from "../App.utils";
 import type {
   GrillFormState,
   GrillMessage,
@@ -131,6 +131,10 @@ export function useGrillSession(): GrillSessionState {
         .split(",")
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
+
+      if (form.github_token?.trim()) {
+        saveGithubToken(form.github_token);
+      }
 
       try {
         const res = await fetch(apiUrl("/grill"), {

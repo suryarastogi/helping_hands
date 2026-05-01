@@ -124,6 +124,30 @@ request but no files were modified:
 All backends support `--use-native-cli-auth` to strip API keys from the
 subprocess environment, letting the external CLI use its own credential store.
 
+## Pre-commit hook fix
+
+CLI hands override `_try_fix_git_hook_errors()` to invoke the AI backend
+synchronously when pre-commit checks fail during finalization. The flow:
+
+1. `_build_hook_fix_prompt(error_output)` formats the hook errors into a
+   prompt asking the backend to fix linting, formatting, or type errors.
+   Error output is truncated to 3000 chars to stay within prompt limits.
+
+2. The prompt is rendered into a CLI command via `_render_command()` and
+   executed as a subprocess with the same environment as the main phases.
+
+3. If the primary command is not found, `_fallback_command_when_not_found()`
+   is tried (e.g. `npx -y @anthropic-ai/claude-code` for Claude Code).
+
+4. Returns True if `_repo_has_changes()` detects file modifications,
+   False otherwise.
+
+This hook is triggered in two contexts:
+- **Pre-PR validation**: when `_run_precommit_checks_and_fixes()` fails
+  during `_validate_finalization_preconditions()`
+- **Commit-time hooks**: when `git commit` fails due to Husky/lint-staged
+  in `_add_and_commit_with_hook_retry()`
+
 ## Container isolation
 
 Codex and Claude Code support optional Docker wrapping:

@@ -776,6 +776,121 @@ class GitHubClient:
             "labels": [label.name for label in issue.labels],
         }
 
+    def list_issues_excluding_labels(
+        self,
+        full_name: str,
+        *,
+        exclude_labels: list[str],
+        filter_labels: list[str] | None = None,
+        per_page: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List open issues excluding those with any of *exclude_labels*.
+
+        If *filter_labels* is non-empty, only issues matching at least one of
+        those labels are returned.  Pull requests are excluded from results.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            exclude_labels: Issues with any of these labels are skipped.
+            filter_labels: If non-empty, require at least one matching label.
+            per_page: Maximum number of issues to return.
+
+        Returns:
+            A list of issue dicts (same shape as :meth:`list_issues`).
+        """
+        repo = self.get_repo(full_name)
+        exclude_set = set(exclude_labels)
+
+        # If filter_labels is specified, fetch issues for each label and merge.
+        # Otherwise fetch all open issues.
+        if filter_labels:
+            seen: set[int] = set()
+            issues_raw: list[Any] = []
+            for label_name in filter_labels:
+                for issue in repo.get_issues(
+                    state="open",
+                    labels=[repo.get_label(label_name)],
+                    sort="updated",
+                    direction="desc",
+                )[:per_page]:
+                    if issue.number not in seen:
+                        seen.add(issue.number)
+                        issues_raw.append(issue)
+        else:
+            issues_raw = list(
+                repo.get_issues(state="open", sort="updated", direction="desc")
+            )[:per_page]
+
+        results: list[dict[str, Any]] = []
+        for issue in issues_raw:
+            if issue.pull_request is not None:
+                continue
+            issue_labels = {lbl.name for lbl in issue.labels}
+            if issue_labels & exclude_set:
+                continue
+            results.append(
+                {
+                    "number": issue.number,
+                    "title": issue.title,
+                    "body": issue.body or "",
+                    "url": issue.html_url,
+                    "state": issue.state,
+                    "labels": list(issue_labels),
+                    "user": issue.user.login if issue.user else "",
+                }
+            )
+        return results
+
+    def list_prs_with_label(
+        self,
+        full_name: str,
+        *,
+        label: str,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List open pull requests that carry a specific label.
+
+        Uses the issues API (PRs are issues) with a label filter, then
+        keeps only entries that are actual pull requests.
+
+        Args:
+            full_name: ``owner/repo`` string.
+            label: Label name to filter on.
+            limit: Maximum number of PRs to return.
+
+        Returns:
+            A list of PR dicts with keys ``number``, ``title``, ``url``,
+            ``state``, ``head``, ``base``, and ``mergeable``.
+        """
+        require_non_empty_string(label, "label")
+        repo = self.get_repo(full_name)
+        try:
+            lbl = repo.get_label(label)
+        except GithubException:
+            return []
+
+        results: list[dict[str, Any]] = []
+        for issue in repo.get_issues(
+            state="open", labels=[lbl], sort="updated", direction="desc"
+        )[:limit]:
+            if issue.pull_request is None:
+                continue
+            pr = repo.get_pull(issue.number)
+            results.append(
+                {
+                    "number": pr.number,
+                    "title": pr.title,
+                    "url": pr.html_url,
+                    "state": pr.state,
+                    "head": pr.head.ref,
+                    "base": pr.base.ref,
+                    "mergeable": pr.mergeable,
+                }
+            )
+            if len(results) >= limit:
+                break
+        return results
+
     # ------------------------------------------------------------------
     # Issue labels
     # ------------------------------------------------------------------

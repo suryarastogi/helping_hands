@@ -1425,9 +1425,22 @@ class Hand(abc.ABC):
             try:
                 self._run_precommit_checks_and_fixes(repo_dir)
             except RuntimeError as exc:
-                metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
-                metadata[_META_PR_ERROR] = str(exc)
-                return None
+                error_msg = str(exc)
+                logger.info(
+                    "Pre-commit failed, attempting AI-assisted fix: %s",
+                    error_msg[:_LOG_TRUNCATION_LENGTH],
+                )
+                if self._try_fix_git_hook_errors(repo_dir, error_msg):
+                    try:
+                        self._run_precommit_checks_and_fixes(repo_dir)
+                    except RuntimeError as retry_exc:
+                        metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
+                        metadata[_META_PR_ERROR] = str(retry_exc)
+                        return None
+                else:
+                    metadata[_META_PR_STATUS] = PRStatus.PRECOMMIT_FAILED
+                    metadata[_META_PR_ERROR] = error_msg
+                    return None
             if not self._has_pending_changes(repo_dir):
                 metadata[_META_PR_STATUS] = _PR_STATUS_NO_CHANGES
                 return None

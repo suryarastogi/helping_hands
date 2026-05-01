@@ -41,6 +41,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 
 export const TASK_HISTORY_STORAGE_KEY = "helping_hands_task_history_v1";
 export const TASK_HISTORY_LIMIT = 60;
+const GITHUB_TOKEN_STORAGE_KEY = "hh_github_token";
 /** Non-terminal tasks older than this are pruned on load (2 hours). */
 export const TASK_STALE_MS = 2 * 60 * 60 * 1000;
 
@@ -79,6 +80,27 @@ const DEFAULT_MODEL_GPT = "gpt-5.4";
 const DEFAULT_MODEL_CLAUDE = "claude-opus-4-6";
 const DEFAULT_MODEL_GEMINI = "gemini-2.5-pro";
 
+export function loadGithubToken(): string {
+  try {
+    return localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function saveGithubToken(token: string): void {
+  try {
+    const trimmed = token.trim();
+    if (trimmed) {
+      localStorage.setItem(GITHUB_TOKEN_STORAGE_KEY, trimmed);
+    } else {
+      localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    // quota exceeded or private browsing — silently ignore
+  }
+}
+
 export const INITIAL_FORM: FormState = {
   repo_path: DEFAULT_REPO,
   prompt: DEFAULT_PROMPT,
@@ -91,14 +113,14 @@ export const INITIAL_FORM: FormState = {
   project_url: "",
   tools: "",
   no_pr: false,
-  enable_execution: false,
+  enable_execution: true,
   enable_web: false,
   use_native_cli_auth: false,
   fix_ci: true,
   fix_conflicts: true,
   master_rebase: true,
   ci_check_wait_minutes: 3,
-  github_token: "",
+  github_token: loadGithubToken(),
   reference_repos: "",
 };
 
@@ -144,16 +166,17 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   max_iterations: 6,
   pr_number: "",
   no_pr: false,
-  enable_execution: false,
+  enable_execution: true,
   enable_web: false,
   use_native_cli_auth: false,
   fix_ci: false,
   fix_conflicts: false,
   master_rebase: false,
   ci_check_wait_minutes: 3,
-  github_token: "",
+  github_token: loadGithubToken(),
   reference_repos: "",
   tools: "",
+  watch_labels: "",
   enabled: true,
 };
 
