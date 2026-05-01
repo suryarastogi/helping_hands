@@ -3147,13 +3147,19 @@ class VersionResponse(BaseModel):
     sentinel_sha: str | None
 
 
-@app.get("/version", response_model=VersionResponse)
+@app.get("/health/version", response_model=VersionResponse)
 def get_version() -> VersionResponse:
     """Return version identity for backend + workers and deploy state.
 
-    Frontend bakes its own version at Vite startup via ``__APP_VERSION__``
-    and compares against the values returned here to detect partial-deploy
-    mismatches.
+    Frontend bakes its own version into ``src/version-generated.ts`` (via
+    ``write-version.mjs`` at vite startup) and compares against the values
+    returned here to detect partial-deploy mismatches.
+
+    Mounted under ``/health`` because the standalone ``/version`` proxy
+    entry didn't match on lugia's vite for an unresolved reason — every
+    other proxied prefix worked, but ``/version`` consistently fell
+    through to the SPA fallback. ``/health`` is known-good, so we slot
+    in there.
     """
     from helping_hands.lib.version import (
         get_version_info,

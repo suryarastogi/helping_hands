@@ -148,7 +148,7 @@ class TestVersionEndpoint:
         )
 
         client = TestClient(app)
-        response = client.get("/version")
+        response = client.get("/health/version")
 
         assert response.status_code == 200
         body = response.json()
@@ -187,7 +187,7 @@ class TestVersionEndpoint:
         monkeypatch.setitem(__import__("sys").modules, "redis", _Mod)
 
         client = TestClient(app)
-        response = client.get("/version")
+        response = client.get("/health/version")
 
         assert response.status_code == 200
         body = response.json()

@@ -81,7 +81,7 @@ export function useVersion(): VersionState {
     if (inFlight.current) return;
     inFlight.current = true;
     try {
-      const res = await fetch(apiUrl("/version"));
+      const res = await fetch(apiUrl("/health/version"));
       if (!res.ok) {
         setReachable(false);
         return;
