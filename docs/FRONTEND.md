@@ -209,6 +209,27 @@ To verify both surfaces offer the same features:
 | `/ws/yjs/{room}` | WebSocket | Yjs-based multiplayer sync |
 | `/health/multiplayer` | GET | Multiplayer room/connection stats |
 | `/health/multiplayer/players` | GET | Connected player list with positions |
+| `/health/version` | GET | Per-component versions + deploy state |
+
+### Adding a new backend endpoint
+
+When adding a new HTTP route on the FastAPI side, the frontend Vite dev
+server proxies it to the backend based on path prefixes configured in
+`frontend/vite.config.ts`. Two gotchas have bitten us — same pattern
+appeared in the prior Flask + Vite setup:
+
+1. **Add the prefix to the `apiProxy` map.** Without an entry, requests
+   fall through to the SPA `index.html` fallback (HTTP 200 with HTML),
+   which manifests as "JSON parse error" or unexpected 200 responses
+   from your fetch.
+2. **Verify on lugia.** Adding the entry isn't always sufficient — at
+   least one path (`/version`) consistently failed to match on lugia's
+   vite despite an identical entry working locally. Always curl the new
+   path through port 5173 after deploy and confirm the response is
+   `Content-Type: application/json`, not `text/html`. If the proxy
+   doesn't match, nest the endpoint under a known-working prefix
+   (`/health/X` is reliable) instead of fighting vite. The mismatch is
+   silent and easy to misread as a backend bug.
 
 ## Multiplayer Hand World
 
