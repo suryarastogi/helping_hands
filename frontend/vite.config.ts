@@ -1,4 +1,50 @@
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
+
+function tryGit(args: string): string | null {
+  try {
+    return execSync(`git ${args}`, { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    return null;
+  }
+}
+
+function readNominalVersion(): string {
+  try {
+    const pkgPath = fileURLToPath(new URL("./package.json", import.meta.url));
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+    if (pkg.version) return pkg.version;
+  } catch {
+    // fall through
+  }
+  return "0.0.0";
+}
+
+function computeFrontendVersion(): {
+  display: string;
+  longSha: string;
+  commitDate: string | null;
+} {
+  const nominal = readNominalVersion();
+  const shortSha = tryGit("rev-parse --short HEAD");
+  const longSha = tryGit("rev-parse HEAD");
+  const porcelain = tryGit("status --porcelain");
+  const commitDate = tryGit("log -1 --format=%cI");
+
+  if (!shortSha || !longSha) {
+    return { display: `${nominal}+unknown`, longSha: "unknown", commitDate: null };
+  }
+  const dirty = porcelain && porcelain.length > 0 ? "-dirty" : "";
+  return {
+    display: `${nominal}+${shortSha}${dirty}`,
+    longSha,
+    commitDate,
+  };
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -13,6 +59,7 @@ export default defineConfig(({ mode }) => {
     "/tasks": { target, changeOrigin: true },
     "/monitor": { target, changeOrigin: true },
     "/health": { target, changeOrigin: true },
+    "/version": { target, changeOrigin: true },
     "/workers": { target, changeOrigin: true },
     "/config": { target, changeOrigin: true },
     "/schedules": { target, changeOrigin: true },
@@ -42,5 +89,14 @@ export default defineConfig(({ mode }) => {
     };
   }
 
-  return { server: { proxy: apiProxy } };
+  const fe = computeFrontendVersion();
+
+  return {
+    server: { proxy: apiProxy },
+    define: {
+      __APP_VERSION__: JSON.stringify(fe.display),
+      __APP_VERSION_LONG_SHA__: JSON.stringify(fe.longSha),
+      __APP_VERSION_COMMIT_DATE__: JSON.stringify(fe.commitDate),
+    },
+  };
 });

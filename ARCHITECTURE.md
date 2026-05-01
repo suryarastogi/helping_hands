@@ -299,6 +299,7 @@ outage still surfaces the utilization percentages in the task result.
 | CLI shim (legacy) | `src/helping_hands/lib/hands/v1/hand/placeholders.py` |
 | Config | `src/helping_hands/lib/config.py` |
 | Validation | `src/helping_hands/lib/validation.py` |
+| Version identity | `src/helping_hands/lib/version.py` |
 | Default prompts | `src/helping_hands/lib/default_prompts.py` |
 | GitHub integration | `src/helping_hands/lib/github.py` |
 | GitHub URL helpers | `src/helping_hands/lib/github_url.py` |

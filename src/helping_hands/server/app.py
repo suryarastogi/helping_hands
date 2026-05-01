@@ -3133,6 +3133,61 @@ def health_services() -> ServiceHealthResponse:
     )
 
 
+class VersionResponse(BaseModel):
+    """Per-component version map plus deploy-state signals."""
+
+    backend: str
+    workers: dict[str, str]
+    git_sha: str
+    commit_date: str | None
+    is_deployed: bool
+    sentinel_sha: str | None
+
+
+@app.get("/version", response_model=VersionResponse)
+def get_version() -> VersionResponse:
+    """Return version identity for backend + workers and deploy state.
+
+    Frontend bakes its own version at Vite startup via ``__APP_VERSION__``
+    and compares against the values returned here to detect partial-deploy
+    mismatches.
+    """
+    from helping_hands.lib.version import (
+        get_version_info,
+        read_sentinel_sha,
+        read_worker_versions,
+    )
+
+    info = get_version_info()
+    sentinel = read_sentinel_sha()
+
+    workers: dict[str, str] = {}
+    try:
+        import redis as redis_lib
+    except ImportError:
+        logger.debug("redis package not installed; skipping worker versions")
+    else:
+        try:
+            broker_url = celery_app.conf.broker_url or _DEFAULT_REDIS_URL
+            client = redis_lib.Redis.from_url(
+                broker_url,
+                socket_connect_timeout=_REDIS_HEALTH_TIMEOUT_S,
+                socket_timeout=_REDIS_HEALTH_TIMEOUT_S,
+            )
+            workers = read_worker_versions(client)
+        except (redis_lib.RedisError, OSError):
+            logger.debug("Could not read worker versions from Redis", exc_info=True)
+
+    return VersionResponse(
+        backend=info.display,
+        workers=workers,
+        git_sha=info.long_sha,
+        commit_date=info.commit_date,
+        is_deployed=sentinel is not None,
+        sentinel_sha=sentinel,
+    )
+
+
 def _is_running_in_docker() -> bool:
     """Return True when the process is running inside a Docker container."""
     if Path("/.dockerenv").exists():

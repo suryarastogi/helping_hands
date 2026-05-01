@@ -118,6 +118,48 @@ celery_app.conf.update(
 )
 
 
+def _register_worker_version_signals() -> None:
+    """Wire up worker_ready / worker_heartbeat to publish this worker's
+    version into Redis so the FastAPI ``/version`` endpoint can surface it.
+
+    Failures (Redis down, package missing) never crash the worker — they
+    only suppress the version signal in the UI.
+    """
+    from celery.signals import heartbeat_sent, worker_ready
+
+    from helping_hands.lib.version import (
+        get_version_info,
+        register_worker_version,
+    )
+
+    def _client() -> object | None:
+        try:
+            import redis as redis_lib
+        except ImportError:
+            return None
+        try:
+            return redis_lib.Redis.from_url(_BROKER_URL)
+        except (redis_lib.RedisError, OSError):
+            return None
+
+    def _publish() -> None:
+        client = _client()
+        if client is None:
+            return
+        register_worker_version(client, get_version_info().display)
+
+    @worker_ready.connect
+    def _on_worker_ready(**_kwargs: object) -> None:  # pragma: no cover
+        _publish()
+
+    @heartbeat_sent.connect
+    def _on_heartbeat_sent(**_kwargs: object) -> None:  # pragma: no cover
+        _publish()
+
+
+_register_worker_version_signals()
+
+
 _USAGE_LOG_INTERVAL_S = 3600.0
 """Interval in seconds between automatic Claude usage log entries."""
 

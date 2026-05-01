@@ -31,6 +31,7 @@ import ScheduleCard from "./components/ScheduleCard";
 import SubmissionForm from "./components/SubmissionForm";
 import SubmitIssueOverlay from "./components/SubmitIssueOverlay";
 import TaskListSidebar from "./components/TaskListSidebar";
+import VersionBadge from "./components/VersionBadge";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
 import { useGrillSession } from "./hooks/useGrillSession";
 import { useOnboarding } from "./hooks/useOnboarding";
@@ -625,6 +626,7 @@ export default function App() {
       toasts={toasts}
       onRemoveToast={removeToast}
     />
+    <VersionBadge />
     {onboarding.isActive && onboarding.currentStep && (
       <OnboardingOverlay
         step={onboarding.currentStep}
