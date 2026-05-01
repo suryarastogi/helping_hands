@@ -324,10 +324,12 @@ start_all() {
     uv run --extra server celery -A "${CELERY_APP}" flower --port="${FLOWER_PORT}"
 
   # Unset CI so Vite enables the WebSocket proxy (CI=true from GHA runners
-  # would skip it, breaking Yjs multiplayer connections).
+  # would skip it, breaking Yjs multiplayer connections). Run write-version
+  # before vite so src/version-generated.ts has the deployed SHA — doing
+  # this in vite.config.ts proved unreliable on lugia.
   start_service \
     "frontend" \
-    bash -c "unset CI; cd '${REPO_ROOT}/frontend' && exec npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
+    bash -c "unset CI; cd '${REPO_ROOT}/frontend' && node scripts/write-version.mjs && exec npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
 
   echo
   echo "Logs: ${LOG_DIR}"
