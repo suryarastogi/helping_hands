@@ -51,14 +51,13 @@ export default function PlayerAvatar({
     ? `human-player ${direction}${walking ? " walking" : ""}`
     : `remote-player ${direction}${walking ? " walking" : ""}`;
 
-  const style: CSSProperties = isLocal
-    ? { left: `${x}%`, top: `${y}%` }
-    : {
-        left: `${x}%`,
-        top: `${y}%`,
-        "--rp-body": color,
-        "--rp-accent": `${color}66`,
-      } as CSSProperties;
+  const style: CSSProperties = {
+    left: `${x}%`,
+    top: `${y}%`,
+    ...(color
+      ? { "--rp-body": color, "--rp-accent": `${color}66` }
+      : {}),
+  } as CSSProperties;
 
   const [showTooltip, setShowTooltip] = useState(false);
 

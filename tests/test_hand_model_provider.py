@@ -270,7 +270,7 @@ class TestBuildLangchainChatModelOpenAI:
             {"langchain_openai": SimpleNamespace(ChatOpenAI=mock_cls)},
         ):
             result = build_langchain_chat_model(hm, streaming=True)
-        mock_cls.assert_called_once_with(model_name="gpt-5.2", streaming=True)
+        mock_cls.assert_called_once_with(model="gpt-5.2", streaming=True)
         assert result is sentinel
 
 
@@ -286,7 +286,7 @@ class TestBuildLangchainChatModelOllama:
         ):
             build_langchain_chat_model(hm, streaming=False)
         mock_cls.assert_called_once_with(
-            model_name="llama3.2:latest",
+            model="llama3.2:latest",
             streaming=False,
             base_url="http://custom:1234/v1",
             api_key="secret",

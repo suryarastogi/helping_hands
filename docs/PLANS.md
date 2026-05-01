@@ -4,7 +4,9 @@ Index of execution plans for helping_hands development.
 
 ## Active plans
 
-*(none)*
+| Plan | Status |
+|------|--------|
+| [2026-04-07-conflict-resolution-coverage](exec-plans/active/2026-04-07-conflict-resolution-coverage.md) | Completed |
 
 ## Completed plans
 
@@ -25,6 +27,7 @@ Index of execution plans for helping_hands development.
 | Date | File |
 |------|------|
 | [2026-04-16](exec-plans/completed/2026/2026-04-16.md) | Coverage hardening: github.py (85→100%), hand/base.py (92→96%), cli/base.py (88→99%) |
+| [2026-04-07](exec-plans/completed/2026/2026-04-07.md) | Codex CLI grill tests + conflict resolution & rebase coverage (42+24 tests) |
 | [2026-04-05](exec-plans/completed/2026/2026-04-05.md) | 21 plans: server coverage, registry, validation, CLI flags, frontend tests |
 | [2026-04-04](exec-plans/completed/2026/2026-04-04.md) | 19 plans: doctor, grill testability, CLI coverage, git clone extraction |
 | [2026-03-30](exec-plans/completed/2026/2026-03-30.md) | Coverage hardening: meta tools, hand base, GitHub, branch gaps |
@@ -47,4 +50,4 @@ Index of execution plans for helping_hands development.
 
 ---
 
-*Last updated: 2026-04-05*
+*Last updated: 2026-04-07*

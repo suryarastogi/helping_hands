@@ -12,6 +12,7 @@ import logging
 import os
 import subprocess
 import time
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -45,6 +46,7 @@ from helping_hands.lib.validation import (
     parse_comma_list,
     require_non_empty_string,
 )
+from helping_hands.server import multiplayer_yjs as _multiplayer_yjs
 from helping_hands.server.celery_app import build_feature, celery_app
 from helping_hands.server.constants import (
     ANTHROPIC_BETA_HEADER as _ANTHROPIC_BETA_HEADER,
@@ -73,6 +75,11 @@ from helping_hands.server.constants import (
     USAGE_API_TIMEOUT_S as _USAGE_API_TIMEOUT_S,
     USAGE_CACHE_TTL_S as _USAGE_CACHE_TTL_S,
     USAGE_USER_AGENT as _USAGE_USER_AGENT,
+)
+from helping_hands.server.mgrill_bridge import (
+    mgrill_room_name as _mgrill_room_name,
+    start_mgrill_bridge,
+    stop_mgrill_bridge,
 )
 from helping_hands.server.multiplayer_yjs import (
     create_yjs_app,
@@ -139,10 +146,14 @@ _SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Manage server lifecycle — start/stop the Yjs WebSocket server."""
+    """Manage server lifecycle — start/stop Yjs server + multiplayer-grill bridge."""
     await start_yjs_server()
-    yield
-    await stop_yjs_server()
+    await start_mgrill_bridge(_multiplayer_yjs.yjs_websocket_server)
+    try:
+        yield
+    finally:
+        await stop_mgrill_bridge()
+        await stop_yjs_server()
 
 
 app = FastAPI(
@@ -5118,3 +5129,923 @@ def poll_grill(session_id: str) -> GrillPollResponse:
         status=status,
         messages=messages,
     )
+
+
+# ---------------------------------------------------------------------------
+# Multiplayer Grill Me — collaborative AI interview sessions
+# ---------------------------------------------------------------------------
+#
+# Transport split:
+#   * Yjs room ``mgrill-{session_id}`` is authoritative for transcript
+#     (``messages`` Y.Array), vote tally (``votes`` Y.Map), and the pending
+#     batch (``pending`` Y.Map).  The frontend subscribes directly via
+#     ``WebsocketProvider``; the server mutates these same structures
+#     in-process so the changes sync automatically.
+#   * Redis is authoritative for the session registry, creator identity,
+#     turn count + status (everything that REST endpoints and the Celery
+#     worker need without touching the Y.Doc), and the ``user_msgs`` queue
+#     that the worker consumes.
+#   * AI-produced messages travel ``worker → Redis mgrill:ai_outbox →
+#     mgrill_bridge task → Y.Array "messages"``.  See mgrill_bridge.py.
+
+
+_MGRILL_MAX_NAME_LENGTH = 50
+_MGRILL_MAX_PENDING = 20
+_MGRILL_LOBBY_CAP = 50
+_MGRILL_CREATOR_HANDOFF_S = 60
+
+
+class MGrillCreateRequest(BaseModel):
+    """Request body for creating a new multiplayer grill session."""
+
+    repo_path: str = Field(min_length=1, max_length=_MAX_REPO_PATH_LENGTH)
+    prompt: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
+    model: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    creator_name: str = Field(default="Creator", max_length=_MGRILL_MAX_NAME_LENGTH)
+    creator_player_id: str | None = Field(default=None, max_length=64)
+    reference_repos: list[str] = Field(
+        default_factory=list, max_length=_MAX_REFERENCE_REPOS
+    )
+    backend: str = Field(default="claudecodecli", max_length=_MAX_MODEL_LENGTH)
+
+
+class MGrillCreateResponse(BaseModel):
+    """Response for a newly created multiplayer grill session."""
+
+    session_id: str
+    status: str
+
+
+class MGrillSessionSummary(BaseModel):
+    """Lobby listing for a single active multiplayer grill session."""
+
+    session_id: str
+    status: str
+    creator_name: str
+    repo_path: str
+    prompt: str
+    turn_count: int
+    created_at: float
+    last_activity_ts: float
+    participant_count: int = 0
+    has_final_plan: bool = False
+
+
+class MGrillListResponse(BaseModel):
+    """Response for the lobby session list."""
+
+    sessions: list[MGrillSessionSummary]
+    total: int
+
+
+class MGrillPollResponse(BaseModel):
+    """State snapshot for a multiplayer grill session.
+
+    The transcript, pending batch, and vote map live in the Yjs room — the
+    frontend subscribes to those directly.  This endpoint only returns what
+    lives in Redis and the room-awareness view.
+    """
+
+    session_id: str
+    status: str
+    creator_name: str
+    creator_token_hash: str | None
+    creator_player_id: str | None
+    creator_last_seen_ts: float
+    is_creator: bool
+    can_act_as_creator: bool
+    repo_path: str
+    prompt: str
+    model: str | None
+    backend: str
+    turn_count: int
+    participant_count: int
+    submitted_task_id: str | None
+
+
+class MGrillPendingRequest(BaseModel):
+    """Add a pending-batch message."""
+
+    player_id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=_MGRILL_MAX_NAME_LENGTH)
+    content: str = Field(min_length=1, max_length=_MAX_PROMPT_LENGTH)
+
+
+class MGrillVoteRequest(BaseModel):
+    """Cast or update a vote."""
+
+    player_id: str = Field(min_length=1, max_length=64)
+    vote: str = Field(pattern="^(up|down|clear)$")
+
+
+class MGrillHeartbeatRequest(BaseModel):
+    """Creator heartbeat (refreshes creator_last_seen_ts)."""
+
+    player_id: str | None = Field(default=None, max_length=64)
+
+
+def _mgrill_redis():  # pragma: no cover — needs redis
+    """Return a Redis client configured from the REDIS_URL env."""
+    import redis
+
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+    return redis.from_url(redis_url, decode_responses=True)
+
+
+def _mgrill_read_state(r, session_id: str) -> dict[str, Any] | None:
+    """Read and JSON-decode the session state, or return None."""
+    raw = r.get(f"mgrill:{session_id}:state")
+    if raw is None:
+        return None
+    return json.loads(raw)
+
+
+def _mgrill_touch_activity(r, session_id: str) -> None:
+    """Bump this session's registry score to now()."""
+    r.zadd("mgrill:sessions", {session_id: time.time()})
+
+
+def _mgrill_write_state(r, session_id: str, state: dict[str, Any]) -> None:
+    """Write session state + refresh TTL + bump registry activity."""
+    r.set(f"mgrill:{session_id}:state", json.dumps(state), ex=3600)
+    state["last_activity_ts"] = time.time()
+    _mgrill_touch_activity(r, session_id)
+
+
+def _mgrill_require_state(r, session_id: str) -> dict[str, Any]:
+    """Return state or raise 404."""
+    from fastapi import HTTPException
+
+    state = _mgrill_read_state(r, session_id)
+    if state is None:
+        raise HTTPException(
+            status_code=404, detail="Multiplayer grill session not found"
+        )
+    return state
+
+
+def _mgrill_effective_token(request: Request) -> str | None:
+    """Return the effective GitHub token for an mgrill action.
+
+    Falls back to the server-wide ``GITHUB_TOKEN`` env var when the client
+    hasn't sent ``X-GitHub-Token``.  Mirrors the schedules ownership pattern
+    where server-configured tokens satisfy auth for all users.
+    """
+    client = _get_request_token(request)
+    if client:
+        return client
+    server_token = os.environ.get("GITHUB_TOKEN", "").strip()
+    return server_token or None
+
+
+def _mgrill_require_token(request: Request) -> str:
+    """Return an effective token or raise 401.
+
+    When the server has ``GITHUB_TOKEN`` configured, client tokens are
+    optional — the server token is used as the fallback.  Otherwise the
+    client must provide ``X-GitHub-Token``.
+    """
+    from fastapi import HTTPException
+
+    token = _mgrill_effective_token(request)
+    if not token:
+        raise HTTPException(status_code=401, detail="GitHub token required")
+    return token
+
+
+def _mgrill_require_creator(state: dict[str, Any], token_hash: str) -> None:
+    """Raise 403 if *token_hash* is not the creator's.
+
+    Bypassed when the server has a global ``GITHUB_TOKEN`` — in that mode
+    identity is server-owned, not per-user, so any authenticated caller
+    may act as the creator (submit, keep-grilling, heartbeat, etc.).
+    """
+    from fastapi import HTTPException
+
+    if _server_has_github_token():
+        return
+    creator_hash = state.get("creator_token_hash")
+    if creator_hash and token_hash == creator_hash:
+        return
+    admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
+    if admin_token and token_hash == _hash_token(admin_token):
+        return
+    raise HTTPException(status_code=403, detail="Creator-only action")
+
+
+async def _mgrill_room(session_id: str) -> Any | None:
+    """Return the Yjs room for *session_id*, creating it if needed.
+
+    Returns ``None`` when the Yjs server is unavailable (pycrdt-websocket not
+    installed).  The underlying ``get_room`` call is idempotent and also
+    starts the room, so this is safe to call repeatedly.
+    """
+    server = _multiplayer_yjs.yjs_websocket_server
+    if server is None:
+        return None
+    try:
+        return await server.get_room(_mgrill_room_name(session_id))
+    except Exception:
+        logger.exception("mgrill: failed to get Yjs room for session %s", session_id)
+        return None
+
+
+def _ydoc_array(ydoc: Any, key: str) -> Any:
+    """Return ``ydoc[key]`` as a Y.Array, creating it if missing."""
+    from pycrdt import Array
+
+    try:
+        return ydoc[key]
+    except KeyError:
+        ydoc[key] = Array()
+        return ydoc[key]
+
+
+def _ydoc_map(ydoc: Any, key: str) -> Any:
+    """Return ``ydoc[key]`` as a Y.Map, creating it if missing."""
+    from pycrdt import Map
+
+    try:
+        return ydoc[key]
+    except KeyError:
+        ydoc[key] = Map()
+        return ydoc[key]
+
+
+def _ydoc_append_system_hint(ydoc: Any, content: str) -> None:
+    """Append a system message to the room's transcript Y.Array."""
+    arr = _ydoc_array(ydoc, "messages")
+    arr.append(
+        {
+            "id": str(uuid.uuid4()),
+            "role": "system",
+            "content": content,
+            "type": "message",
+            "author_player_id": None,
+            "author_name": None,
+            "timestamp": time.time(),
+        }
+    )
+
+
+def _mgrill_participant_count(session_id: str) -> int:
+    """Count clients currently connected to the session's Yjs room."""
+    server = _multiplayer_yjs.yjs_websocket_server
+    if server is None:
+        return 0
+    room = getattr(server, "rooms", {}).get(_mgrill_room_name(session_id))
+    if room is None:
+        return 0
+    return len(getattr(room, "clients", ()) or ())
+
+
+def _mgrill_has_final_plan(ydoc: Any) -> bool:
+    """Return True when the transcript contains a ``type == "plan"`` entry."""
+    try:
+        arr = ydoc["messages"]
+    except KeyError:
+        return False
+    return any(isinstance(msg, dict) and msg.get("type") == "plan" for msg in arr)
+
+
+def _mgrill_final_plan_text(ydoc: Any) -> str | None:
+    """Return the content of the most recent ``type == "plan"`` transcript
+    entry, or ``None`` if no plan has been emitted."""
+    try:
+        arr = ydoc["messages"]
+    except KeyError:
+        return None
+    latest: str | None = None
+    for msg in arr:
+        if isinstance(msg, dict) and msg.get("type") == "plan":
+            content = msg.get("content")
+            if isinstance(content, str):
+                latest = content
+    return latest
+
+
+def _mgrill_vote_tally(ydoc: Any) -> tuple[int, int, int]:
+    """Return ``(up, down, total)`` from the room's ``votes`` Y.Map."""
+    try:
+        votes = ydoc["votes"]
+    except KeyError:
+        return 0, 0, 0
+    up = down = total = 0
+    for _pid, vote in dict(votes).items():
+        total += 1
+        if vote == "up":
+            up += 1
+        elif vote == "down":
+            down += 1
+    return up, down, total
+
+
+@app.post("/mgrill/sessions", response_model=MGrillCreateResponse, status_code=201)
+def mgrill_create(
+    req: MGrillCreateRequest, http_request: Request
+) -> MGrillCreateResponse:
+    """Create a new multiplayer grill session.
+
+    Requires ``X-GitHub-Token`` — the creator is the accountable user
+    (owns Submit).  The session's Celery task id is returned as
+    ``session_id`` and is used as the Yjs room id (``mgrill-{session_id}``).
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    token = _mgrill_require_token(http_request)
+    token_hash = _hash_token(token)
+
+    from helping_hands.server.multiplayer_grill import mgrill_session
+
+    task = mgrill_session.delay(
+        repo_path=req.repo_path,
+        prompt=req.prompt,
+        model=req.model,
+        github_token=token,
+        reference_repos=req.reference_repos,
+        backend=req.backend,
+        creator_name=req.creator_name,
+        creator_token_hash=token_hash,
+        creator_player_id=req.creator_player_id,
+    )
+    return MGrillCreateResponse(session_id=task.id, status="starting")
+
+
+@app.get("/mgrill/sessions", response_model=MGrillListResponse)
+def mgrill_list() -> MGrillListResponse:
+    """List active multiplayer grill sessions, sorted by last activity."""
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    r = _mgrill_redis()
+    ids = r.zrevrange("mgrill:sessions", 0, _MGRILL_LOBBY_CAP - 1)
+    sessions: list[MGrillSessionSummary] = []
+    server = _multiplayer_yjs.yjs_websocket_server
+    for sid in ids:
+        state = _mgrill_read_state(r, sid)
+        if state is None:
+            # Stale registry entry — evict.
+            r.zrem("mgrill:sessions", sid)
+            continue
+        status = state.get("status", "unknown")
+        if status in ("error", "timeout", "max_turns"):
+            continue
+        # Participant count + plan presence come from the Yjs room (if live).
+        participant_count = 0
+        has_final_plan = False
+        if server is not None:
+            room = getattr(server, "rooms", {}).get(_mgrill_room_name(sid))
+            if room is not None:
+                participant_count = len(getattr(room, "clients", ()) or ())
+                ydoc = getattr(room, "ydoc", None)
+                if ydoc is not None:
+                    has_final_plan = _mgrill_has_final_plan(ydoc)
+        sessions.append(
+            MGrillSessionSummary(
+                session_id=sid,
+                status=status,
+                creator_name=state.get("creator_name", ""),
+                repo_path=state.get("repo_path", ""),
+                prompt=state.get("prompt", ""),
+                turn_count=int(state.get("turn_count", 0)),
+                created_at=float(state.get("created_at", 0)),
+                last_activity_ts=float(state.get("last_activity_ts", 0)),
+                participant_count=participant_count,
+                has_final_plan=has_final_plan,
+            )
+        )
+    return MGrillListResponse(sessions=sessions, total=len(sessions))
+
+
+@app.get("/mgrill/{session_id}", response_model=MGrillPollResponse)
+def mgrill_poll(session_id: str, request: Request) -> MGrillPollResponse:
+    """Return the Redis-side session state + the Yjs participant count.
+
+    Transcript, pending batch, and votes are NOT included — the frontend
+    reads those from the Yjs room directly.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+
+    # is_creator: true only when the caller actually created this session.
+    # can_act_as_creator: true when the caller may Submit/Keep Grilling
+    # (always true when the server has a global GITHUB_TOKEN).
+    request_token = _get_request_token(request)
+    is_creator = False
+    if request_token:
+        request_hash = _hash_token(request_token)
+        if state.get("creator_token_hash") and request_hash == state.get(
+            "creator_token_hash"
+        ):
+            is_creator = True
+        else:
+            admin = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
+            if admin and request_hash == _hash_token(admin):
+                is_creator = True
+
+    can_act_as_creator = is_creator or _server_has_github_token()
+
+    return MGrillPollResponse(
+        session_id=session_id,
+        status=state.get("status", "unknown"),
+        creator_name=state.get("creator_name", ""),
+        creator_token_hash=state.get("creator_token_hash"),
+        creator_player_id=state.get("creator_player_id"),
+        creator_last_seen_ts=float(state.get("creator_last_seen_ts", 0)),
+        is_creator=is_creator,
+        can_act_as_creator=can_act_as_creator,
+        repo_path=state.get("repo_path", ""),
+        prompt=state.get("prompt", ""),
+        model=state.get("model") or None,
+        backend=state.get("backend", "claudecodecli"),
+        turn_count=int(state.get("turn_count", 0)),
+        participant_count=_mgrill_participant_count(session_id),
+        submitted_task_id=state.get("submitted_task_id"),
+    )
+
+
+@app.post("/mgrill/{session_id}/pending")
+async def mgrill_add_pending(
+    session_id: str,
+    req: MGrillPendingRequest,
+    http_request: Request,
+) -> dict[str, str]:
+    """Add a message to the pending batch (any token-holder).
+
+    Writes directly into the room's ``pending`` Y.Map so all connected
+    participants see the addition via their Yjs subscription.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    _mgrill_require_state(r, session_id)
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+    pending = _ydoc_map(room.ydoc, "pending")
+    if len(dict(pending)) >= _MGRILL_MAX_PENDING:
+        raise HTTPException(status_code=429, detail="Pending batch is full")
+
+    pending_id = str(uuid.uuid4())
+    pending[pending_id] = {
+        "player_id": req.player_id,
+        "name": req.name[:_MGRILL_MAX_NAME_LENGTH],
+        "content": req.content,
+        "timestamp": time.time(),
+    }
+    _mgrill_touch_activity(r, session_id)
+    return {"status": "queued", "pending_id": pending_id}
+
+
+@app.delete("/mgrill/{session_id}/pending/{pending_id}")
+async def mgrill_remove_pending(
+    session_id: str,
+    pending_id: str,
+    http_request: Request,
+) -> dict[str, str]:
+    """Remove a pending message (author or creator only)."""
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    token = _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    pending_id = _validate_path_param(pending_id, "pending_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+    pending = _ydoc_map(room.ydoc, "pending")
+    entry = dict(pending).get(pending_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Pending message not found")
+
+    token_hash = _hash_token(token)
+    is_creator = state.get("creator_token_hash") == token_hash
+    if not is_creator:
+        player_id = http_request.headers.get("X-MGrill-Player-Id", "").strip()
+        if not player_id or entry.get("player_id") != player_id:
+            raise HTTPException(status_code=403, detail="Not author of this message")
+
+    del pending[pending_id]
+    _mgrill_touch_activity(r, session_id)
+    return {"status": "removed"}
+
+
+@app.post("/mgrill/{session_id}/send")
+async def mgrill_send_to_ai(
+    session_id: str,
+    http_request: Request,
+) -> dict[str, Any]:
+    """Bundle the pending batch and enqueue as a single AI turn.
+
+    Any token-holder may press Send — not creator-only.  Reads the room's
+    ``pending`` Y.Map, appends one transcript entry per author to the
+    ``messages`` Y.Array, clears the Y.Map, and pushes the bundled text
+    (``[Name]: ...`` joined by blank lines) to the worker's Redis
+    ``user_msgs`` queue.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+
+    if state.get("status") == "thinking":
+        raise HTTPException(status_code=409, detail="AI is already thinking")
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+
+    pending = _ydoc_map(room.ydoc, "pending")
+    entries = [dict(e) for e in dict(pending).values()]
+    if not entries:
+        raise HTTPException(status_code=400, detail="No pending messages to send")
+    entries.sort(key=lambda e: e.get("timestamp", 0))
+
+    messages = _ydoc_array(room.ydoc, "messages")
+    for e in entries:
+        messages.append(
+            {
+                "id": str(uuid.uuid4()),
+                "role": "user",
+                "content": e["content"],
+                "type": "message",
+                "author_player_id": e.get("player_id"),
+                "author_name": e.get("name"),
+                "timestamp": e.get("timestamp", time.time()),
+            }
+        )
+
+    bundled = "\n\n".join(
+        f"[{e.get('name') or 'Anonymous'}]: {e['content']}" for e in entries
+    )
+    r.rpush(
+        f"mgrill:{session_id}:user_msgs",
+        json.dumps({"content": bundled, "type": "message", "timestamp": time.time()}),
+    )
+    r.expire(f"mgrill:{session_id}:user_msgs", 3600)
+
+    # Clear pending batch (Y.Map iteration + delete; pycrdt doesn't expose
+    # ``.clear()`` directly, so we pop each key).
+    for key in list(dict(pending).keys()):
+        del pending[key]
+
+    _mgrill_touch_activity(r, session_id)
+    return {"status": "sent", "count": len(entries)}
+
+
+@app.post("/mgrill/{session_id}/vote")
+async def mgrill_vote(
+    session_id: str,
+    req: MGrillVoteRequest,
+) -> dict[str, str]:
+    """Cast, change, or clear a vote (player_id-keyed, no token required).
+
+    Writes directly into the room's ``votes`` Y.Map so all connected
+    participants see the update via their Yjs subscription.  Per-tab dedup:
+    the UI surfaces "1 vote per participant" as a hint, but a determined
+    user with multiple tabs can double-vote.  Acceptable for v1 — voting is
+    advisory, the creator is the sole decider.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    _mgrill_require_state(r, session_id)
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+    votes = _ydoc_map(room.ydoc, "votes")
+
+    if req.vote == "clear":
+        if req.player_id in dict(votes):
+            del votes[req.player_id]
+    else:
+        votes[req.player_id] = req.vote
+
+    _mgrill_touch_activity(r, session_id)
+    return {"status": _RESPONSE_STATUS_OK}
+
+
+class MGrillSubmitResponse(BaseModel):
+    """Response for a submitted plan (returns the downstream Celery task id)."""
+
+    task_id: str
+    session_id: str
+    override: bool
+    status: str
+
+
+@app.post("/mgrill/{session_id}/submit", response_model=MGrillSubmitResponse)
+async def mgrill_submit(
+    session_id: str,
+    http_request: Request,
+    override: bool = False,
+) -> MGrillSubmitResponse:
+    """Submit the final plan as a Helping Hands build task (creator-only).
+
+    Reads the most recent ``type == "plan"`` entry from the room's
+    ``messages`` Y.Array and the vote tally from the ``votes`` Y.Map.  If
+    any ``down`` vote is present and ``override`` is not true, returns
+    **409 Conflict** so the UI can prompt for confirmation.  Override is
+    recorded in session state (``submit_override_count``) — server-side
+    log only, never prepended to the task prompt.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    token = _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+    _mgrill_require_creator(state, _hash_token(token))
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+    final_plan = _mgrill_final_plan_text(room.ydoc)
+    if not final_plan:
+        raise HTTPException(status_code=400, detail="No final plan to submit")
+
+    up_count, down_count, total_votes = _mgrill_vote_tally(room.ydoc)
+
+    if down_count > 0 and not override:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "dissent",
+                "down_votes": down_count,
+                "up_votes": up_count,
+                "total_votes": total_votes,
+            },
+        )
+
+    plan_body = final_plan
+    idx = plan_body.find("## FINAL PLAN")
+    if idx >= 0:
+        plan_body = plan_body[idx + len("## FINAL PLAN") :].lstrip("\n ")
+
+    task = build_feature.delay(
+        repo_path=state.get("repo_path", ""),
+        prompt=plan_body,
+        github_token=token,
+        model=state.get("model") or None,
+        backend=state.get("backend", "claudecodecli"),
+    )
+
+    state["submitted_task_id"] = task.id
+    if override and down_count > 0:
+        state["submit_override_count"] = int(state.get("submit_override_count", 0)) + 1
+        logger.info(
+            "Multiplayer grill %s submitted with override (down=%d, up=%d)",
+            session_id,
+            down_count,
+            up_count,
+        )
+    _mgrill_write_state(r, session_id, state)
+
+    return MGrillSubmitResponse(
+        task_id=task.id,
+        session_id=session_id,
+        override=bool(override and down_count > 0),
+        status="submitted",
+    )
+
+
+@app.post("/mgrill/{session_id}/keep-grilling")
+async def mgrill_keep_grilling(
+    session_id: str, http_request: Request
+) -> dict[str, str]:
+    """Reset votes and resume grilling (creator-only).
+
+    Clears the room's ``votes`` Y.Map, flips session status back to
+    ``active``, and appends a system hint to the transcript.  The FINAL
+    PLAN entry itself stays in the transcript history — the AI sees it
+    when the next user batch is sent (per the locked plan).
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    token = _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+    _mgrill_require_creator(state, _hash_token(token))
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+
+    votes = _ydoc_map(room.ydoc, "votes")
+    for key in list(dict(votes).keys()):
+        del votes[key]
+
+    _ydoc_append_system_hint(
+        room.ydoc, "Keep Grilling — votes reset. Continue the interview."
+    )
+
+    state["status"] = "active"
+    _mgrill_write_state(r, session_id, state)
+    return {"status": _RESPONSE_STATUS_OK}
+
+
+@app.post("/mgrill/{session_id}/request-plan")
+async def mgrill_request_plan(session_id: str, http_request: Request) -> dict[str, str]:
+    """Request the AI to produce a final plan (any token-holder).
+
+    Sends a ``type: "end"`` message to the worker queue, which instructs
+    the AI to consolidate the discussion and output ``## FINAL PLAN``.
+    Any pending batch entries are bundled and included so the AI sees the
+    latest context.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+
+    if state.get("status") == "thinking":
+        raise HTTPException(status_code=409, detail="AI is already thinking")
+    if state.get("status") == "completed":
+        raise HTTPException(status_code=409, detail="Session already has a final plan")
+
+    room = await _mgrill_room(session_id)
+    if room is None:
+        raise HTTPException(status_code=503, detail="Yjs server unavailable")
+
+    # Bundle any pending messages (optional — request-plan works with or
+    # without pending entries).
+    bundled_parts: list[str] = []
+    pending = _ydoc_map(room.ydoc, "pending")
+    entries = [dict(e) for e in dict(pending).values()]
+    if entries:
+        entries.sort(key=lambda e: e.get("timestamp", 0))
+        messages = _ydoc_array(room.ydoc, "messages")
+        for e in entries:
+            messages.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "role": "user",
+                    "content": e["content"],
+                    "type": "message",
+                    "author_player_id": e.get("player_id"),
+                    "author_name": e.get("name"),
+                    "timestamp": e.get("timestamp", time.time()),
+                }
+            )
+        bundled_parts = [
+            f"[{e.get('name') or 'Anonymous'}]: {e['content']}" for e in entries
+        ]
+        for key in list(dict(pending).keys()):
+            del pending[key]
+
+    content = "\n\n".join(bundled_parts) if bundled_parts else ""
+    r.rpush(
+        f"mgrill:{session_id}:user_msgs",
+        json.dumps({"content": content, "type": "end", "timestamp": time.time()}),
+    )
+    r.expire(f"mgrill:{session_id}:user_msgs", 3600)
+
+    _ydoc_append_system_hint(
+        room.ydoc, "Final plan requested — AI is consolidating the discussion."
+    )
+    _mgrill_touch_activity(r, session_id)
+    return {"status": "requested"}
+
+
+@app.post("/mgrill/{session_id}/claim-creator")
+async def mgrill_claim_creator(
+    session_id: str,
+    req: MGrillHeartbeatRequest,
+    http_request: Request,
+) -> dict[str, Any]:
+    """Claim the creator role when the current creator has been absent.
+
+    Gated on ``now - creator_last_seen_ts > _MGRILL_CREATOR_HANDOFF_S`` and a
+    valid ``X-GitHub-Token``.  Updates ``creator_token_hash``,
+    ``creator_name``, and ``creator_player_id`` in Redis state, and
+    broadcasts a system hint into the transcript Y.Array.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    token = _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+
+    age = time.time() - float(state.get("creator_last_seen_ts", 0))
+    current_hash = state.get("creator_token_hash")
+    token_hash = _hash_token(token)
+
+    if current_hash == token_hash:
+        # Already creator — this is effectively a heartbeat.
+        state["creator_last_seen_ts"] = time.time()
+        _mgrill_write_state(r, session_id, state)
+        return {
+            "status": "already_creator",
+            "creator_last_seen_ts": state["creator_last_seen_ts"],
+        }
+
+    if age < _MGRILL_CREATOR_HANDOFF_S:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "creator still active",
+                "seconds_remaining": int(_MGRILL_CREATOR_HANDOFF_S - age),
+            },
+        )
+
+    prev_name = state.get("creator_name", "previous creator")
+    new_name = (
+        http_request.headers.get("X-MGrill-Player-Name", "").strip()[
+            :_MGRILL_MAX_NAME_LENGTH
+        ]
+        or prev_name
+    )
+    state["creator_token_hash"] = token_hash
+    state["creator_name"] = new_name
+    state["creator_player_id"] = req.player_id
+    state["creator_last_seen_ts"] = time.time()
+    _mgrill_write_state(r, session_id, state)
+
+    room = await _mgrill_room(session_id)
+    if room is not None:
+        _ydoc_append_system_hint(
+            room.ydoc,
+            f"{new_name} claimed the creator role (previous: {prev_name}).",
+        )
+
+    return {"status": "claimed", "creator_name": new_name}
+
+
+@app.post("/mgrill/{session_id}/heartbeat")
+def mgrill_heartbeat(
+    session_id: str,
+    req: MGrillHeartbeatRequest,
+    http_request: Request,
+) -> dict[str, Any]:
+    """Refresh ``creator_last_seen_ts`` (creator-only, idempotent).
+
+    Called periodically by the creator's frontend (~every 20s) while viewing
+    the session to prevent handoff timeout.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    token = _mgrill_require_token(http_request)
+    session_id = _validate_path_param(session_id, "session_id")
+    r = _mgrill_redis()
+    state = _mgrill_require_state(r, session_id)
+    _mgrill_require_creator(state, _hash_token(token))
+
+    state["creator_last_seen_ts"] = time.time()
+    if req.player_id:
+        state["creator_player_id"] = req.player_id
+    _mgrill_write_state(r, session_id, state)
+    return {
+        "status": _RESPONSE_STATUS_OK,
+        "creator_last_seen_ts": state["creator_last_seen_ts"],
+    }

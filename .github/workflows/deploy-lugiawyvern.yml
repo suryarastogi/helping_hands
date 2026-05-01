@@ -1,0 +1,114 @@
+name: Deploy LugiaWyvern
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-lugiawyvern
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: >-
+          uv sync --dev
+          --extra server
+          --extra github
+          --extra mcp
+          --extra langchain
+          --extra atomic
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
+        run: uv run pytest -v
+
+  deploy:
+    needs: test
+    runs-on: [self-hosted, linux, lugiawyvern]
+    timeout-minutes: 15
+    env:
+      PROJECT_DIR: /home/surya/projects/helping_hands
+      UV: /home/surya/.local/bin/uv
+
+    steps:
+      - name: Verify .env exists
+        run: |
+          if [ -f "$PROJECT_DIR/.env" ]; then
+            echo ".env found"
+          else
+            echo "ERROR: .env not found at $PROJECT_DIR/.env"
+            exit 1
+          fi
+
+      - name: Pull latest code
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          git fetch origin master
+          git reset --hard origin/master
+
+      - name: Sync dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: $UV sync --extra server --extra github --extra langchain --extra atomic
+
+      - name: Install frontend deps
+        working-directory: ${{ env.PROJECT_DIR }}/frontend
+        run: npm install
+
+      # TODO(surya): Add ACTIONS_RUNNER_KILL_ORPHANED_PROCESSES=false to
+      # ~/actions-runner/.env on lugiawyvern, then restart the runner service.
+      # That permanently prevents GHA from killing our background services
+      # after jobs complete. The CI/RUNNER_TRACKING_ID workaround below is
+      # a stopgap until that's done.
+      - name: Restart services
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          CI: ""
+          RUNNER_TRACKING_ID: ""
+        run: |
+          ./scripts/run-local-stack.sh stop
+          ./scripts/run-local-stack.sh start
+
+      - name: Health check
+        run: |
+          sleep 3
+          for i in 1 2 3 4 5 6; do
+            if curl -sf http://localhost:8000/health; then
+              echo ""
+              echo "Health check passed"
+              # Verify frontend is also up
+              if curl -sf http://localhost:5173/ > /dev/null 2>&1; then
+                echo "Frontend health check passed"
+              else
+                echo "WARNING: Frontend not responding on port 5173"
+              fi
+              exit 0
+            fi
+            echo "Attempt $i failed, waiting 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 60s"
+          tail -n 30 "$PROJECT_DIR/runs/local-stack/logs/server.log"
+          exit 1

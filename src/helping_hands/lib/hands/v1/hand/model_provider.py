@@ -205,7 +205,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
     if provider == _PROVIDER_OPENAI:
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(model_name=hand_model.model, streaming=streaming)
+        return ChatOpenAI(model=hand_model.model, streaming=streaming)
     if provider == _PROVIDER_OLLAMA:
         from langchain_openai import ChatOpenAI
 
@@ -213,7 +213,7 @@ def build_langchain_chat_model(hand_model: HandModel, *, streaming: bool) -> Any
         api_key = os.environ.get("OLLAMA_API_KEY", _DEFAULT_OLLAMA_API_KEY)
         extra: dict[str, Any] = {"base_url": base_url, "api_key": api_key}
         return ChatOpenAI(
-            model_name=hand_model.model,
+            model=hand_model.model,
             streaming=streaming,
             **extra,
         )

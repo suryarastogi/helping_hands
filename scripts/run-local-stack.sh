@@ -16,14 +16,14 @@ usage() {
 Usage: scripts/run-local-stack.sh <command> [service]
 
 Commands:
-  start      Start server, worker, beat, and flower in the background.
+  start      Start server, worker, beat, flower, and frontend in the background.
   stop       Stop all running services from this script.
   restart    Restart all services.
   status     Show current service status.
   logs       Tail logs for all services or a specific service.
 
 Services:
-  server | worker | beat | flower
+  server | worker | beat | flower | frontend
 
 Examples:
   scripts/run-local-stack.sh start
@@ -85,6 +85,7 @@ load_env() {
 set_defaults() {
   : "${SERVER_PORT:=8000}"
   : "${FLOWER_PORT:=5555}"
+  : "${FRONTEND_PORT:=5173}"
   : "${REDIS_URL:=redis://localhost:6379/0}"
   : "${CELERY_BROKER_URL:=${REDIS_URL}}"
   : "${CELERY_RESULT_BACKEND:=redis://localhost:6379/1}"
@@ -93,6 +94,7 @@ set_defaults() {
 
   export SERVER_PORT
   export FLOWER_PORT
+  export FRONTEND_PORT
   export REDIS_URL
   export CELERY_BROKER_URL
   export CELERY_RESULT_BACKEND
@@ -175,14 +177,15 @@ start_service() {
     rm -f "${pid_file}"
   fi
 
-  (
-    cd "${REPO_ROOT}"
-    nohup "$@" >"${log_file}" 2>&1 &
-    echo $! >"${pid_file}"
-  )
+  setsid bash -c "echo \$\$ >'${pid_file}' && cd '${REPO_ROOT}' && exec \"\$@\" >>'${log_file}' 2>&1" -- "$@" &
+  disown $! 2>/dev/null || true
 
+  sleep 1
+  if [[ ! -f "${pid_file}" ]]; then
+    echo "${name}: failed to start (no pid file)" >&2
+    return 1
+  fi
   new_pid="$(cat "${pid_file}")"
-  sleep 0.3
   if is_pid_running "${new_pid}"; then
     echo "${name}: started (pid ${new_pid})"
   else
@@ -243,11 +246,12 @@ _kill_orphaned_processes() {
   fi
 
   case "${name}" in
-    worker) pattern="celery.*${CELERY_APP}.*worker" ;;
-    beat)   pattern="celery.*${CELERY_APP}.*beat" ;;
-    flower) pattern="celery.*${CELERY_APP}.*flower" ;;
-    server) pattern="uvicorn.*${SERVER_APP}" ;;
-    *)      return 0 ;;
+    worker)   pattern="celery.*${CELERY_APP}.*worker" ;;
+    beat)     pattern="celery.*${CELERY_APP}.*beat" ;;
+    flower)   pattern="celery.*${CELERY_APP}.*flower" ;;
+    server)   pattern="uvicorn.*${SERVER_APP}" ;;
+    frontend) pattern="node.*vite" ;;
+    *)        return 0 ;;
   esac
 
   local orphan_pids
@@ -301,7 +305,7 @@ start_all() {
 
   echo "Using Celery broker: ${CELERY_BROKER_URL}"
   echo "Using Celery result backend: ${CELERY_RESULT_BACKEND}"
-  echo "Server port: ${SERVER_PORT}, Flower port: ${FLOWER_PORT}"
+  echo "Server port: ${SERVER_PORT}, Flower port: ${FLOWER_PORT}, Frontend port: ${FRONTEND_PORT}"
 
   start_service \
     "server" \
@@ -318,6 +322,12 @@ start_all() {
   start_service \
     "flower" \
     uv run --extra server celery -A "${CELERY_APP}" flower --port="${FLOWER_PORT}"
+
+  # Unset CI so Vite enables the WebSocket proxy (CI=true from GHA runners
+  # would skip it, breaking Yjs multiplayer connections).
+  start_service \
+    "frontend" \
+    bash -c "unset CI; cd '${REPO_ROOT}/frontend' && exec npx vite --host 0.0.0.0 --port ${FRONTEND_PORT}"
 
   echo
   echo "Logs: ${LOG_DIR}"
@@ -369,6 +379,7 @@ else:
 
 stop_all() {
   ensure_runtime_dirs
+  stop_service frontend
   stop_service flower
   stop_service beat
   stop_service worker
@@ -382,6 +393,7 @@ status_all() {
   status_service worker
   status_service beat
   status_service flower
+  status_service frontend
 }
 
 tail_logs() {
@@ -394,13 +406,14 @@ tail_logs() {
         "$(log_file_for server)" \
         "$(log_file_for worker)" \
         "$(log_file_for beat)" \
-        "$(log_file_for flower)"
+        "$(log_file_for flower)" \
+        "$(log_file_for frontend)"
       ;;
-    server | worker | beat | flower)
+    server | worker | beat | flower | frontend)
       tail -n 100 -f "$(log_file_for "${target}")"
       ;;
     *)
-      echo "Unknown service '${target}'. Expected server|worker|beat|flower." >&2
+      echo "Unknown service '${target}'. Expected server|worker|beat|flower|frontend." >&2
       exit 1
       ;;
   esac
