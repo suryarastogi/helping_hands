@@ -268,8 +268,13 @@ export default function HandWorldScene({
             <span className="moon-halo" />
             <span className="moon-crater moon-crater-1" />
             <span className="moon-crater moon-crater-2" />
+            <span className="moon-ray moon-ray-1" />
+            <span className="moon-ray moon-ray-2" />
+            <span className="moon-ray moon-ray-3" />
           </div>
-          <div className="zen-shooting-star" />
+          <div className="zen-shooting-star zen-shooting-star-1" />
+          <div className="zen-shooting-star zen-shooting-star-2" />
+          <div className="zen-shooting-star zen-shooting-star-3" />
           <div className="zen-cloud zen-cloud-1" />
           <div className="zen-cloud zen-cloud-2" />
           <div className="zen-cloud zen-cloud-3" />
@@ -294,6 +299,23 @@ export default function HandWorldScene({
           <span className="petal petal-7" />
           <span className="petal petal-8" />
         </div>
+        <div className="zen-dust-motes" aria-hidden="true">
+          <span className="dust-mote dust-mote-1" />
+          <span className="dust-mote dust-mote-2" />
+          <span className="dust-mote dust-mote-3" />
+          <span className="dust-mote dust-mote-4" />
+          <span className="dust-mote dust-mote-5" />
+          <span className="dust-mote dust-mote-6" />
+          <span className="dust-mote dust-mote-7" />
+          <span className="dust-mote dust-mote-8" />
+          <span className="dust-mote dust-mote-9" />
+          <span className="dust-mote dust-mote-10" />
+        </div>
+        <div className="zen-mist" aria-hidden="true">
+          <span className="mist-band mist-band-1" />
+          <span className="mist-band mist-band-2" />
+          <span className="mist-band mist-band-3" />
+        </div>
 
         {/* Garden decorations */}
         <div className="zen-gravel-path" aria-hidden="true" />
@@ -317,6 +339,23 @@ export default function HandWorldScene({
         </div>
         <div className="zen-rock zen-rock-lg" aria-hidden="true" />
         <div className="zen-rock zen-rock-sm" aria-hidden="true" />
+        <div className="zen-mushrooms" aria-hidden="true">
+          <span className="zen-mushroom zen-mushroom-1">
+            <span className="mushroom-cap" />
+            <span className="mushroom-stem" />
+            <span className="mushroom-glow" />
+          </span>
+          <span className="zen-mushroom zen-mushroom-2">
+            <span className="mushroom-cap" />
+            <span className="mushroom-stem" />
+            <span className="mushroom-glow" />
+          </span>
+          <span className="zen-mushroom zen-mushroom-3">
+            <span className="mushroom-cap" />
+            <span className="mushroom-stem" />
+            <span className="mushroom-glow" />
+          </span>
+        </div>
         <div className="zen-pond zen-pond-1" aria-hidden="true">
           <span className="pond-water" />
           <span className="pond-algae pond-algae-1" />
@@ -324,6 +363,8 @@ export default function HandWorldScene({
           <span className="pond-ripple pond-ripple-1" />
           <span className="pond-ripple pond-ripple-2" />
           <span className="pond-shimmer" />
+          <span className="pond-koi pond-koi-1" />
+          <span className="pond-koi pond-koi-2" />
         </div>
         <div className="zen-pond zen-pond-2" aria-hidden="true">
           <span className="pond-water" />
@@ -338,6 +379,7 @@ export default function HandWorldScene({
           <span className="pond-ripple pond-ripple-1" />
           <span className="pond-ripple pond-ripple-2" />
           <span className="pond-shimmer" />
+          <span className="pond-koi pond-koi-3" />
         </div>
         <div className="zen-pond zen-pond-4" aria-hidden="true">
           <span className="pond-water" />
@@ -394,6 +436,14 @@ export default function HandWorldScene({
           <span className="torii-kasagi" />
           <span className="torii-nuki" />
           <span className="torii-glow" />
+          <span className="torii-lantern torii-lantern-left">
+            <span className="torii-lantern-body" />
+            <span className="torii-lantern-glow" />
+          </span>
+          <span className="torii-lantern torii-lantern-right">
+            <span className="torii-lantern-body" />
+            <span className="torii-lantern-glow" />
+          </span>
           <div className="torii-label">ENTER</div>
         </div>
 

@@ -2844,27 +2844,72 @@ h2 {
   100% { transform: scale(1.15); opacity: 1; }
 }
 
-/* ── Aurora / Northern Lights ── */
+/* ── Aurora / Northern Lights (multi-band) ── */
 .zen-aurora {
   position: absolute;
   inset: 0;
   background:
     linear-gradient(120deg,
-      transparent 20%,
-      rgba(56, 189, 248, 0.06) 30%,
-      rgba(168, 85, 247, 0.08) 45%,
-      rgba(52, 211, 153, 0.06) 60%,
-      transparent 75%
+      transparent 15%,
+      rgba(56, 189, 248, 0.08) 25%,
+      rgba(139, 92, 246, 0.1) 35%,
+      rgba(168, 85, 247, 0.12) 45%,
+      rgba(52, 211, 153, 0.08) 55%,
+      rgba(34, 211, 238, 0.06) 65%,
+      transparent 80%
     );
   animation: aurora-shift 12s ease-in-out infinite alternate;
   z-index: 1;
   pointer-events: none;
 }
 
+.zen-aurora::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(150deg,
+      transparent 30%,
+      rgba(236, 72, 153, 0.05) 40%,
+      rgba(139, 92, 246, 0.08) 50%,
+      rgba(59, 130, 246, 0.06) 60%,
+      transparent 70%
+    );
+  animation: aurora-shift-2 16s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.zen-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg,
+      transparent 10%,
+      rgba(52, 211, 153, 0.04) 30%,
+      rgba(56, 189, 248, 0.06) 50%,
+      rgba(168, 85, 247, 0.04) 70%,
+      transparent 90%
+    );
+  animation: aurora-shimmer 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
 @keyframes aurora-shift {
   0% { opacity: 0.4; transform: translateX(-3%); }
-  50% { opacity: 0.8; }
+  50% { opacity: 0.9; }
   100% { opacity: 0.5; transform: translateX(3%); }
+}
+
+@keyframes aurora-shift-2 {
+  0% { opacity: 0.2; transform: translateX(5%) scaleY(0.9); }
+  50% { opacity: 0.6; }
+  100% { opacity: 0.3; transform: translateX(-5%) scaleY(1.1); }
+}
+
+@keyframes aurora-shimmer {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.5; }
 }
 
 /* ── Twinkling Stars ── */
@@ -2906,21 +2951,22 @@ h2 {
 /* ── Shooting Star ── */
 .zen-shooting-star {
   position: absolute;
-  left: 10%;
-  top: 10%;
   width: 2px;
   height: 2px;
   background: #fef9c3;
   border-radius: 50%;
-  box-shadow: 0 0 4px 1px rgba(254, 249, 195, 0.6);
-  animation: shooting-star 8s ease-in infinite;
+  box-shadow:
+    0 0 4px 1px rgba(254, 249, 195, 0.6),
+    0 0 8px 2px rgba(254, 249, 195, 0.3);
+  animation: shooting-star ease-in infinite;
   z-index: 2;
   opacity: 0;
 }
 
 @keyframes shooting-star {
-  0%, 90% { opacity: 0; transform: translate(0, 0); }
-  92% { opacity: 1; }
+  0%, 88% { opacity: 0; transform: translate(0, 0); }
+  90% { opacity: 1; }
+  95% { opacity: 0.8; }
   100% { opacity: 0; transform: translate(200px, 30px); }
 }
 
@@ -3077,11 +3123,17 @@ h2 {
   background: linear-gradient(180deg, #64748b 0%, #475569 50%, #334155 100%);
   border: 1px solid #1e293b;
   border-radius: 2px;
+  transform-origin: bottom center;
 }
 
-.bamboo-stalk-1 { left: 2px; height: 42px; }
-.bamboo-stalk-2 { left: 9px; height: 48px; }
-.bamboo-stalk-3 { left: 16px; height: 36px; }
+.bamboo-stalk-1 { left: 2px; height: 42px; animation: bamboo-sway 5s ease-in-out infinite alternate; }
+.bamboo-stalk-2 { left: 9px; height: 48px; animation: bamboo-sway 6s ease-in-out infinite alternate; animation-delay: 0.8s; }
+.bamboo-stalk-3 { left: 16px; height: 36px; animation: bamboo-sway 4.5s ease-in-out infinite alternate; animation-delay: 1.5s; }
+
+@keyframes bamboo-sway {
+  0% { transform: rotate(-1.5deg); }
+  100% { transform: rotate(1.5deg); }
+}
 
 .bamboo-leaves {
   position: absolute;
@@ -3092,6 +3144,13 @@ h2 {
   background: linear-gradient(90deg, #475569, #334155);
   border: 1px solid #1e293b;
   border-radius: 2px;
+  animation: leaves-rustle 7s ease-in-out infinite alternate;
+}
+
+@keyframes leaves-rustle {
+  0% { transform: translateX(0) rotate(0deg); }
+  50% { transform: translateX(1px) rotate(0.5deg); }
+  100% { transform: translateX(-1px) rotate(-0.5deg); }
 }
 
 /* ── Equipment Rack (right decor) ── */
@@ -3113,11 +3172,19 @@ h2 {
   background: linear-gradient(180deg, #475569, #334155);
   border: 1px solid #1e293b;
   border-radius: 1px;
+  transform-origin: bottom center;
+  animation: maple-trunk-sway 8s ease-in-out infinite alternate;
+}
+
+@keyframes maple-trunk-sway {
+  0% { transform: rotate(-0.5deg); }
+  100% { transform: rotate(0.5deg); }
 }
 
 .maple-canopy {
   position: absolute;
   border-radius: 2px;
+  animation: maple-canopy-sway 6s ease-in-out infinite alternate;
 }
 
 .maple-canopy-1 {
@@ -3127,6 +3194,7 @@ h2 {
   height: 8px;
   background: #334155;
   border: 1px solid #1e293b;
+  animation-delay: 0s;
 }
 
 .maple-canopy-2 {
@@ -3136,6 +3204,7 @@ h2 {
   height: 8px;
   background: #475569;
   border: 1px solid #334155;
+  animation-delay: 0.5s;
 }
 
 .maple-canopy-3 {
@@ -3145,6 +3214,13 @@ h2 {
   height: 8px;
   background: #334155;
   border: 1px solid #1e293b;
+  animation-delay: 1s;
+}
+
+@keyframes maple-canopy-sway {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(1px); }
+  100% { transform: translateX(-1px); }
 }
 
 /* ── Warning Light Post ── */
@@ -3163,10 +3239,12 @@ h2 {
   top: 0;
   width: 8px;
   height: 8px;
-  background: #f59e0b;
+  background: radial-gradient(circle at 40% 40%, #fde68a, #f59e0b 50%, #d97706);
   border: 1px solid #d97706;
   border-radius: 50%;
-  box-shadow: 0 0 6px 2px rgba(245, 158, 11, 0.4);
+  box-shadow:
+    0 0 6px 2px rgba(245, 158, 11, 0.4),
+    0 0 14px 4px rgba(251, 191, 36, 0.15);
   animation: lantern-pulse 2s ease-in-out infinite alternate;
 }
 
@@ -3251,9 +3329,27 @@ h2 {
   border-radius: 50%;
   border: 2px solid #0a2a1a;
   box-shadow:
-    inset 0 2px 6px rgba(34, 197, 94, 0.15),
-    0 0 12px 4px rgba(34, 197, 94, 0.08),
-    0 0 24px 8px rgba(52, 211, 153, 0.04);
+    inset 0 2px 6px rgba(34, 197, 94, 0.2),
+    0 0 12px 4px rgba(34, 197, 94, 0.12),
+    0 0 24px 8px rgba(52, 211, 153, 0.06),
+    0 0 40px 12px rgba(52, 211, 153, 0.03);
+  animation: pond-water-glow 5s ease-in-out infinite alternate;
+}
+
+@keyframes pond-water-glow {
+  0% {
+    box-shadow:
+      inset 0 2px 6px rgba(34, 197, 94, 0.15),
+      0 0 12px 4px rgba(34, 197, 94, 0.08),
+      0 0 24px 8px rgba(52, 211, 153, 0.04);
+  }
+  100% {
+    box-shadow:
+      inset 0 2px 8px rgba(34, 197, 94, 0.25),
+      0 0 16px 6px rgba(34, 197, 94, 0.15),
+      0 0 32px 12px rgba(52, 211, 153, 0.08),
+      0 0 48px 16px rgba(52, 211, 153, 0.04);
+  }
 }
 
 .pond-algae {
@@ -3375,6 +3471,408 @@ h2 {
   95% { opacity: 0.3; }
   100% { transform: translateY(380px) rotate(360deg) translateX(-10px); opacity: 0; }
 }
+
+/* ── Ground Mist / Fog Layer ── */
+.zen-mist {
+  position: absolute;
+  left: 2%;
+  bottom: 3%;
+  width: 96%;
+  height: 30%;
+  z-index: 7;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mist-band {
+  position: absolute;
+  bottom: 0;
+  width: 200%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 100%,
+    rgba(148, 163, 184, 0.12) 0%,
+    rgba(148, 163, 184, 0.06) 40%,
+    transparent 70%);
+  pointer-events: none;
+}
+
+.mist-band-1 {
+  left: -20%;
+  height: 60%;
+  animation: mist-drift-1 22s ease-in-out infinite alternate;
+}
+
+.mist-band-2 {
+  left: -40%;
+  height: 45%;
+  opacity: 0.7;
+  animation: mist-drift-2 28s ease-in-out infinite alternate;
+  animation-delay: 4s;
+}
+
+.mist-band-3 {
+  left: -10%;
+  height: 35%;
+  opacity: 0.5;
+  animation: mist-drift-3 18s ease-in-out infinite alternate;
+  animation-delay: 8s;
+}
+
+@keyframes mist-drift-1 {
+  0% { transform: translateX(0) scaleY(1); opacity: 0.5; }
+  50% { opacity: 0.8; }
+  100% { transform: translateX(15%) scaleY(0.85); opacity: 0.4; }
+}
+
+@keyframes mist-drift-2 {
+  0% { transform: translateX(0) scaleY(0.9); opacity: 0.3; }
+  50% { opacity: 0.6; }
+  100% { transform: translateX(-10%) scaleY(1.1); opacity: 0.35; }
+}
+
+@keyframes mist-drift-3 {
+  0% { transform: translateX(5%) scaleY(1); opacity: 0.4; }
+  50% { opacity: 0.7; }
+  100% { transform: translateX(-8%) scaleY(0.8); opacity: 0.3; }
+}
+
+/* ── Moon Light Rays (Crepuscular Beams) ── */
+.moon-ray {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 120px;
+  background: linear-gradient(180deg,
+    rgba(254, 249, 195, 0.2) 0%,
+    rgba(254, 249, 195, 0.06) 40%,
+    transparent 100%);
+  transform-origin: top center;
+  pointer-events: none;
+  animation: moon-ray-shimmer 6s ease-in-out infinite alternate;
+}
+
+.moon-ray-1 {
+  transform: rotate(-25deg);
+  opacity: 0.5;
+  animation-delay: 0s;
+}
+
+.moon-ray-2 {
+  transform: rotate(5deg);
+  opacity: 0.7;
+  width: 3px;
+  animation-delay: 2s;
+}
+
+.moon-ray-3 {
+  transform: rotate(30deg);
+  opacity: 0.4;
+  animation-delay: 4s;
+}
+
+@keyframes moon-ray-shimmer {
+  0% { opacity: 0.2; }
+  50% { opacity: 0.7; }
+  100% { opacity: 0.3; }
+}
+
+/* ── Multiple Shooting Stars ── */
+.zen-shooting-star-1 {
+  left: 10%;
+  top: 10%;
+  animation-duration: 8s;
+  animation-delay: 0s;
+}
+
+.zen-shooting-star-2 {
+  left: 45%;
+  top: 5%;
+  animation-duration: 12s;
+  animation-delay: 3s;
+}
+
+.zen-shooting-star-3 {
+  left: 70%;
+  top: 15%;
+  animation-duration: 10s;
+  animation-delay: 6s;
+}
+
+.zen-shooting-star::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 20px;
+  height: 1px;
+  background: linear-gradient(270deg, rgba(254, 249, 195, 0.6), transparent);
+  transform-origin: right center;
+}
+
+/* ── Floating Dust Motes ── */
+.zen-dust-motes {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.dust-mote {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(253, 230, 138, 0.6);
+  border-radius: 50%;
+  box-shadow: 0 0 3px 1px rgba(253, 230, 138, 0.25);
+  animation: dust-float linear infinite;
+  opacity: 0;
+}
+
+.dust-mote-1 { left: 8%; top: 30%; animation-duration: 18s; animation-delay: 0s; }
+.dust-mote-2 { left: 22%; top: 55%; animation-duration: 22s; animation-delay: 2s; width: 1px; height: 1px; }
+.dust-mote-3 { left: 38%; top: 40%; animation-duration: 16s; animation-delay: 5s; }
+.dust-mote-4 { left: 52%; top: 70%; animation-duration: 20s; animation-delay: 1s; width: 1px; height: 1px; }
+.dust-mote-5 { left: 65%; top: 35%; animation-duration: 24s; animation-delay: 7s; }
+.dust-mote-6 { left: 78%; top: 50%; animation-duration: 19s; animation-delay: 3s; width: 1px; height: 1px; }
+.dust-mote-7 { left: 90%; top: 60%; animation-duration: 21s; animation-delay: 9s; }
+.dust-mote-8 { left: 15%; top: 75%; animation-duration: 17s; animation-delay: 4s; width: 3px; height: 3px; box-shadow: 0 0 4px 2px rgba(253, 230, 138, 0.2); }
+.dust-mote-9 { left: 45%; top: 25%; animation-duration: 25s; animation-delay: 6s; width: 1px; height: 1px; }
+.dust-mote-10 { left: 72%; top: 82%; animation-duration: 15s; animation-delay: 8s; }
+
+@keyframes dust-float {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  10% { opacity: 0.4; }
+  25% { transform: translate(12px, -20px) scale(1); opacity: 0.6; }
+  50% { transform: translate(-8px, -35px) scale(0.8); opacity: 0.3; }
+  75% { transform: translate(15px, -50px) scale(1.1); opacity: 0.5; }
+  90% { opacity: 0.2; }
+  100% { transform: translate(5px, -70px) scale(0.6); opacity: 0; }
+}
+
+/* ── Enhanced Star Cross-Sparkle ── */
+.star-6::before,
+.star-6::after,
+.star-5::before,
+.star-5::after,
+.star-10::before,
+.star-10::after {
+  content: "";
+  position: absolute;
+  background: #fef9c3;
+  border-radius: 1px;
+  animation: star-cross-flash 4s ease-in-out infinite alternate;
+}
+
+.star-6::before { left: -2px; top: 50%; width: 7px; height: 1px; transform: translateY(-50%); }
+.star-6::after { left: 50%; top: -2px; width: 1px; height: 7px; transform: translateX(-50%); }
+.star-5::before { left: -1px; top: 50%; width: 4px; height: 1px; transform: translateY(-50%); }
+.star-5::after { left: 50%; top: -1px; width: 1px; height: 4px; transform: translateX(-50%); }
+.star-10::before { left: -1px; top: 50%; width: 4px; height: 1px; transform: translateY(-50%); }
+.star-10::after { left: 50%; top: -1px; width: 1px; height: 4px; transform: translateX(-50%); }
+
+@keyframes star-cross-flash {
+  0% { opacity: 0.1; transform-origin: center; }
+  40% { opacity: 0.8; }
+  60% { opacity: 0.3; }
+  100% { opacity: 0.6; }
+}
+
+/* ── Glowing Mushrooms ── */
+.zen-mushrooms {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.zen-mushroom {
+  position: absolute;
+  width: 10px;
+  height: 12px;
+}
+
+.zen-mushroom-1 { left: 6%; top: 59%; }
+.zen-mushroom-2 { left: 3%; top: 53%; transform: scale(0.7); }
+.zen-mushroom-3 { left: 5.5%; top: 68%; transform: scale(0.85); }
+
+.mushroom-cap {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 8px;
+  height: 5px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 80%,
+    #67e8f9 0%, #06b6d4 40%, #0891b2 70%, #0e7490 100%);
+  border-radius: 50% 50% 20% 20%;
+  box-shadow: 0 0 6px 2px rgba(103, 232, 249, 0.35);
+  animation: mushroom-glow-pulse 3s ease-in-out infinite alternate;
+}
+
+.mushroom-stem {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  height: 6px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #94a3b8, #64748b);
+  border-radius: 1px;
+}
+
+.mushroom-glow {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 18px;
+  height: 14px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse,
+    rgba(103, 232, 249, 0.2) 0%,
+    rgba(6, 182, 212, 0.08) 50%,
+    transparent 80%);
+  pointer-events: none;
+  animation: mushroom-glow-breathe 4s ease-in-out infinite alternate;
+}
+
+@keyframes mushroom-glow-pulse {
+  0% { box-shadow: 0 0 4px 1px rgba(103, 232, 249, 0.2); filter: brightness(0.85); }
+  100% { box-shadow: 0 0 8px 3px rgba(103, 232, 249, 0.5); filter: brightness(1.2); }
+}
+
+@keyframes mushroom-glow-breathe {
+  0% { opacity: 0.4; transform: translateX(-50%) scale(0.9); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+}
+
+/* ── Koi Fish in Ponds ── */
+.pond-koi {
+  position: absolute;
+  width: 6px;
+  height: 3px;
+  border-radius: 60% 60% 40% 40%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pond-koi::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 0 50% 50% 0;
+  background: inherit;
+  opacity: 0.7;
+  transform: scaleX(0.6);
+}
+
+.pond-koi-1 {
+  background: radial-gradient(ellipse, #fb923c, #ea580c);
+  top: 40%;
+  left: 25%;
+  animation: koi-swim-1 7s ease-in-out infinite;
+}
+
+.pond-koi-2 {
+  background: radial-gradient(ellipse, #fef9c3, #fde68a);
+  top: 55%;
+  left: 55%;
+  animation: koi-swim-2 9s ease-in-out infinite;
+  animation-delay: 2s;
+  width: 5px;
+  height: 2px;
+}
+
+.pond-koi-3 {
+  background: radial-gradient(ellipse, #fda4af, #fb7185);
+  top: 45%;
+  left: 30%;
+  animation: koi-swim-1 8s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+@keyframes koi-swim-1 {
+  0% { transform: translate(0, 0) scaleX(1); opacity: 0.7; }
+  25% { transform: translate(12px, -3px) scaleX(1); opacity: 0.85; }
+  50% { transform: translate(18px, 2px) scaleX(-1); opacity: 0.6; }
+  75% { transform: translate(6px, 4px) scaleX(-1); opacity: 0.8; }
+  100% { transform: translate(0, 0) scaleX(1); opacity: 0.7; }
+}
+
+@keyframes koi-swim-2 {
+  0% { transform: translate(0, 0) scaleX(-1); opacity: 0.6; }
+  30% { transform: translate(-10px, 3px) scaleX(-1); opacity: 0.8; }
+  60% { transform: translate(-6px, -2px) scaleX(1); opacity: 0.5; }
+  100% { transform: translate(0, 0) scaleX(-1); opacity: 0.6; }
+}
+
+/* ── Torii Hanging Lanterns ── */
+.torii-lantern {
+  position: absolute;
+  top: 14px;
+  width: 8px;
+  height: 16px;
+}
+
+.torii-lantern-left { left: 20px; }
+.torii-lantern-right { right: 20px; }
+
+.torii-lantern-body {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 6px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #fde68a 0%, #f59e0b 50%, #d97706 100%);
+  border: 1px solid #b45309;
+  border-radius: 1px 1px 2px 2px;
+  box-shadow: 0 0 4px 1px rgba(245, 158, 11, 0.4);
+  animation: torii-lantern-sway 4s ease-in-out infinite alternate;
+}
+
+.torii-lantern-body::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 1px;
+  height: 3px;
+  transform: translateX(-50%);
+  background: #7f1d1d;
+}
+
+.torii-lantern-glow {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 20px;
+  height: 22px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse,
+    rgba(245, 158, 11, 0.2) 0%,
+    rgba(251, 191, 36, 0.08) 50%,
+    transparent 75%);
+  pointer-events: none;
+  animation: torii-lantern-glow-pulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes torii-lantern-sway {
+  0% { transform: translateX(-50%) rotate(-3deg); }
+  100% { transform: translateX(-50%) rotate(3deg); }
+}
+
+@keyframes torii-lantern-glow-pulse {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.torii-lantern-left .torii-lantern-body { animation-delay: 0s; }
+.torii-lantern-right .torii-lantern-body { animation-delay: 1.5s; }
 
 /* ── Factory Entrance (middle-left) ── */
 /* ── Torii Gate Entrance (middle-left) ── */
