@@ -568,8 +568,8 @@ export default function App() {
       />
 
       {showSubmissionOverlay && (
-        <div className="submission-overlay" onClick={() => setShowSubmissionOverlay(false)}>
-          <div className="submission-overlay-content" onClick={(e) => e.stopPropagation()}>
+        <div className="submission-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowSubmissionOverlay(false); }}>
+          <div className="submission-overlay-content">
             <button
               type="button"
               className="submission-overlay-close"

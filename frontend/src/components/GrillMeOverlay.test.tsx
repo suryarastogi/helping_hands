@@ -146,7 +146,7 @@ describe("GrillMeOverlay", () => {
       const { props, container } = renderOverlay();
       const backdrop = container.querySelector(".grill-overlay");
       expect(backdrop).not.toBeNull();
-      fireEvent.click(backdrop!);
+      fireEvent.mouseDown(backdrop!);
       expect(props.onClose).toHaveBeenCalledOnce();
     });
 
@@ -187,7 +187,7 @@ describe("GrillMeOverlay", () => {
         session: makeSession({ phase: "chatting", sessionId: "abc123" }),
       });
 
-      fireEvent.click(container.querySelector(".grill-overlay")!);
+      fireEvent.mouseDown(container.querySelector(".grill-overlay")!);
       expect(confirmSpy).toHaveBeenCalledOnce();
       expect(props.onClose).not.toHaveBeenCalled();
       confirmSpy.mockRestore();

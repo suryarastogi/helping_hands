@@ -741,8 +741,8 @@ export default function GrillMeOverlay({
     : phaseTitle[session.phase];
 
   return (
-    <div className="grill-overlay" onClick={handleClose}>
-      <div className="grill-overlay-content" onClick={(e) => e.stopPropagation()}>
+    <div className="grill-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
+      <div className="grill-overlay-content">
         <div className="grill-overlay-header">
           <h2 className="grill-overlay-title">{headerTitle}</h2>
           <button

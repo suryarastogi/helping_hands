@@ -124,10 +124,9 @@ export default function SubmitIssueOverlay({
   }, [onClose]);
 
   return (
-    <div className="grill-overlay" onClick={onClose}>
+    <div className="grill-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
         className="grill-overlay-content"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="grill-overlay-header">
           <h2 className="grill-overlay-title">
