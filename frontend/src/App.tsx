@@ -33,7 +33,7 @@ import SubmitIssueOverlay from "./components/SubmitIssueOverlay";
 import TaskListSidebar from "./components/TaskListSidebar";
 import VersionBadge from "./components/VersionBadge";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
-import { useGrillSession } from "./hooks/useGrillSession";
+import { useGrillSession, useResumableGrillSessions } from "./hooks/useGrillSession";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
@@ -146,9 +146,11 @@ export default function App() {
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
   const [showGrillOverlay, setShowGrillOverlay] = useState(false);
   const [showMGrillOverlay, setShowMGrillOverlay] = useState(false);
+  const [mgrillMinimized, setMgrillMinimized] = useState(false);
   const [showSubmitIssueOverlay, setShowSubmitIssueOverlay] = useState(false);
   const [mgrillPlayerId] = useState(loadOrCreateMGrillPlayerId);
   const grillSession = useGrillSession();
+  const resumableGrill = useResumableGrillSessions(showGrillOverlay && grillSession.phase === "form");
 
   const {
     maxOfficeWorkers,
@@ -540,8 +542,8 @@ export default function App() {
           onCursorMove={updateCursor}
           arcadeOpen={arcadeOpen}
           onArcadeOpen={() => setArcadeOpen(true)}
-          mgrillOpen={showMGrillOverlay}
-          onMGrillOpen={() => setShowMGrillOverlay(true)}
+          mgrillOpen={showMGrillOverlay && !mgrillMinimized}
+          onMGrillOpen={() => { setShowMGrillOverlay(true); setMgrillMinimized(false); }}
           mgrillEnabled={grillEnabled}
         />
 
@@ -585,6 +587,7 @@ export default function App() {
     {grillEnabled && showGrillOverlay && (
       <GrillMeOverlay
         session={grillSession}
+        resumable={resumableGrill}
         recentRepos={recentRepos}
         serverHasGithubToken={serverHasGithubToken}
         initialForm={grillInitialForm}
@@ -597,12 +600,13 @@ export default function App() {
     )}
     {grillEnabled && showMGrillOverlay && (
       <MultiplayerGrillOverlay
-        onClose={() => setShowMGrillOverlay(false)}
+        onClose={() => { setShowMGrillOverlay(false); setMgrillMinimized(false); }}
+        onMinimize={() => setMgrillMinimized(true)}
+        minimized={mgrillMinimized}
         onSubmitPlan={(taskId) => {
-          // Surface the submitted task in the existing task list by
-          // selecting it — matches the solo-grill plan-submit hand-off.
           selectTask(taskId);
           setShowMGrillOverlay(false);
+          setMgrillMinimized(false);
         }}
         playerId={mgrillPlayerId}
         playerName={localPlayerName}

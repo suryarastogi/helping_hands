@@ -6,6 +6,8 @@ import type {
   GrillMessage,
   GrillPhase,
   GrillPollResponse,
+  GrillResumableListResponse,
+  GrillSessionSummary,
   GrillStartResponse,
 } from "../types";
 
@@ -21,6 +23,7 @@ export type GrillSessionState = {
   finalPlan: string | null;
 
   startSession: (form: GrillFormState) => Promise<void>;
+  resumeSession: (sessionId: string) => void;
   sendMessage: (content: string) => Promise<void>;
   requestPlan: () => Promise<void>;
   reset: () => void;
@@ -88,7 +91,6 @@ export function useGrillSession(): GrillSessionState {
       if (
         data.status === "completed" ||
         data.status === "error" ||
-        data.status === "timeout" ||
         data.status === "max_turns" ||
         data.status === "not_found"
       ) {
@@ -99,10 +101,10 @@ export function useGrillSession(): GrillSessionState {
         }
       }
 
-      // When AI is thinking, show loading
+      // When AI is thinking, show loading; suspended sessions are idle
       if (data.status === "thinking") {
         setIsLoading(true);
-      } else if (data.status === "active") {
+      } else if (data.status === "active" || data.status === "suspended") {
         setIsLoading(false);
       }
     } catch {
@@ -170,6 +172,21 @@ export function useGrillSession(): GrillSessionState {
         setError(err instanceof Error ? err.message : String(err));
         setIsLoading(false);
       }
+    },
+    [startPolling],
+  );
+
+  const resumeSession = useCallback(
+    (sid: string) => {
+      setError(null);
+      setMessages([]);
+      setFinalPlan(null);
+      setSessionId(sid);
+      sessionIdRef.current = sid;
+      setStatus("suspended");
+      setPhase("chatting");
+      setIsLoading(false);
+      startPolling();
     },
     [startPolling],
   );
@@ -251,8 +268,51 @@ export function useGrillSession(): GrillSessionState {
     isLoading,
     finalPlan,
     startSession,
+    resumeSession,
     sendMessage,
     requestPlan,
     reset,
   };
+}
+
+export type ResumableSessionsState = {
+  sessions: GrillSessionSummary[];
+  isLoading: boolean;
+  error: string | null;
+  refresh: () => void;
+};
+
+export function useResumableGrillSessions(active: boolean): ResumableSessionsState {
+  const [sessions, setSessions] = useState<GrillSessionSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(apiUrl(`/grill/sessions/resumable?_=${Date.now()}`), {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        if (res.status !== 404) {
+          setError(`HTTP ${res.status}`);
+        }
+        return;
+      }
+      const data = (await res.json()) as GrillResumableListResponse;
+      setSessions(data.sessions);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    void load();
+  }, [active, load]);
+
+  return { sessions, isLoading, error, refresh: load };
 }

@@ -174,7 +174,6 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       setState(data);
       if (
         data.status === "error" ||
-        data.status === "timeout" ||
         data.status === "max_turns"
       ) {
         stopPolling();

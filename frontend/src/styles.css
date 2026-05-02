@@ -5364,11 +5364,14 @@ button.worker-sprite:disabled .worker-caption {
 
 .submission-overlay-content {
   position: relative;
-  width: min(560px, 90vw);
-  max-height: 85vh;
+  width: min(800px, 92vw);
+  max-height: 90vh;
   overflow-y: auto;
   padding-top: 40px;
   animation: overlay-slide-up 0.2s ease-out;
+  resize: both;
+  min-width: 320px;
+  min-height: 200px;
 }
 
 .submission-overlay-content > .card {
@@ -5408,6 +5411,24 @@ button.worker-sprite:disabled .worker-caption {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ── Resize handle hint for overlays ── */
+.submission-overlay-content::after,
+.grill-overlay-content::after,
+.mgrill-lobby-card::after,
+.mgrill-room-card::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.18) 50%);
+  border-radius: 0 0 12px 0;
+  pointer-events: none;
 }
 
 /* ── Player tooltip (hover on remote avatars) ── */
@@ -5911,8 +5932,8 @@ button.worker-sprite:disabled .worker-caption {
 
 .grill-overlay-content {
   position: relative;
-  width: min(680px, 92vw);
-  max-height: 88vh;
+  width: min(900px, 94vw);
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -5920,6 +5941,9 @@ button.worker-sprite:disabled .worker-caption {
   border-radius: 12px;
   overflow: hidden;
   animation: overlay-slide-up 0.2s ease-out;
+  resize: both;
+  min-width: 360px;
+  min-height: 300px;
 }
 
 .grill-overlay-header {
@@ -6194,7 +6218,7 @@ button.worker-sprite:disabled .worker-caption {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  max-height: calc(88vh - 60px);
+  overflow: hidden;
 }
 
 .grill-chat-messages {
@@ -6461,7 +6485,7 @@ button.worker-sprite:disabled .worker-caption {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  max-height: calc(88vh - 60px);
+  overflow: hidden;
 }
 
 .grill-plan-content {
@@ -6737,8 +6761,8 @@ button.worker-sprite:disabled .worker-caption {
 .mgrill-lobby-card,
 .mgrill-room-card {
   position: relative;
-  width: min(760px, 94vw);
-  max-height: 90vh;
+  width: min(960px, 96vw);
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -6746,6 +6770,9 @@ button.worker-sprite:disabled .worker-caption {
   border-radius: 12px;
   overflow: hidden;
   animation: overlay-slide-up 0.2s ease-out;
+  resize: both;
+  min-width: 400px;
+  min-height: 350px;
 }
 
 .mgrill-header {
@@ -7011,6 +7038,23 @@ button.worker-sprite:disabled .worker-caption {
   font-weight: 700;
 }
 
+.mgrill-room-participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.mgrill-participant-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .mgrill-room-repo {
   margin: 0;
   font-family: var(--mono);
@@ -7059,8 +7103,7 @@ button.worker-sprite:disabled .worker-caption {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 200px;
-  max-height: 420px;
+  min-height: 150px;
 }
 
 .mgrill-msg {

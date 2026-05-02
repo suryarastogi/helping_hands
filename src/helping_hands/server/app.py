@@ -5218,6 +5218,13 @@ def send_grill_message(session_id: str, req: GrillMessageRequest) -> dict[str, s
     r.rpush(msg_key, _json.dumps(msg))
     r.expire(msg_key, 3600)
 
+    # Auto-resume suspended sessions
+    state = _json.loads(state_raw)
+    if state.get("status") == "suspended":
+        from helping_hands.server.grill import resume_grill_session
+
+        resume_grill_session.delay(original_session_id=session_id)
+
     return {"status": "sent"}
 
 
@@ -5261,6 +5268,70 @@ def poll_grill(session_id: str) -> GrillPollResponse:
         status=status,
         messages=messages,
     )
+
+
+class GrillSessionSummary(BaseModel):
+    """Summary of a resumable solo grill session."""
+
+    session_id: str
+    status: str
+    repo_path: str
+    prompt: str
+    model: str
+    backend: str
+    turn_count: int
+
+
+class GrillResumableListResponse(BaseModel):
+    """Response listing resumable solo grill sessions."""
+
+    sessions: list[GrillSessionSummary]
+    total: int
+
+
+@app.get("/grill/sessions/resumable", response_model=GrillResumableListResponse)
+def grill_resumable_sessions() -> GrillResumableListResponse:
+    """List solo grill sessions that can be resumed (suspended status)."""
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    import json as _json
+
+    import redis
+
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+    r = redis.from_url(redis_url, decode_responses=True)
+
+    sessions: list[GrillSessionSummary] = []
+    cursor = "0"
+    while True:
+        cursor, keys = r.scan(cursor=cursor, match="grill:*:state", count=100)
+        for key in keys:
+            raw = r.get(key)
+            if raw is None:
+                continue
+            state = _json.loads(raw)
+            if state.get("status") != "suspended":
+                continue
+            sid = key.split(":")[1]
+            sessions.append(
+                GrillSessionSummary(
+                    session_id=sid,
+                    status="suspended",
+                    repo_path=state.get("repo_path", ""),
+                    prompt=state.get("prompt", ""),
+                    model=state.get("model", ""),
+                    backend=state.get("backend", "claudecodecli"),
+                    turn_count=int(state.get("turn_count", 0)),
+                )
+            )
+        if cursor == "0" or cursor == 0:
+            break
+
+    sessions.sort(key=lambda s: s.turn_count, reverse=True)
+    return GrillResumableListResponse(sessions=sessions, total=len(sessions))
 
 
 # ---------------------------------------------------------------------------
@@ -5713,17 +5784,17 @@ async def mgrill_add_pending(
     req: MGrillPendingRequest,
     http_request: Request,
 ) -> dict[str, str]:
-    """Add a message to the pending batch (any token-holder).
+    """Add a message to the pending batch (any participant).
 
     Writes directly into the room's ``pending`` Y.Map so all connected
-    participants see the addition via their Yjs subscription.
+    participants see the addition via their Yjs subscription.  No GitHub
+    token required — anyone can participate in chat.
     """
     from fastapi import HTTPException
 
     if not _grill_enabled():
         raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
 
-    _mgrill_require_token(http_request)
     session_id = _validate_path_param(session_id, "session_id")
     r = _mgrill_redis()
     _mgrill_require_state(r, session_id)
@@ -5752,13 +5823,17 @@ async def mgrill_remove_pending(
     pending_id: str,
     http_request: Request,
 ) -> dict[str, str]:
-    """Remove a pending message (author or creator only)."""
+    """Remove a pending message (author or creator).
+
+    Uses player_id from the ``X-MGrill-Player-Id`` header for author
+    matching.  Creator can delete any entry; other participants can only
+    delete their own.
+    """
     from fastapi import HTTPException
 
     if not _grill_enabled():
         raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
 
-    token = _mgrill_require_token(http_request)
     session_id = _validate_path_param(session_id, "session_id")
     pending_id = _validate_path_param(pending_id, "pending_id")
     r = _mgrill_redis()
@@ -5772,8 +5847,12 @@ async def mgrill_remove_pending(
     if entry is None:
         raise HTTPException(status_code=404, detail="Pending message not found")
 
-    token_hash = _hash_token(token)
-    is_creator = state.get("creator_token_hash") == token_hash
+    request_token = _get_request_token(http_request)
+    is_creator = False
+    if request_token:
+        is_creator = state.get("creator_token_hash") == _hash_token(request_token)
+    if _server_has_github_token():
+        is_creator = True
     if not is_creator:
         player_id = http_request.headers.get("X-MGrill-Player-Id", "").strip()
         if not player_id or entry.get("player_id") != player_id:
@@ -5791,10 +5870,10 @@ async def mgrill_send_to_ai(
 ) -> dict[str, Any]:
     """Bundle the pending batch and enqueue as a single AI turn.
 
-    Any token-holder may press Send — not creator-only.  Reads the room's
-    ``pending`` Y.Map, appends one transcript entry per author to the
-    ``messages`` Y.Array, clears the Y.Map, and pushes the bundled text
-    (``[Name]: ...`` joined by blank lines) to the worker's Redis
+    Any participant may press Send — no GitHub token required.  Reads the
+    room's ``pending`` Y.Map, appends one transcript entry per author to
+    the ``messages`` Y.Array, clears the Y.Map, and pushes the bundled
+    text (``[Name]: ...`` joined by blank lines) to the worker's Redis
     ``user_msgs`` queue.
     """
     from fastapi import HTTPException
@@ -5802,7 +5881,6 @@ async def mgrill_send_to_ai(
     if not _grill_enabled():
         raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
 
-    _mgrill_require_token(http_request)
     session_id = _validate_path_param(session_id, "session_id")
     r = _mgrill_redis()
     state = _mgrill_require_state(r, session_id)
@@ -5847,6 +5925,12 @@ async def mgrill_send_to_ai(
     # ``.clear()`` directly, so we pop each key).
     for key in list(dict(pending).keys()):
         del pending[key]
+
+    # Auto-resume suspended sessions
+    if state.get("status") == "suspended":
+        from helping_hands.server.multiplayer_grill import resume_mgrill_session
+
+        resume_mgrill_session.delay(original_session_id=session_id)
 
     _mgrill_touch_activity(r, session_id)
     return {"status": "sent", "count": len(entries)}
@@ -6017,19 +6101,18 @@ async def mgrill_keep_grilling(
 
 @app.post("/mgrill/{session_id}/request-plan")
 async def mgrill_request_plan(session_id: str, http_request: Request) -> dict[str, str]:
-    """Request the AI to produce a final plan (any token-holder).
+    """Request the AI to produce a final plan (any participant).
 
     Sends a ``type: "end"`` message to the worker queue, which instructs
     the AI to consolidate the discussion and output ``## FINAL PLAN``.
     Any pending batch entries are bundled and included so the AI sees the
-    latest context.
+    latest context.  No GitHub token required.
     """
     from fastapi import HTTPException
 
     if not _grill_enabled():
         raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
 
-    _mgrill_require_token(http_request)
     session_id = _validate_path_param(session_id, "session_id")
     r = _mgrill_redis()
     state = _mgrill_require_state(r, session_id)
@@ -6079,6 +6162,13 @@ async def mgrill_request_plan(session_id: str, http_request: Request) -> dict[st
     _ydoc_append_system_hint(
         room.ydoc, "Final plan requested — AI is consolidating the discussion."
     )
+
+    # Auto-resume suspended sessions
+    if state.get("status") == "suspended":
+        from helping_hands.server.multiplayer_grill import resume_mgrill_session
+
+        resume_mgrill_session.delay(original_session_id=session_id)
+
     _mgrill_touch_activity(r, session_id)
     return {"status": "requested"}
 

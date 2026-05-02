@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["grill_session"]
+__all__ = ["grill_session", "resume_grill_session"]
 
 # --- Constants ---------------------------------------------------------------
 
@@ -58,8 +58,8 @@ _SESSION_TTL_S = 3600
 _POLL_INTERVAL_S = 1.0
 """How often the worker checks for new user messages."""
 
-_IDLE_TIMEOUT_S = 300
-"""Max seconds to wait for a user message before ending the session."""
+_IDLE_SUSPEND_S = 300
+"""Seconds of inactivity before the worker suspends (session stays resumable)."""
 
 _MAX_CONVERSATION_TURNS = 100
 """Hard limit on total conversation turns to prevent runaway sessions."""
@@ -125,6 +125,26 @@ def _pop_user_msg(r: Any, session_id: str) -> dict[str, Any] | None:
     if raw is None:
         return None
     return json.loads(raw)
+
+
+def _save_resume_state(r: Any, session_id: str, state: dict[str, Any]) -> None:
+    """Persist state needed to resume a suspended session."""
+    key = f"grill:{session_id}:resume"
+    r.set(key, json.dumps(state), ex=_SESSION_TTL_S)
+
+
+def _load_resume_state(r: Any, session_id: str) -> dict[str, Any] | None:
+    """Load previously saved resume state."""
+    key = f"grill:{session_id}:resume"
+    raw = r.get(key)
+    if raw is None:
+        return None
+    return json.loads(raw)
+
+
+def _clear_resume_state(r: Any, session_id: str) -> None:
+    """Remove resume state after a session resumes or completes."""
+    r.delete(f"grill:{session_id}:resume")
 
 
 # --- Repo helpers ------------------------------------------------------------
@@ -569,6 +589,19 @@ try:  # pragma: no cover — requires celery extra
             self, repo_path, prompt, model, github_token, reference_repos, backend
         )
 
+    @_celery_app.task(bind=True, name="helping_hands.resume_grill_session")
+    def resume_grill_session(
+        self: Task,
+        original_session_id: str,
+    ) -> dict[str, Any]:
+        """Resume a suspended grill session.
+
+        Loads saved state from Redis and re-enters the message loop
+        using the original Claude session ID (for --resume) or Codex
+        conversation history.
+        """
+        return _resume_grill_session_body(self, original_session_id)
+
 except ImportError:
     pass
 
@@ -793,20 +826,38 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
             user_msg = _pop_user_msg(r, session_id)
 
             if user_msg is None:
-                if time.monotonic() - last_activity > _IDLE_TIMEOUT_S:
-                    _push_ai_msg(
+                if time.monotonic() - last_activity > _IDLE_SUSPEND_S:
+                    # Suspend: save state so the session can be resumed later
+                    _save_resume_state(
                         r,
                         session_id,
-                        "system",
-                        "Session timed out due to inactivity.",
-                        msg_type="timeout",
+                        {
+                            "claude_session_id": claude_session_id,
+                            "codex_history": codex_history,
+                            "cwd": cwd,
+                            "system_prompt": system_prompt,
+                            "model": resolved_model,
+                            "repo_path": repo_path,
+                            "prompt": prompt,
+                            "backend": backend,
+                            "turn_count": turn_count,
+                            "use_codex": use_codex,
+                            "github_token": github_token,
+                        },
                     )
                     _set_state(
                         r,
                         session_id,
-                        {"status": "timeout", "turn_count": turn_count},
+                        {
+                            "status": "suspended",
+                            "repo_path": repo_path,
+                            "prompt": prompt,
+                            "model": resolved_model,
+                            "backend": backend,
+                            "turn_count": turn_count,
+                        },
                     )
-                    return {"status": "timeout", "turn_count": turn_count}
+                    return {"status": "suspended", "turn_count": turn_count}
 
                 state = _get_state(r, session_id)
                 if state and state.get("status") == "ending":
@@ -945,3 +996,222 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
     finally:
         for root in tmp_roots:
             shutil.rmtree(root, ignore_errors=True)
+
+
+def _resume_grill_session_body(  # pragma: no cover — requires celery + redis
+    self: Task,
+    original_session_id: str,
+) -> dict[str, Any]:
+    """Resume a suspended grill session from saved state.
+
+    Uses the original session_id for Redis keys so the frontend sees
+    continuity. The Claude CLI session is resumed via ``--resume``.
+    """
+    session_id = original_session_id
+    r = _redis_client()
+
+    resume_state = _load_resume_state(r, session_id)
+    if resume_state is None:
+        _set_state(r, session_id, {"status": "error", "error": "No resume state"})
+        return {"status": "error", "error": "No resume state found"}
+
+    claude_session_id = resume_state["claude_session_id"]
+    codex_history: list[dict[str, str]] = resume_state.get("codex_history", [])
+    cwd = resume_state["cwd"]
+    system_prompt = resume_state["system_prompt"]
+    resolved_model = resume_state.get("model", "")
+    repo_path = resume_state["repo_path"]
+    prompt = resume_state["prompt"]
+    backend = resume_state.get("backend", "claudecodecli")
+    turn_count: int = resume_state.get("turn_count", 0)
+    use_codex = resume_state.get("use_codex", False)
+    github_token = resume_state.get("github_token")
+
+    _clear_resume_state(r, session_id)
+
+    def _emit_status(text: str) -> None:
+        _push_ai_msg(r, session_id, "system", text)
+
+    try:
+        _set_state(
+            r,
+            session_id,
+            {
+                "status": "active",
+                "repo_path": repo_path,
+                "prompt": prompt,
+                "model": resolved_model,
+                "backend": backend,
+                "turn_count": turn_count,
+            },
+        )
+
+        last_activity = time.monotonic()
+
+        while turn_count < _MAX_CONVERSATION_TURNS:
+            user_msg = _pop_user_msg(r, session_id)
+
+            if user_msg is None:
+                if time.monotonic() - last_activity > _IDLE_SUSPEND_S:
+                    _save_resume_state(
+                        r,
+                        session_id,
+                        {
+                            "claude_session_id": claude_session_id,
+                            "codex_history": codex_history,
+                            "cwd": cwd,
+                            "system_prompt": system_prompt,
+                            "model": resolved_model,
+                            "repo_path": repo_path,
+                            "prompt": prompt,
+                            "backend": backend,
+                            "turn_count": turn_count,
+                            "use_codex": use_codex,
+                            "github_token": github_token,
+                        },
+                    )
+                    _set_state(
+                        r,
+                        session_id,
+                        {
+                            "status": "suspended",
+                            "repo_path": repo_path,
+                            "prompt": prompt,
+                            "model": resolved_model,
+                            "backend": backend,
+                            "turn_count": turn_count,
+                        },
+                    )
+                    return {"status": "suspended", "turn_count": turn_count}
+
+                state = _get_state(r, session_id)
+                if state and state.get("status") == "ending":
+                    break
+
+                time.sleep(_POLL_INTERVAL_S)
+                continue
+
+            last_activity = time.monotonic()
+            user_text = user_msg.get("content", "")
+
+            if user_msg.get("type") == "end":
+                user_text = (
+                    f"{user_text}\n\n"
+                    "Based on our discussion, please produce the final "
+                    "consolidated plan. Start with '## FINAL PLAN' on its "
+                    "own line, then provide the complete plan."
+                )
+
+            _set_state(
+                r,
+                session_id,
+                {
+                    "status": "thinking",
+                    "repo_path": repo_path,
+                    "prompt": prompt,
+                    "model": resolved_model,
+                    "backend": backend,
+                    "turn_count": turn_count,
+                },
+            )
+
+            try:
+                if use_codex:
+                    ai_text = _invoke_codex_turn(
+                        user_message=user_text,
+                        cwd=cwd,
+                        system_prompt=system_prompt,
+                        conversation_history=codex_history,
+                        model=resolved_model or None,
+                        on_status=_emit_status,
+                    )
+                else:
+                    ai_text = _invoke_claude_turn(
+                        prompt=user_text,
+                        cwd=cwd,
+                        claude_session_id=claude_session_id,
+                        is_first_turn=False,
+                        model=resolved_model or None,
+                        github_token=github_token,
+                        on_status=_emit_status,
+                    )
+            except RuntimeError as exc:
+                cli_label = "Codex" if use_codex else "Claude"
+                logger.exception(
+                    "%s CLI failed in resumed grill session %s", cli_label, session_id
+                )
+                _push_ai_msg(r, session_id, "system", str(exc), msg_type="error")
+                _set_state(
+                    r,
+                    session_id,
+                    {
+                        "status": "active",
+                        "repo_path": repo_path,
+                        "prompt": prompt,
+                        "model": resolved_model,
+                        "backend": backend,
+                        "turn_count": turn_count,
+                    },
+                )
+                continue
+
+            turn_count += 1
+
+            if not ai_text:
+                _push_ai_msg(
+                    r,
+                    session_id,
+                    "system",
+                    "No response received from AI.",
+                    msg_type="error",
+                )
+                continue
+
+            if use_codex:
+                codex_history.append({"role": "user", "content": user_text})
+                codex_history.append({"role": "assistant", "content": ai_text})
+
+            is_final = "## FINAL PLAN" in ai_text
+            msg_type_out = "plan" if is_final else "message"
+            _push_ai_msg(r, session_id, "assistant", ai_text, msg_type=msg_type_out)
+
+            _set_state(
+                r,
+                session_id,
+                {
+                    "status": "completed" if is_final else "active",
+                    "repo_path": repo_path,
+                    "prompt": prompt,
+                    "model": resolved_model,
+                    "backend": backend,
+                    "turn_count": turn_count,
+                },
+            )
+
+            if is_final:
+                return {"status": "completed", "turn_count": turn_count}
+
+        _push_ai_msg(
+            r,
+            session_id,
+            "system",
+            "Maximum conversation turns reached.",
+            msg_type="timeout",
+        )
+        _set_state(r, session_id, {"status": "max_turns", "turn_count": turn_count})
+        return {"status": "max_turns", "turn_count": turn_count}
+
+    except Exception as exc:
+        logger.exception("Resumed grill session %s failed", session_id)
+        try:
+            _push_ai_msg(
+                r,
+                session_id,
+                "system",
+                f"Session error: {exc}",
+                msg_type="error",
+            )
+            _set_state(r, session_id, {"status": "error", "error": str(exc)})
+        except Exception:
+            pass
+        return {"status": "error", "error": str(exc)}

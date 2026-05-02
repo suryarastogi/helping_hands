@@ -14,7 +14,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { MGrillSessionActions } from "../hooks/useMultiplayerGrill";
+import type { MGrillMessage } from "../types";
 import { loadGithubToken } from "../App.utils";
+import { renderMarkdown } from "../markdown";
 
 type Props = {
   actions: MGrillSessionActions;
@@ -66,6 +68,32 @@ export default function MultiplayerGrillRoom({
   const canClaimCreator =
     !serverHasGithubToken && !canActAsCreator && creatorAbsentS > 60 && hasToken;
 
+  const participantNames = useMemo<string[]>(() => {
+    const names = new Set<string>();
+    for (const m of messages) {
+      if (m.author_name && m.role === "user") names.add(m.author_name);
+    }
+    for (const p of pending) {
+      if (p.name) names.add(p.name);
+    }
+    if (state?.creator_name) names.add(state.creator_name);
+    return Array.from(names);
+  }, [messages, pending, state?.creator_name]);
+
+  const allMessages = useMemo<MGrillMessage[]>(() => {
+    if (!state?.prompt) return messages;
+    const promptMsg: MGrillMessage = {
+      id: "__original_prompt__",
+      role: "user",
+      content: state.prompt,
+      type: "message",
+      author_player_id: state.creator_player_id ?? null,
+      author_name: state.creator_name ?? "Creator",
+      timestamp: 0,
+    };
+    return [promptMsg, ...messages];
+  }, [messages, state?.prompt, state?.creator_player_id, state?.creator_name]);
+
   const voteTally = useMemo(() => {
     const values = Object.values(live.votes);
     return {
@@ -77,13 +105,13 @@ export default function MultiplayerGrillRoom({
 
   const handleAddPending = async () => {
     const trimmed = draft.trim();
-    if (!trimmed || !hasToken) return;
+    if (!trimmed) return;
     setDraft("");
     await actions.addPending(trimmed, playerId, playerName);
   };
 
   const handleSend = async () => {
-    if (pending.length === 0 || !hasToken) return;
+    if (pending.length === 0) return;
     await actions.sendToAi();
   };
 
@@ -127,6 +155,16 @@ export default function MultiplayerGrillRoom({
             </span>
             <span className="mgrill-room-turn">turn {state?.turn_count ?? 0}</span>
           </div>
+          {participantNames.length > 0 && (
+            <div className="mgrill-room-participants">
+              {participantNames.map((name) => (
+                <span key={name} className="mgrill-participant-badge">
+                  {name}
+                  {name === playerName && <span className="mgrill-you-badge"> (you)</span>}
+                </span>
+              ))}
+            </div>
+          )}
           <p className="mgrill-room-repo">{state?.repo_path}</p>
         </div>
         <div className="mgrill-room-header-actions">
@@ -155,16 +193,15 @@ export default function MultiplayerGrillRoom({
         </div>
       )}
 
-      {!hasToken && (
-        <div className="mgrill-banner mgrill-banner-readonly">
-          Read-only: add a GitHub token in the submission form to participate
-          in chat and voting.
+      {state?.status === "suspended" && (
+        <div className="mgrill-banner mgrill-banner-suspended">
+          Session is suspended due to inactivity. Send a message to resume.
         </div>
       )}
 
       <div className="mgrill-transcript" aria-live="polite">
-        {messages.length === 0 && <p className="mgrill-loading">Loading…</p>}
-        {messages.map((m) => (
+        {allMessages.length === 0 && <p className="mgrill-loading">Loading…</p>}
+        {allMessages.map((m) => (
           <div
             key={m.id}
             className={`mgrill-msg mgrill-msg-${m.role} mgrill-msg-type-${m.type}`}
@@ -174,10 +211,13 @@ export default function MultiplayerGrillRoom({
                 {m.author_name ?? (m.role === "assistant" ? "Interviewer" : m.role)}
               </span>
               <span className="mgrill-msg-ts">
-                {new Date(m.timestamp * 1000).toLocaleTimeString()}
+                {m.id === "__original_prompt__" ? "original prompt" : new Date(m.timestamp * 1000).toLocaleTimeString()}
               </span>
             </div>
-            <div className="mgrill-msg-body">{m.content}</div>
+            <div
+              className="mgrill-msg-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
+            />
           </div>
         ))}
         {isThinking && (
@@ -197,30 +237,26 @@ export default function MultiplayerGrillRoom({
             <span className="mgrill-vote-down">👎 {voteTally.down}</span>
             <span className="mgrill-vote-total">({voteTally.total} total)</span>
           </div>
-          {hasToken ? (
-            <div className="mgrill-vote-actions">
-              <button
-                type="button"
-                className={myVote === "up" ? "active" : ""}
-                onClick={() =>
-                  actions.castVote(playerId, myVote === "up" ? "clear" : "up")
-                }
-              >
-                👍 {myVote === "up" ? "Voted up" : "Vote up"}
-              </button>
-              <button
-                type="button"
-                className={myVote === "down" ? "active" : ""}
-                onClick={() =>
-                  actions.castVote(playerId, myVote === "down" ? "clear" : "down")
-                }
-              >
-                👎 {myVote === "down" ? "Voted down" : "Vote down"}
-              </button>
-            </div>
-          ) : (
-            <p className="mgrill-hint">Sign in with a GitHub token to vote.</p>
-          )}
+          <div className="mgrill-vote-actions">
+            <button
+              type="button"
+              className={myVote === "up" ? "active" : ""}
+              onClick={() =>
+                actions.castVote(playerId, myVote === "up" ? "clear" : "up")
+              }
+            >
+              👍 {myVote === "up" ? "Voted up" : "Vote up"}
+            </button>
+            <button
+              type="button"
+              className={myVote === "down" ? "active" : ""}
+              onClick={() =>
+                actions.castVote(playerId, myVote === "down" ? "clear" : "down")
+              }
+            >
+              👎 {myVote === "down" ? "Voted down" : "Vote down"}
+            </button>
+          </div>
           {canActAsCreator && (
             <div className="mgrill-creator-actions">
               {showOverrideConfirm && voteTally.down > 0 ? (
@@ -295,11 +331,7 @@ export default function MultiplayerGrillRoom({
         <div className="mgrill-compose">
           <textarea
             className="mgrill-compose-input"
-            placeholder={
-              hasToken
-                ? "Add an answer to the batch (Enter = add, Shift+Enter = newline)…"
-                : "Read-only — add a GitHub token to participate."
-            }
+            placeholder="Add an answer to the batch (Enter = add, Shift+Enter = newline)…"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -308,14 +340,13 @@ export default function MultiplayerGrillRoom({
                 void handleAddPending();
               }
             }}
-            disabled={!hasToken}
             rows={2}
           />
           <div className="mgrill-compose-actions">
             <button
               type="button"
               onClick={handleAddPending}
-              disabled={!hasToken || draft.trim().length === 0}
+              disabled={draft.trim().length === 0}
             >
               Add to batch
             </button>
@@ -323,7 +354,7 @@ export default function MultiplayerGrillRoom({
               type="button"
               className="mgrill-send-btn"
               onClick={handleSend}
-              disabled={!hasToken || pending.length === 0 || isThinking}
+              disabled={pending.length === 0 || isThinking}
               title={
                 isThinking
                   ? "AI is already thinking"
@@ -340,7 +371,7 @@ export default function MultiplayerGrillRoom({
                 type="button"
                 className="mgrill-request-plan-btn"
                 onClick={() => void actions.requestPlan()}
-                disabled={!hasToken || isThinking}
+                disabled={isThinking}
                 title={
                   isThinking
                     ? "AI is already thinking"
