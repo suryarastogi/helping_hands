@@ -369,6 +369,7 @@ def _invoke_claude_turn(
         "--output-format",
         "stream-json",
         "--verbose",
+        "--no-session-persistence",
     ]
 
     if is_first_turn:
@@ -380,6 +381,16 @@ def _invoke_claude_turn(
 
     if model:
         cmd.extend(["--model", model])
+
+    # Cost control: honour the same env var as the hand.
+    budget = os.environ.get("HELPING_HANDS_CLAUDE_MAX_BUDGET_USD", "").strip()
+    if budget:
+        try:
+            budget_val = float(budget)
+            if budget_val > 0:
+                cmd.extend(["--max-budget-usd", str(budget_val)])
+        except ValueError:
+            pass
 
     # Read-only: explicitly deny all write/execute tools so the grill session
     # can only explore the codebase, never modify it.

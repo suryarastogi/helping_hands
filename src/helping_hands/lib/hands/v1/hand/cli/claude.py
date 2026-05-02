@@ -69,7 +69,15 @@ _TOOL_SUMMARY_KEY_MAP: dict[str, str] = {
 """Simple tool-name → input key mapping for ``_summarize_tool``."""
 
 # Tools that need no input key — just return the tool name.
-_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset({"TodoWrite", "CronList"})
+_TOOL_SUMMARY_STATIC: frozenset[str] = frozenset(
+    {
+        "TodoWrite",
+        "CronList",
+        "EnterPlanMode",
+        "ExitPlanMode",
+        "TaskStop",
+    }
+)
 """Tools whose summary is simply their name with no parameters."""
 
 _OUTPUT_FORMAT_STREAM_JSON = "stream-json"
@@ -77,6 +85,29 @@ _OUTPUT_FORMAT_STREAM_JSON = "stream-json"
 
 _SKIP_PERMISSIONS_FLAG = "--dangerously-skip-permissions"
 """Claude CLI flag to bypass the interactive permission prompt."""
+
+_VALID_EFFORT_LEVELS: frozenset[str] = frozenset(
+    {
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+    }
+)
+"""Accepted values for the ``--effort`` CLI flag."""
+
+_VALID_PERMISSION_MODES: frozenset[str] = frozenset(
+    {
+        "acceptEdits",
+        "auto",
+        "bypassPermissions",
+        "default",
+        "dontAsk",
+        "plan",
+    }
+)
+"""Accepted values for the ``--permission-mode`` CLI flag."""
 
 
 class _StreamJsonEmitter:
@@ -305,6 +336,36 @@ class _StreamJsonEmitter:
         if name == "ExitWorktree":
             action = input_data.get("action", "")
             return f"ExitWorktree {action}" if action else "ExitWorktree"
+        if name == "Monitor":
+            cmd = input_data.get("command", "")
+            return (
+                f"Monitor {_truncate_with_ellipsis(cmd, _COMMAND_PREVIEW_MAX_LENGTH)}"
+                if cmd
+                else "Monitor"
+            )
+        if name == "ScheduleWakeup":
+            reason = input_data.get("reason", "")
+            return f"ScheduleWakeup: {reason}" if reason else "ScheduleWakeup"
+        if name == "SendMessage":
+            to = input_data.get("to", "")
+            return f"SendMessage -> {to}" if to else "SendMessage"
+        if name == "TaskOutput":
+            task_id = input_data.get("task_id", "")
+            return f"TaskOutput {task_id}" if task_id else "TaskOutput"
+        if name == "PushNotification":
+            title = input_data.get("title", "")
+            return f"PushNotification: {title}" if title else "PushNotification"
+        if name == "AskUserQuestion":
+            question = input_data.get("question", "")
+            preview = (
+                _truncate_with_ellipsis(question, _COMMAND_PREVIEW_MAX_LENGTH)
+                if question
+                else ""
+            )
+            return f"AskUserQuestion: {preview}" if preview else "AskUserQuestion"
+        if name == "ToolSearch":
+            query = input_data.get("query", "")
+            return f"ToolSearch {query!r}" if query else "ToolSearch"
         return f"tool: {name}"
 
     def result_text(self) -> str:
@@ -442,13 +503,112 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         return True
 
     def _apply_backend_defaults(self, cmd: list[str]) -> list[str]:
-        if (
-            cmd
-            and cmd[0] == "claude"
-            and self._skip_permissions_enabled()
-            and _SKIP_PERMISSIONS_FLAG not in cmd
-        ):
-            return [cmd[0], _SKIP_PERMISSIONS_FLAG, *cmd[1:]]
+        """Inject Claude Code CLI flags derived from env-var configuration.
+
+        Flags are inserted right after the binary name so they precede
+        ``-p`` and the prompt text.
+
+        Supported env vars (all optional):
+          - ``HELPING_HANDS_CLAUDE_PERMISSION_MODE``:  when set to a valid
+            ``--permission-mode`` value, replaces ``--dangerously-skip-permissions``.
+          - ``HELPING_HANDS_CLAUDE_NO_SESSION_PERSISTENCE``:  ``"1"`` (default)
+            adds ``--no-session-persistence`` to avoid writing sessions to disk.
+          - ``HELPING_HANDS_CLAUDE_MAX_BUDGET_USD``:  positive number passed as
+            ``--max-budget-usd``.
+          - ``HELPING_HANDS_CLAUDE_APPEND_SYSTEM_PROMPT``:  text appended via
+            ``--append-system-prompt``.
+          - ``HELPING_HANDS_CLAUDE_EFFORT``:  one of low/medium/high/xhigh/max
+            passed as ``--effort``.
+          - ``HELPING_HANDS_CLAUDE_FALLBACK_MODEL``:  model name passed as
+            ``--fallback-model``.
+          - ``HELPING_HANDS_CLAUDE_ALLOWED_TOOLS``:  comma-separated tool names
+            passed as ``--allowedTools``.
+          - ``HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS``:  comma-separated tool
+            names passed as ``--disallowedTools``.
+          - ``HELPING_HANDS_CLAUDE_ADD_DIRS``:  comma-separated directory paths
+            each passed as a separate ``--add-dir`` argument.
+
+        Args:
+            cmd: The current command token list.
+
+        Returns:
+            The command list with additional flags injected.
+        """
+        if not cmd or cmd[0] != "claude":
+            return cmd
+
+        extra: list[str] = []
+
+        # --- Permission handling: --permission-mode or --dangerously-skip-permissions
+        perm_mode = os.environ.get("HELPING_HANDS_CLAUDE_PERMISSION_MODE", "").strip()
+        if perm_mode and perm_mode in _VALID_PERMISSION_MODES:
+            if not has_cli_flag(cmd, "permission-mode"):
+                extra.extend(["--permission-mode", perm_mode])
+        elif self._skip_permissions_enabled() and _SKIP_PERMISSIONS_FLAG not in cmd:
+            extra.append(_SKIP_PERMISSIONS_FLAG)
+
+        # --- Session persistence (default: off for automated runs)
+        no_persist = os.environ.get(
+            "HELPING_HANDS_CLAUDE_NO_SESSION_PERSISTENCE", "1"
+        ).strip()
+        if self._is_truthy(no_persist) and "--no-session-persistence" not in cmd:
+            extra.append("--no-session-persistence")
+
+        # --- Cost control
+        budget = os.environ.get("HELPING_HANDS_CLAUDE_MAX_BUDGET_USD", "").strip()
+        if budget and not has_cli_flag(cmd, "max-budget-usd"):
+            try:
+                budget_val = float(budget)
+                if budget_val > 0:
+                    extra.extend(["--max-budget-usd", str(budget_val)])
+            except ValueError:
+                logger.warning(
+                    "Invalid HELPING_HANDS_CLAUDE_MAX_BUDGET_USD: %r", budget
+                )
+
+        # --- System prompt injection
+        append_prompt = os.environ.get(
+            "HELPING_HANDS_CLAUDE_APPEND_SYSTEM_PROMPT", ""
+        ).strip()
+        if append_prompt and not has_cli_flag(cmd, "append-system-prompt"):
+            extra.extend(["--append-system-prompt", append_prompt])
+
+        # --- Effort level
+        effort = os.environ.get("HELPING_HANDS_CLAUDE_EFFORT", "").strip().lower()
+        if effort and not has_cli_flag(cmd, "effort"):
+            if effort in _VALID_EFFORT_LEVELS:
+                extra.extend(["--effort", effort])
+            else:
+                logger.warning(
+                    "Invalid HELPING_HANDS_CLAUDE_EFFORT: %r (expected one of %s)",
+                    effort,
+                    ", ".join(sorted(_VALID_EFFORT_LEVELS)),
+                )
+
+        # --- Fallback model for overload resilience
+        fallback = os.environ.get("HELPING_HANDS_CLAUDE_FALLBACK_MODEL", "").strip()
+        if fallback and not has_cli_flag(cmd, "fallback-model"):
+            extra.extend(["--fallback-model", fallback])
+
+        # --- Tool allow/deny lists
+        allowed = os.environ.get("HELPING_HANDS_CLAUDE_ALLOWED_TOOLS", "").strip()
+        if allowed and not has_cli_flag(cmd, "allowedTools"):
+            extra.extend(["--allowedTools", allowed])
+
+        disallowed = os.environ.get("HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS", "").strip()
+        if disallowed and not has_cli_flag(cmd, "disallowedTools"):
+            extra.extend(["--disallowedTools", disallowed])
+
+        # --- Additional directories for tool access (reference repos, etc.)
+        add_dirs = os.environ.get("HELPING_HANDS_CLAUDE_ADD_DIRS", "").strip()
+        if add_dirs and not has_cli_flag(cmd, "add-dir"):
+            for d in add_dirs.split(","):
+                d = d.strip()
+                if d:
+                    extra.extend(["--add-dir", d])
+
+        if extra:
+            return [cmd[0], *extra, *cmd[1:]]
         return cmd
 
     def _retry_command_after_failure(
@@ -509,6 +669,29 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             p_idx = len(cmd)
         return [*cmd[:p_idx], "--output-format", fmt, *cmd[p_idx:]]
 
+    def _inject_add_dirs_for_reference_repos(self, cmd: list[str]) -> list[str]:
+        """Append ``--add-dir`` flags for each configured reference repo.
+
+        Gives Claude Code direct tool access to reference repo directories
+        so it can Read/Grep/Glob into them without relying on the prompt
+        context alone.
+
+        Args:
+            cmd: The current command token list.
+
+        Returns:
+            The command list with ``--add-dir`` flags appended.
+        """
+        if not self.repo_index.reference_repos:
+            return cmd
+        extra: list[str] = []
+        for _name, path in self.repo_index.reference_repos:
+            resolved = str(path.resolve()) if hasattr(path, "resolve") else str(path)
+            extra.extend(["--add-dir", resolved])
+        if extra:
+            return [*cmd, *extra]
+        return cmd
+
     async def _invoke_claude(
         self,
         prompt: str,
@@ -519,6 +702,7 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         await emit(self._label_msg(f"model={model}") + "\n")
         cmd = self._render_command(prompt)
         cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
+        cmd = self._inject_add_dirs_for_reference_repos(cmd)
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
         try:
             raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
