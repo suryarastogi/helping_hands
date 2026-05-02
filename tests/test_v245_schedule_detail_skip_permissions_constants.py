@@ -108,10 +108,7 @@ class TestSkipPermissionsFlagBehavior:
         assert result[0] == "claude"
         assert result[1] == _SKIP_PERMISSIONS_FLAG
 
-    def test_apply_backend_defaults_skips_when_already_present(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("HELPING_HANDS_CLAUDE_NO_SESSION_PERSISTENCE", "0")
+    def test_apply_backend_defaults_skips_when_already_present(self) -> None:
         hand = ClaudeCodeHand.__new__(ClaudeCodeHand)
         hand._config = type("C", (), {"enable_execution": False})()
         hand._skip_permissions_value = "1"
