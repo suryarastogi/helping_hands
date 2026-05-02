@@ -73,6 +73,9 @@ export type TaskStatus = {
   task_id: string;
   status: string;
   result: Record<string, unknown> | null;
+  /** True when the result is being served from the persistent snapshot rather
+   * than a live workspace (workspace was cleaned up after task completion). */
+  from_snapshot?: boolean;
 };
 
 export type CurrentTask = {

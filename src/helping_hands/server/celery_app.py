@@ -1091,6 +1091,34 @@ def build_feature(
     _issue_repo = cloned_from or repo_path
     _linked_issue: int | None = issue_number
 
+    # Snapshot params for the shareable task-run record. Excludes github_token
+    # by design — never persist credentials.
+    _snapshot_params: dict[str, Any] = {
+        "repo_path": repo_path,
+        "prompt": prompt,
+        "pr_number": pr_number,
+        "issue_number": issue_number,
+        "create_issue": create_issue,
+        "project_url": project_url,
+        "backend": requested_backend,
+        "runtime_backend": runtime_backend,
+        "model": model,
+        "max_iterations": resolved_iterations,
+        "no_pr": no_pr,
+        "enable_execution": enable_execution,
+        "enable_web": enable_web,
+        "use_native_cli_auth": use_native_cli_auth,
+        "tools": list(selected_tools),
+        "fix_ci": fix_ci,
+        "fix_conflicts": fix_conflicts,
+        "master_rebase": master_rebase,
+        "ci_check_wait_minutes": ci_check_wait_minutes,
+        "reference_repos": list(reference_repos or []),
+        "schedule_id": schedule_id,
+    }
+    _snapshot_result: dict[str, Any] | None = None
+    _snapshot_error_info: dict[str, Any] | None = None
+
     try:
         overrides: dict[str, ConfigValue] = {
             "repo": str(resolved_repo_path),
@@ -1290,7 +1318,7 @@ def build_feature(
             pr_url=hand.last_pr_metadata.get("pr_url", ""),
         )
 
-        return {
+        _snapshot_result = {
             "status": _RESPONSE_STATUS_OK,
             "prompt": prompt,
             "pr_number": pr_number,
@@ -1315,7 +1343,12 @@ def build_feature(
             "updates": updates,
             **hand.last_pr_metadata,
         }
+        return _snapshot_result
     except Exception as exc:
+        _snapshot_error_info = {
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+        }
         # Best-effort: sync "failed" status to linked GitHub issue.
         _sync_issue_status(
             _issue_repo,
@@ -1326,6 +1359,33 @@ def build_feature(
         )
         raise
     finally:
+        # Snapshot must run BEFORE the workspace rmtree below — diff/tree
+        # capture needs the live workspace. Best-effort: any exception here is
+        # swallowed so it never prevents cleanup or shadows a task error.
+        try:
+            from helping_hands.server.task_runs import snapshot_task_run
+
+            _snap_status = "failure" if _snapshot_error_info is not None else "success"
+            _snap_output = _snapshot_result or {
+                "status": "failure",
+                "updates": list(updates),
+            }
+            snapshot_task_run(
+                task_id=task_id,
+                status=_snap_status,
+                params=_snapshot_params,
+                output=_snap_output,
+                workspace_path=resolved_repo_path,
+                error=_snapshot_error_info,
+                finished_at=datetime.now(UTC).isoformat(),
+            )
+        except Exception as snap_exc:
+            logger.warning(
+                "task_runs: snapshot dispatch failed for %s: %s",
+                task_id,
+                snap_exc,
+            )
+
         if _tmp_root is not None:
             shutil.rmtree(_tmp_root, ignore_errors=True)
         for ref_root in ref_tmp_roots:

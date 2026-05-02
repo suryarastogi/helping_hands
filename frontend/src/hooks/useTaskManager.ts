@@ -37,6 +37,7 @@ import {
   TASK_HISTORY_STORAGE_KEY,
   upsertTaskHistory,
 } from "../App.utils";
+import { initTaskRoute, parseTaskIdFromPathname, syncTaskIdToUrl } from "../router";
 import type {
   AccumulatedUsage,
   Backend,
@@ -113,6 +114,16 @@ export type UseTaskManagerReturn = {
   // Live output for worker bubbles
   lastOutputByTaskId: Map<string, string>;
 
+  // Sharing / cold-load
+  // True when the page was first loaded directly at /run/<uuid> (i.e. a
+  // shared link). UI uses this to suppress destructive actions for users
+  // who landed on someone else's run rather than submitting their own.
+  isColdLoad: boolean;
+  // Most recent backend response's `from_snapshot` flag — true when the
+  // result is being served from the persistent snapshot rather than the
+  // live workspace.
+  fromSnapshot: boolean;
+
   // Actions
   submitRun: (event: FormEvent) => Promise<void>;
   submitBuild: (overrides: Partial<FormState>) => Promise<void>;
@@ -164,6 +175,8 @@ export function useTaskManager(): UseTaskManagerReturn {
   const [payload, setPayload] = useState<Record<string, unknown> | null>(null);
   const [updates, setUpdates] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
+  const [isColdLoad, setIsColdLoad] = useState(false);
+  const [fromSnapshot, setFromSnapshot] = useState(false);
 
   // -- Task history ---------------------------------------------------------
   const [taskHistory, setTaskHistory] = useState<TaskHistoryItem[]>([]);
@@ -288,6 +301,8 @@ export function useTaskManager(): UseTaskManagerReturn {
     setPayload(null);
     setUpdates([]);
     setIsPolling(true);
+    setIsColdLoad(false);
+    setFromSnapshot(false);
     autoScrollRef.current = true;
     setTaskHistory((current) =>
       upsertTaskHistory(current, {
@@ -795,10 +810,12 @@ export function useTaskManager(): UseTaskManagerReturn {
 
   // -- Query-string initialization ------------------------------------------
   useEffect(() => {
+    const route = initTaskRoute();
     const params = new URLSearchParams(window.location.search);
 
-    const queryTaskId = params.get("task_id");
+    const queryTaskId = route.taskId;
     const queryStatus = params.get("status");
+    if (route.isColdLoad) setIsColdLoad(true);
 
     setForm((current) => {
       const next: FormState = { ...current };
@@ -862,6 +879,28 @@ export function useTaskManager(): UseTaskManagerReturn {
     }
   }, []);
 
+  // -- Mirror taskId into the URL -------------------------------------------
+  // Whenever the selected task changes, push /run/<uuid> so the URL is
+  // shareable. taskId === null restores "/", which clears the selection on
+  // back-navigation past the first task.
+  useEffect(() => {
+    syncTaskIdToUrl(taskId);
+  }, [taskId]);
+
+  // -- Back/forward navigation ----------------------------------------------
+  useEffect(() => {
+    const onPop = () => {
+      const next = parseTaskIdFromPathname(window.location.pathname);
+      setTaskId(next);
+      // Browser back/forward to a different /run/<uuid> is *not* a cold load
+      // — the user navigated within the SPA, so destructive actions remain
+      // their own decision rather than a shared-link viewer's.
+      setIsColdLoad(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   // -- Last output line per task (for worker speech bubbles) -----------------
   const [lastOutputByTaskId, setLastOutputByTaskId] = useState<Map<string, string>>(new Map());
 
@@ -885,6 +924,7 @@ export function useTaskManager(): UseTaskManagerReturn {
 
         setStatus(data.status);
         setPayload(data as unknown as Record<string, unknown>);
+        setFromSnapshot(Boolean(data.from_snapshot));
         const freshUpdates = extractUpdates(data.result);
         setUpdates(freshUpdates);
         {
@@ -1065,6 +1105,8 @@ export function useTaskManager(): UseTaskManagerReturn {
     removeToast,
     fetchedCapacity,
     lastOutputByTaskId,
+    isColdLoad,
+    fromSnapshot,
     submitRun,
     submitBuild,
     selectTask,

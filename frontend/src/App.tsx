@@ -92,6 +92,8 @@ export default function App() {
     removeToast,
     fetchedCapacity,
     lastOutputByTaskId,
+    isColdLoad,
+    fromSnapshot,
     submitRun,
     submitBuild,
     selectTask,
@@ -454,6 +456,8 @@ export default function App() {
       fileTreeError={fileTreeError}
       fileTreeLoading={fileTreeLoading}
       diffIsCommitted={diffIsCommitted}
+      isColdLoad={isColdLoad}
+      fromSnapshot={fromSnapshot}
     />
   );
 
