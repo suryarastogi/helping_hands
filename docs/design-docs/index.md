@@ -13,6 +13,7 @@ Index of design documents for helping_hands.
 
 - [Hand Abstraction](hand-abstraction.md) — Hand class hierarchy and extension model
 - [Two-Phase CLI Hands](two-phase-cli-hands.md) — Subprocess architecture, retry logic, and sandboxing
+- [Claude CLI Feature Flags](claude-cli-feature-flags.md) — Opt-in env-var pass-through for `--max-turns`, `--append-system-prompt`, tool filters, and session continuation
 - [E2E Hand Workflow](e2e-hand-workflow.md) — Clone/branch/edit/commit/push/PR lifecycle, resume flow, dry-run
 - [Docker Sandbox](docker-sandbox.md) — MicroVM isolation via Docker Desktop sandboxes, lifecycle, env forwarding
 - [PR Description](pr-description.md) — Generation flow, prompt engineering, parsing, fallback chain, and env config

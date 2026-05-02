@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import shutil
+from typing import Any
 
 from helping_hands.lib.hands.v1.hand.cli.base import (
     _format_cli_failure,
@@ -78,6 +80,18 @@ _OUTPUT_FORMAT_STREAM_JSON = "stream-json"
 _SKIP_PERMISSIONS_FLAG = "--dangerously-skip-permissions"
 """Claude CLI flag to bypass the interactive permission prompt."""
 
+_DEFAULT_MAX_TURNS = 0
+"""Default value for ``--max-turns`` (0 = unlimited / not injected)."""
+
+_SYSTEM_PROMPT_MAX_LENGTH = 16_000
+"""Cap on the length of an injected ``--append-system-prompt`` payload.
+
+Truncates oversized agent docs (AGENT.md / CLAUDE.md) so that very large
+files don't blow past Claude Code's CLI argument limits."""
+
+_AGENT_DOC_CANDIDATES: tuple[str, ...] = ("AGENT.md", "CLAUDE.md")
+"""Filenames searched at the repo root for the auto-injected system prompt."""
+
 
 class _StreamJsonEmitter:
     """Parse Claude Code ``--output-format stream-json`` and emit progress."""
@@ -92,6 +106,10 @@ class _StreamJsonEmitter:
         self._buffer = ""
         self._result = ""
         self._text_parts: list[str] = []
+        self._session_id: str = ""
+        self._total_cost_usd: float | None = None
+        self._duration_ms: float | None = None
+        self._usage: dict[str, int] = {}
 
     def _label_msg(self, msg: str) -> str:
         """Prefix *msg* with the backend label.
@@ -222,14 +240,27 @@ class _StreamJsonEmitter:
 
         elif event_type == _EVENT_TYPE_RESULT:
             self._result = event.get("result", "")
+            session_id = event.get("session_id", "")
+            if isinstance(session_id, str) and session_id:
+                self._session_id = session_id
             cost = event.get("total_cost_usd")
             duration = event.get("duration_ms")
             usage = event.get("usage")
-            parts: list[str] = []
             if cost is not None:
-                parts.append(f"${cost:.4f}")
+                try:
+                    self._total_cost_usd = float(cost)
+                except (TypeError, ValueError):
+                    self._total_cost_usd = None
             if duration is not None:
-                parts.append(f"{duration / 1000:.1f}s")
+                try:
+                    self._duration_ms = float(duration)
+                except (TypeError, ValueError):
+                    self._duration_ms = None
+            parts: list[str] = []
+            if self._total_cost_usd is not None:
+                parts.append(f"${self._total_cost_usd:.4f}")
+            if self._duration_ms is not None:
+                parts.append(f"{self._duration_ms / 1000:.1f}s")
             if isinstance(usage, dict):
                 inp = usage.get("input_tokens")
                 out = usage.get("output_tokens")
@@ -237,8 +268,12 @@ class _StreamJsonEmitter:
                     tok_parts: list[str] = []
                     if inp is not None:
                         tok_parts.append(f"in={inp}")
+                        with contextlib.suppress(TypeError, ValueError):
+                            self._usage["input_tokens"] = int(inp)
                     if out is not None:
                         tok_parts.append(f"out={out}")
+                        with contextlib.suppress(TypeError, ValueError):
+                            self._usage["output_tokens"] = int(out)
                     parts.append(" ".join(tok_parts))
             if parts:
                 await self._emit(self._label_msg(f"api: {', '.join(parts)}") + "\n")
@@ -322,6 +357,35 @@ class _StreamJsonEmitter:
             return "".join(self._text_parts)
         return ""
 
+    @property
+    def session_id(self) -> str:
+        """Return the session ID captured from the result event.
+
+        The session ID enables ``--continue`` in subsequent Claude Code CLI
+        invocations to continue the same conversation.
+
+        Returns:
+            The session ID string, or empty if not available.
+        """
+        return self._session_id
+
+    @property
+    def cost_metadata(self) -> dict[str, Any]:
+        """Return cost and usage metadata from the result event.
+
+        Returns:
+            Dict with ``total_cost_usd``, ``duration_ms``, and ``usage``
+            keys (only present when values were received).
+        """
+        meta: dict[str, Any] = {}
+        if self._total_cost_usd is not None:
+            meta["total_cost_usd"] = self._total_cost_usd
+        if self._duration_ms is not None:
+            meta["duration_ms"] = self._duration_ms
+        if self._usage:
+            meta["usage"] = dict(self._usage)
+        return meta
+
 
 class ClaudeCodeHand(_TwoPhaseCLIHand):
     """Hand backed by Claude Code CLI subprocess execution."""
@@ -348,6 +412,28 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
         "blocked pending your approval",
         "approve this operation",
     )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._last_session_id: str = ""
+        self._cumulative_cost_usd: float = 0.0
+
+    @property
+    def cost_metadata(self) -> dict[str, Any]:
+        """Return cumulative cost/usage data from prior invocations.
+
+        Populated as result events flow through ``_invoke_claude``.
+
+        Returns:
+            Dict with ``total_cost_usd`` and ``session_id`` keys when
+            available.
+        """
+        meta: dict[str, Any] = {}
+        if self._cumulative_cost_usd:
+            meta["total_cost_usd"] = self._cumulative_cost_usd
+        if self._last_session_id:
+            meta["session_id"] = self._last_session_id
+        return meta
 
     def _native_cli_auth_env_names(self) -> tuple[str, ...]:
         return ("ANTHROPIC_API_KEY",)
@@ -509,6 +595,211 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
             p_idx = len(cmd)
         return [*cmd[:p_idx], "--output-format", fmt, *cmd[p_idx:]]
 
+    @staticmethod
+    def _p_index(cmd: list[str]) -> int:
+        """Return index of the ``-p`` flag, or ``len(cmd)`` if absent."""
+        try:
+            return cmd.index("-p")
+        except ValueError:
+            return len(cmd)
+
+    # ------------------------------------------------------------------
+    # --max-turns support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_max_turns() -> int:
+        """Resolve the ``--max-turns`` limit from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_MAX_TURNS`` (default ``0`` = unlimited).
+        Non-numeric or non-positive values are treated as unlimited.
+
+        Returns:
+            The max turns integer, or ``0`` for unlimited.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_MAX_TURNS", "")
+        if not raw.strip():
+            return _DEFAULT_MAX_TURNS
+        try:
+            value = int(raw.strip())
+        except ValueError:
+            logger.warning(
+                "HELPING_HANDS_CLAUDE_MAX_TURNS has non-integer value %r, "
+                "using unlimited",
+                raw,
+            )
+            return _DEFAULT_MAX_TURNS
+        return value if value > 0 else _DEFAULT_MAX_TURNS
+
+    @classmethod
+    def _inject_max_turns(cls, cmd: list[str], max_turns: int) -> list[str]:
+        """Insert ``--max-turns <n>`` before the ``-p`` flag if not present."""
+        if max_turns <= 0:
+            return cmd
+        if has_cli_flag(cmd, "max-turns"):
+            return cmd
+        p_idx = cls._p_index(cmd)
+        return [*cmd[:p_idx], "--max-turns", str(max_turns), *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --append-system-prompt support (AGENT.md / CLAUDE.md auto-read)
+    # ------------------------------------------------------------------
+
+    def _read_agent_doc(self) -> str:
+        """Read the first available agent doc from the repo root.
+
+        Checks ``_AGENT_DOC_CANDIDATES`` in order and returns the first
+        file's content, truncated to ``_SYSTEM_PROMPT_MAX_LENGTH``.
+
+        Returns:
+            The file content, or empty if no candidate exists.
+        """
+        root = self.repo_index.root
+        for candidate in _AGENT_DOC_CANDIDATES:
+            path = root / candidate
+            if path.is_file():
+                try:
+                    content = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    logger.debug("Failed to read %s", path, exc_info=True)
+                    continue
+                if len(content) > _SYSTEM_PROMPT_MAX_LENGTH:
+                    content = content[:_SYSTEM_PROMPT_MAX_LENGTH] + "\n...[truncated]"
+                return content
+        return ""
+
+    def _resolve_system_prompt(self) -> str:
+        """Resolve the ``--append-system-prompt`` content.
+
+        Priority: ``HELPING_HANDS_CLAUDE_SYSTEM_PROMPT`` env var, then auto-read
+        from AGENT.md/CLAUDE.md in the repo root.
+
+        Returns:
+            The system prompt string, or empty if nothing to inject.
+        """
+        explicit = os.environ.get("HELPING_HANDS_CLAUDE_SYSTEM_PROMPT", "").strip()
+        if explicit:
+            return explicit
+        return self._read_agent_doc()
+
+    @classmethod
+    def _inject_system_prompt(cls, cmd: list[str], prompt: str) -> list[str]:
+        """Insert ``--append-system-prompt <text>`` before ``-p`` if absent."""
+        if not prompt:
+            return cmd
+        if has_cli_flag(cmd, "append-system-prompt") or has_cli_flag(
+            cmd, "system-prompt"
+        ):
+            return cmd
+        p_idx = cls._p_index(cmd)
+        return [*cmd[:p_idx], "--append-system-prompt", prompt, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --allowedTools / --disallowedTools support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_tool_filters() -> tuple[list[str], list[str]]:
+        """Resolve allowed and disallowed tool lists from the environment.
+
+        Reads ``HELPING_HANDS_CLAUDE_ALLOWED_TOOLS`` and
+        ``HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS`` as comma-separated lists.
+
+        Returns:
+            ``(allowed, disallowed)`` tuple of tool name lists.
+        """
+        allowed_raw = os.environ.get("HELPING_HANDS_CLAUDE_ALLOWED_TOOLS", "")
+        disallowed_raw = os.environ.get("HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS", "")
+        allowed = [t.strip() for t in allowed_raw.split(",") if t.strip()]
+        disallowed = [t.strip() for t in disallowed_raw.split(",") if t.strip()]
+        return allowed, disallowed
+
+    @classmethod
+    def _inject_tool_filters(
+        cls,
+        cmd: list[str],
+        *,
+        allowed: list[str],
+        disallowed: list[str],
+    ) -> list[str]:
+        """Insert ``--allowedTools`` / ``--disallowedTools`` before ``-p``."""
+        if not allowed and not disallowed:
+            return cmd
+        p_idx = cls._p_index(cmd)
+        extra: list[str] = []
+        if allowed and not has_cli_flag(cmd, "allowedTools"):
+            extra.extend(["--allowedTools", ",".join(allowed)])
+        if disallowed and not has_cli_flag(cmd, "disallowedTools"):
+            extra.extend(["--disallowedTools", ",".join(disallowed)])
+        if not extra:
+            return cmd
+        return [*cmd[:p_idx], *extra, *cmd[p_idx:]]
+
+    # ------------------------------------------------------------------
+    # --continue session resumption support
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _session_continue_enabled() -> bool:
+        """Check whether session continuation is enabled.
+
+        Reads ``HELPING_HANDS_CLAUDE_SESSION_CONTINUE`` (default ``"0"``;
+        opt-in to avoid surprising apply-changes invocations with stale
+        context). Returns ``True`` when the env var is truthy.
+        """
+        raw = os.environ.get("HELPING_HANDS_CLAUDE_SESSION_CONTINUE", "0")
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+    @classmethod
+    def _inject_continue(cls, cmd: list[str], session_id: str) -> list[str]:
+        """Inject ``--continue --session-id <id>`` before ``-p``.
+
+        Both flags compose with ``-p`` in current Claude Code (>= 2.x), so
+        we keep ``-p`` intact and just prepend the new flags.
+
+        Args:
+            cmd: Command tokens.
+            session_id: Session ID from a prior invocation (empty = no-op).
+
+        Returns:
+            Command tokens with continuation flags injected when applicable.
+        """
+        if not session_id:
+            return cmd
+        if has_cli_flag(cmd, "continue") or has_cli_flag(cmd, "resume"):
+            return cmd
+        p_idx = cls._p_index(cmd)
+        extra: list[str] = ["--continue"]
+        if not has_cli_flag(cmd, "session-id"):
+            extra.extend(["--session-id", session_id])
+        return [*cmd[:p_idx], *extra, *cmd[p_idx:]]
+
+    def _build_cli_cmd(self, prompt: str) -> list[str]:
+        """Render the CLI command and apply opt-in feature flag injections.
+
+        The order is:
+
+        1. Base render (``_render_command``) — model, prompt, defaults.
+        2. ``--output-format stream-json`` for the streaming parser.
+        3. ``--max-turns`` if configured.
+        4. ``--append-system-prompt`` from env or AGENT.md/CLAUDE.md.
+        5. ``--allowedTools`` / ``--disallowedTools`` from env.
+        6. ``--continue --session-id`` if continuation is enabled and we
+           captured a session ID from a prior invocation.
+
+        Returns:
+            Ready-to-execute command token list.
+        """
+        cmd = self._render_command(prompt)
+        cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
+        cmd = self._inject_max_turns(cmd, self._resolve_max_turns())
+        cmd = self._inject_system_prompt(cmd, self._resolve_system_prompt())
+        allowed, disallowed = self._resolve_tool_filters()
+        cmd = self._inject_tool_filters(cmd, allowed=allowed, disallowed=disallowed)
+        if self._session_continue_enabled() and self._last_session_id:
+            cmd = self._inject_continue(cmd, self._last_session_id)
+        return cmd
+
     async def _invoke_claude(
         self,
         prompt: str,
@@ -517,13 +808,18 @@ class ClaudeCodeHand(_TwoPhaseCLIHand):
     ) -> str:
         model = self._resolve_cli_model() or "(default)"
         await emit(self._label_msg(f"model={model}") + "\n")
-        cmd = self._render_command(prompt)
-        cmd = self._inject_output_format(cmd, _OUTPUT_FORMAT_STREAM_JSON)
+        cmd = self._build_cli_cmd(prompt)
         parser = _StreamJsonEmitter(emit, self._CLI_LABEL)
         try:
             raw = await self._invoke_cli_with_cmd(cmd, emit=parser)
         finally:
             await parser.flush()
+        if parser.session_id:
+            self._last_session_id = parser.session_id
+        meta = parser.cost_metadata
+        cost = meta.get("total_cost_usd")
+        if isinstance(cost, int | float):
+            self._cumulative_cost_usd += float(cost)
         return parser.result_text() or raw
 
     async def _invoke_backend(
