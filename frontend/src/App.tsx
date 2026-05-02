@@ -20,6 +20,7 @@ function loadOrCreateMGrillPlayerId(): string {
 }
 
 import AppOverlays from "./components/AppOverlays";
+import TokenBar from "./components/TokenBar";
 import AsteroidsGame from "./components/AsteroidsGame";
 import GrillMeOverlay from "./components/GrillMeOverlay";
 import MultiplayerGrillOverlay from "./components/MultiplayerGrillOverlay";
@@ -51,6 +52,7 @@ import {
   fetchServerConfig,
   filterEnabledBackends,
   isTerminalTaskStatus,
+  saveGithubToken,
   statusTone,
   wsUrl,
 } from "./App.utils";
@@ -130,6 +132,11 @@ export default function App() {
   } = useSchedules(form.github_token);
   const { recentRepos } = useRecentRepos();
   const [serverHasGithubToken, setServerHasGithubToken] = useState(true);
+
+  const [githubToken, setGithubToken] = useState(() => form.github_token);
+  useEffect(() => { saveGithubToken(githubToken); }, [githubToken]);
+  useEffect(() => { setForm(f => f.github_token === githubToken ? f : { ...f, github_token: githubToken }); }, [githubToken, setForm]);
+  useEffect(() => { setGithubToken(prev => prev === form.github_token ? prev : form.github_token); }, [form.github_token]);
   const onboarding = useOnboarding({
     hasActiveTasks: activeTaskIds.size > 0,
     hasSchedules: schedules.length > 0,
@@ -487,6 +494,7 @@ export default function App() {
 
   return (
     <>
+    <TokenBar token={githubToken} onTokenChange={setGithubToken} serverHasGithubToken={serverHasGithubToken} />
     <main className={`page${leftCollapsed ? " left-collapsed" : ""}${rightCollapsed ? " right-collapsed" : ""}`}>
       <TaskListSidebar
         mainView={mainView}
@@ -618,6 +626,7 @@ export default function App() {
           reference_repos: form.reference_repos,
         }}
         serverHasGithubToken={serverHasGithubToken}
+        githubToken={githubToken}
       />
     )}
     {showSubmitIssueOverlay && (
@@ -627,6 +636,8 @@ export default function App() {
         defaultRepo={form.repo_path}
         onSubmitIssue={handleSubmitIssue}
         onClose={() => setShowSubmitIssueOverlay(false)}
+        githubToken={githubToken}
+        onGithubTokenChange={setGithubToken}
       />
     )}
     <AppOverlays

@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
-import { apiUrl, loadGithubToken, saveGithubToken } from "../App.utils";
+import { apiUrl } from "../App.utils";
 import RepoSuggestInput from "./RepoSuggestInput";
 
 const REPO_DRAFT_KEY = "hh_submit_issue_repo_draft";
@@ -43,6 +43,8 @@ export interface SubmitIssueOverlayProps {
   defaultRepo?: string;
   onSubmitIssue: (repo: string, issue: GitHubIssue, githubToken: string) => void;
   onClose: () => void;
+  githubToken?: string;
+  onGithubTokenChange?: (token: string) => void;
 }
 
 export default function SubmitIssueOverlay({
@@ -51,15 +53,25 @@ export default function SubmitIssueOverlay({
   defaultRepo = "",
   onSubmitIssue,
   onClose,
+  githubToken: githubTokenProp = "",
+  onGithubTokenChange,
 }: SubmitIssueOverlayProps) {
   const [step, setStep] = useState<Step>("repo");
   // Prefer a persisted draft so the user's in-progress input survives
   // close/reopen; fall back to the caller-supplied defaultRepo.
   const [repo, setRepo] = useState<string>(() => loadRepoDraft() || defaultRepo);
-  const [githubToken, setGithubToken] = useState(loadGithubToken);
+  const [githubToken, setGithubTokenLocal] = useState(githubTokenProp);
+  const setGithubToken = (val: string) => {
+    setGithubTokenLocal(val);
+    onGithubTokenChange?.(val);
+  };
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setGithubTokenLocal(githubTokenProp);
+  }, [githubTokenProp]);
 
   // Persist the repo draft on every change.
   useEffect(() => {
@@ -202,7 +214,7 @@ export default function SubmitIssueOverlay({
                       <button
                         type="button"
                         className="issue-row"
-                        onClick={() => { saveGithubToken(githubToken); saveRepoDraft(""); onSubmitIssue(repo, issue, githubToken); }}
+                        onClick={() => { saveRepoDraft(""); onSubmitIssue(repo, issue, githubToken); }}
                       >
                         <span className="issue-row-top">
                           <code>#{issue.number}</code>

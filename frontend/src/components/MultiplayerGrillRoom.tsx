@@ -15,7 +15,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { MGrillSessionActions } from "../hooks/useMultiplayerGrill";
 import type { MGrillMessage } from "../types";
-import { loadGithubToken } from "../App.utils";
 import { renderMarkdown } from "../markdown";
 
 type Props = {
@@ -25,6 +24,8 @@ type Props = {
   /** When true, the server has its own GITHUB_TOKEN — token-gated UI is
    *  unlocked for everyone (the server token satisfies auth). */
   serverHasGithubToken?: boolean;
+  /** App-level GitHub token passed down from parent. */
+  githubToken?: string;
   onClose: () => void;
   onLeave: () => void;
 };
@@ -34,6 +35,7 @@ export default function MultiplayerGrillRoom({
   playerId,
   playerName,
   serverHasGithubToken = false,
+  githubToken,
   onClose,
   onLeave,
 }: Props) {
@@ -45,7 +47,7 @@ export default function MultiplayerGrillRoom({
   const [nowTick, setNowTick] = useState(Date.now());
   // Effective auth: the server-wide token (when configured) unlocks chat
   // + vote + submit for all clients; otherwise participants need their own.
-  const hasToken = serverHasGithubToken || Boolean(loadGithubToken());
+  const hasToken = serverHasGithubToken || Boolean(githubToken);
 
   // Tick every second so the creator-absent timer updates live.
   useEffect(() => {
