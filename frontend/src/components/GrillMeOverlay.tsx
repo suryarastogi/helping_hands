@@ -450,10 +450,18 @@ function GrillPlanPhase({
   finalPlan,
   onConfirm,
   onContinue,
+  onSubmitAsIssue,
+  isSubmittingIssue,
+  issueUrl,
+  issueError,
 }: {
   finalPlan: string;
   onConfirm: () => void;
   onContinue: () => void;
+  onSubmitAsIssue: () => void;
+  isSubmittingIssue: boolean;
+  issueUrl: string | null;
+  issueError: string | null;
 }) {
   return (
     <div className="grill-plan">
@@ -461,9 +469,28 @@ function GrillPlanPhase({
         className="grill-plan-content"
         dangerouslySetInnerHTML={{ __html: renderMarkdown(finalPlan) }}
       />
+      {issueUrl && (
+        <div className="grill-issue-success">
+          Issue created:{" "}
+          <a href={issueUrl} target="_blank" rel="noopener noreferrer">
+            {issueUrl}
+          </a>
+        </div>
+      )}
+      {issueError && (
+        <div className="grill-issue-error">{issueError}</div>
+      )}
       <div className="grill-plan-actions">
         <button type="button" onClick={onConfirm} className="grill-confirm-btn">
           Submit as Task
+        </button>
+        <button
+          type="button"
+          onClick={onSubmitAsIssue}
+          className="grill-issue-btn"
+          disabled={isSubmittingIssue || !!issueUrl}
+        >
+          {isSubmittingIssue ? "Creating Issue…" : issueUrl ? "Issue Created" : "Submit as Issue"}
         </button>
         <button type="button" onClick={onContinue} className="grill-continue-btn">
           Keep Grilling
@@ -644,6 +671,7 @@ export interface GrillMeOverlayProps {
   initialForm: GrillFormState;
   onClose: () => void;
   onSubmitPlan: (plan: string) => void;
+  onSubmitAsIssue: (plan: string, repoPath: string, githubToken: string) => Promise<{ url: string }>;
 }
 
 type HistoryView =
@@ -659,10 +687,15 @@ export default function GrillMeOverlay({
   initialForm,
   onClose,
   onSubmitPlan,
+  onSubmitAsIssue,
 }: GrillMeOverlayProps) {
   // Snapshot of the form used to start the active session (for history entry).
   const submittedFormRef = useRef<GrillFormState | null>(null);
   const activePromptRef = useRef<string | null>(null);
+
+  const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
+  const [issueUrl, setIssueUrl] = useState<string | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
 
   // Cached history list — reloaded when we enter history view.
   const [history, setHistory] = useState<GrillPlanHistoryEntry[]>(() =>
@@ -714,6 +747,23 @@ export default function GrillMeOverlay({
     // We need to send a message to continue
     session.sendMessage("Actually, I have more questions. Let's continue grilling.");
   }, [session]);
+
+  const handleSubmitAsIssue = useCallback(async () => {
+    if (!session.finalPlan) return;
+    const submitted = submittedFormRef.current;
+    const repoPath = submitted?.repo_path ?? initialForm.repo_path ?? "";
+    const githubToken = submitted?.github_token ?? initialForm.github_token ?? "";
+    setIsSubmittingIssue(true);
+    setIssueError(null);
+    try {
+      const result = await onSubmitAsIssue(session.finalPlan, repoPath, githubToken);
+      setIssueUrl(result.url);
+    } catch (err) {
+      setIssueError(String(err instanceof Error ? err.message : err));
+    } finally {
+      setIsSubmittingIssue(false);
+    }
+  }, [session.finalPlan, initialForm.repo_path, initialForm.github_token, onSubmitAsIssue]);
 
   const handleViewHistory = useCallback(() => {
     setHistory(loadPlanHistory());
@@ -828,6 +878,10 @@ export default function GrillMeOverlay({
             finalPlan={session.finalPlan}
             onConfirm={handleConfirmPlan}
             onContinue={handleContinueGrilling}
+            onSubmitAsIssue={handleSubmitAsIssue}
+            isSubmittingIssue={isSubmittingIssue}
+            issueUrl={issueUrl}
+            issueError={issueError}
           />
         )}
       </div>

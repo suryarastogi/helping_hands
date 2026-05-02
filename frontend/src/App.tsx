@@ -410,6 +410,34 @@ export default function App() {
     });
   };
 
+  const handleGrillSubmitAsIssue = async (
+    plan: string,
+    repoPath: string,
+    githubToken: string,
+  ): Promise<{ url: string }> => {
+    const parts = repoPath.trim().split("/");
+    if (parts.length < 2) {
+      throw new Error("Repository must be in owner/repo format to create an issue");
+    }
+    const owner = parts[parts.length - 2];
+    const repo = parts[parts.length - 1];
+    const lines = plan.split("\n");
+    const firstLine = lines.find((l) => l.trim())?.replace(/^#+\s*/, "") ?? "Grill Me Plan";
+    const title = firstLine.length > 200 ? firstLine.slice(0, 200) + "…" : firstLine;
+    const token = githubToken || form.github_token;
+    const res = await fetch(apiUrl(`/repos/${owner}/${repo}/issues`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body: plan, github_token: token || undefined }),
+    });
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    return { url: data.url };
+  };
+
   const handleSubmitIssue = (repo: string, issue: { number: number; title: string; body: string }, githubToken: string) => {
     setShowSubmitIssueOverlay(false);
     const prompt = issue.body
@@ -604,6 +632,7 @@ export default function App() {
           grillSession.reset();
         }}
         onSubmitPlan={handleGrillSubmitPlan}
+        onSubmitAsIssue={handleGrillSubmitAsIssue}
       />
     )}
     {grillEnabled && showMGrillOverlay && (

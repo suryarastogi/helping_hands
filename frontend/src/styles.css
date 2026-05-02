@@ -6552,6 +6552,44 @@ button.worker-sprite:disabled .worker-caption {
   border-color: var(--ring);
 }
 
+.grill-issue-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--ring);
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.grill-issue-btn:hover:not(:disabled) {
+  background: var(--ring);
+  color: var(--background);
+}
+
+.grill-issue-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.grill-issue-success {
+  padding: 8px 20px;
+  color: var(--success, #22c55e);
+  font-size: 0.85rem;
+}
+
+.grill-issue-success a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.grill-issue-error {
+  padding: 8px 20px;
+  color: var(--destructive, #ef4444);
+  font-size: 0.85rem;
+}
+
 /* ── Submit Issue overlay ──────────────────────────────────── */
 
 .issue-list {

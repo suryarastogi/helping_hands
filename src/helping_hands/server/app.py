@@ -4031,6 +4031,36 @@ def list_repo_issues(
     return client.list_issues(f"{owner}/{repo}", state=state, per_page=per_page)
 
 
+class CreateIssueRequest(BaseModel):
+    title: str
+    body: str = ""
+    labels: list[str] | None = None
+    github_token: str | None = None
+
+
+@app.post("/repos/{owner}/{repo}/issues")
+def create_repo_issue(
+    owner: str,
+    repo: str,
+    request: CreateIssueRequest,
+) -> dict[str, Any]:
+    """Create a new issue on a GitHub repository."""
+    from helping_hands.lib.github import GitHubClient
+
+    token = request.github_token or os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="No GitHub token available")
+    client = GitHubClient(token=token)
+    return client.create_issue(
+        f"{owner}/{repo}",
+        title=request.title,
+        body=request.body,
+        labels=request.labels,
+    )
+
+
 @app.post("/build", response_model=BuildResponse)
 def enqueue_build(req: BuildRequest) -> BuildResponse:
     """Enqueue a hand task and return the task ID.
