@@ -79,6 +79,7 @@ function makeSession(overrides: Partial<GrillSessionState> = {}): GrillSessionSt
     isLoading: false,
     finalPlan: null,
     startSession: vi.fn(),
+    resumeSession: vi.fn(),
     sendMessage: vi.fn(),
     requestPlan: vi.fn(),
     reset: vi.fn(),
@@ -98,6 +99,7 @@ const DEFAULT_FORM: GrillFormState = {
 function makeProps(overrides: Partial<GrillMeOverlayProps> = {}): GrillMeOverlayProps {
   return {
     session: makeSession(),
+    resumable: { sessions: [], isLoading: false, error: null, refresh: vi.fn() },
     recentRepos: ["owner/repo-a", "owner/repo-b"],
     serverHasGithubToken: true,
     initialForm: DEFAULT_FORM,

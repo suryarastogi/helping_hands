@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { MGrillSessionActions } from "../hooks/useMultiplayerGrill";
 import { loadGithubToken } from "../App.utils";
+import { renderMarkdown } from "../markdown";
 
 type Props = {
   actions: MGrillSessionActions;
@@ -162,6 +163,12 @@ export default function MultiplayerGrillRoom({
         </div>
       )}
 
+      {state?.status === "suspended" && (
+        <div className="mgrill-banner mgrill-banner-suspended">
+          Session is suspended due to inactivity. Send a message to resume.
+        </div>
+      )}
+
       <div className="mgrill-transcript" aria-live="polite">
         {messages.length === 0 && <p className="mgrill-loading">Loading…</p>}
         {messages.map((m) => (
@@ -177,7 +184,10 @@ export default function MultiplayerGrillRoom({
                 {new Date(m.timestamp * 1000).toLocaleTimeString()}
               </span>
             </div>
-            <div className="mgrill-msg-body">{m.content}</div>
+            <div
+              className="mgrill-msg-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
+            />
           </div>
         ))}
         {isThinking && (

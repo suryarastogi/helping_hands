@@ -302,6 +302,21 @@ export type GrillFormState = {
 
 export type GrillPhase = "form" | "chatting" | "plan";
 
+export type GrillSessionSummary = {
+  session_id: string;
+  status: string;
+  repo_path: string;
+  prompt: string;
+  model: string;
+  backend: string;
+  turn_count: number;
+};
+
+export type GrillResumableListResponse = {
+  sessions: GrillSessionSummary[];
+  total: number;
+};
+
 // ---------------------------------------------------------------------------
 // Multiplayer Grill Me
 // ---------------------------------------------------------------------------

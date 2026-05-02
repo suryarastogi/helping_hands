@@ -9,8 +9,9 @@ import {
 } from "react";
 
 import { defaultModelForBackend } from "../App.utils";
-import type { GrillFormState, GrillMessage, GrillPhase } from "../types";
-import type { GrillSessionState } from "../hooks/useGrillSession";
+import { renderMarkdown } from "../markdown";
+import type { GrillFormState, GrillMessage, GrillPhase, GrillSessionSummary } from "../types";
+import type { GrillSessionState, ResumableSessionsState } from "../hooks/useGrillSession";
 import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
 
@@ -110,60 +111,6 @@ function saveChatDraft(text: string): void {
   } catch {
     /* ignore */
   }
-}
-
-// ---------------------------------------------------------------------------
-// Simple markdown renderer (no external deps)
-// ---------------------------------------------------------------------------
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function renderMarkdown(md: string): string {
-  // Fenced code blocks
-  let html = md.replace(
-    /```(\w*)\n([\s\S]*?)```/g,
-    (_match, lang, code) =>
-      `<pre class="grill-code-block"><code class="language-${escapeHtml(lang)}">${escapeHtml(code.trimEnd())}</code></pre>`,
-  );
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, (_m, code) => `<code class="grill-inline-code">${escapeHtml(code)}</code>`);
-  // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  // Italic
-  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  // Headers
-  html = html.replace(/^### (.+)$/gm, '<h4 class="grill-h">$1</h4>');
-  html = html.replace(/^## (.+)$/gm, '<h3 class="grill-h">$1</h3>');
-  html = html.replace(/^# (.+)$/gm, '<h2 class="grill-h">$1</h2>');
-  // Unordered lists
-  html = html.replace(/^- (.+)$/gm, '<li class="grill-li">$1</li>');
-  html = html.replace(
-    /(<li class="grill-li">[\s\S]*?<\/li>)/g,
-    '<ul class="grill-ul">$1</ul>',
-  );
-  // Collapse adjacent <ul> tags
-  html = html.replace(/<\/ul>\s*<ul class="grill-ul">/g, "");
-  // Ordered lists
-  html = html.replace(/^\d+\. (.+)$/gm, '<li class="grill-li">$1</li>');
-  // Paragraphs (double newline)
-  html = html.replace(/\n\n/g, "</p><p>");
-  html = `<p>${html}</p>`;
-  // Clean up empty paragraphs
-  html = html.replace(/<p>\s*<\/p>/g, "");
-  // Line breaks within paragraphs
-  html = html.replace(/\n/g, "<br/>");
-  // Don't break inside pre blocks
-  html = html.replace(/<pre([^>]*)>([\s\S]*?)<\/pre>/g, (_m, attrs, inner) =>
-    `<pre${attrs}>${inner.replace(/<br\/>/g, "\n")}</pre>`,
-  );
-
-  return html;
 }
 
 // ---------------------------------------------------------------------------
@@ -511,6 +458,44 @@ function GrillPlanPhase({
   );
 }
 
+function GrillResumableSessions({
+  sessions,
+  onResume,
+}: {
+  sessions: GrillSessionSummary[];
+  onResume: (sessionId: string) => void;
+}) {
+  if (sessions.length === 0) return null;
+
+  return (
+    <div className="grill-resumable-sessions">
+      <h3 className="grill-resumable-h">Suspended Sessions</h3>
+      <ul className="grill-resumable-list">
+        {sessions.map((s) => (
+          <li key={s.session_id} className="grill-resumable-entry">
+            <div className="grill-resumable-info">
+              <span className="grill-resumable-repo">{s.repo_path || "(no repo)"}</span>
+              <span className="grill-resumable-meta">
+                turn {s.turn_count} &middot; {s.backend}
+              </span>
+              <span className="grill-resumable-prompt" title={s.prompt}>
+                {s.prompt.length > 100 ? `${s.prompt.slice(0, 100)}…` : s.prompt}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="grill-resumable-btn"
+              onClick={() => onResume(s.session_id)}
+            >
+              Resume
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function formatHistoryTimestamp(ms: number): string {
   try {
     return new Date(ms).toLocaleString();
@@ -634,6 +619,7 @@ function GrillHistoryDetail({
 
 export interface GrillMeOverlayProps {
   session: GrillSessionState;
+  resumable: ResumableSessionsState;
   recentRepos: string[];
   serverHasGithubToken: boolean;
   initialForm: GrillFormState;
@@ -648,6 +634,7 @@ type HistoryView =
 
 export default function GrillMeOverlay({
   session,
+  resumable,
   recentRepos,
   serverHasGithubToken,
   initialForm,
@@ -667,6 +654,13 @@ export default function GrillMeOverlay({
     (form: GrillFormState) => {
       submittedFormRef.current = form;
       void session.startSession(form);
+    },
+    [session],
+  );
+
+  const handleResumeSession = useCallback(
+    (sessionId: string) => {
+      session.resumeSession(sessionId);
     },
     [session],
   );
@@ -726,7 +720,7 @@ export default function GrillMeOverlay({
   const handleClose = useCallback(() => {
     if (hasUserEffort) {
       const ok = window.confirm(
-        "Close Grill Me? Your grilling session will be discarded and cannot be resumed.",
+        "Close Grill Me? Your session will suspend and can be resumed later.",
       );
       if (!ok) return;
     }
@@ -777,16 +771,22 @@ export default function GrillMeOverlay({
         )}
 
         {!viewingHistory && session.phase === "form" && (
-          <GrillFormPhase
-            onStart={handleStartSession}
-            isLoading={session.isLoading}
-            error={session.error}
-            recentRepos={recentRepos}
-            serverHasGithubToken={serverHasGithubToken}
-            initialForm={initialForm}
-            onViewHistory={handleViewHistory}
-            historyCount={history.length}
-          />
+          <>
+            <GrillResumableSessions
+              sessions={resumable.sessions}
+              onResume={handleResumeSession}
+            />
+            <GrillFormPhase
+              onStart={handleStartSession}
+              isLoading={session.isLoading}
+              error={session.error}
+              recentRepos={recentRepos}
+              serverHasGithubToken={serverHasGithubToken}
+              initialForm={initialForm}
+              onViewHistory={handleViewHistory}
+              historyCount={history.length}
+            />
+          </>
         )}
 
         {!viewingHistory && session.phase === "chatting" && (

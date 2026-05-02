@@ -5270,6 +5270,70 @@ def poll_grill(session_id: str) -> GrillPollResponse:
     )
 
 
+class GrillSessionSummary(BaseModel):
+    """Summary of a resumable solo grill session."""
+
+    session_id: str
+    status: str
+    repo_path: str
+    prompt: str
+    model: str
+    backend: str
+    turn_count: int
+
+
+class GrillResumableListResponse(BaseModel):
+    """Response listing resumable solo grill sessions."""
+
+    sessions: list[GrillSessionSummary]
+    total: int
+
+
+@app.get("/grill/sessions/resumable", response_model=GrillResumableListResponse)
+def grill_resumable_sessions() -> GrillResumableListResponse:
+    """List solo grill sessions that can be resumed (suspended status)."""
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    import json as _json
+
+    import redis
+
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+    r = redis.from_url(redis_url, decode_responses=True)
+
+    sessions: list[GrillSessionSummary] = []
+    cursor = "0"
+    while True:
+        cursor, keys = r.scan(cursor=cursor, match="grill:*:state", count=100)
+        for key in keys:
+            raw = r.get(key)
+            if raw is None:
+                continue
+            state = _json.loads(raw)
+            if state.get("status") != "suspended":
+                continue
+            sid = key.split(":")[1]
+            sessions.append(
+                GrillSessionSummary(
+                    session_id=sid,
+                    status="suspended",
+                    repo_path=state.get("repo_path", ""),
+                    prompt=state.get("prompt", ""),
+                    model=state.get("model", ""),
+                    backend=state.get("backend", "claudecodecli"),
+                    turn_count=int(state.get("turn_count", 0)),
+                )
+            )
+        if cursor == "0" or cursor == 0:
+            break
+
+    sessions.sort(key=lambda s: s.turn_count, reverse=True)
+    return GrillResumableListResponse(sessions=sessions, total=len(sessions))
+
+
 # ---------------------------------------------------------------------------
 # Multiplayer Grill Me — collaborative AI interview sessions
 # ---------------------------------------------------------------------------
@@ -5855,6 +5919,12 @@ async def mgrill_send_to_ai(
     for key in list(dict(pending).keys()):
         del pending[key]
 
+    # Auto-resume suspended sessions
+    if state.get("status") == "suspended":
+        from helping_hands.server.multiplayer_grill import resume_mgrill_session
+
+        resume_mgrill_session.delay(original_session_id=session_id)
+
     _mgrill_touch_activity(r, session_id)
     return {"status": "sent", "count": len(entries)}
 
@@ -6086,6 +6156,13 @@ async def mgrill_request_plan(session_id: str, http_request: Request) -> dict[st
     _ydoc_append_system_hint(
         room.ydoc, "Final plan requested — AI is consolidating the discussion."
     )
+
+    # Auto-resume suspended sessions
+    if state.get("status") == "suspended":
+        from helping_hands.server.multiplayer_grill import resume_mgrill_session
+
+        resume_mgrill_session.delay(original_session_id=session_id)
+
     _mgrill_touch_activity(r, session_id)
     return {"status": "requested"}
 

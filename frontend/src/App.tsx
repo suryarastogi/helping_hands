@@ -33,7 +33,7 @@ import SubmitIssueOverlay from "./components/SubmitIssueOverlay";
 import TaskListSidebar from "./components/TaskListSidebar";
 import VersionBadge from "./components/VersionBadge";
 import { useClaudeUsage } from "./hooks/useClaudeUsage";
-import { useGrillSession } from "./hooks/useGrillSession";
+import { useGrillSession, useResumableGrillSessions } from "./hooks/useGrillSession";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { useMovement } from "./hooks/useMovement";
 import { useMultiplayer, loadPlayerName, loadPlayerColor } from "./hooks/useMultiplayer";
@@ -149,6 +149,7 @@ export default function App() {
   const [showSubmitIssueOverlay, setShowSubmitIssueOverlay] = useState(false);
   const [mgrillPlayerId] = useState(loadOrCreateMGrillPlayerId);
   const grillSession = useGrillSession();
+  const resumableGrill = useResumableGrillSessions(showGrillOverlay && grillSession.phase === "form");
 
   const {
     maxOfficeWorkers,
@@ -585,6 +586,7 @@ export default function App() {
     {grillEnabled && showGrillOverlay && (
       <GrillMeOverlay
         session={grillSession}
+        resumable={resumableGrill}
         recentRepos={recentRepos}
         serverHasGithubToken={serverHasGithubToken}
         initialForm={grillInitialForm}
