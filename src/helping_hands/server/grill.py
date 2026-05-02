@@ -159,35 +159,52 @@ def _clear_resume_state(r: Any, session_id: str) -> None:
 # --- CLI diagnostics ---------------------------------------------------------
 
 
-def _cli_not_found_diagnostics(binary: str) -> str:
+def _cli_not_found_diagnostics(
+    binary: str,
+    *,
+    exc: FileNotFoundError | None = None,
+    cwd: str | None = None,
+) -> str:
     """Build a short, low-disclosure diagnostic suffix for CLI-missing errors.
 
     Surfaced in the chat view and persisted to the transcript, so it must
     avoid leaking the full ``PATH`` (which contains the deployer's home dir,
     custom worktrees, etc.). We expose only:
 
-    - The result of ``shutil.which(binary)`` — a single resolved path or
-      ``None``. Tells us whether the worker can see the binary at all.
-    - The resolved path of ``node``. Node-based CLIs (claude, codex) carry
-      ``#!/usr/bin/env node`` shebangs; if ``node`` isn't on PATH the kernel
-      surfaces ``ENOENT`` for the wrapper script, which Python reports as
-      ``FileNotFoundError`` for the wrapper — misleading, hence this hint.
-    - Boolean flags for a few well-known per-user bin dirs that
-      ``augment_path_for_cli_hands`` is supposed to add. Lets us tell apart
-      "PATH augmentation didn't run" from "binary genuinely not installed".
+    - ``shutil.which(binary)`` — tells us whether the worker can see the
+      binary at all.
+    - ``shutil.which("node")`` — node-based CLIs may have a node shebang;
+      if node isn't on PATH the kernel surfaces ``ENOENT`` for the wrapper.
+    - The original ``FileNotFoundError``'s ``errno`` and ``filename`` —
+      ``Popen`` can raise this for the missing executable *or* a missing
+      ``cwd``. ``filename`` (when set by Python) disambiguates which.
+    - ``cwd`` plus its existence flag — covers the "tmp clone dir got
+      reaped between turns" case where ``cwd`` is the actual culprit.
+    - Boolean flags for the per-user bin dirs ``augment_path_for_cli_hands``
+      is supposed to add (under tilde labels so they don't collide).
     """
     resolved = shutil.which(binary) or "not found"
     node = shutil.which("node") or "not found"
     home = os.path.expanduser("~")
     path_entries = (os.environ.get("PATH") or "").split(os.pathsep)
     candidate_dirs = [
-        f"{home}/.local/bin",
-        f"{home}/.npm-global/bin",
+        (f"{home}/.local/bin", "~/.local/bin"),
+        (f"{home}/.npm-global/bin", "~/.npm-global/bin"),
     ]
     flags = ", ".join(
-        f"{Path(d).name}={'yes' if d in path_entries else 'no'}" for d in candidate_dirs
+        f"{label}={'yes' if abs_path in path_entries else 'no'}"
+        for abs_path, label in candidate_dirs
     )
-    return f" (which={resolved}; node={node}; path-has[{flags}])"
+
+    parts = [f"which={resolved}", f"node={node}"]
+    if cwd is not None:
+        parts.append(f"cwd={cwd}")
+        parts.append(f"cwd-exists={'yes' if os.path.isdir(cwd) else 'no'}")
+    if exc is not None:
+        parts.append(f"exc-filename={exc.filename or 'none'}")
+        parts.append(f"exc-errno={exc.errno or 'none'}")
+    parts.append(f"path-has[{flags}]")
+    return " (" + "; ".join(parts) + ")"
 
 
 # --- Repo helpers ------------------------------------------------------------
@@ -392,7 +409,7 @@ def _invoke_claude_turn(
         raise RuntimeError(
             "Claude Code CLI ('claude') is not installed or not on PATH. "
             "Install with: npm install -g @anthropic-ai/claude-code"
-            + _cli_not_found_diagnostics("claude")
+            + _cli_not_found_diagnostics("claude", exc=exc, cwd=cwd)
         ) from exc
 
     # Write prompt to stdin and close it
@@ -593,7 +610,7 @@ def _invoke_codex_turn(
         raise RuntimeError(
             "Codex CLI ('codex') is not installed or not on PATH. "
             "Install with: npm install -g @openai/codex"
-            + _cli_not_found_diagnostics("codex")
+            + _cli_not_found_diagnostics("codex", exc=exc, cwd=cwd)
         ) from exc
     except TimeoutExpired as exc:
         raise RuntimeError(
