@@ -26,6 +26,7 @@ import type {
   ServiceHealthState,
   TaskHistoryItem,
   TaskHistoryPatch,
+  TemplateFormState,
   WorkerCapacityResponse,
 } from "./types";
 
@@ -178,6 +179,11 @@ export const INITIAL_SCHEDULE_FORM: ScheduleFormState = {
   tools: "",
   watch_labels: "",
   enabled: true,
+};
+
+export const INITIAL_TEMPLATE_FORM: TemplateFormState = {
+  name: "",
+  description: "",
 };
 
 export const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
