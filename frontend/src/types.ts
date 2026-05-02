@@ -96,6 +96,20 @@ export type WorkerCapacityResponse = {
   workers: Record<string, number>;
 };
 
+export type QueueDepthResponse = {
+  active: number;
+  reserved: number;
+  scheduled: number;
+  broker_depth: number;
+  source: string;
+};
+
+export type WorkerHealthSnapshot = {
+  capacity: WorkerCapacityResponse | null;
+  queue: QueueDepthResponse | null;
+  inFlightTaskCount: number;
+};
+
 export type FormState = {
   repo_path: string;
   prompt: string;

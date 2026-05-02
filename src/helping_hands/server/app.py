@@ -326,6 +326,16 @@ class WorkerCapacityResponse(BaseModel):
     workers: dict[str, int] = Field(default_factory=dict)
 
 
+class QueueDepthResponse(BaseModel):
+    """Aggregate task counts across workers and the broker queue."""
+
+    active: int = Field(ge=0, default=0)
+    reserved: int = Field(ge=0, default=0)
+    scheduled: int = Field(ge=0, default=0)
+    broker_depth: int = Field(ge=0, default=0)
+    source: str
+
+
 class ServerConfig(BaseModel):
     """Runtime configuration exposed to the frontend."""
 
@@ -4334,6 +4344,95 @@ def _resolve_worker_capacity() -> WorkerCapacityResponse:
 def get_worker_capacity() -> WorkerCapacityResponse:
     """Report current max worker capacity for the cluster."""
     return _resolve_worker_capacity()
+
+
+def _collect_queue_depth() -> QueueDepthResponse:
+    """Aggregate worker-side and broker-side task counts.
+
+    active/reserved/scheduled come from ``celery inspect`` (sum of entries
+    across workers); broker_depth is the raw LLEN of the default ``celery``
+    queue in Redis. Either side failing degrades gracefully — counts that
+    couldn't be read stay 0 and ``source`` reflects what succeeded.
+    """
+    active = 0
+    reserved = 0
+    scheduled = 0
+    celery_ok = False
+    try:
+        inspector = celery_app.control.inspect(timeout=_CELERY_INSPECT_TIMEOUT_S)
+    except (ConnectionError, OSError, TimeoutError):
+        logger.debug("queue-depth inspect init failed", exc_info=True)
+        inspector = None
+
+    if inspector is not None:
+        for method, target in (
+            ("active", "active"),
+            ("reserved", "reserved"),
+            ("scheduled", "scheduled"),
+        ):
+            payload = _safe_inspect_call(inspector, method)
+            if payload is None:
+                continue
+            celery_ok = True
+            if not isinstance(payload, dict):
+                continue
+            count = 0
+            for entries in payload.values():
+                if isinstance(entries, list):
+                    count += len(entries)
+            if target == "active":
+                active = count
+            elif target == "reserved":
+                reserved = count
+            else:
+                scheduled = count
+
+    broker_depth = 0
+    redis_ok = False
+    try:
+        import redis as redis_lib
+    except ImportError:
+        logger.debug("queue-depth: redis package not installed")
+    else:
+        try:
+            broker_url = celery_app.conf.broker_url or _DEFAULT_REDIS_URL
+            r = redis_lib.Redis.from_url(
+                broker_url,
+                socket_connect_timeout=_REDIS_HEALTH_TIMEOUT_S,
+                socket_timeout=_REDIS_HEALTH_TIMEOUT_S,
+            )
+            # redis-py types llen as Awaitable[int] | int because the same
+            # client class also covers async usage; we use the sync client so
+            # the result is always int, but the type checker can't prove it.
+            raw_depth = r.llen("celery")
+            if isinstance(raw_depth, int):
+                broker_depth = raw_depth
+                redis_ok = True
+        except (redis_lib.RedisError, OSError, ValueError):
+            logger.debug("queue-depth: redis llen failed", exc_info=True)
+
+    if celery_ok and redis_ok:
+        source = "celery+redis"
+    elif celery_ok:
+        source = "celery"
+    elif redis_ok:
+        source = "redis"
+    else:
+        source = "unavailable"
+
+    return QueueDepthResponse(
+        active=active,
+        reserved=reserved,
+        scheduled=scheduled,
+        broker_depth=broker_depth,
+        source=source,
+    )
+
+
+@app.get("/tasks/queue-depth", response_model=QueueDepthResponse)
+def get_queue_depth() -> QueueDepthResponse:
+    """Report aggregate active/reserved/scheduled/broker queue counts."""
+    return _collect_queue_depth()
 
 
 @app.get("/tasks/current", response_model=CurrentTasksResponse)

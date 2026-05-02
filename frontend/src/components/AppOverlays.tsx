@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { shortTaskId, statusTone } from "../App.utils";
+import { useWorkerHealth } from "../hooks/useWorkerHealth";
 import type { ServiceHealthState } from "../types";
+import WorkerHealthPopover from "./WorkerHealthPopover";
 
 export interface AppOverlaysProps {
   serviceHealthState: ServiceHealthState | null;
@@ -111,6 +113,28 @@ export default function AppOverlays({
   }, []);
 
   const serviceHealthIndicators = buildHealthIndicators(serviceHealthState);
+  const workerHealth = useWorkerHealth();
+  const [workerPopoverOpen, setWorkerPopoverOpen] = useState(false);
+  const workerPopoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!workerPopoverOpen) return;
+    const handleDocClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (workerPopoverRef.current && target && !workerPopoverRef.current.contains(target)) {
+        setWorkerPopoverOpen(false);
+      }
+    };
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setWorkerPopoverOpen(false);
+    };
+    document.addEventListener("mousedown", handleDocClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleDocClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [workerPopoverOpen]);
 
   return (
     <>
@@ -156,6 +180,34 @@ export default function AppOverlays({
               item.state === null
                 ? `${item.label}: checking…`
                 : `${item.label}: ${item.state}`;
+            if (item.key === "workers") {
+              return (
+                <div
+                  key={item.key}
+                  ref={workerPopoverRef}
+                  className="service-health-item service-health-item--interactive"
+                  style={{ position: "relative" }}
+                >
+                  <button
+                    type="button"
+                    className="service-health-button"
+                    aria-expanded={workerPopoverOpen}
+                    aria-haspopup="dialog"
+                    title={`${title} — click for details`}
+                    onClick={() => setWorkerPopoverOpen((v) => !v)}
+                  >
+                    <span
+                      className={`service-health-dot${item.state === null ? " service-health-dot--checking" : ""}`}
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="service-health-label">{item.label}</span>
+                  </button>
+                  {workerPopoverOpen && (
+                    <WorkerHealthPopover snapshot={workerHealth} />
+                  )}
+                </div>
+              );
+            }
             return (
               <span
                 key={item.key}

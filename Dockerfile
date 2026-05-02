@@ -92,7 +92,9 @@ CMD ["uv", "run", "uvicorn", "helping_hands.server.app:app", "--host", "0.0.0.0"
 FROM app-deps AS worker
 ENV HOME=/home/app
 USER app
-CMD ["uv", "run", "celery", "-A", "helping_hands.server.celery_app:celery_app", "worker", "--pool=solo", "--loglevel=info"]
+# Threads pool (not prefork) to keep asyncio/subprocess paths in celery_app.py
+# working — forking the worker breaks them. Concurrency tunable via env.
+CMD ["sh", "-c", "uv run celery -A helping_hands.server.celery_app:celery_app worker --pool=${CELERY_WORKER_POOL:-threads} --concurrency=${CELERY_WORKER_CONCURRENCY:-8} --loglevel=info"]
 
 FROM app-deps AS beat
 ENV HOME=/home/app

@@ -28,6 +28,7 @@ import type {
   TaskHistoryPatch,
   TemplateFormState,
   WorkerCapacityResponse,
+  QueueDepthResponse,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -524,6 +525,34 @@ export async function fetchWorkerCapacity(): Promise<number | null> {
       return data.max_workers;
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchWorkerCapacityFull(): Promise<WorkerCapacityResponse | null> {
+  try {
+    const response = await fetch(apiUrl(`/workers/capacity?_=${Date.now()}`), {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as WorkerCapacityResponse;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchQueueDepth(): Promise<QueueDepthResponse | null> {
+  try {
+    const response = await fetch(apiUrl(`/tasks/queue-depth?_=${Date.now()}`), {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as QueueDepthResponse;
   } catch {
     return null;
   }
