@@ -1630,14 +1630,13 @@ class TestClaudeCodeHand:
         monkeypatch.setenv("HELPING_HANDS_CLAUDE_CLI_CMD", "claude")
         hand = ClaudeCodeHand(config, repo_index)
         cmd = hand._render_command("hello world")
-        assert cmd[:5] == [
+        assert cmd[:4] == [
             "claude",
             "--verbose",
             "--dangerously-skip-permissions",
-            "--no-session-persistence",
             "-p",
         ]
-        assert cmd[5] == "hello world"
+        assert cmd[4] == "hello world"
 
     def test_render_command_places_prompt_after_flag_when_model_is_set(
         self,
