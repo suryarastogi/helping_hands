@@ -103,6 +103,65 @@ set_defaults() {
   export PYTHONUNBUFFERED=1
 }
 
+# Add common Node-installed-binary directories to PATH so the worker can
+# find `claude`, `codex`, `goose`, `gemini`, etc. When this script is invoked
+# from a self-hosted GHA runner (e.g. lugiawyvern's deploy workflow), the
+# inherited PATH typically lacks `~/.npm-global/bin` and similar — so
+# subprocesses spawned by the worker fail with FileNotFoundError, surfaced
+# in the UI as "Claude Code CLI not installed or not on PATH" mid-session.
+augment_path_for_cli_hands() {
+  local additions=()
+
+  # 1. Whatever `npm prefix -g` reports — handles user-prefix npm setups
+  #    (`npm config set prefix ~/.npm-global`) and system-wide installs.
+  if command -v npm >/dev/null 2>&1; then
+    local npm_prefix
+    if npm_prefix="$(npm prefix -g 2>/dev/null)" && [[ -n "${npm_prefix}" ]]; then
+      additions+=("${npm_prefix}/bin")
+    fi
+  fi
+
+  # 2. Common per-user fallbacks. Harmless if they don't exist.
+  additions+=("${HOME}/.npm-global/bin")
+  additions+=("${HOME}/.local/bin")
+  # 3. Active nvm shim, if any.
+  if [[ -n "${NVM_BIN:-}" ]]; then
+    additions+=("${NVM_BIN}")
+  fi
+
+  local addition
+  for addition in "${additions[@]}"; do
+    [[ -z "${addition}" ]] && continue
+    if [[ -d "${addition}" && ":${PATH}:" != *":${addition}:"* ]]; then
+      PATH="${addition}:${PATH}"
+    fi
+  done
+  export PATH
+}
+
+# Diagnostic: log which CLI hands are actually on PATH so a missing binary
+# shows up at deploy time (in worker.log) rather than the next time someone
+# starts a grill or task that needs it.
+report_cli_hand_availability() {
+  local found=() missing=()
+  local cli
+  for cli in claude codex goose gemini; do
+    if command -v "${cli}" >/dev/null 2>&1; then
+      found+=("${cli}=$(command -v "${cli}")")
+    else
+      missing+=("${cli}")
+    fi
+  done
+
+  if [[ "${#found[@]}" -gt 0 ]]; then
+    echo "CLI hands available: ${found[*]}"
+  fi
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    # Warn but don't fail — not every deployment needs every CLI.
+    echo "CLI hands NOT on PATH (won't work as a backend): ${missing[*]}" >&2
+  fi
+}
+
 normalize_redis_url_for_local() {
   local value="$1"
   if [[ "${value}" =~ ^redis://redis([:/]|$) ]]; then
@@ -299,6 +358,8 @@ start_all() {
   load_env
   set_defaults
   adjust_docker_redis_hosts_for_local
+  augment_path_for_cli_hands
+  report_cli_hand_availability
 
   echo "Syncing dependencies..."
   (cd "${REPO_ROOT}" && uv sync --extra server)
