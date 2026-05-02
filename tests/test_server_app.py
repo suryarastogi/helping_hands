@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 
 from helping_hands.lib.default_prompts import DEFAULT_SMOKE_TEST_PROMPT
 from helping_hands.server.app import (
+    _DEFAULT_WORKER_CAPACITY,
     ClaudeUsageResponse,
     _check_db_health,
     _check_redis_health,
@@ -562,7 +563,7 @@ class TestWorkerCapacityEndpoint:
 
         assert response.status_code == 200
         payload = response.json()
-        assert payload["max_workers"] == 8
+        assert payload["max_workers"] == _DEFAULT_WORKER_CAPACITY
         assert payload["source"] == "default"
         assert payload["workers"] == {}
 
@@ -589,7 +590,7 @@ class TestWorkerCapacityEndpoint:
 
         assert response.status_code == 200
         payload = response.json()
-        assert payload["max_workers"] == 8
+        assert payload["max_workers"] == _DEFAULT_WORKER_CAPACITY
         assert payload["source"] == "default"
 
 
