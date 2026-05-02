@@ -146,6 +146,7 @@ export default function App() {
   const [playerColorInput, setPlayerColorInput] = useState(loadPlayerColor);
   const [showGrillOverlay, setShowGrillOverlay] = useState(false);
   const [showMGrillOverlay, setShowMGrillOverlay] = useState(false);
+  const [mgrillMinimized, setMgrillMinimized] = useState(false);
   const [showSubmitIssueOverlay, setShowSubmitIssueOverlay] = useState(false);
   const [mgrillPlayerId] = useState(loadOrCreateMGrillPlayerId);
   const grillSession = useGrillSession();
@@ -541,8 +542,8 @@ export default function App() {
           onCursorMove={updateCursor}
           arcadeOpen={arcadeOpen}
           onArcadeOpen={() => setArcadeOpen(true)}
-          mgrillOpen={showMGrillOverlay}
-          onMGrillOpen={() => setShowMGrillOverlay(true)}
+          mgrillOpen={showMGrillOverlay && !mgrillMinimized}
+          onMGrillOpen={() => { setShowMGrillOverlay(true); setMgrillMinimized(false); }}
           mgrillEnabled={grillEnabled}
         />
 
@@ -599,12 +600,13 @@ export default function App() {
     )}
     {grillEnabled && showMGrillOverlay && (
       <MultiplayerGrillOverlay
-        onClose={() => setShowMGrillOverlay(false)}
+        onClose={() => { setShowMGrillOverlay(false); setMgrillMinimized(false); }}
+        onMinimize={() => setMgrillMinimized(true)}
+        minimized={mgrillMinimized}
         onSubmitPlan={(taskId) => {
-          // Surface the submitted task in the existing task list by
-          // selecting it — matches the solo-grill plan-submit hand-off.
           selectTask(taskId);
           setShowMGrillOverlay(false);
+          setMgrillMinimized(false);
         }}
         playerId={mgrillPlayerId}
         playerName={localPlayerName}

@@ -7011,6 +7011,23 @@ button.worker-sprite:disabled .worker-caption {
   font-weight: 700;
 }
 
+.mgrill-room-participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.mgrill-participant-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .mgrill-room-repo {
   margin: 0;
   font-family: var(--mono);

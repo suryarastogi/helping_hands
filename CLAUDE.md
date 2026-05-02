@@ -111,16 +111,16 @@ When the server has no global `GITHUB_TOKEN`, schedule endpoints enforce per-use
 
 ### Multiplayer Grill auth (server-GITHUB_TOKEN behaviour)
 
-The `/mgrill/*` endpoints mirror the schedules pattern: when the server has a global `GITHUB_TOKEN` configured, identity becomes server-owned and per-user creator checks are lifted — any caller is treated as the creator and can Submit / Keep Grilling / Heartbeat. When the server has no global token, the original per-user rules apply.
+Chat participation (pending messages, send, vote, request plan) requires no GitHub token — anyone can join a session and contribute. Session **creation** still requires a token (`X-GitHub-Token` or server `GITHUB_TOKEN`). Creator-only actions (Submit, Keep Grilling, Heartbeat, Claim Creator) require a token and check creator identity.
 
-| Server `GITHUB_TOKEN` | Client `X-GitHub-Token` | Chat / vote / add to batch | Submit / Keep Grilling / Heartbeat |
-|-----------------------|--------------------------|----------------------------|-------------------------------------|
-| unset                 | unset                    | 401                        | 401                                 |
-| unset                 | set                      | yes                        | only the session creator (plus `ADMIN_GITHUB_TOKEN`) |
-| **set**               | **unset**                | **yes** (server token used) | **yes — anyone**                    |
-| set                   | set                      | yes                        | yes — anyone                        |
+| Server `GITHUB_TOKEN` | Client `X-GitHub-Token` | Chat / vote / add to batch | Create session | Submit / Keep Grilling / Heartbeat |
+|-----------------------|--------------------------|----------------------------|----------------|-------------------------------------|
+| unset                 | unset                    | yes                        | 401            | 401                                 |
+| unset                 | set                      | yes                        | yes            | only the session creator (plus `ADMIN_GITHUB_TOKEN`) |
+| **set**               | **unset**                | **yes**                    | **yes**        | **yes — anyone**                    |
+| set                   | set                      | yes                        | yes            | yes — anyone                        |
 
-Implementation hooks: `_mgrill_effective_token()` falls back to the server token, `_mgrill_require_creator()` short-circuits when `_server_has_github_token()`, and `mgrill_poll` reports `is_creator=true` for everyone in server-token mode so the frontend unlocks creator UI. `ADMIN_GITHUB_TOKEN` still satisfies the creator check on a per-user basis when the server has no global token.
+Implementation hooks: `_mgrill_require_creator()` short-circuits when `_server_has_github_token()`, and `mgrill_poll` reports `is_creator=true` for everyone in server-token mode so the frontend unlocks creator UI. `ADMIN_GITHUB_TOKEN` still satisfies the creator check on a per-user basis when the server has no global token.
 
 ### Frontend persistence
 

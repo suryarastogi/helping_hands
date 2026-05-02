@@ -14,6 +14,8 @@ import MultiplayerGrillRoom from "./MultiplayerGrillRoom";
 
 type Props = {
   onClose: () => void;
+  onMinimize: () => void;
+  minimized: boolean;
   onSubmitPlan: (taskId: string) => void;
   /** Current local player id (Yjs clientID as string). */
   playerId: string;
@@ -27,6 +29,8 @@ type Props = {
 
 export default function MultiplayerGrillOverlay({
   onClose,
+  onMinimize,
+  minimized,
   onSubmitPlan,
   playerId,
   playerName,
@@ -50,10 +54,12 @@ export default function MultiplayerGrillOverlay({
     session.joinSession(s.session_id);
   };
 
-  const handleClose = () => {
+  const handleFullClose = () => {
     session.leaveSession();
     onClose();
   };
+
+  if (minimized) return null;
 
   if (session.sessionId) {
     return (
@@ -68,8 +74,8 @@ export default function MultiplayerGrillOverlay({
           playerId={playerId}
           playerName={playerName}
           serverHasGithubToken={serverHasGithubToken}
-          onClose={handleClose}
-          onLeave={() => session.leaveSession()}
+          onClose={onMinimize}
+          onLeave={handleFullClose}
         />
       </section>
     );
@@ -93,7 +99,7 @@ export default function MultiplayerGrillOverlay({
           }
         }}
         onJoin={handleJoin}
-        onClose={handleClose}
+        onClose={handleFullClose}
         isCreating={session.isLoading}
         error={session.error}
         initialCreateForm={initialCreateForm}
