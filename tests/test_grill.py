@@ -102,25 +102,30 @@ class TestRedisHelpers:
         assert _get_state(r, "nonexistent") is None
 
     def test_push_ai_msg(self) -> None:
-        """Push constructs a well-formed message and calls rpush + expire."""
+        """Push writes the message to both the AI queue and the transcript."""
         r = MagicMock()
         _push_ai_msg(r, "sess1", "assistant", "Hello!", msg_type="message")
-        r.rpush.assert_called_once()
-        key, raw = r.rpush.call_args[0]
-        assert key == "grill:sess1:ai_msgs"
-        msg = json.loads(raw)
+        # Dual-write: ai_msgs (drained by polling) + transcript (append-only,
+        # used to repopulate the chat view on resume).
+        assert r.rpush.call_count == 2
+        keys = [call.args[0] for call in r.rpush.call_args_list]
+        assert keys == ["grill:sess1:ai_msgs", "grill:sess1:transcript"]
+        # Both writes carry an identical payload.
+        payloads = [json.loads(call.args[1]) for call in r.rpush.call_args_list]
+        assert payloads[0] == payloads[1]
+        msg = payloads[0]
         assert msg["role"] == "assistant"
         assert msg["content"] == "Hello!"
         assert msg["type"] == "message"
         assert "id" in msg
         assert "timestamp" in msg
-        r.expire.assert_called_once()
+        assert r.expire.call_count == 2
 
     def test_push_ai_msg_custom_type(self) -> None:
         """msg_type parameter is respected."""
         r = MagicMock()
         _push_ai_msg(r, "sess1", "system", "Error!", msg_type="error")
-        raw = r.rpush.call_args[0][1]
+        raw = r.rpush.call_args_list[0].args[1]
         msg = json.loads(raw)
         assert msg["type"] == "error"
 

@@ -105,17 +105,26 @@ def _push_ai_msg(
     *,
     msg_type: str = "message",
 ) -> None:
-    """Push an AI message to the outbound queue."""
-    key = f"grill:{session_id}:ai_msgs"
-    msg = {
+    """Push an AI message to the outbound queue.
+
+    Also appends to a persistent transcript list used to repopulate the chat
+    view when a suspended session is resumed (the queue is drained
+    destructively by polling, so it can't serve as history on its own).
+    """
+    payload = {
         "id": str(uuid.uuid4()),
         "role": role,
         "content": content,
         "type": msg_type,
         "timestamp": time.time(),
     }
-    r.rpush(key, json.dumps(msg))
-    r.expire(key, _SESSION_TTL_S)
+    encoded = json.dumps(payload)
+    queue_key = f"grill:{session_id}:ai_msgs"
+    transcript_key = f"grill:{session_id}:transcript"
+    r.rpush(queue_key, encoded)
+    r.expire(queue_key, _SESSION_TTL_S)
+    r.rpush(transcript_key, encoded)
+    r.expire(transcript_key, _SESSION_TTL_S)
 
 
 def _pop_user_msg(r: Any, session_id: str) -> dict[str, Any] | None:

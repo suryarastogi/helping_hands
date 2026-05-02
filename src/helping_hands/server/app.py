@@ -5210,13 +5210,29 @@ def send_grill_message(session_id: str, req: GrillMessageRequest) -> dict[str, s
 
     # Push message to user queue
     msg_key = f"grill:{session_id}:user_msgs"
+    now = time.time()
     msg = {
         "content": req.content,
         "type": req.type,
-        "timestamp": time.time(),
+        "timestamp": now,
     }
     r.rpush(msg_key, _json.dumps(msg))
     r.expire(msg_key, 3600)
+
+    # Also append to the persistent transcript so the chat view can be
+    # reconstructed when a suspended session is resumed.
+    import uuid as _uuid
+
+    transcript_key = f"grill:{session_id}:transcript"
+    transcript_msg = {
+        "id": str(_uuid.uuid4()),
+        "role": "user",
+        "content": req.content,
+        "type": req.type,
+        "timestamp": now,
+    }
+    r.rpush(transcript_key, _json.dumps(transcript_msg))
+    r.expire(transcript_key, 3600)
 
     # Auto-resume suspended sessions
     state = _json.loads(state_raw)
@@ -5262,6 +5278,52 @@ def poll_grill(session_id: str) -> GrillPollResponse:
             break
         msg = _json.loads(raw)
         messages.append(GrillMessageOut(**msg))
+
+    return GrillPollResponse(
+        session_id=session_id,
+        status=status,
+        messages=messages,
+    )
+
+
+@app.get("/grill/{session_id}/transcript", response_model=GrillPollResponse)
+def get_grill_transcript(session_id: str) -> GrillPollResponse:
+    """Return the full message history for a grill session.
+
+    Used when resuming a suspended session: the polling endpoint drains the
+    AI message queue destructively, so it cannot replay history. The
+    transcript list is append-only and survives polls.
+    """
+    from fastapi import HTTPException
+
+    if not _grill_enabled():
+        raise HTTPException(status_code=404, detail="Grill Me feature is disabled")
+
+    import json as _json
+
+    import redis
+
+    session_id = _validate_path_param(session_id, "session_id")
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+    r = redis.from_url(redis_url, decode_responses=True)
+
+    state_key = f"grill:{session_id}:state"
+    state_raw = r.get(state_key)
+    if state_raw is None:
+        return GrillPollResponse(session_id=session_id, status="not_found", messages=[])
+
+    state = _json.loads(state_raw)
+    status = state.get("status", "unknown")
+
+    transcript_key = f"grill:{session_id}:transcript"
+    raws = r.lrange(transcript_key, 0, -1)
+    messages = [GrillMessageOut(**_json.loads(raw)) for raw in raws]
+
+    # Drain any AI messages still queued so the next poll doesn't re-deliver
+    # them as duplicates of what we just returned via the transcript.
+    ai_key = f"grill:{session_id}:ai_msgs"
+    while r.lpop(ai_key) is not None:
+        pass
 
     return GrillPollResponse(
         session_id=session_id,

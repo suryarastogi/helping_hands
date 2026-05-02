@@ -186,7 +186,43 @@ export function useGrillSession(): GrillSessionState {
       setStatus("suspended");
       setPhase("chatting");
       setIsLoading(false);
-      startPolling();
+
+      // Fetch the full transcript before polling: the poll endpoint drains
+      // the AI queue destructively, so without this the chat view stays
+      // empty after resume. Errors fall through to polling — better to
+      // start with no history than no chat at all.
+      void (async () => {
+        try {
+          const res = await fetch(apiUrl(`/grill/${sid}/transcript?_=${Date.now()}`), {
+            cache: "no-store",
+          });
+          if (res.ok) {
+            const data = (await res.json()) as GrillPollResponse;
+            if (sessionIdRef.current !== sid) return;
+            setStatus(data.status);
+            if (data.messages.length > 0) {
+              setMessages((prev) => {
+                const existingIds = new Set(prev.map((m) => m.id));
+                const newMsgs = data.messages.filter((m) => !existingIds.has(m.id));
+                return [...prev, ...newMsgs];
+              });
+              for (const msg of data.messages) {
+                if (msg.type === "plan") {
+                  const planContent = msg.content;
+                  const planIdx = planContent.indexOf("## FINAL PLAN");
+                  setFinalPlan(
+                    planIdx >= 0 ? planContent.slice(planIdx) : planContent,
+                  );
+                  setPhase("plan");
+                }
+              }
+            }
+          }
+        } catch {
+          // Transient — polling will still run.
+        }
+        startPolling();
+      })();
     },
     [startPolling],
   );
