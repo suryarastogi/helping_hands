@@ -108,6 +108,24 @@ codex exec --model gpt-5.2 "Reply with READY and one sentence."
   - or `HELPING_HANDS_USE_NATIVE_CLI_AUTH=1` (env default)
   - strips `ANTHROPIC_API_KEY` from Claude subprocess/container env
 
+### Claude Code feature flags
+
+All opt-in via env vars; unset = backend behaves as before. See
+[design-docs/claude-cli-feature-flags.md](design-docs/claude-cli-feature-flags.md)
+for the architecture.
+
+| Variable | Effect | Default |
+|---|---|---|
+| `HELPING_HANDS_CLAUDE_MAX_TURNS` | Inject `--max-turns <n>` to bound the agent loop. `0` skips. | `0` |
+| `HELPING_HANDS_CLAUDE_SYSTEM_PROMPT` | Inject `--append-system-prompt`. Falls back to repo-root `AGENT.md`/`CLAUDE.md` (truncated to 16k). | unset |
+| `HELPING_HANDS_CLAUDE_ALLOWED_TOOLS` | Comma-separated allow-list (e.g. `Read,Edit,Bash`) → `--allowedTools`. | unset |
+| `HELPING_HANDS_CLAUDE_DISALLOWED_TOOLS` | Comma-separated deny-list → `--disallowedTools`. | unset |
+| `HELPING_HANDS_CLAUDE_SESSION_CONTINUE` | When truthy, reuse the session ID captured from a prior invocation via `--continue --session-id`. | `0` |
+
+The hand also accumulates `total_cost_usd` and the last session ID across
+invocations on the instance, accessible via the `cost_metadata` property
+on `ClaudeCodeHand`.
+
 ### Claude Code requirements
 
 - `claude` CLI on `PATH`, or `npx` available so fallback command can run.
