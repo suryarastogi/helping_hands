@@ -2097,8 +2097,15 @@ class TestGrillEnabledEndpoints:
 
         assert resp.status_code == 200
         assert resp.json() == {"status": "sent"}
-        mock_redis.rpush.assert_called_once()
-        mock_redis.expire.assert_called_once()
+        # The handler dual-writes: user_msgs queue (worker-consumed) plus the
+        # append-only transcript list (read on resume to repopulate chat).
+        assert mock_redis.rpush.call_count == 2
+        keys = [call.args[0] for call in mock_redis.rpush.call_args_list]
+        assert keys == [
+            "grill:test-session-123:user_msgs",
+            "grill:test-session-123:transcript",
+        ]
+        assert mock_redis.expire.call_count == 2
 
     def test_send_grill_message_enabled_session_not_found(
         self, monkeypatch: pytest.MonkeyPatch
