@@ -47,6 +47,13 @@ export interface MonitorCardProps {
   fileTreeError: string | null;
   fileTreeLoading: boolean;
   diffIsCommitted: boolean;
+  // True when the page was loaded directly at /run/<uuid> (i.e. a shared
+  // link). Used to hide destructive actions for users viewing someone
+  // else's run rather than their own.
+  isColdLoad?: boolean;
+  // True when the most recent backend response was served from the
+  // persistent snapshot rather than a live workspace.
+  fromSnapshot?: boolean;
 }
 
 export default function MonitorCard({
@@ -75,6 +82,8 @@ export default function MonitorCard({
   fileTreeError,
   fileTreeLoading,
   diffIsCommitted,
+  isColdLoad = false,
+  fromSnapshot = false,
 }: MonitorCardProps) {
   const blinkerColor = statusBlinkerColor(status);
   const isBlinkerAnimated = statusTone(status) === "run";
@@ -129,7 +138,7 @@ export default function MonitorCard({
           >
             {collapsed ? "Console Expand" : "Console Collapse"}
           </button>
-          {taskId && !isTerminalTaskStatus(status) && (
+          {taskId && !isTerminalTaskStatus(status) && !isColdLoad && (
             <button
               type="button"
               className="secondary cancel-task-btn"
@@ -145,6 +154,20 @@ export default function MonitorCard({
               }}
             >
               Cancel
+            </button>
+          )}
+          {taskId && (
+            <button
+              type="button"
+              className="secondary share-link-btn"
+              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+              title="Copy share link — anyone with this link can view the task params, output, and diff"
+              onClick={() => {
+                const url = `${window.location.origin}/run/${taskId}`;
+                navigator.clipboard.writeText(url).catch(() => {});
+              }}
+            >
+              Share
             </button>
           )}
           <button
@@ -175,6 +198,23 @@ export default function MonitorCard({
       </div>
       {!collapsed && (
         <>
+          {fromSnapshot && (
+            <div
+              className="snapshot-banner"
+              style={{
+                fontSize: "0.7rem",
+                padding: "4px 8px",
+                borderBottom: "1px solid #334155",
+                color: "#93c5fd",
+                background: "rgba(30, 64, 175, 0.15)",
+              }}
+              role="status"
+            >
+              Viewing saved snapshot — workspace was cleaned up after the task
+              completed. File explorer browsing is unavailable for shared
+              snapshots.
+            </div>
+          )}
           {(accUsage || (detectedPrefixes.length > 0 && outputTab !== "payload")) && (
             <div className="prefix-filters">
               {detectedPrefixes.length > 0 && outputTab !== "payload" && (

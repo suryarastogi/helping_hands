@@ -314,6 +314,7 @@ outage still surfaces the utilization percentages in the task result.
 | MCP server | `src/helping_hands/server/mcp_server.py` |
 | Schedules | `src/helping_hands/server/schedules.py` |
 | Task result helper | `src/helping_hands/server/task_result.py` |
+| Task-run snapshots (DB+cache for `/run/<uuid>` shareable links) | `src/helping_hands/server/task_runs.py` |
 | Token helpers | `src/helping_hands/server/token_helpers.py` |
 | Server constants | `src/helping_hands/server/constants.py` |
 | Grill Me (planning) | `src/helping_hands/server/grill.py` |

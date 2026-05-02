@@ -94,6 +94,10 @@ from helping_hands.server.multiplayer_yjs import (
     stop_yjs_server,
 )
 from helping_hands.server.task_result import normalize_task_result
+from helping_hands.server.task_runs import (
+    init_task_runs_schema,
+    read_task_run,
+)
 from helping_hands.server.token_helpers import (
     get_claude_oauth_token as _get_claude_oauth_token,
     redact_token as _redact_token,
@@ -150,6 +154,7 @@ _SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Manage server lifecycle — start/stop Yjs server + multiplayer-grill bridge."""
+    init_task_runs_schema()
     await start_yjs_server()
     await start_mgrill_bridge(_multiplayer_yjs.yjs_websocket_server)
     try:
@@ -277,6 +282,7 @@ class TaskStatus(BaseModel):
     task_id: str
     status: str
     result: dict[str, Any] | None = None
+    from_snapshot: bool = False
 
 
 class TaskCancelResponse(BaseModel):
@@ -3287,11 +3293,25 @@ def _build_task_status(task_id: str) -> TaskStatus:
         task_id: The Celery task UUID to look up.
 
     Returns:
-        A ``TaskStatus`` with the current state and normalised result.
+        A ``TaskStatus`` with the current state and normalised result. Falls
+        back to the persistent snapshot when Celery has lost the result (e.g.
+        Redis result expiry on a long-completed run).
     """
     result = build_feature.AsyncResult(task_id)
     raw_result = result.result if result.ready() else result.info
     normalized_result = normalize_task_result(result.status, raw_result)
+    # Live source wins. Fall back to snapshot only when Celery has nothing
+    # useful — i.e. PENDING (the canonical "I don't know this id" state for
+    # an expired result) and no live result data.
+    if result.status == "PENDING" and normalized_result is None:
+        snapshot = read_task_run(task_id)
+        if snapshot is not None:
+            return TaskStatus(
+                task_id=task_id,
+                status=str(snapshot.get("status") or "SUCCESS").upper(),
+                result=snapshot.get("output") or {},
+                from_snapshot=True,
+            )
     return TaskStatus(
         task_id=task_id,
         status=result.status,
@@ -4239,13 +4259,37 @@ class TaskDiffResponse(BaseModel):
     workspace: str | None = None
     files: list[TaskDiffFile] = Field(default_factory=list)
     error: str | None = None
+    from_snapshot: bool = False
 
 
 @app.get("/tasks/{task_id}/diff", response_model=TaskDiffResponse)
 def get_task_diff(task_id: str) -> TaskDiffResponse:
-    """Return the uncommitted git diff for a task's workspace."""
+    """Return the uncommitted git diff for a task's workspace.
+
+    Falls back to the persistent snapshot when the live workspace is gone
+    (cleaned up after task completion).
+    """
     task_id = _validate_path_param(task_id, "task_id")
-    return _build_task_diff(task_id)
+    response = _build_task_diff(task_id)
+    if response.error and not response.files:
+        snapshot = read_task_run(task_id)
+        if snapshot is not None:
+            files = [
+                TaskDiffFile(
+                    filename=str(item.get("filename") or ""),
+                    status=str(item.get("status") or "modified"),
+                    diff=str(item.get("diff") or ""),
+                )
+                for item in snapshot.get("diff_files") or []
+                if isinstance(item, dict)
+            ]
+            return TaskDiffResponse(
+                task_id=task_id,
+                workspace=response.workspace,
+                files=files,
+                from_snapshot=True,
+            )
+    return response
 
 
 def _resolve_task_workspace(
@@ -4418,6 +4462,7 @@ class TaskFileTreeResponse(BaseModel):
     workspace: str | None = None
     tree: list[FileTreeEntry] = Field(default_factory=list)
     error: str | None = None
+    from_snapshot: bool = False
 
 
 class TaskFileContentResponse(BaseModel):
@@ -4437,9 +4482,32 @@ _FILE_CONTENT_MAX_BYTES = 512_000
 
 @app.get("/tasks/{task_id}/tree", response_model=TaskFileTreeResponse)
 def get_task_tree(task_id: str) -> TaskFileTreeResponse:
-    """Return the full file tree of a task's workspace with change status."""
+    """Return the full file tree of a task's workspace with change status.
+
+    Falls back to the persistent snapshot when the live workspace is gone.
+    """
     task_id = _validate_path_param(task_id, "task_id")
-    return _build_task_tree(task_id)
+    response = _build_task_tree(task_id)
+    if response.error and not response.tree:
+        snapshot = read_task_run(task_id)
+        if snapshot is not None:
+            entries = [
+                FileTreeEntry(
+                    path=str(item.get("path") or ""),
+                    name=str(item.get("name") or ""),
+                    type=str(item.get("type") or "file"),
+                    status=item.get("status"),
+                )
+                for item in snapshot.get("tree_entries") or []
+                if isinstance(item, dict)
+            ]
+            return TaskFileTreeResponse(
+                task_id=task_id,
+                workspace=response.workspace,
+                tree=entries,
+                from_snapshot=True,
+            )
+    return response
 
 
 @app.get(
