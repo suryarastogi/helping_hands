@@ -321,8 +321,9 @@ outage still surfaces the utilization percentages in the task result.
 | Multiplayer Grill | `src/helping_hands/server/multiplayer_grill.py` |
 | Multiplayer Grill Yjs bridge | `src/helping_hands/server/mgrill_bridge.py` |
 | Multiplayer YJS | `src/helping_hands/server/multiplayer_yjs.py` |
+| Task templates | `src/helping_hands/server/templates.py` |
 | Docker sandbox hand | `src/helping_hands/lib/hands/v1/hand/cli/docker_sandbox_claude.py` |
 
 ---
 
-*Last updated: 2026-04-15*
+*Last updated: 2026-05-02*
