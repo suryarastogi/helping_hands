@@ -247,6 +247,7 @@ export default function HandWorldScene({
         {/* Sky & mountains backdrop */}
         <div className="zen-sky" aria-hidden="true">
           <div className="zen-aurora" />
+          <div className="zen-aurora zen-aurora-2" />
           <div className="zen-stars">
             <span className="star star-1" />
             <span className="star star-2" />
@@ -260,7 +261,12 @@ export default function HandWorldScene({
             <span className="star star-10" />
             <span className="star star-11" />
             <span className="star star-12" />
+            <span className="star star-13" />
+            <span className="star star-14" />
+            <span className="star star-15" />
+            <span className="star star-16" />
           </div>
+          <div className="zen-constellation" />
           <div className="zen-mountain zen-mountain-1" />
           <div className="zen-mountain zen-mountain-2" />
           <div className="zen-mountain zen-mountain-3" />
@@ -268,11 +274,22 @@ export default function HandWorldScene({
             <span className="moon-halo" />
             <span className="moon-crater moon-crater-1" />
             <span className="moon-crater moon-crater-2" />
+            <span className="moon-rays" />
           </div>
           <div className="zen-shooting-star" />
+          <div className="zen-shooting-star zen-shooting-star-2" />
+          <div className="zen-shooting-star zen-shooting-star-3" />
           <div className="zen-cloud zen-cloud-1" />
           <div className="zen-cloud zen-cloud-2" />
           <div className="zen-cloud zen-cloud-3" />
+        </div>
+
+        {/* Ground mist layer */}
+        <div className="zen-mist" aria-hidden="true">
+          <span className="mist-wisp mist-wisp-1" />
+          <span className="mist-wisp mist-wisp-2" />
+          <span className="mist-wisp mist-wisp-3" />
+          <span className="mist-wisp mist-wisp-4" />
         </div>
 
         {/* Atmospheric particles */}
@@ -283,6 +300,10 @@ export default function HandWorldScene({
           <span className="firefly firefly-4" />
           <span className="firefly firefly-5" />
           <span className="firefly firefly-6" />
+          <span className="firefly firefly-7" />
+          <span className="firefly firefly-8" />
+          <span className="firefly firefly-9" />
+          <span className="firefly firefly-10" />
         </div>
         <div className="zen-petals" aria-hidden="true">
           <span className="petal petal-1" />
@@ -293,6 +314,22 @@ export default function HandWorldScene({
           <span className="petal petal-6" />
           <span className="petal petal-7" />
           <span className="petal petal-8" />
+          <span className="petal petal-9" />
+          <span className="petal petal-10" />
+          <span className="petal petal-11" />
+          <span className="petal petal-12" />
+        </div>
+
+        {/* Sparkle dust particles */}
+        <div className="zen-sparkles" aria-hidden="true">
+          <span className="sparkle sparkle-1" />
+          <span className="sparkle sparkle-2" />
+          <span className="sparkle sparkle-3" />
+          <span className="sparkle sparkle-4" />
+          <span className="sparkle sparkle-5" />
+          <span className="sparkle sparkle-6" />
+          <span className="sparkle sparkle-7" />
+          <span className="sparkle sparkle-8" />
         </div>
 
         {/* Garden decorations */}
@@ -302,6 +339,17 @@ export default function HandWorldScene({
           <span className="bamboo-stalk bamboo-stalk-2" />
           <span className="bamboo-stalk bamboo-stalk-3" />
           <span className="bamboo-leaves" />
+        </div>
+        <div className="zen-wisteria" aria-hidden="true">
+          <span className="wisteria-trunk" />
+          <span className="wisteria-branch wisteria-branch-1" />
+          <span className="wisteria-branch wisteria-branch-2" />
+          <span className="wisteria-drape wisteria-drape-1" />
+          <span className="wisteria-drape wisteria-drape-2" />
+          <span className="wisteria-drape wisteria-drape-3" />
+          <span className="wisteria-drape wisteria-drape-4" />
+          <span className="wisteria-drape wisteria-drape-5" />
+          <span className="wisteria-glow" />
         </div>
         <div className="zen-maple" aria-hidden="true">
           <span className="maple-trunk" />
@@ -315,8 +363,15 @@ export default function HandWorldScene({
           <span className="lantern-base" />
           <span className="lantern-glow" />
         </div>
+        <div className="zen-lantern zen-lantern-2" aria-hidden="true">
+          <span className="lantern-cap" />
+          <span className="lantern-light" />
+          <span className="lantern-base" />
+          <span className="lantern-glow" />
+        </div>
         <div className="zen-rock zen-rock-lg" aria-hidden="true" />
         <div className="zen-rock zen-rock-sm" aria-hidden="true" />
+        <div className="zen-rock zen-rock-moss" aria-hidden="true" />
         <div className="zen-pond zen-pond-1" aria-hidden="true">
           <span className="pond-water" />
           <span className="pond-algae pond-algae-1" />
@@ -324,6 +379,10 @@ export default function HandWorldScene({
           <span className="pond-ripple pond-ripple-1" />
           <span className="pond-ripple pond-ripple-2" />
           <span className="pond-shimmer" />
+          <span className="pond-koi pond-koi-1" />
+          <span className="pond-koi pond-koi-2" />
+          <span className="pond-lilypad pond-lilypad-1" />
+          <span className="pond-lilypad pond-lilypad-2" />
         </div>
         <div className="zen-pond zen-pond-2" aria-hidden="true">
           <span className="pond-water" />
@@ -344,6 +403,20 @@ export default function HandWorldScene({
           <span className="pond-algae pond-algae-1" />
           <span className="pond-ripple pond-ripple-1" />
         </div>
+
+        {/* Stone bridge over path */}
+        <div className="zen-bridge" aria-hidden="true">
+          <span className="bridge-plank bridge-plank-1" />
+          <span className="bridge-plank bridge-plank-2" />
+          <span className="bridge-plank bridge-plank-3" />
+          <span className="bridge-rail bridge-rail-left" />
+          <span className="bridge-rail bridge-rail-right" />
+        </div>
+
+        {/* Stepping stones */}
+        <span className="zen-stepping-stone zen-step-1" aria-hidden="true" />
+        <span className="zen-stepping-stone zen-step-2" aria-hidden="true" />
+        <span className="zen-stepping-stone zen-step-3" aria-hidden="true" />
 
         {/* Arcade machine (top-right) */}
         <div className={`hh-arcade${nearArcade ? " arcade-active" : ""}`} aria-hidden="true">

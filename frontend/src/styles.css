@@ -2645,13 +2645,15 @@ h2 {
 
 .hand-world-card .header h1 {
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  background: linear-gradient(90deg, #e2e8f0, #fef9c3, #e2e8f0);
-  background-size: 200% 100%;
+  letter-spacing: 0.12em;
+  background: linear-gradient(90deg, #c4b5fd, #fef9c3, #a78bfa, #fde68a, #c4b5fd);
+  background-size: 300% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: title-shimmer 4s ease-in-out infinite;
+  animation: title-shimmer 6s ease-in-out infinite;
+  text-shadow: none;
+  filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.15));
 }
 
 @keyframes title-shimmer {
@@ -2675,6 +2677,13 @@ h2 {
   background: var(--success);
   border-radius: 999px;
   vertical-align: middle;
+  animation: badge-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 12px rgba(34, 197, 94, 0.6); }
 }
 
 .world-scene {
@@ -2687,8 +2696,9 @@ h2 {
   background: #111827;
   box-shadow:
     inset 0 0 0 3px #334155,
-    0 4px 20px rgba(0, 0, 0, 0.3),
-    0 0 40px rgba(56, 189, 248, 0.03);
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(56, 189, 248, 0.05),
+    0 0 80px rgba(139, 92, 246, 0.03);
 }
 
 .office-scene {
@@ -2708,12 +2718,13 @@ h2 {
   z-index: 0;
 }
 
-/* Subtle vignette overlay for depth */
+/* Cinematic vignette overlay for depth */
 .zen-border::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0, 0, 0, 0.25) 100%);
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.15) 70%, rgba(0, 0, 0, 0.35) 100%);
   pointer-events: none;
   z-index: 99;
 }
@@ -2725,24 +2736,26 @@ h2 {
   width: 96%;
   height: 94%;
   background:
-    radial-gradient(ellipse at 82% 18%, rgba(245, 178, 50, 0.08) 0%, transparent 40%),
-    radial-gradient(ellipse at 15% 75%, rgba(210, 180, 100, 0.05) 0%, transparent 35%),
-    radial-gradient(ellipse at 50% 50%, rgba(194, 178, 128, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 82% 18%, rgba(245, 178, 50, 0.1) 0%, transparent 40%),
+    radial-gradient(ellipse at 15% 75%, rgba(210, 180, 100, 0.07) 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 50%, rgba(194, 178, 128, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 30%),
+    radial-gradient(ellipse at 75% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 25%),
     repeating-linear-gradient(
       90deg,
       transparent 0,
       transparent 31px,
-      rgba(194, 178, 128, 0.08) 31px,
-      rgba(194, 178, 128, 0.08) 32px
+      rgba(194, 178, 128, 0.06) 31px,
+      rgba(194, 178, 128, 0.06) 32px
     ),
     repeating-linear-gradient(
       0deg,
       transparent 0,
       transparent 31px,
-      rgba(194, 178, 128, 0.08) 31px,
-      rgba(194, 178, 128, 0.08) 32px
+      rgba(194, 178, 128, 0.06) 31px,
+      rgba(194, 178, 128, 0.06) 32px
     ),
-    linear-gradient(180deg, #2e2a1e 0%, #252117 40%, #1f1c13 70%, #1a170f 100%);
+    linear-gradient(180deg, #2a261c 0%, #232019 30%, #1d1a12 55%, #18150e 75%, #14110c 100%);
   border: 3px solid #1f1c13;
   box-shadow: inset 0 0 0 2px rgba(60, 50, 30, 0.4);
   z-index: 1;
@@ -2755,7 +2768,7 @@ h2 {
   top: 3%;
   width: 96%;
   height: 18%;
-  background: linear-gradient(180deg, #0c1222 0%, #162032 25%, #1e3048 50%, #2d4a6a 80%, #3d5a7a 100%);
+  background: linear-gradient(180deg, #080e1a 0%, #0f1b2e 15%, #162040 30%, #1a2d55 50%, #243a62 70%, #2d4a6a 85%, #3d5a7a 100%);
   border: 3px solid #1e293b;
   border-bottom: none;
   overflow: hidden;
@@ -2796,14 +2809,15 @@ h2 {
   position: absolute;
   right: 12%;
   top: 15%;
-  width: 14px;
-  height: 14px;
-  background: radial-gradient(circle at 40% 40%, #fffde7, #fef9c3 60%, #fde68a);
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle at 35% 35%, #fffff0, #fffde7 30%, #fef9c3 60%, #fde68a);
   border-radius: 50%;
   box-shadow:
-    0 0 8px 3px rgba(254, 249, 195, 0.4),
-    0 0 20px 8px rgba(254, 249, 195, 0.15),
-    0 0 40px 16px rgba(254, 249, 195, 0.06);
+    0 0 10px 4px rgba(254, 249, 195, 0.5),
+    0 0 25px 10px rgba(254, 249, 195, 0.2),
+    0 0 50px 20px rgba(254, 249, 195, 0.08),
+    0 0 80px 30px rgba(254, 249, 195, 0.03);
   z-index: 3;
 }
 
@@ -2850,11 +2864,13 @@ h2 {
   inset: 0;
   background:
     linear-gradient(120deg,
-      transparent 20%,
-      rgba(56, 189, 248, 0.06) 30%,
-      rgba(168, 85, 247, 0.08) 45%,
-      rgba(52, 211, 153, 0.06) 60%,
-      transparent 75%
+      transparent 15%,
+      rgba(56, 189, 248, 0.1) 25%,
+      rgba(139, 92, 246, 0.12) 38%,
+      rgba(168, 85, 247, 0.1) 48%,
+      rgba(52, 211, 153, 0.08) 60%,
+      rgba(56, 189, 248, 0.06) 72%,
+      transparent 80%
     );
   animation: aurora-shift 12s ease-in-out infinite alternate;
   z-index: 1;
@@ -2865,6 +2881,25 @@ h2 {
   0% { opacity: 0.4; transform: translateX(-3%); }
   50% { opacity: 0.8; }
   100% { opacity: 0.5; transform: translateX(3%); }
+}
+
+.zen-aurora-2 {
+  background:
+    linear-gradient(240deg,
+      transparent 30%,
+      rgba(236, 72, 153, 0.05) 40%,
+      rgba(139, 92, 246, 0.07) 50%,
+      rgba(56, 189, 248, 0.05) 65%,
+      transparent 80%
+    );
+  animation: aurora-shift-2 16s ease-in-out infinite alternate;
+  animation-delay: 4s;
+}
+
+@keyframes aurora-shift-2 {
+  0% { opacity: 0.3; transform: translateX(4%) scaleY(0.8); }
+  50% { opacity: 0.7; transform: translateX(0) scaleY(1.1); }
+  100% { opacity: 0.4; transform: translateX(-4%) scaleY(0.9); }
 }
 
 /* ── Twinkling Stars ── */
@@ -2896,11 +2931,89 @@ h2 {
 .star-10 { left: 92%; top: 15%; animation-delay: 2.5s; }
 .star-11 { left: 22%; top: 25%; animation-delay: 1.6s; width: 1px; height: 1px; }
 .star-12 { left: 55%; top: 5%; animation-delay: 0.2s; }
+.star-13 { left: 83%; top: 22%; animation-delay: 2.8s; width: 1px; height: 1px; }
+.star-14 { left: 35%; top: 3%; animation-delay: 1.9s; }
+.star-15 { left: 73%; top: 4%; animation-delay: 0.6s; width: 1px; height: 1px; }
+.star-16 { left: 12%; top: 28%; animation-delay: 3.1s; width: 3px; height: 3px; }
 
 @keyframes star-twinkle {
   0% { opacity: 0.2; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1.2); }
   100% { opacity: 0.3; transform: scale(0.9); }
+}
+
+/* ── Constellation (subtle connected dots) ── */
+.zen-constellation {
+  position: absolute;
+  left: 60%;
+  top: 8%;
+  width: 50px;
+  height: 30px;
+  z-index: 1;
+  opacity: 0.4;
+  animation: constellation-fade 8s ease-in-out infinite alternate;
+  background:
+    radial-gradient(circle at 10% 20%, #fef9c3 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, #fef9c3 1px, transparent 1px),
+    radial-gradient(circle at 70% 30%, #fef9c3 1px, transparent 1px),
+    radial-gradient(circle at 90% 70%, #fef9c3 1px, transparent 1px);
+}
+
+.zen-constellation::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, transparent 8%, rgba(254, 249, 195, 0.15) 9%, transparent 10%),
+    linear-gradient(200deg, transparent 38%, rgba(254, 249, 195, 0.12) 39%, transparent 41%),
+    linear-gradient(340deg, transparent 68%, rgba(254, 249, 195, 0.1) 69%, transparent 71%);
+}
+
+@keyframes constellation-fade {
+  0% { opacity: 0.2; }
+  50% { opacity: 0.5; }
+  100% { opacity: 0.3; }
+}
+
+/* ── Moon Rays ── */
+.moon-rays {
+  position: absolute;
+  left: -20px;
+  top: -20px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(254, 249, 195, 0.08) 10deg,
+      transparent 20deg,
+      transparent 50deg,
+      rgba(254, 249, 195, 0.06) 60deg,
+      transparent 70deg,
+      transparent 110deg,
+      rgba(254, 249, 195, 0.07) 120deg,
+      transparent 130deg,
+      transparent 170deg,
+      rgba(254, 249, 195, 0.05) 180deg,
+      transparent 190deg,
+      transparent 230deg,
+      rgba(254, 249, 195, 0.08) 240deg,
+      transparent 250deg,
+      transparent 290deg,
+      rgba(254, 249, 195, 0.06) 300deg,
+      transparent 310deg,
+      transparent 350deg,
+      rgba(254, 249, 195, 0.04) 360deg
+    );
+  animation: moon-rays-rotate 30s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes moon-rays-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* ── Shooting Star ── */
@@ -2918,9 +3031,34 @@ h2 {
   opacity: 0;
 }
 
+.zen-shooting-star::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 100%;
+  width: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(254, 249, 195, 0.6));
+  border-radius: 1px;
+}
+
+.zen-shooting-star-2 {
+  left: 55%;
+  top: 5%;
+  animation-duration: 12s;
+  animation-delay: 4s;
+}
+
+.zen-shooting-star-3 {
+  left: 30%;
+  top: 15%;
+  animation-duration: 15s;
+  animation-delay: 9s;
+}
+
 @keyframes shooting-star {
-  0%, 90% { opacity: 0; transform: translate(0, 0); }
-  92% { opacity: 1; }
+  0%, 88% { opacity: 0; transform: translate(0, 0); }
+  90% { opacity: 1; }
   100% { opacity: 0; transform: translate(200px, 30px); }
 }
 
@@ -2967,76 +3105,6 @@ h2 {
 @keyframes cloud-drift {
   0% { transform: translateX(0); }
   100% { transform: translateX(calc(100% + 400px)); }
-}
-
-/* ── Fireflies ── */
-.zen-fireflies {
-  position: absolute;
-  inset: 0;
-  z-index: 8;
-  pointer-events: none;
-}
-
-.firefly {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  background: #fde68a;
-  border-radius: 50%;
-  box-shadow: 0 0 6px 2px rgba(253, 230, 138, 0.5);
-  animation: firefly-drift 6s ease-in-out infinite alternate;
-}
-
-.firefly-1 { left: 20%; top: 35%; animation-delay: 0s; animation-duration: 7s; }
-.firefly-2 { left: 55%; top: 65%; animation-delay: 1.5s; animation-duration: 5s; }
-.firefly-3 { left: 35%; top: 80%; animation-delay: 3s; animation-duration: 8s; }
-.firefly-4 { left: 70%; top: 40%; animation-delay: 2s; animation-duration: 6s; width: 2px; height: 2px; }
-.firefly-5 { left: 15%; top: 70%; animation-delay: 4s; animation-duration: 9s; width: 2px; height: 2px; }
-.firefly-6 { left: 80%; top: 75%; animation-delay: 0.8s; animation-duration: 7s; }
-
-@keyframes firefly-drift {
-  0% { transform: translate(0, 0); opacity: 0; }
-  15% { opacity: 0.8; }
-  50% { transform: translate(15px, -10px); opacity: 0.4; }
-  85% { opacity: 0.9; }
-  100% { transform: translate(-10px, 8px); opacity: 0; }
-}
-
-/* ── Falling Cherry Blossom Petals ── */
-.zen-petals {
-  position: absolute;
-  inset: 0;
-  z-index: 8;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.petal {
-  position: absolute;
-  top: -8px;
-  width: 5px;
-  height: 5px;
-  background: radial-gradient(ellipse, #fda4af, #fb7185);
-  border-radius: 50% 0 50% 0;
-  opacity: 0;
-  animation: petal-fall linear infinite;
-}
-
-.petal-1 { left: 12%; animation-duration: 10s; animation-delay: 0s; }
-.petal-2 { left: 28%; animation-duration: 12s; animation-delay: 3s; width: 4px; height: 4px; }
-.petal-3 { left: 52%; animation-duration: 11s; animation-delay: 6s; }
-.petal-4 { left: 72%; animation-duration: 13s; animation-delay: 2s; width: 3px; height: 3px; }
-.petal-5 { left: 88%; animation-duration: 9s; animation-delay: 5s; width: 4px; height: 4px; }
-.petal-6 { left: 40%; animation-duration: 14s; animation-delay: 1s; width: 4px; height: 4px; }
-.petal-7 { left: 65%; animation-duration: 11s; animation-delay: 7s; }
-.petal-8 { left: 8%; animation-duration: 15s; animation-delay: 4s; width: 3px; height: 3px; }
-
-@keyframes petal-fall {
-  0% { transform: translateY(0) rotate(0deg) translateX(0); opacity: 0; }
-  5% { opacity: 0.7; }
-  50% { transform: translateY(180px) rotate(180deg) translateX(20px); opacity: 0.5; }
-  95% { opacity: 0.3; }
-  100% { transform: translateY(380px) rotate(360deg) translateX(-10px); opacity: 0; }
 }
 
 /* ── Zen Gravel Path ── */
@@ -3247,13 +3315,14 @@ h2 {
 .pond-water {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse, #0a2a1a 0%, #0d3322 40%, #081f14 70%, #051510 100%);
+  background: radial-gradient(ellipse, #0a2a1a 0%, #0d3322 30%, #081f14 60%, #051510 100%);
   border-radius: 50%;
   border: 2px solid #0a2a1a;
   box-shadow:
-    inset 0 2px 6px rgba(34, 197, 94, 0.15),
-    0 0 12px 4px rgba(34, 197, 94, 0.08),
-    0 0 24px 8px rgba(52, 211, 153, 0.04);
+    inset 0 2px 8px rgba(34, 197, 94, 0.2),
+    0 0 14px 5px rgba(34, 197, 94, 0.12),
+    0 0 28px 10px rgba(52, 211, 153, 0.06),
+    0 0 50px 16px rgba(52, 211, 153, 0.02);
 }
 
 .pond-algae {
@@ -3309,6 +3378,326 @@ h2 {
   100% { transform: translateX(8px); opacity: 0.6; }
 }
 
+/* ── Koi Fish ── */
+.pond-koi {
+  position: absolute;
+  width: 8px;
+  height: 4px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pond-koi-1 {
+  background: linear-gradient(90deg, #f97316, #ea580c, #fff 80%);
+  top: 40%;
+  left: 20%;
+  animation: koi-swim-1 8s ease-in-out infinite;
+}
+
+.pond-koi-2 {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b, #fff7ed 80%);
+  top: 55%;
+  left: 60%;
+  width: 6px;
+  height: 3px;
+  animation: koi-swim-2 10s ease-in-out infinite;
+  animation-delay: 3s;
+}
+
+@keyframes koi-swim-1 {
+  0% { transform: translate(0, 0) scaleX(1); }
+  25% { transform: translate(12px, -3px) scaleX(1); }
+  50% { transform: translate(20px, 2px) scaleX(-1); }
+  75% { transform: translate(8px, 4px) scaleX(-1); }
+  100% { transform: translate(0, 0) scaleX(1); }
+}
+
+@keyframes koi-swim-2 {
+  0% { transform: translate(0, 0) scaleX(-1); }
+  30% { transform: translate(-10px, 2px) scaleX(-1); }
+  60% { transform: translate(-16px, -2px) scaleX(1); }
+  100% { transform: translate(0, 0) scaleX(-1); }
+}
+
+/* ── Lily Pads ── */
+.pond-lilypad {
+  position: absolute;
+  width: 7px;
+  height: 5px;
+  background: radial-gradient(ellipse, #22c55e, #15803d);
+  border-radius: 50%;
+  border: 1px solid rgba(21, 128, 61, 0.6);
+  pointer-events: none;
+  animation: lilypad-bob 3s ease-in-out infinite alternate;
+}
+
+.pond-lilypad-1 { left: 15%; top: 25%; }
+.pond-lilypad-2 { left: 65%; top: 60%; animation-delay: 1.5s; width: 5px; height: 4px; }
+
+@keyframes lilypad-bob {
+  0% { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(-1px) rotate(3deg); }
+}
+
+/* ── Wisteria Tree ── */
+.zen-wisteria {
+  position: absolute;
+  left: 30%;
+  top: 18%;
+  width: 50px;
+  height: 55px;
+  z-index: 5;
+}
+
+.wisteria-trunk {
+  position: absolute;
+  bottom: 0;
+  left: 22px;
+  width: 6px;
+  height: 40px;
+  background: linear-gradient(180deg, #6b5b4a, #4a3f35, #3d3328);
+  border: 1px solid #2d2520;
+  border-radius: 2px;
+}
+
+.wisteria-branch {
+  position: absolute;
+  height: 3px;
+  background: linear-gradient(90deg, #5c4f42, #4a3f35);
+  border-radius: 1px;
+}
+
+.wisteria-branch-1 {
+  top: 8px;
+  left: 8px;
+  width: 35px;
+}
+
+.wisteria-branch-2 {
+  top: 14px;
+  left: 14px;
+  width: 28px;
+}
+
+.wisteria-drape {
+  position: absolute;
+  width: 4px;
+  border-radius: 0 0 2px 2px;
+  animation: wisteria-sway 4s ease-in-out infinite alternate;
+}
+
+.wisteria-drape-1 {
+  left: 10px;
+  top: 10px;
+  height: 20px;
+  background: linear-gradient(180deg, #a78bfa, #8b5cf6, #7c3aed);
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4);
+  animation-delay: 0s;
+}
+
+.wisteria-drape-2 {
+  left: 18px;
+  top: 10px;
+  height: 24px;
+  background: linear-gradient(180deg, #c4b5fd, #a78bfa, #8b5cf6);
+  box-shadow: 0 2px 8px rgba(167, 139, 250, 0.4);
+  animation-delay: 0.5s;
+}
+
+.wisteria-drape-3 {
+  left: 26px;
+  top: 10px;
+  height: 18px;
+  background: linear-gradient(180deg, #a78bfa, #7c3aed, #6d28d9);
+  box-shadow: 0 2px 5px rgba(124, 58, 237, 0.4);
+  animation-delay: 1s;
+}
+
+.wisteria-drape-4 {
+  left: 34px;
+  top: 10px;
+  height: 22px;
+  background: linear-gradient(180deg, #ddd6fe, #c4b5fd, #a78bfa);
+  box-shadow: 0 2px 6px rgba(196, 181, 253, 0.4);
+  animation-delay: 1.5s;
+}
+
+.wisteria-drape-5 {
+  left: 42px;
+  top: 10px;
+  height: 16px;
+  background: linear-gradient(180deg, #a78bfa, #8b5cf6);
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+  animation-delay: 0.8s;
+}
+
+.wisteria-glow {
+  position: absolute;
+  left: -5px;
+  top: 5px;
+  width: 60px;
+  height: 35px;
+  background: radial-gradient(ellipse, rgba(139, 92, 246, 0.15) 0%, rgba(167, 139, 250, 0.06) 50%, transparent 80%);
+  pointer-events: none;
+  animation: wisteria-glow-pulse 5s ease-in-out infinite alternate;
+}
+
+@keyframes wisteria-sway {
+  0% { transform: rotate(-2deg) translateY(0); }
+  50% { transform: rotate(1deg) translateY(1px); }
+  100% { transform: rotate(-1deg) translateY(-1px); }
+}
+
+@keyframes wisteria-glow-pulse {
+  0% { opacity: 0.4; transform: scale(0.95); }
+  100% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* ── Second Lantern ── */
+.zen-lantern-2 {
+  left: 42%;
+  top: 70%;
+}
+
+/* ── Moss-covered Rock ── */
+.zen-rock-moss {
+  left: 60%;
+  top: 72%;
+  width: 18px;
+  height: 12px;
+  background: linear-gradient(135deg, #374151, #4b5563);
+  border: 1px solid #1f2937;
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.zen-rock-moss::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 2px;
+  width: 14px;
+  height: 5px;
+  background: radial-gradient(ellipse, #22c55e 0%, #15803d 50%, transparent 80%);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+/* ── Stone Bridge ── */
+.zen-bridge {
+  position: absolute;
+  left: 38%;
+  top: 48%;
+  width: 50px;
+  height: 14px;
+  z-index: 4;
+}
+
+.bridge-plank {
+  position: absolute;
+  top: 4px;
+  height: 6px;
+  background: linear-gradient(180deg, #78350f, #92400e);
+  border: 1px solid #451a03;
+  border-radius: 1px;
+}
+
+.bridge-plank-1 { left: 0; width: 14px; }
+.bridge-plank-2 { left: 16px; width: 16px; }
+.bridge-plank-3 { left: 34px; width: 14px; }
+
+.bridge-rail {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  height: 12px;
+  background: linear-gradient(180deg, #a16207, #78350f);
+  border: 1px solid #451a03;
+  border-radius: 1px;
+}
+
+.bridge-rail-left { left: 2px; }
+.bridge-rail-right { right: 2px; }
+
+/* ── Stepping Stones ── */
+.zen-stepping-stone {
+  position: absolute;
+  width: 10px;
+  height: 8px;
+  background: radial-gradient(ellipse, #6b7280, #4b5563);
+  border: 1px solid #374151;
+  border-radius: 50%;
+  z-index: 3;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.zen-step-1 { left: 25%; top: 60%; }
+.zen-step-2 { left: 28%; top: 65%; }
+.zen-step-3 { left: 32%; top: 69%; }
+
+/* ── Ground Mist ── */
+.zen-mist {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mist-wisp {
+  position: absolute;
+  bottom: 5%;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(148, 163, 184, 0.08) 0%, transparent 70%);
+  animation: mist-drift linear infinite;
+}
+
+.mist-wisp-1 { left: -10%; width: 120px; animation-duration: 20s; }
+.mist-wisp-2 { left: -20%; width: 160px; bottom: 10%; animation-duration: 28s; animation-delay: 5s; opacity: 0.6; }
+.mist-wisp-3 { left: -15%; width: 100px; bottom: 2%; animation-duration: 24s; animation-delay: 10s; }
+.mist-wisp-4 { left: -25%; width: 140px; bottom: 15%; animation-duration: 32s; animation-delay: 15s; opacity: 0.4; }
+
+@keyframes mist-drift {
+  0% { transform: translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(calc(100vw + 200px)); opacity: 0; }
+}
+
+/* ── Sparkle Dust ── */
+.zen-sparkles {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.sparkle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0;
+  animation: sparkle-pop 4s ease-in-out infinite;
+}
+
+.sparkle-1 { left: 18%; top: 42%; animation-delay: 0s; }
+.sparkle-2 { left: 45%; top: 58%; animation-delay: 0.7s; }
+.sparkle-3 { left: 72%; top: 35%; animation-delay: 1.4s; }
+.sparkle-4 { left: 33%; top: 75%; animation-delay: 2.1s; }
+.sparkle-5 { left: 60%; top: 48%; animation-delay: 2.8s; }
+.sparkle-6 { left: 85%; top: 62%; animation-delay: 3.5s; }
+.sparkle-7 { left: 10%; top: 55%; animation-delay: 1.8s; }
+.sparkle-8 { left: 52%; top: 30%; animation-delay: 3.2s; }
+
+@keyframes sparkle-pop {
+  0%, 80%, 100% { opacity: 0; transform: scale(0); }
+  40% { opacity: 1; transform: scale(1.5); }
+  60% { opacity: 0.6; transform: scale(1); }
+}
+
 /* ── Fireflies ── */
 .zen-fireflies {
   position: absolute;
@@ -3333,6 +3722,10 @@ h2 {
 .firefly-4 { left: 70%; top: 40%; animation-delay: 2s; animation-duration: 6s; width: 2px; height: 2px; }
 .firefly-5 { left: 15%; top: 70%; animation-delay: 4s; animation-duration: 9s; width: 2px; height: 2px; }
 .firefly-6 { left: 80%; top: 75%; animation-delay: 0.8s; animation-duration: 7s; }
+.firefly-7 { left: 42%; top: 50%; animation-delay: 2.5s; animation-duration: 6.5s; width: 2px; height: 2px; }
+.firefly-8 { left: 28%; top: 45%; animation-delay: 5s; animation-duration: 8.5s; }
+.firefly-9 { left: 65%; top: 55%; animation-delay: 1s; animation-duration: 7.5s; width: 2px; height: 2px; }
+.firefly-10 { left: 90%; top: 50%; animation-delay: 3.5s; animation-duration: 6s; }
 
 @keyframes firefly-drift {
   0% { transform: translate(0, 0); opacity: 0; }
@@ -3367,12 +3760,21 @@ h2 {
 .petal-3 { left: 52%; animation-duration: 11s; animation-delay: 6s; }
 .petal-4 { left: 72%; animation-duration: 13s; animation-delay: 2s; width: 3px; height: 3px; }
 .petal-5 { left: 88%; animation-duration: 9s; animation-delay: 5s; width: 4px; height: 4px; }
+.petal-6 { left: 5%; animation-duration: 14s; animation-delay: 1s; width: 4px; height: 4px; }
+.petal-7 { left: 35%; animation-duration: 11s; animation-delay: 8s; width: 3px; height: 3px; }
+.petal-8 { left: 62%; animation-duration: 10s; animation-delay: 4.5s; }
+.petal-9 { left: 80%; animation-duration: 13s; animation-delay: 7s; width: 4px; height: 4px; }
+.petal-10 { left: 45%; animation-duration: 12s; animation-delay: 9s; width: 3px; height: 3px; }
+.petal-11 { left: 18%; animation-duration: 15s; animation-delay: 5.5s; width: 4px; height: 4px; }
+.petal-12 { left: 95%; animation-duration: 10s; animation-delay: 2.5s; width: 3px; height: 3px; }
 
 @keyframes petal-fall {
   0% { transform: translateY(0) rotate(0deg) translateX(0); opacity: 0; }
   5% { opacity: 0.7; }
-  50% { transform: translateY(180px) rotate(180deg) translateX(20px); opacity: 0.5; }
-  95% { opacity: 0.3; }
+  25% { transform: translateY(90px) rotate(90deg) translateX(15px); opacity: 0.6; }
+  50% { transform: translateY(180px) rotate(180deg) translateX(-10px); opacity: 0.5; }
+  75% { transform: translateY(270px) rotate(270deg) translateX(20px); opacity: 0.35; }
+  95% { opacity: 0.2; }
   100% { transform: translateY(380px) rotate(360deg) translateX(-10px); opacity: 0; }
 }
 
@@ -3428,17 +3830,18 @@ h2 {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 60px;
-  height: 50px;
+  width: 70px;
+  height: 60px;
   transform: translate(-50%, -50%);
-  background: radial-gradient(ellipse, rgba(239, 68, 68, 0.12) 0%, transparent 70%);
+  background:
+    radial-gradient(ellipse, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 40%, transparent 70%);
   pointer-events: none;
   animation: torii-pulse 3s ease-in-out infinite alternate;
 }
 
 @keyframes torii-pulse {
-  0% { opacity: 0.4; }
-  100% { opacity: 0.8; }
+  0% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.95); }
+  100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.05); }
 }
 
 .torii-label {
@@ -3469,6 +3872,14 @@ h2 {
     inset 0 1px 0 rgba(140, 120, 80, 0.2),
     0 2px 4px rgba(0, 0, 0, 0.2);
   z-index: 3;
+  transition: box-shadow 0.6s ease;
+}
+
+.garden-plot:has(.bonsai-growing) {
+  box-shadow:
+    inset 0 1px 0 rgba(140, 120, 80, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 0 12px 3px rgba(34, 197, 94, 0.1);
 }
 
 /* ── Bonsai (appears when worker is at garden plot) ── */
@@ -3489,6 +3900,7 @@ h2 {
   transform: translateX(-50%) scale(1);
   opacity: 1;
   animation: bonsai-sway 4s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.3));
 }
 
 @keyframes bonsai-sprout {
