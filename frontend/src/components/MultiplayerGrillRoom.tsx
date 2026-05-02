@@ -82,8 +82,17 @@ export default function MultiplayerGrillRoom({
 
   const allMessages = useMemo<MGrillMessage[]>(() => {
     if (!state?.prompt) return messages;
-    const promptMsg: MGrillMessage = {
-      id: "__original_prompt__",
+    const questionMsg: MGrillMessage = {
+      id: "__grill_question__",
+      role: "assistant",
+      content: "What do you want to be grilled about?",
+      type: "message",
+      author_player_id: null,
+      author_name: "Interviewer",
+      timestamp: 0,
+    };
+    const answerMsg: MGrillMessage = {
+      id: "__grill_answer__",
       role: "user",
       content: state.prompt,
       type: "message",
@@ -91,7 +100,7 @@ export default function MultiplayerGrillRoom({
       author_name: state.creator_name ?? "Creator",
       timestamp: 0,
     };
-    return [promptMsg, ...messages];
+    return [questionMsg, answerMsg, ...messages];
   }, [messages, state?.prompt, state?.creator_player_id, state?.creator_name]);
 
   const voteTally = useMemo(() => {
@@ -211,7 +220,7 @@ export default function MultiplayerGrillRoom({
                 {m.author_name ?? (m.role === "assistant" ? "Interviewer" : m.role)}
               </span>
               <span className="mgrill-msg-ts">
-                {m.id === "__original_prompt__" ? "original prompt" : new Date(m.timestamp * 1000).toLocaleTimeString()}
+                {m.id === "__grill_question__" || m.id === "__grill_answer__" ? "original prompt" : new Date(m.timestamp * 1000).toLocaleTimeString()}
               </span>
             </div>
             <div
