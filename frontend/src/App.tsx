@@ -156,6 +156,7 @@ export default function App() {
   const [mgrillMinimized, setMgrillMinimized] = useState(false);
   const [showSubmitIssueOverlay, setShowSubmitIssueOverlay] = useState(false);
   const [mgrillPlayerId] = useState(loadOrCreateMGrillPlayerId);
+  const overlayActive = showGrillOverlay || showMGrillOverlay || showSubmitIssueOverlay;
   const grillSession = useGrillSession();
   const resumableGrill = useResumableGrillSessions(showGrillOverlay && grillSession.phase === "form");
 
@@ -177,7 +178,7 @@ export default function App() {
     playerPosition,
     playerDirection,
     isPlayerWalking,
-  } = useMovement({ active: !arcadeOpen, plotSlots });
+  } = useMovement({ active: !arcadeOpen && !overlayActive, plotSlots });
 
   const {
     remotePlayers,
@@ -202,7 +203,7 @@ export default function App() {
     updateCursor,
     localPlayerName,
   } = useMultiplayer({
-    active: true,
+    active: !overlayActive,
     playerPosition,
     playerDirection,
     isPlayerWalking,
@@ -545,43 +546,45 @@ export default function App() {
           <AsteroidsGame onClose={() => setArcadeOpen(false)} playerName={localPlayerName} />
         )}
 
-        <HandWorldScene
-          sceneRef={sceneRef}
-          sceneStyle={worldSceneStyle}
-          maxWorkers={maxOfficeWorkers}
-          plotSlots={plotSlots}
-          workerEntries={sceneWorkerEntries}
-          selectedTaskId={taskId}
-          onSelectTask={selectTask}
-          playerDirection={playerDirection}
-          isPlayerWalking={isPlayerWalking}
-          playerPosition={playerPosition}
-          localEmote={localEmote}
-          remotePlayers={remotePlayers}
-          remoteEmotes={remoteEmotes}
-          remoteChats={remoteChats}
-          remoteTyping={remoteTyping}
-          localChat={localChat}
-          isLocalIdle={isLocalIdle}
-          isLocalTyping={isLocalTyping}
-          connectionStatus={yjsConnStatus}
-          claudeUsage={claudeUsage}
-          claudeUsageLoading={claudeUsageLoading}
-          onRefreshClaudeUsage={() => void refreshClaudeUsage()}
-          showClaudeUsage={showClaudeUsage}
-          floatingNumbers={floatingNumbers}
-          decorations={decorations}
-          onPlaceDecoration={placeDecoration}
-          onClearDecorations={clearDecorations}
-          decoOnCooldown={decoOnCooldown}
-          remoteCursors={remoteCursors}
-          onCursorMove={updateCursor}
-          arcadeOpen={arcadeOpen}
-          onArcadeOpen={() => setArcadeOpen(true)}
-          mgrillOpen={showMGrillOverlay && !mgrillMinimized}
-          onMGrillOpen={() => { setShowMGrillOverlay(true); setMgrillMinimized(false); }}
-          mgrillEnabled={grillEnabled}
-        />
+        {!overlayActive && (
+          <HandWorldScene
+            sceneRef={sceneRef}
+            sceneStyle={worldSceneStyle}
+            maxWorkers={maxOfficeWorkers}
+            plotSlots={plotSlots}
+            workerEntries={sceneWorkerEntries}
+            selectedTaskId={taskId}
+            onSelectTask={selectTask}
+            playerDirection={playerDirection}
+            isPlayerWalking={isPlayerWalking}
+            playerPosition={playerPosition}
+            localEmote={localEmote}
+            remotePlayers={remotePlayers}
+            remoteEmotes={remoteEmotes}
+            remoteChats={remoteChats}
+            remoteTyping={remoteTyping}
+            localChat={localChat}
+            isLocalIdle={isLocalIdle}
+            isLocalTyping={isLocalTyping}
+            connectionStatus={yjsConnStatus}
+            claudeUsage={claudeUsage}
+            claudeUsageLoading={claudeUsageLoading}
+            onRefreshClaudeUsage={() => void refreshClaudeUsage()}
+            showClaudeUsage={showClaudeUsage}
+            floatingNumbers={floatingNumbers}
+            decorations={decorations}
+            onPlaceDecoration={placeDecoration}
+            onClearDecorations={clearDecorations}
+            decoOnCooldown={decoOnCooldown}
+            remoteCursors={remoteCursors}
+            onCursorMove={updateCursor}
+            arcadeOpen={arcadeOpen}
+            onArcadeOpen={() => setArcadeOpen(true)}
+            mgrillOpen={showMGrillOverlay && !mgrillMinimized}
+            onMGrillOpen={() => { setShowMGrillOverlay(true); setMgrillMinimized(false); }}
+            mgrillEnabled={grillEnabled}
+          />
+        )}
 
         {mainView === "monitor" && taskId && monitorCard}
         {mainView === "schedules" && schedulesCard}
