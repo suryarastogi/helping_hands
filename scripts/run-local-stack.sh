@@ -374,19 +374,48 @@ _kill_orphaned_processes() {
     return 0
   fi
 
-  local count=0
+  local -a targets=()
   local pid
   while IFS= read -r pid; do
     [[ -z "${pid}" ]] && continue
     # Skip the tracked PID (already handled above) and our own shell.
     [[ "${pid}" == "${tracked_pid}" ]] && continue
     [[ "${pid}" == "$$" ]] && continue
-    kill "${pid}" >/dev/null 2>&1 || true
-    count=$((count + 1))
+    targets+=("${pid}")
   done <<< "${orphan_pids}"
 
-  if [[ "${count}" -gt 0 ]]; then
-    echo "${name}: killed ${count} orphaned process(es)"
+  if [[ "${#targets[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  for pid in "${targets[@]}"; do
+    kill "${pid}" >/dev/null 2>&1 || true
+  done
+
+  # Wait up to 5s for SIGTERM to take effect, then SIGKILL any survivor.
+  # Hung uvicorn/celery processes routinely ignore SIGTERM; without this
+  # escalation each deploy stacks another zombie that holds port 8000 or
+  # competes for Celery tasks.
+  local survivors=()
+  for _ in {1..20}; do
+    survivors=()
+    for pid in "${targets[@]}"; do
+      is_pid_running "${pid}" && survivors+=("${pid}")
+    done
+    [[ "${#survivors[@]}" -eq 0 ]] && break
+    sleep 0.25
+  done
+
+  local forced=0
+  for pid in "${survivors[@]}"; do
+    kill -9 "${pid}" >/dev/null 2>&1 || true
+    forced=$((forced + 1))
+  done
+
+  if [[ "${forced}" -gt 0 ]]; then
+    echo "${name}: killed ${#targets[@]} orphaned process(es) (${forced} required SIGKILL)"
+  else
+    echo "${name}: killed ${#targets[@]} orphaned process(es)"
   fi
 }
 
