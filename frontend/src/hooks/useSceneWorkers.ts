@@ -136,14 +136,8 @@ export function useSceneWorkers({
 
   // -- Capacity → max workers -----------------------------------------------
   useEffect(() => {
-    setMaxOfficeWorkers((current) =>
-      Math.max(
-        current,
-        fetchedCapacity ?? DEFAULT_WORLD_MAX_WORKERS,
-        activeTasks.length,
-        DEFAULT_WORLD_MAX_WORKERS,
-      ),
-    );
+    const baseline = fetchedCapacity ?? DEFAULT_WORLD_MAX_WORKERS;
+    setMaxOfficeWorkers(Math.max(baseline, activeTasks.length));
   }, [activeTasks.length, fetchedCapacity]);
 
   // -- Scene worker lifecycle -----------------------------------------------

@@ -7,8 +7,8 @@ the server either rejects all tasks (capacity reads 0) or accepts unlimited task
 
 Key invariants: a valid env var overrides Celery-detected capacity; invalid env
 values (non-numeric, zero, negative) are silently skipped so misconfiguration
-degrades gracefully; the hard default is 8 workers; Celery stats with unexpected
-types in the worker dict are skipped rather than crashing.
+degrades gracefully; the default is os.cpu_count() (floor 4); Celery stats with
+unexpected types in the worker dict are skipped rather than crashing.
 """
 
 from __future__ import annotations
@@ -60,8 +60,11 @@ class TestDefaultFallback:
         assert resp.max_workers == _DEFAULT_WORKER_CAPACITY
         assert resp.workers == {}
 
-    def test_default_capacity_is_eight(self) -> None:
-        assert _DEFAULT_WORKER_CAPACITY == 8
+    def test_default_capacity_matches_cpu_count(self) -> None:
+        import os
+
+        assert (os.cpu_count() or 4) == _DEFAULT_WORKER_CAPACITY
+        assert _DEFAULT_WORKER_CAPACITY >= 1
 
 
 # ---------------------------------------------------------------------------

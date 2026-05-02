@@ -23,6 +23,7 @@ import pytest
 pytest.importorskip("fastapi")
 
 from helping_hands.server.app import (
+    _DEFAULT_WORKER_CAPACITY,
     BuildRequest,
     BuildResponse,
     WorkerCapacityResponse,
@@ -610,7 +611,7 @@ class TestResolveWorkerCapacity:
 
         resp = _resolve_worker_capacity()
         assert resp.source == "default"
-        assert resp.max_workers == 8
+        assert resp.max_workers == _DEFAULT_WORKER_CAPACITY
 
     def test_celery_inspect_exception_falls_back(
         self, monkeypatch: pytest.MonkeyPatch
@@ -631,7 +632,7 @@ class TestResolveWorkerCapacity:
             monkeypatch.delenv(var, raising=False)
 
         resp = _resolve_worker_capacity()
-        assert resp.max_workers == 8
+        assert resp.max_workers == _DEFAULT_WORKER_CAPACITY
         assert resp.source == "default"
 
     def test_worker_missing_pool_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
