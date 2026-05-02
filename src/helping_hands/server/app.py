@@ -5218,6 +5218,13 @@ def send_grill_message(session_id: str, req: GrillMessageRequest) -> dict[str, s
     r.rpush(msg_key, _json.dumps(msg))
     r.expire(msg_key, 3600)
 
+    # Auto-resume suspended sessions
+    state = _json.loads(state_raw)
+    if state.get("status") == "suspended":
+        from helping_hands.server.grill import resume_grill_session
+
+        resume_grill_session.delay(original_session_id=session_id)
+
     return {"status": "sent"}
 
 

@@ -88,7 +88,6 @@ export function useGrillSession(): GrillSessionState {
       if (
         data.status === "completed" ||
         data.status === "error" ||
-        data.status === "timeout" ||
         data.status === "max_turns" ||
         data.status === "not_found"
       ) {
@@ -99,10 +98,10 @@ export function useGrillSession(): GrillSessionState {
         }
       }
 
-      // When AI is thinking, show loading
+      // When AI is thinking, show loading; suspended sessions are idle
       if (data.status === "thinking") {
         setIsLoading(true);
-      } else if (data.status === "active") {
+      } else if (data.status === "active" || data.status === "suspended") {
         setIsLoading(false);
       }
     } catch {
