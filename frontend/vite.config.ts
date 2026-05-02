@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
     "/workers": { target, changeOrigin: true },
     "/config": { target, changeOrigin: true },
     "/schedules": { target, changeOrigin: true },
+    "/templates": { target, changeOrigin: true },
     "/grill": { target, changeOrigin: true },
     "/mgrill": { target, changeOrigin: true },
     "/arcade": { target, changeOrigin: true },
