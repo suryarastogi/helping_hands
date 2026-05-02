@@ -4934,6 +4934,44 @@ def _is_schedule_visible(task, request) -> bool:
     return bool(task.owner_token_hash and _hash_token(token) == task.owner_token_hash)
 
 
+def _check_watch_issues_uniqueness(
+    schedule_type: str,
+    repo_path: str,
+    enabled: bool,
+    exclude_schedule_id: str | None = None,
+) -> None:
+    """Reject a second enabled auto-implement-issues schedule for the same repo.
+
+    Auto-implement schedules use shared GitHub labels (``helping-hands:queued``,
+    ``done``, ``failed``) for per-issue de-duplication; two concurrent schedules
+    on the same repo would race over those labels. Enforce one global per repo.
+    Disabled schedules are exempt so swapping owners is possible.
+    """
+    from fastapi import HTTPException
+
+    if schedule_type != "watch_issues" or not enabled:
+        return
+
+    normalized = (repo_path or "").strip().lower()
+    if not normalized:
+        return
+
+    manager = _get_schedule_manager()
+    for existing in manager.list_schedules():
+        if existing.schedule_id == exclude_schedule_id:
+            continue
+        if existing.schedule_type != "watch_issues" or not existing.enabled:
+            continue
+        if (existing.repo_path or "").strip().lower() == normalized:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Another auto-implement issues schedule is already enabled "
+                    f"for {existing.repo_path}. Disable or delete it first."
+                ),
+            )
+
+
 def _schedule_to_response(task) -> ScheduleResponse:
     """Convert a ScheduledTask to a ScheduleResponse.
 
@@ -5026,6 +5064,10 @@ def create_schedule(
 
     from helping_hands.server.schedules import ScheduledTask, generate_schedule_id
 
+    _check_watch_issues_uniqueness(
+        request.schedule_type, request.repo_path, request.enabled
+    )
+
     manager = _get_schedule_manager()
 
     # Determine owner token: prefer header, fall back to body field.
@@ -5102,6 +5144,13 @@ def update_schedule(
 
     _check_schedule_owner(http_request, existing)
 
+    _check_watch_issues_uniqueness(
+        request.schedule_type,
+        request.repo_path,
+        request.enabled,
+        exclude_schedule_id=schedule_id,
+    )
+
     # If the token looks redacted (contains ***), preserve the existing one.
     github_token = request.github_token
     if github_token and "***" in github_token:
@@ -5168,6 +5217,12 @@ def enable_schedule(schedule_id: str, request: Request) -> ScheduleResponse:
     if task is None:
         raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)
     _check_schedule_owner(request, task)
+    _check_watch_issues_uniqueness(
+        task.schedule_type,
+        task.repo_path,
+        enabled=True,
+        exclude_schedule_id=schedule_id,
+    )
     task = manager.enable_schedule(schedule_id)
     if task is None:
         raise HTTPException(status_code=404, detail=_SCHEDULE_NOT_FOUND_DETAIL)

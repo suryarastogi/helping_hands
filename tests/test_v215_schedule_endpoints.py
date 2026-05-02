@@ -14,6 +14,7 @@ schedule UI without any Python-level exception being raised.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -240,6 +241,187 @@ class TestCreateSchedule:
             )
         assert resp.status_code == 400
         assert "bad cron" in resp.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Auto-implement-issues uniqueness (one watch_issues schedule per repo)
+# ---------------------------------------------------------------------------
+
+
+class TestWatchIssuesUniqueness:
+    """Reject a 2nd enabled watch_issues schedule for the same repo.
+
+    Two concurrent watch_issues schedules on the same repo would race over the
+    shared GitHub labels (helping-hands:queued/done/failed) used for per-issue
+    de-dup, so creation/update/enable must fail-fast with 409.
+    """
+
+    def _watch_payload(
+        self, repo_path: str = "owner/repo", enabled: bool = True
+    ) -> dict:
+        return {
+            "name": "Auto-implement",
+            "schedule_type": "watch_issues",
+            "cron_expression": "*/15 * * * *",
+            "repo_path": repo_path,
+            "prompt": "auto",
+            "enabled": enabled,
+        }
+
+    def test_create_blocked_when_existing_enabled(
+        self,
+        client: TestClient,
+        _mock_schedule_manager: MagicMock,
+    ) -> None:
+        _mock_schedule_manager.list_schedules.return_value = [
+            _FakeScheduledTask(
+                schedule_id="sched-old",
+                schedule_type="watch_issues",
+                repo_path="owner/repo",
+                enabled=True,
+            )
+        ]
+        resp = client.post("/schedules", json=self._watch_payload())
+        assert resp.status_code == 409
+        assert "owner/repo" in resp.json()["detail"]
+        _mock_schedule_manager.create_schedule.assert_not_called()
+
+    def test_create_allowed_when_existing_disabled(
+        self,
+        client: TestClient,
+        _mock_schedule_manager: MagicMock,
+    ) -> None:
+        _mock_schedule_manager.list_schedules.return_value = [
+            _FakeScheduledTask(
+                schedule_id="sched-old",
+                schedule_type="watch_issues",
+                repo_path="owner/repo",
+                enabled=False,
+            )
+        ]
+        created = _FakeScheduledTask(
+            schedule_id="sched-new",
+            schedule_type="watch_issues",
+            repo_path="owner/repo",
+        )
+        _mock_schedule_manager.create_schedule.return_value = created
+        with (
+            patch(
+                "helping_hands.server.schedules.generate_schedule_id",
+                return_value="sched-new",
+            ),
+            patch(
+                "helping_hands.server.schedules.next_run_time",
+                return_value=datetime(2026, 3, 16, 0, 0, 0),
+            ),
+        ):
+            resp = client.post("/schedules", json=self._watch_payload())
+        assert resp.status_code == 201
+
+    def test_create_allowed_for_different_repo(
+        self,
+        client: TestClient,
+        _mock_schedule_manager: MagicMock,
+    ) -> None:
+        _mock_schedule_manager.list_schedules.return_value = [
+            _FakeScheduledTask(
+                schedule_id="sched-old",
+                schedule_type="watch_issues",
+                repo_path="other/repo",
+                enabled=True,
+            )
+        ]
+        created = _FakeScheduledTask(schedule_id="sched-new")
+        _mock_schedule_manager.create_schedule.return_value = created
+        with (
+            patch(
+                "helping_hands.server.schedules.generate_schedule_id",
+                return_value="sched-new",
+            ),
+            patch(
+                "helping_hands.server.schedules.next_run_time",
+                return_value=datetime(2026, 3, 16, 0, 0, 0),
+            ),
+        ):
+            resp = client.post("/schedules", json=self._watch_payload())
+        assert resp.status_code == 201
+
+    def test_create_match_is_case_insensitive(
+        self,
+        client: TestClient,
+        _mock_schedule_manager: MagicMock,
+    ) -> None:
+        _mock_schedule_manager.list_schedules.return_value = [
+            _FakeScheduledTask(
+                schedule_id="sched-old",
+                schedule_type="watch_issues",
+                repo_path="Owner/Repo",
+                enabled=True,
+            )
+        ]
+        resp = client.post(
+            "/schedules", json=self._watch_payload(repo_path="owner/repo")
+        )
+        assert resp.status_code == 409
+
+    def test_create_non_watch_issues_unaffected(
+        self,
+        client: TestClient,
+        _mock_schedule_manager: MagicMock,
+    ) -> None:
+        _mock_schedule_manager.list_schedules.return_value = [
+            _FakeScheduledTask(
+                schedule_id="sched-old",
+                schedule_type="watch_issues",
+                repo_path="owner/repo",
+                enabled=True,
+            )
+        ]
+        created = _FakeScheduledTask(schedule_id="sched-cron")
+        _mock_schedule_manager.create_schedule.return_value = created
+        with (
+            patch(
+                "helping_hands.server.schedules.generate_schedule_id",
+                return_value="sched-cron",
+            ),
+            patch(
+                "helping_hands.server.schedules.next_run_time",
+                return_value=datetime(2026, 3, 16, 0, 0, 0),
+            ),
+        ):
+            resp = client.post(
+                "/schedules",
+                json={
+                    "name": "Cron run",
+                    "cron_expression": "0 0 * * *",
+                    "repo_path": "owner/repo",
+                    "prompt": "do thing",
+                },
+            )
+        assert resp.status_code == 201
+
+    def test_enable_blocked_when_other_enabled(
+        self,
+        client: TestClient,
+        _mock_schedule_manager: MagicMock,
+    ) -> None:
+        target = _FakeScheduledTask(
+            schedule_id="sched-target",
+            schedule_type="watch_issues",
+            repo_path="owner/repo",
+            enabled=False,
+        )
+        other = _FakeScheduledTask(
+            schedule_id="sched-other",
+            schedule_type="watch_issues",
+            repo_path="owner/repo",
+            enabled=True,
+        )
+        _mock_schedule_manager.get_schedule.return_value = target
+        _mock_schedule_manager.list_schedules.return_value = [target, other]
+        resp = client.post("/schedules/sched-target/enable")
+        assert resp.status_code == 409
+        _mock_schedule_manager.enable_schedule.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

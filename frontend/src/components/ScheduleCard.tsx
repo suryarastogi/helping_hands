@@ -76,7 +76,7 @@ function ScheduleFormFields({
           >
             <option value="cron">Cron (fixed times)</option>
             <option value="interval">Interval (non-concurrent)</option>
-            <option value="watch_issues">Watch Issues (auto PR)</option>
+            <option value="watch_issues">Auto-implement issues</option>
           </select>
         </label>
         {scheduleForm.schedule_type !== "interval" ? (
@@ -182,7 +182,8 @@ function ScheduleFormFields({
             />
           </label>
           <p style={{ fontSize: "0.78rem", color: "var(--muted)", margin: "4px 0 8px" }}>
-            Polls for new issues and auto-creates PRs. Labels are managed automatically
+            Polls for outstanding issues and attempts to auto-implement each one (one
+            schedule per repo). Labels are managed automatically
             (queued/done/failed/watched).
           </p>
         </>
@@ -424,7 +425,7 @@ export default function ScheduleCard({
                       {item.enabled ? "enabled" : "disabled"}
                     </span>
                     <span className="status-pill run" style={{ fontSize: "0.55rem" }}>
-                      {item.schedule_type === "interval" ? "interval" : item.schedule_type === "watch_issues" ? "watch" : "cron"}
+                      {item.schedule_type === "interval" ? "interval" : item.schedule_type === "watch_issues" ? "auto-issues" : "cron"}
                     </span>
                   </div>
                   <div className="schedule-item-meta">
