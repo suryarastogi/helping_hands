@@ -194,7 +194,7 @@ export const PHASE_DURATION: Record<SceneWorkerPhase, number> = {
   "fading": 800,
 };
 
-export const DEFAULT_WORLD_MAX_WORKERS = 8;
+export const DEFAULT_WORLD_MAX_WORKERS = 4;
 
 export const DEFAULT_CHARACTER_STYLE: CharacterStyle = {
   bodyColor: "#64748b",
