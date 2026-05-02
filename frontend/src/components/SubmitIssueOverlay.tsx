@@ -169,18 +169,32 @@ export default function SubmitIssueOverlay({
                   ariaLabel="Repository path"
                 />
               </label>
-              <label style={{ marginTop: 12, display: "block" }}>
-                <span>GitHub Token{!serverHasGithubToken && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
-                <input
-                  className="github-token-input"
-                  type="password"
-                  value={githubToken}
-                  onChange={(e) => setGithubToken(e.target.value)}
-                  placeholder={serverHasGithubToken ? "ghp_... (optional)" : "ghp_... (required)"}
-                  required={!serverHasGithubToken}
-                  style={{ width: "100%", marginTop: 4 }}
-                />
-              </label>
+              {!serverHasGithubToken ? (
+                <label style={{ marginTop: 12, display: "block" }}>
+                  <span>GitHub Token<span className="required-star"> *</span> <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
+                  <input
+                    className="github-token-input"
+                    type="password"
+                    value={githubToken}
+                    onChange={(e) => setGithubToken(e.target.value)}
+                    placeholder="ghp_... (required)"
+                    required
+                    style={{ width: "100%", marginTop: 4 }}
+                  />
+                </label>
+              ) : (
+                <details style={{ marginTop: 12 }}>
+                  <summary style={{ fontSize: "0.8rem", cursor: "pointer", opacity: 0.7 }}>GitHub Token (optional)</summary>
+                  <input
+                    className="github-token-input"
+                    type="password"
+                    value={githubToken}
+                    onChange={(e) => setGithubToken(e.target.value)}
+                    placeholder="ghp_... (optional override)"
+                    style={{ width: "100%", marginTop: 4 }}
+                  />
+                </details>
+              )}
               {error && (
                 <p style={{ color: "var(--red, #f44)", marginTop: 8 }}>{error}</p>
               )}

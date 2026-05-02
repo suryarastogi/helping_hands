@@ -220,22 +220,22 @@ export default function SubmissionForm({
                 Enable Web
               </label>
             </div>
-            <div className="row">
-              <label>
-                <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
-                <input
-                  className="github-token-input"
-                  type="password"
-                  value={form.github_token}
-                  onChange={(event) => onFieldChange("github_token", event.target.value)}
-                  placeholder={tokenRequired ? "ghp_... (required — no server token)" : "ghp_... (optional)"}
-                  required={tokenRequired}
-                />
-              </label>
-            </div>
             <details className="compact-advanced">
               <summary>Advanced Github</summary>
               <div className="compact-advanced-body">
+                <div className="row">
+                  <label>
+                    <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
+                    <input
+                      className="github-token-input"
+                      type="password"
+                      value={form.github_token}
+                      onChange={(event) => onFieldChange("github_token", event.target.value)}
+                      placeholder={tokenRequired ? "ghp_... (required — no server token)" : "ghp_... (optional)"}
+                      required={tokenRequired}
+                    />
+                  </label>
+                </div>
                 <div className="row two-col">
                   <label>
                     Issue number
@@ -307,16 +307,16 @@ export default function SubmissionForm({
             </div>
           </div>
         </details>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.15rem" }}>
           <button
             type="button"
-            className="btn-link"
+            className="btn-link muted"
             onClick={handleSaveAsTemplate}
-            style={{ fontSize: "0.8rem" }}
+            style={{ fontSize: "0.7rem", opacity: 0.7 }}
           >
             Save as template
           </button>
-          {saveStatus && <span className="muted" style={{ fontSize: "0.8rem" }}>{saveStatus}</span>}
+          {saveStatus && <span className="muted" style={{ fontSize: "0.7rem" }}>{saveStatus}</span>}
         </div>
         <details className="compact-advanced" style={{ marginTop: "0.25rem" }}>
           <summary>Manage Templates</summary>

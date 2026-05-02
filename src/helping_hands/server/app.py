@@ -5348,6 +5348,8 @@ def create_template(
         created = manager.create_template(template)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return _template_to_response(created)
 
@@ -5413,6 +5415,8 @@ def update_template(
         updated = manager.update_template(template)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return _template_to_response(updated)
 

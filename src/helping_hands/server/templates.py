@@ -183,7 +183,7 @@ def generate_template_id() -> str:
 
 
 class TemplateManager:
-    """Manages task templates using Redis for persistence."""
+    """Manages task templates using Redis with JSON file fallback."""
 
     def __init__(self, redis_url: str | None = None) -> None:
         """Initialize the template manager.
@@ -193,46 +193,102 @@ class TemplateManager:
                 environment variable or the default localhost URL.
         """
         import os
+        from pathlib import Path
 
-        import redis as _redis_mod
+        self._redis = None
+        self._fallback_dir: Path | None = None
 
-        url = redis_url or os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
-        self._redis = _redis_mod.from_url(url)
+        try:
+            import redis as _redis_mod
+
+            url = redis_url or os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+            client = _redis_mod.from_url(url)
+            client.ping()
+            self._redis = client
+        except Exception as exc:
+            logger.warning(
+                "Redis unavailable for templates, using file fallback: %s", exc
+            )
+            self._fallback_dir = Path(
+                os.environ.get("TEMPLATE_STORAGE_DIR", "/tmp/helping_hands_templates")
+            )
+            self._fallback_dir.mkdir(parents=True, exist_ok=True)
 
     def _meta_key(self, template_id: str) -> str:
         """Generate Redis key for template metadata."""
         return f"{_TEMPLATE_KEY_PREFIX}{template_id}"
 
+    def _file_path(self, template_id: str):
+        """Get the JSON file path for a template (fallback mode)."""
+        assert self._fallback_dir is not None
+        return self._fallback_dir / f"{template_id}.json"
+
     def _save_meta(self, template: TaskTemplate) -> None:
-        """Save template metadata to Redis.
+        """Save template metadata.
 
         Raises:
-            RuntimeError: If the Redis write fails.
+            RuntimeError: If the write fails.
         """
-        try:
-            self._redis.set(
-                self._meta_key(template.template_id),
-                json.dumps(template.to_dict()),
-            )
-        except (OSError, Exception) as exc:
-            logger.warning(
-                "Failed to save template metadata for %s: %s",
-                template.template_id,
-                exc,
-            )
-            msg = f"Failed to persist template {template.template_id}"
-            raise RuntimeError(msg) from exc
+        payload = json.dumps(template.to_dict())
+        if self._redis is not None:
+            try:
+                self._redis.set(
+                    self._meta_key(template.template_id),
+                    payload,
+                )
+            except (OSError, Exception) as exc:
+                logger.warning(
+                    "Failed to save template metadata for %s: %s",
+                    template.template_id,
+                    exc,
+                )
+                msg = f"Failed to persist template {template.template_id}"
+                raise RuntimeError(msg) from exc
+        else:
+            try:
+                self._file_path(template.template_id).write_text(payload)
+            except (OSError, Exception) as exc:
+                logger.warning(
+                    "Failed to save template file for %s: %s",
+                    template.template_id,
+                    exc,
+                )
+                msg = f"Failed to persist template {template.template_id}"
+                raise RuntimeError(msg) from exc
 
     def _load_meta(self, template_id: str) -> TaskTemplate | None:
-        """Load template metadata from Redis.
+        """Load template metadata.
 
-        Returns None if the data is missing or corrupted.
+        Returns None if the data is missing, corrupted, or storage is unavailable.
         """
-        data = self._redis.get(self._meta_key(template_id))
-        if data is None:
-            return None
+        if self._redis is not None:
+            try:
+                data = self._redis.get(self._meta_key(template_id))
+            except (OSError, Exception) as exc:
+                logger.warning(
+                    "Failed to read template metadata for %s: %s",
+                    template_id,
+                    exc,
+                )
+                return None
+            if data is None:
+                return None
+            raw = data
+        else:
+            fp = self._file_path(template_id)
+            if not fp.exists():
+                return None
+            try:
+                raw = fp.read_text()
+            except (OSError, Exception) as exc:
+                logger.warning(
+                    "Failed to read template file for %s: %s",
+                    template_id,
+                    exc,
+                )
+                return None
         try:
-            return TaskTemplate.from_dict(json.loads(data))
+            return TaskTemplate.from_dict(json.loads(raw))
         except (json.JSONDecodeError, ValueError, TypeError) as exc:
             logger.warning(
                 "Corrupted template metadata for %s, skipping: %s",
@@ -242,25 +298,44 @@ class TemplateManager:
             return None
 
     def _delete_meta(self, template_id: str) -> None:
-        """Delete template metadata from Redis."""
-        try:
-            self._redis.delete(self._meta_key(template_id))
-        except (OSError, Exception) as exc:
-            logger.warning(
-                "Failed to delete template metadata for %s: %s",
-                template_id,
-                exc,
-            )
+        """Delete template metadata."""
+        if self._redis is not None:
+            try:
+                self._redis.delete(self._meta_key(template_id))
+            except (OSError, Exception) as exc:
+                logger.warning(
+                    "Failed to delete template metadata for %s: %s",
+                    template_id,
+                    exc,
+                )
+        else:
+            fp = self._file_path(template_id)
+            try:
+                fp.unlink(missing_ok=True)
+            except (OSError, Exception) as exc:
+                logger.warning(
+                    "Failed to delete template file for %s: %s",
+                    template_id,
+                    exc,
+                )
 
     def _list_meta_keys(self) -> list[str]:
         """List all template metadata keys."""
-        pattern = f"{_TEMPLATE_KEY_PREFIX}*"
-        try:
-            keys = self._redis.keys(pattern)
-        except (OSError, Exception) as exc:
-            logger.warning("Failed to list template metadata keys: %s", exc)
-            return []
-        return [k.decode() if isinstance(k, bytes) else k for k in keys]
+        if self._redis is not None:
+            pattern = f"{_TEMPLATE_KEY_PREFIX}*"
+            try:
+                keys = self._redis.keys(pattern)
+            except (OSError, Exception) as exc:
+                logger.warning("Failed to list template metadata keys: %s", exc)
+                return []
+            return [k.decode() if isinstance(k, bytes) else k for k in keys]
+        else:
+            try:
+                files = list(self._fallback_dir.glob("tmpl_*.json"))
+            except (OSError, Exception) as exc:
+                logger.warning("Failed to list template files: %s", exc)
+                return []
+            return [f"{_TEMPLATE_KEY_PREFIX}{f.stem}" for f in files]
 
     def create_template(self, template: TaskTemplate) -> TaskTemplate:
         """Create a new task template.
