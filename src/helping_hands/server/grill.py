@@ -156,6 +156,36 @@ def _clear_resume_state(r: Any, session_id: str) -> None:
     r.delete(f"grill:{session_id}:resume")
 
 
+# --- CLI diagnostics ---------------------------------------------------------
+
+
+def _cli_not_found_diagnostics(binary: str) -> str:
+    """Build a short, low-disclosure diagnostic suffix for CLI-missing errors.
+
+    Surfaced in the chat view and persisted to the transcript, so it must
+    avoid leaking the full ``PATH`` (which contains the deployer's home dir,
+    custom worktrees, etc.). We expose only:
+
+    - The result of ``shutil.which(binary)`` — a single resolved path or
+      ``None``. Tells us whether the worker can see the binary at all.
+    - Boolean flags for a few well-known per-user bin dirs that
+      ``augment_path_for_cli_hands`` is supposed to add. Lets us tell apart
+      "PATH augmentation didn't run" from "binary genuinely not installed".
+    """
+    resolved = shutil.which(binary)
+    home = os.path.expanduser("~")
+    path_entries = (os.environ.get("PATH") or "").split(os.pathsep)
+    candidate_dirs = [
+        f"{home}/.local/bin",
+        f"{home}/.npm-global/bin",
+    ]
+    flags = ", ".join(
+        f"{Path(d).name}={'yes' if d in path_entries else 'no'}" for d in candidate_dirs
+    )
+    resolved_str = resolved if resolved else "not found"
+    return f" (which={resolved_str}; path-has[{flags}])"
+
+
 # --- Repo helpers ------------------------------------------------------------
 
 
@@ -358,6 +388,7 @@ def _invoke_claude_turn(
         raise RuntimeError(
             "Claude Code CLI ('claude') is not installed or not on PATH. "
             "Install with: npm install -g @anthropic-ai/claude-code"
+            + _cli_not_found_diagnostics("claude")
         ) from exc
 
     # Write prompt to stdin and close it
@@ -558,6 +589,7 @@ def _invoke_codex_turn(
         raise RuntimeError(
             "Codex CLI ('codex') is not installed or not on PATH. "
             "Install with: npm install -g @openai/codex"
+            + _cli_not_found_diagnostics("codex")
         ) from exc
     except TimeoutExpired as exc:
         raise RuntimeError(
