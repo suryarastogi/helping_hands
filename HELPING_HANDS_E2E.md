@@ -1,5 +1,5 @@
 # helping_hands E2E marker
 
-- hand_uuid: `e25e83bc-c84d-4256-a385-85a3c8daee87`
+- hand_uuid: `757aeb0c-369c-42ba-9764-fdd14c9eeb87`
 - prompt: CI integration run: update PR on master with primary Python
-- timestamp_utc: 2026-05-02T19:27:48+00:00
+- timestamp_utc: 2026-05-02T19:42:40+00:00
