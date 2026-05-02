@@ -109,6 +109,54 @@ set_defaults() {
 # inherited PATH typically lacks `~/.npm-global/bin` and similar — so
 # subprocesses spawned by the worker fail with FileNotFoundError, surfaced
 # in the UI as "Claude Code CLI not installed or not on PATH" mid-session.
+# Locate `node`'s bin dir. CLI hands like `claude` are Node scripts with a
+# `#!/usr/bin/env node` shebang — even if `claude` itself is on PATH, exec'ing
+# it fails with FileNotFoundError when the kernel can't resolve `node` from
+# the worker's PATH. GHA-launched shells don't export NVM_BIN, so a deploy
+# from a self-hosted runner would otherwise leave the worker without node.
+locate_node_bin_dir() {
+  if command -v node >/dev/null 2>&1; then
+    dirname "$(command -v node)"
+    return 0
+  fi
+
+  # nvm's "default" alias if set — tracks the user's chosen version.
+  if [[ -r "${HOME}/.nvm/alias/default" ]]; then
+    local default_ver
+    default_ver="$(<"${HOME}/.nvm/alias/default")"
+    default_ver="${default_ver//[$'\t\r\n ']/}"
+    if [[ -n "${default_ver}" ]]; then
+      local resolved="${HOME}/.nvm/versions/node/${default_ver}/bin"
+      [[ -d "${resolved}" ]] || resolved="${HOME}/.nvm/versions/node/v${default_ver}/bin"
+      if [[ -x "${resolved}/node" ]]; then
+        echo "${resolved}"
+        return 0
+      fi
+    fi
+  fi
+
+  # Highest installed nvm version (lexicographic version sort).
+  if [[ -d "${HOME}/.nvm/versions/node" ]]; then
+    local latest
+    latest="$(ls -1 "${HOME}/.nvm/versions/node" 2>/dev/null | sort -V | tail -1)"
+    if [[ -n "${latest}" && -x "${HOME}/.nvm/versions/node/${latest}/bin/node" ]]; then
+      echo "${HOME}/.nvm/versions/node/${latest}/bin"
+      return 0
+    fi
+  fi
+
+  # System locations.
+  local cand
+  for cand in /usr/local/bin/node /opt/homebrew/bin/node /usr/bin/node; do
+    if [[ -x "${cand}" ]]; then
+      dirname "${cand}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 augment_path_for_cli_hands() {
   local additions=()
 
@@ -128,6 +176,12 @@ augment_path_for_cli_hands() {
   if [[ -n "${NVM_BIN:-}" ]]; then
     additions+=("${NVM_BIN}")
   fi
+  # 4. node's bin dir — needed so the kernel can resolve `#!/usr/bin/env node`
+  #    shebangs in scripts the worker subprocesses exec (claude, codex, ...).
+  local node_dir
+  if node_dir="$(locate_node_bin_dir)" && [[ -n "${node_dir}" ]]; then
+    additions+=("${node_dir}")
+  fi
 
   local addition
   for addition in "${additions[@]}"; do
@@ -145,7 +199,8 @@ augment_path_for_cli_hands() {
 report_cli_hand_availability() {
   local found=() missing=()
   local cli
-  for cli in claude codex goose gemini; do
+  # node is included because every JS-based CLI hand needs it for shebang exec.
+  for cli in claude codex goose gemini node; do
     if command -v "${cli}" >/dev/null 2>&1; then
       found+=("${cli}=$(command -v "${cli}")")
     else

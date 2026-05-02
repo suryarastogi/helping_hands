@@ -168,11 +168,16 @@ def _cli_not_found_diagnostics(binary: str) -> str:
 
     - The result of ``shutil.which(binary)`` — a single resolved path or
       ``None``. Tells us whether the worker can see the binary at all.
+    - The resolved path of ``node``. Node-based CLIs (claude, codex) carry
+      ``#!/usr/bin/env node`` shebangs; if ``node`` isn't on PATH the kernel
+      surfaces ``ENOENT`` for the wrapper script, which Python reports as
+      ``FileNotFoundError`` for the wrapper — misleading, hence this hint.
     - Boolean flags for a few well-known per-user bin dirs that
       ``augment_path_for_cli_hands`` is supposed to add. Lets us tell apart
       "PATH augmentation didn't run" from "binary genuinely not installed".
     """
-    resolved = shutil.which(binary)
+    resolved = shutil.which(binary) or "not found"
+    node = shutil.which("node") or "not found"
     home = os.path.expanduser("~")
     path_entries = (os.environ.get("PATH") or "").split(os.pathsep)
     candidate_dirs = [
@@ -182,8 +187,7 @@ def _cli_not_found_diagnostics(binary: str) -> str:
     flags = ", ".join(
         f"{Path(d).name}={'yes' if d in path_entries else 'no'}" for d in candidate_dirs
     )
-    resolved_str = resolved if resolved else "not found"
-    return f" (which={resolved_str}; path-has[{flags}])"
+    return f" (which={resolved}; node={node}; path-has[{flags}])"
 
 
 # --- Repo helpers ------------------------------------------------------------
