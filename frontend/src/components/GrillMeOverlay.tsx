@@ -329,14 +329,25 @@ function groupMessages(messages: GrillMessage[]): MessageGroup[] {
   return groups;
 }
 
+const GRILL_QUESTION = "What do you want to be grilled about?";
+
+function grillIntroMessages(prompt: string): GrillMessage[] {
+  return [
+    { id: "__grill_question__", role: "assistant", content: GRILL_QUESTION, type: "message", timestamp: 0 },
+    { id: "__grill_answer__", role: "user", content: prompt, type: "message", timestamp: 0 },
+  ];
+}
+
 function GrillChatPhase({
   messages,
+  prompt,
   isLoading,
   error,
   onSend,
   onRequestPlan,
 }: {
   messages: GrillMessage[];
+  prompt: string;
   isLoading: boolean;
   error: string | null;
   onSend: (content: string) => void;
@@ -346,7 +357,11 @@ function GrillChatPhase({
   const [input, setInput] = useState<string>(loadChatDraft);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const groups = useMemo(() => groupMessages(messages), [messages]);
+  const allMessages = useMemo(
+    () => (prompt ? [...grillIntroMessages(prompt), ...messages] : messages),
+    [prompt, messages],
+  );
+  const groups = useMemo(() => groupMessages(allMessages), [allMessages]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -566,7 +581,11 @@ function GrillHistoryDetail({
   entry: GrillPlanHistoryEntry;
   onBack: () => void;
 }) {
-  const groups = useMemo(() => groupMessages(entry.messages), [entry.messages]);
+  const allMessages = useMemo(
+    () => (entry.prompt ? [...grillIntroMessages(entry.prompt), ...entry.messages] : entry.messages),
+    [entry.prompt, entry.messages],
+  );
+  const groups = useMemo(() => groupMessages(allMessages), [allMessages]);
 
   return (
     <div className="grill-history-detail">
@@ -643,6 +662,7 @@ export default function GrillMeOverlay({
 }: GrillMeOverlayProps) {
   // Snapshot of the form used to start the active session (for history entry).
   const submittedFormRef = useRef<GrillFormState | null>(null);
+  const activePromptRef = useRef<string | null>(null);
 
   // Cached history list — reloaded when we enter history view.
   const [history, setHistory] = useState<GrillPlanHistoryEntry[]>(() =>
@@ -653,6 +673,7 @@ export default function GrillMeOverlay({
   const handleStartSession = useCallback(
     (form: GrillFormState) => {
       submittedFormRef.current = form;
+      activePromptRef.current = form.prompt;
       void session.startSession(form);
     },
     [session],
@@ -660,9 +681,11 @@ export default function GrillMeOverlay({
 
   const handleResumeSession = useCallback(
     (sessionId: string) => {
+      const match = resumable.sessions.find((s) => s.session_id === sessionId);
+      if (match) activePromptRef.current = match.prompt;
       session.resumeSession(sessionId);
     },
-    [session],
+    [session, resumable.sessions],
   );
 
   const handleConfirmPlan = useCallback(() => {
@@ -792,6 +815,7 @@ export default function GrillMeOverlay({
         {!viewingHistory && session.phase === "chatting" && (
           <GrillChatPhase
             messages={session.messages}
+            prompt={activePromptRef.current ?? ""}
             isLoading={session.isLoading}
             error={session.error}
             onSend={session.sendMessage}
