@@ -686,6 +686,9 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
     session_id = self.request.id
     r = _redis_client()
     tmp_roots: list[Path] = []
+    # Set to True when the task suspends — the resumed task takes ownership
+    # of cleanup, so we must NOT rmtree the clone dirs out from under it.
+    suspended = False
     # Separate UUID for the Claude CLI session (Celery task IDs aren't
     # always valid UUIDs in the format Claude expects).
     claude_session_id = str(uuid.uuid4())
@@ -889,7 +892,9 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
 
             if user_msg is None:
                 if time.monotonic() - last_activity > _IDLE_SUSPEND_S:
-                    # Suspend: save state so the session can be resumed later
+                    # Suspend: save state so the session can be resumed later.
+                    # Pass tmp_roots through so the resumed task can clean up
+                    # — and skip our own cleanup so the clone dir survives.
                     _save_resume_state(
                         r,
                         session_id,
@@ -905,6 +910,7 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                             "turn_count": turn_count,
                             "use_codex": use_codex,
                             "github_token": github_token,
+                            "tmp_roots": [str(p) for p in tmp_roots],
                         },
                     )
                     _set_state(
@@ -919,6 +925,7 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
                             "turn_count": turn_count,
                         },
                     )
+                    suspended = True
                     return {"status": "suspended", "turn_count": turn_count}
 
                 state = _get_state(r, session_id)
@@ -1056,8 +1063,14 @@ def _grill_session_body(  # pragma: no cover — requires celery + redis
         return {"status": "error", "error": str(exc)}
 
     finally:
-        for root in tmp_roots:
-            shutil.rmtree(root, ignore_errors=True)
+        # Don't clean up on suspend — the resumed task uses these dirs as cwd
+        # for the next claude/codex turn. The resume body's finally clause
+        # owns cleanup once the session completes or errors there. /tmp is
+        # tmpfs-reaped by systemd-tmpfiles eventually if the user never
+        # resumes, so we don't leak indefinitely.
+        if not suspended:
+            for root in tmp_roots:
+                shutil.rmtree(root, ignore_errors=True)
 
 
 def _resume_grill_session_body(  # pragma: no cover — requires celery + redis
@@ -1088,6 +1101,11 @@ def _resume_grill_session_body(  # pragma: no cover — requires celery + redis
     turn_count: int = resume_state.get("turn_count", 0)
     use_codex = resume_state.get("use_codex", False)
     github_token = resume_state.get("github_token")
+    # Inherit clone tmp dirs from the original task — we own cleanup now.
+    # ``.get`` with a default keeps pre-fix suspended sessions resumable
+    # (their tmp dirs were already deleted; nothing to clean).
+    tmp_roots: list[Path] = [Path(p) for p in resume_state.get("tmp_roots", [])]
+    suspended = False
 
     _clear_resume_state(r, session_id)
 
@@ -1130,6 +1148,7 @@ def _resume_grill_session_body(  # pragma: no cover — requires celery + redis
                             "turn_count": turn_count,
                             "use_codex": use_codex,
                             "github_token": github_token,
+                            "tmp_roots": [str(p) for p in tmp_roots],
                         },
                     )
                     _set_state(
@@ -1144,6 +1163,7 @@ def _resume_grill_session_body(  # pragma: no cover — requires celery + redis
                             "turn_count": turn_count,
                         },
                     )
+                    suspended = True
                     return {"status": "suspended", "turn_count": turn_count}
 
                 state = _get_state(r, session_id)
@@ -1277,3 +1297,8 @@ def _resume_grill_session_body(  # pragma: no cover — requires celery + redis
         except Exception:
             pass
         return {"status": "error", "error": str(exc)}
+
+    finally:
+        if not suspended:
+            for root in tmp_roots:
+                shutil.rmtree(root, ignore_errors=True)
