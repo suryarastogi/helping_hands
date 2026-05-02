@@ -105,6 +105,7 @@ from helping_hands.server.token_helpers import (
 
 if TYPE_CHECKING:
     from helping_hands.server.schedules import ScheduleManager
+    from helping_hands.server.templates import TemplateManager
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,9 @@ __all__ = [
     "ServiceHealthResponse",
     "TaskCancelResponse",
     "TaskStatus",
+    "TemplateListResponse",
+    "TemplateRequest",
+    "TemplateResponse",
     "WorkerCapacityResponse",
     "app",
 ]
@@ -149,6 +153,9 @@ _USAGE_DATA_PREVIEW_LENGTH = 300
 # --- Schedule endpoint constants ---
 _SCHEDULE_NOT_FOUND_DETAIL = "Schedule not found"
 """HTTP 404 detail message for missing schedule resources."""
+
+_TEMPLATE_NOT_FOUND_DETAIL = "Template not found"
+"""HTTP 404 detail message for missing template resources."""
 
 
 @asynccontextmanager
@@ -433,6 +440,74 @@ class ScheduleTriggerResponse(BaseModel):
     schedule_id: str
     task_id: str
     message: str
+
+
+class TemplateRequest(_ToolValidatorMixin):
+    """Request body for creating/updating a task template."""
+
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=1000)
+    repo_path: str | None = Field(default=None, max_length=_MAX_REPO_PATH_LENGTH)
+    prompt: str | None = Field(default=None, max_length=_MAX_PROMPT_LENGTH)
+    backend: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    model: str | None = Field(default=None, max_length=_MAX_MODEL_LENGTH)
+    max_iterations: int | None = Field(
+        default=None, ge=1, le=_MAX_ITERATIONS_UPPER_BOUND
+    )
+    pr_number: int | None = None
+    issue_number: int | None = None
+    create_issue: bool | None = None
+    project_url: str | None = None
+    no_pr: bool | None = None
+    enable_execution: bool | None = None
+    enable_web: bool | None = None
+    use_native_cli_auth: bool | None = None
+    fix_ci: bool | None = None
+    fix_conflicts: bool | None = None
+    master_rebase: bool | None = None
+    ci_check_wait_minutes: float | None = Field(
+        default=None, ge=_MIN_CI_WAIT_MINUTES, le=_MAX_CI_WAIT_MINUTES
+    )
+    reference_repos: list[str] | None = Field(
+        default=None, max_length=_MAX_REFERENCE_REPOS
+    )
+
+
+class TemplateResponse(BaseModel):
+    """Response for a task template."""
+
+    template_id: str
+    name: str
+    description: str = ""
+    owner_token_hash: str | None = None
+    created_at: str
+    updated_at: str
+    repo_path: str | None = None
+    prompt: str | None = None
+    backend: str | None = None
+    model: str | None = None
+    max_iterations: int | None = None
+    pr_number: int | None = None
+    issue_number: int | None = None
+    create_issue: bool | None = None
+    project_url: str | None = None
+    no_pr: bool | None = None
+    enable_execution: bool | None = None
+    enable_web: bool | None = None
+    use_native_cli_auth: bool | None = None
+    fix_ci: bool | None = None
+    fix_conflicts: bool | None = None
+    master_rebase: bool | None = None
+    ci_check_wait_minutes: float | None = None
+    reference_repos: list[str] | None = None
+    tools: list[str] | None = None
+
+
+class TemplateListResponse(BaseModel):
+    """Response for listing task templates."""
+
+    templates: list[TemplateResponse]
+    total: int
 
 
 class CronPresetsResponse(BaseModel):
@@ -5106,6 +5181,224 @@ def trigger_schedule(schedule_id: str, request: Request) -> ScheduleTriggerRespo
         task_id=task_id,
         message="Schedule triggered successfully",
     )
+
+
+# --- Template Endpoints ---
+
+
+_template_manager: TemplateManager | None = None
+
+
+def _get_template_manager() -> TemplateManager:
+    """Get or create the template manager singleton."""
+    global _template_manager
+    if _template_manager is None:
+        from helping_hands.server.templates import TemplateManager
+
+        _template_manager = TemplateManager()
+    return _template_manager
+
+
+def _check_template_owner(request: Request, template: Any) -> None:
+    """Enforce ownership for template mutation endpoints.
+
+    Templates are globally readable but only the creator (or admin) can
+    modify/delete. When the server has a global ``GITHUB_TOKEN`` set,
+    ownership checks are skipped (same pattern as schedules).
+
+    Raises:
+        HTTPException: 401 if no token provided, 403 if not the owner.
+    """
+    from fastapi import HTTPException
+
+    if _server_has_github_token():
+        return
+
+    token = _get_request_token(request)
+    if not token:
+        raise HTTPException(status_code=401, detail="GitHub token required")
+
+    admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
+    if admin_token and token == admin_token:
+        return
+
+    if template.owner_token_hash and _hash_token(token) == template.owner_token_hash:
+        return
+
+    raise HTTPException(
+        status_code=403, detail="Not authorized to modify this template"
+    )
+
+
+def _template_to_response(template: Any) -> TemplateResponse:
+    """Convert a TaskTemplate to a TemplateResponse."""
+    return TemplateResponse(
+        template_id=template.template_id,
+        name=template.name,
+        description=template.description,
+        owner_token_hash=template.owner_token_hash,
+        created_at=template.created_at,
+        updated_at=template.updated_at,
+        repo_path=template.repo_path,
+        prompt=template.prompt,
+        backend=template.backend,
+        model=template.model,
+        max_iterations=template.max_iterations,
+        pr_number=template.pr_number,
+        issue_number=template.issue_number,
+        create_issue=template.create_issue,
+        project_url=template.project_url,
+        no_pr=template.no_pr,
+        enable_execution=template.enable_execution,
+        enable_web=template.enable_web,
+        use_native_cli_auth=template.use_native_cli_auth,
+        fix_ci=template.fix_ci,
+        fix_conflicts=template.fix_conflicts,
+        master_rebase=template.master_rebase,
+        ci_check_wait_minutes=template.ci_check_wait_minutes,
+        reference_repos=template.reference_repos,
+        tools=template.tools,
+    )
+
+
+@app.get("/templates", response_model=TemplateListResponse)
+def list_templates() -> TemplateListResponse:
+    """List all task templates."""
+    manager = _get_template_manager()
+    templates = manager.list_templates()
+    return TemplateListResponse(
+        templates=[_template_to_response(t) for t in templates],
+        total=len(templates),
+    )
+
+
+@app.post("/templates", response_model=TemplateResponse, status_code=201)
+def create_template(
+    request: TemplateRequest, http_request: Request
+) -> TemplateResponse:
+    """Create a new task template."""
+    from fastapi import HTTPException
+
+    from helping_hands.server.templates import TaskTemplate, generate_template_id
+
+    token = _get_request_token(http_request)
+    if not token and not _server_has_github_token():
+        raise HTTPException(status_code=401, detail="GitHub token required")
+
+    owner_hash = _hash_token(token) if token else None
+
+    template = TaskTemplate(
+        template_id=generate_template_id(),
+        name=request.name,
+        description=request.description,
+        owner_token_hash=owner_hash,
+        repo_path=request.repo_path,
+        prompt=request.prompt,
+        backend=request.backend,
+        model=request.model,
+        max_iterations=request.max_iterations,
+        pr_number=request.pr_number,
+        issue_number=request.issue_number,
+        create_issue=request.create_issue,
+        project_url=request.project_url,
+        no_pr=request.no_pr,
+        enable_execution=request.enable_execution,
+        enable_web=request.enable_web,
+        use_native_cli_auth=request.use_native_cli_auth,
+        fix_ci=request.fix_ci,
+        fix_conflicts=request.fix_conflicts,
+        master_rebase=request.master_rebase,
+        ci_check_wait_minutes=request.ci_check_wait_minutes,
+        reference_repos=request.reference_repos,
+        tools=request.tools,
+    )
+
+    manager = _get_template_manager()
+    try:
+        created = manager.create_template(template)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _template_to_response(created)
+
+
+@app.get("/templates/{template_id}", response_model=TemplateResponse)
+def get_template(template_id: str) -> TemplateResponse:
+    """Get a task template by ID."""
+    from fastapi import HTTPException
+
+    template_id = _validate_path_param(template_id, "template_id")
+    manager = _get_template_manager()
+    template = manager.get_template(template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail=_TEMPLATE_NOT_FOUND_DETAIL)
+    return _template_to_response(template)
+
+
+@app.put("/templates/{template_id}", response_model=TemplateResponse)
+def update_template(
+    template_id: str, request: TemplateRequest, http_request: Request
+) -> TemplateResponse:
+    """Update a task template."""
+    from fastapi import HTTPException
+
+    from helping_hands.server.templates import TaskTemplate
+
+    template_id = _validate_path_param(template_id, "template_id")
+    manager = _get_template_manager()
+
+    existing = manager.get_template(template_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=_TEMPLATE_NOT_FOUND_DETAIL)
+
+    _check_template_owner(http_request, existing)
+
+    template = TaskTemplate(
+        template_id=template_id,
+        name=request.name,
+        description=request.description,
+        owner_token_hash=existing.owner_token_hash,
+        repo_path=request.repo_path,
+        prompt=request.prompt,
+        backend=request.backend,
+        model=request.model,
+        max_iterations=request.max_iterations,
+        pr_number=request.pr_number,
+        issue_number=request.issue_number,
+        create_issue=request.create_issue,
+        project_url=request.project_url,
+        no_pr=request.no_pr,
+        enable_execution=request.enable_execution,
+        enable_web=request.enable_web,
+        use_native_cli_auth=request.use_native_cli_auth,
+        fix_ci=request.fix_ci,
+        fix_conflicts=request.fix_conflicts,
+        master_rebase=request.master_rebase,
+        ci_check_wait_minutes=request.ci_check_wait_minutes,
+        reference_repos=request.reference_repos,
+        tools=request.tools,
+    )
+
+    try:
+        updated = manager.update_template(template)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return _template_to_response(updated)
+
+
+@app.delete("/templates/{template_id}", status_code=204)
+def delete_template(template_id: str, request: Request) -> None:
+    """Delete a task template."""
+    from fastapi import HTTPException
+
+    template_id = _validate_path_param(template_id, "template_id")
+    manager = _get_template_manager()
+    template = manager.get_template(template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail=_TEMPLATE_NOT_FOUND_DETAIL)
+    _check_template_owner(request, template)
+    manager.delete_template(template_id)
 
 
 # ---------------------------------------------------------------------------

@@ -387,3 +387,40 @@ export type MGrillCreateForm = {
   backend: string;
   reference_repos: string;
 };
+
+// ---------------------------------------------------------------------------
+// Task Templates
+// ---------------------------------------------------------------------------
+
+export type TaskTemplate = {
+  template_id: string;
+  name: string;
+  description: string;
+  owner_token_hash: string | null;
+  created_at: string;
+  updated_at: string;
+  repo_path: string | null;
+  prompt: string | null;
+  backend: string | null;
+  model: string | null;
+  max_iterations: number | null;
+  pr_number: number | null;
+  issue_number: number | null;
+  create_issue: boolean | null;
+  project_url: string | null;
+  no_pr: boolean | null;
+  enable_execution: boolean | null;
+  enable_web: boolean | null;
+  use_native_cli_auth: boolean | null;
+  fix_ci: boolean | null;
+  fix_conflicts: boolean | null;
+  master_rebase: boolean | null;
+  ci_check_wait_minutes: number | null;
+  reference_repos: string[] | null;
+  tools: string[] | null;
+};
+
+export type TemplateFormState = {
+  name: string;
+  description: string;
+};

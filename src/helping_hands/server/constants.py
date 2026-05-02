@@ -52,6 +52,7 @@ __all__ = [
     "TASK_NAME_SCHEDULED_BUILD",
     "TASK_NAME_WATCH_ISSUES_POLL",
     "TASK_NAME_WATCH_ISSUE_COMPLETE",
+    "TEMPLATE_KEY_PREFIX",
     "USAGE_API_TIMEOUT_S",
     "USAGE_CACHE_TTL_S",
     "USAGE_USER_AGENT",
@@ -148,6 +149,11 @@ REDBEAT_SCHEDULE_ENTRY_PREFIX = "helping_hands:scheduled:"
 
 REDBEAT_USAGE_ENTRY_NAME = "helping_hands:usage-logger"
 """RedBeat entry name for the hourly Claude usage logging schedule."""
+
+# --- Task templates -----------------------------------------------------------
+
+TEMPLATE_KEY_PREFIX = "helping_hands:template:meta:"
+"""Key prefix for task template metadata entries in Redis."""
 
 # --- Celery task names ---------------------------------------------------------
 

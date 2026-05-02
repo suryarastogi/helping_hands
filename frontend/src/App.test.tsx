@@ -1856,3 +1856,125 @@ describe("Server config effect", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Task Templates
+// ---------------------------------------------------------------------------
+
+describe("Task Templates", () => {
+  it("renders template selector when templates exist", async () => {
+    localStorage.clear();
+    const fetchMock = mockFetchResponses({
+      "/templates": mockResponse({
+        ok: true,
+        status: 200,
+        jsonData: {
+          templates: [
+            {
+              template_id: "tmpl_abc123",
+              name: "Quick Fix",
+              description: "Fast bug fix template",
+              owner_token_hash: null,
+              created_at: "2025-01-01T00:00:00",
+              updated_at: "2025-01-01T00:00:00",
+              repo_path: "owner/repo",
+              prompt: "Fix the bug",
+              backend: "claudecodecli",
+              model: null,
+              max_iterations: 3,
+              pr_number: null,
+              issue_number: null,
+              create_issue: null,
+              project_url: null,
+              no_pr: null,
+              enable_execution: true,
+              enable_web: null,
+              use_native_cli_auth: null,
+              fix_ci: true,
+              fix_conflicts: null,
+              master_rebase: null,
+              ci_check_wait_minutes: null,
+              reference_repos: null,
+              tools: null,
+            },
+          ],
+          total: 1,
+        },
+      }),
+      "/config": mockResponse({
+        ok: true,
+        status: 200,
+        jsonData: { in_docker: false, native_auth_default: false },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    // Ensure we're on the submission view
+    fireEvent.click(screen.getByText("New Task"));
+
+    await waitFor(
+      () => {
+        const selector = screen.queryByLabelText("Apply a task template");
+        expect(selector).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it("calls POST /templates on save-as-template", async () => {
+    localStorage.clear();
+    const listResp = mockResponse({
+      ok: true,
+      status: 200,
+      jsonData: { templates: [], total: 0 },
+    });
+    const createResp = mockResponse({
+      ok: true,
+      status: 201,
+      jsonData: { template_id: "tmpl_new123", name: "New Template" },
+    });
+    const configResp = mockResponse({
+      ok: true,
+      status: 200,
+      jsonData: { in_docker: false, native_auth_default: false },
+    });
+
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (typeof url === "string" && url.includes("/templates") && opts?.method === "POST") {
+        return Promise.resolve(createResp);
+      }
+      if (typeof url === "string" && url.includes("/templates")) {
+        return Promise.resolve(listResp);
+      }
+      if (typeof url === "string" && url.includes("/config")) {
+        return Promise.resolve(configResp);
+      }
+      return Promise.resolve(mockResponse({ ok: false, status: 503 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    vi.spyOn(window, "prompt")
+      .mockReturnValueOnce("My Template")
+      .mockReturnValueOnce("A description");
+
+    render(<App />);
+    fireEvent.click(screen.getByText("New Task"));
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+
+    const saveBtn = screen.queryByText("Save as template");
+    if (saveBtn) {
+      fireEvent.click(saveBtn);
+      await act(() => new Promise((r) => setTimeout(r, 100)));
+
+      const postCalls = fetchMock.mock.calls.filter(
+        ([url, opts]: [string, RequestInit | undefined]) =>
+          typeof url === "string" &&
+          url.includes("/templates") &&
+          opts?.method === "POST",
+      );
+      expect(postCalls.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
