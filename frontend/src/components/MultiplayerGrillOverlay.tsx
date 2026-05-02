@@ -25,6 +25,8 @@ type Props = {
   initialCreateForm?: Partial<MGrillCreateForm>;
   /** Whether the server reports a global GITHUB_TOKEN (affects copy). */
   serverHasGithubToken?: boolean;
+  /** App-level GitHub token passed down from parent. */
+  githubToken?: string;
 };
 
 export default function MultiplayerGrillOverlay({
@@ -36,8 +38,9 @@ export default function MultiplayerGrillOverlay({
   playerName,
   initialCreateForm,
   serverHasGithubToken = false,
+  githubToken,
 }: Props) {
-  const session = useMultiplayerGrill();
+  const session = useMultiplayerGrill(githubToken);
   const lobby = useMultiplayerGrillLobby(session.sessionId === null);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -74,6 +77,7 @@ export default function MultiplayerGrillOverlay({
           playerId={playerId}
           playerName={playerName}
           serverHasGithubToken={serverHasGithubToken}
+          githubToken={githubToken}
           onClose={onMinimize}
           onLeave={handleFullClose}
         />

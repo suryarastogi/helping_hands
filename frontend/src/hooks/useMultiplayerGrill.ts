@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 
-import { apiUrl, loadGithubToken, wsUrl } from "../App.utils";
+import { apiUrl, wsUrl } from "../App.utils";
 import type {
   MGrillCreateForm,
   MGrillCreateResponse,
@@ -65,8 +65,7 @@ export type MGrillSessionActions = {
   >;
 };
 
-function tokenHeaders(extra?: Record<string, string>): Record<string, string> {
-  const token = loadGithubToken();
+function tokenHeaders(token: string | undefined, extra?: Record<string, string>): Record<string, string> {
   const base: Record<string, string> = { "Content-Type": "application/json" };
   if (token) {
     base["X-GitHub-Token"] = token;
@@ -106,7 +105,10 @@ function coercePending(pendingId: string, raw: unknown): MGrillPendingEntry | nu
   };
 }
 
-export function useMultiplayerGrill(): MGrillSessionActions {
+export function useMultiplayerGrill(githubToken?: string): MGrillSessionActions {
+  const tokenRef = useRef(githubToken);
+  tokenRef.current = githubToken;
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [state, setState] = useState<MGrillPollResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     try {
       const res = await fetch(apiUrl(`/mgrill/${sid}?_=${Date.now()}`), {
         cache: "no-store",
-        headers: tokenHeaders(),
+        headers: tokenHeaders(tokenRef.current),
       });
       if (!res.ok) {
         if (res.status === 404) {
@@ -266,7 +268,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       try {
         await fetch(apiUrl(`/mgrill/${sessionId}/heartbeat`), {
           method: "POST",
-          headers: tokenHeaders(),
+          headers: tokenHeaders(tokenRef.current),
           body: JSON.stringify({ player_id: state.creator_player_id ?? null }),
         });
       } catch {
@@ -301,7 +303,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
           .filter((s) => s.length > 0);
         const res = await fetch(apiUrl("/mgrill/sessions"), {
           method: "POST",
-          headers: tokenHeaders(),
+          headers: tokenHeaders(tokenRef.current),
           body: JSON.stringify({
             repo_path: form.repo_path,
             prompt: form.prompt,
@@ -361,7 +363,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       try {
         const res = await fetch(apiUrl(`/mgrill/${sid}/pending`), {
           method: "POST",
-          headers: tokenHeaders(),
+          headers: tokenHeaders(tokenRef.current),
           body: JSON.stringify({ player_id: playerId, name: playerName, content }),
         });
         if (!res.ok) {
@@ -382,7 +384,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       try {
         const res = await fetch(apiUrl(`/mgrill/${sid}/pending/${pendingId}`), {
           method: "DELETE",
-          headers: tokenHeaders({ "X-MGrill-Player-Id": playerId }),
+          headers: tokenHeaders(tokenRef.current, { "X-MGrill-Player-Id": playerId }),
         });
         if (!res.ok) {
           const detail = await res.json().catch(() => ({}));
@@ -401,7 +403,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     try {
       const res = await fetch(apiUrl(`/mgrill/${sid}/send`), {
         method: "POST",
-        headers: tokenHeaders(),
+        headers: tokenHeaders(tokenRef.current),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -419,7 +421,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     try {
       const res = await fetch(apiUrl(`/mgrill/${sid}/request-plan`), {
         method: "POST",
-        headers: tokenHeaders(),
+        headers: tokenHeaders(tokenRef.current),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -438,7 +440,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       try {
         const res = await fetch(apiUrl(`/mgrill/${sid}/vote`), {
           method: "POST",
-          headers: tokenHeaders(),
+          headers: tokenHeaders(tokenRef.current),
           body: JSON.stringify({ player_id: playerId, vote }),
         });
         if (!res.ok) {
@@ -460,7 +462,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       try {
         const res = await fetch(apiUrl(`/mgrill/${sid}/submit${override}`), {
           method: "POST",
-          headers: tokenHeaders(),
+          headers: tokenHeaders(tokenRef.current),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -486,7 +488,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
     try {
       const res = await fetch(apiUrl(`/mgrill/${sid}/keep-grilling`), {
         method: "POST",
-        headers: tokenHeaders(),
+        headers: tokenHeaders(tokenRef.current),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -505,7 +507,7 @@ export function useMultiplayerGrill(): MGrillSessionActions {
       try {
         const res = await fetch(apiUrl(`/mgrill/${sid}/claim-creator`), {
           method: "POST",
-          headers: tokenHeaders({ "X-MGrill-Player-Name": playerName }),
+          headers: tokenHeaders(tokenRef.current, { "X-MGrill-Player-Name": playerName }),
           body: JSON.stringify({ player_id: playerId }),
         });
         if (!res.ok) {
