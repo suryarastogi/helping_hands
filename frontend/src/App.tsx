@@ -669,7 +669,6 @@ export default function App() {
         onSubmitIssue={handleSubmitIssue}
         onClose={() => setShowSubmitIssueOverlay(false)}
         githubToken={githubToken}
-        onGithubTokenChange={setGithubToken}
       />
     )}
     <AppOverlays

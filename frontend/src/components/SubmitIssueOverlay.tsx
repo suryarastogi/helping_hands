@@ -44,7 +44,6 @@ export interface SubmitIssueOverlayProps {
   onSubmitIssue: (repo: string, issue: GitHubIssue, githubToken: string) => void;
   onClose: () => void;
   githubToken?: string;
-  onGithubTokenChange?: (token: string) => void;
 }
 
 export default function SubmitIssueOverlay({
@@ -54,24 +53,15 @@ export default function SubmitIssueOverlay({
   onSubmitIssue,
   onClose,
   githubToken: githubTokenProp = "",
-  onGithubTokenChange,
 }: SubmitIssueOverlayProps) {
   const [step, setStep] = useState<Step>("repo");
   // Prefer a persisted draft so the user's in-progress input survives
   // close/reopen; fall back to the caller-supplied defaultRepo.
   const [repo, setRepo] = useState<string>(() => loadRepoDraft() || defaultRepo);
-  const [githubToken, setGithubTokenLocal] = useState(githubTokenProp);
-  const setGithubToken = (val: string) => {
-    setGithubTokenLocal(val);
-    onGithubTokenChange?.(val);
-  };
+  const githubToken = githubTokenProp;
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setGithubTokenLocal(githubTokenProp);
-  }, [githubTokenProp]);
 
   // Persist the repo draft on every change.
   useEffect(() => {
@@ -169,31 +159,10 @@ export default function SubmitIssueOverlay({
                   ariaLabel="Repository path"
                 />
               </label>
-              {!serverHasGithubToken ? (
-                <label style={{ marginTop: 12, display: "block" }}>
-                  <span>GitHub Token<span className="required-star"> *</span> <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
-                  <input
-                    className="github-token-input"
-                    type="password"
-                    value={githubToken}
-                    onChange={(e) => setGithubToken(e.target.value)}
-                    placeholder="ghp_... (required)"
-                    required
-                    style={{ width: "100%", marginTop: 4 }}
-                  />
-                </label>
-              ) : (
-                <details style={{ marginTop: 12 }}>
-                  <summary style={{ fontSize: "0.8rem", cursor: "pointer", opacity: 0.7 }}>GitHub Token (optional)</summary>
-                  <input
-                    className="github-token-input"
-                    type="password"
-                    value={githubToken}
-                    onChange={(e) => setGithubToken(e.target.value)}
-                    placeholder="ghp_... (optional override)"
-                    style={{ width: "100%", marginTop: 4 }}
-                  />
-                </details>
+              {tokenRequired && (
+                <p style={{ color: "var(--red, #f44)", marginTop: 8, fontSize: "0.85rem" }}>
+                  GitHub token required — set it in the banner above.
+                </p>
               )}
               {error && (
                 <p style={{ color: "var(--red, #f44)", marginTop: 8 }}>{error}</p>
