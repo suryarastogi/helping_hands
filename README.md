@@ -10,7 +10,7 @@
 
 ---
 
-**Last updated:** March 30, 2026
+**Last updated:** May 4, 2026
 
 ## What is this?
 
@@ -165,6 +165,18 @@ uv run pre-commit run --all-files  # all hooks
 ```
 
 See [Development & Contributing](docs/development.md) for the full guide.
+
+### Smoke test results (May 4, 2026)
+
+| Check | Result |
+|---|---|
+| Ruff lint | Pass |
+| Ruff format | Pass (301 files clean) |
+| Pytest | 5527 passed, 11 failed, 232 skipped |
+| Coverage | 92.10% (target 95%) |
+| Python | 3.12.3 |
+
+Known failing tests: `test_cli_hand_base_ci_loop`, `test_cli_hand_base_helpers`, `test_hand` (3 env-stripping tests), `test_mgrill_bridge` (5 room/lifecycle tests).
 
 ## Documentation
 
