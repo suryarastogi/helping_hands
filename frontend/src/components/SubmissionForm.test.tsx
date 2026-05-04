@@ -109,11 +109,10 @@ describe("SubmissionForm", () => {
     expect(onFieldChange).toHaveBeenCalledWith("fix_ci", false);
   });
 
-  it("renders password input for GitHub token", () => {
+  it("does not render GitHub token input (relies on TokenBar)", () => {
     renderForm();
-    const tokenInputs = screen.getAllByPlaceholderText("ghp_... (optional)");
-    expect(tokenInputs.length).toBeGreaterThanOrEqual(1);
-    expect(tokenInputs[0]).toHaveAttribute("type", "password");
+    const tokenInputs = screen.queryAllByPlaceholderText(/ghp_/);
+    expect(tokenInputs).toHaveLength(0);
   });
 
   it("renders reference repos chip input", () => {

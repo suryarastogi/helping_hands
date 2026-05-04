@@ -296,19 +296,13 @@ function ScheduleFormFields({
               Enabled
             </label>
           </div>
-          <div className="row">
-            <label>
-              <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
-              <input
-                className="github-token-input"
-                type="password"
-                value={scheduleForm.github_token}
-                onChange={(e) => onUpdateField("github_token", e.target.value)}
-                placeholder={tokenRequired ? "ghp_... (required — no server token)" : "ghp_... (optional)"}
-                required={tokenRequired}
-              />
-            </label>
-          </div>
+          {tokenRequired && !scheduleForm.github_token.trim() && (
+            <div className="row">
+              <p style={{ color: "var(--red, #f44)", margin: 0, fontSize: "0.85rem" }}>
+                GitHub token required — set it in the banner above.
+              </p>
+            </div>
+          )}
           <div className="row">
             <label>
               Reference Repos
@@ -325,7 +319,7 @@ function ScheduleFormFields({
       </details>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <button type="submit">
+        <button type="submit" disabled={tokenRequired && !scheduleForm.github_token.trim()}>
           {editingScheduleId ? "Update schedule" : "Create schedule"}
         </button>
         <button

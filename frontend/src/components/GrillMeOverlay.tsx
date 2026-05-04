@@ -213,16 +213,11 @@ function GrillFormPhase({
             placeholder={defaultModelForBackend(form.backend || "claudecodecli") || "model"}
           />
         </label>
-        <label>
-          <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
-          <input
-            type="password"
-            value={form.github_token}
-            onChange={(e) => setForm((f) => ({ ...f, github_token: e.target.value }))}
-            placeholder={tokenRequired ? "ghp_... (required)" : "ghp_... (optional)"}
-            required={tokenRequired}
-          />
-        </label>
+        {tokenRequired && !form.github_token.trim() && (
+          <span style={{ color: "var(--red, #f44)", fontSize: "0.85rem", alignSelf: "end" }}>
+            GitHub token required — set it in the banner above.
+          </span>
+        )}
       </div>
       <div className="grill-form-field">
         <label>
@@ -238,7 +233,7 @@ function GrillFormPhase({
       </div>
       {error && <div className="grill-error">{error}</div>}
       <div className="grill-form-actions">
-        <button type="submit" disabled={isLoading} className="grill-start-btn">
+        <button type="submit" disabled={isLoading || (tokenRequired && !form.github_token.trim())} className="grill-start-btn">
           {isLoading ? "Starting..." : "Start Grilling"}
         </button>
         <button

@@ -157,7 +157,7 @@ export default function SubmissionForm({
               <polyline points="4,6 8,10 12,6" />
             </svg>
           </button>
-          <button type="submit" className="submit-inline">Run</button>
+          <button type="submit" className="submit-inline" disabled={tokenRequired && !form.github_token.trim()}>Run</button>
         </div>
         <div className={`prompt-expanded-row${expanded ? " open" : ""}`} aria-hidden={!expanded}>
           <textarea
@@ -223,19 +223,13 @@ export default function SubmissionForm({
             <details className="compact-advanced">
               <summary>Advanced Github</summary>
               <div className="compact-advanced-body">
-                <div className="row">
-                  <label>
-                    <span>GitHub Token{tokenRequired && <span className="required-star"> *</span>} <span className="token-info-icon" title="Requires repo scope. Add workflow scope to enable Fix CI.">&#9432;</span></span>
-                    <input
-                      className="github-token-input"
-                      type="password"
-                      value={form.github_token}
-                      onChange={(event) => onFieldChange("github_token", event.target.value)}
-                      placeholder={tokenRequired ? "ghp_... (required — no server token)" : "ghp_... (optional)"}
-                      required={tokenRequired}
-                    />
-                  </label>
-                </div>
+                {tokenRequired && !form.github_token.trim() && (
+                  <div className="row">
+                    <p style={{ color: "var(--red, #f44)", margin: 0, fontSize: "0.85rem" }}>
+                      GitHub token required — set it in the banner above.
+                    </p>
+                  </div>
+                )}
                 <div className="row two-col">
                   <label>
                     Issue number

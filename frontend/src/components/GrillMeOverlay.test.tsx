@@ -248,7 +248,6 @@ describe("GrillMeOverlay", () => {
       expect(screen.getByTestId("repo-suggest-input")).toBeInTheDocument();
       expect(screen.getByPlaceholderText(/Describe your plan/)).toBeInTheDocument();
       expect(screen.getByText("Model")).toBeInTheDocument();
-      expect(screen.getByText(/GitHub Token/)).toBeInTheDocument();
       expect(screen.getByText("Reference Repos")).toBeInTheDocument();
     });
 
@@ -295,14 +294,14 @@ describe("GrillMeOverlay", () => {
       expect(screen.getByText("Something went wrong")).toBeInTheDocument();
     });
 
-    it("shows required star for token when server lacks github token", () => {
+    it("shows token-required message when server lacks github token", () => {
       renderOverlay({ serverHasGithubToken: false });
-      expect(screen.getByText("*")).toBeInTheDocument();
+      expect(screen.getByText(/GitHub token required/)).toBeInTheDocument();
     });
 
-    it("does not show required star when server has github token", () => {
+    it("does not show token-required message when server has github token", () => {
       renderOverlay({ serverHasGithubToken: true });
-      expect(screen.queryByText("*")).not.toBeInTheDocument();
+      expect(screen.queryByText(/GitHub token required/)).not.toBeInTheDocument();
     });
   });
 
