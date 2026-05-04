@@ -1,0 +1,120 @@
+name: Restart LugiaWyvern (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_health_check:
+        description: "Skip post-restart health check"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: deploy-lugiawyvern
+  cancel-in-progress: false
+
+jobs:
+  restart:
+    runs-on: [self-hosted, linux, lugiawyvern]
+    timeout-minutes: 10
+    env:
+      PROJECT_DIR: /home/surya/projects/helping_hands
+      UV: /home/surya/.local/bin/uv
+
+    steps:
+      - name: Show pre-restart process state
+        run: |
+          echo "=== uvicorn / celery / vite processes before kill ==="
+          pgrep -af 'uvicorn.*helping_hands' || echo "  (no uvicorn matches)"
+          pgrep -af 'celery.*helping_hands' || echo "  (no celery matches)"
+          pgrep -af 'node.*vite'            || echo "  (no vite matches)"
+
+      - name: Graceful stop via run-local-stack
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          CI: ""
+          RUNNER_TRACKING_ID: ""
+        run: ./scripts/run-local-stack.sh stop || true
+
+      - name: Aggressive zombie sweep
+        env:
+          CI: ""
+          RUNNER_TRACKING_ID: ""
+        run: |
+          set +e
+          patterns=(
+            'uvicorn.*helping_hands.server.app'
+            'celery.*helping_hands.server.celery_app.*worker'
+            'celery.*helping_hands.server.celery_app.*beat'
+            'celery.*helping_hands.server.celery_app.*flower'
+            'node.*vite'
+          )
+          for pattern in "${patterns[@]}"; do
+            pids="$(pgrep -f "${pattern}" || true)"
+            if [ -n "${pids}" ]; then
+              echo "TERM ${pattern}: ${pids}"
+              echo "${pids}" | xargs -r kill -TERM
+            fi
+          done
+          sleep 5
+          for pattern in "${patterns[@]}"; do
+            pids="$(pgrep -f "${pattern}" || true)"
+            if [ -n "${pids}" ]; then
+              echo "KILL ${pattern}: ${pids}"
+              echo "${pids}" | xargs -r kill -KILL
+            fi
+          done
+          rm -f "$PROJECT_DIR/runs/local-stack/pids/"*.pid 2>/dev/null || true
+          exit 0
+
+      - name: Confirm processes are gone
+        run: |
+          set +e
+          remaining=0
+          for pattern in \
+            'uvicorn.*helping_hands.server.app' \
+            'celery.*helping_hands.server.celery_app' \
+            'node.*vite'; do
+            pids="$(pgrep -f "${pattern}" || true)"
+            if [ -n "${pids}" ]; then
+              echo "STILL ALIVE [${pattern}]: ${pids}"
+              remaining=1
+            fi
+          done
+          if [ "${remaining}" -ne 0 ]; then
+            echo "ERROR: zombie processes survived the sweep"
+            exit 1
+          fi
+          echo "All target processes cleared."
+
+      - name: Start services
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          CI: ""
+          RUNNER_TRACKING_ID: ""
+        run: ./scripts/run-local-stack.sh start
+
+      - name: Health check
+        if: ${{ inputs.skip_health_check != 'true' }}
+        run: |
+          sleep 3
+          for i in 1 2 3 4 5 6; do
+            if curl -sf http://localhost:8000/health; then
+              echo ""
+              echo "Health check passed"
+              if curl -sf http://localhost:5173/ > /dev/null 2>&1; then
+                echo "Frontend health check passed"
+              else
+                echo "WARNING: Frontend not responding on port 5173"
+              fi
+              exit 0
+            fi
+            echo "Attempt $i failed, waiting 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 60s"
+          tail -n 30 "$PROJECT_DIR/runs/local-stack/logs/server.log" || true
+          exit 1
