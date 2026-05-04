@@ -204,6 +204,29 @@ class TestListIssuesExcludingLabels:
         result = client.list_issues_excluding_labels("o/r", exclude_labels=[])
         assert result[0]["user"] == ""
 
+    def test_filter_labels_empty_paginated_list_returns_empty(self) -> None:
+        """Regression: PyGithub's PaginatedList raises IndexError when sliced
+        on an empty result. Materialize via list() before slicing."""
+
+        class _EmptyPaginated:
+            # Slicing raises like PyGithub's PaginatedList does on empty results.
+            def __iter__(self):
+                return iter([])
+
+            def __getitem__(self, key):
+                raise IndexError("list index out of range")
+
+        client = _client()
+        repo = MagicMock()
+        repo.get_issues.return_value = _EmptyPaginated()
+        repo.get_label.return_value = MagicMock()
+        client.get_repo = MagicMock(return_value=repo)
+
+        result = client.list_issues_excluding_labels(
+            "o/r", exclude_labels=[], filter_labels=["auto"]
+        )
+        assert result == []
+
 
 # ---------------------------------------------------------------------------
 # list_prs_with_label

@@ -807,12 +807,17 @@ class GitHubClient:
             seen: set[int] = set()
             issues_raw: list[Any] = []
             for label_name in filter_labels:
-                for issue in repo.get_issues(
-                    state="open",
-                    labels=[repo.get_label(label_name)],
-                    sort="updated",
-                    direction="desc",
-                )[:per_page]:
+                # Materialize before slicing — PyGithub's PaginatedList raises
+                # IndexError on `[:n]` when the result is empty.
+                page = list(
+                    repo.get_issues(
+                        state="open",
+                        labels=[repo.get_label(label_name)],
+                        sort="updated",
+                        direction="desc",
+                    )
+                )[:per_page]
+                for issue in page:
                     if issue.number not in seen:
                         seen.add(issue.number)
                         issues_raw.append(issue)
