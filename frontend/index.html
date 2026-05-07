@@ -2,8 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>helping_hands runner</title>
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Theme / status-bar colors -->
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="background-color" content="#020817" />
+
+    <!-- iOS standalone meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="HH Runner" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <!-- Description for install prompts -->
+    <meta name="description" content="AI-powered repo builder — point it at a codebase and it uses AI to add features, fix bugs, and evolve code." />
   </head>
   <body>
     <div id="root"></div>

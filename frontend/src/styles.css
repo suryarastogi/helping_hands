@@ -32,14 +32,22 @@ html,
 body,
 #root {
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   padding-top: 32px;
+  padding-top: max(32px, env(safe-area-inset-top, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   color: var(--foreground);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   background:
     radial-gradient(circle at 10% -10%, #172554 0%, transparent 40%),
     radial-gradient(circle at 110% 0%, #1e1b4b 0%, transparent 42%),
@@ -8197,4 +8205,85 @@ button.worker-sprite:disabled .worker-caption {
 @keyframes status-dot-pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.4; }
+}
+
+/* ── PWA: small-screen refinements ── */
+@media (max-width: 480px) {
+  body {
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+  }
+
+  .page {
+    padding: 12px 10px 24px;
+    gap: 10px;
+  }
+
+  .card,
+  .monitor-card,
+  .submission-card,
+  .task-list-card,
+  .chat-panel-card {
+    border-radius: 8px;
+  }
+
+  .grill-overlay-content {
+    min-width: 0;
+    width: 100vw;
+    max-height: 100dvh;
+    border-radius: 0;
+    resize: none;
+  }
+
+  .service-health-bar {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    justify-content: center;
+    font-size: 9px;
+  }
+
+  button,
+  .btn,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* ── PWA: standalone / installed app adjustments ── */
+@media (display-mode: standalone) {
+  body {
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable] {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
+
+/* ── PWA: touch-friendly tap targets ── */
+@media (pointer: coarse) {
+  button,
+  .btn,
+  [role="button"],
+  .sidebar-collapse-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .sidebar-collapse-btn {
+    width: 36px;
+    height: 36px;
+  }
 }
