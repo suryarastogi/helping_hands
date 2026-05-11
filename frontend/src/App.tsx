@@ -393,7 +393,6 @@ export default function App() {
   }, [status, payload]);
 
   const handleOpenGrill = () => {
-    grillSession.reset();
     setShowGrillOverlay(true);
   };
 
@@ -632,7 +631,7 @@ export default function App() {
         initialForm={grillInitialForm}
         onClose={() => {
           setShowGrillOverlay(false);
-          grillSession.reset();
+          grillSession.suspend();
         }}
         onSubmitPlan={handleGrillSubmitPlan}
         onSubmitAsIssue={handleGrillSubmitAsIssue}

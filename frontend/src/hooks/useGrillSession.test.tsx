@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
-import { useGrillSession } from "./useGrillSession";
+import {
+  useGrillSession,
+  savePersistedGrillSession,
+  loadPersistedGrillSession,
+  clearPersistedGrillSession,
+} from "./useGrillSession";
 import type { GrillFormState, GrillMessage, GrillPollResponse } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +52,7 @@ function makeMessage(overrides: Partial<GrillMessage> & { id: string }): GrillMe
 beforeEach(() => {
   vi.useFakeTimers();
   vi.restoreAllMocks();
+  try { window.localStorage.clear(); } catch { /* ignore */ }
 });
 
 afterEach(() => {
@@ -583,6 +589,224 @@ describe("useGrillSession", () => {
       unmount();
 
       expect(clearSpy).toHaveBeenCalled();
+    });
+  });
+
+  // ---- localStorage persistence helpers ----
+
+  describe("persistence helpers", () => {
+    it("saves and loads a persisted session", () => {
+      savePersistedGrillSession({
+        sessionId: "s1",
+        prompt: "test",
+        repoPath: "owner/repo",
+        startedAt: Date.now(),
+      });
+
+      const loaded = loadPersistedGrillSession();
+      expect(loaded).not.toBeNull();
+      expect(loaded!.sessionId).toBe("s1");
+      expect(loaded!.prompt).toBe("test");
+    });
+
+    it("returns null for stale sessions (>1h)", () => {
+      savePersistedGrillSession({
+        sessionId: "s1",
+        prompt: "test",
+        repoPath: "owner/repo",
+        startedAt: Date.now() - 2 * 60 * 60 * 1000,
+      });
+
+      const loaded = loadPersistedGrillSession();
+      expect(loaded).toBeNull();
+    });
+
+    it("returns null for corrupt JSON", () => {
+      window.localStorage.setItem("hh_grill_active_session", "not json");
+      expect(loadPersistedGrillSession()).toBeNull();
+    });
+
+    it("returns null for missing required fields", () => {
+      window.localStorage.setItem(
+        "hh_grill_active_session",
+        JSON.stringify({ prompt: "missing sessionId" }),
+      );
+      expect(loadPersistedGrillSession()).toBeNull();
+    });
+
+    it("clears persisted session", () => {
+      savePersistedGrillSession({
+        sessionId: "s1",
+        prompt: "test",
+        repoPath: "r",
+        startedAt: Date.now(),
+      });
+      clearPersistedGrillSession();
+      expect(loadPersistedGrillSession()).toBeNull();
+    });
+  });
+
+  // ---- startSession persists to localStorage ----
+
+  describe("startSession persistence", () => {
+    it("persists session to localStorage after successful start", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        jsonResponse({ session_id: "sess-p1", status: "active" }),
+      );
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      const persisted = loadPersistedGrillSession();
+      expect(persisted).not.toBeNull();
+      expect(persisted!.sessionId).toBe("sess-p1");
+      expect(persisted!.prompt).toBe(FORM.prompt);
+      expect(persisted!.repoPath).toBe(FORM.repo_path);
+    });
+  });
+
+  // ---- reset clears localStorage ----
+
+  describe("reset clears persistence", () => {
+    it("clears persisted session on reset", async () => {
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValue(jsonResponse({ session_id: "sess-1", status: "active", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      expect(loadPersistedGrillSession()).not.toBeNull();
+
+      act(() => {
+        result.current.reset();
+      });
+
+      expect(loadPersistedGrillSession()).toBeNull();
+    });
+  });
+
+  // ---- poll clears persistence on terminal states ----
+
+  describe("poll terminal-state cleanup", () => {
+    it("clears persisted session on not_found and resets to form", async () => {
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "not_found", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      expect(loadPersistedGrillSession()).toBeNull();
+      expect(result.current.phase).toBe("form");
+      expect(result.current.sessionId).toBeNull();
+    });
+
+    it("clears persisted session on completed status", async () => {
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "completed", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      expect(loadPersistedGrillSession()).toBeNull();
+    });
+
+    it("clears persisted session on error status", async () => {
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "error", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      expect(loadPersistedGrillSession()).toBeNull();
+    });
+  });
+
+  // ---- suspend / wake ----
+
+  describe("suspend and wake", () => {
+    it("suspend stops polling without clearing state", async () => {
+      const clearSpy = vi.spyOn(globalThis, "clearInterval");
+
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValue(jsonResponse({ session_id: "sess-1", status: "active", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      clearSpy.mockClear();
+
+      act(() => {
+        result.current.suspend();
+      });
+
+      expect(clearSpy).toHaveBeenCalled();
+      expect(result.current.phase).toBe("chatting");
+      expect(result.current.sessionId).toBe("sess-1");
+    });
+
+    it("wake restarts polling if session exists", async () => {
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
+        .mockResolvedValue(jsonResponse({ session_id: "sess-1", status: "active", messages: [] }));
+
+      const { result } = renderHook(() => useGrillSession());
+
+      await act(async () => {
+        await result.current.startSession(FORM);
+      });
+
+      act(() => {
+        result.current.suspend();
+      });
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      fetchSpy.mockResolvedValue(jsonResponse({ session_id: "sess-1", status: "active", messages: [] }));
+      fetchSpy.mockClear();
+
+      act(() => {
+        result.current.wake();
+      });
+
+      // wake triggers an immediate poll
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(fetchSpy).toHaveBeenCalled();
+    });
+
+    it("wake is a no-op when no session exists", () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const { result } = renderHook(() => useGrillSession());
+
+      act(() => {
+        result.current.wake();
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 });

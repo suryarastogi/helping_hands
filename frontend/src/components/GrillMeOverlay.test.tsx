@@ -83,6 +83,8 @@ function makeSession(overrides: Partial<GrillSessionState> = {}): GrillSessionSt
     sendMessage: vi.fn(),
     requestPlan: vi.fn(),
     reset: vi.fn(),
+    suspend: vi.fn(),
+    wake: vi.fn(),
     ...overrides,
   };
 }
@@ -157,60 +159,11 @@ describe("GrillMeOverlay", () => {
       expect(props.onClose).not.toHaveBeenCalled();
     });
 
-    it("warns and aborts close when session is active and user cancels", () => {
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-      const { props } = renderOverlay({
-        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
-      });
-
-      fireEvent.click(screen.getByLabelText("Close"));
-      expect(confirmSpy).toHaveBeenCalledOnce();
-      expect(props.onClose).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
-    });
-
-    it("warns and closes when session is active and user confirms", () => {
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      const { props } = renderOverlay({
-        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
-      });
-
-      fireEvent.click(screen.getByLabelText("Close"));
-      expect(confirmSpy).toHaveBeenCalledOnce();
-      expect(props.onClose).toHaveBeenCalledOnce();
-      confirmSpy.mockRestore();
-    });
-
-    it("warns on backdrop click when session is active", () => {
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-      const { props, container } = renderOverlay({
-        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
-      });
-
-      fireEvent.mouseDown(container.querySelector(".grill-overlay")!);
-      expect(confirmSpy).toHaveBeenCalledOnce();
-      expect(props.onClose).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
-    });
-
-    it("warns when messages exist even without sessionId", () => {
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-      const messages: GrillMessage[] = [
-        makeMessage({ id: "m1", role: "user", content: "my plan" }),
-      ];
-      const { props } = renderOverlay({
-        session: makeSession({ phase: "chatting", messages }),
-      });
-
-      fireEvent.click(screen.getByLabelText("Close"));
-      expect(confirmSpy).toHaveBeenCalledOnce();
-      expect(props.onClose).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
-    });
-
-    it("does not warn when no session has started", () => {
+    it("closes without confirmation even when session is active", () => {
       const confirmSpy = vi.spyOn(window, "confirm");
-      const { props } = renderOverlay();
+      const { props } = renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "abc123" }),
+      });
 
       fireEvent.click(screen.getByLabelText("Close"));
       expect(confirmSpy).not.toHaveBeenCalled();
@@ -677,6 +630,100 @@ describe("GrillMeOverlay", () => {
       renderOverlay();
       // Button should still render and history count omitted.
       expect(screen.getByText("Past Plans")).toBeInTheDocument();
+    });
+  });
+
+  // ---- Auto-resume ----
+
+  describe("auto-resume", () => {
+    it("calls wake() on mount when session already has a sessionId", () => {
+      const session = makeSession({ phase: "chatting", sessionId: "existing-sess" });
+      renderOverlay({ session });
+      expect(session.wake).toHaveBeenCalledOnce();
+      expect(session.resumeSession).not.toHaveBeenCalled();
+    });
+
+    it("calls resumeSession from localStorage when no active session", () => {
+      window.localStorage.setItem(
+        "hh_grill_active_session",
+        JSON.stringify({
+          sessionId: "persisted-sess",
+          prompt: "my prompt",
+          repoPath: "owner/repo",
+          startedAt: Date.now(),
+        }),
+      );
+
+      const session = makeSession();
+      renderOverlay({ session });
+      expect(session.resumeSession).toHaveBeenCalledWith("persisted-sess");
+    });
+
+    it("does not resume when localStorage session is stale", () => {
+      window.localStorage.setItem(
+        "hh_grill_active_session",
+        JSON.stringify({
+          sessionId: "old-sess",
+          prompt: "old",
+          repoPath: "r",
+          startedAt: Date.now() - 2 * 60 * 60 * 1000,
+        }),
+      );
+
+      const session = makeSession();
+      renderOverlay({ session });
+      expect(session.resumeSession).not.toHaveBeenCalled();
+      expect(session.wake).not.toHaveBeenCalled();
+    });
+
+    it("shows form when no persisted session and no active session", () => {
+      renderOverlay();
+      expect(screen.getByText("Start Grilling")).toBeInTheDocument();
+    });
+  });
+
+  // ---- New Session button ----
+
+  describe("New Session button", () => {
+    it("is visible during chatting phase", () => {
+      renderOverlay({
+        session: makeSession({ phase: "chatting", sessionId: "s1" }),
+      });
+      expect(screen.getByText("New Session")).toBeInTheDocument();
+    });
+
+    it("is visible during plan phase", () => {
+      renderOverlay({
+        session: makeSession({ phase: "plan", finalPlan: "Plan", sessionId: "s1" }),
+      });
+      expect(screen.getByText("New Session")).toBeInTheDocument();
+    });
+
+    it("is not visible during form phase", () => {
+      renderOverlay();
+      expect(screen.queryByText("New Session")).not.toBeInTheDocument();
+    });
+
+    it("calls reset when confirmed", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const session = makeSession({ phase: "chatting", sessionId: "s1" });
+      renderOverlay({ session });
+
+      fireEvent.click(screen.getByText("New Session"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(session.reset).toHaveBeenCalledOnce();
+      confirmSpy.mockRestore();
+    });
+
+    it("does not reset when confirmation is cancelled", () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const session = makeSession({ phase: "chatting", sessionId: "s1" });
+      renderOverlay({ session });
+
+      fireEvent.click(screen.getByText("New Session"));
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(session.reset).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
     });
   });
 
