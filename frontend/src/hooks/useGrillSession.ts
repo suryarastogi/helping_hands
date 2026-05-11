@@ -12,6 +12,58 @@ import type {
 } from "../types";
 
 const POLL_INTERVAL_MS = 1500;
+const PERSISTED_SESSION_KEY = "hh_grill_active_session";
+const PERSISTED_SESSION_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
+
+// ---------------------------------------------------------------------------
+// localStorage persistence for the active grill session
+// ---------------------------------------------------------------------------
+
+export type PersistedGrillSession = {
+  sessionId: string;
+  prompt: string;
+  repoPath: string;
+  startedAt: number;
+};
+
+export function savePersistedGrillSession(data: PersistedGrillSession): void {
+  try {
+    localStorage.setItem(PERSISTED_SESSION_KEY, JSON.stringify(data));
+  } catch {
+    /* quota exceeded or unavailable */
+  }
+}
+
+export function loadPersistedGrillSession(): PersistedGrillSession | null {
+  try {
+    const raw = localStorage.getItem(PERSISTED_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof parsed.sessionId !== "string" ||
+      typeof parsed.startedAt !== "number"
+    ) {
+      return null;
+    }
+    if (Date.now() - parsed.startedAt > PERSISTED_SESSION_MAX_AGE_MS) {
+      localStorage.removeItem(PERSISTED_SESSION_KEY);
+      return null;
+    }
+    return parsed as PersistedGrillSession;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPersistedGrillSession(): void {
+  try {
+    localStorage.removeItem(PERSISTED_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export type GrillSessionState = {
   phase: GrillPhase;
@@ -27,6 +79,8 @@ export type GrillSessionState = {
   sendMessage: (content: string) => Promise<void>;
   requestPlan: () => Promise<void>;
   reset: () => void;
+  suspend: () => void;
+  wake: () => void;
 };
 
 export function useGrillSession(): GrillSessionState {
@@ -94,10 +148,16 @@ export function useGrillSession(): GrillSessionState {
         data.status === "max_turns" ||
         data.status === "not_found"
       ) {
+        clearPersistedGrillSession();
         // Keep polling briefly to drain remaining messages, then stop
         if (data.messages.length === 0) {
           stopPolling();
           setIsLoading(false);
+          if (data.status === "not_found") {
+            setPhase("form");
+            setSessionId(null);
+            setStatus("idle");
+          }
         }
       }
 
@@ -167,6 +227,12 @@ export function useGrillSession(): GrillSessionState {
 
         // Start polling after a short delay to let the task begin
         sessionIdRef.current = data.session_id;
+        savePersistedGrillSession({
+          sessionId: data.session_id,
+          prompt: form.prompt,
+          repoPath: form.repo_path,
+          startedAt: Date.now(),
+        });
         startPolling();
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -186,6 +252,13 @@ export function useGrillSession(): GrillSessionState {
       setStatus("suspended");
       setPhase("chatting");
       setIsLoading(false);
+
+      savePersistedGrillSession({
+        sessionId: sid,
+        prompt: "",
+        repoPath: "",
+        startedAt: Date.now(),
+      });
 
       // Fetch the full transcript before polling: the poll endpoint drains
       // the AI queue destructively, so without this the chat view stays
@@ -286,6 +359,7 @@ export function useGrillSession(): GrillSessionState {
 
   const reset = useCallback(() => {
     stopPolling();
+    clearPersistedGrillSession();
     setPhase("form");
     setSessionId(null);
     setStatus("idle");
@@ -294,6 +368,16 @@ export function useGrillSession(): GrillSessionState {
     setIsLoading(false);
     setFinalPlan(null);
   }, [stopPolling]);
+
+  const suspend = useCallback(() => {
+    stopPolling();
+  }, [stopPolling]);
+
+  const wake = useCallback(() => {
+    if (sessionIdRef.current) {
+      startPolling();
+    }
+  }, [startPolling]);
 
   return {
     phase,
@@ -308,6 +392,8 @@ export function useGrillSession(): GrillSessionState {
     sendMessage,
     requestPlan,
     reset,
+    suspend,
+    wake,
   };
 }
 

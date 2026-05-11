@@ -12,6 +12,7 @@ import { defaultModelForBackend } from "../App.utils";
 import { renderMarkdown } from "../markdown";
 import type { GrillFormState, GrillMessage, GrillPhase, GrillSessionSummary } from "../types";
 import type { GrillSessionState, ResumableSessionsState } from "../hooks/useGrillSession";
+import { loadPersistedGrillSession, clearPersistedGrillSession } from "../hooks/useGrillSession";
 import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
 
@@ -687,6 +688,7 @@ export default function GrillMeOverlay({
   // Snapshot of the form used to start the active session (for history entry).
   const submittedFormRef = useRef<GrillFormState | null>(null);
   const activePromptRef = useRef<string | null>(null);
+  const didAutoResumeRef = useRef(false);
 
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
   const [issueUrl, setIssueUrl] = useState<string | null>(null);
@@ -697,6 +699,23 @@ export default function GrillMeOverlay({
     loadPlanHistory(),
   );
   const [historyView, setHistoryView] = useState<HistoryView>({ kind: "none" });
+
+  // Auto-resume: reconnect to an in-progress session on overlay reopen.
+  useEffect(() => {
+    if (didAutoResumeRef.current) return;
+    didAutoResumeRef.current = true;
+
+    if (session.sessionId) {
+      session.wake();
+      return;
+    }
+
+    const persisted = loadPersistedGrillSession();
+    if (persisted) {
+      activePromptRef.current = persisted.prompt;
+      session.resumeSession(persisted.sessionId);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStartSession = useCallback(
     (form: GrillFormState) => {
@@ -780,20 +799,18 @@ export default function GrillMeOverlay({
     setHistoryView({ kind: "none" });
   }, []);
 
-  // Once a session has started on the server (or any chat history exists),
-  // closing the overlay will destroy that work — warn before discarding it.
-  const hasUserEffort =
-    session.sessionId !== null || session.messages.length > 0;
-
   const handleClose = useCallback(() => {
-    if (hasUserEffort) {
-      const ok = window.confirm(
-        "Close Grill Me? Your session will suspend and can be resumed later.",
-      );
-      if (!ok) return;
-    }
     onClose();
-  }, [hasUserEffort, onClose]);
+  }, [onClose]);
+
+  const handleNewSession = useCallback(() => {
+    const ok = window.confirm(
+      "Start a new session? The current session will be discarded.",
+    );
+    if (!ok) return;
+    clearPersistedGrillSession();
+    session.reset();
+  }, [session]);
 
   const phaseTitle: Record<GrillPhase, string> = {
     form: "Grill Me",
@@ -813,14 +830,25 @@ export default function GrillMeOverlay({
       <div className="grill-overlay-content">
         <div className="grill-overlay-header">
           <h2 className="grill-overlay-title">{headerTitle}</h2>
-          <button
-            type="button"
-            className="grill-overlay-close"
-            onClick={handleClose}
-            aria-label="Close"
-          >
-            &times;
-          </button>
+          <div className="grill-header-actions">
+            {session.phase !== "form" && !viewingHistory && (
+              <button
+                type="button"
+                className="grill-new-session-btn"
+                onClick={handleNewSession}
+              >
+                New Session
+              </button>
+            )}
+            <button
+              type="button"
+              className="grill-overlay-close"
+              onClick={handleClose}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+          </div>
         </div>
 
         {historyView.kind === "list" && (
