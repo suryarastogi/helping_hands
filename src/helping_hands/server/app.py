@@ -5750,6 +5750,8 @@ def poll_grill(session_id: str) -> GrillPollResponse:
     state = _json.loads(state_raw)
     status = state.get("status", "unknown")
 
+    r.set(f"grill:{session_id}:last_seen", str(time.time()), ex=600)
+
     # Drain all pending AI messages
     ai_key = f"grill:{session_id}:ai_msgs"
     messages: list[GrillMessageOut] = []
@@ -6283,6 +6285,8 @@ def mgrill_poll(session_id: str, request: Request) -> MGrillPollResponse:
     session_id = _validate_path_param(session_id, "session_id")
     r = _mgrill_redis()
     state = _mgrill_require_state(r, session_id)
+
+    r.set(f"mgrill:{session_id}:last_seen", str(time.time()), ex=3600)
 
     # is_creator: true only when the caller actually created this session.
     # can_act_as_creator: true when the caller may Submit/Keep Grilling

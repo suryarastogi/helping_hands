@@ -8174,3 +8174,27 @@ button.worker-sprite:disabled .worker-caption {
 .token-bar-btn:hover {
   background: var(--secondary-hover);
 }
+
+/* Session status dot (shared between solo + multiplayer grill) */
+.session-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.status-dot-green {
+  background: #34d399;
+  animation: status-dot-pulse 2s ease-in-out infinite;
+}
+.status-dot-amber  { background: #fb923c; }
+.status-dot-red    { background: #f87171; }
+.status-dot-purple { background: #c084fc; }
+.status-dot-gray   { background: #6b7280; }
+
+@keyframes status-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}

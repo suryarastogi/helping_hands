@@ -12,6 +12,7 @@
  * component stays focused on rendering + local input state.
  */
 import { useEffect, useMemo, useState } from "react";
+import SessionStatusDot from "./SessionStatusDot";
 
 import type { MGrillSessionActions } from "../hooks/useMultiplayerGrill";
 import type { MGrillMessage } from "../types";
@@ -157,6 +158,7 @@ export default function MultiplayerGrillRoom({
         <div className="mgrill-room-title">
           <h1>Multiplayer Grill</h1>
           <div className="mgrill-room-sub">
+            <SessionStatusDot status={state?.status ?? "loading"} />
             <span className={`mgrill-session-status status-${state?.status ?? "loading"}`}>
               {state?.status ?? "loading"}
             </span>
