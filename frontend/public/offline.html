@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline — Helping Hands</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+        color: #e2e8f0;
+        background:
+          radial-gradient(circle at 10% -10%, #172554 0%, transparent 40%),
+          radial-gradient(circle at 110% 0%, #1e1b4b 0%, transparent 42%),
+          linear-gradient(180deg, #0b1220 0%, #020817 100%);
+      }
+      .card {
+        text-align: center;
+        padding: 48px 32px;
+        max-width: 420px;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(8px);
+      }
+      .icon { font-size: 48px; margin-bottom: 16px; }
+      h1 { font-size: 1.4rem; margin-bottom: 8px; }
+      p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; margin-bottom: 24px; }
+      button {
+        cursor: pointer;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #fff;
+        padding: 10px 24px;
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: background 0.15s;
+      }
+      button:hover { background: #1d4ed8; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon" aria-hidden="true">&#9889;</div>
+      <h1>You're offline</h1>
+      <p>Helping Hands needs an internet connection to talk to the server. Check your connection and try again.</p>
+      <button onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>
