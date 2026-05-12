@@ -213,6 +213,17 @@ def _clear_resume_state(r: Any, session_id: str) -> None:
     r.delete(f"mgrill:{session_id}:resume")
 
 
+def _check_last_seen(r: Any, session_id: str) -> bool:
+    """Return True if a frontend client polled recently (within _IDLE_SUSPEND_S)."""
+    raw = r.get(f"mgrill:{session_id}:last_seen")
+    if raw is None:
+        return False
+    try:
+        return (time.time() - float(raw)) < _IDLE_SUSPEND_S
+    except (ValueError, TypeError):
+        return False
+
+
 # --- Celery task -------------------------------------------------------------
 
 try:  # pragma: no cover — requires celery extra
@@ -464,6 +475,8 @@ def _mgrill_session_body(  # pragma: no cover — requires celery + redis
             user_msg = _pop_user_msg(r, session_id)
 
             if user_msg is None:
+                if _check_last_seen(r, session_id):
+                    last_activity = time.monotonic()
                 if time.monotonic() - last_activity > _IDLE_SUSPEND_S:
                     _save_resume_state(
                         r,
@@ -644,6 +657,8 @@ def _resume_mgrill_session_body(  # pragma: no cover — requires celery + redis
             user_msg = _pop_user_msg(r, session_id)
 
             if user_msg is None:
+                if _check_last_seen(r, session_id):
+                    last_activity = time.monotonic()
                 if time.monotonic() - last_activity > _IDLE_SUSPEND_S:
                     _save_resume_state(
                         r,

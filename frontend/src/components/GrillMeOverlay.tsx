@@ -13,6 +13,7 @@ import { renderMarkdown } from "../markdown";
 import type { GrillFormState, GrillMessage, GrillPhase, GrillSessionSummary } from "../types";
 import type { GrillSessionState, ResumableSessionsState } from "../hooks/useGrillSession";
 import { loadPersistedGrillSession, clearPersistedGrillSession } from "../hooks/useGrillSession";
+import SessionStatusDot from "./SessionStatusDot";
 import RepoChipInput from "./RepoChipInput";
 import RepoSuggestInput from "./RepoSuggestInput";
 
@@ -829,7 +830,10 @@ export default function GrillMeOverlay({
     <div className="grill-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
       <div className="grill-overlay-content">
         <div className="grill-overlay-header">
-          <h2 className="grill-overlay-title">{headerTitle}</h2>
+          <h2 className="grill-overlay-title">
+            {session.phase !== "form" && <SessionStatusDot status={session.status} />}
+            {headerTitle}
+          </h2>
           <div className="grill-header-actions">
             {session.phase !== "form" && !viewingHistory && (
               <button
