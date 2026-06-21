@@ -77,21 +77,36 @@ def invalid_repo_msg(repo: str) -> str:
 
 
 def resolve_github_token(token: str = "") -> str:
-    """Resolve a GitHub token from an explicit value or environment variables.
+    """Resolve a GitHub token from an explicit value, env vars, or a GitHub App.
 
     Checks the given *token* first, then ``GITHUB_TOKEN``, then ``GH_TOKEN``.
+    When none of those are set but a GitHub App is configured (see
+    :mod:`helping_hands.lib.github_app`), a short-lived installation access
+    token is minted and returned — installation tokens are drop-in compatible
+    with PATs for both the API and clone URLs.
 
     Args:
-        token: Explicit token value (takes priority over env vars).
+        token: Explicit token value (takes priority over env vars and App auth).
 
     Returns:
         The resolved token string, or ``""`` if none is available.
+
+    Raises:
+        GitHubAppError: If a GitHub App is configured but a token cannot be
+            minted (only when no explicit/env token is available).
     """
-    return (
+    explicit = (
         (token or "").strip()
         or os.environ.get(_ENV_GITHUB_TOKEN, "").strip()
         or os.environ.get(_ENV_GH_TOKEN, "").strip()
     )
+    if explicit:
+        return explicit
+
+    # Lazy import keeps this module usable without the optional 'github' extra.
+    from helping_hands.lib.github_app import resolve_app_installation_token
+
+    return resolve_app_installation_token() or ""
 
 
 def repo_tmp_dir() -> Path | None:

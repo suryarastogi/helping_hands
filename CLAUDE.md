@@ -105,6 +105,10 @@ A parallel feature to solo Grill Me — same `GRILL_ME_ENABLED=1` flag, differen
 
 Full design notes, architecture diagram, and endpoint table: `docs/design-docs/multiplayer-grill.md`.
 
+### GitHub App auth (alternative to a token)
+
+A GitHub App is a server-level alternative to `GITHUB_TOKEN`. Configure `GITHUB_APP_ID` plus a private key (`GITHUB_APP_PRIVATE_KEY_PATH` to a `.pem`, or `GITHUB_APP_PRIVATE_KEY` inline) and optionally `GITHUB_APP_INSTALLATION_ID`. When no PAT (`GITHUB_TOKEN`/`GH_TOKEN`) is present, `resolve_github_token()` (in `lib/github_url.py`) mints a short-lived installation access token via `lib/github_app.py` — installation tokens are drop-in compatible with PATs for both the API and clone/push URLs, so nothing downstream changes. Tokens are cached per-process and refreshed before expiry. A configured GitHub App counts as server-owned credentials: `_server_has_github_token()` returns `True`, so schedule/template ownership checks are bypassed and multiplayer-grill creation works without a client token (same as setting a server `GITHUB_TOKEN`). Per-user `X-GitHub-Token` still takes precedence. Full notes: `docs/design-docs/github-app-auth.md`.
+
 ### Schedule ownership
 
 When the server has no global `GITHUB_TOKEN`, schedule endpoints enforce per-user ownership. A SHA-256 hash of the creator's token is stored as `owner_token_hash` on each `ScheduledTask`. The frontend sends the user's token via `X-GitHub-Token` header on all schedule API calls. Set `ADMIN_GITHUB_TOKEN` env var to grant admin access to all schedules.

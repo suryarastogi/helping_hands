@@ -66,6 +66,9 @@ Three runtime surfaces share the same core library:
 - **github_url** — Shared GitHub URL helpers (`build_clone_url`, `validate_repo_spec`,
   `redact_credentials`, `noninteractive_env`); extracted from duplicated
   implementations across CLI and server modules
+- **github_app** (`github_app.py`) — Mints short-lived GitHub App installation
+  access tokens from env-configured App credentials (`.pem` key); used as a
+  server-level fallback in `resolve_github_token` when no PAT is set
 - **validation** — Input validation utilities (`validate_repo_value()` rejects
   path traversal, null bytes, newlines)
 - **default_prompts** — Shared prompt constants (`DEFAULT_SMOKE_TEST_PROMPT`)
@@ -303,6 +306,7 @@ outage still surfaces the utilization percentages in the task result.
 | Default prompts | `src/helping_hands/lib/default_prompts.py` |
 | GitHub integration | `src/helping_hands/lib/github.py` |
 | GitHub URL helpers | `src/helping_hands/lib/github_url.py` |
+| GitHub App auth | `src/helping_hands/lib/github_app.py` |
 | Filesystem tools | `src/helping_hands/lib/meta/tools/filesystem.py` |
 | Command tools | `src/helping_hands/lib/meta/tools/command.py` |
 | Web tools | `src/helping_hands/lib/meta/tools/web.py` |
