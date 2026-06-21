@@ -4969,8 +4969,17 @@ def _get_schedule_manager() -> ScheduleManager:
 
 
 def _server_has_github_token() -> bool:
-    """Return whether the server has a global GITHUB_TOKEN configured."""
-    return bool(os.environ.get("GITHUB_TOKEN", "").strip())
+    """Return whether the server has global GitHub credentials configured.
+
+    True when either a ``GITHUB_TOKEN`` env var is set or a GitHub App is
+    configured (see :mod:`helping_hands.lib.github_app`). In both cases the
+    server owns the credentials, so per-user token ownership is not enforced.
+    """
+    if os.environ.get("GITHUB_TOKEN", "").strip():
+        return True
+    from helping_hands.lib.github_app import github_app_configured
+
+    return github_app_configured()
 
 
 def _hash_token(token: str) -> str:
@@ -6047,16 +6056,21 @@ def _mgrill_effective_token(request: Request) -> str | None:
 def _mgrill_require_token(request: Request) -> str:
     """Return an effective token or raise 401.
 
-    When the server has ``GITHUB_TOKEN`` configured, client tokens are
-    optional — the server token is used as the fallback.  Otherwise the
-    client must provide ``X-GitHub-Token``.
+    When the server has global credentials configured (``GITHUB_TOKEN`` or a
+    GitHub App), client tokens are optional. With a GitHub App and no client
+    token this returns ``""`` — a sentinel meaning "use the server's
+    credentials", which downstream resolves to a freshly minted installation
+    token at clone time. Otherwise the client must provide ``X-GitHub-Token``.
     """
     from fastapi import HTTPException
 
     token = _mgrill_effective_token(request)
-    if not token:
-        raise HTTPException(status_code=401, detail="GitHub token required")
-    return token
+    if token:
+        return token
+    if _server_has_github_token():
+        # GitHub App is configured; the worker mints an installation token.
+        return ""
+    raise HTTPException(status_code=401, detail="GitHub token required")
 
 
 def _mgrill_require_creator(state: dict[str, Any], token_hash: str) -> None:

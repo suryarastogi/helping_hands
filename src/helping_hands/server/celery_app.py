@@ -1002,6 +1002,12 @@ def build_feature(
     task_started_at = datetime.now(UTC).isoformat()
     updates: list[str] = []
     _has_token = bool(github_token and github_token.strip())
+    if _has_token:
+        _auth_desc = "present"
+    else:
+        from helping_hands.lib.github_app import github_app_configured
+
+        _auth_desc = "github-app" if github_app_configured() else "NOT SET"
     _append_update(
         updates,
         (
@@ -1011,7 +1017,7 @@ def build_feature(
             f"enable_web={enable_web}, use_native_cli_auth={use_native_cli_auth}, "
             f"tools={','.join(selected_tools) or 'none'}, "
             f"reference_repos={','.join(reference_repos) if reference_repos else 'none'}, "
-            f"github_token={'present' if _has_token else 'NOT SET'}"
+            f"github_token={_auth_desc}"
         ),
     )
     emitter = _ProgressEmitter(
