@@ -142,7 +142,7 @@ export default function MultiplayerGrillLobby({
             </label>
             {!serverHasGithubToken && (
               <p className="mgrill-hint">
-                Your GitHub token (from localStorage) will be used for the creator's
+                Your GitHub token (from session storage) will be used for the creator's
                 repo access and as your identity for creator-only actions.
               </p>
             )}

@@ -21,6 +21,7 @@ import {
   MAX_RECONNECT_ATTEMPTS,
   PLAYER_COLORS,
   POSITION_BROADCAST_INTERVAL_MS,
+  RECONNECT_RECOVERY_MS,
 } from "../constants";
 import type { ChatMessage, CursorPosition, PlayerDirection, WorldDecoration } from "../types";
 
@@ -213,6 +214,8 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
   const chatCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Handle for the pending decoration placement cooldown clear timeout. */
   const decoCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handle for the post-"failed" reconnect recovery timer. */
+  const reconnectRecoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Connection lifecycle ---
   useEffect(() => {
@@ -232,6 +235,10 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       seenRemoteChatsRef.current.clear();
       chatSeqRef.current.clear();
       playerNamesRef.current.clear();
+      if (reconnectRecoveryTimerRef.current) {
+        clearTimeout(reconnectRecoveryTimerRef.current);
+        reconnectRecoveryTimerRef.current = null;
+      }
       setConnectionStatus("disconnected");
       setIsLocalIdle(false);
       setReconnectAttempts(0);
@@ -254,6 +261,10 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
 
     const onStatus = ({ status }: { status: string }) => {
       if (status === "connected") {
+        if (reconnectRecoveryTimerRef.current) {
+          clearTimeout(reconnectRecoveryTimerRef.current);
+          reconnectRecoveryTimerRef.current = null;
+        }
         setReconnectAttempts(0);
         setConnectionStatus("connected");
       } else if (status === "disconnected") {
@@ -262,6 +273,21 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
           if (next >= MAX_RECONNECT_ATTEMPTS) {
             provider.disconnect();
             setConnectionStatus("failed");
+            // Don't stay "failed" forever: after a cooldown, reset the
+            // attempt counter and start a fresh round of reconnects. The
+            // timer is cleared on teardown and on successful connection.
+            if (reconnectRecoveryTimerRef.current) {
+              clearTimeout(reconnectRecoveryTimerRef.current);
+            }
+            reconnectRecoveryTimerRef.current = setTimeout(() => {
+              reconnectRecoveryTimerRef.current = null;
+              // The effect may have re-run or torn down; only act if this
+              // provider is still the live one.
+              if (yjsProviderRef.current !== provider) return;
+              setReconnectAttempts(0);
+              setConnectionStatus("connecting");
+              provider.connect();
+            }, RECONNECT_RECOVERY_MS);
             return next;
           }
           setConnectionStatus("connecting");
@@ -448,9 +474,10 @@ export function useMultiplayer(options: UseMultiplayerOptions): UseMultiplayerRe
       yjsDocRef.current = null;
       setConnectionStatus("disconnected");
       setReconnectAttempts(0);
-      // Clear any pending emote/chat/cooldown timers to prevent state
-      // updates after the provider is destroyed or the component unmounts.
-      for (const ref of [emoteTimerRef, emoteAwarenessTimerRef, chatDisplayTimerRef, chatAwarenessTimerRef, chatCooldownTimerRef, decoCooldownTimerRef]) {
+      // Clear any pending emote/chat/cooldown/recovery timers to prevent
+      // state updates after the provider is destroyed or the component
+      // unmounts.
+      for (const ref of [emoteTimerRef, emoteAwarenessTimerRef, chatDisplayTimerRef, chatAwarenessTimerRef, chatCooldownTimerRef, decoCooldownTimerRef, reconnectRecoveryTimerRef]) {
         if (ref.current) {
           clearTimeout(ref.current);
           ref.current = null;

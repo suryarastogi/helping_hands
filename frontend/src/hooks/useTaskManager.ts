@@ -38,6 +38,7 @@ import {
   upsertTaskHistory,
 } from "../App.utils";
 import { initTaskRoute, parseTaskIdFromPathname, syncTaskIdToUrl } from "../router";
+import { computeBackoffDelay } from "./pollingBackoff";
 import type {
   AccumulatedUsage,
   Backend,
@@ -53,6 +54,17 @@ import type {
   TaskHistoryPatch,
   TaskStatus,
 } from "../types";
+
+// ---------------------------------------------------------------------------
+// Polling constants
+// ---------------------------------------------------------------------------
+
+/** Base interval for the primary task poll. */
+const POLL_BASE_MS = 3000;
+/** Cap on the backed-off primary poll interval. */
+const POLL_MAX_MS = 30_000;
+/** Consecutive poll failures tolerated before surfacing poll_error. */
+const MAX_POLL_FAILURES = 5;
 
 // ---------------------------------------------------------------------------
 // Public interface
@@ -246,6 +258,17 @@ export function useTaskManager(): UseTaskManagerReturn {
     const body = `Task ${shortTaskId(notifTaskId)} ${tone}`;
     try { new Notification("Helping Hands", { body }); } catch (_) { /* fallback */ }
   }, []);
+
+  // Latest notification callbacks, kept in refs so the polling effects below
+  // can call them without listing them as dependencies. Depending on the
+  // functions directly would tear down and recreate the polling timers on
+  // every render that produces new function identities.
+  const spawnFloatingNumberRef = useRef(spawnFloatingNumber);
+  spawnFloatingNumberRef.current = spawnFloatingNumber;
+  const addToastRef = useRef(addToast);
+  addToastRef.current = addToast;
+  const sendBrowserNotificationRef = useRef(sendBrowserNotification);
+  sendBrowserNotificationRef.current = sendBrowserNotification;
 
   const handleMonitorScroll = useCallback(() => {
     const el = monitorOutputRef.current;
@@ -904,10 +927,12 @@ export function useTaskManager(): UseTaskManagerReturn {
   // -- Last output line per task (for worker speech bubbles) -----------------
   const [lastOutputByTaskId, setLastOutputByTaskId] = useState<Map<string, string>>(new Map());
 
-  // -- Primary task polling (3s) --------------------------------------------
+  // -- Primary task polling (3s, exponential backoff on failure) ------------
   useEffect(() => {
     if (!taskId || !isPolling) return;
     let cancelled = false;
+    let timer: number | null = null;
+    let failures = 0;
 
     const pollOnce = async () => {
       try {
@@ -921,6 +946,7 @@ export function useTaskManager(): UseTaskManagerReturn {
         }
         const data = (await response.json()) as TaskStatus;
         if (cancelled) return;
+        failures = 0;
 
         setStatus(data.status);
         setPayload(data as unknown as Record<string, unknown>);
@@ -930,7 +956,7 @@ export function useTaskManager(): UseTaskManagerReturn {
         {
           const prev = updateCountsRef.current.get(data.task_id) ?? 0;
           const curr = freshUpdates.length;
-          if (curr > prev) spawnFloatingNumber(data.task_id, curr - prev);
+          if (curr > prev) spawnFloatingNumberRef.current(data.task_id, curr - prev);
           updateCountsRef.current.set(data.task_id, curr);
         }
 
@@ -948,28 +974,40 @@ export function useTaskManager(): UseTaskManagerReturn {
         );
 
         if (isTerminalTaskStatus(data.status)) {
-          addToast(data.task_id, data.status);
-          sendBrowserNotification(data.task_id, data.status);
+          addToastRef.current(data.task_id, data.status);
+          sendBrowserNotificationRef.current(data.task_id, data.status);
           setIsPolling(false);
         }
       } catch (error) {
         if (cancelled) return;
-        setStatus("poll_error");
-        setPayload({ error: String(error) });
-        setTaskHistory((current) =>
-          upsertTaskHistory(current, { taskId, status: "poll_error" })
-        );
-        setIsPolling(false);
+        // Retry transient failures with exponential backoff; only give up
+        // (and surface poll_error) after several consecutive failures.
+        failures += 1;
+        if (failures >= MAX_POLL_FAILURES) {
+          setStatus("poll_error");
+          setPayload({ error: String(error) });
+          setTaskHistory((current) =>
+            upsertTaskHistory(current, { taskId, status: "poll_error" })
+          );
+          setIsPolling(false);
+        }
       }
     };
 
-    void pollOnce();
-    const handle = window.setInterval(() => void pollOnce(), 3000);
+    const loop = async () => {
+      await pollOnce();
+      if (cancelled) return;
+      timer = window.setTimeout(
+        () => void loop(),
+        computeBackoffDelay(POLL_BASE_MS, failures, POLL_MAX_MS)
+      );
+    };
+    void loop();
     return () => {
       cancelled = true;
-      window.clearInterval(handle);
+      if (timer !== null) window.clearTimeout(timer);
     };
-  }, [isPolling, taskId, spawnFloatingNumber, addToast, sendBrowserNotification]);
+  }, [isPolling, taskId]);
 
   // -- Background tracked-tasks polling (10s) -------------------------------
   useEffect(() => {
@@ -1010,7 +1048,7 @@ export function useTaskManager(): UseTaskManagerReturn {
             const bgUpdates = extractUpdates(data.result);
             const prev = updateCountsRef.current.get(data.task_id) ?? 0;
             if (bgUpdates.length > prev) {
-              spawnFloatingNumber(data.task_id, bgUpdates.length - prev);
+              spawnFloatingNumberRef.current(data.task_id, bgUpdates.length - prev);
               updateCountsRef.current.set(data.task_id, bgUpdates.length);
             }
 
@@ -1046,8 +1084,8 @@ export function useTaskManager(): UseTaskManagerReturn {
             isTerminalTaskStatus(patch.status) &&
             (!prev || !isTerminalTaskStatus(prev.status))
           ) {
-            addToast(patch.taskId, patch.status);
-            sendBrowserNotification(patch.taskId, patch.status);
+            addToastRef.current(patch.taskId, patch.status);
+            sendBrowserNotificationRef.current(patch.taskId, patch.status);
           }
           next = upsertTaskHistory(next, patch);
         }
@@ -1061,7 +1099,7 @@ export function useTaskManager(): UseTaskManagerReturn {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [spawnFloatingNumber, addToast, sendBrowserNotification]);
+  }, []);
 
   // =========================================================================
   // Return

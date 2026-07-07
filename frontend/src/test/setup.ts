@@ -15,11 +15,12 @@ afterEach(() => {
   }
 });
 
-// Polyfill localStorage for jsdom environments where Storage methods may be
-// missing or non-functional (observed in some vitest + jsdom setups).
-if (typeof window !== "undefined") {
+// Polyfill localStorage/sessionStorage for jsdom environments where Storage
+// methods may be missing or non-functional (observed in some vitest + jsdom
+// setups).
+function createStorageMock(): Storage {
   const store: Record<string, string> = {};
-  const localStorageMock: Storage = {
+  return {
     getItem: (key: string) => store[key] ?? null,
     setItem: (key: string, value: string) => {
       store[key] = String(value);
@@ -37,6 +38,9 @@ if (typeof window !== "undefined") {
     },
     key: (index: number) => Object.keys(store)[index] ?? null,
   };
+}
 
-  Object.defineProperty(window, "localStorage", { value: localStorageMock });
+if (typeof window !== "undefined") {
+  Object.defineProperty(window, "localStorage", { value: createStorageMock() });
+  Object.defineProperty(window, "sessionStorage", { value: createStorageMock() });
 }

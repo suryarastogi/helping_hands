@@ -23,6 +23,7 @@ import {
   extractUpdates,
   formatProviderName,
   isTerminalTaskStatus,
+  loadGithubToken,
   loadTaskHistory,
   parseBool,
   parseError,
@@ -32,6 +33,7 @@ import {
   readListValue,
   readStringValue,
   repoName,
+  saveGithubToken,
   shortTaskId,
   statusBlinkerColor,
   statusTone,
@@ -904,5 +906,47 @@ describe("checkPlotCollision with torii gate", () => {
     // Player centre just right of the torii gate collision right edge + half player width
     const justOutside = TORII_COLLISION.left + TORII_COLLISION.width + PLAYER_SIZE.width;
     expect(checkPlotCollision(justOutside, TORII_COLLISION.top + 10, [])).toBe(false);
+  });
+});
+
+describe("loadGithubToken / saveGithubToken (sessionStorage)", () => {
+  const KEY = "hh_github_token";
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it("returns empty string when no token stored", () => {
+    expect(loadGithubToken()).toBe("");
+  });
+
+  it("saves to sessionStorage, not localStorage", () => {
+    saveGithubToken("ghp_abc123");
+    expect(window.sessionStorage.getItem(KEY)).toBe("ghp_abc123");
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    expect(loadGithubToken()).toBe("ghp_abc123");
+  });
+
+  it("trims the token and removes it when blank", () => {
+    saveGithubToken("  ghp_x  ");
+    expect(window.sessionStorage.getItem(KEY)).toBe("ghp_x");
+    saveGithubToken("   ");
+    expect(window.sessionStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("migrates a legacy localStorage token into sessionStorage and scrubs it", () => {
+    window.localStorage.setItem(KEY, "ghp_legacy");
+    expect(loadGithubToken()).toBe("ghp_legacy");
+    expect(window.sessionStorage.getItem(KEY)).toBe("ghp_legacy");
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("prefers an existing sessionStorage token over a legacy localStorage one", () => {
+    window.sessionStorage.setItem(KEY, "ghp_current");
+    window.localStorage.setItem(KEY, "ghp_stale");
+    expect(loadGithubToken()).toBe("ghp_current");
+    // Legacy copy is still scrubbed.
+    expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 });

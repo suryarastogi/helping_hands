@@ -84,7 +84,17 @@ const DEFAULT_MODEL_GEMINI = "gemini-2.5-pro";
 
 export function loadGithubToken(): string {
   try {
-    return localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) ?? "";
+    // One-time migration: earlier versions persisted the token in
+    // localStorage. Move any lingering copy into sessionStorage and scrub
+    // it from localStorage so the token no longer survives browser restarts.
+    const legacy = localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY);
+    if (legacy !== null) {
+      localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
+      if (legacy && sessionStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) === null) {
+        sessionStorage.setItem(GITHUB_TOKEN_STORAGE_KEY, legacy);
+      }
+    }
+    return sessionStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) ?? "";
   } catch {
     return "";
   }
@@ -94,9 +104,9 @@ export function saveGithubToken(token: string): void {
   try {
     const trimmed = token.trim();
     if (trimmed) {
-      localStorage.setItem(GITHUB_TOKEN_STORAGE_KEY, trimmed);
+      sessionStorage.setItem(GITHUB_TOKEN_STORAGE_KEY, trimmed);
     } else {
-      localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
     }
   } catch {
     // quota exceeded or private browsing — silently ignore

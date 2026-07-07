@@ -34,6 +34,7 @@ from helping_hands.lib.github_url import (
     GITHUB_HOSTNAME as _GITHUB_HOSTNAME,
     GITHUB_TOKEN_USER as _GITHUB_TOKEN_USER,
     REPO_SPEC_PATTERN as _REPO_SPEC_PATTERN,
+    redact_credentials as _redact_credentials,
 )
 from helping_hands.lib.meta.tools import registry as tool_registry
 from helping_hands.lib.validation import require_non_empty_string
@@ -648,7 +649,11 @@ class Hand(abc.ABC):
                 f"git remote set-url timed out after {_GIT_READ_TIMEOUT_S}s"
             ) from None
         if result.returncode != 0:
-            stderr = result.stderr.strip() or _DEFAULT_GIT_ERROR_MSG
+            # git may echo the token-bearing push URL back in stderr; redact it
+            # before it reaches logs or the raised exception message.
+            stderr = (
+                _redact_credentials(result.stderr.strip()) or _DEFAULT_GIT_ERROR_MSG
+            )
             msg = f"failed to configure authenticated push remote: {stderr}"
             raise RuntimeError(msg)
 

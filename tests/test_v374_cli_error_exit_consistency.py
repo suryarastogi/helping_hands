@@ -27,6 +27,23 @@ from helping_hands.lib.hands.v1.hand.factory import (
     BACKEND_OPENCODECLI,
 )
 
+
+def _close_coro_then_raise(exc: BaseException):
+    """Build an ``asyncio.run`` side effect that closes the coroutine, then raises.
+
+    Mocked ``asyncio.run`` never awaits the ``_stream_hand`` coroutine passed to
+    it; closing it prevents a ``RuntimeWarning: coroutine ... was never awaited``
+    when the mock (which retains the coroutine in ``call_args``) is collected.
+    """
+
+    def _side_effect(coro: object) -> None:
+        if hasattr(coro, "close"):
+            coro.close()
+        raise exc
+
+    return _side_effect
+
+
 # ---------------------------------------------------------------------------
 # Structural consistency
 # ---------------------------------------------------------------------------
@@ -90,7 +107,7 @@ class TestOpenCodeErrorExit:
             patch("helping_hands.cli.main.create_hand", return_value=mock_hand),
             patch(
                 "helping_hands.cli.main.asyncio.run",
-                side_effect=RuntimeError("opencode failed"),
+                side_effect=_close_coro_then_raise(RuntimeError("opencode failed")),
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -109,7 +126,7 @@ class TestOpenCodeErrorExit:
             patch("helping_hands.cli.main.create_hand", return_value=mock_hand),
             patch(
                 "helping_hands.cli.main.asyncio.run",
-                side_effect=OSError("connection refused"),
+                side_effect=_close_coro_then_raise(OSError("connection refused")),
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -134,7 +151,7 @@ class TestDevinErrorExit:
             patch("helping_hands.cli.main.create_hand", return_value=mock_hand),
             patch(
                 "helping_hands.cli.main.asyncio.run",
-                side_effect=RuntimeError("devin failed"),
+                side_effect=_close_coro_then_raise(RuntimeError("devin failed")),
             ),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -153,7 +170,7 @@ class TestDevinErrorExit:
             patch("helping_hands.cli.main.create_hand", return_value=mock_hand),
             patch(
                 "helping_hands.cli.main.asyncio.run",
-                side_effect=ValueError("bad input"),
+                side_effect=_close_coro_then_raise(ValueError("bad input")),
             ),
             pytest.raises(SystemExit) as exc_info,
         ):

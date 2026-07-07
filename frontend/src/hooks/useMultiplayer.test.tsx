@@ -81,6 +81,7 @@ class MockYMap {
 let mockAwareness: MockAwareness;
 let mockProviderDestroyCalled: boolean;
 let mockProviderDisconnectCalled: boolean;
+let mockProviderConnectCalled: boolean;
 let mockDocDestroyCalled: boolean;
 let latestMockProvider: { _listeners: Record<string, Array<(arg: unknown) => void>> } | null = null;
 const MOCK_CLIENT_ID = 42;
@@ -116,6 +117,7 @@ vi.mock("y-websocket", () => {
           if (idx >= 0) arr.splice(idx, 1);
         }
       },
+      connect() { mockProviderConnectCalled = true; },
       disconnect() { mockProviderDisconnectCalled = true; },
       destroy() { mockProviderDestroyCalled = true; },
     };
@@ -214,6 +216,7 @@ describe("useMultiplayer hook", () => {
   beforeEach(() => {
     mockProviderDestroyCalled = false;
     mockProviderDisconnectCalled = false;
+    mockProviderConnectCalled = false;
     mockDocDestroyCalled = false;
     latestMockProvider = null;
   });
@@ -1027,6 +1030,57 @@ describe("useMultiplayer hook", () => {
 
     expect(result.current.connectionStatus).toBe("failed");
     expect(mockProviderDisconnectCalled).toBe(true);
+  });
+
+  it("schedules a fresh reconnect attempt 60s after entering 'failed'", () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useMultiplayer(defaultOpts()));
+      const provider = latestMockProvider!;
+
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+        });
+      }
+      expect(result.current.connectionStatus).toBe("failed");
+      expect(mockProviderConnectCalled).toBe(false);
+
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+
+      expect(mockProviderConnectCalled).toBe(true);
+      expect(result.current.connectionStatus).toBe("connecting");
+      expect(result.current.reconnectAttempts).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels the 'failed' recovery timer on teardown", () => {
+    vi.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(() => useMultiplayer(defaultOpts()));
+      const provider = latestMockProvider!;
+
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          (provider._listeners["status"] ?? []).forEach((cb) => cb({ status: "disconnected" }));
+        });
+      }
+      expect(result.current.connectionStatus).toBe("failed");
+
+      unmount();
+      act(() => {
+        vi.advanceTimersByTime(120_000);
+      });
+
+      // No reconnect after unmount — the recovery timer was cleared.
+      expect(mockProviderConnectCalled).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows 'connecting' status during reconnection attempts below threshold", () => {

@@ -6,15 +6,18 @@ Exposes an HTTP API that enqueues repo-building jobs via Celery.
 from __future__ import annotations
 
 import ast
+import functools
+import hmac
 import html
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 import uuid
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -138,6 +141,39 @@ _schedule_manager: ScheduleManager | None = None
 
 # Maximum number of tool entries in a single request.
 _MAX_TOOL_ITEMS = 50
+
+# --- Path-parameter hardening ---
+# All resource ids are UUID/prefix-hex shaped; restrict path params to this
+# charset and length so they cannot inject extra Redis-key segments or bloat.
+_MAX_PATH_PARAM_LENGTH = 128
+_PATH_PARAM_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+@functools.lru_cache(maxsize=8)
+def _redis_pool(redis_url: str):  # pragma: no cover — needs redis
+    """Return a process-wide connection pool for *redis_url*.
+
+    Cached per URL so that every request reuses one bounded pool instead of
+    calling :func:`redis.from_url` (which builds a fresh, never-closed pool)
+    on each call — the previous pattern leaked connections until the server
+    exhausted the Redis connection limit.
+    """
+    import redis
+
+    return redis.ConnectionPool.from_url(redis_url, decode_responses=True)
+
+
+def _redis_client():  # pragma: no cover — needs redis
+    """Return a Redis client backed by the shared per-URL connection pool.
+
+    The returned client checks connections out of the pool and returns them
+    automatically after each command, so callers do not need to close it.
+    """
+    import redis
+
+    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
+    return redis.Redis(connection_pool=_redis_pool(redis_url))
+
 
 # --- Health-check timeout constants (seconds) ---
 _REDIS_HEALTH_TIMEOUT_S = 2
@@ -489,7 +525,6 @@ class TemplateResponse(BaseModel):
     template_id: str
     name: str
     description: str = ""
-    owner_token_hash: str | None = None
     created_at: str
     updated_at: str
     repo_path: str | None = None
@@ -3356,7 +3391,11 @@ def _parse_backend(value: str) -> BackendName:
 def _validate_path_param(value: str, name: str) -> str:
     """Validate and strip a URL path parameter.
 
-    Delegates to :func:`~helping_hands.lib.validation.require_non_empty_string`.
+    Every resource identifier in this service is a UUID- or prefix-plus-hex
+    string, so path params are restricted to ``[A-Za-z0-9_-]`` and a bounded
+    length. This keeps user-controlled ids from smuggling extra ``:`` segments
+    into the Redis keys they are interpolated into (e.g. ``grill:{id}:state``)
+    or ballooning key size.
 
     Args:
         value: The raw path parameter value.
@@ -3366,9 +3405,17 @@ def _validate_path_param(value: str, name: str) -> str:
         The stripped parameter value.
 
     Raises:
-        ValueError: If *value* is empty or whitespace-only.
+        ValueError: If *value* is empty, too long, or contains characters
+            outside the allowed identifier set.
     """
-    return require_non_empty_string(value, name)
+    stripped = require_non_empty_string(value, name)
+    if len(stripped) > _MAX_PATH_PARAM_LENGTH:
+        msg = f"{name} exceeds maximum length of {_MAX_PATH_PARAM_LENGTH}"
+        raise ValueError(msg)
+    if not _PATH_PARAM_RE.match(stripped):
+        msg = f"{name} contains invalid characters"
+        raise ValueError(msg)
+    return stripped
 
 
 def _build_task_status(task_id: str) -> TaskStatus:
@@ -4980,6 +5027,32 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _hashes_match(token: str, expected_hash: str | None) -> bool:
+    """Constant-time compare a token's hash against a stored hash.
+
+    Uses :func:`hmac.compare_digest` so the comparison time does not depend on
+    how many leading characters match, closing a timing side-channel that a
+    plain ``==`` on the hex digests would leak.
+
+    Args:
+        token: The raw token supplied by the request.
+        expected_hash: The stored SHA-256 hex digest to compare against.
+
+    Returns:
+        ``True`` only when *expected_hash* is set and matches ``_hash_token(token)``.
+    """
+    if not expected_hash:
+        return False
+    return hmac.compare_digest(_hash_token(token), expected_hash)
+
+
+def _tokens_match(token: str, other: str | None) -> bool:
+    """Constant-time compare two raw token strings (e.g. against admin token)."""
+    if not other:
+        return False
+    return hmac.compare_digest(token, other)
+
+
 def _get_request_token(request) -> str | None:
     """Extract the GitHub token from the X-GitHub-Token header."""
     value = request.headers.get("X-GitHub-Token", "").strip()
@@ -5002,10 +5075,10 @@ def _check_schedule_owner(request, task) -> None:
         raise HTTPException(status_code=401, detail="GitHub token required")
 
     admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
-    if admin_token and token == admin_token:
+    if _tokens_match(token, admin_token):
         return
 
-    if task.owner_token_hash and _hash_token(token) == task.owner_token_hash:
+    if _hashes_match(token, task.owner_token_hash):
         return
 
     raise HTTPException(
@@ -5027,10 +5100,10 @@ def _is_schedule_visible(task, request) -> bool:
         return False
 
     admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
-    if admin_token and token == admin_token:
+    if _tokens_match(token, admin_token):
         return True
 
-    return bool(task.owner_token_hash and _hash_token(token) == task.owner_token_hash)
+    return _hashes_match(token, task.owner_token_hash)
 
 
 def _check_watch_issues_uniqueness(
@@ -5403,10 +5476,10 @@ def _check_template_owner(request: Request, template: Any) -> None:
         raise HTTPException(status_code=401, detail="GitHub token required")
 
     admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
-    if admin_token and token == admin_token:
+    if _tokens_match(token, admin_token):
         return
 
-    if template.owner_token_hash and _hash_token(token) == template.owner_token_hash:
+    if _hashes_match(token, template.owner_token_hash):
         return
 
     raise HTTPException(
@@ -5420,7 +5493,6 @@ def _template_to_response(template: Any) -> TemplateResponse:
         template_id=template.template_id,
         name=template.name,
         description=template.description,
-        owner_token_hash=template.owner_token_hash,
         created_at=template.created_at,
         updated_at=template.updated_at,
         repo_path=template.repo_path,
@@ -5675,11 +5747,8 @@ def send_grill_message(session_id: str, req: GrillMessageRequest) -> dict[str, s
 
     import json as _json
 
-    import redis
-
     session_id = _validate_path_param(session_id, "session_id")
-    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
-    r = redis.from_url(redis_url, decode_responses=True)
+    r = _redis_client()
 
     # Check session exists
     state_key = f"grill:{session_id}:state"
@@ -5735,11 +5804,8 @@ def poll_grill(session_id: str) -> GrillPollResponse:
 
     import json as _json
 
-    import redis
-
     session_id = _validate_path_param(session_id, "session_id")
-    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
-    r = redis.from_url(redis_url, decode_responses=True)
+    r = _redis_client()
 
     # Get state
     state_key = f"grill:{session_id}:state"
@@ -5784,11 +5850,8 @@ def get_grill_transcript(session_id: str) -> GrillPollResponse:
 
     import json as _json
 
-    import redis
-
     session_id = _validate_path_param(session_id, "session_id")
-    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
-    r = redis.from_url(redis_url, decode_responses=True)
+    r = _redis_client()
 
     state_key = f"grill:{session_id}:state"
     state_raw = r.get(state_key)
@@ -5844,10 +5907,7 @@ def grill_resumable_sessions() -> GrillResumableListResponse:
 
     import json as _json
 
-    import redis
-
-    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
-    r = redis.from_url(redis_url, decode_responses=True)
+    r = _redis_client()
 
     sessions: list[GrillSessionSummary] = []
     cursor = "0"
@@ -5994,10 +6054,7 @@ class MGrillHeartbeatRequest(BaseModel):
 
 def _mgrill_redis():  # pragma: no cover — needs redis
     """Return a Redis client configured from the REDIS_URL env."""
-    import redis
-
-    redis_url = os.environ.get("REDIS_URL", _DEFAULT_REDIS_URL)
-    return redis.from_url(redis_url, decode_responses=True)
+    return _redis_client()
 
 
 def _mgrill_read_state(r, session_id: str) -> dict[str, Any] | None:
@@ -6030,6 +6087,40 @@ def _mgrill_require_state(r, session_id: str) -> dict[str, Any]:
             status_code=404, detail="Multiplayer grill session not found"
         )
     return state
+
+
+# TTL for the per-session turn lock. Long enough to cover the critical section
+# (read pending → append transcript → enqueue → clear pending) but short enough
+# that a crashed request can't wedge the session for long.
+_MGRILL_TURN_LOCK_TTL_S = 30
+
+
+@contextmanager
+def _mgrill_turn_lock(r, session_id: str):
+    """Serialize turn-mutating actions for one session.
+
+    ``mgrill_send_to_ai`` and ``mgrill_request_plan`` both read the pending
+    batch, append transcript entries, and push to the worker queue. Without a
+    lock, two concurrent callers can each pass the ``status != "thinking"``
+    guard and double-enqueue the same batch before either clears it. This
+    ``SET NX`` lock lets only one turn action run at a time; the loser gets a
+    409 instead of silently duplicating a turn.
+
+    Raises:
+        HTTPException: 409 if another turn action holds the lock.
+    """
+    from fastapi import HTTPException
+
+    lock_key = f"mgrill:{session_id}:turn_lock"
+    if not r.set(lock_key, "1", nx=True, ex=_MGRILL_TURN_LOCK_TTL_S):
+        raise HTTPException(
+            status_code=409, detail="Another turn action is in progress"
+        )
+    try:
+        yield
+    finally:
+        with suppress(Exception):
+            r.delete(lock_key)
 
 
 def _mgrill_effective_token(request: Request) -> str | None:
@@ -6073,10 +6164,10 @@ def _mgrill_require_creator(state: dict[str, Any], token_hash: str) -> None:
     if _server_has_github_token():
         return
     creator_hash = state.get("creator_token_hash")
-    if creator_hash and token_hash == creator_hash:
+    if creator_hash and hmac.compare_digest(token_hash, creator_hash):
         return
     admin_token = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
-    if admin_token and token_hash == _hash_token(admin_token):
+    if admin_token and hmac.compare_digest(token_hash, _hash_token(admin_token)):
         return
     raise HTTPException(status_code=403, detail="Creator-only action")
 
@@ -6295,13 +6386,12 @@ def mgrill_poll(session_id: str, request: Request) -> MGrillPollResponse:
     is_creator = False
     if request_token:
         request_hash = _hash_token(request_token)
-        if state.get("creator_token_hash") and request_hash == state.get(
-            "creator_token_hash"
-        ):
+        creator_hash = state.get("creator_token_hash")
+        if creator_hash and hmac.compare_digest(request_hash, creator_hash):
             is_creator = True
         else:
             admin = os.environ.get("ADMIN_GITHUB_TOKEN", "").strip()
-            if admin and request_hash == _hash_token(admin):
+            if admin and hmac.compare_digest(request_hash, _hash_token(admin)):
                 is_creator = True
 
     can_act_as_creator = is_creator or _server_has_github_token()
@@ -6397,7 +6487,7 @@ async def mgrill_remove_pending(
     request_token = _get_request_token(http_request)
     is_creator = False
     if request_token:
-        is_creator = state.get("creator_token_hash") == _hash_token(request_token)
+        is_creator = _hashes_match(request_token, state.get("creator_token_hash"))
     if _server_has_github_token():
         is_creator = True
     if not is_creator:
@@ -6439,48 +6529,51 @@ async def mgrill_send_to_ai(
     if room is None:
         raise HTTPException(status_code=503, detail="Yjs server unavailable")
 
-    pending = _ydoc_map(room.ydoc, "pending")
-    entries = [dict(e) for e in dict(pending).values()]
-    if not entries:
-        raise HTTPException(status_code=400, detail="No pending messages to send")
-    entries.sort(key=lambda e: e.get("timestamp", 0))
+    with _mgrill_turn_lock(r, session_id):
+        pending = _ydoc_map(room.ydoc, "pending")
+        entries = [dict(e) for e in dict(pending).values()]
+        if not entries:
+            raise HTTPException(status_code=400, detail="No pending messages to send")
+        entries.sort(key=lambda e: e.get("timestamp", 0))
 
-    messages = _ydoc_array(room.ydoc, "messages")
-    for e in entries:
-        messages.append(
-            {
-                "id": str(uuid.uuid4()),
-                "role": "user",
-                "content": e["content"],
-                "type": "message",
-                "author_player_id": e.get("player_id"),
-                "author_name": e.get("name"),
-                "timestamp": e.get("timestamp", time.time()),
-            }
+        messages = _ydoc_array(room.ydoc, "messages")
+        for e in entries:
+            messages.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "role": "user",
+                    "content": e["content"],
+                    "type": "message",
+                    "author_player_id": e.get("player_id"),
+                    "author_name": e.get("name"),
+                    "timestamp": e.get("timestamp", time.time()),
+                }
+            )
+
+        bundled = "\n\n".join(
+            f"[{e.get('name') or 'Anonymous'}]: {e['content']}" for e in entries
         )
+        r.rpush(
+            f"mgrill:{session_id}:user_msgs",
+            json.dumps(
+                {"content": bundled, "type": "message", "timestamp": time.time()}
+            ),
+        )
+        r.expire(f"mgrill:{session_id}:user_msgs", 3600)
 
-    bundled = "\n\n".join(
-        f"[{e.get('name') or 'Anonymous'}]: {e['content']}" for e in entries
-    )
-    r.rpush(
-        f"mgrill:{session_id}:user_msgs",
-        json.dumps({"content": bundled, "type": "message", "timestamp": time.time()}),
-    )
-    r.expire(f"mgrill:{session_id}:user_msgs", 3600)
+        # Clear pending batch (Y.Map iteration + delete; pycrdt doesn't expose
+        # ``.clear()`` directly, so we pop each key).
+        for key in list(dict(pending).keys()):
+            del pending[key]
 
-    # Clear pending batch (Y.Map iteration + delete; pycrdt doesn't expose
-    # ``.clear()`` directly, so we pop each key).
-    for key in list(dict(pending).keys()):
-        del pending[key]
+        # Auto-resume suspended sessions
+        if state.get("status") == "suspended":
+            from helping_hands.server.multiplayer_grill import resume_mgrill_session
 
-    # Auto-resume suspended sessions
-    if state.get("status") == "suspended":
-        from helping_hands.server.multiplayer_grill import resume_mgrill_session
+            resume_mgrill_session.delay(original_session_id=session_id)
 
-        resume_mgrill_session.delay(original_session_id=session_id)
-
-    _mgrill_touch_activity(r, session_id)
-    return {"status": "sent", "count": len(entries)}
+        _mgrill_touch_activity(r, session_id)
+        return {"status": "sent", "count": len(entries)}
 
 
 @app.post("/mgrill/{session_id}/vote")
@@ -6673,51 +6766,52 @@ async def mgrill_request_plan(session_id: str, http_request: Request) -> dict[st
     if room is None:
         raise HTTPException(status_code=503, detail="Yjs server unavailable")
 
-    # Bundle any pending messages (optional — request-plan works with or
-    # without pending entries).
-    bundled_parts: list[str] = []
-    pending = _ydoc_map(room.ydoc, "pending")
-    entries = [dict(e) for e in dict(pending).values()]
-    if entries:
-        entries.sort(key=lambda e: e.get("timestamp", 0))
-        messages = _ydoc_array(room.ydoc, "messages")
-        for e in entries:
-            messages.append(
-                {
-                    "id": str(uuid.uuid4()),
-                    "role": "user",
-                    "content": e["content"],
-                    "type": "message",
-                    "author_player_id": e.get("player_id"),
-                    "author_name": e.get("name"),
-                    "timestamp": e.get("timestamp", time.time()),
-                }
-            )
-        bundled_parts = [
-            f"[{e.get('name') or 'Anonymous'}]: {e['content']}" for e in entries
-        ]
-        for key in list(dict(pending).keys()):
-            del pending[key]
+    with _mgrill_turn_lock(r, session_id):
+        # Bundle any pending messages (optional — request-plan works with or
+        # without pending entries).
+        bundled_parts: list[str] = []
+        pending = _ydoc_map(room.ydoc, "pending")
+        entries = [dict(e) for e in dict(pending).values()]
+        if entries:
+            entries.sort(key=lambda e: e.get("timestamp", 0))
+            messages = _ydoc_array(room.ydoc, "messages")
+            for e in entries:
+                messages.append(
+                    {
+                        "id": str(uuid.uuid4()),
+                        "role": "user",
+                        "content": e["content"],
+                        "type": "message",
+                        "author_player_id": e.get("player_id"),
+                        "author_name": e.get("name"),
+                        "timestamp": e.get("timestamp", time.time()),
+                    }
+                )
+            bundled_parts = [
+                f"[{e.get('name') or 'Anonymous'}]: {e['content']}" for e in entries
+            ]
+            for key in list(dict(pending).keys()):
+                del pending[key]
 
-    content = "\n\n".join(bundled_parts) if bundled_parts else ""
-    r.rpush(
-        f"mgrill:{session_id}:user_msgs",
-        json.dumps({"content": content, "type": "end", "timestamp": time.time()}),
-    )
-    r.expire(f"mgrill:{session_id}:user_msgs", 3600)
+        content = "\n\n".join(bundled_parts) if bundled_parts else ""
+        r.rpush(
+            f"mgrill:{session_id}:user_msgs",
+            json.dumps({"content": content, "type": "end", "timestamp": time.time()}),
+        )
+        r.expire(f"mgrill:{session_id}:user_msgs", 3600)
 
-    _ydoc_append_system_hint(
-        room.ydoc, "Final plan requested — AI is consolidating the discussion."
-    )
+        _ydoc_append_system_hint(
+            room.ydoc, "Final plan requested — AI is consolidating the discussion."
+        )
 
-    # Auto-resume suspended sessions
-    if state.get("status") == "suspended":
-        from helping_hands.server.multiplayer_grill import resume_mgrill_session
+        # Auto-resume suspended sessions
+        if state.get("status") == "suspended":
+            from helping_hands.server.multiplayer_grill import resume_mgrill_session
 
-        resume_mgrill_session.delay(original_session_id=session_id)
+            resume_mgrill_session.delay(original_session_id=session_id)
 
-    _mgrill_touch_activity(r, session_id)
-    return {"status": "requested"}
+        _mgrill_touch_activity(r, session_id)
+        return {"status": "requested"}
 
 
 @app.post("/mgrill/{session_id}/claim-creator")

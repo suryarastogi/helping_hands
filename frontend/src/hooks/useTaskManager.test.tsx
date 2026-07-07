@@ -555,11 +555,13 @@ describe("useTaskManager", () => {
     vi.useRealTimers();
   });
 
-  it("primary polling handles poll error gracefully", async () => {
+  it("primary polling retries with backoff and stops after repeated failures", async () => {
     vi.useFakeTimers();
+    let pollCount = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : (input as Request).url;
       if (url.includes("/tasks/") && !url.includes("/current")) {
+        pollCount++;
         return errorResponse("server error", 500);
       }
       return defaultFetchMock(input);
@@ -570,6 +572,15 @@ describe("useTaskManager", () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(100); });
 
+    // A single transient failure no longer kills polling — it backs off.
+    expect(result.current.isPolling).toBe(true);
+    expect(result.current.status).not.toBe("poll_error");
+
+    // Backed-off retries: max delays are ~6.6s, ~13.2s, ~26.4s, 30s, so
+    // 100s comfortably covers reaching the 5-failure threshold.
+    await act(async () => { await vi.advanceTimersByTimeAsync(100_000); });
+
+    expect(pollCount).toBeGreaterThanOrEqual(5);
     expect(result.current.status).toBe("poll_error");
     expect(result.current.isPolling).toBe(false);
 

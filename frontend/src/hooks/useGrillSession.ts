@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { apiUrl, saveGithubToken } from "../App.utils";
+import { computeBackoffDelay } from "./pollingBackoff";
 import type {
   GrillFormState,
   GrillMessage,
@@ -12,6 +13,9 @@ import type {
 } from "../types";
 
 const POLL_INTERVAL_MS = 1500;
+const POLL_MAX_INTERVAL_MS = 10_000;
+/** Consecutive poll failures before surfacing an error to the user. */
+const POLL_FAILURE_NOTIFY_THRESHOLD = 5;
 const PERSISTED_SESSION_KEY = "hh_grill_active_session";
 const PERSISTED_SESSION_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
@@ -92,7 +96,12 @@ export function useGrillSession(): GrillSessionState {
   const [isLoading, setIsLoading] = useState(false);
   const [finalPlan, setFinalPlan] = useState<string | null>(null);
   const pollingRef = useRef<number | null>(null);
+  const pollingActiveRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+  /** Consecutive poll failures — drives exponential backoff. */
+  const pollFailuresRef = useRef(0);
+  /** Whether the current `error` value was set by the poll-failure path. */
+  const pollErrorNotifiedRef = useRef(false);
 
   // Keep ref in sync
   useEffect(() => {
@@ -100,21 +109,23 @@ export function useGrillSession(): GrillSessionState {
   }, [sessionId]);
 
   const stopPolling = useCallback(() => {
+    pollingActiveRef.current = false;
     if (pollingRef.current !== null) {
-      window.clearInterval(pollingRef.current);
+      window.clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
   }, []);
 
-  const poll = useCallback(async () => {
+  /** Single poll attempt. Returns false on a failed request. */
+  const poll = useCallback(async (): Promise<boolean> => {
     const sid = sessionIdRef.current;
-    if (!sid) return;
+    if (!sid) return true;
 
     try {
       const res = await fetch(apiUrl(`/grill/${sid}?_=${Date.now()}`), {
         cache: "no-store",
       });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const data = (await res.json()) as GrillPollResponse;
 
       setStatus(data.status);
@@ -167,17 +178,46 @@ export function useGrillSession(): GrillSessionState {
       } else if (data.status === "active" || data.status === "suspended") {
         setIsLoading(false);
       }
+      return true;
     } catch {
-      // Transient fetch error — keep polling
+      // Transient fetch error — keep polling (with backoff)
+      return false;
     }
   }, [stopPolling]);
 
+  const runPollLoop = useCallback(async () => {
+    if (!pollingActiveRef.current) return;
+    const ok = await poll();
+    if (ok) {
+      pollFailuresRef.current = 0;
+      if (pollErrorNotifiedRef.current) {
+        pollErrorNotifiedRef.current = false;
+        setError(null);
+      }
+    } else {
+      pollFailuresRef.current += 1;
+      if (
+        pollFailuresRef.current === POLL_FAILURE_NOTIFY_THRESHOLD &&
+        !pollErrorNotifiedRef.current
+      ) {
+        pollErrorNotifiedRef.current = true;
+        setError("Connection to grill session lost — retrying…");
+      }
+    }
+    if (!pollingActiveRef.current) return;
+    pollingRef.current = window.setTimeout(
+      () => void runPollLoop(),
+      computeBackoffDelay(POLL_INTERVAL_MS, pollFailuresRef.current, POLL_MAX_INTERVAL_MS),
+    );
+  }, [poll]);
+
   const startPolling = useCallback(() => {
     stopPolling();
-    pollingRef.current = window.setInterval(() => void poll(), POLL_INTERVAL_MS);
-    // Also do an immediate poll
-    void poll();
-  }, [poll, stopPolling]);
+    pollingActiveRef.current = true;
+    pollFailuresRef.current = 0;
+    // Immediate poll, then self-rescheduling loop with failure backoff.
+    void runPollLoop();
+  }, [runPollLoop, stopPolling]);
 
   // Cleanup on unmount
   useEffect(() => stopPolling, [stopPolling]);
