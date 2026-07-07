@@ -61,6 +61,12 @@ __all__ = ["DEFAULT_MAX_ITERATIONS", "BasicAtomicHand", "BasicLangGraphHand"]
 DEFAULT_MAX_ITERATIONS: int = 6
 """Default maximum number of AI loop iterations for iterative hands."""
 
+_ITERATION_TIMEOUT_ENV: str = "HELPING_HANDS_ITERATION_TIMEOUT_SECONDS"
+"""Env var name overriding the per-iteration agent-invoke timeout (seconds)."""
+
+_DEFAULT_ITERATION_TIMEOUT_SECONDS: float = 600.0
+"""Default per-iteration timeout when the env var is unset. ``0`` disables it."""
+
 _README_CANDIDATES: tuple[str, ...] = ("README.md", "readme.md")
 """Candidate filenames for project README, checked in order during bootstrap."""
 
@@ -174,6 +180,35 @@ class _BasicIterativeHand(Hand):
     def _execution_tools_enabled(self) -> bool:
         """Check whether execution tools (python, bash) are enabled in config."""
         return self.config.enable_execution
+
+    @staticmethod
+    def _iteration_timeout_seconds() -> float | None:
+        """Resolve the per-iteration agent-invoke timeout.
+
+        Reads :data:`_ITERATION_TIMEOUT_ENV`; falls back to
+        :data:`_DEFAULT_ITERATION_TIMEOUT_SECONDS` when unset or unparseable.
+        A value of ``0`` (or negative) disables the timeout.
+
+        Returns:
+            The timeout in seconds, or ``None`` if disabled.
+        """
+        raw = os.environ.get(_ITERATION_TIMEOUT_ENV)
+        if raw is None or not raw.strip():
+            timeout = _DEFAULT_ITERATION_TIMEOUT_SECONDS
+        else:
+            try:
+                timeout = float(raw)
+            except ValueError:
+                logger.warning(
+                    "invalid %s=%r; using default %.0fs",
+                    _ITERATION_TIMEOUT_ENV,
+                    raw,
+                    _DEFAULT_ITERATION_TIMEOUT_SECONDS,
+                )
+                timeout = _DEFAULT_ITERATION_TIMEOUT_SECONDS
+        if timeout <= 0:
+            return None
+        return timeout
 
     def _web_tools_enabled(self) -> bool:
         """Check whether web tools (search, browse) are enabled in config."""
@@ -1087,23 +1122,43 @@ class BasicLangGraphHand(_BasicIterativeHand):
                 bootstrap_context=bootstrap_context if iteration == 1 else "",
             )
             parts: list[str] = []
-            async for event in self._agent.astream_events(
-                langchain_user_message(step_prompt),
-                version="v2",
-            ):
-                if self._is_interrupted():
-                    break
-                if event["event"] == _LANGCHAIN_STREAM_EVENT and event["data"].get(
-                    "chunk"
-                ):
-                    chunk = event["data"]["chunk"]
-                    text = chunk.content if hasattr(chunk, "content") else ""
-                    if text:
-                        parts.append(str(text))
-                        yield str(text)
+            iteration_timeout = self._iteration_timeout_seconds()
+            timed_out = False
+            try:
+                async with asyncio.timeout(iteration_timeout):
+                    async for event in self._agent.astream_events(
+                        langchain_user_message(step_prompt),
+                        version="v2",
+                    ):
+                        if self._is_interrupted():
+                            break
+                        if event["event"] == _LANGCHAIN_STREAM_EVENT and event[
+                            "data"
+                        ].get("chunk"):
+                            chunk = event["data"]["chunk"]
+                            text = chunk.content if hasattr(chunk, "content") else ""
+                            if text:
+                                parts.append(str(text))
+                                yield str(text)
+            except TimeoutError:
+                # One hung iteration must not stall the whole run: abort this
+                # iteration and continue to the next one.
+                timed_out = True
+                logger.warning(
+                    "iteration %d exceeded %s=%ss; aborting iteration",
+                    iteration,
+                    _ITERATION_TIMEOUT_ENV,
+                    iteration_timeout,
+                )
+                yield (
+                    f"\n[iteration {iteration} timed out after "
+                    f"{iteration_timeout:.0f}s; continuing]\n"
+                )
             if self._is_interrupted():
                 yield "\n[interrupted]\n"
                 return
+            if timed_out:
+                continue
 
             content = "".join(parts)
             messages, prior, satisfied = self._process_stream_iteration(content, prompt)
@@ -1308,44 +1363,68 @@ class BasicAtomicHand(_BasicIterativeHand):
             )
             stream_text = ""
             step_input = self._make_input(step_prompt)
+            iteration_timeout = self._iteration_timeout_seconds()
+            timed_out = False
             try:
-                async_result = self._agent.run_async(step_input)
-            except AssertionError:
-                partial = await asyncio.to_thread(self._agent.run, step_input)
-                current = self._extract_message(partial)
-                delta = current[len(stream_text) :]
-                stream_text = current
-                if delta:
-                    yield delta
-                async_result = None
-            except _RUN_ASYNC_ERRORS:
-                logger.debug("run_async raised non-AssertionError", exc_info=True)
-                raise
-            if async_result is not None and hasattr(async_result, "__aiter__"):
-                async for partial in async_result:
-                    if self._is_interrupted():
-                        break
-                    current = self._extract_message(partial)
-                    if current.startswith(stream_text):
+                async with asyncio.timeout(iteration_timeout):
+                    try:
+                        async_result = self._agent.run_async(step_input)
+                    except AssertionError:
+                        partial = await asyncio.to_thread(self._agent.run, step_input)
+                        current = self._extract_message(partial)
                         delta = current[len(stream_text) :]
-                    else:
-                        delta = current
-                    stream_text = current
-                    if delta:
-                        yield delta
-            elif async_result is not None:
-                try:
-                    partial = await async_result
-                except AssertionError:
-                    partial = await asyncio.to_thread(self._agent.run, step_input)
-                current = self._extract_message(partial)
-                delta = current[len(stream_text) :]
-                stream_text = current
-                if delta:
-                    yield delta
+                        stream_text = current
+                        if delta:
+                            yield delta
+                        async_result = None
+                    except _RUN_ASYNC_ERRORS:
+                        logger.debug(
+                            "run_async raised non-AssertionError", exc_info=True
+                        )
+                        raise
+                    if async_result is not None and hasattr(async_result, "__aiter__"):
+                        async for partial in async_result:
+                            if self._is_interrupted():
+                                break
+                            current = self._extract_message(partial)
+                            if current.startswith(stream_text):
+                                delta = current[len(stream_text) :]
+                            else:
+                                delta = current
+                            stream_text = current
+                            if delta:
+                                yield delta
+                    elif async_result is not None:
+                        try:
+                            partial = await async_result
+                        except AssertionError:
+                            partial = await asyncio.to_thread(
+                                self._agent.run, step_input
+                            )
+                        current = self._extract_message(partial)
+                        delta = current[len(stream_text) :]
+                        stream_text = current
+                        if delta:
+                            yield delta
+            except TimeoutError:
+                # One hung iteration must not stall the whole run: abort this
+                # iteration and continue to the next one.
+                timed_out = True
+                logger.warning(
+                    "iteration %d exceeded %s=%ss; aborting iteration",
+                    iteration,
+                    _ITERATION_TIMEOUT_ENV,
+                    iteration_timeout,
+                )
+                yield (
+                    f"\n[iteration {iteration} timed out after "
+                    f"{iteration_timeout:.0f}s; continuing]\n"
+                )
             if self._is_interrupted():
                 yield "\n[interrupted]\n"
                 return
+            if timed_out:
+                continue
 
             messages, prior, satisfied = self._process_stream_iteration(
                 stream_text, prompt

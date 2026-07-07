@@ -124,7 +124,7 @@ Implementation hooks: `_mgrill_require_creator()` short-circuits when `_server_h
 
 ### Frontend persistence
 
-GitHub tokens are persisted in `localStorage` (key `hh_github_token`) and auto-populated across all forms (task, schedule, Grill Me, issue). Execution is always enabled (no checkbox). The model field auto-updates to the backend default when the backend selection changes.
+GitHub tokens are persisted in `sessionStorage` (key `hh_github_token`) and auto-populated across all forms (task, schedule, Grill Me, issue) — session-scoped so the token does not survive closing the browser. A one-time migration in `loadGithubToken()` copies any legacy `localStorage` token into `sessionStorage` and removes it from `localStorage`. Other persisted UI state (task history, drafts, player name/color) intentionally remains in `localStorage`. Execution is always enabled (no checkbox). The model field auto-updates to the backend default when the backend selection changes.
 
 ## Code Conventions
 

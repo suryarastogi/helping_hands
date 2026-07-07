@@ -981,7 +981,7 @@ class TestGitHubTokenArg:
             patch.object(Config, "from_env", classmethod(capture_config)),
             patch("helping_hands.cli.main.RepoIndex") as mock_ri,
             patch("helping_hands.cli.main.create_hand") as mock_hand_cls,
-            patch("helping_hands.cli.main.asyncio.run"),
+            patch("helping_hands.cli.main.asyncio.run", side_effect=_close_coroutine),
         ):
             mock_ri.from_path.return_value = MagicMock(root=tmp_path, files=[])
             mock_hand_cls.return_value = MagicMock()
@@ -1037,7 +1037,7 @@ class TestReferenceReposArg:
             patch.object(Config, "from_env", classmethod(capture_config)),
             patch("helping_hands.cli.main.RepoIndex") as mock_ri,
             patch("helping_hands.cli.main.create_hand") as mock_hand_cls,
-            patch("helping_hands.cli.main.asyncio.run"),
+            patch("helping_hands.cli.main.asyncio.run", side_effect=_close_coroutine),
         ):
             mock_ri.from_path.return_value = MagicMock(
                 root=tmp_path, files=[], reference_repos=[]

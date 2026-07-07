@@ -458,11 +458,9 @@ describe("useGrillSession", () => {
     });
 
     it("stops polling on terminal status with no remaining messages", async () => {
-      const clearSpy = vi.spyOn(globalThis, "clearInterval");
-
-      vi.spyOn(globalThis, "fetch")
+      const fetchSpy = vi.spyOn(globalThis, "fetch")
         .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
-        .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "completed", messages: [] }));
+        .mockResolvedValue(jsonResponse({ session_id: "sess-1", status: "completed", messages: [] }));
 
       const { result } = renderHook(() => useGrillSession());
 
@@ -470,7 +468,12 @@ describe("useGrillSession", () => {
         await result.current.startSession(FORM);
       });
 
-      expect(clearSpy).toHaveBeenCalled();
+      // Polling stopped: advancing time schedules no further fetches.
+      const callsAfterStart = fetchSpy.mock.calls.length;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(fetchSpy.mock.calls.length).toBe(callsAfterStart);
       expect(result.current.isLoading).toBe(false);
     });
 
@@ -541,7 +544,7 @@ describe("useGrillSession", () => {
 
   describe("reset", () => {
     it("clears all state and stops polling", async () => {
-      const clearSpy = vi.spyOn(globalThis, "clearInterval");
+      const clearSpy = vi.spyOn(globalThis, "clearTimeout");
 
       vi.spyOn(globalThis, "fetch")
         .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
@@ -574,7 +577,7 @@ describe("useGrillSession", () => {
 
   describe("unmount cleanup", () => {
     it("stops polling on unmount", async () => {
-      const clearSpy = vi.spyOn(globalThis, "clearInterval");
+      const clearSpy = vi.spyOn(globalThis, "clearTimeout");
 
       vi.spyOn(globalThis, "fetch")
         .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))
@@ -744,7 +747,7 @@ describe("useGrillSession", () => {
 
   describe("suspend and wake", () => {
     it("suspend stops polling without clearing state", async () => {
-      const clearSpy = vi.spyOn(globalThis, "clearInterval");
+      const clearSpy = vi.spyOn(globalThis, "clearTimeout");
 
       vi.spyOn(globalThis, "fetch")
         .mockResolvedValueOnce(jsonResponse({ session_id: "sess-1", status: "active" }))

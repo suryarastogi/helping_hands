@@ -166,6 +166,64 @@ def _register_worker_version_signals() -> None:
 _register_worker_version_signals()
 
 
+def _env_positive_int(name: str, default: int) -> int:
+    """Return a positive int from env *name*, falling back to *default*.
+
+    Non-numeric or non-positive values fall back to the default so a typo in
+    deployment config can't silently disable the safety limit.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+# Build tasks are long-running (multi-step AI iterations plus optional CI
+# waits), so the limits are generous by default and env-tunable. The soft limit
+# raises ``SoftTimeLimitExceeded`` inside the task — caught by the existing
+# error handler, which records a clean failure and finalizes — while the hard
+# limit is the SIGKILL backstop for a truly wedged worker. Keep hard > soft so
+# graceful handling gets a chance to run first.
+_BUILD_SOFT_TIME_LIMIT_S = _env_positive_int(
+    "HELPING_HANDS_BUILD_SOFT_TIME_LIMIT_S", 2 * 60 * 60
+)
+_BUILD_HARD_TIME_LIMIT_S = _env_positive_int(
+    "HELPING_HANDS_BUILD_HARD_TIME_LIMIT_S", _BUILD_SOFT_TIME_LIMIT_S + 300
+)
+
+# Upper bound (seconds) on how long a rate-limited watch-issues poll will
+# defer before retrying, so a far-future reset can't park the task for an hour.
+_WATCH_RATE_LIMIT_MAX_COUNTDOWN_S = 15 * 60
+_WATCH_RATE_LIMIT_MAX_RETRIES = 5
+
+
+def _rate_limit_retry_countdown(exc: Exception) -> int:
+    """Return a bounded retry delay (seconds) for a GitHub rate-limit error.
+
+    Prefers the ``Retry-After`` header, then the ``X-RateLimit-Reset`` epoch,
+    and falls back to 60s. The result is clamped to
+    ``[1, _WATCH_RATE_LIMIT_MAX_COUNTDOWN_S]``.
+    """
+    headers = getattr(exc, "headers", None) or {}
+    retry_after = headers.get("retry-after") or headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            seconds = int(float(retry_after))
+        except (TypeError, ValueError):
+            seconds = 60
+    else:
+        reset = headers.get("x-ratelimit-reset") or headers.get("X-RateLimit-Reset")
+        try:
+            seconds = int(float(reset) - time.time()) if reset is not None else 60
+        except (TypeError, ValueError):
+            seconds = 60
+    return max(1, min(seconds, _WATCH_RATE_LIMIT_MAX_COUNTDOWN_S))
+
+
 _USAGE_LOG_INTERVAL_S = 3600.0
 """Interval in seconds between automatic Claude usage log entries."""
 
@@ -937,7 +995,12 @@ async def _collect_stream(
     return "".join(parts)
 
 
-@celery_app.task(bind=True, name="helping_hands.build_feature")
+@celery_app.task(
+    bind=True,
+    name="helping_hands.build_feature",
+    soft_time_limit=_BUILD_SOFT_TIME_LIMIT_S,
+    time_limit=_BUILD_HARD_TIME_LIMIT_S,
+)
 def build_feature(
     self: Task,
     repo_path: str,
@@ -1535,8 +1598,9 @@ def interval_reschedule(
 # ---------------------------------------------------------------------------
 
 
-@celery_app.task(name=_TASK_NAME_WATCH_ISSUES_POLL)
+@celery_app.task(bind=True, name=_TASK_NAME_WATCH_ISSUES_POLL)
 def watch_issues_poll(
+    self: Task,
     schedule_id: str,
 ) -> dict[str, Any]:  # pragma: no cover - exercised in integration
     """Poll a repo for new issues and dispatch builds for each.
@@ -1546,7 +1610,13 @@ def watch_issues_poll(
     ``build_feature`` task is dispatched with a completion callback that
     swaps labels.  Stale PRs (labeled ``helping-hands:watched``) that
     are behind main are rebased.
+
+    On a GitHub rate-limit response the poll retries after the reset window
+    (bounded by :data:`_WATCH_RATE_LIMIT_MAX_COUNTDOWN_S`) rather than failing
+    outright, so a temporary 429 doesn't skip a whole polling cycle.
     """
+    from github import RateLimitExceededException
+
     from helping_hands.lib.github import GitHubClient
     from helping_hands.server.schedules import get_schedule_manager
 
@@ -1586,6 +1656,16 @@ def watch_issues_poll(
             exclude_labels=exclude_labels,
             filter_labels=filter_labels,
         )
+    except RateLimitExceededException as exc:
+        countdown = _rate_limit_retry_countdown(exc)
+        logger.warning(
+            "GitHub rate limit hit polling %s; retrying in %ss", repo_path, countdown
+        )
+        raise self.retry(
+            exc=exc,
+            countdown=countdown,
+            max_retries=_WATCH_RATE_LIMIT_MAX_RETRIES,
+        ) from exc
     except Exception:
         logger.exception("Failed to fetch issues for %s", repo_path)
         return {

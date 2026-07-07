@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -70,6 +71,7 @@ __all__ = [
     "_TwoPhaseCLIHand",
     "_detect_auth_failure",
     "_format_cli_failure",
+    "_redact_secrets",
     "_truncate_with_ellipsis",
 ]
 
@@ -121,6 +123,52 @@ _AUTH_ERROR_TOKENS: tuple[str, ...] = (
 Shared across all CLI hand implementations. Individual backends may check
 additional backend-specific tokens alongside these common ones.
 """
+
+_SECRET_MASK = "***"
+"""Replacement string for redacted secret values."""
+
+# Patterns for well-known credential formats. Each matches the full secret so
+# the whole token is replaced by ``_SECRET_MASK``.
+_SECRET_TOKEN_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # GitHub tokens: ghp_/gho_/ghu_/ghs_/ghr_ + 36+ base62 chars.
+    re.compile(r"gh[porsu]_[A-Za-z0-9_]{20,}"),
+    # GitHub fine-grained PATs: github_pat_ + alnum/underscore.
+    re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
+    # Anthropic keys (checked before the generic OpenAI ``sk-`` pattern).
+    re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}"),
+    # OpenAI keys: sk- + 20+ chars (also covers ``sk-proj-`` style keys).
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    # AWS access key IDs.
+    re.compile(r"AKIA[0-9A-Z]{16}"),
+)
+
+# ``KEY=value`` / ``TOKEN=value`` / ``SECRET=value`` / ``PASSWORD=value`` pairs.
+# Captures the ``NAME=`` prefix and masks the value up to the next whitespace.
+_SECRET_KV_PATTERN = re.compile(
+    r"((?:[A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD))=)(\S+)",
+    re.IGNORECASE,
+)
+
+
+def _redact_secrets(text: str) -> str:
+    """Mask common secret patterns in *text* with ``***``.
+
+    Covers GitHub tokens (``ghp_``/``gho_``/``ghu_``/``ghs_``/``ghr_`` and
+    ``github_pat_``), OpenAI (``sk-``) and Anthropic (``sk-ant-``) keys, AWS
+    access key IDs (``AKIA…``), and ``NAME=value`` pairs where ``NAME`` ends
+    in ``KEY``/``TOKEN``/``SECRET``/``PASSWORD``.
+
+    Args:
+        text: Text that may contain embedded secrets.
+
+    Returns:
+        The text with recognised secret values replaced by ``***``.
+    """
+    result = text
+    for pattern in _SECRET_TOKEN_PATTERNS:
+        result = pattern.sub(_SECRET_MASK, result)
+    return _SECRET_KV_PATTERN.sub(rf"\1{_SECRET_MASK}", result)
+
 
 _DOCKER_ENV_HINT_TEMPLATE = (
     "If running app mode in Docker, set {} in .env "
@@ -1240,7 +1288,9 @@ class _TwoPhaseCLIHand(Hand):
         env = self._build_subprocess_env()
         cwd = str(self.repo_index.root.resolve())
         if self.config.verbose:
-            await emit(self._label_msg(f"cmd: {shlex.join(cmd)}\n"))
+            # The command may embed the substituted user prompt, which can
+            # contain secrets — redact obvious token patterns before emitting.
+            await emit(self._label_msg(f"cmd: {_redact_secrets(shlex.join(cmd))}\n"))
             await emit(self._label_msg(f"cwd: {cwd}\n"))
         start_time = time.monotonic()
         try:
@@ -1358,6 +1408,16 @@ class _TwoPhaseCLIHand(Hand):
                     )
                     raise RuntimeError(msg)
             return "".join(chunks)
+        except asyncio.CancelledError:
+            # The coroutine was cancelled mid-stream (e.g. task abort). Without
+            # this handler the child would be orphaned: the normal-completion
+            # path never runs and the bare finally only clears the reference.
+            # Terminate the still-running child, then re-raise so cancellation
+            # propagates. _terminate_active_process is a no-op if the process
+            # already exited, so this is safe on any cancellation timing.
+            with suppress(Exception):
+                await self._terminate_active_process()
+            raise
         finally:
             self._active_process = None
 

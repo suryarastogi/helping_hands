@@ -180,6 +180,21 @@ def _close_coroutine(coro: object) -> None:
         coro.close()
 
 
+def _close_coro_then_raise(exc: BaseException):
+    """Build an ``asyncio.run`` side effect that closes the coroutine, then raises.
+
+    Mocked ``asyncio.run`` never awaits the ``_stream_hand`` coroutine passed to
+    it; closing it prevents a ``RuntimeWarning: coroutine ... was never awaited``
+    when the mock (which retains the coroutine in ``call_args``) is collected.
+    """
+
+    def _side_effect(coro: object) -> None:
+        _close_coroutine(coro)
+        raise exc
+
+    return _side_effect
+
+
 class TestNarrowedException:
     """Tests for narrowed (RuntimeError, ValueError, OSError) in main()."""
 
@@ -192,7 +207,9 @@ class TestNarrowedException:
         ):
             mock_hand = MagicMock()
             mock_create.return_value = mock_hand
-            mock_run.side_effect = RuntimeError("model_not_found for foo")
+            mock_run.side_effect = _close_coro_then_raise(
+                RuntimeError("model_not_found for foo")
+            )
             mock_exit.side_effect = SystemExit(1)
 
             with pytest.raises(SystemExit):
@@ -209,7 +226,7 @@ class TestNarrowedException:
         ):
             mock_hand = MagicMock()
             mock_create.return_value = mock_hand
-            mock_run.side_effect = ValueError("some error")
+            mock_run.side_effect = _close_coro_then_raise(ValueError("some error"))
             mock_exit.side_effect = SystemExit(1)
 
             with pytest.raises(SystemExit):
@@ -226,7 +243,7 @@ class TestNarrowedException:
         ):
             mock_hand = MagicMock()
             mock_create.return_value = mock_hand
-            mock_run.side_effect = OSError("disk full")
+            mock_run.side_effect = _close_coro_then_raise(OSError("disk full"))
             mock_exit.side_effect = SystemExit(1)
 
             with pytest.raises(SystemExit):
@@ -242,7 +259,9 @@ class TestNarrowedException:
         ):
             mock_hand = MagicMock()
             mock_create.return_value = mock_hand
-            mock_run.side_effect = RuntimeError("some runtime error")
+            mock_run.side_effect = _close_coro_then_raise(
+                RuntimeError("some runtime error")
+            )
 
             with pytest.raises(RuntimeError, match="some runtime error"):
                 main(
@@ -263,7 +282,7 @@ class TestNarrowedException:
         ):
             mock_hand = MagicMock()
             mock_create.return_value = mock_hand
-            mock_run.side_effect = TypeError("unexpected type")
+            mock_run.side_effect = _close_coro_then_raise(TypeError("unexpected type"))
 
             with pytest.raises(TypeError, match="unexpected type"):
                 main([str(tmp_path), "--backend", "codexcli", "--prompt", "test"])
@@ -277,7 +296,9 @@ class TestNarrowedException:
         ):
             mock_hand = MagicMock()
             mock_create.return_value = mock_hand
-            mock_run.side_effect = ValueError("model does not exist")
+            mock_run.side_effect = _close_coro_then_raise(
+                ValueError("model does not exist")
+            )
             mock_exit.side_effect = SystemExit(1)
 
             with pytest.raises(SystemExit):

@@ -2089,7 +2089,7 @@ class TestGrillEnabledEndpoints:
         mock_redis = MagicMock()
         mock_redis.get.return_value = '{"status": "active"}'
 
-        with patch("redis.from_url", return_value=mock_redis):
+        with patch("helping_hands.server.app._redis_client", return_value=mock_redis):
             client = TestClient(app, raise_server_exceptions=True)
             resp = client.post(
                 "/grill/test-session-123/message",
@@ -2122,7 +2122,7 @@ class TestGrillEnabledEndpoints:
         mock_redis = MagicMock()
         mock_redis.get.return_value = None
 
-        with patch("redis.from_url", return_value=mock_redis):
+        with patch("helping_hands.server.app._redis_client", return_value=mock_redis):
             client = TestClient(app, raise_server_exceptions=False)
             resp = client.post(
                 "/grill/nonexistent/message",
@@ -2145,7 +2145,7 @@ class TestGrillEnabledEndpoints:
         mock_redis = MagicMock()
         mock_redis.get.return_value = None
 
-        with patch("redis.from_url", return_value=mock_redis):
+        with patch("helping_hands.server.app._redis_client", return_value=mock_redis):
             client = TestClient(app, raise_server_exceptions=True)
             resp = client.get("/grill/nonexistent")
 
@@ -2180,7 +2180,7 @@ class TestGrillEnabledEndpoints:
         # lpop returns one message then None
         mock_redis.lpop.side_effect = [msg1, None]
 
-        with patch("redis.from_url", return_value=mock_redis):
+        with patch("helping_hands.server.app._redis_client", return_value=mock_redis):
             client = TestClient(app, raise_server_exceptions=True)
             resp = client.get("/grill/sess-abc")
 
